@@ -189,6 +189,9 @@ public class AppleCommandLineOptions extends FragmentOptions {
   /** The default macOS CPU value. */
   public static final String DEFAULT_MACOS_CPU = "x86_64";
 
+  /** The default Catalyst CPU value. */
+  public static final String DEFAULT_CATALYST_CPU = "x86_64";
+
   @Option(
     name = "ios_cpu",
     defaultValue = DEFAULT_IOS_CPU,
@@ -320,6 +323,16 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public List<String> macosCpus;
 
   @Option(
+      name = "catalyst_cpus",
+      allowMultiple = true,
+      converter = CommaSeparatedOptionListConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
+      help = "Comma-separated list of architectures for which to build Apple Catalyst binaries.")
+  public List<String> catalystCpus;
+
+  @Option(
     name = "default_ios_provisioning_profile",
     defaultValue = "",
     documentationCategory = OptionDocumentationCategory.SIGNING,
@@ -376,6 +389,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
     DottedVersion.Option option;
     switch (applePlatformType) {
       case IOS:
+      case CATALYST:
         option = iosMinimumOs;
         break;
       case MACOS:

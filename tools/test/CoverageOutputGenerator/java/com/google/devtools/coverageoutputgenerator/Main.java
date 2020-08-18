@@ -73,18 +73,26 @@ public class Main {
         flags.coverageDir() != null
             ? getCoverageFilesInDir(flags.coverageDir())
             : Collections.emptyList();
-    Coverage coverage =
-        Coverage.merge(
-            parseFiles(
-                getTracefiles(flags, filesInCoverageDir),
-                LcovParser::parse,
-                flags.parseParallelism()),
-            parseFiles(
-                getGcovInfoFiles(filesInCoverageDir), GcovParser::parse, flags.parseParallelism()),
-            parseFiles(
-                getGcovJsonInfoFiles(filesInCoverageDir),
-                GcovJsonParser::parse,
-                flags.parseParallelism()));
+    Coverage coverage;
+    try {
+      coverage =
+          Coverage.merge(
+              parseFiles(
+                  getTracefiles(flags, filesInCoverageDir),
+                  LcovParser::parse,
+                  flags.parseParallelism()),
+              parseFiles(
+                  getGcovInfoFiles(filesInCoverageDir),
+                  GcovParser::parse,
+                  flags.parseParallelism()),
+              parseFiles(
+                  getGcovJsonInfoFiles(filesInCoverageDir),
+                  GcovJsonParser::parse,
+                  flags.parseParallelism()));
+    } catch (IncompatibleMergeException e) {
+      logger.log(Level.SEVERE, e.getMessage());
+      return 1;
+    }
 
     if (flags.sourcesToReplaceFile() != null) {
       coverage.maybeReplaceSourceFileNames(getMapFromFile(flags.sourcesToReplaceFile()));
@@ -321,7 +329,7 @@ public class Main {
         for (SourceFileCoverage sourceFileCoverage : sourceFilesCoverage) {
           coverage.add(sourceFileCoverage);
         }
-      } catch (IOException e) {
+      } catch (IOException | IncompatibleMergeException e) {
         logger.log(
             Level.SEVERE,
             "File " + file.getAbsolutePath() + " could not be parsed due to: " + e.getMessage());
@@ -342,7 +350,7 @@ public class Main {
                           try (FileInputStream inputStream = new FileInputStream(file)) {
                             logger.log(Level.INFO, "Parsing file " + file);
                             return Coverage.create(parser.parse(inputStream));
-                          } catch (IOException e) {
+                          } catch (IOException | IncompatibleMergeException e) {
                             logger.log(
                                 Level.SEVERE,
                                 "File "
@@ -353,7 +361,7 @@ public class Main {
                           }
                           return null;
                         })
-                    .reduce(Coverage::merge)
+                    .reduce(Coverage::mergeUnchecked)
                     .orElse(Coverage.create()))
         .get();
   }

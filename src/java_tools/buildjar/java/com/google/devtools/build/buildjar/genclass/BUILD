@@ -41,7 +41,7 @@ bootstrap_java_binary(
     main_class = "com.google.devtools.build.buildjar.genclass.GenClass",
     tags = ["manual"],
     deps = [
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:skylark-deps",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:starlark-deps",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:bootstrap_jarhelper",
     ],
 )

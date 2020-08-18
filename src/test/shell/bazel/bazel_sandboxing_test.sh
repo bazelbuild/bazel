@@ -126,18 +126,18 @@ genrule(
   tags = [ "local" ],
 )
 
-load('//examples/genrule:skylark.bzl', 'skylark_breaks1')
+load('//examples/genrule:starlark.bzl', 'starlark_breaks1')
 
-skylark_breaks1(
-  name = "skylark_breaks1",
+starlark_breaks1(
+  name = "starlark_breaks1",
   input = "a.txt",
-  output = "skylark_breaks1.txt",
+  output = "starlark_breaks1.txt",
 )
 
-skylark_breaks1(
-  name = "skylark_breaks1_works_with_local_tag",
+starlark_breaks1(
+  name = "starlark_breaks1_works_with_local_tag",
   input = "a.txt",
-  output = "skylark_breaks1_works_with_local_tag.txt",
+  output = "starlark_breaks1_works_with_local_tag.txt",
   action_tags = [ "local" ],
 )
 
@@ -174,8 +174,8 @@ cp $(dirname $0)/tool.runfiles/{{WORKSPACE_NAME}}/examples/genrule/datafile $1
 echo "Tools work!"
 EOF
   chmod +x examples/genrule/tool.sh
-  cat << 'EOF' >> examples/genrule/skylark.bzl
-def _skylark_breaks1_impl(ctx):
+  cat << 'EOF' >> examples/genrule/starlark.bzl
+def _starlark_breaks1_impl(ctx):
   print(ctx.outputs.output.path)
   ctx.actions.run_shell(
     inputs = [ ctx.file.input ],
@@ -186,8 +186,8 @@ def _skylark_breaks1_impl(ctx):
     execution_requirements = { tag: '' for tag in ctx.attr.action_tags },
   )
 
-skylark_breaks1 = rule(
-  _skylark_breaks1_impl,
+starlark_breaks1 = rule(
+  _starlark_breaks1_impl,
   attrs = {
     "input": attr.label(mandatory=True, allow_single_file=True),
     "output": attr.output(mandatory=True),
@@ -267,10 +267,10 @@ function test_sandbox_undeclared_deps_with_local_tag() {
     || fail "Genrule did not produce output: examples/genrule:breaks1_works_with_local_tag"
 }
 
-function test_sandbox_undeclared_deps_skylark() {
-  output_file="${BAZEL_BIN_DIR}/examples/genrule/skylark_breaks1.txt"
-  bazel build examples/genrule:skylark_breaks1 &> $TEST_log \
-    && fail "Non-hermetic genrule succeeded: examples/genrule:skylark_breaks1" || true
+function test_sandbox_undeclared_deps_starlark() {
+  output_file="${BAZEL_BIN_DIR}/examples/genrule/starlark_breaks1.txt"
+  bazel build examples/genrule:starlark_breaks1 &> $TEST_log \
+    && fail "Non-hermetic genrule succeeded: examples/genrule:starlark_breaks1" || true
 
   [ -f "$output_file" ] ||
     fail "Action did not produce output: $output_file"
@@ -283,11 +283,11 @@ function test_sandbox_undeclared_deps_skylark() {
     fail "Output did not contain expected error message: $output_file"
 }
 
-function test_sandbox_undeclared_deps_skylark_with_local_tag() {
-  bazel build examples/genrule:skylark_breaks1_works_with_local_tag &> $TEST_log \
-    || fail "Non-hermetic genrule failed even though tags=['local']: examples/genrule:skylark_breaks1_works_with_local_tag"
-  [ -f "${BAZEL_BIN_DIR}/examples/genrule/skylark_breaks1_works_with_local_tag.txt" ] \
-    || fail "Action did not produce output: examples/genrule:skylark_breaks1_works_with_local_tag"
+function test_sandbox_undeclared_deps_starlark_with_local_tag() {
+  bazel build examples/genrule:starlark_breaks1_works_with_local_tag &> $TEST_log \
+    || fail "Non-hermetic genrule failed even though tags=['local']: examples/genrule:starlark_breaks1_works_with_local_tag"
+  [ -f "${BAZEL_BIN_DIR}/examples/genrule/starlark_breaks1_works_with_local_tag.txt" ] \
+    || fail "Action did not produce output: examples/genrule:starlark_breaks1_works_with_local_tag"
 }
 
 function test_sandbox_block_filesystem() {

@@ -49,8 +49,8 @@ import javax.annotation.Nullable;
 /** A collection of global Starlark build API functions that apply to WORKSPACE files. */
 public class WorkspaceGlobals implements WorkspaceGlobalsApi {
 
-  // Must start with a letter and can contain letters, numbers, and underscores
-  private static final Pattern LEGAL_WORKSPACE_NAME = Pattern.compile("^\\p{Alpha}\\w*$");
+  // Must start with a letter and can contain letters, numbers, underscores and hyphens.
+  private static final Pattern LEGAL_WORKSPACE_NAME = Pattern.compile("^\\p{Alpha}[\\w-]*$");
 
   private final boolean allowOverride;
   private final RuleFactory ruleFactory;

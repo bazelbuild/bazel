@@ -30,16 +30,15 @@ like linking in c++ builds without over-allocating to less demanding tasks.
 
 ## Defining execution groups
 
-During rule definition, rule authors can declare a set of execution groups. On
-each execution group, the rule author can specify everything needed to select
-an execution platform for that execution group, namely any constraints via
-`exec_compatible_with` and toolchain types via `toolchain`. If an execution group
-is created as empty (no specified toolchains or constraints) it will
-automatically inherit these
+During rule definition, rule authors can
+[declare](https://docs.bazel.build/versions/master/skylark/lib/globals.html#exec_group)
+a set of execution groups. On each execution group, the rule author can specify
+everything needed to select an execution platform for that execution group,
+namely any constraints via `exec_compatible_with` and toolchain types via
+`toolchain`. If an execution group is created as empty (no specified toolchains
+or constraints) it will automatically inherit these
 [parameters](https://docs.bazel.build/versions/master/skylark/lib/globals.html#rule)
 from the rule to which the group is attached.
-
-TODO(juliexxia): link to exec_group method docs when they get released in bazel.
 
 ```python
 # foo.bzl

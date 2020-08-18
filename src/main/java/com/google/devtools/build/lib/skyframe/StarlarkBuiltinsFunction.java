@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
 import com.google.devtools.build.lib.syntax.Dict;
@@ -96,14 +95,10 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
           // @builtins namespace.
           Label.parseAbsoluteUnchecked("//tools/builtins_staging:exports.bzl"));
 
-  // Used to obtain the default .bzl top-level environment, sans "native".
-  private final RuleClassProvider ruleClassProvider;
-  // Used to obtain the default contents of the "native" object.
+  // Used to obtain top-level environment and "native" object.
   private final PackageFactory packageFactory;
 
-  public StarlarkBuiltinsFunction(
-      RuleClassProvider ruleClassProvider, PackageFactory packageFactory) {
-    this.ruleClassProvider = ruleClassProvider;
+  public StarlarkBuiltinsFunction(PackageFactory packageFactory) {
     this.packageFactory = packageFactory;
   }
 
@@ -114,11 +109,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
     // skyKey is a singleton, unused.
     try {
       return computeInternal(
-          env,
-          ruleClassProvider,
-          packageFactory,
-          /*bzlLoadFunction=*/ null,
-          /*inliningState=*/ null);
+          env, packageFactory, /*inliningState=*/ null, /*bzlLoadFunction=*/ null);
     } catch (BuiltinsFailedException e) {
       throw new StarlarkBuiltinsFunctionException(e);
     }
@@ -138,6 +129,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
       StarlarkBuiltinsValue.Key key, // singleton value, unused
       Environment env,
       BzlLoadFunction.InliningState inliningState,
+      PackageFactory packageFactory,
       BzlLoadFunction bzlLoadFunction)
       throws BuiltinsFailedException, InterruptedException {
     Preconditions.checkState(
@@ -155,21 +147,15 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
     // TODO(#11437): Update these comments for when we can also inline builtins computations for
     // BUILD files.
     Environment strippedEnv = ((RecordingSkyFunctionEnvironment) env).getDelegate();
-    return computeInternal(
-        strippedEnv,
-        bzlLoadFunction.ruleClassProvider,
-        bzlLoadFunction.packageFactory,
-        bzlLoadFunction,
-        inliningState);
+    return computeInternal(strippedEnv, packageFactory, inliningState, bzlLoadFunction);
   }
 
   // bzlLoadFunction and inliningState are non-null iff using inlining code path.
   private static StarlarkBuiltinsValue computeInternal(
       Environment env,
-      RuleClassProvider ruleClassProvider,
       PackageFactory packageFactory,
-      @Nullable BzlLoadFunction bzlLoadFunction,
-      @Nullable BzlLoadFunction.InliningState inliningState)
+      @Nullable BzlLoadFunction.InliningState inliningState,
+      @Nullable BzlLoadFunction bzlLoadFunction)
       throws BuiltinsFailedException, InterruptedException {
 
     // Load exports.bzl. If we were requested using inlining, make sure to inline the call back into
@@ -201,7 +187,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
       ImmutableMap<String, Object> exportedToJava = getDict(module, "exported_to_java");
       ImmutableMap<String, Object> predeclared =
           createPredeclaredForBuildBzlUsingInjection(
-              ruleClassProvider, packageFactory, exportedToplevels, exportedRules);
+              packageFactory, exportedToplevels, exportedRules);
       return new StarlarkBuiltinsValue(predeclared, exportedToJava, transitiveDigest);
     } catch (EvalException ex) {
       throw BuiltinsFailedException.errorApplyingExports(ex);
@@ -213,7 +199,6 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
    * evaluating .bzls loaded from a BUILD file.
    */
   private static ImmutableMap<String, Object> createPredeclaredForBuildBzlUsingInjection(
-      RuleClassProvider ruleClassProvider,
       PackageFactory packageFactory,
       ImmutableMap<String, Object> exportedToplevels,
       ImmutableMap<String, Object> exportedRules) {
@@ -224,7 +209,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
     Map<String, Object> predeclared = new LinkedHashMap<>();
 
     // Determine the top-level bindings.
-    predeclared.putAll(ruleClassProvider.getEnvironment());
+    predeclared.putAll(packageFactory.getRuleClassProvider().getEnvironment());
     predeclared.putAll(exportedToplevels);
     // TODO(#11437): We *should* be able to uncomment the following line, but the native module is
     // added prematurely (without its rule-logic fields) and overridden unconditionally. Fix this
@@ -255,10 +240,9 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
   /** Returns a {@link StarlarkBuiltinsValue} that completely ignores injected builtins. */
   // TODO(#11437): Delete once injection cannot be disabled.
   static StarlarkBuiltinsValue createStarlarkBuiltinsValueWithoutInjection(
-      RuleClassProvider ruleClassProvider, PackageFactory packageFactory) {
+      PackageFactory packageFactory) {
     ImmutableMap<String, Object> predeclared =
         createPredeclaredForBuildBzlUsingInjection(
-            ruleClassProvider,
             packageFactory,
             /*exportedToplevels=*/ ImmutableMap.of(),
             /*exportedRules=*/ ImmutableMap.of());
@@ -273,10 +257,10 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
    * evaluating .bzls loaded from a WORKSPACE file.
    */
   static ImmutableMap<String, Object> createPredeclaredForWorkspaceBzl(
-      RuleClassProvider ruleClassProvider, PackageFactory packageFactory) {
+      PackageFactory packageFactory) {
     // Preserve order, just in case.
     Map<String, Object> predeclared = new LinkedHashMap<>();
-    predeclared.putAll(ruleClassProvider.getEnvironment());
+    predeclared.putAll(packageFactory.getRuleClassProvider().getEnvironment());
     Object nativeModule = createNativeModule(packageFactory.getNativeModuleBindingsForWorkspace());
     // TODO(#11437): Assert not already present; see createPreclaredsForBuildBzl.
     predeclared.put("native", nativeModule);
@@ -290,8 +274,8 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
   // TODO(#11437): create the _internal name, prohibit other rule logic names. Take in a
   // PackageFactory.
   static ImmutableMap<String, Object> createPredeclaredForBuiltinsBzl(
-      RuleClassProvider ruleClassProvider) {
-    return ruleClassProvider.getEnvironment();
+      PackageFactory packageFactory) {
+    return packageFactory.getRuleClassProvider().getEnvironment();
   }
 
   private static Object createNativeModule(Map<String, Object> bindings) {

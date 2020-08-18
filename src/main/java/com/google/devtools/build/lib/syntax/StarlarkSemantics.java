@@ -72,7 +72,6 @@ public abstract class StarlarkSemantics {
     // consistent as they may appear in error messages.
     // TODO(adonovan): move these constants up into the relevant packages of
     // Bazel, and make them identical to the strings used in flag declarations.
-    public static final String EXPERIMENTAL_ACTION_ARGS = "experimental_action_args";
     public static final String EXPERIMENTAL_DISABLE_EXTERNAL_PACKGE =
         "experimental_disable_external_package";
     public static final String EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT =
@@ -113,8 +112,6 @@ public abstract class StarlarkSemantics {
   //  return Boolean.TRUE.equals(map.get(flag)).
   public boolean flagValue(String flag) {
     switch (flag) {
-      case FlagIdentifier.EXPERIMENTAL_ACTION_ARGS:
-        return experimentalActionArgs();
       case FlagIdentifier.EXPERIMENTAL_DISABLE_EXTERNAL_PACKGE:
         return experimentalDisableExternalPackage();
       case FlagIdentifier.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT:
@@ -194,8 +191,6 @@ public abstract class StarlarkSemantics {
       AutoValue_StarlarkSemantics.class;
 
   // <== Add new options here in alphabetic order ==>
-  public abstract boolean experimentalActionArgs();
-
   public abstract String experimentalBuiltinsBzlPath();
 
   public abstract ImmutableList<String> experimentalCcStarlarkApiEnabledPackages();
@@ -307,7 +302,6 @@ public abstract class StarlarkSemantics {
   public static final StarlarkSemantics DEFAULT =
       builder()
           // <== Add new options here in alphabetic order ==>
-          .experimentalActionArgs(true)
           .experimentalAllowTagsPropagation(false)
           .experimentalBuiltinsBzlPath("")
           .experimentalCcStarlarkApiEnabledPackages(ImmutableList.of())
@@ -354,8 +348,6 @@ public abstract class StarlarkSemantics {
   public abstract static class Builder {
 
     // <== Add new options here in alphabetic order ==>
-    public abstract Builder experimentalActionArgs(boolean value);
-
     public abstract Builder experimentalAllowTagsPropagation(boolean value);
 
     public abstract Builder experimentalBuiltinsBzlPath(String value);

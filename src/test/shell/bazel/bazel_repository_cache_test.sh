@@ -51,7 +51,7 @@ http_archive(
 EOF
 }
 
-function setup_skylark_repository() {
+function setup_starlark_repository() {
   # Prepare HTTP server with Python
   local server_dir="${TEST_TMPDIR}/server_dir"
   mkdir -p "${server_dir}"
@@ -321,8 +321,8 @@ function test_failed_fetch_without_cache() {
   expect_log "Error downloading"
 }
 
-function test_skylark_download_file_exists_in_cache() {
-  setup_skylark_repository
+function test_starlark_download_file_exists_in_cache() {
+  setup_starlark_repository
 
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
@@ -340,8 +340,8 @@ EOF
   fi
 }
 
-function test_skylark_download_and_extract_file_exists_in_cache() {
-  setup_skylark_repository
+function test_starlark_download_and_extract_file_exists_in_cache() {
+  setup_starlark_repository
 
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
@@ -359,8 +359,8 @@ EOF
   fi
 }
 
-function test_load_cached_value_skylark_download() {
-  setup_skylark_repository
+function test_load_cached_value_starlark_download() {
+  setup_starlark_repository
 
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
@@ -384,8 +384,8 @@ EOF
   expect_log "All external dependencies fetched successfully"
 }
 
-function test_skylark_download_fail_without_cache() {
-  setup_skylark_repository
+function test_starlark_download_fail_without_cache() {
+  setup_starlark_repository
 
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
@@ -412,8 +412,8 @@ EOF
   expect_log "Error downloading"
 }
 
-function test_load_cached_value_skylark_download_and_extract() {
-  setup_skylark_repository
+function test_load_cached_value_starlark_download_and_extract() {
+  setup_starlark_repository
 
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
@@ -437,8 +437,8 @@ EOF
   expect_log "All external dependencies fetched successfully"
 }
 
-function test_skylark_download_and_extract_fail_without_cache() {
-  setup_skylark_repository
+function test_starlark_download_and_extract_fail_without_cache() {
+  setup_starlark_repository
 
   cat >test.bzl <<EOF
 def _impl(repository_ctx):

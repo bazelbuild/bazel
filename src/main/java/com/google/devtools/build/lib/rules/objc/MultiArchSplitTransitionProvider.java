@@ -72,7 +72,11 @@ public class MultiArchSplitTransitionProvider
 
   private static final ImmutableSet<PlatformType> SUPPORTED_PLATFORM_TYPES =
       ImmutableSet.of(
-          PlatformType.IOS, PlatformType.WATCHOS, PlatformType.TVOS, PlatformType.MACOS);
+          PlatformType.IOS,
+          PlatformType.WATCHOS,
+          PlatformType.TVOS,
+          PlatformType.MACOS,
+          PlatformType.CATALYST);
 
   /**
    * Returns the apple platform type in the current rule context.
@@ -275,6 +279,18 @@ public class MultiArchSplitTransitionProvider
               : DottedVersion.maybeUnwrap(
                   buildOptions.get(AppleCommandLineOptions.class).macosMinimumOs);
           break;
+        case CATALYST:
+          cpus = buildOptions.get(AppleCommandLineOptions.class).catalystCpus;
+          if (cpus.isEmpty()) {
+            cpus = ImmutableList.of(AppleCommandLineOptions.DEFAULT_CATALYST_CPU);
+          }
+          configurationDistinguisher = ConfigurationDistinguisher.APPLEBIN_CATALYST;
+          actualMinimumOsVersion =
+              minimumOsVersion.isPresent()
+                  ? minimumOsVersion.get()
+                  : DottedVersion.maybeUnwrap(
+                      buildOptions.get(AppleCommandLineOptions.class).iosMinimumOs);
+          break;
         default:
           throw new IllegalArgumentException("Unsupported platform type " + platformType);
       }
@@ -306,6 +322,7 @@ public class MultiArchSplitTransitionProvider
         }
         switch (platformType) {
           case IOS:
+          case CATALYST:
             appleCommandLineOptions.iosMinimumOs = DottedVersion.option(actualMinimumOsVersion);
             break;
           case WATCHOS:

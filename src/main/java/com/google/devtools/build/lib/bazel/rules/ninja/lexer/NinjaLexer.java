@@ -88,6 +88,17 @@ public class NinjaLexer {
               || NinjaToken.NEWLINE.equals(Iterables.getLast(tokens, null))) {
             return push(NinjaToken.INDENT);
           }
+          // Save trailing whitespace as text in case it is meaningful.
+          if (step.getEnd() == fragment.length()) {
+            return push(NinjaToken.TEXT);
+          }
+          // Also treat any whitespace before a new line as trailing whitespace, and save it.
+          if (step.getEnd() < fragment.length()) {
+            byte nextByte = fragment.byteAt(step.getEnd());
+            if (nextByte == '\r' || nextByte == '\n') {
+              return push(NinjaToken.TEXT);
+            }
+          }
           break;
         case '\r':
           expectedTextKind = TextKind.IDENTIFIER;
@@ -160,6 +171,7 @@ public class NinjaLexer {
         step = step.nextStep();
       }
     }
+    // Since we now capture trailing whitespace, this EOF may be unreachable.
     return push(NinjaToken.EOF);
   }
 

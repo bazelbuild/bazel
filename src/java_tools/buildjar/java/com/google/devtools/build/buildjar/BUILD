@@ -154,7 +154,7 @@ java_library(
 #
 
 bootstrap_java_library(
-    name = "skylark-deps",
+    name = "starlark-deps",
     srcs = ["//:bootstrap-derived-java-srcs"],
     jars = [
         "//third_party:auto_value-jars",
@@ -199,7 +199,7 @@ bootstrap_java_binary(
     main_class = "com.google.devtools.build.buildjar.VanillaJavaBuilder",
     tags = ["manual"],
     deps = [
-        ":skylark-deps",
+        ":starlark-deps",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:bootstrap_jarhelper",
     ],
 )

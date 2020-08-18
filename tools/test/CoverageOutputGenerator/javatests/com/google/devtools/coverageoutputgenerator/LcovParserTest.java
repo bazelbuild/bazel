@@ -141,4 +141,43 @@ public class LcovParserTest {
             BranchCoverage.createWithBlockAndBranch(12, "0", "0", false, 0),
             BranchCoverage.createWithBlockAndBranch(12, "0", "1", false, 0));
   }
+
+  @Test
+  public void testParseBaBranches() throws IOException {
+    List<String> traceFile =
+        ImmutableList.of(
+            "SF:SOURCE_FILE",
+            "FN:2,func",
+            "FNDA:1,func",
+            "DA:1,5",
+            "BA:2,1",
+            "BA:2,2",
+            "DA:3,0",
+            "BA:4,0",
+            "BA:4,0",
+            "DA:5,0",
+            "DA:6,5",
+            "BA:7,2",
+            "BA:7,1",
+            "BA:7,2",
+            "DA:8,1",
+            "DA:9,0",
+            "DA:10,4",
+            "end_of_record");
+    List<SourceFileCoverage> sourceFiles =
+        LcovParser.parse(new ByteArrayInputStream(Joiner.on("\n").join(traceFile).getBytes(UTF_8)));
+    SourceFileCoverage sourceFile = sourceFiles.get(0);
+
+    List<BranchCoverage> branches =
+        sourceFile.getAllBranches().stream().collect(Collectors.toList());
+    assertThat(branches)
+        .containsExactly(
+            BranchCoverage.create(2, 1),
+            BranchCoverage.create(2, 2),
+            BranchCoverage.create(4, 0),
+            BranchCoverage.create(4, 0),
+            BranchCoverage.create(7, 2),
+            BranchCoverage.create(7, 1),
+            BranchCoverage.create(7, 2));
+  }
 }
