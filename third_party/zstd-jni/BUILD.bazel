@@ -9,6 +9,12 @@ package(
 
 licenses(["notice"])  # BSD License
 
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//third_party:__pkg__"],
+)
+
 cc_library(
     name = "jni",
     hdrs = [

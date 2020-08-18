@@ -47,6 +47,7 @@ filegroup(
         "//third_party/py/six:srcs",
         "//third_party/rules_python:srcs",
         "//third_party/zlib:srcs",
+        "//third_party/zstd-jni:srcs",
         "@googleapis//:srcs",
         "@remoteapis//:srcs",
     ],
