@@ -24,7 +24,7 @@ public class ReferenceCountedChannelPoolTest {
   @Test
   public void getChannelIndexTest() {
     int poolSize = Integer.MAX_VALUE;
-    int affinity = Integer.MIN_VALUE + 1;
+    int affinity = Integer.MIN_VALUE;
     int index = ReferenceCountedChannelPool.getChannelIndex(poolSize, affinity);
     assertThat(index >= 0 && index < poolSize).isTrue();
   }
