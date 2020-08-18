@@ -19,7 +19,7 @@ cc_library(
 )
 
 cc_binary(
-    name = "libzstd-jni.dylib",
+    name = "libzstd-jni.so",
     srcs = glob(
         [
             "src/main/native/**/*.c",
@@ -52,6 +52,6 @@ java_library(
         ],
     ),
     data = [
-        ":libzstd-jni.dylib",
+        ":libzstd-jni.so",
     ],
 )
