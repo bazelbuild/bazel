@@ -108,7 +108,6 @@ import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -683,24 +682,15 @@ public abstract class BuildIntegrationTestCase {
   }
 
   /**
-   * Fork/exec/wait the specified command.  A utility method for subclasses.
-   */
-  protected String exec(String... argv) throws CommandException {
-    return new String(new Command(argv).execute().getStdout(), StandardCharsets.UTF_8);
-  }
-
-  /**
-   * Performs a local direct spawn execution given spawn information broken out
-   * into individual arguments. Directs standard out/err to {@code outErr}.
+   * Performs a local direct spawn execution given spawn information broken out into individual
+   * arguments. Directs standard out/err to {@code outErr}.
    *
    * @param workingDirectory the directory from which to execute the subprocess
-   * @param environment the environment map to provide to the subprocess. If
-   *        null, the environment is inherited from the parent process.
+   * @param environment the environment map to provide to the subprocess. If null, the environment
+   *     is inherited from the parent process.
    * @param argv the argument vector including the command itself
-   * @param outErr the out+err stream pair to receive stdout and stderr from the
-   *        subprocess
-   * @throws ExecException if any kind of abnormal termination or command
-   *         exception occurs
+   * @param outErr the out+err stream pair to receive stdout and stderr from the subprocess
+   * @throws ExecException if any kind of abnormal termination or command exception occurs
    */
   public static void execute(
       Path workingDirectory,
@@ -708,7 +698,7 @@ public abstract class BuildIntegrationTestCase {
       List<String> argv,
       FileOutErr outErr,
       boolean verboseFailures)
-      throws ExecException {
+      throws ExecException, InterruptedException {
     Command command =
         new CommandBuilder()
             .addArgs(argv)

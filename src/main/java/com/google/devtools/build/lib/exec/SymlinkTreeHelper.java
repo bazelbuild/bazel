@@ -128,7 +128,7 @@ public final class SymlinkTreeHelper {
       BinTools binTools,
       Map<String, String> shellEnvironment,
       boolean enableRunfiles)
-      throws ExecException {
+      throws ExecException, InterruptedException {
     if (enableRunfiles) {
       createSymlinksUsingCommand(execRoot, binTools, shellEnvironment, outErr);
     } else {
@@ -156,7 +156,7 @@ public final class SymlinkTreeHelper {
    */
   public void createSymlinksUsingCommand(
       Path execRoot, BinTools binTools, Map<String, String> shellEnvironment, OutErr outErr)
-      throws EnvironmentalExecException {
+      throws EnvironmentalExecException, InterruptedException {
     Command command = createCommand(execRoot, binTools, shellEnvironment);
     try {
       if (outErr != null) {

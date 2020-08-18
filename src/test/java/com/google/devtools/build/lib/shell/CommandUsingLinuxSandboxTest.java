@@ -86,7 +86,7 @@ public final class CommandUsingLinuxSandboxTest {
   }
 
   private void checkLinuxSandboxStatistics(Duration userTimeToSpend, Duration systemTimeToSpend)
-      throws IOException, CommandException {
+      throws IOException, CommandException, InterruptedException {
     ImmutableList<String> commandArguments =
         ImmutableList.of(
             getCpuTimeSpenderPath().getPathString(),
@@ -107,7 +107,7 @@ public final class CommandUsingLinuxSandboxTest {
 
   @Test
   public void testLinuxSandboxedCommand_WithStatistics_SpendUserTime()
-      throws CommandException, IOException {
+      throws CommandException, IOException, InterruptedException {
     // TODO(b/62588075) Currently no linux-sandbox tool support in Windows.
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
     // TODO(b/62588075) Currently no linux-sandbox tool support in MacOS.
@@ -121,7 +121,7 @@ public final class CommandUsingLinuxSandboxTest {
 
   @Test
   public void testLinuxSandboxedCommand_WithStatistics_SpendSystemTime()
-      throws CommandException, IOException {
+      throws CommandException, IOException, InterruptedException {
     // TODO(b/62588075) Currently no linux-sandbox tool support in Windows.
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
     // TODO(b/62588075) Currently no linux-sandbox tool support in MacOS.
@@ -135,7 +135,7 @@ public final class CommandUsingLinuxSandboxTest {
 
   @Test
   public void testLinuxSandboxedCommand_WithStatistics_SpendUserAndSystemTime()
-      throws CommandException, IOException {
+      throws CommandException, IOException, InterruptedException {
     // TODO(b/62588075) Currently no linux-sandbox tool support in Windows.
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
     // TODO(b/62588075) Currently no linux-sandbox tool support in MacOS.

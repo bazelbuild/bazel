@@ -81,7 +81,7 @@ public final class CommandUsingProcessWrapperTest {
   }
 
   private void checkProcessWrapperStatistics(Duration userTimeToSpend, Duration systemTimeToSpend)
-      throws IOException, CommandException {
+      throws IOException, CommandException, InterruptedException {
     ImmutableList<String> commandArguments =
         ImmutableList.of(
             getCpuTimeSpenderPath(),
@@ -103,7 +103,7 @@ public final class CommandUsingProcessWrapperTest {
 
   @Test
   public void testProcessWrappedCommand_WithStatistics_SpendUserTime()
-      throws CommandException, IOException {
+      throws CommandException, IOException, InterruptedException {
     Duration userTimeToSpend = Duration.ofSeconds(10);
     Duration systemTimeToSpend = Duration.ZERO;
 
@@ -112,7 +112,7 @@ public final class CommandUsingProcessWrapperTest {
 
   @Test
   public void testProcessWrappedCommand_WithStatistics_SpendSystemTime()
-      throws CommandException, IOException {
+      throws CommandException, IOException, InterruptedException {
     Duration userTimeToSpend = Duration.ZERO;
     Duration systemTimeToSpend = Duration.ofSeconds(10);
 
@@ -121,7 +121,7 @@ public final class CommandUsingProcessWrapperTest {
 
   @Test
   public void testProcessWrappedCommand_WithStatistics_SpendUserAndSystemTime()
-      throws CommandException, IOException {
+      throws CommandException, IOException, InterruptedException {
     Duration userTimeToSpend = Duration.ofSeconds(10);
     Duration systemTimeToSpend = Duration.ofSeconds(10);
 

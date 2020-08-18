@@ -231,10 +231,10 @@ public final class Command {
    * @return {@link CommandResult} representing result of the execution
    * @throws ExecFailedException if {@link Runtime#exec(String[])} fails for any reason
    * @throws AbnormalTerminationException if an {@link IOException} is encountered while reading
-   *    from the process, or the process was terminated due to a signal
+   *     from the process, or the process was terminated due to a signal
    * @throws BadExitStatusException if the process exits with a non-zero status
    */
-  public CommandResult execute() throws CommandException {
+  public CommandResult execute() throws CommandException, InterruptedException {
     return executeAsync().get();
   }
 
@@ -250,10 +250,11 @@ public final class Command {
    * @return {@link CommandResult} representing result of the execution
    * @throws ExecFailedException if {@link Runtime#exec(String[])} fails for any reason
    * @throws AbnormalTerminationException if an {@link IOException} is encountered while reading
-   *    from the process, or the process was terminated due to a signal
+   *     from the process, or the process was terminated due to a signal
    * @throws BadExitStatusException if the process exits with a non-zero status
    */
-  public CommandResult execute(OutputStream stdOut, OutputStream stdErr) throws CommandException {
+  public CommandResult execute(OutputStream stdOut, OutputStream stdErr)
+      throws CommandException, InterruptedException {
     return doExecute(
         NO_INPUT, Consumers.createStreamingConsumers(stdOut, stdErr), KILL_SUBPROCESS_ON_INTERRUPT)
             .get();
@@ -302,15 +303,17 @@ public final class Command {
    * the subprocess to exit.
    *
    * @param killSubprocessOnInterrupt whether the subprocess should be killed if the current process
-   *     is interrupted
+   *     is interrupted. If this is true, the returned {@link FutureCommandResult} object may throw
+   *     {@link InterruptedException} on {@link FutureCommandResult#get} if the thread is
+   *     interrupted while waiting for the process to complete. Otherwise, it will not.
    * @return {@link CommandResult} representing result of the execution
    * @throws ExecFailedException if {@link Runtime#exec(String[])} fails for any reason
    * @throws AbnormalTerminationException if an {@link IOException} is encountered while reading
-   *    from the process, or the process was terminated due to a signal
+   *     from the process, or the process was terminated due to a signal
    * @throws BadExitStatusException if the process exits with a non-zero status
    */
-  public FutureCommandResult executeAsync(
-      InputStream stdinInput, boolean killSubprocessOnInterrupt) throws CommandException {
+  public FutureCommandResult executeAsync(InputStream stdinInput, boolean killSubprocessOnInterrupt)
+      throws CommandException {
     return doExecute(
         stdinInput, Consumers.createAccumulatingConsumers(), killSubprocessOnInterrupt);
   }
@@ -380,7 +383,7 @@ public final class Command {
     // enforced.
     processInput(stdinInput, process);
 
-    return new FutureCommandResultImpl(this, process, outErrConsumers, killSubprocessOnInterrupt);
+    return new FutureCommandResult(this, process, outErrConsumers, killSubprocessOnInterrupt);
   }
 
   private Subprocess startProcess() throws ExecFailedException {

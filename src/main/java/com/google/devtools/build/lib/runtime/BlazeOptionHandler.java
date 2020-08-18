@@ -191,7 +191,7 @@ public final class BlazeOptionHandler {
   }
 
   private void parseArgsAndConfigs(List<String> args, ExtendedEventHandler eventHandler)
-      throws OptionsParsingException {
+      throws OptionsParsingException, InterruptedException {
     Path workspaceDirectory = workspace.getWorkspace();
     // TODO(ulfjack): The working directory is passed by the client as part of CommonCommandOptions,
     // and we can't know it until after we've parsed the options, so use the workspace for now.
@@ -320,6 +320,13 @@ public final class BlazeOptionHandler {
       logger.atInfo().withCause(e).log(logMessage);
       return processOptionsParsingException(
           eventHandler, e, logMessage, Code.OPTIONS_PARSE_FAILURE);
+    } catch (InterruptedException e) {
+      return DetailedExitCode.of(
+          FailureDetail.newBuilder()
+              .setInterrupted(
+                  FailureDetails.Interrupted.newBuilder()
+                      .setCode(FailureDetails.Interrupted.Code.OPTIONS_PARSING))
+              .build());
     }
     return DetailedExitCode.success();
   }

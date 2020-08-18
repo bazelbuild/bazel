@@ -178,6 +178,7 @@ message Interrupted {
     MOBILE_INSTALL_COMMAND = 21 [(metadata) = { exit_code: 8 }];
     QUERY = 22 [(metadata) = { exit_code: 8 }];
     RUN_COMMAND = 23 [(metadata) = { exit_code: 8 }];
+    OPTIONS_PARSING = 27 [(metadata) = { exit_code: 8 }];
 
     reserved 1 to 3; // For internal use
     reserved 11 to 16; // For internal use
