@@ -53,8 +53,8 @@ public class WorkspaceFactoryTest {
 
   @Test
   public void testWorkspaceWithIllegalCharacters() throws Exception {
-    helper.parse("workspace(name = 'a.b.c')");
-    assertThat(helper.getParserError()).contains("a.b.c is not a legal workspace name");
+    helper.parse("workspace(name = 'a+b+c')");
+    assertThat(helper.getParserError()).contains("a+b+c is not a legal workspace name");
   }
 
   @Test
