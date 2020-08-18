@@ -391,8 +391,8 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   }
 
   /**
-   * For a given transition, find all Starlark build settings that are read while applying it, then
-   * return a map of their label to their default values.
+   * For a given transition, find all Starlark build settings that are input/output while applying
+   * it, then return a map of their label to their default values.
    *
    * <p>If the build setting is referenced by an {@link com.google.devtools.build.lib.rules.Alias},
    * the returned map entry is still keyed by the alias.
@@ -402,7 +402,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
    *     build settings *written* by relevant transitions) so do not iterate over for input
    *     packages.
    */
-  public static ImmutableMap<Label, Object> getDefaultInputValues(
+  public static ImmutableMap<Label, Object> getDefaultValues(
       Map<PackageValue.Key, PackageValue> buildSettingPackages, ConfigurationTransition root)
       throws TransitionException {
     ImmutableMap.Builder<Label, Object> defaultValues = new ImmutableMap.Builder<>();
@@ -410,7 +410,8 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
         (StarlarkTransitionVisitor)
             transition -> {
               ImmutableSet<Label> settings =
-                  getRelevantStarlarkSettingsFromTransition(transition, Settings.INPUTS);
+                  getRelevantStarlarkSettingsFromTransition(
+                      transition, Settings.INPUTS_AND_OUTPUTS);
               for (Label setting : settings) {
                 defaultValues.put(
                     setting,

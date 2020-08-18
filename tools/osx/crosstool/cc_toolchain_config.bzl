@@ -30,6 +30,30 @@ load(
 )
 load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 
+# The Xcode version from which that has support for deterministic mode
+_SUPPORTS_DETERMINISTIC_MODE = "10.2"
+
+def _compare_versions(dv1, v2):
+    """Return value is <0, 0, >0 depending on DottedVersion dv1 comparison to string v2."""
+    return dv1.compare_to(apple_common.dotted_version(v2))
+
+def _can_use_deterministic_libtool(ctx):
+    """Returns `True` if the current version of `libtool` has support for
+    deterministic mode, and `False` otherwise."""
+    xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
+    xcode_version = xcode_config.xcode_version()
+    if _compare_versions(xcode_version, _SUPPORTS_DETERMINISTIC_MODE) >= 0:
+        return True
+    else:
+        return False
+
+def _deterministic_libtool_flags(ctx):
+    """Returns additional `libtool` flags to enable deterministic mode, if they
+    are available."""
+    if _can_use_deterministic_libtool(ctx):
+        return ["-D"]
+    return []
+
 def _impl(ctx):
     if (ctx.attr.cpu == "darwin_x86_64"):
         toolchain_identifier = "darwin_x86_64"
@@ -1794,7 +1818,7 @@ def _impl(ctx):
                 flag_set(
                     flag_groups = [
                         flag_group(
-                            flags = [
+                            flags = _deterministic_libtool_flags(ctx) + [
                                 "-no_warning_for_no_symbols",
                                 "-static",
                                 "-filelist",
@@ -1825,7 +1849,7 @@ def _impl(ctx):
                 flag_set(
                     flag_groups = [
                         flag_group(
-                            flags = [
+                            flags = _deterministic_libtool_flags(ctx) + [
                                 "-no_warning_for_no_symbols",
                                 "-static",
                                 "-filelist",
@@ -1857,7 +1881,7 @@ def _impl(ctx):
                 flag_set(
                     flag_groups = [
                         flag_group(
-                            flags = [
+                            flags = _deterministic_libtool_flags(ctx) + [
                                 "-no_warning_for_no_symbols",
                                 "-static",
                                 "-filelist",
@@ -1888,7 +1912,7 @@ def _impl(ctx):
                 flag_set(
                     flag_groups = [
                         flag_group(
-                            flags = [
+                            flags = _deterministic_libtool_flags(ctx) + [
                                 "-no_warning_for_no_symbols",
                                 "-static",
                                 "-filelist",
@@ -1919,7 +1943,7 @@ def _impl(ctx):
                 flag_set(
                     flag_groups = [
                         flag_group(
-                            flags = [
+                            flags = _deterministic_libtool_flags(ctx) + [
                                 "-no_warning_for_no_symbols",
                                 "-static",
                                 "-filelist",
@@ -1950,7 +1974,7 @@ def _impl(ctx):
                 flag_set(
                     flag_groups = [
                         flag_group(
-                            flags = [
+                            flags = _deterministic_libtool_flags(ctx) + [
                                 "-no_warning_for_no_symbols",
                                 "-static",
                                 "-filelist",
@@ -1982,7 +2006,7 @@ def _impl(ctx):
                 flag_set(
                     flag_groups = [
                         flag_group(
-                            flags = [
+                            flags = _deterministic_libtool_flags(ctx) + [
                                 "-no_warning_for_no_symbols",
                                 "-static",
                                 "-filelist",
@@ -2016,7 +2040,7 @@ def _impl(ctx):
                 flag_set(
                     flag_groups = [
                         flag_group(
-                            flags = [
+                            flags = _deterministic_libtool_flags(ctx) + [
                                 "-no_warning_for_no_symbols",
                                 "-static",
                                 "-filelist",
@@ -2798,7 +2822,7 @@ def _impl(ctx):
                 flag_set(
                     flag_groups = [
                         flag_group(
-                            flags = [
+                            flags = _deterministic_libtool_flags(ctx) + [
                                 "-no_warning_for_no_symbols",
                                 "-static",
                                 "-arch_only",
@@ -2839,7 +2863,7 @@ def _impl(ctx):
                 flag_set(
                     flag_groups = [
                         flag_group(
-                            flags = [
+                            flags = _deterministic_libtool_flags(ctx) + [
                                 "-no_warning_for_no_symbols",
                                 "-static",
                                 "-arch_only",
@@ -2881,7 +2905,7 @@ def _impl(ctx):
                 flag_set(
                     flag_groups = [
                         flag_group(
-                            flags = [
+                            flags = _deterministic_libtool_flags(ctx) + [
                                 "-no_warning_for_no_symbols",
                                 "-static",
                                 "-arch_only",
@@ -2922,7 +2946,7 @@ def _impl(ctx):
                 flag_set(
                     flag_groups = [
                         flag_group(
-                            flags = [
+                            flags = _deterministic_libtool_flags(ctx) + [
                                 "-no_warning_for_no_symbols",
                                 "-static",
                                 "-arch_only",
@@ -2963,7 +2987,7 @@ def _impl(ctx):
                 flag_set(
                     flag_groups = [
                         flag_group(
-                            flags = [
+                            flags = _deterministic_libtool_flags(ctx) + [
                                 "-no_warning_for_no_symbols",
                                 "-static",
                                 "-arch_only",
@@ -3004,7 +3028,7 @@ def _impl(ctx):
                 flag_set(
                     flag_groups = [
                         flag_group(
-                            flags = [
+                            flags = _deterministic_libtool_flags(ctx) + [
                                 "-no_warning_for_no_symbols",
                                 "-static",
                                 "-arch_only",
@@ -3046,7 +3070,7 @@ def _impl(ctx):
                 flag_set(
                     flag_groups = [
                         flag_group(
-                            flags = [
+                            flags = _deterministic_libtool_flags(ctx) + [
                                 "-no_warning_for_no_symbols",
                                 "-static",
                                 "-arch_only",
@@ -3090,7 +3114,7 @@ def _impl(ctx):
                 flag_set(
                     flag_groups = [
                         flag_group(
-                            flags = [
+                            flags = _deterministic_libtool_flags(ctx) + [
                                 "-no_warning_for_no_symbols",
                                 "-static",
                                 "-arch_only",
@@ -5003,7 +5027,12 @@ def _impl(ctx):
                 actions = [ACTION_NAMES.cpp_link_static_library],
                 flag_groups = [
                     flag_group(
-                        flags = ["-no_warning_for_no_symbols", "-static", "-o", "%{output_execpath}"],
+                        flags = _deterministic_libtool_flags(ctx) + [
+                            "-no_warning_for_no_symbols",
+                            "-static",
+                            "-o",
+                            "%{output_execpath}",
+                        ],
                         expand_if_available = "output_execpath",
                     ),
                 ],

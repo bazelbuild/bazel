@@ -65,13 +65,9 @@ import javax.annotation.Nullable;
 /**
  * {@link QueryEnvironment} that runs queries over the configured target (analysis) graph.
  *
- * <p>There is currently a limited way to specify a configuration in the query syntax via {@link
- * ConfigFunction}. This currently still limits the user to choosing the 'target', 'host', or null
- * configurations. It shouldn't be terribly difficult to expand this with {@link
- * OptionsDiffForReconstruction} to handle fully customizable configurations if the need arises in
- * the future.
- *
- * <p>Aspects are also not supported, but probably should be in some fashion.
+ * <p>Aspects are partially supported. Their dependencies appear as implicit dependencies on the
+ * targets they're connected to, but the aspects themselves aren't visible as query nodes. See
+ * comments on {@link PostAnalysisQueryEnvironment#targetifyValues} and b/163052263 for details.
  */
 public class ConfiguredTargetQueryEnvironment
     extends PostAnalysisQueryEnvironment<ConfiguredTarget> {

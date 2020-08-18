@@ -82,8 +82,7 @@ public interface ActionApi extends StarlarkValue {
               + " <p>Note that some types of actions do not yet support exposure of this field."
               + " For such action types, this is <code>None</code>.",
       structField = true,
-      allowReturnNones = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ACTION_ARGS)
+      allowReturnNones = true)
   Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException;
 
   /**

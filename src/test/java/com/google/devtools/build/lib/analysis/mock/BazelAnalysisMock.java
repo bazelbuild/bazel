@@ -192,7 +192,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "filegroup(name='java', srcs = ['jdk/jre/bin/java'])",
         "filegroup(name='JacocoCoverage', srcs = [])",
         "exports_files(['JavaBuilder_deploy.jar','SingleJar_deploy.jar','TestRunner_deploy.jar',",
-        "               'JavaBuilderCanary_deploy.jar', 'ijar', 'GenClass_deploy.jar',",
+        "               'ijar', 'GenClass_deploy.jar',",
         "               'turbine_deploy.jar', 'TurbineDirect_deploy.jar'])",
         "sh_binary(name = 'proguard_whitelister', srcs = ['empty.sh'])",
         "toolchain_type(name = 'toolchain_type')",

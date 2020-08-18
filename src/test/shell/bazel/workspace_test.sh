@@ -171,7 +171,7 @@ EOF
   [ ! -L bazel-x ] || fail "bazel-x should have been removed"
 }
 
-function test_skylark_flags_affect_workspace() {
+function test_starlark_flags_affect_workspace() {
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("//:macro.bzl", "macro")
 print("In workspace: ")

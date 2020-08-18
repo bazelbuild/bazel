@@ -22,7 +22,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 function test_dir_depends() {
   create_new_workspace
-  cat > skylark.bzl <<'EOF'
+  cat > starlark.bzl <<'EOF'
 def _dir_impl(ctx):
   output_dir = ctx.actions.declare_directory(ctx.attr.outdir)
   ctx.actions.run_shell(
@@ -45,7 +45,7 @@ gen_dir = rule(
 )
 EOF
   cat > BUILD <<'EOF'
-load(":skylark.bzl", "gen_dir")
+load(":starlark.bzl", "gen_dir")
 
 gen_dir(
   name = "dir",
@@ -145,7 +145,7 @@ EOF
 
 function test_no_output() {
   create_new_workspace
-  cat > skylark.bzl <<'EOF'
+  cat > starlark.bzl <<'EOF'
 def _impl(ctx):
   ctx.actions.write(ctx.outputs.executable, content="echo hello world", is_executable=True)
   return DefaultInfo()
@@ -157,7 +157,7 @@ my_test = rule(
 EOF
 
   cat > BUILD <<'EOF'
-load(":skylark.bzl", "my_test")
+load(":starlark.bzl", "my_test")
 
 my_test(
   name = "little_test",

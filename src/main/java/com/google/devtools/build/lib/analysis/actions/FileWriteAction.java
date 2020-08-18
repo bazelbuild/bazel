@@ -149,9 +149,8 @@ public final class FileWriteAction extends AbstractFileWriteAction {
   /**
    * Creates a new FileWriteAction instance.
    *
-   * <p>There are no inputs. Transparent compression is controlled by the {@code
-   * --experimental_transparent_compression} flag. No reference to the {@link
-   * ActionConstructionContext} will be maintained.
+   * <p>There are no inputs. No reference to the {@link ActionConstructionContext} will be
+   * maintained.
    *
    * @param context the action construction context
    * @param output the Artifact that will be created by executing this Action
@@ -169,7 +168,7 @@ public final class FileWriteAction extends AbstractFileWriteAction {
         output,
         fileContents,
         makeExecutable,
-        context.getConfiguration().transparentCompression());
+        Compression.ALLOW);
   }
 
   private static final class CompressedString extends LazyString {

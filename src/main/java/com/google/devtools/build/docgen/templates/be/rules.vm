@@ -73,9 +73,6 @@ ${ruleFamily.summary}
     #end
     </tbody>
   </table>
-  #if ($rule.isPublicByDefault())
-    The default visibility is public: <code>visibility = ["//visibility:public"]</code>.
-  #end
 #end
 
 #if (!$singlePage)

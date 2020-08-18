@@ -187,9 +187,9 @@ EOF
   fi
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
-  echo "load('//$pkg:shell.bzl', 'skylark_shell')" > "$pkg/BUILD"
+  echo "load('//$pkg:shell.bzl', 'starlark_shell')" > "$pkg/BUILD"
   cat >> "$pkg/BUILD" <<'EOF'
-skylark_shell(
+starlark_shell(
   name = "shelly",
   output = "ok.txt",
 )
@@ -220,7 +220,7 @@ def _impl(ctx):
     command = "touch %s" % ctx.outputs.output.path,
   )
 
-skylark_shell = rule(
+starlark_shell = rule(
   _impl,
   attrs = {
     "output": attr.output(mandatory=True),

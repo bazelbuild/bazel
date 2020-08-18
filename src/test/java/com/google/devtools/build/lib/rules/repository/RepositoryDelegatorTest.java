@@ -94,9 +94,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
-/**
- * Tests for {@link RepositoryDelegatorFunction}
- */
+/** Tests for {@link RepositoryDelegatorFunction} */
 @RunWith(JUnit4.class)
 public class RepositoryDelegatorTest extends FoundationTestCase {
   private RepositoryDelegatorFunction delegatorFunction;
@@ -138,10 +136,11 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                 rootPath,
                 ImmutableList.of(Root.fromPath(rootPath)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
-    ExternalFilesHelper externalFilesHelper = ExternalFilesHelper.createForTesting(
-        pkgLocator,
-        ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
-        directories);
+    ExternalFilesHelper externalFilesHelper =
+        ExternalFilesHelper.createForTesting(
+            pkgLocator,
+            ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
+            directories);
     differencer = new SequencedRecordingDifferencer();
 
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
@@ -197,11 +196,10 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(
                     SkyFunctions.AST_FILE_LOOKUP,
-                    new ASTFileLookupFunction(ruleClassProvider, fileSystem.getDigestFunction()))
+                    new ASTFileLookupFunction(pkgFactory, fileSystem.getDigestFunction()))
                 .put(
                     SkyFunctions.BZL_LOAD,
                     BzlLoadFunction.create(
-                        ruleClassProvider,
                         pkgFactory,
                         fileSystem.getDigestFunction(),
                         CacheBuilder.newBuilder().build()))

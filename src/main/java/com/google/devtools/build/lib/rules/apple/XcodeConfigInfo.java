@@ -168,6 +168,14 @@ public class XcodeConfigInfo extends NativeInfo
     // apple_platform_type.
     switch (platformType) {
       case IOS:
+      case CATALYST:
+        /*
+         * Catalyst builds require usage of the iOS minimum version when building, but require
+         * the usage of the macOS SDK to actually do the build. This means that the particular
+         * version used for Catalyst differs based on what you are using the version number for -
+         * the SDK or the actual application. In this method we return the OS version used for the
+         * application, and so return the iOS version.
+         */
         return iosMinimumOsVersion;
       case TVOS:
         return tvosMinimumOsVersion;
@@ -196,6 +204,13 @@ public class XcodeConfigInfo extends NativeInfo
       case WATCHOS_SIMULATOR:
         return watchosSdkVersion;
       case MACOS:
+      case CATALYST:
+        /*
+         * Catalyst builds require usage of the iOS minimum version when building, but require
+         * the usage of the macOS SDK to actually do the build. This means that the particular
+         * version used for Catalyst differs based on what you are using the version for. As this
+         * is the SDK version specifically, we use the macOS version here.
+         */
         return macosSdkVersion;
     }
     throw new IllegalArgumentException("Unhandled platform: " + platform);

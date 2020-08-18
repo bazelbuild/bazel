@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.ParserInput;
@@ -48,12 +48,12 @@ import javax.annotation.Nullable;
 // TODO(adonovan): rename to BzlParseAndResolveFunction or (later) BzlCompileFunction.
 public class ASTFileLookupFunction implements SkyFunction {
 
-  private final RuleClassProvider ruleClassProvider;
+  private final PackageFactory packageFactory;
   private final DigestHashFunction digestHashFunction;
 
   public ASTFileLookupFunction(
-      RuleClassProvider ruleClassProvider, DigestHashFunction digestHashFunction) {
-    this.ruleClassProvider = ruleClassProvider;
+      PackageFactory packageFactory, DigestHashFunction digestHashFunction) {
+    this.packageFactory = packageFactory;
     this.digestHashFunction = digestHashFunction;
   }
 
@@ -62,7 +62,7 @@ public class ASTFileLookupFunction implements SkyFunction {
       throws SkyFunctionException, InterruptedException {
     try {
       return computeInline(
-          (ASTFileLookupValue.Key) skyKey.argument(), env, ruleClassProvider, digestHashFunction);
+          (ASTFileLookupValue.Key) skyKey.argument(), env, packageFactory, digestHashFunction);
     } catch (ErrorReadingStarlarkExtensionException e) {
       throw new ASTLookupFunctionException(e, e.getTransience());
     } catch (InconsistentFilesystemException e) {
@@ -73,7 +73,7 @@ public class ASTFileLookupFunction implements SkyFunction {
   static ASTFileLookupValue computeInline(
       ASTFileLookupValue.Key key,
       Environment env,
-      RuleClassProvider ruleClassProvider,
+      PackageFactory packageFactory,
       DigestHashFunction digestHashFunction)
       throws ErrorReadingStarlarkExtensionException, InconsistentFilesystemException,
           InterruptedException {
@@ -152,7 +152,8 @@ public class ASTFileLookupFunction implements SkyFunction {
             .restrictStringEscapes(semantics.incompatibleRestrictStringEscapes())
             .build();
     StarlarkFile file = StarlarkFile.parse(input, options);
-    Module module = Module.withPredeclared(semantics, ruleClassProvider.getEnvironment());
+    Module module =
+        Module.withPredeclared(semantics, packageFactory.getRuleClassProvider().getEnvironment());
     Resolver.resolveFile(file, module);
     Event.replayEventsOn(env.getListener(), file.errors()); // TODO(adonovan): fail if !ok()?
     return ASTFileLookupValue.withFile(file, digest);

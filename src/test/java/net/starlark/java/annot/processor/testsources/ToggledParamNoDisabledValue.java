@@ -33,7 +33,7 @@ public class ToggledParamNoDisabledValue implements StarlarkValue {
         @Param(
             name = "two",
             named = true,
-            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ACTION_ARGS,
+            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API,
             positional = true)
       })
   public Integer noDisabledValueMethod(Integer one, Integer two) {

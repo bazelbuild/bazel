@@ -737,7 +737,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testLaterPlatformBitcodeOptionWithPlatformOverridesEarlierOptionWithoutPlatform()
+  public void testLaterBitcodeOptionWithoutPlatformOverridesEarlierOptionWithPlatform()
       throws Exception {
     useConfiguration(
         "--apple_platform_type=ios",
@@ -756,7 +756,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testLaterBitcodeOptionWithoutPlatformOverridesEarlierOptionWithPlatform()
+  public void testLaterPlatformBitcodeOptionWithPlatformOverridesEarlierOptionWithoutPlatform()
       throws Exception {
     useConfiguration(
         "--apple_platform_type=ios",

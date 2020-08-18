@@ -55,6 +55,32 @@ public class NinjaParserStepTest {
     doTestSimpleVariable("a=b # comment", "a", "b");
     doTestSimpleVariable("a.b.c =    some long:    value", "a.b.c", "some long:    value");
     doTestSimpleVariable("a_11_24-rt.15= ^&%=#@", "a_11_24-rt.15", "^&%=#@");
+    doTestSimpleVariable("a= $\n b", "a", "b");
+  }
+
+  @Test
+  public void testTrailingWhitespaceIsSaved() throws Exception {
+    doTestSimpleVariable("a = b ", "a", "b ");
+  }
+
+  @Test
+  public void testTrailingWhitespaceBeforeNewlineIsSaved() throws Exception {
+    doTestSimpleVariable("a = b \n", "a", "b ");
+  }
+
+  @Test
+  public void testTrailingWhitespaceBeforeCarriageReturnIsSaved() throws Exception {
+    doTestSimpleVariable("a = b \r", "a", "b ");
+  }
+
+  @Test
+  public void testTrailingWhitespaceBeforeNewlineCarriageReturnIsSaved() throws Exception {
+    doTestSimpleVariable("a = b \n\r", "a", "b ");
+  }
+
+  @Test
+  public void testTrailingWhitespaceBeforeCarriageReturnNewlineIsSaved() throws Exception {
+    doTestSimpleVariable("a = b \r\n", "a", "b ");
   }
 
   @Test
@@ -76,7 +102,11 @@ public class NinjaParserStepTest {
   @Test
   public void testNoValue() throws Exception {
     doTestNoValue("a=");
+    doTestNoValue("a =");
+    doTestNoValue("a  =");
     doTestNoValue("a=\u000018");
+    doTestNoValue("a =    ");
+    doTestNoValue("a  =    ");
     doTestNoValue("a  =    ");
     doTestNoValue("a  =\nm");
     doTestNoValue("a  =    # 123");

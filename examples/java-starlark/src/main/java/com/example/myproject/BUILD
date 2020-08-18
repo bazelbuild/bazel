@@ -17,7 +17,7 @@ java_binary(
 java_library(
     name = "hello-lib",
     srcs = ["Greeter.java"],
-    data = ["//examples/java-skylark/src/main/resources:greeting"],
+    data = ["//examples/java-starlark/src/main/resources:greeting"],
 )
 
 filegroup(
