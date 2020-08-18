@@ -146,6 +146,8 @@ public interface ActionAnalysisMetadata {
    */
   ImmutableSet<Artifact> getOutputs();
 
+  @Nullable Artifact getDiagnostics();
+
   /**
    * Returns input files that need to be present to allow extra_action rules to shadow this action
    * correctly when run remotely. This is at least the normal inputs of the action, but may include

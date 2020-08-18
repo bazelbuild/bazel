@@ -592,4 +592,10 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   public PlatformInfo getExecutionPlatform() {
     return getOwner().getExecutionPlatform();
   }
+
+  @Override
+  @Nullable
+  public Artifact getDiagnostics() {
+    return null;
+  }
 }

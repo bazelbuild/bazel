@@ -408,6 +408,14 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             doc =
                 "(Experimental) runs the action on the given exec group's execution platform. If"
                     + " none, uses the target's default execution platform."),
+        @Param(
+            name = "diagnostics_file",
+            type = FileApi.class,
+            noneable = true,
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc = "File where diagnostic information will be written in proto format.")
       })
   void run(
       Sequence<?> outputs,
@@ -422,7 +430,8 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       Object envUnchecked,
       Object executionRequirementsUnchecked,
       Object inputManifestsUnchecked,
-      Object execGroupUnchecked)
+      Object execGroupUnchecked,
+      Object diagnostics_file)
       throws EvalException;
 
   @StarlarkMethod(

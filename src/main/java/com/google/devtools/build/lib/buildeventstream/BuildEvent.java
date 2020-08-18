@@ -50,6 +50,7 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
       STDERR,
       LOG,
       PERFORMANCE_LOG,
+      DIAGNOSTICS,
     }
 
     /** Indicates the type of compression the local file should have. */

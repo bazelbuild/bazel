@@ -129,6 +129,12 @@ public final class SimpleSpawn implements Spawn {
   }
 
   @Override
+  @Nullable
+  public ActionInput getDiagnosticsFile() {
+    return null;
+  }
+
+  @Override
   public ActionExecutionMetadata getResourceOwner() {
     return owner;
   }

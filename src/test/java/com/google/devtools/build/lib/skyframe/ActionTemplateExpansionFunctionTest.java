@@ -209,6 +209,12 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
                     outputTree.getRoot().getExecPath().getRelative("not_tree"),
                     outputTree.getArtifactOwner()));
           }
+
+          @Nullable
+          @Override
+          public Artifact getDiagnostics() {
+            return null;
+          }
         };
 
     Exception e = assertThrows(RuntimeException.class, () -> evaluate(template));
@@ -226,6 +232,12 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
     ActionTemplate<DummyAction> template =
         new TestActionTemplate(inputTree, outputTree) {
+          @Nullable
+          @Override
+          public Artifact getDiagnostics() {
+            return null;
+          }
+
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
               ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts,
@@ -254,6 +266,12 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
     ActionTemplate<DummyAction> template =
         new TestActionTemplate(inputTree, outputTree) {
+          @Nullable
+          @Override
+          public Artifact getDiagnostics() {
+            return null;
+          }
+
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
               ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts,
@@ -284,6 +302,12 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
     ActionTemplate<DummyAction> template =
         new TestActionTemplate(inputTree, outputTree) {
+          @Nullable
+          @Override
+          public Artifact getDiagnostics() {
+            return null;
+          }
+
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
               ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts,
@@ -331,6 +355,12 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
           @Override
           public ImmutableSet<Artifact> getOutputs() {
             return ImmutableSet.of(outputTree, additionalOutputTree);
+          }
+
+          @Nullable
+          @Override
+          public Artifact getDiagnostics() {
+            return null;
           }
         };
 

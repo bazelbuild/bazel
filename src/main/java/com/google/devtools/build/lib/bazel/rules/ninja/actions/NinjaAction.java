@@ -83,6 +83,7 @@ public class NinjaAction extends SpawnAction implements ActionCacheAwareAction {
         /* inputs= */ inputs,
         /* outputs= */ outputs,
         /* primaryOutput= */ Iterables.getFirst(outputs, null),
+        /*diagnosticFile= */ null,
         /* resourceSet= */ AbstractAction.DEFAULT_RESOURCE_SET,
         /* commandLines= */ commandLines,
         /* commandLineLimits= */ CommandLineLimits.UNLIMITED,

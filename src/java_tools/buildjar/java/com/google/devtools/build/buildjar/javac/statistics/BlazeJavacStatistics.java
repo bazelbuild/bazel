@@ -131,8 +131,6 @@ public abstract class BlazeJavacStatistics {
      *
      * <p>Since this method is called across the boundaries of an annotation processorpath and the
      * runtime classpath of the compiler, we want to reduce the number of classes mentioned, hence
-     * the byte[] data type. If we find a way to make this more safe, we would prefer to use a
-     * protobuf ByteString instead for its immutability.
      */
     public Builder addAuxiliaryData(AuxiliaryDataSource key, byte[] serializedData) {
       auxiliaryDataBuilder().put(key, serializedData.clone());

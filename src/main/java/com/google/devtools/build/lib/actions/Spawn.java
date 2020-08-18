@@ -108,6 +108,8 @@ public interface Spawn {
    */
   Collection<? extends ActionInput> getOutputFiles();
 
+  @Nullable ActionInput getDiagnosticsFile();
+
   /**
    * Returns the resource owner for local fallback.
    */

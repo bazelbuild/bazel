@@ -435,6 +435,12 @@ public class GenQuery implements RuleConfiguredTargetFactory {
         Fingerprint fp) {
       result.fingerprint(fp);
     }
+
+    @Override
+    @Nullable
+    public Artifact getDiagnostics() {
+      return null;
+    }
   }
 
   /**
