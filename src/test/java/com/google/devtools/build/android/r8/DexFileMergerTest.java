@@ -43,8 +43,6 @@ import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-// import com.android.tools.r8.maindexlist.MainDexListTests;
-
 /** Test for DexFileMerger. */
 @RunWith(JUnit4.class)
 public class DexFileMergerTest {
