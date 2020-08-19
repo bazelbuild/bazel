@@ -34,7 +34,7 @@ JNIEXPORT jlong Java_com_github_luben_zstd_Zstd_trainFromBuffer
     for (int i = 0; i < num_samples; i++) {
         jbyteArray sample = (*env)->GetObjectArrayElement(env, samples, i);
         jsize length = (*env)->GetArrayLength(env, sample);
-        (*env)->GetByteArrayRegion(env, sample, 0, length, (jbyte*)(samples_buffer + cursor));
+        (*env)->GetByteArrayRegion(env, sample, 0, length, (jbyte*)(((char *)samples_buffer) + cursor));
         (*env)->DeleteLocalRef(env, sample);
         cursor += length;
     }

@@ -10,29 +10,61 @@ filegroup(
     visibility = ["//third_party:__pkg__"],
 )
 
+# Below two rules are copied from src/main/native/BUILD.
+# Move to some common place?
+genrule(
+    name = "copy_link_jni_md_header",
+    srcs = select({
+        "//src/conditions:darwin": ["//tools/jdk:jni_md_header-darwin"],
+        "//src/conditions:darwin_x86_64": ["//tools/jdk:jni_md_header-darwin"],
+        "//src/conditions:freebsd": ["//tools/jdk:jni_md_header-freebsd"],
+        "//src/conditions:openbsd": ["//tools/jdk:jni_md_header-openbsd"],
+        "//src/conditions:windows": ["//tools/jdk:jni_md_header-windows"],
+        "//conditions:default": ["//tools/jdk:jni_md_header-linux"],
+    }),
+    outs = ["jni_md.h"],
+    cmd = "cp -f $< $@",
+)
+
+genrule(
+    name = "copy_link_jni_header",
+    srcs = ["//tools/jdk:jni_header"],
+    outs = ["jni.h"],
+    cmd = "cp -f $< $@",
+)
+
 cc_library(
-    name = "jni",
+    name = "jni_headers",
     hdrs = [
-        "jni/jni.h",
-        "jni/jni_md.h",
+        ":jni.h",
+        ":jni_md.h",
     ],
-    includes = ["jni"],
+    includes = ["."],
+)
+
+filegroup(
+    name = "zstd_sources",
+    srcs = glob([
+        "src/main/native/**/*.c",
+        "src/main/native/**/*.h",
+    ]),
 )
 
 cc_binary(
     name = "libzstd-jni.so",
-    srcs = glob(
-        [
-            "src/main/native/**/*.c",
-            "src/main/native/**/*.h",
-        ],
-    ),
+    srcs = [":zstd_sources"],
+    copts = [
+        "-std=c99",
+        "-Wundef",
+        "-Wshadow",
+        "-Wcast-align",
+        "-Wstrict-prototypes",
+        "-Wno-unused-variable",
+        "-Wpointer-arith",
+    ],
     includes = [
         "src/main/native",
         "src/main/native/common",
-        "src/main/native/compress",
-        "src/main/native/decompress",
-        "src/main/native/dictBuilder",
         "src/main/native/legacy",
     ],
     linkshared = 1,
@@ -40,9 +72,24 @@ cc_binary(
         "ZSTD_MULTITHREAD=1",
         "ZSTD_LEGACY_SUPPORT=4",
     ],
-    deps = [
-        ":jni",
+    deps = [":jni_headers"],
+)
+
+cc_binary(
+    name = "libzstd-jni.dll",
+    srcs = [":zstd_sources"],
+    includes = [
+        "src/main/native",
+        "src/main/native/common",
+        "src/main/native/legacy",
     ],
+    linkshared = 1,
+    local_defines = [
+        "ZSTD_MULTITHREAD=1",
+        "ZSTD_LEGACY_SUPPORT=4",
+        "_JNI_IMPLEMENTATION_",
+    ],
+    deps = [":jni_headers"],
 )
 
 # TODO(bazel-team): Come up with a way to support platform-specific dynamic
@@ -65,7 +112,7 @@ java_library(
     data = select({
         "//src/conditions:darwin": ["//third_party/zstd-jni:libzstd-jni.dylib"],
         "//src/conditions:darwin_x86_64": ["//third_party/zstd-jni:libzstd-jni.dylib"],
-        "//src/conditions:windows": [],
+        "//src/conditions:windows": ["//third_party/zstd-jni:libzstd-jni.dll"],
         "//conditions:default": ["//third_party/zstd-jni:libzstd-jni.so"],
     }),
     visibility = ["//visibility:public"],
