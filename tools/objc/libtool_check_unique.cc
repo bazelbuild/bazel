@@ -19,7 +19,7 @@ string getBasename(const string &path) {
 int main(int argc, const char * argv[]) {
     unordered_set<string> basenames;
     const regex libRegex = regex(".*\\.a$");
-    const regex noArgFlags = regex("-static|-s|-a|-c|-L|-T|-no_warning_for_no_symbols");
+    const regex noArgFlags = regex("-static|-s|-a|-c|-L|-T|-D|-no_warning_for_no_symbols");
     const regex singleArgFlags = regex("-arch_only|-syslibroot|-o");
     // Set i to 1 to skip executable path
     for (int i = 1; argv[i] != nullptr; i++) {
