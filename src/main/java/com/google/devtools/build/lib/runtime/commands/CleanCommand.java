@@ -188,7 +188,7 @@ public final class CleanCommand implements BlazeCommand {
   }
 
   private static void asyncClean(CommandEnvironment env, Path path, String pathItemName)
-      throws IOException, CommandException {
+      throws IOException, CommandException, InterruptedException {
     String tempBaseName = path.getBaseName() + "_tmp_" + ProcessUtils.getpid();
 
     // Keeping tempOutputBase in the same directory ensures it remains in the

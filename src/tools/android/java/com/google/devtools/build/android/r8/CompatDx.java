@@ -601,7 +601,13 @@ public class CompatDx {
     }
 
     if (dexArgs.minimalMainDex && dexArgs.verbose) {
-      System.out.println("Warning: minimal main-dex support is not yet supported");
+      if (dexArgs.debug) {
+        System.out.println(
+            "Info: minimal main-dex generation is always done for D8 debug builds."
+                + " Please remove option --minimal-main-dex");
+      } else {
+        throw new DxUsageMessage("Error: minimal main-dex is not supported for D8 release builds");
+      }
     }
 
     if (dexArgs.maxIndexNumber != 0 && dexArgs.verbose) {
@@ -636,17 +642,13 @@ public class CompatDx {
         // the internals is not required.
         Method setEnableMainDexListCheck =
             D8Command.Builder.class.getDeclaredMethod("setEnableMainDexListCheck", boolean.class);
-        Method setMinimalMainDex =
-            D8Command.Builder.class.getDeclaredMethod("setMinimalMainDex", boolean.class);
         // The methods are package private to not reveal them as part of the external API.
         setEnableMainDexListCheck.setAccessible(true);
-        setMinimalMainDex.setAccessible(true);
         setEnableMainDexListCheck.invoke(builder, Boolean.FALSE);
-        setMinimalMainDex.invoke(builder, dexArgs.minimalMainDex);
         D8.run(builder.build());
       } catch (ReflectiveOperationException e) {
         // Go through the support code accessing the internals for the compilation.
-        CompatDxSupport.run(builder.build(), dexArgs.minimalMainDex);
+        CompatDxSupport.run(builder.build());
       }
     } finally {
       executor.shutdown();

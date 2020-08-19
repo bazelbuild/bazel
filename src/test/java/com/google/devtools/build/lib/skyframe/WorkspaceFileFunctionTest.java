@@ -518,6 +518,24 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     }
   }
 
+  @Test
+  public void testMangledExternalWorkspaceFileIsIgnored() throws Exception {
+    scratch.file("secondary/WORKSPACE", "garbage");
+    RootedPath workspace =
+        createWorkspaceFile(
+            "workspace(name = 'good')",
+            "local_repository(name = \"secondary\", path = \"./secondary/\")");
+
+    SkyKey key1 = WorkspaceFileValue.key(workspace, 1);
+    EvaluationResult<WorkspaceFileValue> result1 = eval(key1);
+    WorkspaceFileValue value1 = result1.get(key1);
+    RepositoryName good = RepositoryName.create("@good");
+    RepositoryName main = RepositoryName.create("@");
+    RepositoryName secondary = RepositoryName.create("@secondary");
+    assertThat(value1.getRepositoryMapping()).containsEntry(secondary, ImmutableMap.of(good, main));
+    assertNoEvents();
+  }
+
   private static class TestManagedDirectoriesKnowledge implements ManagedDirectoriesKnowledge {
     private String lastWorkspaceName;
     private int cnt = 0;

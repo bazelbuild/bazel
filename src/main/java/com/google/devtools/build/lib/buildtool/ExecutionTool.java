@@ -133,7 +133,8 @@ public class ExecutionTool {
   private final SpawnStrategyRegistry spawnStrategyRegistry;
   private final ModuleActionContextRegistry actionContextRegistry;
 
-  ExecutionTool(CommandEnvironment env, BuildRequest request) throws AbruptExitException {
+  ExecutionTool(CommandEnvironment env, BuildRequest request)
+      throws AbruptExitException, InterruptedException {
     this.env = env;
     this.runtime = env.getRuntime();
     this.request = request;

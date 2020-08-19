@@ -94,7 +94,7 @@ while [[ $# -gt 0 ]]; do
      OUTPUTFILE="${ARG}"
      ;;
    # Flags with no args
-    -static|-s|-a|-c|-L|-T|-no_warning_for_no_symbols)
+    -static|-s|-a|-c|-L|-T|-D|-no_warning_for_no_symbols)
       ARGS+=("${ARG}")
       ;;
    # Single-arg flags

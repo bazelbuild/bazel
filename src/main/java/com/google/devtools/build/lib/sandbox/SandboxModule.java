@@ -144,7 +144,7 @@ public final class SandboxModule extends BlazeModule {
   @Override
   public void registerSpawnStrategies(
       SpawnStrategyRegistry.Builder registryBuilder, CommandEnvironment env)
-      throws AbruptExitException {
+      throws AbruptExitException, InterruptedException {
     checkNotNull(env, "env not initialized; was beforeCommand called?");
     try {
       setup(env, registryBuilder);
@@ -194,7 +194,7 @@ public final class SandboxModule extends BlazeModule {
   }
 
   private void setup(CommandEnvironment cmdEnv, SpawnStrategyRegistry.Builder builder)
-      throws IOException {
+      throws IOException, InterruptedException {
     SandboxOptions options = checkNotNull(env.getOptions().getOptions(SandboxOptions.class));
     sandboxBase = computeSandboxBase(options, env);
 
