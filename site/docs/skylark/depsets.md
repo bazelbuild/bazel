@@ -12,7 +12,8 @@ for authors of rules and aspects, but probably not macros.
 
 The main feature of depsets is that they support a time- and space-efficient
 merge operation, whose cost is independent of the size of the existing contents.
-Depsets also have well-defined ordering semantics.
+This merge operation accessed during depset construction, passing a list of depsets
+to the the `transitive` argument. Depsets also have well-defined ordering semantics.
 
 Example uses of depsets include:
 
