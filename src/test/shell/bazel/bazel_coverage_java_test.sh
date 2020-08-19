@@ -35,15 +35,11 @@ if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
 fi
 JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
 
-COVERAGE_GENERATOR_ZIP="$1"; shift
-if [[ "${COVERAGE_GENERATOR_ZIP}" != "released" ]]; then
-  if [[ "${COVERAGE_GENERATOR_ZIP}" == file* ]]; then
-    COVERAGE_GENERATOR_ZIP_FILE_URL="${COVERAGE_GENERATOR_ZIP}"
-  else
-    COVERAGE_GENERATOR_ZIP_FILE_URL="file://$(rlocation io_bazel/$COVERAGE_GENERATOR_ZIP)"
-  fi
+COVERAGE_GENERATOR_DIR="$1"; shift
+if [[ "${COVERAGE_GENERATOR_DIR}" != "released" ]]; then
+  COVERAGE_GENERATOR_DIR="$(rlocation io_bazel/$COVERAGE_GENERATOR_DIR)"
+  add_to_bazelrc "build --override_repository=remote_coverage_tools=${COVERAGE_GENERATOR_DIR}"
 fi
-COVERAGE_GENERATOR_ZIP_FILE_URL=${COVERAGE_GENERATOR_ZIP_FILE_URL:-}
 
 if [[ $# -gt 0 ]]; then
     JAVABASE_VALUE="$1"; shift
@@ -67,16 +63,6 @@ EOF
     fi
 
     cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
-
-    if [[ "${COVERAGE_GENERATOR_ZIP_FILE_URL}" ]]; then
-        cat >> WORKSPACE << EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-http_archive(
-    name = "remote_coverage_tools",
-    urls = ["${COVERAGE_GENERATOR_ZIP_FILE_URL}"],
-  )
-EOF
-    fi
 }
 
 # Asserts if the given expected coverage result is included in the given output

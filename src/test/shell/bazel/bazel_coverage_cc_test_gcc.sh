@@ -21,31 +21,11 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-COVERAGE_GENERATOR_ZIP="$1"; shift
-if [[ "${COVERAGE_GENERATOR_ZIP}" != "released" ]]; then
-  if [[ "${COVERAGE_GENERATOR_ZIP}" == file* ]]; then
-    COVERAGE_GENERATOR_ZIP_FILE_URL="${COVERAGE_GENERATOR_ZIP}"
-  else
-    COVERAGE_GENERATOR_ZIP_FILE_URL="file://$(rlocation io_bazel/$COVERAGE_GENERATOR_ZIP)"
-  fi
+COVERAGE_GENERATOR_DIR="$1"; shift
+if [[ "${COVERAGE_GENERATOR_DIR}" != "released" ]]; then
+  COVERAGE_GENERATOR_DIR="$(rlocation io_bazel/$COVERAGE_GENERATOR_DIR)"
+  add_to_bazelrc "build --override_repository=remote_coverage_tools=${COVERAGE_GENERATOR_DIR}"
 fi
-COVERAGE_GENERATOR_ZIP_FILE_URL=${COVERAGE_GENERATOR_ZIP_FILE_URL:-}
-
-function set_up() {
-  if [[ "${COVERAGE_GENERATOR_ZIP_FILE_URL}" ]]; then
-    # there are two targets in the coverage archive: coverate_report_generator and lcov_merge
-    # both are used, both point to the same java binary, but only one can be configured by the user
-    # with the --coverage_report_generator=<target> option
-    # we overwrite the "@remote_coverage_tools" repo so bazel will pick up both targets
-    cat << EOF > WORKSPACE
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-http_archive(
-    name = "remote_coverage_tools",
-    urls = ["${COVERAGE_GENERATOR_ZIP_FILE_URL}"],
-)
-EOF
-  fi
-}
 
 # Writes the C++ source files and a corresponding BUILD file for which to
 # collect code coverage. The sources are a.cc, a.h and t.cc.

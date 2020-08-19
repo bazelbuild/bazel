@@ -443,11 +443,11 @@ sh_test(
     name = "bazel_coverage_cc_head_test_gcc",
     srcs = ["bazel_coverage_cc_test_gcc.sh"],
     args = [
-        "tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator/coverage_output_generator.zip",
+        "tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator/coverage",
         ],
     data = [
         ":test-deps",
-        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_zip",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
         ],
     tags = [
         "no_windows",
@@ -524,7 +524,7 @@ sh_test(
             # java_tools zip to test
             "src/java_tools_java" + java_version + ".zip",
             # coverage output generator to test
-            "tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator/coverage_output_generator.zip",
+            "tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator/coverage",
             # --javabase value
         ] + select({
             "//src/conditions:darwin": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
@@ -536,7 +536,7 @@ sh_test(
             ":test-deps",
             "//src:java_tools_java" + java_version + "_zip",
             "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
-            "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_zip",
+            "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
         ],
         tags = [
             "no_windows",
