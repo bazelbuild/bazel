@@ -2218,8 +2218,7 @@ public final class RuleContext extends TargetContext
         // It's not a label or label_list attribute.
         return;
       }
-      if (allowedFileTypes == FileTypeSet.ANY_FILE && !attribute.isNonEmpty()
-          && !attribute.isSingleArtifact()) {
+      if (!attribute.isNonEmpty() && !attribute.isSingleArtifact()) {
         return;
       }
 
