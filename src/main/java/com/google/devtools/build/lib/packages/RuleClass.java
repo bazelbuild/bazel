@@ -1995,7 +1995,8 @@ public class RuleClass {
       boolean checkThirdPartyRulesHaveLicenses)
       throws LabelSyntaxException, InterruptedException, CannotPrecomputeDefaultsException {
     Rule rule =
-        pkgBuilder.createRule(ruleLabel, this, location, callstack, new AttributeContainer(this));
+        pkgBuilder.createRule(
+            ruleLabel, this, location, callstack, AttributeContainer.newInstance(this));
     populateRuleAttributeValues(rule, pkgBuilder, attributeValues, eventHandler);
     checkAspectAllowedValues(rule, eventHandler);
     rule.populateOutputFiles(eventHandler, pkgBuilder);
@@ -2235,12 +2236,8 @@ public class RuleClass {
 
       } else if (attr.getName().equals("distribs") && attr.getType() == BuildType.DISTRIBUTIONS) {
         rule.setAttributeValue(attr, pkgBuilder.getDefaultDistribs(), /*explicit=*/ false);
-
-      } else {
-        Object defaultValue = attr.getDefaultValue(/*rule=*/ null);
-        rule.setAttributeValue(attr, defaultValue, /*explicit=*/ false);
-        checkAllowedValues(rule, attr, eventHandler);
       }
+      // Don't store default values, querying materializes them at read time.
     }
 
     // An instance of the built-in 'test_suite' rule with an undefined or empty 'tests' attribute

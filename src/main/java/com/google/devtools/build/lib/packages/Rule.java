@@ -323,14 +323,38 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   @Nullable
+  private Object getAttrWithIndex(int attrIndex) {
+    Object value = attributes.getAttributeValue(attrIndex);
+    if (value != null) {
+      return value;
+    }
+    Attribute attr = ruleClass.getAttribute(attrIndex);
+    if (attr.hasComputedDefault()) {
+      // Don't even try to compute it.
+      // Correctness of this relies on the fact that at Rule creation time
+      // we did not skip populating attributes with a computed default.
+      return null;
+    } else {
+      return attr.getDefaultValue(null);
+    }
+  }
+
+  /**
+   * Returns the value of the given attribute for this rule. Returns null for invalid attributes and
+   * default value if attribute was not set.
+   *
+   * @param attrName the name of the attribute to lookup.
+   */
+  @Nullable
   public Object getAttr(String attrName) {
-    return attributes.getAttr(attrName);
+    Integer attrIndex = ruleClass.getAttributeIndex(attrName);
+    return attrIndex == null ? null : getAttrWithIndex(attrIndex);
   }
 
   /**
    * Returns the value of the given attribute if it has the right type.
    *
-   * @throws IllegalArgumentException if the attribute does not have the excepted type.
+   * @throws IllegalArgumentException if the attribute does not have the expected type.
    */
   @Nullable
   public <T> Object getAttr(String attrName, Type<T> type) {
@@ -353,7 +377,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
               + " rule "
               + getLabel());
     }
-    return attributes.getAttributeValue(index);
+    return getAttrWithIndex(index);
   }
 
   /**
@@ -412,7 +436,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
 
   /** Returns the macro that generated this rule, or an empty string. */
   public String getGeneratorFunction() {
-    Object value = attributes.getAttr("generator_function");
+    Object value = getAttr("generator_function");
     if (value instanceof String) {
       return (String) value;
     }
@@ -420,8 +444,8 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   private boolean hasStringAttribute(String attrName) {
-    Object value = attributes.getAttr(attrName);
-    if (value != null && value instanceof String) {
+    Object value = getAttr(attrName);
+    if (value instanceof String) {
       return !((String) value).isEmpty();
     }
     return false;

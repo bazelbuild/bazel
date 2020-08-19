@@ -261,7 +261,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
               ruleClass,
               Location.fromFile(myPkgPath.toString()),
               CallStack.EMPTY,
-              new AttributeContainer(ruleClass));
+              AttributeContainer.newInstance(ruleClass));
       if (TargetUtils.isTestRule(rule)) {
         assertAttr(ruleClass, "tags", Type.STRING_LIST);
         assertAttr(ruleClass, "size", Type.STRING);

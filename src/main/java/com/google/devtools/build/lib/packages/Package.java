@@ -1291,7 +1291,7 @@ public class Package {
           ruleClass,
           location,
           callStackBuilder.of(callstack),
-          new AttributeContainer(ruleClass),
+          AttributeContainer.newInstance(ruleClass),
           implicitOutputsFunction);
     }
 

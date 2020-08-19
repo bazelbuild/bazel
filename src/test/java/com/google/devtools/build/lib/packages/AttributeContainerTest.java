@@ -15,9 +15,14 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import org.junit.Before;
 import org.junit.Test;
@@ -41,7 +46,7 @@ public class AttributeContainerTest {
         TestRuleClassProvider.getRuleClassProvider().getRuleClassMap().get("testing_dummy_rule");
     attribute1 = ruleClass.getAttributeByName("srcs");
     attribute2 = ruleClass.getAttributeByName("dummyinteger");
-    container = new AttributeContainer(ruleClass);
+    container = AttributeContainer.newInstance(ruleClass);
   }
 
   @Test
@@ -50,9 +55,13 @@ public class AttributeContainerTest {
     Object someValue2 = new Object();
     container.setAttributeValue(attribute1, someValue1, /*explicit=*/ true);
     container.setAttributeValue(attribute2, someValue2, /*explicit=*/ true);
-    assertThat(container.getAttr(attribute1.getName())).isEqualTo(someValue1);
-    assertThat(container.getAttr(attribute2.getName())).isEqualTo(someValue2);
-    assertThat(container.getAttr("nomatch")).isNull();
+    assertThat(container.getAttributeValue(ruleClass.getAttributeIndex(attribute1.getName())))
+        .isEqualTo(someValue1);
+    assertThat(container.getAttributeValue(ruleClass.getAttributeIndex(attribute2.getName())))
+        .isEqualTo(someValue2);
+    assertThat(ruleClass.getAttributeCount()).isLessThan(250); // Sanity check
+    // Invalid attribute index.
+    assertThat(container.getAttributeValue(ruleClass.getAttributeCount() + 1)).isNull();
   }
 
   @Test
@@ -62,6 +71,50 @@ public class AttributeContainerTest {
     container.setAttributeValue(attribute2, someValue, false);
     assertThat(container.isAttributeValueExplicitlySpecified(attribute1)).isTrue();
     assertThat(container.isAttributeValueExplicitlySpecified(attribute2)).isFalse();
+  }
+
+  private ImmutableSet<Integer> getSpecifiedIndices(
+      Map<Integer, String> nameByIndex, int... attrIndices) {
+    ImmutableSet.Builder<Integer> result = ImmutableSet.builder();
+    for (int attrIndex : attrIndices) {
+      if (container.isAttributeValueExplicitlySpecified(nameByIndex.get(attrIndex))) {
+        result.add(attrIndex);
+      }
+    }
+    return result.build();
+  }
+
+  @Test
+  public void testExplicitStateForOffByOneError() throws Exception {
+    // Get list of attribute names in index order.
+    Map<Integer, String> nameByIndex = new HashMap<>();
+    for (Attribute attribute : ruleClass.getAttributes()) {
+      nameByIndex.put(ruleClass.getAttributeIndex(attribute.getName()), attribute.getName());
+    }
+    // Find all indices where previous and next index is also valid.
+    List<Integer> middleIndices = new ArrayList<>();
+    for (int attrIndex : nameByIndex.keySet()) {
+      if (nameByIndex.containsKey(attrIndex - 1) && nameByIndex.containsKey(attrIndex + 1)) {
+        middleIndices.add(attrIndex);
+      }
+    }
+    Collections.sort(middleIndices);
+    int numChecks = 0;
+    for (int attrIndex : middleIndices) {
+      // Make sure attrIndex and its neighbours are clean.
+      if (!getSpecifiedIndices(nameByIndex, attrIndex, attrIndex - 1, attrIndex + 1).isEmpty()) {
+        continue;
+      }
+      numChecks += 1;
+      // Explicitly set attrIndex-1,attrIndex+1
+      container.setAttributeValue(ruleClass.getAttribute(attrIndex + 1), null, true);
+      container.setAttributeValue(ruleClass.getAttribute(attrIndex - 1), null, true);
+      // Check current attribute is still unset.
+      assertThat(getSpecifiedIndices(nameByIndex, attrIndex - 1, attrIndex, attrIndex + 1))
+          .containsExactly(attrIndex - 1, attrIndex + 1);
+    }
+    // Make sure this actually tested something.
+    assertThat(numChecks).isAtLeast(1);
   }
 
   @Test
@@ -77,7 +130,7 @@ public class AttributeContainerTest {
 
     Object someValue = new Object();
     for (int explicitCount = 0; explicitCount <= numAttributes; ++explicitCount) {
-        AttributeContainer container = new AttributeContainer(ruleClass);
+      AttributeContainer container = AttributeContainer.newInstance(ruleClass);
         // Shuffle the attributes each time through, to exercise
         // different stored indices and orderings.
         Collections.shuffle(Arrays.asList(attributes));
