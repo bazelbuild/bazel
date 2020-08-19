@@ -104,7 +104,7 @@ genrule(
 )
 
 filegroup(
-    name = "target-os-native-lib",
+    name = "zstd-native-lib",
     srcs = select({
         "//src/conditions:darwin": ["//third_party/zstd-jni:libzstd-jni.dylib"],
         "//src/conditions:darwin_x86_64": ["//third_party/zstd-jni:libzstd-jni.dylib"],
@@ -124,6 +124,6 @@ java_library(
         ],
     ),
     visibility = ["//visibility:public"],
-    data = [":target-os-native-lib"],
+    data = [":zstd-native-lib"],
     deps = ["@bazel_tools//tools/java/runfiles"],
 )
