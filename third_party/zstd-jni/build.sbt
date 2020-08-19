@@ -6,7 +6,7 @@ version := {
   scala.io.Source.fromFile("version").getLines.next
 }
 
-scalaVersion := "2.12.8"
+scalaVersion := "2.12.10"
 
 enablePlugins(JniPlugin, SbtOsgi)
 
@@ -26,6 +26,10 @@ libraryDependencies ++= Seq(
 javacOptions ++= Seq("-source", "1.6", "-target", "1.6")
 
 javacOptions in doc := Seq("-source", "1.6")
+
+// Check at runtime for JNI errors when running tests
+// fork := true
+// javaOptions in Test ++= Seq("-Xcheck:jni")
 
 // sbt-jni configuration
 jniLibraryName := "zstd-jni"
@@ -57,7 +61,7 @@ jniCppExtensions := Seq("c")
 
 jniGccFlags ++= Seq(
   "-std=c99", "-Wundef", "-Wshadow", "-Wcast-align", "-Wstrict-prototypes", "-Wno-unused-variable",
-  "-DZSTD_LEGACY_SUPPORT=4", "-DZSTD_MULTITHREAD=1", "-lpthread"
+  "-DZSTD_LEGACY_SUPPORT=4", "-DZSTD_MULTITHREAD=1", "-lpthread", "-flto"
 )
 
 // compilation on Windows with MSYS/gcc needs extra flags in order
@@ -161,8 +165,9 @@ osgiSettings
 OsgiKeys.bundleSymbolicName := "com.github.luben.zstd-jni"
 OsgiKeys.exportPackage  := Seq(s"""com.github.luben.zstd;version="${version.value}"""")
 OsgiKeys.privatePackage := Seq("com.github.luben.zstd.util", "include",
-  "linux.amd64", "linux.i386", "linux.aarch64", "linux.ppc64", "linux.ppc64le",
-  "linux.mips64", "aix.ppc64", "darwin.x86_64", "win.amd64", "win.x86"
+  "linux.amd64", "linux.i386", "linux.aarch64", "linux.arm", "linux.ppc64",
+  "linux.ppc64le", "linux.mips64", "aix.ppc64", "darwin.x86_64", "win.amd64", "win.x86",
+  "freebsd.amd64", "freebsd.i386"
 )
 
 // Jacoco coverage setting
@@ -213,6 +218,15 @@ mappings in (Linux_aarch64, packageBin) := {
 packageOptions in (Linux_aarch64, packageBin) +=
   Package.ManifestAttributes(new java.util.jar.Attributes.Name("Automatic-Module-Name") -> "com.github.luben.zstd_jni")
 addArtifact(Artifact(nameValue, "linux_aarch64"), packageBin in Linux_aarch64)
+
+lazy val Linux_arm = config("linux_arm").extend(Compile)
+inConfig(Linux_arm)(Defaults.compileSettings)
+mappings in (Linux_arm, packageBin) := {
+  (file("target/classes/linux/arm/libzstd-jni.so"), "linux/arm/libzstd-jni.so") :: classes
+}
+packageOptions in (Linux_arm, packageBin) +=
+  Package.ManifestAttributes(new java.util.jar.Attributes.Name("Automatic-Module-Name") -> "com.github.luben.zstd_jni")
+addArtifact(Artifact(nameValue, "linux_arm"), packageBin in Linux_arm)
 
 lazy val Linux_ppc64le = config("linux_ppc64le").extend(Compile)
 inConfig(Linux_ppc64le)(Defaults.compileSettings)
@@ -267,6 +281,15 @@ mappings in (FreeBSD_amd64, packageBin) := {
 packageOptions in (FreeBSD_amd64, packageBin) +=
   Package.ManifestAttributes(new java.util.jar.Attributes.Name("Automatic-Module-Name") -> "com.github.luben.zstd_jni")
 addArtifact(Artifact(nameValue, "freebsd_amd64"), packageBin in FreeBSD_amd64)
+
+lazy val FreeBSD_i386 = config("freebsd_i386").extend(Compile)
+inConfig(FreeBSD_i386)(Defaults.compileSettings)
+mappings in (FreeBSD_i386, packageBin) := {
+  (file("target/classes/freebsd/i386/libzstd-jni.so"), "freebsd/i386/libzstd-jni.so") :: classes
+}
+packageOptions in (FreeBSD_i386, packageBin) +=
+  Package.ManifestAttributes(new java.util.jar.Attributes.Name("Automatic-Module-Name") -> "com.github.luben.zstd_jni")
+addArtifact(Artifact(nameValue, "freebsd_i386"), packageBin in FreeBSD_i386)
 
 val Win_x86 = config("win_x86").extend(Compile)
 inConfig(Win_x86)(Defaults.compileSettings)

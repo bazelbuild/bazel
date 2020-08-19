@@ -14,11 +14,12 @@ compile () {
     scp $HOST:libzstd-jni.so $INSTALL
 }
 
-compile amd64   linux
-compile i386    linux
-compile ppc64   linux
-compile ppc64le linux
+compile amd64   linux "gcc -flto"
+compile i386    linux "gcc -march=i586 -flto"
+compile ppc64   linux "gcc -flto"
+compile ppc64le linux "gcc -flto"
+compile aarch64 linux "gcc -flto"
+compile mips64  linux "gcc -flto"
+compile amd64   freebsd "cc -flto"
+compile i386    freebsd "cc -m32 -march=i486 -mfancy-math-387 -flto"
 compile ppc64   aix
-compile aarch64 linux
-compile mips64  linux
-compile amd64   freebsd cc

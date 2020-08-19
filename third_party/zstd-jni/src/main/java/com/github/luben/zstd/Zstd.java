@@ -4,6 +4,8 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 import com.github.luben.zstd.util.Native;
+import com.github.luben.zstd.ZstdCompressCtx;
+import com.github.luben.zstd.ZstdDecompressCtx;
 
 public class Zstd {
 
@@ -24,7 +26,16 @@ public class Zstd {
      * @return  the number of bytes written into buffer 'dst' or an error code if
      *          it fails (which can be tested using ZSTD_isError())
      */
-    public static native long compress(byte[] dst, byte[] src, int level, boolean checksumFlag);
+    public static long compress(byte[] dst, byte[] src, int level, boolean checksumFlag) {
+        ZstdCompressCtx ctx = new ZstdCompressCtx();
+        try {
+            ctx.setLevel(level);
+            ctx.setChecksum(checksumFlag);
+            return (long) ctx.compress(dst, src);
+        } finally {
+            ctx.close();
+        }
+    }
 
     /**
      * Compresses buffer 'src' into buffer 'dst'.
@@ -61,7 +72,16 @@ public class Zstd {
      * @return  the number of bytes written into buffer 'dst' or an error code if
      *          it fails (which can be tested using ZSTD_isError())
      */
-    public static native long compressByteArray(byte[] dst, int dstOffset, int dstSize, byte[] src, int srcOffset, int srcSize, int level, boolean checksumFlag);
+    public static long compressByteArray(byte[] dst, int dstOffset, int dstSize, byte[] src, int srcOffset, int srcSize, int level, boolean checksumFlag) {
+        ZstdCompressCtx ctx = new ZstdCompressCtx();
+        try {
+            ctx.setLevel(level);
+            ctx.setChecksum(checksumFlag);
+            return (long) ctx.compressByteArray(dst, dstOffset, dstSize, src, srcOffset, srcSize);
+        } finally {
+            ctx.close();
+        }
+    }
 
     /**
      * Compresses buffer 'src' into buffer 'dst'.
@@ -103,21 +123,15 @@ public class Zstd {
      *          it fails (which can be tested using ZSTD_isError())
      */
     public static long compressDirectByteBuffer(ByteBuffer dst, int dstOffset, int dstSize, ByteBuffer src, int srcOffset, int srcSize, int level, boolean checksumFlag) {
-        if (!src.isDirect()) {
-            throw new IllegalArgumentException("src must be a direct buffer");
+        ZstdCompressCtx ctx = new ZstdCompressCtx();
+        try {
+            ctx.setLevel(level);
+            ctx.setChecksum(checksumFlag);
+            return (long) ctx.compressDirectByteBuffer(dst, dstOffset, dstSize, src, srcOffset, srcSize);
+        } finally {
+            ctx.close();
         }
-        if (!dst.isDirect()) {
-            throw new IllegalArgumentException("dst must be a direct buffer");
-        }
-
-        long result = compressDirectByteBuffer0(dst, dstOffset, dstSize, src, srcOffset, srcSize, level, checksumFlag);
-        if (Zstd.isError(result)) {
-            throw new ZstdException(result);
-        }
-        return (int) result;
-    };
-
-    private static native long compressDirectByteBuffer0(ByteBuffer dst, int dstOffset, int dstSize, ByteBuffer src, int srcOffset, int srcSize, int level, boolean checksumFlag);
+    }
 
     /**
      * Compresses direct buffer 'src' into direct buffer 'dst'.
@@ -157,7 +171,7 @@ public class Zstd {
      * @return  the number of bytes written into buffer 'dst' or an error code if
      *          it fails (which can be tested using ZSTD_isError())
      */
-    public static native long compressUnsafe  (long dst, long dstSize,  long src, long srcSize, int level, boolean checksumFlag);
+    public static native long compressUnsafe(long dst, long dstSize, long src, long srcSize, int level, boolean checksumFlag);
 
     /**
      * Compresses buffer 'src' into direct buffer 'dst'.
@@ -174,7 +188,7 @@ public class Zstd {
      * @return  the number of bytes written into buffer 'dst' or an error code if
      *          it fails (which can be tested using ZSTD_isError())
      */
-    public static long compressUnsafe  (long dst, long dstSize,  long src, long srcSize, int level) {
+    public static long compressUnsafe(long dst, long dstSize, long src, long srcSize, int level) {
         return compressUnsafe(dst, dstSize, src, srcSize, level, false);
     }
 
@@ -195,7 +209,16 @@ public class Zstd {
      * @return  the number of bytes written into buffer 'dst' or an error code if
      *          it fails (which can be tested using ZSTD_isError())
      */
-    public static native long compressUsingDict (byte[] dst, int dstOffset, byte[] src, int srcOffset, int length, byte[] dict, int level);
+    public static long compressUsingDict (byte[] dst, int dstOffset, byte[] src, int srcOffset, int length, byte[] dict, int level) {
+        ZstdCompressCtx ctx = new ZstdCompressCtx();
+        try {
+            ctx.setLevel(level);
+            ctx.loadDict(dict);
+            return (long) ctx.compress(dst, src);
+        } finally {
+            ctx.close();
+        }
+    }
 
    /**
      * Compresses direct byte buffer 'src' into direct byte buffer 'dst' with dictionary.
@@ -216,21 +239,15 @@ public class Zstd {
      *          it fails (which can be tested using ZSTD_isError())
      */
     public static long compressDirectByteBufferUsingDict(ByteBuffer dst, int dstOffset, int dstSize, ByteBuffer src, int srcOffset, int srcSize, byte[] dict, int level) {
-        if (!src.isDirect()) {
-            throw new IllegalArgumentException("src must be a direct buffer");
+        ZstdCompressCtx ctx = new ZstdCompressCtx();
+        try {
+            ctx.setLevel(level);
+            ctx.loadDict(dict);
+            return (long) ctx.compressDirectByteBuffer(dst, dstOffset, dstSize, src, srcOffset, srcSize);
+        } finally {
+            ctx.close();
         }
-        if (!dst.isDirect()) {
-            throw new IllegalArgumentException("dst must be a direct buffer");
-        }
-
-        long result = compressDirectByteBufferUsingDict0(dst, dstOffset, dstSize, src, srcOffset, srcSize, dict, level);
-        if (Zstd.isError(result)) {
-            throw new ZstdException(result);
-        }
-        return (int) result;
-    };
-
-    private static native long compressDirectByteBufferUsingDict0(ByteBuffer dst, int dstOffset, int dstSize, ByteBuffer src, int srcOffset, int srcSize, byte[] dict, int level);
+    }
 
     /**
      * Compresses buffer 'src' into buffer 'dst' with dictionary.
@@ -249,24 +266,26 @@ public class Zstd {
      *          it fails (which can be tested using ZSTD_isError())
      */
     public static long compressFastDict(byte[] dst, int dstOffset, byte[] src, int srcOffset, int length, ZstdDictCompress dict) {
-        dict.acquireSharedLock();
+        ZstdCompressCtx ctx = new ZstdCompressCtx();
         try {
-            return compressFastDict0(dst, dstOffset, src, srcOffset, length, dict);
+            ctx.loadDict(dict);
+            ctx.setLevel(dict.level());
+            return (long) ctx.compressByteArray(dst, dstOffset, dst.length - dstOffset, src, srcOffset, length);
         } finally {
-            dict.releaseSharedLock();
+            ctx.close();
         }
     }
 
     public static long compress(byte[] dst, byte[] src, ZstdDictCompress dict) {
-        dict.acquireSharedLock();
+        ZstdCompressCtx ctx = new ZstdCompressCtx();
         try {
-            return compressFastDict0(dst, 0, src, 0, src.length, dict);
+            ctx.loadDict(dict);
+            ctx.setLevel(dict.level());
+            return (long) ctx.compress(dst, src);
         } finally {
-            dict.releaseSharedLock();
+            ctx.close();
         }
     }
-
-    private static native long compressFastDict0(byte[] dst, int dstOffset, byte[] src, int srcOffset, int length, ZstdDictCompress dict);
 
     /**
      * Compresses buffer 'src' into buffer 'dst' with dictionary.
@@ -286,23 +305,15 @@ public class Zstd {
      *          it fails (which can be tested using ZSTD_isError())
      */
     public static long compressDirectByteBufferFastDict(ByteBuffer dst, int dstOffset, int dstSize, ByteBuffer src, int srcOffset, int srcSize, ZstdDictCompress dict) {
-        if (!src.isDirect()) {
-            throw new IllegalArgumentException("src must be a direct buffer");
-        }
-        if (!dst.isDirect()) {
-            throw new IllegalArgumentException("dst must be a direct buffer");
-        }
-
-        dict.acquireSharedLock();
+        ZstdCompressCtx ctx = new ZstdCompressCtx();
         try {
-            return compressDirectByteBufferFastDict0(dst, dstOffset, dstSize, src, srcOffset, srcSize, dict);
+            ctx.loadDict(dict);
+            ctx.setLevel(dict.level());
+            return (long) ctx.compressDirectByteBuffer(dst, dstOffset, dstSize, src, srcOffset, srcSize);
         } finally {
-            dict.releaseSharedLock();
+            ctx.close();
         }
     }
-
-    public static native long compressDirectByteBufferFastDict0(ByteBuffer dst, int dstOffset, int dstSize, ByteBuffer src, int srcOffset, int srcSize, ZstdDictCompress dict);
-
 
     /**
      * Decompresses buffer 'src' into buffer 'dst'.
@@ -315,7 +326,14 @@ public class Zstd {
      *          or an errorCode if it fails (which can be tested using ZSTD_isError())
      *
      */
-    public static native long decompress(byte[] dst, byte[] src);
+    public static long decompress(byte[] dst, byte[] src) {
+        ZstdDecompressCtx ctx = new ZstdDecompressCtx();
+        try {
+            return (long) ctx.decompress(dst, src);
+        } finally {
+            ctx.close();
+        }
+    }
 
     /**
      * Decompresses buffer 'src' into buffer 'dst'.
@@ -332,7 +350,14 @@ public class Zstd {
      *          or an errorCode if it fails (which can be tested using ZSTD_isError())
      *
      */
-    public static native long decompressByteArray(byte[] dst, int dstOffset, int dstSize, byte[] src, int srcOffset, int srcSize);
+    public static long decompressByteArray(byte[] dst, int dstOffset, int dstSize, byte[] src, int srcOffset, int srcSize) {
+        ZstdDecompressCtx ctx = new ZstdDecompressCtx();
+        try {
+            return (long) ctx.decompressByteArray(dst, dstOffset, dstSize, src, srcOffset, srcSize);
+        } finally {
+            ctx.close();
+        }
+    }
 
     /**
      * Decompresses direct buffer 'src' into direct buffer 'dst'.
@@ -350,7 +375,14 @@ public class Zstd {
      *          or an errorCode if it fails (which can be tested using ZSTD_isError())
      *
      */
-    public static native long decompressDirectByteBuffer(ByteBuffer dst, int dstOffset, int dstSize, ByteBuffer src, int srcOffset, int srcSize);
+    public static long decompressDirectByteBuffer(ByteBuffer dst, int dstOffset, int dstSize, ByteBuffer src, int srcOffset, int srcSize) {
+        ZstdDecompressCtx ctx = new ZstdDecompressCtx();
+        try {
+            return (long) ctx.decompressDirectByteBuffer(dst, dstOffset, dstSize, src, srcOffset, srcSize);
+        } finally {
+            ctx.close();
+        }
+    }
 
     /**
      * Decompresses buffer 'src' into direct buffer 'dst'.
@@ -383,7 +415,15 @@ public class Zstd {
      *          or an errorCode if it fails (which can be tested using ZSTD_isError())
      *
      */
-    public static native long decompressUsingDict(byte[] dst, int dstOffset, byte[] src, int srcOffset, int length, byte[] dict);
+    public static long decompressUsingDict(byte[] dst, int dstOffset, byte[] src, int srcOffset, int length, byte[] dict) {
+        ZstdDecompressCtx ctx = new ZstdDecompressCtx();
+        try {
+            ctx.loadDict(dict);
+            return (long) ctx.decompressByteArray(dst, dstOffset, dst.length - dstOffset, src, srcOffset, length);
+        } finally {
+            ctx.close();
+        }
+    }
 
     /**
      * Decompresses buffer 'src' into buffer 'dst' with dictionary.
@@ -402,21 +442,14 @@ public class Zstd {
      *
      */
     public static long decompressDirectByteBufferUsingDict(ByteBuffer dst, int dstOffset, int dstSize, ByteBuffer src, int srcOffset, int srcSize, byte[] dict) {
-        if (!src.isDirect()) {
-            throw new IllegalArgumentException("src must be a direct buffer");
+        ZstdDecompressCtx ctx = new ZstdDecompressCtx();
+        try {
+            ctx.loadDict(dict);
+            return (long) ctx.decompressDirectByteBuffer(dst, dstOffset, dstSize, src, srcOffset, srcSize);
+        } finally {
+            ctx.close();
         }
-        if (!dst.isDirect()) {
-            throw new IllegalArgumentException("dst must be a direct buffer");
-        }
-
-        long result = decompressDirectByteBufferUsingDict0(dst, dstOffset, dstSize, src, srcOffset, srcSize, dict);
-        if (Zstd.isError(result)) {
-            throw new ZstdException(result);
-        }
-        return (int) result;
-    };
-
-    private static native long decompressDirectByteBufferUsingDict0(ByteBuffer dst, int dstOffset, int dstSize, ByteBuffer src, int srcOffset, int srcSize, byte[] dict);
+    }
 
     /**
      * Decompresses buffer 'src' into buffer 'dst' with dictionary.
@@ -434,15 +467,14 @@ public class Zstd {
      *
      */
     public static long decompressFastDict(byte[] dst, int dstOffset, byte[] src, int srcOffset, int length, ZstdDictDecompress dict) {
-        dict.acquireSharedLock();
+        ZstdDecompressCtx ctx = new ZstdDecompressCtx();
         try {
-            return decompressFastDict0(dst, dstOffset, src, srcOffset, length, dict);
+            ctx.loadDict(dict);
+            return (long) ctx.decompressByteArray(dst, dstOffset, dst.length - dstOffset, src, srcOffset, length);
         } finally {
-            dict.releaseSharedLock();
+            ctx.close();
         }
     }
-
-    private static native long decompressFastDict0(byte[] dst, int dstOffset, byte[] src, int srcOffset, int length, ZstdDictDecompress dict);
 
     /**
      * Decompresses buffer 'src' into buffer 'dst' with dictionary.
@@ -461,22 +493,14 @@ public class Zstd {
      *
      */
     public static long decompressDirectByteBufferFastDict(ByteBuffer dst, int dstOffset, int dstSize, ByteBuffer src, int srcOffset, int srcSize, ZstdDictDecompress dict) {
-        if (!src.isDirect()) {
-            throw new IllegalArgumentException("src must be a direct buffer");
-        }
-        if (!dst.isDirect()) {
-            throw new IllegalArgumentException("dst must be a direct buffer");
-        }
-        dict.acquireSharedLock();
+        ZstdDecompressCtx ctx = new ZstdDecompressCtx();
         try {
-            return decompressDirectByteBufferFastDict0(dst, dstOffset, dstSize, src, srcOffset, srcSize, dict);
+            ctx.loadDict(dict);
+            return (long) ctx.decompressDirectByteBuffer(dst, dstOffset, dstSize, src, srcOffset, srcSize);
         } finally {
-            dict.releaseSharedLock();
+            ctx.close();
         }
     }
-
-    private static native long decompressDirectByteBufferFastDict0(ByteBuffer dst, int dstOffset, int dstSize, ByteBuffer src, int srcOffset, int srcSize, ZstdDictDecompress dict);
-
 
     /* Advance API */
     public static native int loadDictDecompress(long stream, byte[] dict, int dict_size);
@@ -646,6 +670,8 @@ public class Zstd {
     public static native int minCompressionLevel();
     public static native int maxCompressionLevel();
 
+
+
     /* Convenience methods */
 
     /**
@@ -666,16 +692,13 @@ public class Zstd {
      * @return byte array with the compressed data
      */
     public static byte[] compress(byte[] src, int level) throws ZstdException {
-        long maxDstSize = compressBound(src.length);
-        if (maxDstSize > Integer.MAX_VALUE) {
-            throw new ZstdException(errGeneric(), "Max output size is greater than MAX_INT");
+        ZstdCompressCtx ctx = new ZstdCompressCtx();
+        try {
+            ctx.setLevel(level);
+            return ctx.compress(src);
+        } finally {
+            ctx.close();
         }
-        byte[] dst = new byte[(int) maxDstSize];
-        long size = compress(dst, src, level);
-        if (isError(size)) {
-            throw new ZstdException(size);
-        }
-        return Arrays.copyOfRange(dst, 0, (int) size);
     }
 
     /**
@@ -719,6 +742,17 @@ public class Zstd {
      * @return the size of the compressed data
      */
     public static int compress(ByteBuffer dstBuf, ByteBuffer srcBuf, int level, boolean checksumFlag) throws ZstdException {
+        ZstdCompressCtx ctx = new ZstdCompressCtx();
+        try {
+            ctx.setLevel(level);
+            ctx.setChecksum(checksumFlag);
+            return ctx.compress(dstBuf, srcBuf);
+        } finally {
+            ctx.close();
+        }
+
+        /*
+
         if (!srcBuf.isDirect()) {
             throw new IllegalArgumentException("srcBuf must be a direct buffer");
         }
@@ -741,6 +775,7 @@ public class Zstd {
         srcBuf.position(srcBuf.limit());
         dstBuf.position(dstBuf.position() + (int) size);
         return (int) size;
+        */
     }
 
     public static int compress(ByteBuffer dstBuf, ByteBuffer srcBuf, int level) throws ZstdException {
@@ -759,34 +794,13 @@ public class Zstd {
      * @return A newly allocated direct ByteBuffer containing the compressed data.
      */
     public static ByteBuffer compress(ByteBuffer srcBuf, int level) throws ZstdException {
-        if (!srcBuf.isDirect()) {
-            throw new IllegalArgumentException("srcBuf must be a direct buffer");
+        ZstdCompressCtx ctx = new ZstdCompressCtx();
+        try {
+            ctx.setLevel(level);
+            return ctx.compress(srcBuf);
+        } finally {
+            ctx.close();
         }
-
-        long maxDstSize = Zstd.compressBound((long)(srcBuf.limit() - srcBuf.position()));
-        if (maxDstSize > Integer.MAX_VALUE) {
-            throw new ZstdException(errGeneric(), "Max output size is greater than MAX_INT");
-        }
-
-        ByteBuffer dstBuf = ByteBuffer.allocateDirect((int) maxDstSize);
-
-        long size = compressDirectByteBuffer(dstBuf, // compress into dstBuf
-                0,                                   // starting at offset 0
-                (int) maxDstSize,                    // writing no more than maxDstSize
-                srcBuf,                              // read data to be compressed from srcBuf
-                srcBuf.position(),                   // start reading at offset position()
-                srcBuf.limit() - srcBuf.position(),  // read limit() - position() bytes
-                level);                              // use this compression level
-        if (isError(size)) {
-            throw new ZstdException(size);
-        }
-        srcBuf.position(srcBuf.limit());
-
-        dstBuf.limit((int)size);
-        // Since we allocated the buffer ourselves, we know it cannot be used to hold any further compressed data,
-        // so leave the position at zero where the caller surely wants it, ready to read
-
-        return dstBuf;
     }
 
     /**
@@ -797,16 +811,14 @@ public class Zstd {
      * @return byte array with the compressed data
      */
     public static byte[] compress(byte[] src, ZstdDictCompress dict) throws ZstdException {
-        long maxDstSize = compressBound(src.length);
-        if (maxDstSize > Integer.MAX_VALUE) {
-            throw new ZstdException(errGeneric(), "Max output size is greater than MAX_INT");
+        ZstdCompressCtx ctx = new ZstdCompressCtx();
+        try {
+            ctx.loadDict(dict);
+            ctx.setLevel(dict.level());
+            return ctx.compress(src);
+        } finally {
+            ctx.close();
         }
-        byte[] dst = new byte[(int) maxDstSize];
-        long size = compressFastDict(dst,0,src,0,src.length, dict);
-        if (isError(size)) {
-            throw new ZstdException(size);
-        }
-        return Arrays.copyOfRange(dst, 0, (int) size);
     }
 
    /**
@@ -830,16 +842,14 @@ public class Zstd {
      */
 
     public static byte[] compressUsingDict(byte[] src, byte[] dict, int level) throws ZstdException {
-        long maxDstSize = compressBound(src.length);
-        if (maxDstSize > Integer.MAX_VALUE) {
-            throw new ZstdException(errGeneric(), "Max output size is greater than MAX_INT");
+        ZstdCompressCtx ctx = new ZstdCompressCtx();
+        try {
+            ctx.loadDict(dict);
+            ctx.setLevel(level);
+            return ctx.compress(src);
+        } finally {
+            ctx.close();
         }
-        byte[] dst = new byte[(int) maxDstSize];
-        long size = compressUsingDict(dst, 0, src, 0, src.length, dict, level);
-        if (isError(size)) {
-            throw new ZstdException(size);
-        }
-        return Arrays.copyOfRange(dst, 0, (int) size);
     }
 
    /**
@@ -874,30 +884,14 @@ public class Zstd {
      * @return  the number of bytes written into buffer 'dstBuff'
      */
     public static int compress(ByteBuffer dstBuff, ByteBuffer srcBuff, byte[] dict, int level) throws ZstdException {
-        if (!srcBuff.isDirect()) {
-            throw new IllegalArgumentException("srcBuf must be a direct buffer");
+        ZstdCompressCtx ctx = new ZstdCompressCtx();
+        try {
+            ctx.loadDict(dict);
+            ctx.setLevel(level);
+            return ctx.compress(dstBuff, srcBuff);
+        } finally {
+            ctx.close();
         }
-
-        if (!dstBuff.isDirect()) {
-            throw new IllegalArgumentException("dstBuf must be a direct buffer");
-        }
-
-        long size = compressDirectByteBufferUsingDict(
-                dstBuff,                                // compress into dstBuf
-                dstBuff.position(),                     // starting at offset 0
-                dstBuff.limit() - dstBuff.position(),   // write no more than limit() - position() bytes
-                srcBuff,                                // read data to be compressed from srcBuf
-                srcBuff.position(),                     // start reading at offset position()
-                srcBuff.limit() - srcBuff.position(),   // read limit() - position() bytes
-                dict,                                   // use dictionary
-                level);                                 // use this compression level
-        if (isError(size)) {
-            throw new ZstdException(size);
-        }
-        srcBuff.position(srcBuff.limit());
-        dstBuff.position(dstBuff.position() + (int) size);
-
-        return (int) size;
     }
 
    /**
@@ -913,36 +907,14 @@ public class Zstd {
      * @return  compressed direct byte buffer
      */
     public static ByteBuffer compress(ByteBuffer srcBuff, byte[] dict, int level) throws ZstdException {
-        if (!srcBuff.isDirect()) {
-            throw new IllegalArgumentException("srcBuf must be a direct buffer");
+        ZstdCompressCtx ctx = new ZstdCompressCtx();
+        try {
+            ctx.loadDict(dict);
+            ctx.setLevel(level);
+            return ctx.compress(srcBuff);
+        } finally {
+            ctx.close();
         }
-
-        long maxDstSize = Zstd.compressBound((long)(srcBuff.limit() - srcBuff.position()));
-        if (maxDstSize > Integer.MAX_VALUE) {
-            throw new ZstdException(errGeneric(), "Max output size is greater than MAX_INT");
-        }
-
-        ByteBuffer dstBuff = ByteBuffer.allocateDirect((int) maxDstSize);
-
-        long size = compressDirectByteBufferUsingDict(
-                dstBuff,                                // compress into dstBuf
-                0,                                      // starting at offset 0
-                (int) maxDstSize,                       // writing no more than maxDstSize
-                srcBuff,                                // read data to be compressed from srcBuf
-                srcBuff.position(),                     // start reading at offset position()
-                srcBuff.limit() - srcBuff.position(),   // read limit() - position() bytes
-                dict,                                   // use dictionary
-                level);                                 // use this compression level
-        if (isError(size)) {
-            throw new ZstdException(size);
-        }
-        srcBuff.position(srcBuff.limit());
-
-        dstBuff.limit((int) size);
-        //Since we allocated the buffer ourselves, we know it cannot be used to hold any further compressed data,
-        //so leave the position at zero where the caller surely wants it, ready to read
-
-        return dstBuff;
     }
 
     /**
@@ -958,30 +930,14 @@ public class Zstd {
      * @return  the number of bytes written into buffer 'dstBuff'
      */
     public static int compress(ByteBuffer dstBuff, ByteBuffer srcBuff, ZstdDictCompress dict) throws ZstdException {
-        if (!srcBuff.isDirect()) {
-            throw new IllegalArgumentException("srcBuf must be a direct buffer");
+        ZstdCompressCtx ctx = new ZstdCompressCtx();
+        try {
+            ctx.loadDict(dict);
+            ctx.setLevel(dict.level());
+            return ctx.compress(dstBuff, srcBuff);
+        } finally {
+            ctx.close();
         }
-
-        if (!dstBuff.isDirect()) {
-            throw new IllegalArgumentException("dstBuf must be a direct buffer");
-        }
-
-        long size = compressDirectByteBufferFastDict(
-                dstBuff,                                // compress into dstBuf
-                dstBuff.position(),                     // starting at offset 0
-                dstBuff.limit() - dstBuff.position(),   // write no more than limit() - position() bytes
-                srcBuff,                                // read data to be compressed from srcBuf
-                srcBuff.position(),                     // start reading at offset position()
-                srcBuff.limit() - srcBuff.position(),   // read limit() - position() bytes
-                dict                                    // use dictionary
-                );                                      // the compression level is part of the dictionary
-        if (isError(size)) {
-            throw new ZstdException(size);
-        }
-        srcBuff.position(srcBuff.limit());
-        dstBuff.position(dstBuff.position() + (int) size);
-
-        return (int) size;
     }
 
    /**
@@ -996,36 +952,14 @@ public class Zstd {
      * @return  compressed direct byte buffer
      */
     public static ByteBuffer compress(ByteBuffer srcBuff, ZstdDictCompress dict) throws ZstdException {
-        if (!srcBuff.isDirect()) {
-            throw new IllegalArgumentException("srcBuf must be a direct buffer");
+        ZstdCompressCtx ctx = new ZstdCompressCtx();
+        try {
+            ctx.loadDict(dict);
+            ctx.setLevel(dict.level());
+            return ctx.compress(srcBuff);
+        } finally {
+            ctx.close();
         }
-
-        long maxDstSize = Zstd.compressBound((long)(srcBuff.limit() - srcBuff.position()));
-        if (maxDstSize > Integer.MAX_VALUE) {
-            throw new ZstdException(errGeneric(), "Max output size is greater than MAX_INT");
-        }
-
-        ByteBuffer dstBuff = ByteBuffer.allocateDirect((int)maxDstSize);
-
-        long size = compressDirectByteBufferFastDict(
-                dstBuff,                                // compress into dstBuf
-                0,                                      // starting at offset 0
-                (int) maxDstSize,                       // writing no more than maxDstSize
-                srcBuff,                                // read data to be compressed from srcBuf
-                srcBuff.position(),                     // start reading at offset position()
-                srcBuff.limit() - srcBuff.position(),   // read limit() - position() bytes
-                dict                                    // use dictionary
-                );                                      // the compression level is part of the dictionary
-        if (isError(size)) {
-            throw new ZstdException(size);
-        }
-        srcBuff.position(srcBuff.limit());
-
-        dstBuff.limit((int)size);
-        //Since we allocated the buffer ourselves, we know it cannot be used to hold any further compressed data,
-        //so leave the position at zero where the caller surely wants it, ready to read
-
-        return dstBuff;
     }
 
     /**
@@ -1036,15 +970,11 @@ public class Zstd {
      * @return byte array with the decompressed data
      */
     public static byte[] decompress(byte[] src, int originalSize) throws ZstdException {
-        byte[] dst = new byte[originalSize];
-        long size = decompress(dst, src);
-        if (isError(size)) {
-            throw new ZstdException(size);
-        }
-        if (size != originalSize) {
-            return Arrays.copyOfRange(dst, 0, (int) size);
-        } else {
-            return dst;
+        ZstdDecompressCtx ctx = new ZstdDecompressCtx();
+        try {
+            return ctx.decompress(src, originalSize);
+        } finally {
+            ctx.close();
         }
     }
 
@@ -1066,27 +996,12 @@ public class Zstd {
      * @return the size of the decompressed data.
      */
     public static int decompress(ByteBuffer dstBuf, ByteBuffer srcBuf) throws ZstdException {
-        if (!srcBuf.isDirect()) {
-            throw new IllegalArgumentException("srcBuf must be a direct buffer");
+        ZstdDecompressCtx ctx = new ZstdDecompressCtx();
+        try {
+            return ctx.decompress(dstBuf, srcBuf);
+        } finally {
+            ctx.close();
         }
-
-        if (!dstBuf.isDirect()) {
-            throw new IllegalArgumentException("dstBuf must be a direct buffer");
-        }
-
-        long size = decompressDirectByteBuffer(dstBuf,  // decompress into dstBuf
-                dstBuf.position(),                      // write decompressed data at offset position()
-                dstBuf.limit() - dstBuf.position(),     // write no more than limit() - position()
-                srcBuf,                                 // read compressed data from srcBuf
-                srcBuf.position(),                      // read starting at offset position()
-                srcBuf.limit() - srcBuf.position());    // read no more than limit() - position()
-        if (isError(size)) {
-            throw new ZstdException(size);
-        }
-
-        srcBuf.position(srcBuf.limit());
-        dstBuf.position(dstBuf.position() + (int)size);
-        return (int)size;
     }
 
     /**
@@ -1104,20 +1019,12 @@ public class Zstd {
      *          the destination ByteBuffer.
      */
     public static ByteBuffer decompress(ByteBuffer srcBuf, int originalSize) throws ZstdException {
-        if (!srcBuf.isDirect()) {
-            throw new IllegalArgumentException("srcBuf must be a direct buffer");
+        ZstdDecompressCtx ctx = new ZstdDecompressCtx();
+        try {
+            return ctx.decompress(srcBuf, originalSize);
+        } finally {
+            ctx.close();
         }
-
-        ByteBuffer dstBuf = ByteBuffer.allocateDirect(originalSize);
-        long size = decompressDirectByteBuffer(dstBuf, 0, originalSize, srcBuf, srcBuf.position(), srcBuf.limit());
-        if (isError(size)) {
-            throw new ZstdException(size);
-        }
-
-        srcBuf.position(srcBuf.limit());
-        //Since we allocated the buffer ourselves, we know it cannot be used to hold any further decompressed data,
-        //so leave the position at zero where the caller surely wants it, ready to read
-        return dstBuf;
     }
 
     /**
@@ -1129,15 +1036,12 @@ public class Zstd {
      * @return byte array with the decompressed data
      */
     public static byte[] decompress(byte[] src, ZstdDictDecompress dict, int originalSize) throws ZstdException {
-        byte[] dst = new byte[originalSize];
-        long size = decompressFastDict(dst, 0, src, 0, src.length, dict);
-        if (isError(size)) {
-            throw new ZstdException(size);
-        }
-        if (size != originalSize) {
-            return Arrays.copyOfRange(dst, 0, (int) size);
-        } else {
-            return dst;
+        ZstdDecompressCtx ctx = new ZstdDecompressCtx();
+        try {
+            ctx.loadDict(dict);
+            return ctx.decompress(src, originalSize);
+        } finally {
+            ctx.close();
         }
     }
 
@@ -1174,15 +1078,12 @@ public class Zstd {
      * @return byte array with the decompressed data
      */
     public static byte[] decompress(byte[] src, byte[] dict, int originalSize) throws ZstdException {
-        byte[] dst = new byte[originalSize];
-        long size = decompressUsingDict(dst, 0, src, 0, src.length, dict);
-        if (isError(size)) {
-            throw new ZstdException(size);
-        }
-        if (size != originalSize) {
-            return Arrays.copyOfRange(dst, 0, (int) size);
-        } else {
-            return dst;
+        ZstdDecompressCtx ctx = new ZstdDecompressCtx();
+        try {
+            ctx.loadDict(dict);
+            return ctx.decompress(src, originalSize);
+        } finally {
+            ctx.close();
         }
     }
 
@@ -1218,28 +1119,13 @@ public class Zstd {
      * @return the size of the decompressed data.
      */
     public static int decompress(ByteBuffer dstBuff, ByteBuffer srcBuff, byte[] dict) throws ZstdException {
-        if (!srcBuff.isDirect()) {
-            throw new IllegalArgumentException("srcBuff must be a direct buffer");
+        ZstdDecompressCtx ctx = new ZstdDecompressCtx();
+        try {
+            ctx.loadDict(dict);
+            return ctx.decompress(dstBuff, srcBuff);
+        } finally {
+            ctx.close();
         }
-
-        if (!dstBuff.isDirect()) {
-            throw new IllegalArgumentException("dstBuff must be a direct buffer");
-        }
-
-        long size = decompressDirectByteBufferUsingDict(dstBuff, // decompress into dstBuf
-                dstBuff.position(),                              // write decompressed data at offset position()
-                dstBuff.limit() - dstBuff.position(),            // write no more than limit() - position()
-                srcBuff,                                         // read compressed data from srcBuf
-                srcBuff.position(),                              // read starting at offset position()
-                srcBuff.limit() - srcBuff.position(),            // read no more than limit() - position()
-                dict);
-        if (isError(size)) {
-            throw new ZstdException(size);
-        }
-
-        srcBuff.position(srcBuff.limit());
-        dstBuff.position(dstBuff.position() + (int)size);
-        return (int) size;
     }
 
     /**
@@ -1258,20 +1144,13 @@ public class Zstd {
      *          the destination ByteBuffer.
      */
     public static ByteBuffer decompress(ByteBuffer srcBuff, byte[] dict, int originalSize) throws ZstdException {
-        if (!srcBuff.isDirect()) {
-            throw new IllegalArgumentException("srcBuff must be a direct buffer");
+        ZstdDecompressCtx ctx = new ZstdDecompressCtx();
+        try {
+            ctx.loadDict(dict);
+            return ctx.decompress(srcBuff, originalSize);
+        } finally {
+            ctx.close();
         }
-
-        ByteBuffer dstBuff = ByteBuffer.allocateDirect(originalSize);
-        long size = decompressDirectByteBufferUsingDict(dstBuff, 0, originalSize, srcBuff, srcBuff.position(), srcBuff.limit(), dict);
-        if (isError(size)) {
-            throw new ZstdException(size);
-        }
-
-        srcBuff.position(srcBuff.limit());
-        // Since we allocated the buffer ourselves, we know it cannot be used to hold any further compressed data,
-        // so leave the position at zero where the caller surely wants it, ready to read
-        return dstBuff;
     }
 
     /**
@@ -1293,28 +1172,13 @@ public class Zstd {
      * @return the size of the decompressed data.
      */
     public static int decompress(ByteBuffer dstBuff, ByteBuffer srcBuff, ZstdDictDecompress dict) throws ZstdException {
-        if (!srcBuff.isDirect()) {
-            throw new IllegalArgumentException("srcBuff must be a direct buffer");
+        ZstdDecompressCtx ctx = new ZstdDecompressCtx();
+        try {
+            ctx.loadDict(dict);
+            return ctx.decompress(dstBuff, srcBuff);
+        } finally {
+            ctx.close();
         }
-
-        if (!dstBuff.isDirect()) {
-            throw new IllegalArgumentException("dstBuff must be a direct buffer");
-        }
-
-        long size = decompressDirectByteBufferFastDict(dstBuff, // decompress into dstBuf
-                dstBuff.position(),                             // write decompressed data at offset position()
-                dstBuff.limit() - dstBuff.position(),           // write no more than limit() - position()
-                srcBuff,                                        // read compressed data from srcBuf
-                srcBuff.position(),                             // read starting at offset position()
-                srcBuff.limit() - srcBuff.position(),           // read no more than limit() - position()
-                dict);
-        if (isError(size)) {
-            throw new ZstdException(size);
-        }
-
-        srcBuff.position(srcBuff.limit());
-        dstBuff.position(dstBuff.position() + (int)size);
-        return (int) size;
     }
 
     /**
@@ -1333,19 +1197,12 @@ public class Zstd {
      *          the destination ByteBuffer.
      */
     public static ByteBuffer decompress(ByteBuffer srcBuff, ZstdDictDecompress dict, int originalSize) throws ZstdException {
-        if (!srcBuff.isDirect()) {
-            throw new IllegalArgumentException("srcBuff must be a direct buffer");
+        ZstdDecompressCtx ctx = new ZstdDecompressCtx();
+        try {
+            ctx.loadDict(dict);
+            return ctx.decompress(srcBuff, originalSize);
+        } finally {
+            ctx.close();
         }
-
-        ByteBuffer dstBuff = ByteBuffer.allocateDirect(originalSize);
-        long size = decompressDirectByteBufferFastDict(dstBuff, 0, originalSize, srcBuff, srcBuff.position(), srcBuff.limit(), dict);
-        if (isError(size)) {
-            throw new ZstdException(size);
-        }
-
-        srcBuff.position(srcBuff.limit());
-        //Since we allocated the buffer ourselves, we know it cannot be used to hold any further decompressed data,
-        //so leave the position at zero where the caller surely wants it
-        return dstBuff;
     }
 }

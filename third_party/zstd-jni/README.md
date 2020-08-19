@@ -77,10 +77,10 @@ Binary releases
 
 The binary releases are architecture dependent because we are embedding the
 native library in the provided Jar file. Currently they are built for
-*linux-amd64*, *linux-i386*, *linux-aarch64*, *linux-ppc64*, *linux-ppc64le*,
-*linux-mips64*, *win-amd64*, *win-x86*, *aix-ppc64*, *darwin-x86_64* (MacOS X)
-and *freebsd-amd64*. More builds will be available if I get access to more
-platforms.
+*linux-amd64*, *linux-i386*, *linux-aarch64*, *linux-armhf*, *linux-ppc64*,
+*linux-ppc64le*, *linux-mips64*, *win-amd64*, *win-x86*, *aix-ppc64*,
+*darwin-x86_64* (MacOS X), *freebsd-amd64*, and *freebsd-i386*. More builds
+will be available if I get access to more platforms.
 
 You can find published releases on Maven Central.
 

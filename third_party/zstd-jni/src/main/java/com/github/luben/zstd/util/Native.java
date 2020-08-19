@@ -50,12 +50,6 @@ public enum Native {
         return loaded;
     }
 
-    private static UnsatisfiedLinkError linkError(UnsatisfiedLinkError e) {
-        UnsatisfiedLinkError err = new UnsatisfiedLinkError(e.getMessage() + "\n" + errorMsg);
-        err.setStackTrace(e.getStackTrace());
-        return err;
-    }
-
     public static synchronized void load() {
         load(null);
     }
@@ -68,13 +62,16 @@ public enum Native {
         String resourceName = resourceName();
         InputStream is = Native.class.getResourceAsStream(resourceName);
         if (is == null) {
-            // fall-back to loading the zstd-jni from the system library path
+            // fall-back to loading the zstd-jni from the system library path.
+            // It also cover loading on Android.
             try {
                 System.loadLibrary(libnameShort);
                 loaded = true;
                 return;
             } catch (UnsatisfiedLinkError e) {
-                throw linkError(e);
+                UnsatisfiedLinkError err = new UnsatisfiedLinkError(e.getMessage() + "\n" + errorMsg);
+                err.setStackTrace(e.getStackTrace());
+                throw err;
             }
         }
         File tempLib = null;
@@ -108,12 +105,22 @@ public enum Native {
                     System.loadLibrary(libnameShort);
                 } catch (UnsatisfiedLinkError e1) {
                     // display error in case problem with loading from temp folder
-                    throw linkError(e1);
+                    // and from system library path - concatenate both messages
+                    UnsatisfiedLinkError err = new UnsatisfiedLinkError(
+                            e.getMessage() + "\n" +
+                            e1.getMessage() + "\n"+
+                            errorMsg);
+                    err.setStackTrace(e1.getStackTrace());
+                    throw err;
                 }
             }
             loaded = true;
         } catch (IOException e) {
-            throw new ExceptionInInitializerError("Cannot unpack " + libname);
+            // IO errors in extacting and writing the shared object in the temp dir
+            ExceptionInInitializerError err = new ExceptionInInitializerError(
+                    "Cannot unpack " + libname + ": " + e.getMessage());
+            err.setStackTrace(e.getStackTrace());
+            throw err;
         }
         finally {
             try {

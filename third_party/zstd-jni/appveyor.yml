@@ -11,26 +11,12 @@ environment:
       JAVA_HOME: C:\Progra~2\Java\jdk1.8.0
       ARCH: x86
 install:
-  - echo: Starting install of SBT
-  - ps: |
-      Add-Type -AssemblyName System.IO.Compression.FileSystem
-      if (!(Test-Path -Path "C:\sbt" )) {
-        (new-object System.Net.WebClient).DownloadFile(
-          "https://github.com/sbt/sbt/releases/download/v1.1.4/sbt-1.1.4.zip",
-          "C:\sbt-bin.zip"
-        )
-        [System.IO.Compression.ZipFile]::ExtractToDirectory("C:\sbt-bin.zip", "C:\sbt")
-      }
-  - cmd: SET PATH=%MSYS_PATH%;C:\sbt\sbt\bin;%JAVA_HOME%\bin;%PATH%
+  - cmd: choco install sbt -ia "INSTALLDIR=""C:\sbt"""
+  - cmd: SET PATH=%MSYS_PATH%;C:\sbt\bin;%JAVA_HOME%\bin;%PATH%
 build_script:
   - sbt clean compile
 test_script:
-    sbt jacoco
-after_test:
-  - ps: |
-      $env:PATH = 'C:\msys64\usr\bin;' + $env:PATH
-      Invoke-WebRequest -Uri 'https://codecov.io/bash' -OutFile codecov.sh
-      bash codecov.sh
+  - sbt jacoco
 artifacts:
   - path: target\classes\win\**\*.dll
 deploy:
@@ -46,3 +32,4 @@ deploy:
 
 cache:
   - C:\Users\appveyor\.ivy2
+  - C:\Users\appveyor\.sbt

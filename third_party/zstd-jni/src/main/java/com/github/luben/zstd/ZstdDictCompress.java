@@ -9,6 +9,7 @@ public class ZstdDictCompress extends SharedDictBase {
     }
 
     private long nativePtr = 0;
+    private int level = 3;
 
     private native void init(byte[] dict, int dict_offset, int dict_size, int level);
 
@@ -33,6 +34,7 @@ public class ZstdDictCompress extends SharedDictBase {
      * @param level  compression level
      */
     public ZstdDictCompress(byte[] dict, int offset, int length, int level) {
+        this.level = level;
         if (dict.length - offset < 0) {
             throw new IllegalArgumentException("Dictionary buffer is to short");
         }
@@ -47,6 +49,9 @@ public class ZstdDictCompress extends SharedDictBase {
         storeFence();
     }
 
+    int level() {
+        return level;
+    }
 
     @Override
     void  doClose() {

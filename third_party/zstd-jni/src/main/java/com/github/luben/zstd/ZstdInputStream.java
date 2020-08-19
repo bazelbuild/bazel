@@ -149,7 +149,11 @@ public class ZstdInputStream extends FilterInputStream {
                     if (frameFinished) {
                         return -1;
                     } else if (isContinuous) {
-                        return (int)(dstPos - offset);
+                        srcSize = (int)(dstPos - offset);
+                        if (srcSize > 0) {
+                            return (int) srcSize;
+                        }
+                        return -1;
                     } else {
                         throw new IOException("Read error or truncated source");
                     }
@@ -234,9 +238,9 @@ public class ZstdInputStream extends FilterInputStream {
         if (isClosed) {
             return;
         }
+        isClosed = true;
         freeDStream(stream);
         in.close();
-        isClosed = true;
     }
 
     @Override
