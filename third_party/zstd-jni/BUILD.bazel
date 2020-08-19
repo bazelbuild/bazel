@@ -109,12 +109,12 @@ java_library(
             "src/main/java/**/*.java",
         ],
     ),
+    visibility = ["//visibility:public"],
     data = select({
         "//src/conditions:darwin": ["//third_party/zstd-jni:libzstd-jni.dylib"],
         "//src/conditions:darwin_x86_64": ["//third_party/zstd-jni:libzstd-jni.dylib"],
         "//src/conditions:windows": ["//third_party/zstd-jni:libzstd-jni.dll"],
         "//conditions:default": ["//third_party/zstd-jni:libzstd-jni.so"],
     }),
-    visibility = ["//visibility:public"],
     deps = ["@bazel_tools//tools/java/runfiles"],
 )
