@@ -90,6 +90,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
         "//src/main/java/com/google/devtools/build/lib/supplier:srcs",
         "//src/main/java/com/google/devtools/build/lib/syntax:srcs",
+        "//src/main/java/com/google/devtools/build/lib/testing/common:srcs",
         "//src/main/java/com/google/devtools/build/lib/unix:srcs",
         "//src/main/java/com/google/devtools/build/lib/unsafe:srcs",
         "//src/main/java/com/google/devtools/build/lib/util:srcs",

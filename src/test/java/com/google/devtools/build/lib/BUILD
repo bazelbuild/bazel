@@ -46,6 +46,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/vfs:srcs",
         "//src/test/java/com/google/devtools/build/lib/unsafe:srcs",
         "//src/test/java/com/google/devtools/build/lib/util:srcs",
+        "//src/test/java/com/google/devtools/build/lib/testing/common:srcs",
         "//src/test/java/com/google/devtools/build/lib/testutil:srcs",
         "//src/test/java/com/google/devtools/build/lib/windows:srcs",
     ],
