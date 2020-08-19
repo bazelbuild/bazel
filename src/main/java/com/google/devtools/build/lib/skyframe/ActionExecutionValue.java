@@ -20,7 +20,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -30,9 +33,14 @@ import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /** A value representing an executed action. */
@@ -139,6 +147,17 @@ public class ActionExecutionValue implements SkyValue {
     if (artifact.isChildOfDeclaredDirectory()) {
       TreeArtifactValue tree = treeArtifactData.get(artifact.getParent());
       result = tree == null ? null : tree.getChildValues().get(artifact);
+    } else if (artifact instanceof ArchivedTreeArtifact) {
+      TreeArtifactValue tree = treeArtifactData.get(artifact.getParent());
+      ArchivedRepresentation archivedRepresentation =
+          tree.getArchivedRepresentation()
+              .orElseThrow(
+                  () -> new NoSuchElementException("Missing archived representation in: " + tree));
+      Preconditions.checkArgument(
+          archivedRepresentation.archivedTreeFileArtifact().equals(artifact),
+          "Multiple archived tree artifacts for: %s",
+          artifact.getParent());
+      result = archivedRepresentation.archivedFileValue();
     } else {
       result = artifactData.get(artifact);
     }
@@ -282,9 +301,35 @@ public class ActionExecutionValue implements SkyValue {
     return newTree.build();
   }
 
-  ActionExecutionValue transformForSharedAction(ImmutableSet<Artifact> outputs) {
+  ActionExecutionValue transformForSharedAction(
+      ImmutableSet<Artifact> outputs, Action actionForError, Consumer<String> errorReporter)
+      throws ActionExecutionException {
     Map<OwnerlessArtifactWrapper, Artifact> newArtifactMap =
         Maps.uniqueIndex(outputs, OwnerlessArtifactWrapper::new);
+
+    if (treeArtifactData.values().stream()
+        .anyMatch(treeValue -> treeValue.getArchivedRepresentation().isPresent())) {
+      // TODO(b/163543290): Add support for sending archived tree artifacts produced by shared
+      //  actions.
+      String message =
+          "Shared actions that produce tree artifacts are not supported when"
+              + " '--experimental_send_archived_tree_artifact_inputs' is enabled";
+      errorReporter.accept(message);
+      throw new ActionExecutionException(
+          message,
+          actionForError,
+          /*catastrophe=*/ true,
+          DetailedExitCode.of(
+              FailureDetails.FailureDetail.newBuilder()
+                  .setMessage(message)
+                  .setExecution(
+                      FailureDetails.Execution.newBuilder()
+                          .setCode(
+                              FailureDetails.Execution.Code
+                                  .SEND_ARCHIVED_TREE_ARTIFACT_INPUTS_PREREQ_UNMET))
+                  .build()));
+    }
+
     // This is only called for shared actions, so we'll almost certainly have to transform all keys
     // in all sets.
     // Discovered modules come from the action's inputs, and so don't need to be transformed.

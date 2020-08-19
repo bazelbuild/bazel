@@ -363,7 +363,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
                 ImmutableList.of(CcCompilationHelper.getStlCcCompilationContext(ruleContext)))
             .setHeadersCheckingMode(semantics.determineHeadersCheckingMode(ruleContext))
             .setCodeCoverageEnabled(CcCompilationHelper.isCodeCoverageEnabled(ruleContext));
-    CompilationInfo compilationInfo = compilationHelper.compile();
+    CompilationInfo compilationInfo = compilationHelper.compile(ruleContext::ruleError);
     CcCompilationContext ccCompilationContext = compilationInfo.getCcCompilationContext();
     CcCompilationOutputs precompiledFileObjects =
         CcCompilationOutputs.builder()

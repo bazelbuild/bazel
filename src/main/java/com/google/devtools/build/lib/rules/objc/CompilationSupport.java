@@ -322,7 +322,7 @@ public class CompilationSupport {
       result.doNotGenerateModuleMap();
     }
 
-    return result.compile();
+    return result.compile(ruleContext::ruleError);
   }
 
   private static class CompilationResult {

@@ -299,7 +299,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
           + "even though there are no sources to compile in this configuration"));
     }
 
-    CompilationInfo compilationInfo = compilationHelper.compile();
+    CompilationInfo compilationInfo = compilationHelper.compile(ruleContext::ruleError);
     CcCompilationOutputs precompiledFilesObjects =
         CcCompilationOutputs.builder()
             .addObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ true))

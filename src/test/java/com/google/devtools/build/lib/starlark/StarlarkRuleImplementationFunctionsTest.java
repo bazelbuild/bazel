@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpanderImpl;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -3114,6 +3113,15 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     };
   }
 
+  private static ArtifactExpander createArtifactExpander(
+      Artifact directory, ImmutableList<Artifact> files) {
+    return (artifact, output) -> {
+      if (artifact.equals(directory)) {
+        output.addAll(files);
+      }
+    };
+  }
+
   private String getDigest(CommandLine commandLine) throws CommandLineExpansionException {
     return getDigest(commandLine, /*artifactExpander=*/ null);
   }
@@ -3157,9 +3165,8 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     // Now ask for one with an expanded directory
     Artifact file1 = getBinArtifactWithNoOwner("foo/dir/file1");
     Artifact file2 = getBinArtifactWithNoOwner("foo/dir/file2");
-    ArtifactExpanderImpl artifactExpander =
-        new ArtifactExpanderImpl(
-            ImmutableMap.of(directory, ImmutableList.of(file1, file2)), ImmutableMap.of());
+    ArtifactExpander artifactExpander =
+        createArtifactExpander(directory, ImmutableList.of(file1, file2));
     assertThat(commandLine.arguments(artifactExpander))
         .containsExactly("foo/dir/file1", "foo/dir/file2");
   }
@@ -3180,9 +3187,8 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
 
     Artifact file1 = getBinArtifactWithNoOwner("foo/dir/file1");
     Artifact file2 = getBinArtifactWithNoOwner("foo/dir/file2");
-    ArtifactExpanderImpl artifactExpander =
-        new ArtifactExpanderImpl(
-            ImmutableMap.of(directory, ImmutableList.of(file1, file2)), ImmutableMap.of());
+    ArtifactExpander artifactExpander =
+        createArtifactExpander(directory, ImmutableList.of(file1, file2));
     // First expanded, then not expanded (two separate calls)
     assertThat(commandLine.arguments(artifactExpander))
         .containsExactly("foo/dir/file1", "foo/dir/file2", "foo/dir");
@@ -3232,9 +3238,8 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
 
     Artifact file1 = getBinArtifactWithNoOwner("foo/dir/file1");
     Artifact file2 = getBinArtifactWithNoOwner("foo/dir/file2");
-    ArtifactExpanderImpl artifactExpander =
-        new ArtifactExpanderImpl(
-            ImmutableMap.of(directory, ImmutableList.of(file1, file2)), ImmutableMap.of());
+    ArtifactExpander artifactExpander =
+        createArtifactExpander(directory, ImmutableList.of(file1, file2));
     assertThat(commandLine.arguments(artifactExpander))
         .containsExactly("foo/dir/file1", "foo/dir/file2", "foo/file3");
   }
