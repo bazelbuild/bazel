@@ -910,8 +910,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     Artifact shrunkApk =
         shrinkResources(
             dataContext,
-            resourceApk.getValidatedResources(),
-            resourceApk.getResourceDependencies(),
+            resourceApk.getRTxt(),
+            resourceApk.getResourcesZip(),
             proguardOutput.getOutputJar(),
             proguardOutput.getMapping(),
             ResourceFilterFactory.fromRuleContextAndAttrs(ruleContext),
@@ -925,7 +925,25 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   static Artifact shrinkResources(
       AndroidDataContext dataContext,
       ValidatedAndroidResources validatedResources,
-      ResourceDependencies resourceDeps,
+      Artifact proguardOutputJar,
+      Artifact proguardMapping,
+      ResourceFilterFactory resourceFilterFactory,
+      List<String> noCompressExtensions)
+      throws InterruptedException {
+    return shrinkResources(
+        dataContext,
+        Preconditions.checkNotNull(validatedResources).getRTxt(),
+        dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP),
+        proguardOutputJar,
+        proguardMapping,
+        resourceFilterFactory,
+        noCompressExtensions);
+  }
+
+  static Artifact shrinkResources(
+      AndroidDataContext dataContext,
+      Artifact rTxt,
+      Artifact resourcesZip,
       Artifact proguardOutputJar,
       Artifact proguardMapping,
       ResourceFilterFactory resourceFilterFactory,
@@ -940,12 +958,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_SHRUNK_ZIP))
             .setLogOut(
                 dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCE_SHRINKER_LOG))
-            .withResourceFiles(
-                dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP))
+            .withResourceFiles(resourcesZip)
             .withShrunkJar(proguardOutputJar)
             .withProguardMapping(proguardMapping)
-            .withPrimary(validatedResources)
-            .withDependencies(resourceDeps)
+            .withRTxt(rTxt)
             .setResourceFilterFactory(resourceFilterFactory)
             .setUncompressedExtensions(noCompressExtensions)
             .setResourceOptimizationConfigOut(

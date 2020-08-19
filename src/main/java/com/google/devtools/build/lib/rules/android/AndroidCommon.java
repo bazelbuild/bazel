@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
@@ -423,11 +422,6 @@ public class AndroidCommon {
       NestedSetBuilder<Artifact> filesBuilder)
       throws InterruptedException, RuleErrorException {
 
-    // The resource class JAR should already have been generated.
-    Preconditions.checkArgument(
-        resourceJavaClassJar.equals(
-            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR)));
-
     packResourceSourceJar(javaSemantics, resourceJavaSrcJar);
 
     // Add the compiled resource jar to the classpath of the main compilation.
@@ -517,15 +511,13 @@ public class AndroidCommon {
     if (resourceJavaSrcJar != null) {
       filesBuilder.add(resourceJavaSrcJar);
 
-      if (resourceApk.addResourcesClassJarToCompilationClasspath()) {
-        compileResources(
-            javaSemantics,
-            resourceApk.getResourceJavaClassJar(),
-            resourceJavaSrcJar,
-            artifactsBuilder,
-            attributesBuilder,
-            filesBuilder);
-      }
+      compileResources(
+          javaSemantics,
+          resourceApk.getResourceJavaClassJar(),
+          resourceJavaSrcJar,
+          artifactsBuilder,
+          attributesBuilder,
+          filesBuilder);
 
       // Combined resource constants needs to come even before our own classes that may contain
       // local resource constants.
@@ -723,10 +715,14 @@ public class AndroidCommon {
             .setNeverlink(isNeverlink)
             .build();
 
-    if (ruleContext
-            .getFragment(AndroidConfiguration.class)
-            .omitResourcesInfoProviderFromAndroidBinary()
-        && !isLibrary) {
+    // Do not convert the ResourceApk into native providers when it is created from
+    // Starlark via AndroidApplicationResourceInfo, because native dependency providers are not
+    // created in the Starlark pipeline.
+    if (resourceApk.isFromAndroidApplicationResourceInfo()
+        || (ruleContext
+                .getFragment(AndroidConfiguration.class)
+                .omitResourcesInfoProviderFromAndroidBinary()
+            && !isLibrary)) {
       // Binary rule; allow extracting merged manifest from Starlark via
       // ctx.attr.android_binary.android.merged_manifest, but not much more.
       builder.addStarlarkTransitiveInfo(
