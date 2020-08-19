@@ -69,4 +69,5 @@ java_library(
         "//conditions:default": ["//third_party/zstd-jni:libzstd-jni.so"],
     }),
     visibility = ["//visibility:public"],
+    deps = ["@bazel_tools//tools/java/runfiles"],
 )
