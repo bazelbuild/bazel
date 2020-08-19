@@ -341,6 +341,7 @@ filegroup(
         "//src/main/tools:jdk-support",
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",
+        "//third_party/zstd-jni:target-os-native-lib",
     ] + select({
         "//src/conditions:windows": [],
         "//conditions:default": [

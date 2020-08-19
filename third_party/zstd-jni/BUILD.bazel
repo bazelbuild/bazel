@@ -103,6 +103,19 @@ genrule(
     output_to_bindir = 1,
 )
 
+filegroup(
+    name = "target-os-native-lib",
+    srcs = select({
+        "//src/conditions:darwin": ["//third_party/zstd-jni:libzstd-jni.dylib"],
+        "//src/conditions:darwin_x86_64": ["//third_party/zstd-jni:libzstd-jni.dylib"],
+        "//src/conditions:windows": ["//third_party/zstd-jni:libzstd-jni.dll"],
+        "//conditions:default": ["//third_party/zstd-jni:libzstd-jni.so"],
+    }),
+    visibility = [
+        "//src:__pkg__",
+    ],
+)
+
 java_library(
     name = "zstd-jni",
     srcs = glob(
@@ -111,11 +124,6 @@ java_library(
         ],
     ),
     visibility = ["//visibility:public"],
-    data = select({
-        "//src/conditions:darwin": ["//third_party/zstd-jni:libzstd-jni.dylib"],
-        "//src/conditions:darwin_x86_64": ["//third_party/zstd-jni:libzstd-jni.dylib"],
-        "//src/conditions:windows": ["//third_party/zstd-jni:libzstd-jni.dll"],
-        "//conditions:default": ["//third_party/zstd-jni:libzstd-jni.so"],
-    }),
+    data = [":target-os-native-lib"],
     deps = ["@bazel_tools//tools/java/runfiles"],
 )
