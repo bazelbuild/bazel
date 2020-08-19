@@ -463,7 +463,9 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             ruleContext.getFragment(CppConfiguration.class),
             ccToolchain,
             featureConfiguration,
-            ruleContext);
+            ruleContext,
+            /* generateHeaderTokensGroup= */ true,
+            /* addSelfHeaderTokens= */ true);
     CcStarlarkApiProvider.maybeAdd(ruleContext, targetBuilder);
     targetBuilder
         .setFilesToBuild(filesToBuild)
@@ -483,13 +485,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         .addOutputGroup(
             OutputGroupInfo.HIDDEN_TOP_LEVEL,
             collectHiddenTopLevelArtifacts(
-                ruleContext, ccToolchain, ccCompilationOutputs, featureConfiguration))
-        .addOutputGroup(
-            CcCompilationHelper.HIDDEN_HEADER_TOKENS,
-            CcCompilationHelper.collectHeaderTokens(
-                ruleContext,
-                ruleContext.getFragment(CppConfiguration.class),
-                ccCompilationOutputs));
+                ruleContext, ccToolchain, ccCompilationOutputs, featureConfiguration));
 
     maybeAddDeniedImplicitOutputsProvider(targetBuilder, ruleContext);
   }

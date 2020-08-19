@@ -492,7 +492,9 @@ public class CompilationSupport {
             cppConfiguration,
             ccToolchain,
             featureConfiguration,
-            ruleContext);
+            ruleContext,
+            /* generateHeaderTokensGroup= */ true,
+            /* addSelfHeaderTokens= */ false);
 
     Map<String, NestedSet<Artifact>> nonArcOutputGroups =
         CcCompilationHelper.buildOutputGroupsForEmittingCompileProviders(
@@ -501,7 +503,9 @@ public class CompilationSupport {
             cppConfiguration,
             ccToolchain,
             featureConfiguration,
-            ruleContext);
+            ruleContext,
+            /* generateHeaderTokensGroup= */ true,
+            /* addSelfHeaderTokens= */ false);
 
     Map<String, NestedSet<Artifact>> mergedOutputGroups =
         CcCommon.mergeOutputGroups(ImmutableList.of(arcOutputGroups, nonArcOutputGroups));
