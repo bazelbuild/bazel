@@ -61,6 +61,7 @@ cc_binary(
         "-Wstrict-prototypes",
         "-Wno-unused-variable",
         "-Wpointer-arith",
+        "-Wno-maybe-uninitialized",
     ],
     includes = [
         "src/main/native",
