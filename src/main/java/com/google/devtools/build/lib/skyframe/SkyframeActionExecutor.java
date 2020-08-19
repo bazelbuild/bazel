@@ -1276,7 +1276,7 @@ public final class SkyframeActionExecutor {
     while (!curDir.asFragment().equals(root)) {
       // Fast path: Somebody already checked that this is a regular directory this invocation.
       if (knownRegularDirectories.contains(curDir.asFragment())) {
-        return;
+        break;
       }
       if (!curDir.isDirectory(Symlinks.NOFOLLOW)) {
         throw new IOException(curDir + " is not a regular directory");
