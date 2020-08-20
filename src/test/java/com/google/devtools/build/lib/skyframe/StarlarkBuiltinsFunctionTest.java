@@ -48,6 +48,14 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
     return builder.build();
   }
 
+  // The getNativeRuleLogicBindings_* cases properly belong in a test suite for PackageFactory, but
+  // that seems to require a lot of overhead dealing with PackageFactoryApparatus, etc.
+  //
+  // TODO(#11437): The methods getNativeRules() and getNativeRuleSpecificBindings() don't belong in
+  // PackageFactory's API now that builtins injection has been moved to be encapsulated by that
+  // class. Instead, test the injection itself -- verify that certain symbols can or cannot be
+  // injected.
+
   @Test
   public void getNativeRuleLogicBindings_inPackageFactory() throws Exception {
     assertThat(getPackageFactory().getNativeRules()).containsKey("cc_library");

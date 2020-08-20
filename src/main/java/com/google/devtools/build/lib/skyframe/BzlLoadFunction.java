@@ -94,15 +94,6 @@ public class BzlLoadFunction implements SkyFunction {
   // computeInline() entry point.
   private final PackageFactory packageFactory;
 
-  // Used for BUILD .bzls if injection is disabled.
-  // TODO(#11437): Remove once injection is on unconditionally.
-  private final ImmutableMap<String, Object> predeclaredForBuildBzlWithoutInjection;
-
-  // Predeclareds for workspace .bzls and builtins .bzls are not subject to builtins injection, so
-  // these environments are stored globally.
-  private final ImmutableMap<String, Object> predeclaredForWorkspaceBzl;
-  private final ImmutableMap<String, Object> predeclaredForBuiltinsBzl;
-
   // Handles retrieving ASTFileLookupValues, either by calling Skyframe or by inlining
   // ASTFileLookupFunction; the latter is not to be confused with inlining of BzlLoadFunction. See
   // comment in create() for rationale.
@@ -118,12 +109,6 @@ public class BzlLoadFunction implements SkyFunction {
       ASTManager astManager,
       @Nullable CachedBzlLoadDataManager cachedBzlLoadDataManager) {
     this.packageFactory = packageFactory;
-    this.predeclaredForBuildBzlWithoutInjection =
-        StarlarkBuiltinsFunction.createPredeclaredForBuildBzlWithoutInjection(packageFactory);
-    this.predeclaredForWorkspaceBzl =
-        StarlarkBuiltinsFunction.createPredeclaredForWorkspaceBzl(packageFactory);
-    this.predeclaredForBuiltinsBzl =
-        StarlarkBuiltinsFunction.createPredeclaredForBuiltinsBzl(packageFactory);
     this.astManager = astManager;
     this.cachedBzlLoadDataManager = cachedBzlLoadDataManager;
   }
@@ -865,7 +850,7 @@ public class BzlLoadFunction implements SkyFunction {
     if (key instanceof BzlLoadValue.KeyForBuild) {
       // TODO(#11437): Remove ability to disable injection by setting flag to empty string.
       if (starlarkSemantics.experimentalBuiltinsBzlPath().isEmpty()) {
-        return predeclaredForBuildBzlWithoutInjection;
+        return packageFactory.getUninjectedBuildBzlEnv();
       }
       StarlarkBuiltinsValue starlarkBuiltinsValue;
       try {
@@ -891,9 +876,9 @@ public class BzlLoadFunction implements SkyFunction {
       fp.addBytes(starlarkBuiltinsValue.transitiveDigest);
       return starlarkBuiltinsValue.predeclaredForBuildBzl;
     } else if (key instanceof BzlLoadValue.KeyForWorkspace) {
-      return predeclaredForWorkspaceBzl;
+      return packageFactory.getWorkspaceBzlEnv();
     } else if (key instanceof BzlLoadValue.KeyForBuiltins) {
-      return predeclaredForBuiltinsBzl;
+      return packageFactory.getBuiltinsBzlEnv();
     } else {
       throw new AssertionError("Unknown key type: " + key.getClass());
     }
