@@ -2218,7 +2218,8 @@ public final class RuleContext extends TargetContext
         // It's not a label or label_list attribute.
         return;
       }
-      if (!attribute.isNonEmpty() && !attribute.isSingleArtifact()) {
+      if (allowedFileTypes == FileTypeSet.ANY_FILE && !attribute.isNonEmpty()
+          && !attribute.isSingleArtifact()) {
         return;
       }
 
@@ -2234,6 +2235,11 @@ public final class RuleContext extends TargetContext
           attributeError(
               attribute.getName(),
               "'" + prerequisite.getTarget().getLabel() + "' must produce a single file");
+          return;
+        }
+        if (artifacts.toList().isEmpty() && !attribute.isNonEmpty()) {
+          // If the attribute can be empty, then it's okay for the label to produce nothing
+          // See https://github.com/bazelbuild/bazel/issues/11424
           return;
         }
         for (Artifact sourceArtifact : artifacts.toList()) {
