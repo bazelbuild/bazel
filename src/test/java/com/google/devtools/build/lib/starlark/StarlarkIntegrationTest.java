@@ -849,6 +849,13 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
             ActionsTestUtil.baseArtifactNames(
                 ((Depset) myInfo.getValue("metadata_files")).getSet(Artifact.class)))
         .containsExactly("A.gcno");
+    ConfiguredTarget customRule = getConfiguredTarget("//test/starlark:cr");
+    assertThat(
+            ActionsTestUtil.baseArtifactNames(
+                customRule
+                    .get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR)
+                    .getBaselineCoverageInstrumentedFiles()))
+        .containsExactly("a.txt", "A.cc");
   }
 
   @Test
