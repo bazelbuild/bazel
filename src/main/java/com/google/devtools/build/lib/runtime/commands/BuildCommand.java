@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -52,7 +53,8 @@ import java.util.List;
       LoadingOptions.class,
       KeepGoingOption.class,
       LoadingPhaseThreadsOption.class,
-      BuildEventProtocolOptions.class
+      BuildEventProtocolOptions.class,
+      RemoteOptions.class,
     },
     usesConfigurationOptions = true,
     shortDescription = "Builds the specified targets.",

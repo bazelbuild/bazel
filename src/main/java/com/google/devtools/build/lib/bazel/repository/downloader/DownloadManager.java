@@ -44,6 +44,7 @@ public class DownloadManager {
 
   private final RepositoryCache repositoryCache;
   private List<Path> distdir = ImmutableList.of();
+  private UrlRewriter rewriter;
   private final Downloader downloader;
 
   public DownloadManager(RepositoryCache repositoryCache, Downloader downloader) {
@@ -53,6 +54,10 @@ public class DownloadManager {
 
   public void setDistdir(List<Path> distdir) {
     this.distdir = ImmutableList.copyOf(distdir);
+  }
+
+  public void setUrlRewriter(UrlRewriter rewriter) {
+    this.rewriter = rewriter;
   }
 
   /**
@@ -88,6 +93,8 @@ public class DownloadManager {
     if (Thread.interrupted()) {
       throw new InterruptedException();
     }
+
+    urls = rewriter.amend(urls);
 
     URL mainUrl; // The "main" URL for this request
     // Used for reporting only and determining the file name only.
