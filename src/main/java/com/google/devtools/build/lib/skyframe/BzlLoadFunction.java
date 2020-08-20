@@ -96,7 +96,7 @@ public class BzlLoadFunction implements SkyFunction {
 
   // Used for BUILD .bzls if injection is disabled.
   // TODO(#11437): Remove once injection is on unconditionally.
-  private final StarlarkBuiltinsValue uninjectedStarlarkBuiltins;
+  private final ImmutableMap<String, Object> predeclaredForBuildBzlWithoutInjection;
 
   // Predeclareds for workspace .bzls and builtins .bzls are not subject to builtins injection, so
   // these environments are stored globally.
@@ -118,8 +118,8 @@ public class BzlLoadFunction implements SkyFunction {
       ASTManager astManager,
       @Nullable CachedBzlLoadDataManager cachedBzlLoadDataManager) {
     this.packageFactory = packageFactory;
-    this.uninjectedStarlarkBuiltins =
-        StarlarkBuiltinsFunction.createStarlarkBuiltinsValueWithoutInjection(packageFactory);
+    this.predeclaredForBuildBzlWithoutInjection =
+        StarlarkBuiltinsFunction.createPredeclaredForBuildBzlWithoutInjection(packageFactory);
     this.predeclaredForWorkspaceBzl =
         StarlarkBuiltinsFunction.createPredeclaredForWorkspaceBzl(packageFactory);
     this.predeclaredForBuiltinsBzl =
@@ -575,9 +575,9 @@ public class BzlLoadFunction implements SkyFunction {
     Label label = key.getLabel();
     PathFragment filePath = label.toPathFragment();
 
+    // Ensure the .bzl exists and passes static checks (parsing, resolving).
+    // (A missing prelude file still returns a valid but empty ASTFileLookupValue.)
     if (!astLookup.lookupSuccessful()) {
-      // Starlark code must exist. (A missing prelude file still returns a valid but empty
-      // ASTFileLookupValue.)
       throw new BzlLoadFailedException(astLookup.getError());
     }
     StarlarkFile file = astLookup.getAST();
@@ -585,85 +585,74 @@ public class BzlLoadFunction implements SkyFunction {
       throw BzlLoadFailedException.starlarkErrors(filePath);
     }
 
-    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
-    if (starlarkSemantics == null) {
-      return null;
-    }
-    ImmutableMap<String, Object> predeclared =
-        getPredeclaredEnvironment(key, env, starlarkSemantics, inliningState);
-    if (predeclared == null) {
-      return null;
-    }
-
-    // Process load statements in .bzl file (recursive .bzl -> .bzl loads),
-    // resolving labels relative to the current repo mapping.
+    // Determine dependency BzlLoadValue keys for the load statements in this bzl. Labels are
+    // resolved relative to the current repo mapping.
     ImmutableMap<RepositoryName, RepositoryName> repoMapping = getRepositoryMapping(key, env);
     if (repoMapping == null) {
       return null;
     }
-    List<Pair<String, Label>> loads =
+    List<Pair<String, Label>> loadLabels =
         getLoadLabels(env.getListener(), file, label.getPackageIdentifier(), repoMapping);
-    if (loads == null) {
+    if (loadLabels == null) {
       // malformed load statements
       throw BzlLoadFailedException.starlarkErrors(filePath);
     }
-
-    // Compute Skyframe key for each label in 'loads'.
-    List<BzlLoadValue.Key> loadKeys = Lists.newArrayListWithExpectedSize(loads.size());
-    for (Pair<String, Label> load : loads) {
-      loadKeys.add(key.getKeyForLoad(load.second));
+    List<BzlLoadValue.Key> loadKeys = Lists.newArrayListWithExpectedSize(loadLabels.size());
+    for (Pair<String, Label> entry : loadLabels) {
+      loadKeys.add(key.getKeyForLoad(entry.second));
     }
 
-    // Load .bzl modules in parallel.
+    // Evaluate the dependency bzls. When not using bzl inlining, this is done in parallel for all
+    // loads.
     // TODO(bazel-team): In case of a failed load(), we should report the location of the load()
     // statement in the requesting file, e.g. using
     // file.getLoadStatements().get(...).getStartLocation(). We should also probably catch and
     // rethrow InconsistentFilesystemException with location info in the non-bzl-inlining code path
     // so the error message is the same in both code paths.
-    List<BzlLoadValue> bzlLoads =
+    List<BzlLoadValue> loadValues =
         inliningState == null
             ? computeBzlLoadsWithSkyframe(env, loadKeys, file)
             : computeBzlLoadsWithInlining(env, loadKeys, file, inliningState);
-    if (bzlLoads == null) {
+    if (loadValues == null) {
       return null; // Skyframe deps unavailable
     }
 
-    // Process the loaded modules.
-    //
-    // Compute a digest of the file itself plus the transitive hashes of the modules it directly
-    // loads. Loop iteration order matches the source order of load statements.
+    // Accumulate a transitive digest of the bzl file, the digests of its direct loads, and the
+    // digest of the @builtins pseudo-repository (if applicable).
     Fingerprint fp = new Fingerprint();
     fp.addBytes(astLookup.getDigest());
-    Map<String, Module> loadedModules = Maps.newLinkedHashMapWithExpectedSize(loads.size());
-    for (int i = 0; i < loads.size(); i++) {
-      String loadString = loads.get(i).first;
-      BzlLoadValue v = bzlLoads.get(i);
-      loadedModules.put(loadString, v.getModule()); // dups ok
+
+    // Populate the load map and add transitive digests to the fingerprint.
+    Map<String, Module> loadMap = Maps.newLinkedHashMapWithExpectedSize(loadLabels.size());
+    for (int i = 0; i < loadLabels.size(); i++) {
+      String loadString = loadLabels.get(i).first;
+      BzlLoadValue v = loadValues.get(i);
+      loadMap.put(loadString, v.getModule()); // dups ok
       fp.addBytes(v.getTransitiveDigest());
+    }
+
+    // Retrieve semantics and predeclared symbols, and complete the digest computation.
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (starlarkSemantics == null) {
+      return null;
+    }
+    ImmutableMap<String, Object> predeclared =
+        getAndDigestPredeclaredEnvironment(key, env, starlarkSemantics, fp, inliningState);
+    if (predeclared == null) {
+      return null;
     }
     byte[] transitiveDigest = fp.digestAndReset();
 
+    // Construct the initial Starlark module, then execute the code and return the result.
+    // The additional information in BazelModuleContext reifies the load DAG.
     Module module = Module.withPredeclared(starlarkSemantics, predeclared);
-
-    // Record the module's filename, label, digest, and the set of modules it loads,
-    // forming a complete representation of the load DAG.
     module.setClientData(
         BazelModuleContext.create(
-            label,
-            file.getStartLocation().file(),
-            ImmutableMap.copyOf(loadedModules),
-            transitiveDigest));
-
+            label, file.getStartLocation().file(), ImmutableMap.copyOf(loadMap), transitiveDigest));
     // executeBzlFile may post events to the Environment's handler, but events do not matter when
-    // caching BzlLoadValues. Note that executing the module mutates it.
+    // caching BzlLoadValues. Note that executing the code mutates the module.
     executeBzlFile(
-        file,
-        key.getLabel(),
-        module,
-        loadedModules,
-        starlarkSemantics,
-        env.getListener(),
-        repoMapping);
+        file, key.getLabel(), module, loadMap, starlarkSemantics, env.getListener(), repoMapping);
     return new BzlLoadValue(module, transitiveDigest);
   }
 
@@ -861,42 +850,45 @@ public class BzlLoadFunction implements SkyFunction {
    * applicable) the injected builtins.
    *
    * <p>Returns null if there was a missing Skyframe dep or unspecified exception.
+   *
+   * <p>In the case that injected builtins are used, updates the given fingerprint with the digest
+   * of the {@code @builtins} pseudo-repository.
    */
   @Nullable
-  private ImmutableMap<String, Object> getPredeclaredEnvironment(
+  private ImmutableMap<String, Object> getAndDigestPredeclaredEnvironment(
       BzlLoadValue.Key key,
       Environment env,
       StarlarkSemantics starlarkSemantics,
+      Fingerprint fp,
       InliningState inliningState)
       throws BzlLoadFailedException, InterruptedException {
-    Label label = key.getLabel();
     if (key instanceof BzlLoadValue.KeyForBuild) {
+      // TODO(#11437): Remove ability to disable injection by setting flag to empty string.
+      if (starlarkSemantics.experimentalBuiltinsBzlPath().isEmpty()) {
+        return predeclaredForBuildBzlWithoutInjection;
+      }
       StarlarkBuiltinsValue starlarkBuiltinsValue;
       try {
-        // TODO(#11437): Remove ability to disable injection by setting flag to empty string.
-        if (starlarkSemantics.experimentalBuiltinsBzlPath().isEmpty()) {
-          starlarkBuiltinsValue = uninjectedStarlarkBuiltins;
+        if (inliningState == null) {
+          starlarkBuiltinsValue =
+              (StarlarkBuiltinsValue)
+                  env.getValueOrThrow(StarlarkBuiltinsValue.key(), BuiltinsFailedException.class);
         } else {
-          if (inliningState == null) {
-            starlarkBuiltinsValue =
-                (StarlarkBuiltinsValue)
-                    env.getValueOrThrow(StarlarkBuiltinsValue.key(), BuiltinsFailedException.class);
-          } else {
-            starlarkBuiltinsValue =
-                StarlarkBuiltinsFunction.computeInline(
-                    StarlarkBuiltinsValue.key(),
-                    env,
-                    inliningState,
-                    packageFactory,
-                    /*bzlLoadFunction=*/ this);
-          }
+          starlarkBuiltinsValue =
+              StarlarkBuiltinsFunction.computeInline(
+                  StarlarkBuiltinsValue.key(),
+                  env,
+                  inliningState,
+                  packageFactory,
+                  /*bzlLoadFunction=*/ this);
         }
       } catch (BuiltinsFailedException e) {
-        throw BzlLoadFailedException.builtinsFailed(label, e);
+        throw BzlLoadFailedException.builtinsFailed(key.getLabel(), e);
       }
       if (starlarkBuiltinsValue == null) {
         return null;
       }
+      fp.addBytes(starlarkBuiltinsValue.transitiveDigest);
       return starlarkBuiltinsValue.predeclaredForBuildBzl;
     } else if (key instanceof BzlLoadValue.KeyForWorkspace) {
       return predeclaredForWorkspaceBzl;
