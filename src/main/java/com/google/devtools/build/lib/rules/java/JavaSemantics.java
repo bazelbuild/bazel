@@ -92,8 +92,6 @@ public interface JavaSemantics {
   FileType JAR = FileType.of(".jar");
   FileType PROPERTIES = FileType.of(".properties");
   FileType SOURCE_JAR = FileType.of(".srcjar");
-  // TODO(bazel-team): Rename this metadata extension to something meaningful.
-  FileType COVERAGE_METADATA = FileType.of(".em");
 
   /** Label to the Java Toolchain rule. It is resolved from a label given in the java options. */
   String JAVA_TOOLCHAIN_LABEL = "//tools/jdk:toolchain";
