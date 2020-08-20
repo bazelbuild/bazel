@@ -109,16 +109,12 @@ public class ReferenceCountedChannelPool extends ReferenceCountedChannel {
    * @return A {@link ManagedChannel} that can be used for a single RPC call.
    */
   private ManagedChannel getNextChannel() {
-    return getChannel(indexTicker.getAndIncrement());
+    int index = getChannelIndex(channels.size(), indexTicker.getAndIncrement());
+    return channels.get(index);
   }
 
-  private ManagedChannel getChannel(int affinity) {
-    int index = affinity % channels.size();
-    index = Math.abs(index);
-    // If index is the most negative int, abs(index) is still negative.
-    if (index < 0) {
-      index = 0;
-    }
-    return channels.get(index);
+  public static int getChannelIndex(int poolSize, int affinity) {
+    int index = affinity % poolSize;
+    return Math.abs(index);
   }
 }
