@@ -156,8 +156,7 @@ EOF
   cat $TEST_log
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
 
-  cat <<EOF > result.dat
-SF:src/main/com/example/Collatz.java
+  local expected_result="SF:src/main/com/example/Collatz.java
 FN:3,com/example/Collatz::<init> ()V
 FN:6,com/example/Collatz::getCollatzFinal (I)I
 FNDA:0,com/example/Collatz::<init> ()V
@@ -176,13 +175,9 @@ DA:10,5
 DA:12,7
 LH:5
 LF:6
-end_of_record
-EOF
+end_of_record"
 
-  diff result.dat "$coverage_file_path" >> $TEST_log
-  if ! cmp result.dat $coverage_file_path; then
-    fail "Coverage output file is different with expected"
-  fi
+assert_coverage_result "$expected_result" "$coverage_file_path"
 }
 
 function test_java_test_coverage_combined_report() {
@@ -244,8 +239,7 @@ EOF
   bazel coverage --test_output=all //:test --coverage_report_generator=@bazel_tools//tools/test:coverage_report_generator --combined_report=lcov &>$TEST_log \
    || echo "Coverage for //:test failed"
 
-  cat <<EOF > result.dat
-SF:src/main/com/example/Collatz.java
+  local expected_result="SF:src/main/com/example/Collatz.java
 FN:3,com/example/Collatz::<init> ()V
 FN:6,com/example/Collatz::getCollatzFinal (I)I
 FNDA:0,com/example/Collatz::<init> ()V
@@ -264,13 +258,9 @@ DA:10,5
 DA:12,7
 LH:5
 LF:6
-end_of_record
-EOF
+end_of_record"
 
-  if ! cmp result.dat ./bazel-out/_coverage/_coverage_report.dat; then
-    diff result.dat bazel-out/_coverage/_coverage_report.dat >> $TEST_log
-    fail "Coverage output file is different with expected"
-  fi
+  assert_coverage_result "$expected_result" "./bazel-out/_coverage/_coverage_report.dat"
 }
 
 function test_java_test_java_import_coverage() {
@@ -337,8 +327,7 @@ EOF
   bazel coverage --test_output=all //:test &>$TEST_log || fail "Coverage for //:test failed"
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
 
-  cat <<EOF > result.dat
-SF:src/main/com/example/Collatz.java
+  local expected_result="SF:src/main/com/example/Collatz.java
 FN:3,com/example/Collatz::<init> ()V
 FN:6,com/example/Collatz::getCollatzFinal (I)I
 FNDA:0,com/example/Collatz::<init> ()V
@@ -357,10 +346,9 @@ DA:10,5
 DA:12,7
 LH:5
 LF:6
-end_of_record
-EOF
-  diff result.dat "$coverage_file_path" >> $TEST_log
-  cmp result.dat "$coverage_file_path" || fail "Coverage output file is different than the expected file"
+end_of_record"
+
+  assert_coverage_result "$expected_result" "$coverage_file_path"
 }
 
 function test_run_jar_in_subprocess_empty_env() {
