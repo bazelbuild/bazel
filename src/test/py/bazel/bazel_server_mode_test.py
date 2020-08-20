@@ -40,7 +40,11 @@ class BazelServerModeTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     install_base = stdout[0]
 
-    bazel_client = self.Rlocation('io_bazel/src/main/cpp/client')
+    if self.IsWindows():
+        bazel_client = self.Rlocation('io_bazel/src/main/cpp/client.exe')
+    else:
+        bazel_client = self.Rlocation('io_bazel/src/main/cpp/client')
+
 
     cmd = [bazel_client, '--install_base=%s' % install_base, '--trust_install_base', 'info', 'server_pid']
 
