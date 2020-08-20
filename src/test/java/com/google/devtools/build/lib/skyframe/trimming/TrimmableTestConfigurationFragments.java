@@ -63,7 +63,7 @@ import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.repository.BindRule;
 import com.google.devtools.build.lib.rules.repository.WorkspaceBaseRule;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -95,7 +95,7 @@ public final class TrimmableTestConfigurationFragments {
       throws LabelSyntaxException, IOException {
     scratch.file(
         path,
-        "toolchainTypeLabel = " + Printer.getPrinter().repr(toolchainTypeLabel),
+        "toolchainTypeLabel = " + Starlark.repr(toolchainTypeLabel),
         "def _impl(ctx):",
         "  ctx.actions.write(ctx.outputs.main, '')",
         "  files = depset(",

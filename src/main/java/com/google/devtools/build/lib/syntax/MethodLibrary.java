@@ -699,7 +699,7 @@ class MethodLibrary {
       extraPositionals = @Param(name = "args", doc = "The objects to print."),
       useStarlarkThread = true)
   public NoneType print(String sep, Sequence<?> args, StarlarkThread thread) throws EvalException {
-    Printer p = Printer.getPrinter();
+    Printer p = new Printer();
     String separator = "";
     for (Object x : args) {
       p.append(separator);

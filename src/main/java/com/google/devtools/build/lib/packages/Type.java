@@ -265,7 +265,7 @@ public abstract class Type<T> {
    */
   public static class ConversionException extends EvalException {
     private static String message(Type<?> type, Object value, @Nullable Object what) {
-      Printer.BasePrinter printer = Printer.getPrinter();
+      Printer printer = new Printer();
       printer.append("expected value of type '").append(type.toString()).append("'");
       if (what != null) {
         printer.append(" for ").append(what.toString());

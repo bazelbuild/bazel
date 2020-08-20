@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.IllegalFormatException;
 import java.util.LinkedHashMap;
@@ -118,62 +117,6 @@ public class PrinterTest {
         "%.3g", 1, 2);
     checkFormatPositionalFails("unsupported format character \".\" at index 1 in \"%.s\"",
         "%.s");
-  }
-
-  @Test
-  public void testPrettyPrinter() throws Exception {
-    assertThat(Printer.getPrettyPrinter().repr(ImmutableList.of(1, 2, 3)).toString())
-        .isEqualTo(
-            "[\n" +
-            "    1,\n" +
-            "    2,\n" +
-            "    3\n" +
-            "]");
-    assertThat(Printer.getPrettyPrinter().repr(ImmutableList.<String>of()).toString())
-        .isEqualTo("[]");
-    assertThat(Printer.getPrettyPrinter().repr(ImmutableList.of("foo")).toString())
-        .isEqualTo("[\n    \"foo\"\n]");
-    assertThat(
-            Printer.getPrettyPrinter()
-                .repr(ImmutableMap.<Object, Object>of("foo", "bar", "baz", ImmutableList.of(1, 2)))
-                .toString())
-        .isEqualTo(
-            "{\n" +
-            "    \"foo\": \"bar\",\n" +
-            "    \"baz\": [\n" +
-            "        1,\n" +
-            "        2\n" +
-            "    ]\n" +
-            "}");
-    assertThat(
-            Printer.getPrettyPrinter()
-                .repr(ImmutableMap.<Object, Object>of(
-                        "foo", "bar", "empty", ImmutableList.of(), "a", "b"))
-                .toString())
-        .isEqualTo(
-            "{\n" +
-            "    \"foo\": \"bar\",\n" +
-            "    \"empty\": [],\n" +
-            "    \"a\": \"b\"\n" +
-            "}");
-  }
-
-  private Printer makeSimplifiedFormatPrinter() {
-    return new Printer.BasePrinter(new StringBuilder(), /*simplifiedFormatStrings=*/ true);
-  }
-
-  @Test
-  public void testSimplifiedDisallowsPlaceholdersBesidesPercentS() {
-    assertThat(makeSimplifiedFormatPrinter().format("Allowed: %%").toString())
-        .isEqualTo("Allowed: %");
-    assertThat(makeSimplifiedFormatPrinter().format("Allowed: %s", "abc").toString())
-        .isEqualTo("Allowed: abc");
-    assertThrows(
-        IllegalFormatException.class,
-        () -> makeSimplifiedFormatPrinter().format("Disallowed: %r", "abc"));
-    assertThrows(
-        IllegalFormatException.class,
-        () -> makeSimplifiedFormatPrinter().format("Disallowed: %d", 5));
   }
 
   private StarlarkValue createObjWithStr() {
