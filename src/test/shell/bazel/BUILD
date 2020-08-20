@@ -430,8 +430,9 @@ sh_test(
 )
 
 sh_test(
-    name = "bazel_coverage_cc_test_gcc",
+    name = "bazel_coverage_cc_released_test_gcc",
     srcs = ["bazel_coverage_cc_test_gcc.sh"],
+    args = ["released"],
     data = [":test-deps"],
     tags = [
         "no_windows",
@@ -439,8 +440,39 @@ sh_test(
 )
 
 sh_test(
-    name = "bazel_coverage_cc_test_llvm",
+    name = "bazel_coverage_cc_head_test_gcc",
+    srcs = ["bazel_coverage_cc_test_gcc.sh"],
+    args = [
+        "tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator/coverage",
+    ],
+    data = [
+        ":test-deps",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
+    ],
+    tags = [
+        "no_windows",
+    ],
+)
+
+sh_test(
+    name = "bazel_coverage_cc_head_test_llvm",
     srcs = ["bazel_coverage_cc_test_llvm.sh"],
+    args = [
+        "tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator/coverage",
+    ],
+    data = [
+        ":test-deps",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
+    ],
+    tags = [
+        "no_windows",
+    ],
+)
+
+sh_test(
+    name = "bazel_coverage_cc_released_test_llvm",
+    srcs = ["bazel_coverage_cc_test_llvm.sh"],
+    args = ["released"],
     data = [":test-deps"],
     tags = [
         "no_windows",
@@ -452,6 +484,7 @@ sh_test(
     srcs = ["bazel_coverage_java_test.sh"],
     args = [
         "@bazel_tools//tools/jdk:toolchain",
+        "released",
         "released",
     ],
     data = [
@@ -466,7 +499,7 @@ sh_test(
 # Test java coverage with the java_toolchain in the released java_tools versions.
 [
     sh_test(
-        name = "bazel_coverage_java_jdk" + java_version + "toolchain_released_test",
+        name = "bazel_coverage_java_jdk" + java_version + "_toolchain_released_test",
         srcs = ["bazel_coverage_java_test.sh"],
         args = select({
             "//src/conditions:darwin": ["@remote_java_tools_javac" + java_version + "_test_darwin//:toolchain"],
@@ -475,6 +508,8 @@ sh_test(
             "//src/conditions:linux_x86_64": ["@remote_java_tools_javac" + java_version + "_test_linux//:toolchain"],
         }) + [
             # java_tools zip to test
+            "released",
+            # coverage_report_generator to test
             "released",
             # --javabase value
         ] + select({
@@ -504,6 +539,8 @@ sh_test(
             "@local_java_tools//:toolchain",
             # java_tools zip to test
             "src/java_tools_java" + java_version + ".zip",
+            # coverage output generator to test
+            "tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator/coverage",
             # --javabase value
         ] + select({
             "//src/conditions:darwin": ["@openjdk" + java_version + "_darwin_archive//:runtime"],
@@ -515,8 +552,10 @@ sh_test(
             ":test-deps",
             "//src:java_tools_java" + java_version + "_zip",
             "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
+            "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
         ],
         tags = [
+            "manual",
             "no_windows",
         ],
     )

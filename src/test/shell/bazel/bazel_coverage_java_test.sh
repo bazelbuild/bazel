@@ -35,6 +35,12 @@ if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
 fi
 JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
 
+COVERAGE_GENERATOR_DIR="$1"; shift
+if [[ "${COVERAGE_GENERATOR_DIR}" != "released" ]]; then
+  COVERAGE_GENERATOR_DIR="$(rlocation io_bazel/$COVERAGE_GENERATOR_DIR)"
+  add_to_bazelrc "build --override_repository=remote_coverage_tools=${COVERAGE_GENERATOR_DIR}"
+fi
+
 if [[ $# -gt 0 ]]; then
     JAVABASE_VALUE="$1"; shift
     add_to_bazelrc "build --javabase=${JAVABASE_VALUE}"
