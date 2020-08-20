@@ -37,7 +37,7 @@ WRAPPER="${MY_LOCATION}/xcrunwrapper.sh"
 # Ensure 0 timestamping for hermetic results.
 export ZERO_AR_DATE=1
 
-if $(/usr/bin/dirname "$0")/libtool_check_unique "$@"; then
+if ${MY_LOCATION}/libtool_check_unique "$@"; then
   # If there are no duplicate .o basenames, libtool can be invoked with the original arguments
   "${WRAPPER}" libtool "$@"
   exit
