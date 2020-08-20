@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.android.tools.r8;
 
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 /**
@@ -58,23 +57,6 @@ public class CompatDxSupport {
       // as bazel might link to a shrunken r8.jar which does not have these APIs.
       Object app = getInputAppMethod.invoke(command);
       Object options = getInternalOptionsMethod.invoke(command);
-      // DX allows --multi-dex without specifying a main dex list for legacy devices.
-      // That is broken, but for CompatDX we do the same to not break existing builds
-      // that are trying to transition.
-      try {
-        Field enableMainDexListCheckField = internalOptionsClass.getField("enableMainDexListCheck");
-        try {
-          // Use reflection for:
-          //   <code>options.enableMainDexListCheck = false;</code>
-          // as bazel might link to an old r8.jar which does not have this field.
-          enableMainDexListCheckField.setBoolean(options, false);
-        } catch (IllegalAccessException e) {
-          throw new AssertionError("Unsupported r8.jar", e);
-        }
-      } catch (NoSuchFieldException e) {
-        // Ignore if bazel is linking to an old r8.jar.
-      }
-
       runForTestingMethod.invoke(null, app, options);
     } catch (ReflectiveOperationException e) {
       // This is an unsupported r8.jar.
