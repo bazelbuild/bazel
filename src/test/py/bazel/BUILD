@@ -60,6 +60,9 @@ py_test(
     size = "medium",
     srcs = ["bazel_server_mode_test.py"],
     deps = [":test_base"],
+    data = [
+        "//src/main/cpp:client",
+    ],
 )
 
 py_test(

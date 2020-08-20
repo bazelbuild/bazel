@@ -33,5 +33,27 @@ class BazelServerModeTest(test_base.TestBase):
     self.assertEqual(pid1, pid2)
 
 
+  def testRunBazelClientWithTrustedInstallBase(self):
+    self.ScratchFile('WORKSPACE')
+
+    exit_code, stdout, stderr = self.RunBazel(['info', 'install_base'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    install_base = stdout[0]
+
+    bazel_client = self.Rlocation('io_bazel/src/main/cpp/client')
+
+    cmd = [bazel_client, '--install_base=%s' % install_base, '--trust_install_base', 'info', 'server_pid']
+
+    exit_code, stdout, stderr = self.RunProgram(cmd)
+    self.AssertExitCode(exit_code, 0, stderr)
+    pid1 = stdout[0]
+
+    exit_code, stdout, stderr = self.RunProgram(cmd)
+    self.AssertExitCode(exit_code, 0, stderr)
+    pid2 = stdout[0]
+
+    self.assertEqual(pid1, pid2)
+
+
 if __name__ == '__main__':
   unittest.main()

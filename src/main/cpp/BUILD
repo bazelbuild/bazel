@@ -129,7 +129,10 @@ cc_binary(
             "-ldl",
         ],
     }),
-    visibility = ["//src:__pkg__"],
+    visibility = [
+        "//src:__pkg__",
+        "//src/test/py/bazel:__pkg__",
+    ],
     deps = [
         ":archive_utils",
         ":bazel_startup_options",
