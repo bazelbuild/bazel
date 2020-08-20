@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.stream.Collectors;
 import java.util.Collection;
 import java.util.Iterator;

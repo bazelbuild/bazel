@@ -599,6 +599,21 @@ java_test(
     ],
 )
 
+java_test(
+    name = "InstrumentationFilterTest",
+    srcs = ["InstrumentationFilterTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:build_type",
+        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
+        "//third_party:junit4",
+    ],
+)
+
 test_suite(
     name = "windows_tests",
     tags = [
