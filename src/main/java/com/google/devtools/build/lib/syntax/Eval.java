@@ -224,7 +224,9 @@ final class Eval {
       fr.dbg.before(fr.thread, loc); // location is now redundant since it's in the thread
     }
 
-    fr.thread.steps++;
+    if (++fr.thread.steps >= fr.thread.stepLimit) {
+      throw new EvalException("Starlark computation cancelled: too many steps");
+    }
 
     switch (st.kind()) {
       case ASSIGNMENT:
@@ -257,8 +259,6 @@ final class Eval {
    */
   private static void assign(StarlarkThread.Frame fr, Expression lhs, Object value)
       throws EvalException, InterruptedException {
-    fr.thread.steps++;
-
     if (lhs instanceof Identifier) {
       // x = ...
       assignIdentifier(fr, (Identifier) lhs, value);
@@ -397,7 +397,9 @@ final class Eval {
 
   private static Object eval(StarlarkThread.Frame fr, Expression expr)
       throws EvalException, InterruptedException {
-    fr.thread.steps++;
+    if (++fr.thread.steps >= fr.thread.stepLimit) {
+      throw new EvalException("Starlark computation cancelled: too many steps");
+    }
 
     // The switch cases have been split into separate functions
     // to reduce the stack usage during recursion, which is

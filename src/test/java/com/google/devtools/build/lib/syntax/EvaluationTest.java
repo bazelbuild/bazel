@@ -130,6 +130,40 @@ public final class EvaluationTest {
   }
 
   @Test
+  public void testExecutionSteps() throws Exception {
+    Mutability mu = Mutability.create("test");
+    StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+    ParserInput input = ParserInput.fromLines("squares = [x*x for x in range(n)]");
+
+    class C {
+      long run(int n) throws SyntaxError.Exception, EvalException, InterruptedException {
+        Module module =
+            Module.withPredeclared(StarlarkSemantics.DEFAULT, ImmutableMap.of("n", 1000));
+        long steps0 = thread.getExecutedSteps();
+        EvalUtils.exec(input, FileOptions.DEFAULT, module, thread);
+        return thread.getExecutedSteps() - steps0;
+      }
+    }
+
+    // A thread records the number of computation steps.
+    long steps100 = new C().run(1000);
+    long steps10000 = new C().run(10000);
+    double ratio = ((double) steps10000 / (double) steps100) * 100.0;
+    if (ratio < 99 || ratio > 101) {
+      throw new AssertionError(
+          String.format(
+              "computation steps did not increase linearly: f(100)=%d, f(10000)=%d, ratio=%g, want"
+                  + " ~100",
+              steps100, steps10000, ratio));
+    }
+
+    // Exceeding the limit causes cancellation.
+    thread.setMaxExecutionSteps(1000);
+    EvalException ex = assertThrows(EvalException.class, () -> new C().run(1000));
+    assertThat(ex).hasMessageThat().contains("Starlark computation cancelled: too many steps");
+  }
+
+  @Test
   public void testExprs() throws Exception {
     ev.new Scenario()
         .testExpression("'%sx' % 'foo' + 'bar1'", "fooxbar1")
