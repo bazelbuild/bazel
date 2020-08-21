@@ -18,7 +18,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
 
 import com.android.tools.r8.ByteDataView;
-import com.android.tools.r8.CompatDxSupport;
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.D8;
@@ -331,15 +330,6 @@ public class CompatDx {
     public int minApiLevel;
 
     @Option(
-        name = "desugar-backport-statics",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        help = "Backport additional Java 8 APIs.")
-    public boolean backportStatics;
-
-    @Option(
         name = "input-list",
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -391,7 +381,6 @@ public class CompatDx {
     public final String mainDexList;
     public final boolean minimalMainDex;
     public final int minApiLevel;
-    public final boolean backportStatics;
     public final String inputList;
     public final List<String> inputs;
     // Undocumented option
@@ -465,7 +454,6 @@ public class CompatDx {
       mainDexList = options.mainDexList;
       minimalMainDex = options.minimalMainDex;
       minApiLevel = options.minApiLevel;
-      backportStatics = options.backportStatics;
       inputList = options.inputList;
       inputs = remaining;
       maxIndexNumber = options.maxIndexNumber;
@@ -632,9 +620,6 @@ public class CompatDx {
           .setMinApiLevel(dexArgs.minApiLevel);
       if (mainDexList != null) {
         builder.addMainDexListFiles(mainDexList);
-      }
-      if (dexArgs.backportStatics) {
-        CompatDxSupport.enableDesugarBackportStatics(builder);
       }
       D8.run(builder.build());
     } finally {
