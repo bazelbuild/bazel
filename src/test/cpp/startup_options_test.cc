@@ -108,7 +108,13 @@ TEST_F(StartupOptionsTest, OutputRootUseHomeDirectory) {
 #endif  // __linux
 
 TEST_F(StartupOptionsTest, OutputUserRootTildeExpansion) {
-  SetEnv("HOME", "/nonexistent/home");
+#if defined(_WIN32)
+  std::string home = "C:\\nonexistent\\home\\";
+#else
+  std::string home = "/nonexistent/home/";
+#endif
+
+  SetEnv("HOME", home);
 
   std::string error;
 
@@ -122,11 +128,17 @@ TEST_F(StartupOptionsTest, OutputUserRootTildeExpansion) {
   ASSERT_EQ(blaze_exit_code::SUCCESS, ec)
       << "ProcessArgs failed with error " << error;
 
-  EXPECT_EQ("/nonexistent/home/test", startup_options_->output_user_root);
+  EXPECT_EQ(blaze_util::JoinPath(home, "test"), startup_options_->output_user_root);
 }
 
 TEST_F(StartupOptionsTest, OutputUserRootSingleTilde) {
-  SetEnv("HOME", "/nonexistent/home");
+#if defined(_WIN32)
+  std::string home = "C:\\nonexistent\\home";
+#else
+  std::string home = "/nonexistent/home/";
+#endif
+
+  SetEnv("HOME", home);
 
   std::string error;
 
@@ -140,7 +152,7 @@ TEST_F(StartupOptionsTest, OutputUserRootSingleTilde) {
   ASSERT_EQ(blaze_exit_code::SUCCESS, ec)
       << "ProcessArgs failed with error " << error;
 
-  EXPECT_EQ("/nonexistent/home/", startup_options_->output_user_root);
+  EXPECT_EQ(home, startup_options_->output_user_root);
 }
 
 TEST_F(StartupOptionsTest, EmptyFlagsAreInvalidTest) {
