@@ -1,5 +1,6 @@
 package com.google.devtools.build.lib.rules;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -51,7 +52,7 @@ public class DataRunfilesPropagationTest extends BuildViewTestCase {
         getDataRunfiles(target).getArtifacts().toList().stream()
             .map(Artifact::getFilename)
             .collect(Collectors.toList());
-    List<String> names = List.of("file1.dat", "file2.dat", "file3.dat", "file4.dat");
+    ImmutableList<String> names = ImmutableList.of("file1.dat", "file2.dat", "file3.dat", "file4.dat");
     assertThat(runfiles).containsAtLeastElementsIn(names);
   }
 }
