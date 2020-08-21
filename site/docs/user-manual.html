@@ -2464,10 +2464,11 @@ a user-friendly way.
 </ul>
 
 <p>
-  <code>bazel --version</code>, with no other args, will emit the same output as
+  <code>bazel --version</code>, will emit the same output as
   <code>bazel version --gnu_format</code>, except without the side-effect of potentially starting
   a Bazel server or unpacking the server archive. <code>bazel --version</code> can be run from
-  anywhere - it does not require a workspace directory.
+  anywhere - it does not require a workspace directory. When <code>--version</code> is passed, all
+  other flags and Bazel command will be ignored.
 </p>
 
 <h3 id='mobile-install'><code>mobile-install</code></h3>

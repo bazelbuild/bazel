@@ -482,4 +482,25 @@ public class BlazeServerStartupOptions extends OptionsBase {
               + "Requires Windows developer mode to be enabled and Windows 10 version 1703 or "
               + "greater.")
   public boolean enableWindowsSymlinks;
+
+  @Option(
+      name = "trust_install_base",
+      defaultValue = "false", // Only for documentation; value is set by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "If passed, the Bazel client will trust the install base directory provided by "
+              + "--install_base and skip any verification of the install base. "
+              + "Requires --install_base to be set.")
+  public boolean trustInstallBase;
+
+  @Option(
+      name = "version",
+      defaultValue = "false", // Only for documentation; value is set by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "If passed, the Bazel client will print Bazel version info and exit, "
+              + "all other flags and Bazel command will be ignored.")
+  public boolean version;
 }
