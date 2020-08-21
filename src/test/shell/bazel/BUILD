@@ -492,6 +492,7 @@ sh_test(
         "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
     ],
     tags = [
+        "manual",
         "no_windows",
     ],
 )
@@ -523,6 +524,7 @@ sh_test(
             "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         ],
         tags = [
+            "manual",
             "no_windows",
         ],
     )
@@ -555,7 +557,6 @@ sh_test(
             "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
         ],
         tags = [
-            "manual",
             "no_windows",
         ],
     )
