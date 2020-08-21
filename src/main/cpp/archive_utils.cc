@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#include <algorithm>
 #include <functional>
 #include <memory>
 #include <string>
@@ -113,7 +114,7 @@ void DetermineArchiveContentsFromInstallBase(const string &install_base_str,
   // Read all archive content entries and calculate the relative paths to install base.
   blaze_util::GetAllFilesUnder(install_base_str, &files);
   std::size_t pos = install_base.AsNativePath().length() + 1;
-  for (int i = 0; i < files.size(); i++) {
+  for (std::size_t i = 0; i < files.size(); i++) {
     blaze_util::Path entry(files[i]);
     #if defined(_WIN32) || defined(__CYGWIN__)
       files[i] = blaze_util::WstringToCstring(entry.AsNativePath().substr(pos));
