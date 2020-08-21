@@ -107,6 +107,43 @@ TEST_F(StartupOptionsTest, OutputRootUseHomeDirectory) {
 }
 #endif  // __linux
 
+TEST_F(StartupOptionsTest, OutputUserRootTildeExpansion) {
+  SetEnv("HOME", "/nonexistent/home");
+
+  std::string error;
+
+  const std::vector<RcStartupFlag> flags{
+      RcStartupFlag("somewhere", "--output_user_root=~/test"),
+  };
+
+  const blaze_exit_code::ExitCode ec =
+      startup_options_->ProcessArgs(flags, &error);
+
+  ASSERT_EQ(blaze_exit_code::SUCCESS, ec)
+      << "ProcessArgs failed with error " << error;
+
+  EXPECT_EQ("/nonexistent/home/test", startup_options_->output_user_root);
+}
+
+TEST_F(StartupOptionsTest, OutputUserRootSingleTilde) {
+  SetEnv("HOME", "/nonexistent/home");
+
+  std::string error;
+
+  const std::vector<RcStartupFlag> flags{
+      RcStartupFlag("somewhere", "--output_user_root=~"),
+  };
+
+  const blaze_exit_code::ExitCode ec =
+      startup_options_->ProcessArgs(flags, &error);
+
+  ASSERT_EQ(blaze_exit_code::SUCCESS, ec)
+      << "ProcessArgs failed with error " << error;
+
+  EXPECT_EQ("/nonexistent/home/", startup_options_->output_user_root);
+}
+
+
 TEST_F(StartupOptionsTest, EmptyFlagsAreInvalidTest) {
   {
     bool result;
