@@ -30,6 +30,12 @@ public class Printer {
 
   private final StringBuilder buffer;
 
+  // Stack of values in the middle of being printed.
+  // Each renders as "..." if recursively encountered,
+  // indicating a cycle.
+  private Object[] stack;
+  private int depth;
+
   /** Creates a printer that writes to the given buffer. */
   public Printer(StringBuilder buffer) {
     this.buffer = buffer;
@@ -107,12 +113,12 @@ public class Printer {
    * <p>Implementations of StarlarkValue may define their own behavior of {@code str}.
    */
   public Printer str(Object o) {
-    if (o instanceof StarlarkValue) {
+    if (o instanceof String) {
+      return this.append((String) o);
+
+    } else if (o instanceof StarlarkValue) {
       ((StarlarkValue) o).str(this);
       return this;
-
-    } else if (o instanceof String) {
-      return this.append((String) o);
 
     } else {
       return this.repr(o);
@@ -125,51 +131,70 @@ public class Printer {
    *
    * <p>Implementations of StarlarkValue may define their own behavior of {@code repr}.
    *
+   * <p>Cyclic values are rendered as {@code ...} if they are recursively encountered by the same
+   * printer. (Implementations of {@link StarlarkValue#repr} should avoid calling {@code
+   * Starlark#repr}, as it creates another printer, which hide cycles from the cycle detector.)
+   *
    * <p>In addition to Starlark values, {@code repr} also prints instances of classes Map, List,
    * Map.Entry, or Class. All other values are formatted using their {@code toString} method.
    * TODO(adonovan): disallow that.
    */
   public Printer repr(Object o) {
+    // atomic values
     if (o == null) {
       // Java null is not a valid Starlark value, but sometimes printers are used on non-Starlark
       // values such as Locations or Nodes.
-      this.append("null");
-
-    } else if (o instanceof StarlarkValue) {
-      ((StarlarkValue) o).repr(this);
+      return this.append("null");
 
     } else if (o instanceof String) {
       appendQuoted((String) o);
+      return this;
 
     } else if (o instanceof Integer) {
       this.buffer.append((int) o);
+      return this;
 
     } else if (o instanceof Boolean) {
       this.append(((boolean) o) ? "True" : "False");
+      return this;
 
-      // -- non-Starlark values --
-
-    } else if (o instanceof Map) {
-      Map<?, ?> dict = (Map<?, ?>) o;
-      this.printList(dict.entrySet(), "{", ", ", "}");
-
-    } else if (o instanceof List) {
-      this.printList((List) o, "[", ", ", "]");
-
-    } else if (o instanceof Map.Entry) {
-      Map.Entry<?, ?> entry = (Map.Entry<?, ?>) o;
-      this.repr(entry.getKey());
-      this.append(": ");
-      this.repr(entry.getValue());
-
-    } else if (o instanceof Class) {
+    } else if (o instanceof Class) { // (a non-Starlark value)
       this.append(Starlark.classType((Class<?>) o));
+      return this;
+    }
 
-    } else {
-      // All other non-Starlark Java values (e.g. Node, Location).
-      // Starlark code cannot access values of o that would reach here,
-      // and native code is already trusted to be deterministic.
-      this.append(o.toString());
+    // compound values
+
+    if (!push(o)) {
+      return this.append("..."); // elided cycle
+    }
+    try {
+      if (o instanceof StarlarkValue) {
+        ((StarlarkValue) o).repr(this);
+
+        // -- non-Starlark values --
+
+      } else if (o instanceof Map) {
+        Map<?, ?> dict = (Map<?, ?>) o;
+        this.printList(dict.entrySet(), "{", ", ", "}");
+
+      } else if (o instanceof List) {
+        this.printList((List) o, "[", ", ", "]");
+
+      } else if (o instanceof Map.Entry) {
+        Map.Entry<?, ?> entry = (Map.Entry<?, ?>) o;
+        this.repr(entry.getKey());
+        this.append(": ");
+        this.repr(entry.getValue());
+
+      } else {
+        // All other non-Starlark Java values (e.g. Node, Location).
+        // Starlark code cannot access values of o that would reach here,
+        // and native code is already trusted to be deterministic.
+        this.append(o.toString());
+      }
+    } finally {
+      pop();
     }
 
     return this;
@@ -211,9 +236,26 @@ public class Printer {
     }
   }
 
-  @Deprecated // kept briefly to avoid breaking Copybara. Remedy: inline it.
-  public final void format(String pattern, Object... arguments) {
-    Printer.format(this, pattern, arguments);
+  // Reports whether x is already present on the visitation stack, pushing it if not.
+  private boolean push(Object x) {
+    // cyclic?
+    for (int i = 0; i < depth; i++) {
+      if (x == stack[i]) {
+        return false;
+      }
+    }
+
+    if (stack == null) {
+      this.stack = new Object[4];
+    } else if (depth == stack.length) {
+      this.stack = Arrays.copyOf(stack, 2 * stack.length);
+    }
+    this.stack[depth++] = x;
+    return true;
+  }
+
+  private void pop() {
+    this.stack[--depth] = null;
   }
 
   /**
