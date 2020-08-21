@@ -206,7 +206,8 @@ public class ConfiguredTargetQueryEnvironment
           SkyframeExecutor skyframeExecutor,
           BuildConfiguration hostConfiguration,
           @Nullable TransitionFactory<Rule> trimmingTransitionFactory,
-          PackageManager packageManager) {
+          PackageManager packageManager)
+          throws QueryException, InterruptedException {
     AspectResolver aspectResolver =
         cqueryOptions.aspectDeps.createResolver(packageManager, eventHandler);
     return ImmutableList.of(
@@ -247,6 +248,8 @@ public class ConfiguredTargetQueryEnvironment
             aspectResolver,
             OutputType.JSON),
         new BuildOutputFormatterCallback(
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor),
+        new StarlarkOutputFormatterCallback(
             eventHandler, cqueryOptions, out, skyframeExecutor, accessor));
   }
 

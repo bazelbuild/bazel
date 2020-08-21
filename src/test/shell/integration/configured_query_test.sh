@@ -810,4 +810,89 @@ EOF
   assert_equals "$(grep some_file output | wc -l | egrep -o '[0-9]+')" "1"
 }
 
+function test_starlark_output_mode() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+py_library(
+    name = "pylib",
+    srcs = ["pylib.py"],
+)
+
+py_library(
+    name = "pylibtwo",
+    srcs = ["pylibtwo.py", "pylibtwo2.py",],
+)
+EOF
+
+  bazel cquery "//$pkg:all" --output=starlark \
+    --starlark:expr="str(target.label) + '%foo'" > output \
+    2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:pylib%foo" output
+  assert_contains "//$pkg:pylibtwo%foo" output
+
+  bazel cquery "//$pkg:all" --output=starlark \
+    --starlark:expr="str(target.label) + '%' + str(target.files.to_list()[1].is_directory)" \
+    > output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:pylibtwo%False" output
+  # pylib evaluation will fail, as it has only one output file.
+  assert_contains "Starlark evaluation error for //$pkg:pylib" "$TEST_log"
+}
+
+function test_starlark_output_invalid_expression() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  touch $pkg/BUILD
+
+  bazel cquery "//$pkg:all" --output=starlark \
+    --starlark:expr="no_symbol" \
+    > output 2>"$TEST_log" && fail "Expected failure"
+
+  assert_contains "invalid --starlark:expr: name 'no_symbol' is not defined" $TEST_log
+
+  bazel cquery "//$pkg:all" --output=starlark \
+    --starlark:expr="def foo(): return 5" \
+    > output 2>"$TEST_log" && fail "Expected failure"
+
+  assert_contains "syntax error at 'def': expected expression" $TEST_log
+}
+
+function test_starlark_output_cc_library_files() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+cc_library(
+    name = "cclib",
+    srcs = ["mylib.cc"],
+)
+EOF
+
+  bazel cquery "//$pkg:all" --output=starlark \
+    --starlark:expr="' '.join([f.basename for f in target.files.to_list()])" \
+    > output 2>"$TEST_log" || fail "Expected failure"
+
+  if "$is_windows"; then
+    assert_contains "cclib.lib" output
+  else
+    assert_contains "libcclib.a" output
+    assert_contains "libcclib.so" output
+  fi
+}
+
+function test_starlark_file_output() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+exports_files(srcs = ["foo"])
+EOF
+
+  bazel cquery "//$pkg:foo" --output=starlark \
+    --starlark:expr="'path=' + target.files.to_list()[0].path" \
+    > output 2>"$TEST_log" || fail "Expected failure"
+
+  assert_contains "^path=$pkg/foo$" output
+}
+
 run_suite "${PRODUCT_NAME} configured query tests"
