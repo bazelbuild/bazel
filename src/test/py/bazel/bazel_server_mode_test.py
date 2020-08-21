@@ -45,7 +45,6 @@ class BazelServerModeTest(test_base.TestBase):
     else:
         bazel_client = self.Rlocation('io_bazel/src/main/cpp/client')
 
-
     cmd = [bazel_client, '--install_base=%s' % install_base, '--trust_install_base', 'info', 'server_pid']
 
     exit_code, stdout, stderr = self.RunProgram(cmd)
