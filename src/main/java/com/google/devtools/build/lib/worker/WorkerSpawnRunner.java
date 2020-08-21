@@ -84,6 +84,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
   private final SandboxHelpers helpers;
   private final Path execRoot;
   private final WorkerPool workers;
+  private final boolean multiplex;
   private final ExtendedEventHandler reporter;
   private final SpawnRunner fallbackRunner;
   private final LocalEnvProvider localEnvProvider;
@@ -96,6 +97,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       SandboxHelpers helpers,
       Path execRoot,
       WorkerPool workers,
+      boolean multiplex,
       ExtendedEventHandler reporter,
       SpawnRunner fallbackRunner,
       LocalEnvProvider localEnvProvider,
@@ -106,6 +108,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     this.helpers = helpers;
     this.execRoot = execRoot;
     this.workers = Preconditions.checkNotNull(workers);
+    this.multiplex = multiplex;
     this.reporter = reporter;
     this.fallbackRunner = fallbackRunner;
     this.localEnvProvider = localEnvProvider;
@@ -211,7 +214,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
             workerFilesCombinedHash,
             workerFiles,
             context.speculating(),
-            Spawns.supportsMultiplexWorkers(spawn),
+            multiplex && Spawns.supportsMultiplexWorkers(spawn),
             protocolFormat);
 
     SpawnMetrics.Builder spawnMetrics =
