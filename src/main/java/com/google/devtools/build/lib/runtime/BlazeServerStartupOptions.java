@@ -489,7 +489,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help =
-          "If passed, the Bazel client will trust the install base directory provided by "
+          "If passed, the client will trust the install base directory provided by "
               + "--install_base and skip any verification of the install base. "
               + "Requires --install_base to be set.")
   public boolean trustInstallBase;
@@ -501,6 +501,6 @@ public class BlazeServerStartupOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help =
           "If passed, the Bazel client will print Bazel version info and exit, "
-              + "all other flags and Bazel command will be ignored.")
+              + "all other flags and the command will be ignored.")
   public boolean version;
 }

@@ -1007,10 +1007,11 @@ static DurationMillis ExtractData(const string &self_path,
           << "install base directory '" << install_base
           << "' could not be created. It exists but is not a directory.";
     }
-    // If --trust_install_base is true, we skip the following checks.
+
     if (startup_options.trust_install_base) {
       return DurationMillis();
     }
+
     blaze_util::Path install_dir(install_base);
     // Check that all files are present and have timestamps from BlessFiles().
     std::unique_ptr<blaze_util::IFileMtime> mtime(
@@ -1630,7 +1631,6 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
   StartupOptions *startup_options = option_processor->GetParsedStartupOptions();
   startup_options->MaybeLogStartupOptionWarnings();
 
-  // Check --install_base is provided when --trust_install_base is enabled
   if (startup_options->trust_install_base && startup_options->install_base.empty()) {
     BAZEL_DIE(blaze_exit_code::BAD_ARGV)
         << "--trust_install_base requires --install_base to be provided";
@@ -1662,27 +1662,8 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
   vector<string> archive_contents;
   string install_md5;
   if (startup_options->trust_install_base) {
-    blaze_util::Path install_base(startup_options->install_base);
-
-    // Read install_md5 value from <install_base>/install_base_key
-    if (!blaze_util::ReadFile(install_base.GetRelative("install_base_key"), &install_md5)) {
-      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Cannot read install_base_key file from install base: "
-        << install_base.AsPrintablePath();
-    }
-
-    // Read all archive content entries and calculate the relative paths to install base.
-    blaze_util::GetAllFilesUnder(startup_options->install_base, &archive_contents);
-    std::size_t pos = install_base.AsNativePath().length() + 1;
-    for (int i = 0; i < archive_contents.size(); i++) {
-      blaze_util::Path entry(archive_contents[i]);
-      #if defined(_WIN32) || defined(__CYGWIN__)
-        archive_contents[i] = blaze_util::WstringToCstring(entry.AsNativePath().substr(pos));
-      #else
-        archive_contents[i] = entry.AsNativePath().substr(pos);
-      #endif
-    }
-    std::sort(archive_contents.begin(), archive_contents.end());
+    DetermineArchiveContentsFromInstallBase(
+      startup_options->install_base, archive_contents, install_md5);
   } else {
     DetermineArchiveContents(self_path, &archive_contents, &install_md5);
   }

@@ -99,6 +99,31 @@ struct PartialZipExtractor : public devtools_ijar::ZipExtractorProcessor {
   bool done_ = false;
 };
 
+void DetermineArchiveContentsFromInstallBase(const string &install_base_str,
+                              vector<string> &files, string &install_md5) {
+  blaze_util::Path install_base(install_base_str);
+
+  // Read install_md5 value from <install_base>/install_base_key
+  if (!blaze_util::ReadFile(install_base.GetRelative("install_base_key"), &install_md5)) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+      << "Cannot read install_base_key file from install base: "
+      << install_base.AsPrintablePath();
+  }
+
+  // Read all archive content entries and calculate the relative paths to install base.
+  blaze_util::GetAllFilesUnder(install_base_str, &files);
+  std::size_t pos = install_base.AsNativePath().length() + 1;
+  for (int i = 0; i < files.size(); i++) {
+    blaze_util::Path entry(files[i]);
+    #if defined(_WIN32) || defined(__CYGWIN__)
+      files[i] = blaze_util::WstringToCstring(entry.AsNativePath().substr(pos));
+    #else
+      files[i] = entry.AsNativePath().substr(pos);
+    #endif
+  }
+  std::sort(files.begin(), files.end());
+}
+
 void DetermineArchiveContents(const string &archive_path, vector<string> *files,
                               string *install_md5) {
   PartialZipExtractor pze;
