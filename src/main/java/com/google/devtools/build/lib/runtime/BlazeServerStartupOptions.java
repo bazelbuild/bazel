@@ -500,7 +500,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help =
-          "If passed, the Bazel client will print Bazel version info and exit, "
+          "If passed, the client will print Bazel version info and exit, "
               + "all other flags and the command will be ignored.")
   public boolean version;
 }
