@@ -143,7 +143,6 @@ TEST_F(StartupOptionsTest, OutputUserRootSingleTilde) {
   EXPECT_EQ("/nonexistent/home/", startup_options_->output_user_root);
 }
 
-
 TEST_F(StartupOptionsTest, EmptyFlagsAreInvalidTest) {
   {
     bool result;
