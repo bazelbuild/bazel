@@ -599,14 +599,15 @@ public final class CcCommon {
             .experimentalSiblingRepositoryLayout();
     List<PathFragment> result = new ArrayList<>();
     PackageIdentifier packageIdentifier = ruleContext.getLabel().getPackageIdentifier();
-    PathFragment packageFragment = packageIdentifier.getExecPath(siblingRepositoryLayout);
+    PathFragment packageExecPath = packageIdentifier.getExecPath(siblingRepositoryLayout);
+    PathFragment packageSourceRoot = packageIdentifier.getSourceRoot();
     for (String includesAttr : ruleContext.getExpander().list("includes")) {
       if (includesAttr.startsWith("/")) {
         ruleContext.attributeWarning("includes",
             "ignoring invalid absolute path '" + includesAttr + "'");
         continue;
       }
-      PathFragment includesPath = packageFragment.getRelative(includesAttr);
+      PathFragment includesPath = packageExecPath.getRelative(includesAttr);
       if (!siblingRepositoryLayout && includesPath.containsUplevelReferences()) {
         ruleContext.attributeError("includes",
             "Path references a path above the execution root.");
@@ -619,7 +620,7 @@ public final class CcCommon {
                 + "' resolves to the workspace root, which would allow this rule and all of its "
                 + "transitive dependents to include any file in your workspace. Please include only"
                 + " what you need");
-      } else if (!includesPath.startsWith(packageFragment)) {
+      } else if (!includesPath.startsWith(packageExecPath)) {
         ruleContext.attributeWarning(
             "includes",
             "'"
@@ -627,14 +628,18 @@ public final class CcCommon {
                 + "' resolves to '"
                 + includesPath
                 + "' not below the relative path of its package '"
-                + packageFragment
+                + packageExecPath
                 + "'. This will be an error in the future");
       }
       result.add(includesPath);
+      // We don't need to perform the above checks against outIncludesPath again since any errors
+      // must have manifested in includesPath already.
+      PathFragment outIncludesPath = packageSourceRoot.getRelative(includesAttr);
       if (ruleContext.getConfiguration().hasSeparateGenfilesDirectory()) {
-        result.add(ruleContext.getConfiguration().getGenfilesFragment().getRelative(includesPath));
+        result.add(
+            ruleContext.getConfiguration().getGenfilesFragment().getRelative(outIncludesPath));
       }
-      result.add(ruleContext.getConfiguration().getBinFragment().getRelative(includesPath));
+      result.add(ruleContext.getConfiguration().getBinFragment().getRelative(outIncludesPath));
     }
     return result;
   }
