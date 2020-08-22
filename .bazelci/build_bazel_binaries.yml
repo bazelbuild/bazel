@@ -36,3 +36,4 @@ platforms:
       - "opt"
     build_targets:
       - "//src:bazel.exe"
+      - "//src:bazel_nojdk.exe"
