@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.bugreport.BugReport;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.skyframe.SkyFunction;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -112,10 +111,7 @@ final class ActionExecutionState {
       result = state.get();
     }
     sharedActionCallback.actionCompleted();
-    return result.transformForSharedAction(
-        action.getOutputs(),
-        action,
-        errorMessage -> env.getListener().handle(Event.error(errorMessage)));
+    return result.transformForSharedAction(action.getOutputs());
   }
 
   private ActionExecutionValue runStateMachine(SkyFunction.Environment env)

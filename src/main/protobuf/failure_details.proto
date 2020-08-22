@@ -415,8 +415,7 @@ message Execution {
     CYCLE = 35 [(metadata) = { exit_code: 1 }];
     SOURCE_INPUT_MISSING = 36 [(metadata) = { exit_code: 1 }];
     UNEXPECTED_EXCEPTION = 37 [(metadata) = { exit_code: 1 }];
-    SEND_ARCHIVED_TREE_ARTIFACT_INPUTS_PREREQ_UNMET = 38
-        [(metadata) = { exit_code: 2 }];
+    reserved 38;
   }
 
   Code code = 1;

@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -188,16 +187,7 @@ public class ActionExecutionFunction implements SkyFunction {
       }
       ActionExecutionValue actionExecutionValue = topDownActionCache.get(sketch);
       if (actionExecutionValue != null) {
-        try {
-          Environment finalEnv = env;
-          return actionExecutionValue.transformForSharedAction(
-              action.getOutputs(),
-              action,
-              errorMessage -> finalEnv.getListener().handle(Event.error(errorMessage)));
-        } catch (ActionExecutionException e) {
-          stateMap.remove(action);
-          throw new ActionExecutionFunctionException(e);
-        }
+        return actionExecutionValue.transformForSharedAction(action.getOutputs());
       }
     }
 
