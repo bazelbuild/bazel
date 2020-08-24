@@ -147,7 +147,6 @@ java_library(
         ":diff_awareness_manager",
         ":directory_listing_function",
         ":directory_listing_state_value",
-        ":error_reading_skylark_extension_exception",
         ":execution_finished_event",
         ":file_function",
         ":file_symlink_cycle_uniqueness_function",
@@ -1339,16 +1338,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "error_reading_skylark_extension_exception",
-    srcs = ["ErrorReadingStarlarkExtensionException.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/skyframe",
     ],
 )
 

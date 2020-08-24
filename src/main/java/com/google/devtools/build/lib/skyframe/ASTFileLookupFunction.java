@@ -63,8 +63,8 @@ public class ASTFileLookupFunction implements SkyFunction {
     try {
       return computeInline(
           (ASTFileLookupValue.Key) skyKey.argument(), env, packageFactory, digestHashFunction);
-    } catch (ErrorReadingStarlarkExtensionException e) {
-      throw new ASTLookupFunctionException(e, e.getTransience());
+    } catch (ASTLookupFailedException e) {
+      throw new ASTLookupFunctionException(e);
     }
   }
 
@@ -73,7 +73,7 @@ public class ASTFileLookupFunction implements SkyFunction {
       Environment env,
       PackageFactory packageFactory,
       DigestHashFunction digestHashFunction)
-      throws ErrorReadingStarlarkExtensionException, InterruptedException {
+      throws ASTLookupFailedException, InterruptedException {
     byte[] bytes;
     byte[] digest;
     String inputName;
@@ -92,7 +92,7 @@ public class ASTFileLookupFunction implements SkyFunction {
       try {
         fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class);
       } catch (IOException e) {
-        throw new ErrorReadingStarlarkExtensionException(e, Transience.PERSISTENT);
+        throw new ASTLookupFailedException(e, Transience.PERSISTENT);
       }
       if (fileValue == null) {
         return null;
@@ -114,7 +114,7 @@ public class ASTFileLookupFunction implements SkyFunction {
                   ? FileSystemUtils.readContent(path)
                   : FileSystemUtils.readWithKnownFileSize(path, fileValue.getSize());
         } catch (IOException e) {
-          throw new ErrorReadingStarlarkExtensionException(e, Transience.TRANSIENT);
+          throw new ASTLookupFailedException(e, Transience.TRANSIENT);
         }
         digest = fileValue.getDigest(); // may be null
         inputName = path.toString();
@@ -173,10 +173,22 @@ public class ASTFileLookupFunction implements SkyFunction {
     return null;
   }
 
+  static final class ASTLookupFailedException extends Exception {
+    private final Transience transience;
+
+    private ASTLookupFailedException(Exception cause, Transience transience) {
+      super(cause.getMessage(), cause);
+      this.transience = transience;
+    }
+
+    Transience getTransience() {
+      return transience;
+    }
+  }
+
   private static final class ASTLookupFunctionException extends SkyFunctionException {
-    private ASTLookupFunctionException(
-        ErrorReadingStarlarkExtensionException e, Transience transience) {
-      super(e, transience);
+    private ASTLookupFunctionException(ASTLookupFailedException cause) {
+      super(cause, cause.transience);
     }
   }
 }
