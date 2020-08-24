@@ -198,7 +198,7 @@ C:\projects\bazel> bazel-bin\examples\cpp\hello-world.exe
 ```
 
 By default the built binaries are targeted to x64 architecture. However, you can specify a different target architecture by setting the ```--cpu``` build option:
-*   Without ```--cpu``` or with ```--cpu=cpu=x64_windows``` targets are built for x64 architecture.
+*   Without ```--cpu``` or with ```--cpu=x64_windows``` targets are built for x64 architecture.
 *   ```--cpu=x64_x86_windows``` builds targets for x86 architecture.
 *   ```--cpu=x64_arm_windows``` builds targets for ARM architecture.
 *   ```--cpu=x64_arm64_windows``` builds targets for ARM64 architecture.
