@@ -58,8 +58,8 @@ public class ActionExecutionValueTransformSharedTreeArtifactsTest {
   @Parameter public boolean includeArchivedRepresentationForTreeArtifacts;
 
   @Parameters(name = "include archived tree artifacts: {0}")
-  public static ImmutableList<Object[]> archivedRepresentationOptions() {
-    return ImmutableList.of(new Object[] {false}, new Object[] {true});
+  public static ImmutableList<Boolean> archivedRepresentationOptions() {
+    return ImmutableList.of(true, false);
   }
 
   private final Scratch scratch = new Scratch();
