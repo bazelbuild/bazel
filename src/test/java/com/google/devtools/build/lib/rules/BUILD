@@ -28,10 +28,7 @@ filegroup(
 
 java_test(
     name = "rules_tests",
-    srcs = glob(
-        ["*.java"],
-        exclude = [":DataRunfilesPropagationTest.java"],
-    ),
+    srcs = glob(["*.java"]),
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         "//src/test/java/com/google/devtools/build/lib:test_runner",
@@ -60,21 +57,6 @@ java_test(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
-    name = "DataRunfilesPropagationTest",
-    srcs = ["DataRunfilesPropagationTest.java"],
-    tags = ["no_windows"],
-    runtime_deps = [
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:truth",
     ],
 )
