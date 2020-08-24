@@ -137,8 +137,7 @@ public final class EvaluationTest {
 
     class C {
       long run(int n) throws SyntaxError.Exception, EvalException, InterruptedException {
-        Module module =
-            Module.withPredeclared(StarlarkSemantics.DEFAULT, ImmutableMap.of("n", 1000));
+        Module module = Module.withPredeclared(StarlarkSemantics.DEFAULT, ImmutableMap.of("n", n));
         long steps0 = thread.getExecutedSteps();
         EvalUtils.exec(input, FileOptions.DEFAULT, module, thread);
         return thread.getExecutedSteps() - steps0;
@@ -146,15 +145,15 @@ public final class EvaluationTest {
     }
 
     // A thread records the number of computation steps.
-    long steps100 = new C().run(1000);
+    long steps1000 = new C().run(1000);
     long steps10000 = new C().run(10000);
-    double ratio = ((double) steps10000 / (double) steps100) * 100.0;
-    if (ratio < 99 || ratio > 101) {
+    double ratio = (double) steps10000 / (double) steps1000;
+    if (ratio < 9.9 || ratio > 10.1) {
       throw new AssertionError(
           String.format(
-              "computation steps did not increase linearly: f(100)=%d, f(10000)=%d, ratio=%g, want"
-                  + " ~100",
-              steps100, steps10000, ratio));
+              "computation steps did not increase linearly: f(1000)=%d, f(10000)=%d, ratio=%g, want"
+                  + " ~10",
+              steps1000, steps10000, ratio));
     }
 
     // Exceeding the limit causes cancellation.
