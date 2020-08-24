@@ -13,10 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
-import com.google.common.base.Throwables;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
@@ -167,8 +165,6 @@ public class BzlLoadFunction implements SkyFunction {
     BzlLoadValue.Key key = (BzlLoadValue.Key) skyKey.argument();
     try {
       return computeInternal(key, env, /*inliningState=*/ null);
-    } catch (InconsistentFilesystemException e) {
-      throw new BzlLoadFunctionException(e, Transience.PERSISTENT);
     } catch (BzlLoadFailedException e) {
       throw new BzlLoadFunctionException(e);
     }
@@ -237,7 +233,7 @@ public class BzlLoadFunction implements SkyFunction {
   // TODO(brandjon): Pick one of the nouns "load" and "bzl" and use that term consistently.
   @Nullable
   BzlLoadValue computeInline(BzlLoadValue.Key key, Environment env, InliningState inliningState)
-      throws InconsistentFilesystemException, BzlLoadFailedException, InterruptedException {
+      throws BzlLoadFailedException, InterruptedException {
     // Note to refactorors: No Skyframe calls may be made before the RecordingSkyFunctionEnvironment
     // is set up below in computeInlineForCacheMiss.
     Preconditions.checkNotNull(cachedBzlLoadDataManager);
@@ -261,7 +257,7 @@ public class BzlLoadFunction implements SkyFunction {
   @Nullable
   private CachedBzlLoadData computeInlineCachedData(
       BzlLoadValue.Key key, Environment env, InliningState inliningState)
-      throws InconsistentFilesystemException, BzlLoadFailedException, InterruptedException {
+      throws BzlLoadFailedException, InterruptedException {
     // Note to refactorors: No Skyframe calls may be made before the RecordingSkyFunctionEnvironment
     // is set up below in computeInlineForCacheMiss.
 
@@ -311,7 +307,7 @@ public class BzlLoadFunction implements SkyFunction {
   @Nullable
   private CachedBzlLoadData computeInlineForCacheMiss(
       BzlLoadValue.Key key, Environment env, InliningState inliningState)
-      throws InconsistentFilesystemException, BzlLoadFailedException, InterruptedException {
+      throws BzlLoadFailedException, InterruptedException {
     // We use an instrumented Skyframe env to capture Skyframe deps in the CachedBzlLoadData. This
     // generally includes transitive Skyframe deps, but specifically excludes deps underneath
     // recursively loaded .bzls. We unwrap the instrumented env right before recursively calling
@@ -459,7 +455,7 @@ public class BzlLoadFunction implements SkyFunction {
   @Nullable
   private BzlLoadValue computeInternal(
       BzlLoadValue.Key key, Environment env, @Nullable InliningState inliningState)
-      throws InconsistentFilesystemException, BzlLoadFailedException, InterruptedException {
+      throws BzlLoadFailedException, InterruptedException {
     Label label = key.getLabel();
     PathFragment filePath = label.toPathFragment();
 
@@ -499,8 +495,7 @@ public class BzlLoadFunction implements SkyFunction {
    */
   @Nullable
   private static ASTFileLookupValue.Key validatePackageAndGetASTKey(
-      BzlLoadValue.Key key, Environment env)
-      throws BzlLoadFailedException, InconsistentFilesystemException, InterruptedException {
+      BzlLoadValue.Key key, Environment env) throws BzlLoadFailedException, InterruptedException {
     Label label = key.getLabel();
 
     // Do package lookup.
@@ -516,6 +511,9 @@ public class BzlLoadFunction implements SkyFunction {
                   BuildFileNotFoundException.class,
                   InconsistentFilesystemException.class);
     } catch (BuildFileNotFoundException e) {
+      throw BzlLoadFailedException.errorReadingFile(
+          label.toPathFragment(), new ErrorReadingStarlarkExtensionException(e));
+    } catch (InconsistentFilesystemException e) {
       throw BzlLoadFailedException.errorReadingFile(
           label.toPathFragment(), new ErrorReadingStarlarkExtensionException(e));
     }
@@ -556,7 +554,7 @@ public class BzlLoadFunction implements SkyFunction {
       ASTFileLookupValue astLookup,
       Environment env,
       @Nullable InliningState inliningState)
-      throws InconsistentFilesystemException, BzlLoadFailedException, InterruptedException {
+      throws BzlLoadFailedException, InterruptedException {
     Label label = key.getLabel();
     PathFragment filePath = label.toPathFragment();
 
@@ -591,9 +589,7 @@ public class BzlLoadFunction implements SkyFunction {
     // loads.
     // TODO(bazel-team): In case of a failed load(), we should report the location of the load()
     // statement in the requesting file, e.g. using
-    // file.getLoadStatements().get(...).getStartLocation(). We should also probably catch and
-    // rethrow InconsistentFilesystemException with location info in the non-bzl-inlining code path
-    // so the error message is the same in both code paths.
+    // file.getLoadStatements().get(...).getStartLocation().
     List<BzlLoadValue> loadValues =
         inliningState == null
             ? computeBzlLoadsWithSkyframe(env, loadKeys, file)
@@ -772,7 +768,7 @@ public class BzlLoadFunction implements SkyFunction {
       List<BzlLoadValue.Key> keys,
       StarlarkFile requestingFile,
       InliningState inliningState)
-      throws InterruptedException, BzlLoadFailedException, InconsistentFilesystemException {
+      throws BzlLoadFailedException, InterruptedException {
     String filePathForErrors = requestingFile.getStartLocation().file();
     Preconditions.checkState(
         env instanceof RecordingSkyFunctionEnvironment,
@@ -793,7 +789,7 @@ public class BzlLoadFunction implements SkyFunction {
     //
     // This approach assumes --keep_going; determinism is not guaranteed otherwise. It also assumes
     // InterruptedException does not occur, since we don't catch and defer it.
-    Exception deferredException = null;
+    BzlLoadFailedException deferredException = null;
     boolean valuesMissing = false;
     // NOTE: Iterating over loads in the order listed in the file.
     for (BzlLoadValue.Key key : keys) {
@@ -801,11 +797,9 @@ public class BzlLoadFunction implements SkyFunction {
       try {
         cachedData = computeInlineCachedData(key, strippedEnv, inliningState);
       } catch (BzlLoadFailedException e) {
-        e = BzlLoadFailedException.whileLoadingDep(filePathForErrors, e);
-        deferredException = MoreObjects.firstNonNull(deferredException, e);
-        continue;
-      } catch (InconsistentFilesystemException e) {
-        deferredException = MoreObjects.firstNonNull(deferredException, e);
+        if (deferredException == null) {
+          deferredException = BzlLoadFailedException.whileLoadingDep(filePathForErrors, e);
+        }
         continue;
       }
       if (cachedData == null) {
@@ -822,10 +816,7 @@ public class BzlLoadFunction implements SkyFunction {
       }
     }
     if (deferredException != null) {
-      Throwables.throwIfInstanceOf(deferredException, BzlLoadFailedException.class);
-      Throwables.throwIfInstanceOf(deferredException, InconsistentFilesystemException.class);
-      throw new IllegalStateException(
-          "caught a checked exception of unexpected type", deferredException);
+      throw deferredException;
     }
     return valuesMissing ? null : bzlLoads;
   }
@@ -1035,8 +1026,7 @@ public class BzlLoadFunction implements SkyFunction {
   private interface ASTManager {
     @Nullable
     ASTFileLookupValue getASTFileLookupValue(ASTFileLookupValue.Key key, Environment env)
-        throws InconsistentFilesystemException, InterruptedException,
-            ErrorReadingStarlarkExtensionException;
+        throws ErrorReadingStarlarkExtensionException, InterruptedException;
 
     void doneWithASTFileLookupValue(ASTFileLookupValue.Key key);
   }
@@ -1048,13 +1038,9 @@ public class BzlLoadFunction implements SkyFunction {
     @Nullable
     @Override
     public ASTFileLookupValue getASTFileLookupValue(ASTFileLookupValue.Key key, Environment env)
-        throws InconsistentFilesystemException, InterruptedException,
-            ErrorReadingStarlarkExtensionException {
+        throws ErrorReadingStarlarkExtensionException, InterruptedException {
       return (ASTFileLookupValue)
-          env.getValueOrThrow(
-              key,
-              ErrorReadingStarlarkExtensionException.class,
-              InconsistentFilesystemException.class);
+          env.getValueOrThrow(key, ErrorReadingStarlarkExtensionException.class);
     }
 
     @Override
@@ -1086,8 +1072,7 @@ public class BzlLoadFunction implements SkyFunction {
     @Nullable
     @Override
     public ASTFileLookupValue getASTFileLookupValue(ASTFileLookupValue.Key key, Environment env)
-        throws InconsistentFilesystemException, InterruptedException,
-            ErrorReadingStarlarkExtensionException {
+        throws ErrorReadingStarlarkExtensionException, InterruptedException {
       ASTFileLookupValue value = astFileLookupValueCache.getIfPresent(key);
       if (value == null) {
         value = ASTFileLookupFunction.computeInline(key, env, packageFactory, digestHashFunction);
@@ -1141,10 +1126,6 @@ public class BzlLoadFunction implements SkyFunction {
   private static final class BzlLoadFunctionException extends SkyFunctionException {
     private BzlLoadFunctionException(BzlLoadFailedException cause) {
       super(cause, cause.transience);
-    }
-
-    private BzlLoadFunctionException(InconsistentFilesystemException e, Transience transience) {
-      super(e, transience);
     }
   }
 }

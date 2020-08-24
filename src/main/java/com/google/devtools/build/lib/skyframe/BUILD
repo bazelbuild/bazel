@@ -1346,6 +1346,7 @@ java_library(
     name = "error_reading_skylark_extension_exception",
     srcs = ["ErrorReadingStarlarkExtensionException.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/skyframe",
     ],

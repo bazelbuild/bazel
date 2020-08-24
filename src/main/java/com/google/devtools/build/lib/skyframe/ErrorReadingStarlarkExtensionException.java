@@ -13,15 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
 
 /** Indicates some sort of IO error while dealing with a Starlark extension. */
+// TODO(brandjon): Delete this class.
 public class ErrorReadingStarlarkExtensionException extends Exception {
   private final Transience transience;
 
   public ErrorReadingStarlarkExtensionException(BuildFileNotFoundException e) {
+    super(e.getMessage(), e);
+    this.transience = Transience.PERSISTENT;
+  }
+
+  public ErrorReadingStarlarkExtensionException(InconsistentFilesystemException e) {
     super(e.getMessage(), e);
     this.transience = Transience.PERSISTENT;
   }

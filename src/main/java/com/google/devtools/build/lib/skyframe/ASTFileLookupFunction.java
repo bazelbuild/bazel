@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -66,8 +65,6 @@ public class ASTFileLookupFunction implements SkyFunction {
           (ASTFileLookupValue.Key) skyKey.argument(), env, packageFactory, digestHashFunction);
     } catch (ErrorReadingStarlarkExtensionException e) {
       throw new ASTLookupFunctionException(e, e.getTransience());
-    } catch (InconsistentFilesystemException e) {
-      throw new ASTLookupFunctionException(e, Transience.PERSISTENT);
     }
   }
 
@@ -76,8 +73,7 @@ public class ASTFileLookupFunction implements SkyFunction {
       Environment env,
       PackageFactory packageFactory,
       DigestHashFunction digestHashFunction)
-      throws ErrorReadingStarlarkExtensionException, InconsistentFilesystemException,
-          InterruptedException {
+      throws ErrorReadingStarlarkExtensionException, InterruptedException {
     byte[] bytes;
     byte[] digest;
     String inputName;
@@ -180,10 +176,6 @@ public class ASTFileLookupFunction implements SkyFunction {
   private static final class ASTLookupFunctionException extends SkyFunctionException {
     private ASTLookupFunctionException(
         ErrorReadingStarlarkExtensionException e, Transience transience) {
-      super(e, transience);
-    }
-
-    private ASTLookupFunctionException(InconsistentFilesystemException e, Transience transience) {
       super(e, transience);
     }
   }

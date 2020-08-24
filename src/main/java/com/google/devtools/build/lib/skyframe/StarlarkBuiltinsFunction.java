@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
@@ -168,8 +167,6 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
       }
     } catch (BzlLoadFailedException ex) {
       throw BuiltinsFailedException.errorEvaluatingBuiltinsBzls(ex);
-    } catch (InconsistentFilesystemException ex) {
-      throw BuiltinsFailedException.errorEvaluatingBuiltinsBzls(ex);
     }
     if (exportsValue == null) {
       return null;
@@ -233,11 +230,6 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
 
     static BuiltinsFailedException errorEvaluatingBuiltinsBzls(BzlLoadFailedException cause) {
       return errorEvaluatingBuiltinsBzls(cause, cause.getTransience());
-    }
-
-    static BuiltinsFailedException errorEvaluatingBuiltinsBzls(
-        InconsistentFilesystemException cause) {
-      return errorEvaluatingBuiltinsBzls(cause, Transience.PERSISTENT);
     }
 
     static BuiltinsFailedException errorEvaluatingBuiltinsBzls(
