@@ -741,9 +741,9 @@ public final class PackageFactory {
     // Preconditions.checkState(!predeclared.containsKey("native"));
 
     // Determine the "native" module.
-    // TODO(bazel-team): Use the same "native" object for both BUILD- and WORKSPACE-loaded .bzls,
-    // and just have it be a dynamic error to call the wrong thing at the wrong time. This is a
-    // breaking change.
+    // TODO(#11954): Use the same "native" object for both BUILD- and WORKSPACE-loaded .bzls, and
+    // just have it be a dynamic error to call the wrong thing at the wrong time. This is a breaking
+    // change.
     env.put("native", createNativeModule(uninjectedBuildBzlNativeBindings));
 
     return ImmutableMap.copyOf(env);
@@ -763,8 +763,23 @@ public final class PackageFactory {
 
   private static ImmutableMap<String, Object> createBuiltinsBzlEnv(
       RuleClassProvider ruleClassProvider) {
-    // TODO(#11437): create the _internal name, prohibit other rule logic names, including "native".
-    return ruleClassProvider.getEnvironment();
+    Map<String, Object> env = new HashMap<>();
+    env.putAll(ruleClassProvider.getEnvironment());
+
+    // TODO($11437): We shouldn't have to delete the (not fully formed) "native" object here; see
+    // above TODO in createUninjectedBuildBzlEnv().
+    env.remove("native");
+    // TODO(#11437): Prohibit other rule logic names, e.g. "CcInfo".
+
+    // TODO(#11437): To support inspection of StarlarkSemantics via _internal, we'll have to let
+    // this method be parameterized by the StarlarkSemantics, which means it'll need to be computed
+    // on the fly and not initialized on PackageFactory construction. To avoid computing it
+    // redundantly for each builtins bzl evaluation, we can either 1) create a second
+    // StarlarkBuiltinsValue-like object (which sounds like a lot of work), or 2) create a cache
+    // from StarlarkSemantics to builtins predeclared envs (sounds preferable to me).
+    env.put("_internal", InternalModule.INSTANCE);
+
+    return ImmutableMap.copyOf(env);
   }
 
   /** Constructs a "native" module object with the given contents. */

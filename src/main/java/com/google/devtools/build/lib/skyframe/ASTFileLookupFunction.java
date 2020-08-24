@@ -35,6 +35,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -143,6 +144,18 @@ public class ASTFileLookupFunction implements SkyFunction {
       return null;
     }
 
+    Map<String, Object> predeclared;
+    if (key.kind == ASTFileLookupValue.Kind.BUILTINS) {
+      predeclared = packageFactory.getBuiltinsBzlEnv();
+    } else {
+      // Use the predeclared environment for BUILD-loaded bzl files, ignoring injection. It is not
+      // the right env for the actual evaluation of either BUILD-loaded bzl files or
+      // WORKSPACE-loaded bzl files. But the names of the symbols are the same, and the names are
+      // all we need to do symbol resolution (modulo FlagGuardedValues -- see TODO in
+      // PackageFactory.createBuildBzlEnvUsingInjection()).
+      predeclared = packageFactory.getUninjectedBuildBzlEnv();
+    }
+
     // We have all deps. Parse, resolve, and return.
     ParserInput input = ParserInput.fromLatin1(bytes, inputName);
     FileOptions options =
@@ -152,8 +165,7 @@ public class ASTFileLookupFunction implements SkyFunction {
             .restrictStringEscapes(semantics.incompatibleRestrictStringEscapes())
             .build();
     StarlarkFile file = StarlarkFile.parse(input, options);
-    Module module =
-        Module.withPredeclared(semantics, packageFactory.getRuleClassProvider().getEnvironment());
+    Module module = Module.withPredeclared(semantics, predeclared);
     Resolver.resolveFile(file, module);
     Event.replayEventsOn(env.getListener(), file.errors()); // TODO(adonovan): fail if !ok()?
     return ASTFileLookupValue.withFile(file, digest);
