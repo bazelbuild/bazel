@@ -651,6 +651,9 @@ class BazelWindowsCppTest(test_base.TestBase):
 
   def testCcImportRule(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile('A.lib', [])
+    self.ScratchFile('A.dll', [])
+    self.ScratchFile('A.if.lib', [])
     self.ScratchFile('BUILD', [
         'cc_import(',
         '  name = "a_import",',
