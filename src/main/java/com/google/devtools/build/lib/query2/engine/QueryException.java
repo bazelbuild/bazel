@@ -96,6 +96,12 @@ public class QueryException extends Exception {
     this.failureDetail = Preconditions.checkNotNull(failureDetail);
   }
 
+  public QueryException(String message, FailureDetail failureDetail) {
+    super(message);
+    this.expression = null;
+    this.failureDetail = Preconditions.checkNotNull(failureDetail);
+  }
+
   public QueryException(String message, Query.Code queryCode) {
     this(null, message, queryCode);
   }

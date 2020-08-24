@@ -620,6 +620,9 @@ message Query {
     PREMATURE_END_OF_INPUT_ERROR = 34 [(metadata) = { exit_code: 2 }];
     SYNTAX_ERROR = 35 [(metadata) = { exit_code: 2 }];
     OUTPUT_FORMATTER_IO_EXCEPTION = 36 [(metadata) = { exit_code: 36 }];
+    SKYQUERY_TRANSITIVE_TARGET_ERROR = 37 [(metadata) = { exit_code: 7 }];
+    SKYQUERY_TARGET_EXCEPTION = 38 [(metadata) = { exit_code: 7 }];
+    INVALID_LABEL_IN_TEST_SUITE = 39 [(metadata) = { exit_code: 7 }];
 
     reserved 7 to 12; // For internal use
   }

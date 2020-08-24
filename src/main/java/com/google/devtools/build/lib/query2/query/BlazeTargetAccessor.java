@@ -91,7 +91,8 @@ public final class BlazeTargetAccessor implements TargetAccessor<Target> {
           try {
             queryEnvironment.getTarget(label);
           } catch (TargetNotFoundException e) {
-            queryEnvironment.reportBuildFileError(caller, errorMsgPrefix + e.getMessage());
+            queryEnvironment.handleError(
+                caller, errorMsgPrefix + e.getMessage(), e.getDetailedExitCode());
           }
         }
       }

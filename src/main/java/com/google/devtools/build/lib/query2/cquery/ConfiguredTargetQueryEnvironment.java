@@ -271,7 +271,7 @@ public class ConfiguredTargetQueryEnvironment
       patternToEval = getPattern(pattern);
     } catch (TargetParsingException tpe) {
       try {
-        reportBuildFileError(owner, tpe.getMessage());
+        handleError(owner, tpe.getMessage(), tpe.getDetailedExitCode());
       } catch (QueryException qe) {
         return immediateFailedFuture(qe);
       }
@@ -279,7 +279,7 @@ public class ConfiguredTargetQueryEnvironment
     }
     AsyncFunction<TargetParsingException, Void> reportBuildFileErrorAsyncFunction =
         exn -> {
-          reportBuildFileError(owner, exn.getMessage());
+          handleError(owner, exn.getMessage(), exn.getDetailedExitCode());
           return Futures.immediateFuture(null);
         };
 

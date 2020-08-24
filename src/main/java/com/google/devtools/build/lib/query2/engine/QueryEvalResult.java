@@ -14,6 +14,10 @@
 
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import javax.annotation.Nullable;
+
 /**
  * Information about the query evaluation, like if it was successful and number of elements
  * returned.
@@ -22,15 +26,30 @@ public class QueryEvalResult {
 
   private final boolean success;
   private final boolean empty;
+  @Nullable private final DetailedExitCode detailedExitCode;
 
-  public QueryEvalResult(boolean success, boolean empty) {
+  QueryEvalResult(boolean success, boolean empty, @Nullable DetailedExitCode detailedExitCode) {
+    Preconditions.checkArgument(
+        !success || (detailedExitCode == null || detailedExitCode.isSuccess()),
+        "successful query evaluations should not have non-success exit codes. detailedExitCode=%s",
+        detailedExitCode);
     this.success = success;
     this.empty = empty;
+    this.detailedExitCode = detailedExitCode;
+  }
+
+  public static QueryEvalResult success(boolean empty) {
+    return new QueryEvalResult(true, empty, DetailedExitCode.success());
+  }
+
+  public static QueryEvalResult failure(
+      boolean empty, @Nullable DetailedExitCode detailedExitCode) {
+    return new QueryEvalResult(false, empty, detailedExitCode);
   }
 
   /**
-   * Whether the query was successful. This can only be false if the query was run with
-   * <code>keep_going</code>, otherwise evaluation will throw a {@link QueryException}.
+   * Whether the query was successful. This can only be false if the query was run with {@code
+   * keep_going}, otherwise evaluation will throw a {@link QueryException}.
    */
   public boolean getSuccess() {
     return success;
@@ -39,6 +58,15 @@ public class QueryEvalResult {
   /** True if the query did not return any result; */
   public boolean isEmpty() {
     return empty;
+  }
+
+  /**
+   * Returns {@link DetailedExitCode#success()} if successful, a {@link DetailedExitCode} describing
+   * the failure if unsuccessful and one was specified, and {@code null} otherwise.
+   */
+  @Nullable
+  public DetailedExitCode getDetailedExitCode() {
+    return detailedExitCode;
   }
 
   @Override
