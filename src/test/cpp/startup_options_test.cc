@@ -109,7 +109,7 @@ TEST_F(StartupOptionsTest, OutputRootUseHomeDirectory) {
 
 TEST_F(StartupOptionsTest, OutputUserRootTildeExpansion) {
 #if defined(_WIN32)
-  std::string home = "C:\\nonexistent\\home\\";
+  std::string home = "C:/nonexistent/home/";
 #else
   std::string home = "/nonexistent/home/";
 #endif
@@ -118,41 +118,34 @@ TEST_F(StartupOptionsTest, OutputUserRootTildeExpansion) {
 
   std::string error;
 
-  const std::vector<RcStartupFlag> flags{
+  {
+    const std::vector<RcStartupFlag> flags{
       RcStartupFlag("somewhere", "--output_user_root=~/test"),
-  };
+    };
 
-  const blaze_exit_code::ExitCode ec =
+
+    const blaze_exit_code::ExitCode ec =
       startup_options_->ProcessArgs(flags, &error);
 
-  ASSERT_EQ(blaze_exit_code::SUCCESS, ec)
+    ASSERT_EQ(blaze_exit_code::SUCCESS, ec)
       << "ProcessArgs failed with error " << error;
 
-  EXPECT_EQ(blaze_util::JoinPath(home, "test"), startup_options_->output_user_root);
-}
+    EXPECT_EQ(blaze_util::JoinPath(home, "test"), startup_options_->output_user_root);
+  }
 
-TEST_F(StartupOptionsTest, OutputUserRootSingleTilde) {
-#if defined(_WIN32)
-  std::string home = "C:\\nonexistent\\home";
-#else
-  std::string home = "/nonexistent/home/";
-#endif
-
-  SetEnv("HOME", home);
-
-  std::string error;
-
-  const std::vector<RcStartupFlag> flags{
+  {
+    const std::vector<RcStartupFlag> flags{
       RcStartupFlag("somewhere", "--output_user_root=~"),
-  };
+    };
 
-  const blaze_exit_code::ExitCode ec =
+    const blaze_exit_code::ExitCode ec =
       startup_options_->ProcessArgs(flags, &error);
 
-  ASSERT_EQ(blaze_exit_code::SUCCESS, ec)
+    ASSERT_EQ(blaze_exit_code::SUCCESS, ec)
       << "ProcessArgs failed with error " << error;
 
-  EXPECT_EQ(home, startup_options_->output_user_root);
+    EXPECT_EQ(home, startup_options_->output_user_root);
+  }
 }
 
 TEST_F(StartupOptionsTest, EmptyFlagsAreInvalidTest) {
