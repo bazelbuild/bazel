@@ -63,6 +63,9 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   /** Label predicate that allows every label. */
   public static final Predicate<Label> ALL_LABELS = Predicates.alwaysTrue();
 
+  private static final String GENERATOR_FUNCTION = "generator_function";
+  private static final String GENERATOR_LOCATION = "generator_location";
+
   private final Label label;
 
   private final Package pkg;
@@ -334,9 +337,31 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
       // Correctness of this relies on the fact that at Rule creation time
       // we did not skip populating attributes with a computed default.
       return null;
-    } else {
-      return attr.getDefaultValue(null);
     }
+    switch (attr.getName()) {
+      case GENERATOR_FUNCTION:
+        return callstack.size() > 1 ? callstack.getFrame(1).name : "";
+      case GENERATOR_LOCATION:
+        return callstack.size() > 1 ? relativeLocation(callstack.getFrame(0).location) : "";
+      default:
+        return attr.getDefaultValue(null);
+    }
+  }
+
+  @Nullable
+  private String relativeLocation(Location location) {
+    // Determining the workspace root only works reliably if both location and label point to files
+    // in the same package.
+    // It would be preferable to construct the path from the label itself, but this doesn't work for
+    // rules created from function calls in a subincluded file, even if both files share a path
+    // prefix (for example, when //a/package:BUILD subincludes //a/package/with/a/subpackage:BUILD).
+    // We can revert to that approach once subincludes aren't supported anymore.
+    //
+    // TODO(b/151165647): this logic has always been wrong:
+    // it spuriously matches occurrences of the package name earlier in the path.
+    String absolutePath = location.toString();
+    int pos = absolutePath.indexOf(getLabel().getPackageName());
+    return (pos < 0) ? null : absolutePath.substring(pos);
   }
 
   /**
@@ -414,7 +439,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    */
   @Override
   public boolean isAttributeValueExplicitlySpecified(Attribute attribute) {
-    return attributes.isAttributeValueExplicitlySpecified(attribute);
+    return isAttributeValueExplicitlySpecified(attribute.getName());
   }
 
   /**
@@ -424,6 +449,9 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * with the given name.
    */
   public boolean isAttributeValueExplicitlySpecified(String attrName) {
+    if (attrName.equals(GENERATOR_FUNCTION) || attrName.equals(GENERATOR_LOCATION)) {
+      return wasCreatedByMacro();
+    }
     return attributes.isAttributeValueExplicitlySpecified(attrName);
   }
 
@@ -431,12 +459,12 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * Returns whether this rule was created by a macro.
    */
   public boolean wasCreatedByMacro() {
-    return hasStringAttribute("generator_name") || hasStringAttribute("generator_function");
+    return hasStringAttribute("generator_name") || hasStringAttribute(GENERATOR_FUNCTION);
   }
 
   /** Returns the macro that generated this rule, or an empty string. */
   public String getGeneratorFunction() {
-    Object value = getAttr("generator_function");
+    Object value = getAttr(GENERATOR_FUNCTION);
     if (value instanceof String) {
       return (String) value;
     }
