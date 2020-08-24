@@ -393,6 +393,12 @@ the attribute.
 help rule designers be explicit about their intentions. When `executable=False`,
 which means `cfg` is optional, only set this when it truly helps readability.
 
+You can also use `cfg=my_transition` to use
+[user-defined transitions](config.html#user-defined-transitions), which allow
+rule authors a great deal of flexibility in changing configurations, with the
+drawback of
+[making the build graph larger and less comprehensible](config.html#memory-and-performance-considerations).
+
 **Note**: Historically, Blaze didn't have the concept of execution platforms,
 and instead all build actions were considered to run on the host machine.
 Because of this, there is a single "host" configuration, and a "host" transition
@@ -412,6 +418,12 @@ There are numerous differences between the "host" and "exec" configurations:
    actions on your local machine, or on a remote executor, and there's no
    guarantee that the remote executor is the same CPU and OS as your local
    machine.
+
+Both the "exec" and "host" configurations apply the same option changes, (i.e.,
+set `--compilation_mode` from `--host_compilation_mode`, set `--cpu` from
+`--host_cpu`, etc). The difference is that the "host" configuration starts with
+the **default** values of all other flags, whereas the "exec" configuration starts
+with the **current** values of flags, based on the target configuration.
 
 <a name="fragments"></a>
 
