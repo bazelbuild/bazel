@@ -158,7 +158,7 @@ public class ExecutionRequirements {
   public static final String SUPPORTS_MULTIPLEX_WORKERS = "supports-multiplex-workers";
 
   /** Specify the type of worker protocol the worker uses. */
-  public static final String WORKER_PROTOCOL = "worker-protocol";
+  public static final String REQUIRES_WORKER_PROTOCOL = "requires-worker-protocol";
 
   /** Denotes what the type of worker protocol the worker uses. */
   public enum WorkerProtocolFormat {

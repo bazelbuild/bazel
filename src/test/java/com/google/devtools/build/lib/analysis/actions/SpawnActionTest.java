@@ -518,7 +518,8 @@ public class SpawnActionTest extends BuildViewTestCase {
   public void testWorkerProtocolFormat_explicitProto() throws Exception {
     SpawnAction spawn =
         createWorkerSupportSpawn(
-            ImmutableMap.<String, String>of("supports-workers", "1", "worker-protocol", "proto"));
+            ImmutableMap.<String, String>of(
+                "supports-workers", "1", "requires-worker-protocol", "proto"));
     assertThat(Spawns.getWorkerProtocolFormat(spawn.getSpawn()))
         .isEqualTo(WorkerProtocolFormat.PROTO);
   }
@@ -527,7 +528,8 @@ public class SpawnActionTest extends BuildViewTestCase {
   public void testWorkerProtocolFormat_explicitJson() throws Exception {
     SpawnAction spawn =
         createWorkerSupportSpawn(
-            ImmutableMap.<String, String>of("supports-workers", "1", "worker-protocol", "json"));
+            ImmutableMap.<String, String>of(
+                "supports-workers", "1", "requires-worker-protocol", "json"));
     assertThat(Spawns.getWorkerProtocolFormat(spawn.getSpawn()))
         .isEqualTo(WorkerProtocolFormat.JSON);
   }
