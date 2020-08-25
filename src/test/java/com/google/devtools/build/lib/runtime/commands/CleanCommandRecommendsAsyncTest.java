@@ -118,7 +118,8 @@ public class CleanCommandRecommendsAsyncTest {
             productName);
     runtime.initWorkspace(directories, /* binTools= */ null);
 
-    BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime, new CleanCommand(os));
+    runtime.overrideCommands(ImmutableList.of(new CleanCommand(os)));
+    BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime);
     dispatcher.exec(commandLine, "test", outErr);
     String output = outErr.toString();
 

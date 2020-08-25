@@ -107,22 +107,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                 }
               });
 
-  @VisibleForTesting
-  BlazeCommandDispatcher(BlazeRuntime runtime, BugReporter bugReporter, BlazeCommand... commands) {
-    this(runtime, bugReporter);
-    runtime.overrideCommands(ImmutableList.copyOf(commands));
-  }
-
-  /**
-   * Create a Blaze dispatcher that uses the specified {@code BlazeRuntime} instance, but overrides
-   * the command map with the given commands (plus any commands from modules).
-   */
-  @VisibleForTesting
-  public BlazeCommandDispatcher(BlazeRuntime runtime, BlazeCommand... commands) {
-    this(runtime);
-    runtime.overrideCommands(ImmutableList.copyOf(commands));
-  }
-
   /** Create a Blaze dispatcher that uses the specified {@code BlazeRuntime} instance. */
   @VisibleForTesting
   public BlazeCommandDispatcher(BlazeRuntime runtime) {
@@ -130,7 +114,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
   }
 
   @VisibleForTesting
-  public BlazeCommandDispatcher(BlazeRuntime runtime, BugReporter bugReporter) {
+  BlazeCommandDispatcher(BlazeRuntime runtime, BugReporter bugReporter) {
     this.runtime = runtime;
     this.bugReporter = bugReporter;
     this.commandLock = new Object();
