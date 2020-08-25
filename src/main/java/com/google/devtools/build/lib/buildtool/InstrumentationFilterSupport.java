@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
@@ -24,7 +25,7 @@ import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import java.util.stream.Collectors;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Set;
@@ -53,13 +54,18 @@ public final class InstrumentationFilterSupport {
     SortedSet<String> packageFilters = Sets.newTreeSet();
     collectInstrumentedPackages(testTargets, packageFilters);
     optimizeFilterSet(packageFilters);
-    // append [/:] only when it's not a top-level target fileter, because "//foo[/:]" matches
-    // everything under //foo and subpackages, but "//[/:]" only matches targets directly under the
-    // top-level package.
+
     String instrumentationFilter =
-        packageFilters.stream()
-            .map(pf -> pf.endsWith("//") ? pf : pf + "[/:]")
-            .collect(Collectors.joining(","));
+        Joiner.on("[/:],//")
+            .appendTo(new StringBuilder("//"), packageFilters)
+            .append("[/:]")
+            .toString();
+    // Fix up if one of the test targets is a top-level target. "//foo[/:]" matches everything
+    // under //foo and subpackages, but "//[/:]" only matches targets directly under the top-level
+    // package.
+    if (instrumentationFilter.equals("//[/:]")) {
+      instrumentationFilter = "//";
+    }
     if (!packageFilters.isEmpty()) {
       eventHandler.handle(
           Event.info("Using default value for --instrumentation_filter: \""
@@ -74,25 +80,14 @@ public final class InstrumentationFilterSupport {
       Collection<Target> targets, Set<String> packageFilters) {
     for (Target target : targets) {
       // Add package-based filters for every test target.
-      String workspace = target.getLabel().getWorkspaceName();
-      String pkgPrefix = getInstrumentedPrefix(target.getLabel().getPackageName());
-      if (workspace.length() > 0) {
-        packageFilters.add("@" + workspace + "//" + pkgPrefix);
-      } else {
-        packageFilters.add("^//" + pkgPrefix);
-      }
+      packageFilters.add(getInstrumentedPrefix(target.getLabel().getPackageName()));
       if (TargetUtils.isTestSuiteRule(target)) {
         AttributeMap attributes = NonconfigurableAttributeMapper.of((Rule) target);
         // We don't need to handle $implicit_tests attribute since we already added
         // test_suite package to the set.
         for (Label label : attributes.get("tests", BuildType.LABEL_LIST)) {
           // Add package-based filters for all tests in the test suite.
-          pkgPrefix = getInstrumentedPrefix(label.getPackageName());
-          if (workspace.length() > 0) {
-            packageFilters.add("@" + workspace + "//" + pkgPrefix);
-          } else {
-            packageFilters.add("^//" + pkgPrefix);
-          }
+          packageFilters.add(getInstrumentedPrefix(label.getPackageName()));
         }
       }
     }
