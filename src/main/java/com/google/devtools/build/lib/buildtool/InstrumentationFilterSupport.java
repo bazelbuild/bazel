@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Set;
@@ -56,15 +55,15 @@ public final class InstrumentationFilterSupport {
     optimizeFilterSet(packageFilters);
 
     String instrumentationFilter =
-        Joiner.on("[/:],//")
-            .appendTo(new StringBuilder("//"), packageFilters)
+        Joiner.on("[/:],^//")
+            .appendTo(new StringBuilder("^//"), packageFilters)
             .append("[/:]")
             .toString();
     // Fix up if one of the test targets is a top-level target. "//foo[/:]" matches everything
     // under //foo and subpackages, but "//[/:]" only matches targets directly under the top-level
     // package.
-    if (instrumentationFilter.equals("//[/:]")) {
-      instrumentationFilter = "//";
+    if (instrumentationFilter.equals("^//[/:]")) {
+      instrumentationFilter = "^//";
     }
     if (!packageFilters.isEmpty()) {
       eventHandler.handle(

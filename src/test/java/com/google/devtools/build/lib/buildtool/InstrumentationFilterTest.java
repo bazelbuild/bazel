@@ -19,23 +19,15 @@ public class InstrumentationFilterTest {
   public void testComputeInstrumentationFilter() {
     List<Target> testTargets =
         Arrays.asList(
-            new TestTarget("//foo"),
-            new TestTarget("//foo/bar"),
-            new TestTarget("//bar"),
-            new TestTarget("@repo1//foo/bar"));
+            new TestTarget("//foo"), new TestTarget("//foo/bar"), new TestTarget("//bar"));
     EventHandler eventHandler = event -> {};
     String filter =
         InstrumentationFilterSupport.computeInstrumentationFilter(eventHandler, testTargets);
-    assertEquals("@repo1//foo/bar[/:],^//bar[/:],^//foo[/:]", filter);
+    assertEquals("^//bar[/:],^//foo[/:]", filter);
 
-    testTargets =
-        Arrays.asList(
-            new TestTarget("//"),
-            new TestTarget("@repo1//foo"),
-            new TestTarget("//foo"),
-            new TestTarget("@repo1//"));
+    testTargets = Arrays.asList(new TestTarget("//"), new TestTarget("//foo"));
     filter = InstrumentationFilterSupport.computeInstrumentationFilter(eventHandler, testTargets);
-    assertEquals("@repo1//,^//", filter);
+    assertEquals("^//", filter);
   }
 }
 
