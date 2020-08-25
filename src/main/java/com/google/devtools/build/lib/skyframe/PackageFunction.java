@@ -546,9 +546,6 @@ public class PackageFunction implements SkyFunction {
       throw pfeFromLegacyPackageLoading;
     }
 
-    if (pkgBuilder.containsErrors()) {
-      pkgBuilder.setContainsErrors();
-    }
     Package pkg = pkgBuilder.finishBuild();
 
     Event.replayEventsOn(env.getListener(), pkgBuilder.getEvents());
