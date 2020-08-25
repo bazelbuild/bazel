@@ -422,8 +422,9 @@ public final class RuleContext extends TargetContext
     return targetMap;
   }
 
-  private List<ConfiguredTargetAndData> getConfiguredTargetAndTargetDeps(String key) {
-    return targetMap.get(key);
+  /** Returns the {@link ConfiguredTargetAndData} the given attribute. */
+  public List<ConfiguredTargetAndData> getPrerequisiteConfiguredTargets(String attributeName) {
+    return targetMap.get(attributeName);
   }
 
   /**
@@ -904,7 +905,7 @@ public final class RuleContext extends TargetContext
    * attribute. Note that you need to specify the correct mode for the attribute otherwise an
    * exception will be raised.
    */
-  public List<ConfiguredTargetAndData> getPrerequisiteConfiguredTargetAndTargets(
+  private List<ConfiguredTargetAndData> getPrerequisiteConfiguredTargetAndTargets(
       String attributeName, TransitionMode mode) {
     Attribute attributeDefinition = attributes().getAttributeDefinition(attributeName);
     if ((mode == TransitionMode.TARGET) && (attributeDefinition.getTransitionFactory().isSplit())) {
@@ -920,7 +921,7 @@ public final class RuleContext extends TargetContext
     }
 
     checkAttribute(attributeName, mode);
-    return getConfiguredTargetAndTargetDeps(attributeName);
+    return getPrerequisiteConfiguredTargets(attributeName);
   }
 
   /**
@@ -933,7 +934,7 @@ public final class RuleContext extends TargetContext
     // Use an ImmutableListMultimap.Builder here to preserve ordering.
     ImmutableListMultimap.Builder<Optional<String>, ConfiguredTargetAndData> result =
         ImmutableListMultimap.builder();
-    List<ConfiguredTargetAndData> deps = getConfiguredTargetAndTargetDeps(attributeName);
+    List<ConfiguredTargetAndData> deps = getPrerequisiteConfiguredTargets(attributeName);
     for (ConfiguredTargetAndData t : deps) {
       ImmutableList<String> transitionKeys = t.getTransitionKeys();
       if (transitionKeys.isEmpty()) {
@@ -978,7 +979,7 @@ public final class RuleContext extends TargetContext
   public ConfiguredTargetAndData getPrerequisiteConfiguredTargetAndData(
       String attributeName, TransitionMode mode) {
     checkAttribute(attributeName, mode);
-    List<ConfiguredTargetAndData> elements = getConfiguredTargetAndTargetDeps(attributeName);
+    List<ConfiguredTargetAndData> elements = getPrerequisiteConfiguredTargets(attributeName);
     if (elements.size() > 1) {
       throw new IllegalStateException(getRuleClassNameForLogging() + " attribute " + attributeName
           + " produces more than one prerequisite");

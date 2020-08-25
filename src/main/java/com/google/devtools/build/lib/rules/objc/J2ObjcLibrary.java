@@ -53,11 +53,8 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
     return new ObjcCommon.Builder(ObjcCommon.Purpose.LINK_ONLY, ruleContext)
         .setCompilationAttributes(
             CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
-        .addDeps(
-            ruleContext.getPrerequisiteConfiguredTargetAndTargets("deps", TransitionMode.TARGET))
-        .addDeps(
-            ruleContext.getPrerequisiteConfiguredTargetAndTargets(
-                "jre_deps", TransitionMode.TARGET))
+        .addDeps(ruleContext.getPrerequisiteConfiguredTargets("deps"))
+        .addDeps(ruleContext.getPrerequisiteConfiguredTargets("jre_deps"))
         .addDepCcHeaderProviders(
             j2objcCcInfos.stream().map(J2ObjcCcInfo::getCcInfo).collect(toList()))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
