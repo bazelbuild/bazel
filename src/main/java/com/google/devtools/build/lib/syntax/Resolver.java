@@ -223,7 +223,9 @@ public final class Resolver extends NodeVisitor {
      * file.
      */
     @Nullable
-    String getUndeclaredNameError(String name);
+    default String getUndeclaredNameError(String name) {
+      return null;
+    }
   }
 
   private static class Block {
