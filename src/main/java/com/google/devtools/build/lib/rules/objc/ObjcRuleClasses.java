@@ -55,14 +55,10 @@ import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
-/**
- * Shared rule classes and associated utility code for Objective-C rules.
- */
+/** Shared rule classes and associated utility code for Objective-C rules. */
 public class ObjcRuleClasses {
 
-  /**
-   * Name of the attribute used for implicit dependency on the libtool wrapper.
-   */
+  /** Name of the attribute used for implicit dependency on the libtool wrapper. */
   public static final String LIBTOOL_ATTRIBUTE = "$libtool";
   /** Name of attribute used for implicit dependency on the apple SDKs. */
   public static final String APPLE_SDK_ATTRIBUTE = ":apple_sdk";
@@ -75,19 +71,19 @@ public class ObjcRuleClasses {
   }
 
   /**
-   * Creates and returns an {@link IntermediateArtifacts} object, using the given rule context
-   * for fetching current-rule attributes, and using the given build configuration to determine
-   * the appropriate output directory in which to root artifacts.
+   * Creates and returns an {@link IntermediateArtifacts} object, using the given rule context for
+   * fetching current-rule attributes, and using the given build configuration to determine the
+   * appropriate output directory in which to root artifacts.
    */
-  public static IntermediateArtifacts intermediateArtifacts(RuleContext ruleContext,
-      BuildConfiguration buildConfiguration) {
-    return new IntermediateArtifacts(ruleContext, /*archiveFileNameSuffix*/ "",
-        /*outputPrefix*/ "", buildConfiguration);
+  public static IntermediateArtifacts intermediateArtifacts(
+      RuleContext ruleContext, BuildConfiguration buildConfiguration) {
+    return new IntermediateArtifacts(
+        ruleContext, /*archiveFileNameSuffix*/ "", /*outputPrefix*/ "", buildConfiguration);
   }
 
   /**
-   * Creates and returns an {@link IntermediateArtifacts} object, using the given rule context
-   * for fetching current-rule attributes and the current rule's configuration for determining the
+   * Creates and returns an {@link IntermediateArtifacts} object, using the given rule context for
+   * fetching current-rule attributes and the current rule's configuration for determining the
    * appropriate output output directory in which to root artifacts.
    */
   public static IntermediateArtifacts intermediateArtifacts(RuleContext ruleContext) {
@@ -110,9 +106,7 @@ public class ObjcRuleClasses {
     // We need to #iclude all the headers in an umbrella header and then declare the umbrella header
     // in the module map.
     return new IntermediateArtifacts(
-        ruleContext,
-        /*archiveFileNameSuffix=*/"_j2objc",
-        UmbrellaHeaderStrategy.GENERATE);
+        ruleContext, /*archiveFileNameSuffix=*/ "_j2objc", UmbrellaHeaderStrategy.GENERATE);
   }
 
   public static Artifact artifactByAppendingToBaseName(RuleContext context, String suffix) {
@@ -124,9 +118,7 @@ public class ObjcRuleClasses {
     return ruleContext.getFragment(ObjcConfiguration.class);
   }
 
-  /**
-   * Returns true if the source file can be instrumented for coverage.
-   */
+  /** Returns true if the source file can be instrumented for coverage. */
   public static boolean isInstrumentable(Artifact sourceArtifact) {
     return !ASSEMBLY_SOURCES.matches(sourceArtifact.getFilename());
   }
@@ -166,26 +158,27 @@ public class ObjcRuleClasses {
    * @param ruleContext the current rule context
    * @param filesToBuild files to build for this target. These also become the data runfiles
    */
-  static RuleConfiguredTargetBuilder ruleConfiguredTarget(RuleContext ruleContext,
-      NestedSet<Artifact> filesToBuild) {
-    RunfilesProvider runfilesProvider = RunfilesProvider.withData(
-        new Runfiles.Builder(
-            ruleContext.getWorkspaceName(),
-            ruleContext.getConfiguration().legacyExternalRunfiles())
-            .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES).build(),
-        new Runfiles.Builder(
-            ruleContext.getWorkspaceName(),
-            ruleContext.getConfiguration().legacyExternalRunfiles())
-            .addTransitiveArtifacts(filesToBuild).build());
+  static RuleConfiguredTargetBuilder ruleConfiguredTarget(
+      RuleContext ruleContext, NestedSet<Artifact> filesToBuild) {
+    RunfilesProvider runfilesProvider =
+        RunfilesProvider.withData(
+            new Runfiles.Builder(
+                    ruleContext.getWorkspaceName(),
+                    ruleContext.getConfiguration().legacyExternalRunfiles())
+                .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
+                .build(),
+            new Runfiles.Builder(
+                    ruleContext.getWorkspaceName(),
+                    ruleContext.getConfiguration().legacyExternalRunfiles())
+                .addTransitiveArtifacts(filesToBuild)
+                .build());
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild)
         .add(RunfilesProvider.class, runfilesProvider);
   }
 
-  /**
-   * Attributes for {@code objc_*} rules that have compiler options.
-   */
+  /** Attributes for {@code objc_*} rules that have compiler options. */
   public static class CoptsRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
@@ -214,9 +207,7 @@ public class ObjcRuleClasses {
     }
   }
 
-  /**
-   * Attributes for {@code objc_*} rules that can link in SDK frameworks.
-   */
+  /** Attributes for {@code objc_*} rules that can link in SDK frameworks. */
   public static class SdkFrameworksDependerRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
@@ -261,10 +252,8 @@ public class ObjcRuleClasses {
     }
   }
 
-  /**
-   * Iff a file matches this type, it is considered to use C++.
-   */
-  static final FileType CPP_SOURCES = FileType.of(".cc", ".cpp", ".mm", ".cxx", ".C");
+  /** Iff a file matches this type, it is considered to use C++. */
+  static final FileType CPP_SOURCES = FileType.of(".cc", ".cpp", ".mm", ".cxx", ".C", ".iig");
 
   static final FileType NON_CPP_SOURCES = FileType.of(".m", ".c");
 
@@ -277,24 +266,15 @@ public class ObjcRuleClasses {
    */
   static final FileType HEADERS = FileType.of(".h", ".inc", ".hpp", ".hh");
 
-  /**
-   * Files allowed in the srcs attribute. This includes private headers.
-   */
+  /** Files allowed in the srcs attribute. This includes private headers. */
   static final FileTypeSet SRCS_TYPE =
-      FileTypeSet.of(
-          NON_CPP_SOURCES,
-          CPP_SOURCES,
-          ASSEMBLY_SOURCES,
-          OBJECT_FILE_SOURCES,
-          HEADERS);
+      FileTypeSet.of(NON_CPP_SOURCES, CPP_SOURCES, ASSEMBLY_SOURCES, OBJECT_FILE_SOURCES, HEADERS);
 
   /** Files that should actually be compiled. */
   static final FileTypeSet COMPILABLE_SRCS_TYPE =
       FileTypeSet.of(NON_CPP_SOURCES, CPP_SOURCES, ASSEMBLY_SOURCES);
 
-  /**
-   * Files that are already compiled.
-   */
+  /** Files that are already compiled. */
   static final FileTypeSet PRECOMPILED_SRCS_TYPE = FileTypeSet.of(OBJECT_FILE_SOURCES);
 
   static final FileTypeSet NON_ARC_SRCS_TYPE = FileTypeSet.of(FileType.of(".m", ".mm"));
@@ -308,9 +288,7 @@ public class ObjcRuleClasses {
    */
   static final FileType COVERAGE_NOTES = FileType.of(".gcno");
 
-  /**
-   * Common attributes for {@code objc_*} rules that depend on a crosstool.
-   */
+  /** Common attributes for {@code objc_*} rules that depend on a crosstool. */
   public static class CrosstoolRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -355,18 +333,17 @@ public class ObjcRuleClasses {
           <p>
           These will be compiled separately from the source if modules are enabled.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("hdrs", LABEL_LIST)
-              .direct_compile_time_input()
-              .allowedFileTypes(HDRS_TYPE))
+          .add(attr("hdrs", LABEL_LIST).direct_compile_time_input().allowedFileTypes(HDRS_TYPE))
           /* <!-- #BLAZE_RULE($objc_compile_dependency_rule).ATTRIBUTE(textual_hdrs) -->
           The list of C, C++, Objective-C, and Objective-C++ files that are
           included as headers by source files in this rule or by users of this
           library. Unlike hdrs, these will not be compiled separately from the
           sources.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("textual_hdrs", LABEL_LIST)
-              .direct_compile_time_input()
-              .allowedFileTypes(HDRS_TYPE))
+          .add(
+              attr("textual_hdrs", LABEL_LIST)
+                  .direct_compile_time_input()
+                  .allowedFileTypes(HDRS_TYPE))
           /* <!-- #BLAZE_RULE($objc_compile_dependency_rule).ATTRIBUTE(includes) -->
           List of <code>#include/#import</code> search paths to add to this target
           and all depending targets.
@@ -394,6 +371,7 @@ public class ObjcRuleClasses {
           .add(attr("sdk_includes", Type.STRING_LIST))
           .build();
     }
+
     @Override
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
@@ -404,9 +382,7 @@ public class ObjcRuleClasses {
     }
   }
 
-  /**
-   * Common attributes for {@code objc_*} rules that contain compilable content.
-   */
+  /** Common attributes for {@code objc_*} rules that contain compilable content. */
   public static class CompilingRule implements RuleDefinition {
 
     /**
@@ -501,6 +477,7 @@ public class ObjcRuleClasses {
           .add(attr("module_name", STRING))
           .build();
     }
+
     @Override
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
@@ -517,9 +494,7 @@ public class ObjcRuleClasses {
     }
   }
 
-  /**
-   * Common attributes for {@code objc_*} rules that need to call libtool.
-   */
+  /** Common attributes for {@code objc_*} rules that need to call libtool. */
   public static class LibtoolRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -531,6 +506,7 @@ public class ObjcRuleClasses {
                   .value(env.getToolsLabel("//tools/objc:libtool")))
           .build();
     }
+
     @Override
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
@@ -560,6 +536,7 @@ public class ObjcRuleClasses {
           .add(attr("alwayslink", BOOLEAN))
           .build();
     }
+
     @Override
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
@@ -570,10 +547,9 @@ public class ObjcRuleClasses {
     }
   }
 
-  /**
-   * Protocol buffer related implicit attributes.
-   */
+  /** Protocol buffer related implicit attributes. */
   static final String PROTO_COMPILER_ATTR = "$googlemac_proto_compiler";
+
   static final String PROTO_COMPILER_SUPPORT_ATTR = "$googlemac_proto_compiler_support";
   static final String PROTO_LIB_ATTR = "$lib_protobuf";
   static final String PROTOBUF_WELL_KNOWN_TYPES = "$protobuf_well_known_types";
@@ -584,9 +560,7 @@ public class ObjcRuleClasses {
    */
   static final SafeImplicitOutputsFunction LIPOBIN_OUTPUT = fromTemplates("%{name}_lipobin");
 
-  /**
-   * Common attributes for {@code objc_*} rules that link sources and dependencies.
-   */
+  /** Common attributes for {@code objc_*} rules that link sources and dependencies. */
   public static class LinkingRule implements RuleDefinition {
 
     private final ObjcProtoAspect objcProtoAspect;
@@ -628,6 +602,7 @@ public class ObjcRuleClasses {
           .add(attr("linkopts", STRING_LIST))
           .build();
     }
+
     @Override
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
@@ -644,14 +619,10 @@ public class ObjcRuleClasses {
    */
   public static class PlatformRule implements RuleDefinition {
 
-    /**
-     * Attribute name for apple platform type (e.g. ios or watchos).
-     */
+    /** Attribute name for apple platform type (e.g. ios or watchos). */
     static final String PLATFORM_TYPE_ATTR_NAME = "platform_type";
 
-    /**
-     * Attribute name for the minimum OS version (e.g. "7.3").
-     */
+    /** Attribute name for the minimum OS version (e.g. "7.3"). */
     static final String MINIMUM_OS_VERSION = "minimum_os_version";
 
     @Override
@@ -681,16 +652,13 @@ public class ObjcRuleClasses {
             </li>
           </ul>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(
-              attr(PLATFORM_TYPE_ATTR_NAME, STRING)
-                  .mandatory())
+          .add(attr(PLATFORM_TYPE_ATTR_NAME, STRING).mandatory())
           /* <!-- #BLAZE_RULE($apple_platform_rule).ATTRIBUTE(minimum_os_version) -->
           The minimum OS version that this target and its dependencies should be built for.
 
           This should be a dotted version string such as "7.3".
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(
-              attr(MINIMUM_OS_VERSION, STRING))
+          .add(attr(MINIMUM_OS_VERSION, STRING))
           .build();
     }
 
@@ -792,9 +760,7 @@ public class ObjcRuleClasses {
     }
   }
 
-  /**
-   * Common attributes for apple rules that can depend on one or more dynamic libraries.
-   */
+  /** Common attributes for apple rules that can depend on one or more dynamic libraries. */
   public static class DylibDependingRule implements RuleDefinition {
 
     private final ObjcProtoAspect objcProtoAspect;
@@ -803,9 +769,7 @@ public class ObjcRuleClasses {
       this.objcProtoAspect = objcProtoAspect;
     }
 
-    /**
-     * Attribute name for dylib dependencies.
-     */
+    /** Attribute name for dylib dependencies. */
     static final String DYLIBS_ATTR_NAME = "dylibs";
 
     @Override
@@ -838,9 +802,7 @@ public class ObjcRuleClasses {
     }
   }
 
-  /**
-   * Common attributes for {@code objc_*} rules that need to call xcrun.
-   */
+  /** Common attributes for {@code objc_*} rules that need to call xcrun. */
   public static class XcrunRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -852,6 +814,7 @@ public class ObjcRuleClasses {
                   .value(env.getToolsLabel("//tools/objc:xcrunwrapper")))
           .build();
     }
+
     @Override
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
