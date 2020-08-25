@@ -160,12 +160,10 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
 
     ApplePlatform platform = appleConfiguration.getMultiArchPlatform(platformType);
     ImmutableListMultimap<String, TransitiveInfoCollection> cpuToDepsCollectionMap =
-        MultiArchBinarySupport.transformMap(
-            ruleContext.getPrerequisitesByConfiguration("deps", TransitionMode.SPLIT));
+        MultiArchBinarySupport.transformMap(ruleContext.getPrerequisitesByConfiguration("deps"));
     ImmutableListMultimap<String, ConfiguredTargetAndData> cpuToCTATDepsCollectionMap =
         MultiArchBinarySupport.transformMap(
-            ruleContext.getPrerequisiteCofiguredTargetAndTargetsByConfiguration(
-                "deps", TransitionMode.SPLIT));
+            ruleContext.getPrerequisiteCofiguredTargetAndTargetsByConfiguration("deps"));
 
     ImmutableMap<BuildConfiguration, CcToolchainProvider> childConfigurationsAndToolchains =
         MultiArchBinarySupport.getChildConfigurationsAndToolchains(ruleContext);
@@ -203,8 +201,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
             platform);
 
     ImmutableListMultimap<BuildConfiguration, OutputGroupInfo> buildConfigToOutputGroupInfoMap =
-        ruleContext.getPrerequisitesByConfiguration(
-            "deps", TransitionMode.SPLIT, OutputGroupInfo.STARLARK_CONSTRUCTOR);
+        ruleContext.getPrerequisitesByConfiguration("deps", OutputGroupInfo.STARLARK_CONSTRUCTOR);
     NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
     for (Map.Entry<BuildConfiguration, OutputGroupInfo> entry :
         buildConfigToOutputGroupInfoMap.entries()) {

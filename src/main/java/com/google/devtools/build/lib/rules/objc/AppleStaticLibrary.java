@@ -71,21 +71,18 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
 
     ImmutableListMultimap<String, ConfiguredTargetAndData> cpuToCTATDepsCollectionMap =
         MultiArchBinarySupport.transformMap(
-            ruleContext.getPrerequisiteCofiguredTargetAndTargetsByConfiguration(
-                "deps", TransitionMode.SPLIT));
+            ruleContext.getPrerequisiteCofiguredTargetAndTargetsByConfiguration("deps"));
 
     ImmutableListMultimap<String, ObjcProvider> cpuToObjcAvoidDepsMap =
         MultiArchBinarySupport.transformMap(
             ruleContext.getPrerequisitesByConfiguration(
                 AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME,
-                TransitionMode.SPLIT,
                 ObjcProvider.STARLARK_CONSTRUCTOR));
 
     ImmutableListMultimap<String, CcInfo> cpuToCcAvoidDepsMap =
         MultiArchBinarySupport.transformMap(
             ruleContext.getPrerequisitesByConfiguration(
                 AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME,
-                TransitionMode.SPLIT,
                 CcInfo.PROVIDER));
 
     Iterable<ObjcProtoProvider> avoidProtoProviders =
@@ -193,8 +190,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
     }
 
     ImmutableListMultimap<BuildConfiguration, OutputGroupInfo> buildConfigToOutputGroupInfoMap =
-        ruleContext.getPrerequisitesByConfiguration(
-            "deps", TransitionMode.SPLIT, OutputGroupInfo.STARLARK_CONSTRUCTOR);
+        ruleContext.getPrerequisitesByConfiguration("deps", OutputGroupInfo.STARLARK_CONSTRUCTOR);
     NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
     for (Map.Entry<BuildConfiguration, OutputGroupInfo> entry :
         buildConfigToOutputGroupInfoMap.entries()) {

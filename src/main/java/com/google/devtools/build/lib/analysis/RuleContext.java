@@ -992,10 +992,9 @@ public final class RuleContext extends TargetContext
    * ConfiguredTargetAndData is keyed by the {@link BuildConfiguration} that created it.
    */
   public ImmutableListMultimap<BuildConfiguration, ConfiguredTargetAndData>
-      getPrerequisiteCofiguredTargetAndTargetsByConfiguration(
-          String attributeName, TransitionMode mode) {
-    List<ConfiguredTargetAndData> ctatCollection =
-        getPrerequisiteConfiguredTargetAndTargets(attributeName, mode);
+      getPrerequisiteCofiguredTargetAndTargetsByConfiguration(String attributeName) {
+    checkAttribute(attributeName, TransitionMode.SPLIT);
+    List<ConfiguredTargetAndData> ctatCollection = getPrerequisiteConfiguredTargets(attributeName);
     ImmutableListMultimap.Builder<BuildConfiguration, ConfiguredTargetAndData> result =
         ImmutableListMultimap.builder();
     for (ConfiguredTargetAndData ctad : ctatCollection) {
@@ -1011,11 +1010,12 @@ public final class RuleContext extends TargetContext
    */
   public <C extends Info>
       ImmutableListMultimap<BuildConfiguration, C> getPrerequisitesByConfiguration(
-          String attributeName, TransitionMode mode, final BuiltinProvider<C> provider) {
+          String attributeName, final BuiltinProvider<C> provider) {
+    checkAttribute(attributeName, TransitionMode.SPLIT);
+    List<ConfiguredTargetAndData> ctatCollection = getPrerequisiteConfiguredTargets(attributeName);
     ImmutableListMultimap.Builder<BuildConfiguration, C> result =
         ImmutableListMultimap.builder();
-    for (ConfiguredTargetAndData prerequisite :
-        getPrerequisiteConfiguredTargetAndTargets(attributeName, mode)) {
+    for (ConfiguredTargetAndData prerequisite : ctatCollection) {
       C prerequisiteProvider = prerequisite.getConfiguredTarget().get(provider);
       if (prerequisiteProvider != null) {
         result.put(prerequisite.getConfiguration(), prerequisiteProvider);
@@ -1030,11 +1030,12 @@ public final class RuleContext extends TargetContext
    * BuildConfiguration} under which the collection was created.
    */
   public ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection>
-      getPrerequisitesByConfiguration(String attributeName, TransitionMode mode) {
+      getPrerequisitesByConfiguration(String attributeName) {
+    checkAttribute(attributeName, TransitionMode.SPLIT);
+    List<ConfiguredTargetAndData> ctatCollection = getPrerequisiteConfiguredTargets(attributeName);
     ImmutableListMultimap.Builder<BuildConfiguration, TransitiveInfoCollection> result =
         ImmutableListMultimap.builder();
-    for (ConfiguredTargetAndData prerequisite :
-        getPrerequisiteConfiguredTargetAndTargets(attributeName, mode)) {
+    for (ConfiguredTargetAndData prerequisite : ctatCollection) {
       result.put(prerequisite.getConfiguration(), prerequisite.getConfiguredTarget());
     }
     return result.build();
