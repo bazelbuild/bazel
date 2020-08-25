@@ -25,9 +25,13 @@ import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 
 /**
@@ -137,6 +141,10 @@ public class ResourceManager {
   // definition in the ResourceSet class.
   private double usedRam;
 
+  // Used amount of extra resources. Corresponds to the extra resource
+  // definition in the ResourceSet class.
+  private Map<String, Float> usedExtraResources;
+
   // Used local test count. Corresponds to the local test count definition in the ResourceSet class.
   private int usedLocalTestCount;
 
@@ -145,6 +153,7 @@ public class ResourceManager {
 
   private ResourceManager() {
     requestList = new LinkedList<>();
+    usedExtraResources = new HashMap<>();
   }
 
   @VisibleForTesting public static ResourceManager instanceForTestingOnly() {
@@ -158,6 +167,7 @@ public class ResourceManager {
   public synchronized void resetResourceUsage() {
     usedCpu = 0;
     usedRam = 0;
+    usedExtraResources = new HashMap<>();
     usedLocalTestCount = 0;
     for (Pair<ResourceSet, CountDownLatch> request : requestList) {
       // CountDownLatch can be set only to 0 or 1.
@@ -177,6 +187,7 @@ public class ResourceManager {
         ResourceSet.create(
             staticResources.getMemoryMb(),
             staticResources.getCpuUsage(),
+            staticResources.getExtraResourceUsage(),
             staticResources.getLocalTestCount());
     processWaitingThreads();
   }
@@ -264,6 +275,16 @@ public class ResourceManager {
   private void incrementResources(ResourceSet resources) {
     usedCpu += resources.getCpuUsage();
     usedRam += resources.getMemoryMb();
+
+    for (Map.Entry<String, Float> resource : resources.getExtraResourceUsage().entrySet()) {
+      String key = (String)resource.getKey();
+      float value = resource.getValue();
+      if (usedExtraResources.containsKey(key)) {
+        value += (float)usedExtraResources.get(key);
+      }
+      usedExtraResources.put(key, value);
+    }
+
     usedLocalTestCount += resources.getLocalTestCount();
   }
 
@@ -271,7 +292,7 @@ public class ResourceManager {
    * Return true if any resources have been claimed through this manager.
    */
   public synchronized boolean inUse() {
-    return usedCpu != 0.0 || usedRam != 0.0 || usedLocalTestCount != 0 || !requestList.isEmpty();
+    return usedCpu != 0.0 || usedRam != 0.0 || !usedExtraResources.isEmpty() || usedLocalTestCount != 0 || !requestList.isEmpty();
   }
 
 
@@ -322,6 +343,13 @@ public class ResourceManager {
   private synchronized boolean release(ResourceSet resources) {
     usedCpu -= resources.getCpuUsage();
     usedRam -= resources.getMemoryMb();
+
+    for (Map.Entry<String, Float> resource : resources.getExtraResourceUsage().entrySet()) {
+      String key = (String)resource.getKey();
+      float value = (float)usedExtraResources.get(key) - resource.getValue();
+      usedExtraResources.put(key, value);
+    }
+
     usedLocalTestCount -= resources.getLocalTestCount();
 
     // TODO(bazel-team): (2010) rounding error can accumulate and value below can end up being
@@ -333,6 +361,19 @@ public class ResourceManager {
     if (usedRam < epsilon) {
       usedRam = 0;
     }
+
+    Set<String> toRemove = new HashSet<>();
+    for (Map.Entry<String, Float> resource : usedExtraResources.entrySet()) {
+      String key = (String)resource.getKey();
+      float value = (float)usedExtraResources.get(key);
+      if (value < epsilon) {
+        toRemove.add(key);
+      }
+    }
+    for (String key : toRemove) {
+      usedExtraResources.remove(key);
+    }
+
     if (!requestList.isEmpty()) {
       processWaitingThreads();
       return true;
@@ -365,7 +406,7 @@ public class ResourceManager {
     Preconditions.checkNotNull(availableResources);
     // Comparison below is robust, since any calculation errors will be fixed
     // by the release() method.
-    if (usedCpu == 0.0 && usedRam == 0.0 && usedLocalTestCount == 0) {
+    if (usedCpu == 0.0 && usedRam == 0.0 && usedExtraResources.isEmpty() && usedLocalTestCount == 0) {
       return true;
     }
     // Use only MIN_NECESSARY_???_RATIO of the resource value to check for
@@ -409,9 +450,19 @@ public class ResourceManager {
     // 3) If used resource amount is less than total available resource amount.
     boolean cpuIsAvailable = cpu == 0.0 || usedCpu == 0.0 || usedCpu + cpu <= availableCpu;
     boolean ramIsAvailable = ram == 0.0 || usedRam == 0.0 || ram <= remainingRam;
+    boolean extraResourcesIsAvailable = true;
+    for (Map.Entry<String, Float> resource : resources.getExtraResourceUsage().entrySet()) {
+      String key = (String)resource.getKey();
+      float used = (float)usedExtraResources.getOrDefault(key, 0f);
+      float requested = resource.getValue();
+      float available = (float)availableResources.getExtraResourceUsage().getOrDefault(key, 0f);
+      if (requested != 0.0 && used != 0.0 && requested + used > available) {
+        extraResourcesIsAvailable = false;
+      }
+    }
     boolean localTestCountIsAvailable = localTestCount == 0 || usedLocalTestCount == 0
         || usedLocalTestCount + localTestCount <= availableLocalTestCount;
-    return cpuIsAvailable && ramIsAvailable && localTestCountIsAvailable;
+    return cpuIsAvailable && ramIsAvailable && extraResourcesIsAvailable && localTestCountIsAvailable;
   }
 
   @VisibleForTesting
@@ -421,6 +472,6 @@ public class ResourceManager {
 
   @VisibleForTesting
   synchronized boolean isAvailable(double ram, double cpu, int localTestCount) {
-    return areResourcesAvailable(ResourceSet.create(ram, cpu, localTestCount));
+    return areResourcesAvailable(ResourceSet.create(ram, cpu, null, localTestCount));
   }
 }

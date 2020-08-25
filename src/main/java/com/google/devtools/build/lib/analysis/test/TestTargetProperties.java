@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction.Code;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -46,10 +47,10 @@ public class TestTargetProperties {
    * <p>When changing these values, remember to update the documentation at
    * attributes/test/size.html.
    */
-  private static final ResourceSet SMALL_RESOURCES = ResourceSet.create(20, 1, 1);
-  private static final ResourceSet MEDIUM_RESOURCES = ResourceSet.create(100, 1, 1);
-  private static final ResourceSet LARGE_RESOURCES = ResourceSet.create(300, 1, 1);
-  private static final ResourceSet ENORMOUS_RESOURCES = ResourceSet.create(800, 1, 1);
+  private static final ResourceSet SMALL_RESOURCES = ResourceSet.create(20, 1, null, 1);
+  private static final ResourceSet MEDIUM_RESOURCES = ResourceSet.create(100, 1, null, 1);
+  private static final ResourceSet LARGE_RESOURCES = ResourceSet.create(300, 1, null, 1);
+  private static final ResourceSet ENORMOUS_RESOURCES = ResourceSet.create(800, 1, null, 1);
   private static final ResourceSet LOCAL_TEST_JOBS_BASED_RESOURCES =
       ResourceSet.createWithLocalTestCount(1);
 
@@ -150,23 +151,21 @@ public class TestTargetProperties {
     ResourceSet testResourcesFromSize = TestTargetProperties.getResourceSetFromSize(size);
 
     // Tests can override their CPU reservation with a "cpus:<n>" tag.
-    ResourceSet testResourcesFromTag = null;
+    // Tests can also specify requirements for extra resources using "resources:<resource name>:<n>" tag.
+    double cpuCount = -1.0;
+    Map<String, Float> extraResources = new HashMap<>();
     for (String tag : executionInfo.keySet()) {
       try {
         String cpus = ExecutionRequirements.CPU.parseIfMatches(tag);
         if (cpus != null) {
-          if (testResourcesFromTag != null) {
+          if (cpuCount != -1.0) {
             String message =
                 String.format(
                     "%s has more than one '%s' tag, but duplicate tags aren't allowed",
                     label, ExecutionRequirements.CPU.userFriendlyName());
             throw new UserExecException(createFailureDetail(message, Code.DUPLICATE_CPU_TAGS));
           }
-          testResourcesFromTag =
-              ResourceSet.create(
-                  testResourcesFromSize.getMemoryMb(),
-                  Float.parseFloat(cpus),
-                  testResourcesFromSize.getLocalTestCount());
+          cpuCount = Float.parseFloat(cpus);
         }
       } catch (ValidationException e) {
         String message =
@@ -178,9 +177,37 @@ public class TestTargetProperties {
                 e.getMessage());
         throw new UserExecException(createFailureDetail(message, Code.INVALID_CPU_TAG));
       }
+      try {
+        String extras = ExecutionRequirements.RESOURCES.parseIfMatches(tag);
+        if (extras != null) {
+          int splitIndex = extras.indexOf(":");
+          String resourceName = extras.substring(0, splitIndex);
+          String resourceCount = extras.substring(splitIndex+1);
+          if (extraResources.get(resourceName) != null) {
+            String message =
+                String.format(
+                    "%s has more than one '%s' tag, but duplicate tags aren't allowed",
+                    label, ExecutionRequirements.RESOURCES.userFriendlyName());
+            throw new UserExecException(createFailureDetail(message, Code.DUPLICATE_CPU_TAGS));
+          }
+          extraResources.put(resourceName, Float.parseFloat(resourceCount));
+        }
+      } catch (ValidationException e) {
+        String message =
+            String.format(
+                "%s has a '%s' tag, but its value '%s' didn't pass validation: %s",
+                label,
+                ExecutionRequirements.RESOURCES.userFriendlyName(),
+                e.getTagValue(),
+                e.getMessage());
+        throw new UserExecException(createFailureDetail(message, Code.INVALID_CPU_TAG));
+      }
     }
-
-    return testResourcesFromTag != null ? testResourcesFromTag : testResourcesFromSize;
+    return ResourceSet.create(
+            testResourcesFromSize.getMemoryMb(),
+            cpuCount != -1.0 ? cpuCount : testResourcesFromSize.getCpuUsage(),
+            extraResources,
+            testResourcesFromSize.getLocalTestCount());
   }
 
   private static FailureDetail createFailureDetail(String message, Code detailedCode) {

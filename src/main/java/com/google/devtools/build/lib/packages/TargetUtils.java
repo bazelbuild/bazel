@@ -56,7 +56,8 @@ public final class TargetUtils {
         || tag.startsWith("disable-")
         || tag.startsWith("cpu:")
         || tag.equals(ExecutionRequirements.LOCAL)
-        || tag.equals(ExecutionRequirements.WORKER_KEY_MNEMONIC);
+        || tag.equals(ExecutionRequirements.WORKER_KEY_MNEMONIC)
+        || tag.startsWith("resources:");
   }
 
   private TargetUtils() {} // Uninstantiable.

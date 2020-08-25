@@ -458,6 +458,31 @@ public final class Converters {
   }
 
   /**
+   * A converter for variable assignments from the parameter list of a blaze command invocation.
+   * Assignments are expected to have the form "name=value", where names are defined to
+   * be as permissive as possible and the values should be floats.
+   */
+  public static class StringToFloatAssignmentConverter implements Converter<Map.Entry<String, Float>> {
+
+    @Override
+    public Map.Entry<String, Float> convert(String input) throws OptionsParsingException {
+      int pos = input.indexOf("=");
+      if (pos <= 0) {
+        throw new OptionsParsingException(
+            "Variable definitions must be in the form of a 'name=value' assignment");
+      }
+      String name = input.substring(0, pos);
+      float value = Float.parseFloat(input.substring(pos + 1));
+      return Maps.immutableEntry(name, value);
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a 'name=value' assignment with second value being a float";
+    }
+  }
+
+  /**
    * Base converter for assignments from a value to a list of values. Both the key type as well as
    * the type for all instances in the list of values are processed via passed converters.
    */

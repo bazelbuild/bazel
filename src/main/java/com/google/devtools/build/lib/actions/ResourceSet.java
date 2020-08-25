@@ -19,7 +19,10 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
 /**
@@ -41,12 +44,24 @@ public class ResourceSet {
   /** The number of CPUs, or fractions thereof. */
   private final double cpuUsage;
 
+  /** Map of extra resources mapping name of the resource to a value. */
+  private final Map<String, Float> extraResourceUsage;
+
   /** The number of local tests. */
   private final int localTestCount;
 
   private ResourceSet(double memoryMb, double cpuUsage, int localTestCount) {
+    this(memoryMb, cpuUsage, null, localTestCount);
+  }
+
+  private ResourceSet(double memoryMb, double cpuUsage, Map<String, Float> extraResourceUsage, int localTestCount) {
     this.memoryMb = memoryMb;
     this.cpuUsage = cpuUsage;
+    if (extraResourceUsage == null) {
+        this.extraResourceUsage = new HashMap<>();
+    } else {
+        this.extraResourceUsage = extraResourceUsage;
+    }
     this.localTestCount = localTestCount;
   }
 
@@ -79,11 +94,11 @@ public class ResourceSet {
    */
   @AutoCodec.Instantiator
   public static ResourceSet create(
-      double memoryMb, double cpuUsage, int localTestCount) {
-    if (memoryMb == 0 && cpuUsage == 0 && localTestCount == 0) {
+      double memoryMb, double cpuUsage, Map<String, Float> extraResourceUsage, int localTestCount) {
+    if (memoryMb == 0 && cpuUsage == 0 && (extraResourceUsage == null || extraResourceUsage.size() == 0) && localTestCount == 0) {
       return ZERO;
     }
-    return new ResourceSet(memoryMb, cpuUsage, localTestCount);
+    return new ResourceSet(memoryMb, cpuUsage, extraResourceUsage, localTestCount);
   }
 
   /** Returns the amount of real memory (resident set size) used in MB. */
@@ -103,6 +118,10 @@ public class ResourceSet {
     return cpuUsage;
   }
 
+  public Map<String, Float> getExtraResourceUsage() {
+    return extraResourceUsage;
+  }
+
   /** Returns the local test count used. */
   public int getLocalTestCount() {
     return localTestCount;
@@ -110,9 +129,14 @@ public class ResourceSet {
 
   @Override
   public String toString() {
+    StringBuilder sb = new StringBuilder();
+    for (Map.Entry<String, Float> resource : extraResourceUsage.entrySet()) {
+      sb.append(resource.getKey() + ": " + resource.getValue() + "\n");
+    }
     return "Resources: \n"
         + "Memory: " + memoryMb + "M\n"
         + "CPU: " + cpuUsage + "\n"
+        + sb.toString()
         + "Local tests: " + localTestCount + "\n";
   }
 
@@ -135,7 +159,7 @@ public class ResourceSet {
         if (memoryMb <= 0.0 || cpuUsage <= 0.0) {
           throw new OptionsParsingException("All resource values must be positive");
         }
-        return create(memoryMb, cpuUsage, Integer.MAX_VALUE);
+        return create(memoryMb, cpuUsage, null, Integer.MAX_VALUE);
       } catch (NumberFormatException | NoSuchElementException nfe) {
         throw new OptionsParsingException("Expected exactly 3 comma-separated float values", nfe);
       }
