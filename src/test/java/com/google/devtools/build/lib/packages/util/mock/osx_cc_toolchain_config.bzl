@@ -5251,6 +5251,27 @@ def _impl(ctx):
         ],
     )
 
+    language_objc_feature = feature(
+        name = "lang_objc",
+        provides = [
+            "variant:language",
+        ],
+    )
+
+    language_feature = feature(
+        name = "language",
+        enabled = True,
+        flag_sets = [
+            flag_set(
+                actions = [
+                    ACTION_NAMES.cpp_header_parsing,
+                ],
+                flag_groups = [flag_group(flags = ["-DDUMMY_LANG_OBJC"])],
+                with_features = [with_feature_set(features = ["lang_objc"])],
+            ),
+        ],
+    )
+
     if (ctx.attr.cpu == "ios_arm64" or
         ctx.attr.cpu == "ios_armv7" or
         ctx.attr.cpu == "ios_i386" or
@@ -7858,6 +7879,8 @@ def _impl(ctx):
         compile_all_modules_feature,
         exclude_private_headers_in_module_maps_feature,
         has_configured_linker_path_feature,
+        language_objc_feature,
+        language_feature,
         only_doth_headers_in_module_maps_feature,
         is_not_test_target_feature,
         generate_dsym_file_feature,

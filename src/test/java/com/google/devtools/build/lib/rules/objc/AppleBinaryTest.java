@@ -1874,10 +1874,12 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         scratchConfiguredTarget(
             "foo",
             "x",
-            "apple_binary(name = 'x', platform_type = 'macos', deps = [':y'])",
-            "cc_library(name = 'y', hdrs = ['y.h'])");
+            "apple_binary(name = 'x', platform_type = 'macos', deps = [':y', ':z'])",
+            "cc_library(name = 'y', hdrs = ['y.h'])",
+            "objc_library(name = 'z', hdrs = ['z.h'])");
     String validation = ActionsTestUtil.baseNamesOf(getOutputGroup(x, OutputGroupInfo.VALIDATION));
     assertThat(validation).contains("y.h.processed");
+    assertThat(validation).contains("z.h.processed");
   }
 
   protected RuleType getRuleType() {

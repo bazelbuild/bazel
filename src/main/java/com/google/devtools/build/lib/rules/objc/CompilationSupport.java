@@ -494,7 +494,7 @@ public class CompilationSupport {
             featureConfiguration,
             ruleContext,
             /* generateHeaderTokensGroup= */ true,
-            /* addSelfHeaderTokens= */ false);
+            /* addSelfHeaderTokens= */ true);
 
     Map<String, NestedSet<Artifact>> nonArcOutputGroups =
         CcCompilationHelper.buildOutputGroupsForEmittingCompileProviders(
@@ -538,6 +538,7 @@ public class CompilationSupport {
                     .getFragment(AppleConfiguration.class)
                     .getBitcodeMode()
                     .getFeatureNames())
+            .add(CppRuleClasses.LANG_OBJC)
             // We create a module map by default to allow for Swift interop.
             .add(CppRuleClasses.MODULE_MAPS)
             .add(CppRuleClasses.COMPILE_ALL_MODULES)

@@ -117,6 +117,9 @@ public class CppRuleClasses {
   public static final SafeImplicitOutputsFunction CC_BINARY_DEBUG_PACKAGE =
       fromTemplates("%{name}.dwp");
 
+  /** A string constant for the Objective-C language feature. */
+  public static final String LANG_OBJC = "lang_objc";
+
   /** Name of the feature that will be exempt from flag filtering when nocopts are used */
   public static final String UNFILTERED_COMPILE_FLAGS_FEATURE_NAME = "unfiltered_compile_flags";
 
