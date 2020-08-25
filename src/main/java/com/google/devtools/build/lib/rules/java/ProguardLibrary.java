@@ -15,8 +15,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.Multimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -28,7 +27,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import java.util.Collection;
-import java.util.Map;
 
 /**
  * Helpers for implementing rules which export Proguard specs.
@@ -39,11 +37,8 @@ import java.util.Map;
 public final class ProguardLibrary {
 
   private static final String LOCAL_SPEC_ATTRIBUTE = "proguard_specs";
-  private static final ImmutableMultimap<TransitionMode, String> DEPENDENCY_ATTRIBUTES =
-      ImmutableMultimap.<TransitionMode, String>builder()
-          .putAll(TransitionMode.TARGET, "deps", "exports", "runtime_deps")
-          .putAll(TransitionMode.HOST, "plugins", "exported_plugins")
-          .build();
+  private static final ImmutableSet<String> DEPENDENCY_ATTRIBUTES =
+      ImmutableSet.of("deps", "exports", "runtime_deps", "plugins", "exported_plugins");
 
   private final RuleContext ruleContext;
 
@@ -61,12 +56,11 @@ public final class ProguardLibrary {
    * Collects the validated proguard specs exported by this rule and its dependencies through the
    * given attributes.
    */
-  public NestedSet<Artifact> collectProguardSpecs(Multimap<TransitionMode, String> attributes) {
+  public NestedSet<Artifact> collectProguardSpecs(Iterable<String> attributes) {
     NestedSetBuilder<Artifact> specsBuilder = NestedSetBuilder.naiveLinkOrder();
 
-    for (Map.Entry<TransitionMode, String> attribute : attributes.entries()) {
-      specsBuilder.addTransitive(
-          collectProguardSpecsFromAttribute(attribute.getValue(), attribute.getKey()));
+    for (String attribute : attributes) {
+      specsBuilder.addTransitive(collectProguardSpecsFromAttribute(attribute));
     }
 
     Collection<Artifact> localSpecs = collectLocalProguardSpecs();
@@ -93,15 +87,15 @@ public final class ProguardLibrary {
   /**
    * Collects the proguard specs exported by dependencies on the given LABEL_LIST/LABEL attribute.
    */
-  private NestedSet<Artifact> collectProguardSpecsFromAttribute(
-      String attributeName, TransitionMode mode) {
+  private NestedSet<Artifact> collectProguardSpecsFromAttribute(String attributeName) {
     if (!ruleContext.attributes().has(attributeName, BuildType.LABEL_LIST)
         && !ruleContext.attributes().has(attributeName, BuildType.LABEL)) {
       return NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     }
     NestedSetBuilder<Artifact> dependencySpecsBuilder = NestedSetBuilder.naiveLinkOrder();
     for (ProguardSpecProvider provider :
-        ruleContext.getPrerequisites(attributeName, mode, ProguardSpecProvider.PROVIDER)) {
+        ruleContext.getPrerequisites(
+            attributeName, TransitionMode.DONT_CHECK, ProguardSpecProvider.PROVIDER)) {
       dependencySpecsBuilder.addTransitive(provider.getTransitiveProguardSpecs());
     }
     return dependencySpecsBuilder.build();
