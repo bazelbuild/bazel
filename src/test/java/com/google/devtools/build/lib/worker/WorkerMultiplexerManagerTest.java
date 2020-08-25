@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtoco
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import org.junit.Before;
 import org.junit.Test;
@@ -40,10 +41,12 @@ public class WorkerMultiplexerManagerTest {
   @Before
   public void setUp() {
     fileSystem = new InMemoryFileSystem(BlazeClock.instance());
+    WorkerMultiplexerManager.reset();
   }
 
   @Test
   public void instanceCreationRemovalTest() throws Exception {
+    Path logFile = fileSystem.getPath("/tmp/logFilePath");
     // Create a WorkerProxy hash and request for a WorkerMultiplexer.
     WorkerKey workerKey1 =
         new WorkerKey(
@@ -56,7 +59,7 @@ public class WorkerMultiplexerManagerTest {
             false,
             false,
             WorkerProtocolFormat.PROTO);
-    WorkerMultiplexer wm1 = WorkerMultiplexerManager.getInstance(workerKey1);
+    WorkerMultiplexer wm1 = WorkerMultiplexerManager.getInstance(workerKey1, logFile);
 
     assertThat(WorkerMultiplexerManager.getMultiplexer(workerKey1)).isEqualTo(wm1);
     assertThat(WorkerMultiplexerManager.getRefCount(workerKey1)).isEqualTo(1);
@@ -74,14 +77,14 @@ public class WorkerMultiplexerManagerTest {
             false,
             false,
             WorkerProtocolFormat.PROTO);
-    WorkerMultiplexer wm2 = WorkerMultiplexerManager.getInstance(workerKey2);
+    WorkerMultiplexer wm2 = WorkerMultiplexerManager.getInstance(workerKey2, logFile);
 
     assertThat(WorkerMultiplexerManager.getMultiplexer(workerKey2)).isEqualTo(wm2);
     assertThat(WorkerMultiplexerManager.getRefCount(workerKey2)).isEqualTo(1);
     assertThat(WorkerMultiplexerManager.getInstanceCount()).isEqualTo(2);
 
     // Use the same WorkerProxy hash, it shouldn't instantiate a new WorkerMultiplexer.
-    WorkerMultiplexer wm2Annex = WorkerMultiplexerManager.getInstance(workerKey2);
+    WorkerMultiplexer wm2Annex = WorkerMultiplexerManager.getInstance(workerKey2, logFile);
 
     assertThat(wm2).isEqualTo(wm2Annex);
     assertThat(WorkerMultiplexerManager.getRefCount(workerKey2)).isEqualTo(2);
