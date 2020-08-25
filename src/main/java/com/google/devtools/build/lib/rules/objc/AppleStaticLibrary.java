@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MULTI_ARCH_LINKED_ARCHIVES;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -109,8 +110,18 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
         new ObjcProvider.NativeBuilder(ruleContext.getAnalysisEnvironment().getStarlarkSemantics());
 
     ImmutableListMultimap<BuildConfiguration, ObjcProtoProvider> objcProtoProvidersByConfig =
-        ruleContext.getPrerequisitesByConfiguration(
-            "deps", TransitionMode.SPLIT, ObjcProtoProvider.STARLARK_CONSTRUCTOR);
+        ruleContext.getPrerequisiteConfiguredTargets("deps").stream()
+            .filter(
+                prerequisite ->
+                    prerequisite.getConfiguredTarget().get(ObjcProtoProvider.STARLARK_CONSTRUCTOR)
+                        != null)
+            .collect(
+                toImmutableListMultimap(
+                    ConfiguredTargetAndData::getConfiguration,
+                    prerequisite ->
+                        prerequisite
+                            .getConfiguredTarget()
+                            .get(ObjcProtoProvider.STARLARK_CONSTRUCTOR)));
     Multimap<String, ObjcProtoProvider> objcProtoProvidersMap =
         MultiArchBinarySupport.transformMap(objcProtoProvidersByConfig);
 
