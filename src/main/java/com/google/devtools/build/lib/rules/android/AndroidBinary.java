@@ -507,6 +507,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_UNSIGNED_APK);
     Artifact zipAlignedApk =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_APK);
+    Artifact v4Signature =
+        dataContext.getAndroidConfig().apkSigningMethodV4()
+            ? ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_V4_SIGNATURE)
+            : null;
     ImmutableList<Artifact> signingKeys = AndroidCommon.getApkDebugSigningKeys(ruleContext);
     Artifact signingLineage =
         ruleContext.getPrerequisiteArtifact("debug_signing_lineage_file", TransitionMode.HOST);
@@ -581,21 +585,30 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .setSignedApk(zipAlignedApk)
         .setSigningKeys(signingKeys)
         .setSigningLineageFile(signingLineage)
+        .setV4Signature(v4Signature)
         .setZipalignApk(true)
         .registerActions(ruleContext);
 
     filesBuilder.add(binaryJar);
     filesBuilder.add(unsignedApk);
     filesBuilder.add(zipAlignedApk);
+    if (v4Signature != null) {
+      filesBuilder.add(v4Signature);
+    }
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
 
     Artifact deployInfo = ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.DEPLOY_INFO);
+    ImmutableList.Builder<Artifact> listBuilder =
+        ImmutableList.<Artifact>builder().add(zipAlignedApk).addAll(apksUnderTest);
+    if (v4Signature != null) {
+      listBuilder.add(v4Signature);
+    }
     AndroidDeployInfoAction.createDeployInfoAction(
         ruleContext,
         deployInfo,
         resourceApk.getManifest(),
         additionalMergedManifests,
-        ImmutableList.<Artifact>builder().add(zipAlignedApk).addAll(apksUnderTest).build());
+        listBuilder.build());
 
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
 

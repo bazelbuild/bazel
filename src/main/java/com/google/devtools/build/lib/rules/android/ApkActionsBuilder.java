@@ -49,6 +49,7 @@ public class ApkActionsBuilder {
   private List<Artifact> signingKeys;
   private Artifact signingLineage;
   private String artifactLocation;
+  private Artifact v4SignatureFile;
 
   private final String apkName;
 
@@ -121,6 +122,11 @@ public class ApkActionsBuilder {
   /** Requests a signed APK be built at the specified artifact. */
   public ApkActionsBuilder setSignedApk(Artifact signedApk) {
     this.signedApk = signedApk;
+    return this;
+  }
+
+  public ApkActionsBuilder setV4Signature(Artifact v4SignatureFile) {
+    this.v4SignatureFile = v4SignatureFile;
     return this;
   }
 
@@ -435,10 +441,13 @@ public class ApkActionsBuilder {
         .add("--v1-signing-enabled", Boolean.toString(signingMethod.signV1()))
         .add("--v1-signer-name", "CERT")
         .add("--v2-signing-enabled", Boolean.toString(signingMethod.signV2()))
+        .add("--v4-signing-enabled", Boolean.toString(signingMethod.signV4()))
         .add("--out")
         .addExecPath(signedAndZipalignedApk)
         .addExecPath(unsignedApk);
-
+    if (v4SignatureFile != null) {
+      actionBuilder.addOutput(v4SignatureFile);
+    }
     ruleContext.registerAction(
         actionBuilder.addCommandLine(commandLine.build()).build(ruleContext));
   }

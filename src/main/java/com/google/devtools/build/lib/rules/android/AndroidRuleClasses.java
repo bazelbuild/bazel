@@ -135,6 +135,8 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_incremental.apk");
   public static final SafeImplicitOutputsFunction ANDROID_BINARY_UNSIGNED_APK =
       fromTemplates("%{name}_unsigned.apk");
+  public static final SafeImplicitOutputsFunction ANDROID_BINARY_V4_SIGNATURE =
+      fromTemplates("%{name}.apk.idsig");
   public static final SafeImplicitOutputsFunction ANDROID_BINARY_DEPLOY_JAR =
       fromTemplates("%{name}_deploy.jar");
   public static final SafeImplicitOutputsFunction ANDROID_BINARY_PROGUARD_JAR =

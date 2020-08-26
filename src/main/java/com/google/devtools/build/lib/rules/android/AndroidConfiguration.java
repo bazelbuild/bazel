@@ -108,19 +108,29 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
    *   <li>V1 uses the apksigner attribute from the android_sdk and signs the APK as a JAR.
    *   <li>V2 uses the apksigner attribute from the android_sdk and signs the APK according to the
    *       APK Signing Schema V2 that is only supported on Android N and later.
+   *   <li>V4 uses the apksigner attribute from the android_sdk and signs the APK according to the
+   *       APK Signing Schema V4 that is only supported on Android R and later. It generates a V4
+   *       signature file alongside the APK file.
    * </ul>
    */
   public enum ApkSigningMethod {
     V1(true, false),
     V2(false, true),
-    V1_V2(true, true);
+    V1_V2(true, true),
+    V4(false, false, true);
 
     private final boolean signV1;
     private final boolean signV2;
+    private final boolean signV4;
 
     ApkSigningMethod(boolean signV1, boolean signV2) {
+      this(signV1, signV2, false);
+    }
+
+    ApkSigningMethod(boolean signV1, boolean signV2, boolean signV4) {
       this.signV1 = signV1;
       this.signV2 = signV2;
+      this.signV4 = signV4;
     }
 
     /** Whether to JAR sign the APK with the apksigner tool. */
@@ -131,6 +141,11 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     /** Whether to sign the APK with the apksigner tool with APK Signature Schema V2. */
     public boolean signV2() {
       return signV2;
+    }
+
+    /** Whether to sign the APK with the apksigner tool with APK Signature Schema V4. */
+    public boolean signV4() {
+      return signV4;
     }
   }
 
@@ -1214,6 +1229,11 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean apkSigningMethodV2() {
     return apkSigningMethod.signV2();
+  }
+
+  @Override
+  public boolean apkSigningMethodV4() {
+    return apkSigningMethod.signV4();
   }
 
   @Override

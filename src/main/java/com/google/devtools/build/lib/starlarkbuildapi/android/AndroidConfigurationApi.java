@@ -67,6 +67,9 @@ public interface AndroidConfigurationApi extends StarlarkValue {
   @StarlarkMethod(name = "apk_signing_method_v2", structField = true, doc = "", documented = false)
   boolean apkSigningMethodV2();
 
+  @StarlarkMethod(name = "apk_signing_method_v4", structField = true, doc = "", documented = false)
+  boolean apkSigningMethodV4();
+
   @StarlarkMethod(name = "assume_min_sdk_version", structField = true, doc = "", documented = false)
   boolean assumeMinSdkVersion();
 
