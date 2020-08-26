@@ -277,19 +277,7 @@ public class UiOptions extends OptionsBase {
               + "at least one one, all numbers less than 1 are mapped to 1. "
               + "This option has no effect if --noui is set.")
   public int uiSamplesShown;
-
-  @Option(
-      name = "experimental_ui_limit_console_output",
-      defaultValue = "0",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Number of bytes to which the UI will limit its output (non-positive "
-              + "values indicate unlimited). Once the limit is approaching, the UI "
-              + "will try hard to limit in a meaningful way, but will ultimately just drop all "
-              + "output.")
-  public int experimentalUiLimitConsoleOutput;
-
+  
   public boolean useColor() {
     return useColorEnum == UseColor.YES || (useColorEnum == UseColor.AUTO && isATty);
   }
