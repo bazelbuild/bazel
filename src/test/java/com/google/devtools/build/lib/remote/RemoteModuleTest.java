@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import build.bazel.remote.execution.v2.ActionCacheUpdateCapabilities;
 import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.CapabilitiesGrpc.CapabilitiesImplBase;
 import build.bazel.remote.execution.v2.DigestFunction.Value;
@@ -144,11 +145,11 @@ public class RemoteModuleTest {
   }
 
   @Test
-  public void testVerityCapabilities_VerityExecutionAndCacheForSingleEndpoint() throws Exception {
+  public void testVerifyCapabilities_ExecutionAndCacheForSingleEndpoint() throws Exception {
     ServerCapabilities caps =
         ServerCapabilities.newBuilder()
-            .setLowApiVersion(SemVer.newBuilder().setMajor(2).build())
-            .setHighApiVersion(SemVer.newBuilder().setMajor(2).build())
+            .setLowApiVersion(ApiVersion.current.toSemVer())
+            .setHighApiVersion(ApiVersion.current.toSemVer())
             .setExecutionCapabilities(ExecutionCapabilities.newBuilder()
                 .setExecEnabled(true)
                 .setDigestFunction(Value.SHA256)
@@ -185,12 +186,51 @@ public class RemoteModuleTest {
   }
 
   @Test
-  public void testVerityCapabilities_VerityExecutionAndCacheForDifferentEndpoints()
+  public void testVerifyCapabilities_CacheOnlyEndpoint() throws Exception {
+    ServerCapabilities cacheOnlyCaps =
+        ServerCapabilities.newBuilder()
+            .setLowApiVersion(ApiVersion.current.toSemVer())
+            .setHighApiVersion(ApiVersion.current.toSemVer())
+            .setCacheCapabilities(CacheCapabilities.newBuilder()
+                .addDigestFunction(Value.SHA256)
+                .setActionCacheUpdateCapabilities(
+                    ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
+                .build()
+            )
+            .build();
+    CapabilitiesImpl cacheServerCapabilitiesImpl = new CapabilitiesImpl(cacheOnlyCaps);
+    String cacheServerName = "cache-server";
+    Server cacheServer = createFakeServer(cacheServerName, cacheServerCapabilitiesImpl);
+    cacheServer.start();
+
+    try {
+      RemoteModule remoteModule = new RemoteModule();
+      remoteModule.setChannelFactory(
+          (target, proxy, options, interceptors) -> InProcessChannelBuilder
+              .forName(target).directExecutor().build());
+
+      RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+      remoteOptions.remoteCache = cacheServerName;
+
+      CommandEnvironment env = testCommandEnvironment(remoteOptions);
+
+      remoteModule.beforeCommand(env);
+
+      assertThat(Thread.interrupted()).isFalse();
+      assertThat(cacheServerCapabilitiesImpl.getRequestCount() == 1).isTrue();
+    } finally {
+      cacheServer.shutdownNow();
+      cacheServer.awaitTermination();
+    }
+  }
+
+  @Test
+  public void testVerifyCapabilities_ExecutionAndCacheForDifferentEndpoints()
       throws Exception {
     ServerCapabilities caps =
         ServerCapabilities.newBuilder()
-            .setLowApiVersion(SemVer.newBuilder().setMajor(2).build())
-            .setHighApiVersion(SemVer.newBuilder().setMajor(2).build())
+            .setLowApiVersion(ApiVersion.current.toSemVer())
+            .setHighApiVersion(ApiVersion.current.toSemVer())
             .setExecutionCapabilities(ExecutionCapabilities.newBuilder()
                 .setExecEnabled(true)
                 .setDigestFunction(Value.SHA256)
@@ -237,11 +277,11 @@ public class RemoteModuleTest {
   }
 
   @Test
-  public void testVerityCapabilities_VerityExecutionOnlyAndCacheOnlyEndpoints() throws Exception {
+  public void testVerifyCapabilities_ExecutionOnlyAndCacheOnlyEndpoints() throws Exception {
     ServerCapabilities executionOnlyCaps =
         ServerCapabilities.newBuilder()
-            .setLowApiVersion(SemVer.newBuilder().setMajor(2).build())
-            .setHighApiVersion(SemVer.newBuilder().setMajor(2).build())
+            .setLowApiVersion(ApiVersion.current.toSemVer())
+            .setHighApiVersion(ApiVersion.current.toSemVer())
             .setExecutionCapabilities(ExecutionCapabilities.newBuilder()
                 .setExecEnabled(true)
                 .setDigestFunction(Value.SHA256)
