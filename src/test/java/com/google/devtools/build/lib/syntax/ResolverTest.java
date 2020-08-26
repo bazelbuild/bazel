@@ -29,6 +29,7 @@ public class ResolverTest {
 
   // Resolves a file using the current options,
   // in an environment with a single predeclared name, pre.
+  // Errors are recorded in file.errors().
   private StarlarkFile resolveFile(String... lines) throws SyntaxError.Exception {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, options.build());

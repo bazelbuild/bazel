@@ -122,7 +122,7 @@ public final class EvaluationTest {
     try (Mutability mu = Mutability.create("test")) {
       StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
       thread.setPrintHandler((_thread, msg) -> printEvents.add(msg));
-      EvalUtils.exec(input, FileOptions.DEFAULT, module, thread);
+      Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
     } finally {
       // Reset interrupt bit in case the test failed to do so.
       Thread.interrupted();
@@ -139,7 +139,7 @@ public final class EvaluationTest {
       long run(int n) throws SyntaxError.Exception, EvalException, InterruptedException {
         Module module = Module.withPredeclared(StarlarkSemantics.DEFAULT, ImmutableMap.of("n", n));
         long steps0 = thread.getExecutedSteps();
-        EvalUtils.exec(input, FileOptions.DEFAULT, module, thread);
+        Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
         return thread.getExecutedSteps() - steps0;
       }
     }
@@ -556,7 +556,7 @@ public final class EvaluationTest {
     FileOptions options = FileOptions.builder().recordScope(false).build();
     try (Mutability mu = Mutability.create("test")) {
       StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
-      EvalUtils.exec(input, options, Module.create(), thread);
+      Starlark.execFile(input, options, Module.create(), thread);
     }
   }
 
@@ -908,7 +908,7 @@ public final class EvaluationTest {
     Module module = Module.create();
     try (Mutability mu = Mutability.create("test")) {
       StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
-      EvalUtils.exec(input, FileOptions.DEFAULT, module, thread);
+      Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
     }
     assertThat(module.getGlobal("x"))
         .isEqualTo(StarlarkList.of(/*mutability=*/ null, 1, 2, "foo", 4, 1, 2, "foo1"));

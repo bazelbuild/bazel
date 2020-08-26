@@ -19,9 +19,7 @@ import com.google.common.collect.Ordering;
 import java.util.IllegalFormatException;
 
 /** Utilities used by the evaluator. */
-// TODO(adonovan): move all fundamental values and operators of the language to Starlark
-// class---equal, compare, index, slice, parse, exec, eval, and so on---and make this
-// private.
+// TODO(adonovan): move isNullOrNone and isImmutable to class Starlark and make this private.
 public final class EvalUtils {
 
   private EvalUtils() {}
@@ -558,7 +556,10 @@ public final class EvalUtils {
    * Parses the input as a file, resolves it in the module environment using the specified options
    * and returns the syntax tree. Scan/parse/resolve errors are recorded in the StarlarkFile. It is
    * the caller's responsibility to inspect them.
+   *
+   * @deprecated Use {@link Program#compileFile}.
    */
+  @Deprecated
   public static StarlarkFile parseAndValidate(
       ParserInput input, FileOptions options, Module module) {
     StarlarkFile file = StarlarkFile.parse(input, options);
@@ -570,7 +571,10 @@ public final class EvalUtils {
    * Parses the input as a file, resolves it in the module environment using the specified options
    * and executes it. It returns None, unless the final statement is an expression, in which case it
    * returns the expression's value.
+   *
+   * @deprecated Use {@link Starlark#execFile}.
    */
+  @Deprecated
   public static Object exec(
       ParserInput input, FileOptions options, Module module, StarlarkThread thread)
       throws SyntaxError.Exception, EvalException, InterruptedException {
@@ -581,7 +585,12 @@ public final class EvalUtils {
     return exec(file, module, thread);
   }
 
-  /** Executes a parsed, resolved Starlark file in the given StarlarkThread. */
+  /**
+   * Executes a parsed, resolved Starlark file in the given StarlarkThread.
+   *
+   * @deprecated Use {@link Starlark#execFile}, or parts thereof.
+   */
+  @Deprecated
   public static Object exec(StarlarkFile file, Module module, StarlarkThread thread)
       throws EvalException, InterruptedException {
     Preconditions.checkNotNull(
@@ -598,19 +607,15 @@ public final class EvalUtils {
   /**
    * Parses the input as an expression, resolves it in the module environment using the specified
    * options, and evaluates it.
+   *
+   * @deprecated Use {@link Starlark#eval}.
    */
+  @Deprecated
   public static Object eval(
       ParserInput input, FileOptions options, Module module, StarlarkThread thread)
       throws SyntaxError.Exception, EvalException, InterruptedException {
-    Expression expr = Expression.parse(input, options);
-
-    Resolver.Function rfn = Resolver.resolveExpr(expr, module, options);
-
-    // Turn expression into a no-arg StarlarkFunction.
-    Tuple<Object> defaultValues = Tuple.empty();
-    StarlarkFunction exprFunc = new StarlarkFunction(rfn, defaultValues, module);
-
-    return Starlark.fastcall(thread, exprFunc, NOARGS, NOARGS);
+    StarlarkFunction fn = Starlark.newExprFunction(input, options, module);
+    return Starlark.fastcall(thread, fn, NOARGS, NOARGS);
   }
 
   private static final Object[] NOARGS = {};

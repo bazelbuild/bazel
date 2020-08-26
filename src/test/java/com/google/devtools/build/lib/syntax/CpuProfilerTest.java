@@ -65,7 +65,7 @@ public final class CpuProfilerTest {
     Module module = Module.create();
     try (Mutability mu = Mutability.create("test")) {
       StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
-      EvalUtils.exec(input, FileOptions.DEFAULT, module, thread);
+      Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
     }
 
     Starlark.stopCpuProfile();
