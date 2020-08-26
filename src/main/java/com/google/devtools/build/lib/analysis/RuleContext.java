@@ -951,10 +951,20 @@ public final class RuleContext extends TargetContext
 
   /**
    * Returns the specified provider of the prerequisite referenced by the attribute in the argument.
+   * If the attribute is empty or it does not support the specified provider, returns null.
+   */
+  public <C extends TransitiveInfoProvider> C getPrerequisite(
+      String attributeName, Class<C> provider) {
+    return getPrerequisite(attributeName, TransitionMode.DONT_CHECK, provider);
+  }
+
+  /**
+   * Returns the specified provider of the prerequisite referenced by the attribute in the argument.
    * Note that you need to specify the correct mode for the attribute, otherwise an assertion will
    * be raised. If the attribute is empty or it does not support the specified provider, returns
    * null.
    */
+  // TODO(b/165916637): Update callers to not pass TransitionMode.
   public <C extends TransitiveInfoProvider> C getPrerequisite(
       String attributeName, TransitionMode mode, Class<C> provider) {
     TransitiveInfoCollection prerequisite = getPrerequisite(attributeName, mode);
@@ -966,6 +976,15 @@ public final class RuleContext extends TargetContext
    * attribute. Note that you need to specify the correct mode for the attribute, otherwise an
    * assertion will be raised. Returns null if the attribute is empty.
    */
+  public TransitiveInfoCollection getPrerequisite(String attributeName) {
+    return getPrerequisite(attributeName, TransitionMode.DONT_CHECK);
+  }
+
+  /**
+   * Returns the transitive info collection that feeds into this target through the specified
+   * attribute. Returns null if the attribute is empty.
+   */
+  // TODO(b/165916637): Update callers to not pass TransitionMode.
   public TransitiveInfoCollection getPrerequisite(String attributeName, TransitionMode mode) {
     ConfiguredTargetAndData result = getPrerequisiteConfiguredTargetAndData(attributeName, mode);
     return result == null ? null : result.getConfiguredTarget();
@@ -973,9 +992,18 @@ public final class RuleContext extends TargetContext
 
   /**
    * Returns the {@link ConfiguredTargetAndData} that feeds ino this target through the specified
+   * attribute. Returns null if the attribute is empty.
+   */
+  public ConfiguredTargetAndData getPrerequisiteConfiguredTargetAndData(String attributeName) {
+    return getPrerequisiteConfiguredTargetAndData(attributeName, TransitionMode.DONT_CHECK);
+  }
+
+  /**
+   * Returns the {@link ConfiguredTargetAndData} that feeds ino this target through the specified
    * attribute. Note that you need to specify the correct mode for the attribute, otherwise an
    * assertion will be raised. Returns null if the attribute is empty.
    */
+  // TODO(b/165916637): Update callers to not pass TransitionMode.
   public ConfiguredTargetAndData getPrerequisiteConfiguredTargetAndData(
       String attributeName, TransitionMode mode) {
     checkAttribute(attributeName, mode);
@@ -1010,7 +1038,7 @@ public final class RuleContext extends TargetContext
    */
   public <C extends Info>
       ImmutableListMultimap<BuildConfiguration, C> getPrerequisitesByConfiguration(
-          String attributeName, final BuiltinProvider<C> provider) {
+          String attributeName, BuiltinProvider<C> provider) {
     checkAttribute(attributeName, TransitionMode.SPLIT);
     List<ConfiguredTargetAndData> ctatCollection = getPrerequisiteConfiguredTargets(attributeName);
     ImmutableListMultimap.Builder<BuildConfiguration, C> result =
@@ -1043,9 +1071,18 @@ public final class RuleContext extends TargetContext
 
   /**
    * Returns the list of transitive info collections that feed into this target through the
+   * specified attribute.
+   */
+  public List<? extends TransitiveInfoCollection> getPrerequisites(String attributeName) {
+    return getPrerequisites(attributeName, TransitionMode.DONT_CHECK);
+  }
+
+  /**
+   * Returns the list of transitive info collections that feed into this target through the
    * specified attribute. Note that you need to specify the correct mode for the attribute,
    * otherwise an assertion will be raised.
    */
+  // TODO(b/165916637): Update callers to not pass TransitionMode.
   public List<? extends TransitiveInfoCollection> getPrerequisites(
       String attributeName, TransitionMode mode) {
     return Lists.transform(
@@ -1058,7 +1095,17 @@ public final class RuleContext extends TargetContext
    * of this target in the BUILD file.
    */
   public <C extends TransitiveInfoProvider> List<C> getPrerequisites(
-      String attributeName, TransitionMode mode, final Class<C> classType) {
+      String attributeName, Class<C> classType) {
+    return getPrerequisites(attributeName, TransitionMode.DONT_CHECK, classType);
+  }
+
+  /**
+   * Returns all the providers of the specified type that are listed under the specified attribute
+   * of this target in the BUILD file.
+   */
+  // TODO(b/165916637): Update callers to not pass TransitionMode.
+  public <C extends TransitiveInfoProvider> List<C> getPrerequisites(
+      String attributeName, TransitionMode mode, Class<C> classType) {
     AnalysisUtils.checkProvider(classType);
     return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), classType);
   }
@@ -1068,7 +1115,17 @@ public final class RuleContext extends TargetContext
    * the specified attribute of this target in the BUILD file.
    */
   public <T extends Info> List<T> getPrerequisites(
-      String attributeName, TransitionMode mode, final NativeProvider<T> starlarkKey) {
+      String attributeName, NativeProvider<T> starlarkKey) {
+    return getPrerequisites(attributeName, TransitionMode.DONT_CHECK, starlarkKey);
+  }
+
+  /**
+   * Returns all the declared providers (native and Starlark) for the specified constructor under
+   * the specified attribute of this target in the BUILD file.
+   */
+  // TODO(b/165916637): Update callers to not pass TransitionMode.
+  public <T extends Info> List<T> getPrerequisites(
+      String attributeName, TransitionMode mode, NativeProvider<T> starlarkKey) {
     return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), starlarkKey);
   }
 
@@ -1077,7 +1134,17 @@ public final class RuleContext extends TargetContext
    * the specified attribute of this target in the BUILD file.
    */
   public <T extends Info> List<T> getPrerequisites(
-      String attributeName, TransitionMode mode, final BuiltinProvider<T> starlarkKey) {
+      String attributeName, BuiltinProvider<T> starlarkKey) {
+    return getPrerequisites(attributeName, TransitionMode.DONT_CHECK, starlarkKey);
+  }
+
+  /**
+   * Returns all the declared providers (native and Starlark) for the specified constructor under
+   * the specified attribute of this target in the BUILD file.
+   */
+  // TODO(b/165916637): Update callers to not pass TransitionMode.
+  public <T extends Info> List<T> getPrerequisites(
+      String attributeName, TransitionMode mode, BuiltinProvider<T> starlarkKey) {
     return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), starlarkKey);
   }
 
@@ -1087,8 +1154,19 @@ public final class RuleContext extends TargetContext
    * TransitiveInfoCollection under the specified attribute.
    */
   @Nullable
+  public <T extends Info> T getPrerequisite(String attributeName, NativeProvider<T> starlarkKey) {
+    return getPrerequisite(attributeName, TransitionMode.DONT_CHECK, starlarkKey);
+  }
+
+  /**
+   * Returns the declared provider (native and Starlark) for the specified constructor under the
+   * specified attribute of this target in the BUILD file. May return null if there is no
+   * TransitiveInfoCollection under the specified attribute.
+   */
+  // TODO(b/165916637): Update callers to not pass TransitionMode.
+  @Nullable
   public <T extends Info> T getPrerequisite(
-      String attributeName, TransitionMode mode, final NativeProvider<T> starlarkKey) {
+      String attributeName, TransitionMode mode, NativeProvider<T> starlarkKey) {
     TransitiveInfoCollection prerequisite = getPrerequisite(attributeName, mode);
     return prerequisite == null ? null : prerequisite.get(starlarkKey);
   }
@@ -1099,8 +1177,19 @@ public final class RuleContext extends TargetContext
    * TransitiveInfoCollection under the specified attribute.
    */
   @Nullable
+  public <T extends Info> T getPrerequisite(String attributeName, BuiltinProvider<T> starlarkKey) {
+    return getPrerequisite(attributeName, TransitionMode.DONT_CHECK, starlarkKey);
+  }
+
+  /**
+   * Returns the declared provider (native and Starlark) for the specified constructor under the
+   * specified attribute of this target in the BUILD file. May return null if there is no
+   * TransitiveInfoCollection under the specified attribute.
+   */
+  // TODO(b/165916637): Update callers to not pass TransitionMode.
+  @Nullable
   public <T extends Info> T getPrerequisite(
-      String attributeName, TransitionMode mode, final BuiltinProvider<T> starlarkKey) {
+      String attributeName, TransitionMode mode, BuiltinProvider<T> starlarkKey) {
     TransitiveInfoCollection prerequisite = getPrerequisite(attributeName, mode);
     return prerequisite == null ? null : prerequisite.get(starlarkKey);
   }
@@ -1111,7 +1200,18 @@ public final class RuleContext extends TargetContext
    */
   public <C extends TransitiveInfoProvider>
       Iterable<? extends TransitiveInfoCollection> getPrerequisitesIf(
-          String attributeName, TransitionMode mode, final Class<C> classType) {
+          String attributeName, Class<C> classType) {
+    return getPrerequisitesIf(attributeName, TransitionMode.DONT_CHECK, classType);
+  }
+
+  /**
+   * Returns all the providers of the specified type that are listed under the specified attribute
+   * of this target in the BUILD file, and that contain the specified provider.
+   */
+  // TODO(b/165916637): Update callers to not pass TransitionMode.
+  public <C extends TransitiveInfoProvider>
+      Iterable<? extends TransitiveInfoCollection> getPrerequisitesIf(
+          String attributeName, TransitionMode mode, Class<C> classType) {
     AnalysisUtils.checkProvider(classType);
     return AnalysisUtils.filterByProvider(getPrerequisites(attributeName, mode), classType);
   }
@@ -1121,7 +1221,17 @@ public final class RuleContext extends TargetContext
    * of this target in the BUILD file, and that contain the specified provider.
    */
   public <C extends Info> Iterable<? extends TransitiveInfoCollection> getPrerequisitesIf(
-      String attributeName, TransitionMode mode, final NativeProvider<C> classType) {
+      String attributeName, NativeProvider<C> classType) {
+    return getPrerequisitesIf(attributeName, TransitionMode.DONT_CHECK, classType);
+  }
+
+  /**
+   * Returns all the providers of the specified type that are listed under the specified attribute
+   * of this target in the BUILD file, and that contain the specified provider.
+   */
+  // TODO(b/165916637): Update callers to not pass TransitionMode.
+  public <C extends Info> Iterable<? extends TransitiveInfoCollection> getPrerequisitesIf(
+      String attributeName, TransitionMode mode, NativeProvider<C> classType) {
     return AnalysisUtils.filterByProvider(getPrerequisites(attributeName, mode), classType);
   }
 
@@ -1130,8 +1240,30 @@ public final class RuleContext extends TargetContext
    * of this target in the BUILD file, and that contain the specified provider.
    */
   public <C extends Info> Iterable<? extends TransitiveInfoCollection> getPrerequisitesIf(
-      String attributeName, TransitionMode mode, final BuiltinProvider<C> classType) {
+      String attributeName, BuiltinProvider<C> classType) {
+    return getPrerequisitesIf(attributeName, TransitionMode.DONT_CHECK, classType);
+  }
+
+  /**
+   * Returns all the providers of the specified type that are listed under the specified attribute
+   * of this target in the BUILD file, and that contain the specified provider.
+   */
+  // TODO(b/165916637): Update callers to not pass TransitionMode.
+  public <C extends Info> Iterable<? extends TransitiveInfoCollection> getPrerequisitesIf(
+      String attributeName, TransitionMode mode, BuiltinProvider<C> classType) {
     return AnalysisUtils.filterByProvider(getPrerequisites(attributeName, mode), classType);
+  }
+
+  /**
+   * Returns the prerequisite referred to by the specified attribute. Also checks whether the
+   * attribute is marked as executable and that the target referred to can actually be executed.
+   *
+   * @param attributeName the name of the attribute
+   * @return the {@link FilesToRunProvider} interface of the prerequisite.
+   */
+  @Nullable
+  public FilesToRunProvider getExecutablePrerequisite(String attributeName) {
+    return getExecutablePrerequisite(attributeName, TransitionMode.DONT_CHECK);
   }
 
   /**
@@ -1145,6 +1277,7 @@ public final class RuleContext extends TargetContext
    * @param mode the configuration transition of the attribute
    * @return the {@link FilesToRunProvider} interface of the prerequisite.
    */
+  // TODO(b/165916637): Update callers to not pass TransitionMode.
   @Nullable
   public FilesToRunProvider getExecutablePrerequisite(String attributeName, TransitionMode mode) {
     Attribute ruleDefinition = attributes().getAttributeDefinition(attributeName);
@@ -1421,6 +1554,18 @@ public final class RuleContext extends TargetContext
    *
    * @param attributeName the name of the attribute to traverse
    */
+  public PrerequisiteArtifacts getPrerequisiteArtifacts(String attributeName) {
+    return getPrerequisiteArtifacts(attributeName, TransitionMode.DONT_CHECK);
+  }
+
+  /**
+   * For the specified attribute "attributeName" (which must be of type list(label)), resolve all
+   * the labels into ConfiguredTargets (for the configuration appropriate to the attribute) and
+   * return their build artifacts as a {@link PrerequisiteArtifacts} instance.
+   *
+   * @param attributeName the name of the attribute to traverse
+   */
+  // TODO(b/165916637): Update callers to not pass TransitionMode.
   public PrerequisiteArtifacts getPrerequisiteArtifacts(String attributeName, TransitionMode mode) {
     return PrerequisiteArtifacts.get(this, attributeName, mode);
   }
@@ -1433,6 +1578,19 @@ public final class RuleContext extends TargetContext
    * returned. Note also that null is returned (and an attribute error is raised) if there wasn't
    * exactly one build artifact for the target.
    */
+  public Artifact getPrerequisiteArtifact(String attributeName) {
+    return getPrerequisiteArtifact(attributeName, TransitionMode.DONT_CHECK);
+  }
+
+  /**
+   * For the specified attribute "attributeName" (which must be of type label), resolves the
+   * ConfiguredTarget and returns its single build artifact.
+   *
+   * <p>If the attribute is optional, has no default and was not specified, then null will be
+   * returned. Note also that null is returned (and an attribute error is raised) if there wasn't
+   * exactly one build artifact for the target.
+   */
+  // TODO(b/165916637): Update callers to not pass TransitionMode.
   public Artifact getPrerequisiteArtifact(String attributeName, TransitionMode mode) {
     TransitiveInfoCollection target = getPrerequisite(attributeName, mode);
     return transitiveInfoCollectionToArtifact(attributeName, target);
