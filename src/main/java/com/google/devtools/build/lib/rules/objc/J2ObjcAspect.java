@@ -102,15 +102,10 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             (rule, attributes, protoConfig) -> protoConfig.protoToolchainForJ2objc());
   }
 
-  private static final ImmutableList<Attribute> JAVA_DEPENDENT_ATTRIBUTES =
-      ImmutableList.of(
-          new Attribute("$jre_lib", TransitionMode.TARGET),
-          new Attribute("deps", TransitionMode.TARGET),
-          new Attribute("exports", TransitionMode.TARGET),
-          new Attribute("runtime_deps", TransitionMode.TARGET));
+  private static final ImmutableList<String> JAVA_DEPENDENT_ATTRIBUTES =
+      ImmutableList.of("$jre_lib", "deps", "exports", "runtime_deps");
 
-  private static final ImmutableList<Attribute> PROTO_DEPENDENT_ATTRIBUTES =
-      ImmutableList.of(new Attribute("deps", TransitionMode.TARGET));
+  private static final ImmutableList<String> PROTO_DEPENDENT_ATTRIBUTES = ImmutableList.of("deps");
 
   private static final String J2OBJC_PROTO_TOOLCHAIN_ATTR = ":j2objc_proto_toolchain";
 
@@ -255,7 +250,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       RuleContext ruleContext,
       J2ObjcSource j2ObjcSource,
       J2ObjcMappingFileProvider directJ2ObjcMappingFileProvider,
-      List<Attribute> depAttributes,
+      List<String> depAttributes,
       List<TransitiveInfoCollection> otherDeps)
       throws InterruptedException, ActionConflictException {
     ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(ruleContext);
@@ -850,7 +845,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       List<Artifact> transpiledSources,
       List<Artifact> transpiledHeaders,
       List<PathFragment> headerSearchPaths,
-      List<Attribute> dependentAttributes,
+      List<String> dependentAttributes,
       List<TransitiveInfoCollection> otherDeps)
       throws InterruptedException {
     ObjcCommon.Builder builder = new ObjcCommon.Builder(purpose, ruleContext);
@@ -867,13 +862,12 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       builder.setHasModuleMap();
     }
 
-    for (Attribute dependentAttribute : dependentAttributes) {
-      String attrName = dependentAttribute.getName();
-      TransitionMode attrMode = dependentAttribute.getAccessMode();
+    for (String attrName : dependentAttributes) {
       if (ruleContext.attributes().has(attrName, BuildType.LABEL_LIST)
           || ruleContext.attributes().has(attrName, BuildType.LABEL)) {
         ImmutableList.Builder<CcInfo> ccInfoList = new ImmutableList.Builder<>();
-        for (TransitiveInfoCollection dep : ruleContext.getPrerequisites(attrName, attrMode)) {
+        for (TransitiveInfoCollection dep :
+            ruleContext.getPrerequisites(attrName, TransitionMode.DONT_CHECK)) {
           J2ObjcCcInfo j2objcCcInfo = dep.getProvider(J2ObjcCcInfo.class);
           CcInfo ccInfo = dep.get(CcInfo.PROVIDER);
           // If a dep has both a J2ObjcCcInfo and a CcInfo, skip the CcInfo.  This can only happen
@@ -886,7 +880,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         }
         builder.addDepCcHeaderProviders(ccInfoList.build());
         builder.addDepObjcProviders(
-            ruleContext.getPrerequisites(attrName, attrMode, ObjcProvider.STARLARK_CONSTRUCTOR));
+            ruleContext.getPrerequisites(
+                attrName, TransitionMode.DONT_CHECK, ObjcProvider.STARLARK_CONSTRUCTOR));
       }
     }
 
