@@ -83,10 +83,12 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import io.grpc.CallCredentials;
 import io.grpc.ClientInterceptor;
 import io.grpc.Context;
+import io.grpc.ManagedChannel;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executors;
+import javax.annotation.Nullable;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
 public final class RemoteModule extends BlazeModule {
@@ -102,6 +104,14 @@ public final class RemoteModule extends BlazeModule {
   private RemoteActionInputFetcher actionInputFetcher;
   private RemoteOutputsMode remoteOutputsMode;
   private RemoteOutputService remoteOutputService;
+
+  private ChannelFactory channelFactory = new ChannelFactory() {
+    @Override
+    public ManagedChannel newChannel(String target, String proxy, AuthAndTLSOptions options,
+        @Nullable List<ClientInterceptor> interceptors) throws IOException {
+      return GoogleAuthUtils.newChannel(target, proxy, options, interceptors);
+    }
+  };
 
   private final BuildEventArtifactUploaderFactoryDelegate
       buildEventArtifactUploaderFactoryDelegate = new BuildEventArtifactUploaderFactoryDelegate();
@@ -281,6 +291,7 @@ public final class RemoteModule extends BlazeModule {
       try {
         execChannel =
             RemoteCacheClientFactory.createGrpcChannelPool(
+                channelFactory,
                 poolSize,
                 remoteOptions.remoteExecutor,
                 remoteOptions.remoteProxy,
@@ -308,6 +319,7 @@ public final class RemoteModule extends BlazeModule {
       try {
         cacheChannel =
             RemoteCacheClientFactory.createGrpcChannelPool(
+                channelFactory,
                 poolSize,
                 remoteOptions.remoteCache,
                 remoteOptions.remoteProxy,
@@ -332,6 +344,7 @@ public final class RemoteModule extends BlazeModule {
         try {
           downloaderChannel =
               RemoteCacheClientFactory.createGrpcChannelPool(
+                  channelFactory,
                   poolSize,
                   remoteOptions.remoteDownloader,
                   remoteOptions.remoteProxy,
@@ -781,5 +794,9 @@ public final class RemoteModule extends BlazeModule {
       }
       return delegate.create();
     }
+  }
+
+  public void setChannelFactory(ChannelFactory channelFactory) {
+    this.channelFactory = channelFactory;
   }
 }

@@ -58,17 +58,8 @@ public final class RemoteCacheClientFactory {
     return new DiskAndRemoteCacheClient(diskCacheClient, remoteCacheClient, options);
   }
 
-  public static ReferenceCountedChannel createGrpcChannel(
-      String target,
-      String proxyUri,
-      AuthAndTLSOptions authOptions,
-      @Nullable List<ClientInterceptor> interceptors)
-      throws IOException {
-    return new ReferenceCountedChannel(
-        GoogleAuthUtils.newChannel(target, proxyUri, authOptions, interceptors));
-  }
-
   public static ReferenceCountedChannel createGrpcChannelPool(
+      ChannelFactory channelFactory,
       int poolSize,
       String target,
       String proxyUri,
@@ -77,7 +68,7 @@ public final class RemoteCacheClientFactory {
       throws IOException {
     List<ManagedChannel> channels = new ArrayList<>();
     for (int i = 0; i < poolSize; i++) {
-      channels.add(GoogleAuthUtils.newChannel(target, proxyUri, authOptions, interceptors));
+      channels.add(channelFactory.newChannel(target, proxyUri, authOptions, interceptors));
     }
     return new ReferenceCountedChannelPool(ImmutableList.copyOf(channels));
   }
