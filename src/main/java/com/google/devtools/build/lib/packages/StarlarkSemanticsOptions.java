@@ -444,22 +444,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleNoRuleOutputsParam;
 
   @Option(
-      name = "incompatible_no_support_tools_in_action_inputs",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set to true, tools should be passed to `ctx.actions.run()` and "
-              + "`ctx.actions.run_shell()` using the `tools` parameter instead of the `inputs` "
-              + "parameter. Furthermore, if this flag is set and a `tools` parameter is not "
-              + "passed to the action, it is an error for any tools to appear in the `inputs`.")
-  public boolean incompatibleNoSupportToolsInActionInputs;
-
-  @Option(
       name = "incompatible_run_shell_command_string",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -646,7 +630,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleNoAttrLicense(incompatibleNoAttrLicense)
             .incompatibleNoImplicitFileExport(incompatibleNoImplicitFileExport)
             .incompatibleNoRuleOutputsParam(incompatibleNoRuleOutputsParam)
-            .incompatibleNoSupportToolsInActionInputs(incompatibleNoSupportToolsInActionInputs)
             .incompatibleRunShellCommandString(incompatibleRunShellCommandString)
             .incompatibleStringReplaceCount(incompatibleStringReplaceCount)
             .incompatibleVisibilityPrivateAttributesAtDefinition(

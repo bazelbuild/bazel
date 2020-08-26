@@ -13,9 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.starlark;
 
-import static java.util.stream.Collectors.toList;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
@@ -570,47 +568,6 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
               "expected value of type 'File or FilesToRunProvider' for a member of parameter"
                   + " 'tools' but got %s instead",
               Starlark.type(toolUnchecked));
-        }
-      }
-    } else {
-      // Users didn't pass 'tools', kick in compatibility modes
-      if (starlarkSemantics.incompatibleNoSupportToolsInActionInputs()) {
-        // In this mode we error out if we find any tools among the inputs
-        List<Artifact> tools = null;
-        for (Artifact artifact : inputArtifacts) {
-          FilesToRunProvider provider = context.getExecutableRunfiles(artifact);
-          if (provider != null) {
-            tools = tools != null ? tools : new ArrayList<>(1);
-            tools.add(artifact);
-          }
-        }
-        if (tools != null) {
-          String toolsAsString =
-              Joiner.on(", ")
-                  .join(
-                      tools
-                          .stream()
-                          .map(Artifact::getExecPathString)
-                          .map(s -> "'" + s + "'")
-                          .collect(toList()));
-          throw Starlark.errorf(
-              "Found tool(s) %s in inputs. "
-                  + "A tool is an input with executable=True set. "
-                  + "All tools should be passed using the 'tools' "
-                  + "argument instead of 'inputs' in order to make their runfiles available "
-                  + "to the action. This safety check will not be performed once the action "
-                  + "is modified to take a 'tools' argument. "
-                  + "To temporarily disable this check, "
-                  + "set --incompatible_no_support_tools_in_action_inputs=false.",
-              toolsAsString);
-        }
-      } else {
-        // Full legacy support -- add tools from inputs
-        for (Artifact artifact : inputArtifacts) {
-          FilesToRunProvider provider = context.getExecutableRunfiles(artifact);
-          if (provider != null) {
-            builder.addTool(provider);
-          }
         }
       }
     }
