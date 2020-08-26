@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.query2.engine;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import javax.annotation.Nullable;
 
 /** {@link QueryEvalResult} along with a digraph giving the structure of the results. */
 public class DigraphQueryEvalResult<T> extends QueryEvalResult {
@@ -25,10 +24,7 @@ public class DigraphQueryEvalResult<T> extends QueryEvalResult {
   private final Digraph<T> graph;
 
   public DigraphQueryEvalResult(
-      boolean success,
-      boolean isEmpty,
-      @Nullable DetailedExitCode detailedExitCode,
-      Digraph<T> graph) {
+      boolean success, boolean isEmpty, DetailedExitCode detailedExitCode, Digraph<T> graph) {
     super(success, isEmpty, detailedExitCode);
     this.graph = Preconditions.checkNotNull(graph);
   }

@@ -14,9 +14,10 @@
 
 package com.google.devtools.build.lib.query2.engine;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import javax.annotation.Nullable;
 
 /**
  * Information about the query evaluation, like if it was successful and number of elements
@@ -26,11 +27,12 @@ public class QueryEvalResult {
 
   private final boolean success;
   private final boolean empty;
-  @Nullable private final DetailedExitCode detailedExitCode;
+  private final DetailedExitCode detailedExitCode;
 
-  QueryEvalResult(boolean success, boolean empty, @Nullable DetailedExitCode detailedExitCode) {
-    Preconditions.checkArgument(
-        !success || (detailedExitCode == null || detailedExitCode.isSuccess()),
+  QueryEvalResult(boolean success, boolean empty, DetailedExitCode detailedExitCode) {
+    checkNotNull(detailedExitCode);
+    checkArgument(
+        !success || detailedExitCode.isSuccess(),
         "successful query evaluations should not have non-success exit codes. detailedExitCode=%s",
         detailedExitCode);
     this.success = success;
@@ -42,8 +44,7 @@ public class QueryEvalResult {
     return new QueryEvalResult(true, empty, DetailedExitCode.success());
   }
 
-  public static QueryEvalResult failure(
-      boolean empty, @Nullable DetailedExitCode detailedExitCode) {
+  public static QueryEvalResult failure(boolean empty, DetailedExitCode detailedExitCode) {
     return new QueryEvalResult(false, empty, detailedExitCode);
   }
 
@@ -61,10 +62,9 @@ public class QueryEvalResult {
   }
 
   /**
-   * Returns {@link DetailedExitCode#success()} if successful, a {@link DetailedExitCode} describing
-   * the failure if unsuccessful and one was specified, and {@code null} otherwise.
+   * Returns {@link DetailedExitCode#success()} if successful, and otherwise a {@link
+   * DetailedExitCode} describing the failure if unsuccessful.
    */
-  @Nullable
   public DetailedExitCode getDetailedExitCode() {
     return detailedExitCode;
   }

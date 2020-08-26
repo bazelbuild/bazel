@@ -200,19 +200,14 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
             if (queryEvalResult.getSuccess()) {
               return BlazeCommandResult.success();
             }
-            DetailedExitCode detailedExitCode = queryEvalResult.getDetailedExitCode();
-            if (detailedExitCode != null) {
-              // The numerical exit code expected by query users in this case is always 3
-              // (corresponding to ExitCode.PARTIAL_ANALYSIS_FAILURE), which is why the command
-              // result returned here overrides any numerical code associated with the
-              // detailedExitCode in the eval result.
-              return BlazeCommandResult.detailedExitCode(
-                  DetailedExitCode.of(
-                      ExitCode.PARTIAL_ANALYSIS_FAILURE, detailedExitCode.getFailureDetail()));
-            }
-            // TODO(b/138456686): when QueryEvalResult's DetailedExitCode is no longer nullable,
-            //  this BlazeCommandResult.exitCode call can be eliminated (and the method removed).
-            return BlazeCommandResult.exitCode(ExitCode.PARTIAL_ANALYSIS_FAILURE);
+            // The numerical exit code expected by query users in this case is always 3
+            // (corresponding to ExitCode.PARTIAL_ANALYSIS_FAILURE), which is why the command
+            // result returned here overrides any numerical code associated with the
+            // detailedExitCode in the eval result.
+            return BlazeCommandResult.detailedExitCode(
+                DetailedExitCode.of(
+                    ExitCode.PARTIAL_ANALYSIS_FAILURE,
+                    queryEvalResult.getDetailedExitCode().getFailureDetail()));
           });
     } catch (QueryRuntimeHelperException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
