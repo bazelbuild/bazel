@@ -91,21 +91,6 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
         ArchivedTreeArtifact archivedArtifact, FileArtifactValue metadata);
 
     /**
-     * Make sure the builder will inject a {@link TreeArtifactValue} for a given {@linkplain
-     * SpecialArtifact tree artifact}.
-     *
-     * <p>Convenience method allowing to construct potentially empty {@link TreeArtifactValue} with
-     * a {@link MultiBuilder}.
-     *
-     * <p>There is no need to call this method before {@link #putChild(TreeFileArtifact,
-     * FileArtifactValue)} or {@link #setArchivedRepresentation(ArchivedTreeArtifact,
-     * FileArtifactValue)} since both methods implicitly make sure that the {@link
-     * TreeArtifactValue} will be created for the related {@linkplain SpecialArtifact parent tree
-     * artifact}.
-     */
-    MultiBuilder addTreeArtifact(SpecialArtifact treeArtifact);
-
-    /**
      * For each unique parent seen by this builder, passes the aggregated metadata to {@link
      * TreeArtifactInjector#injectTree}.
      */
@@ -495,14 +480,6 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     }
 
     @Override
-    public MultiBuilder addTreeArtifact(SpecialArtifact treeArtifact) {
-      Preconditions.checkArgument(
-          treeArtifact.isTreeArtifact(), "Not a tree artifact: %s", treeArtifact);
-      map.computeIfAbsent(treeArtifact, Builder::new);
-      return this;
-    }
-
-    @Override
     public void injectTo(TreeArtifactInjector treeInjector) {
       map.forEach((parent, builder) -> treeInjector.injectTree(parent, builder.build()));
     }
@@ -535,14 +512,6 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
           "Tried to add 2 archived representations for %s",
           archivedArtifact.getParent());
       return this;
-    }
-
-    @Override
-    public MultiBuilder addTreeArtifact(SpecialArtifact treeArtifact) {
-      Preconditions.checkArgument(
-          treeArtifact.isTreeArtifact(), "Not a tree artifact: %s", treeArtifact);
-      children.computeIfAbsent(treeArtifact, ignored -> new ConcurrentHashMap<>());
-      return null;
     }
 
     @Override
