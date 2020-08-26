@@ -453,11 +453,9 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     String expectedTrace =
         Joiner.on("\n")
             .join(
+                "ERROR /workspace/test/starlark/BUILD:3:12: in custom_rule rule"
+                    + " //test/starlark:cr: ",
                 "Traceback (most recent call last):",
-                // outermost frame is fake:
-                "\tFile \"/workspace/test/starlark/BUILD\", line 3, column 12, in custom_rule(name"
-                    + " = 'cr')",
-                // "\t\tcustom_rule(name = 'cr')",
                 "\tFile \"/workspace/test/starlark/extension.bzl\", line 6, column 6, in"
                     + " custom_rule_impl",
                 // "\t\tfoo()",
