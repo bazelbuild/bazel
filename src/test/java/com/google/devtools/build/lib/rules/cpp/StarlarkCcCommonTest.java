@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.VariableWithV
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
@@ -5652,7 +5651,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     LibraryToLink library = (LibraryToLink) getMyInfoFromTarget(target).getValue("library");
     assertThat(library).isNotNull();
     Object executable = getMyInfoFromTarget(target).getValue("executable");
-    assertThat(EvalUtils.isNullOrNone(executable)).isTrue();
+    assertThat(Starlark.isNullOrNone(executable)).isTrue();
   }
 
   @Test
@@ -5684,7 +5683,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     Artifact executable = (Artifact) getMyInfoFromTarget(target).getValue("executable");
     assertThat(executable).isNotNull();
     Object library = getMyInfoFromTarget(target).getValue("library");
-    assertThat(EvalUtils.isNullOrNone(library)).isTrue();
+    assertThat(Starlark.isNullOrNone(library)).isTrue();
   }
 
   @Test

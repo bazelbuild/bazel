@@ -110,6 +110,35 @@ public final class Starlark {
     return x;
   }
 
+  /** Reports whether {@code x} is Java null or Starlark None. */
+  public static boolean isNullOrNone(Object x) {
+    return x == null || x == NONE;
+  }
+
+  /** Reports whether a Starlark value is assumed to be deeply immutable. */
+  // TODO(adonovan): eliminate the concept of querying for immutability. It is currently used for
+  // only one purpose, the precondition for adding an element to a Depset, but Depsets should check
+  // hashability, like Dicts. (Similarly, querying for hashability should go: just attempt to hash a
+  // value, and be prepared for it to fail.) In practice, a value may be immutable, either
+  // inherently (e.g. string) or because it has become frozen, but we don't need to query for it.
+  // Just attempt a mutation and be prepared for it to fail.
+  // It is inefficient and potentially inconsistent to ask before doing.
+  //
+  // The main obstacle is that although depsets disallow (say) lists as keys even when frozen,
+  // they permit a tuple of lists, or a struct containing lists, and many users exploit this.
+  public static boolean isImmutable(Object x) {
+    // NB: This is used as the basis for accepting objects in Depsets,
+    // as well as for accepting objects as keys for Starlark dicts.
+
+    if (x instanceof String || x instanceof Integer || x instanceof Boolean) {
+      return true;
+    } else if (x instanceof StarlarkValue) {
+      return ((StarlarkValue) x).isImmutable();
+    } else {
+      throw new IllegalArgumentException("invalid Starlark value: " + x.getClass());
+    }
+  }
+
   /**
    * Converts a Java value {@code x} to a Starlark one, if x is not already a valid Starlark value.
    * A Java List or Map is converted to a Starlark list or dict, respectively, and null becomes

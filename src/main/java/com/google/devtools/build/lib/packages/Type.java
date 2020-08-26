@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -120,7 +119,7 @@ public abstract class Type<T> {
   @Nullable
   public final T convertOptional(Object x, String what, @Nullable Object context, T defaultValue)
       throws ConversionException {
-    if (EvalUtils.isNullOrNone(x)) {
+    if (Starlark.isNullOrNone(x)) {
       return defaultValue;
     }
     return convert(x, what, context);
@@ -709,7 +708,7 @@ public abstract class Type<T> {
     @SuppressWarnings("unchecked")
     public List<Object> convert(Object x, Object what, Object context)
         throws ConversionException {
-      // TODO(adonovan): converge on EvalUtils.toIterable.
+      // TODO(adonovan): converge on Starlark.toIterable.
       if (x instanceof Sequence) {
         return ((Sequence) x).getImmutableList();
       } else if (x instanceof List) {

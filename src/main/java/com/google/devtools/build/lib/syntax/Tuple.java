@@ -108,7 +108,7 @@ public final class Tuple<E> extends AbstractList<E> implements Sequence<E> {
   @Override
   public boolean isImmutable() {
     for (Object x : elems) {
-      if (!EvalUtils.isImmutable(x)) {
+      if (!Starlark.isImmutable(x)) {
         return false;
       }
     }

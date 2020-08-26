@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Debug;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -151,12 +150,12 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     //
     // TODO(adonovan): use this check instead:
     //   EvalUtils.checkHashable(x);
-    // and delete the StarlarkValue.isImmutable and EvalUtils.isImmutable.
+    // and delete the StarlarkValue.isImmutable and Starlark.isImmutable.
     // Unfortunately this is a breaking change because some users
     // construct depsets whose elements contain lists of strings,
     // which are Starlark-unhashable even if frozen.
     // TODO(adonovan): also remove StarlarkList.hashCode.
-    if (strict && !EvalUtils.isImmutable(x)) {
+    if (strict && !Starlark.isImmutable(x)) {
       // TODO(adonovan): improve this error message to include type(x).
       throw Starlark.errorf("depset elements must not be mutable values");
     }
@@ -449,8 +448,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     // or a StarlarkModule-annotated Starlark value class or one of its subclasses,
     // in which case the result is the annotated class.
     //
-    // TODO(adonovan): consider publishing something like this as Starlark.typeClass
-    // when we clean up the various EvalUtils.getDataType operators.
+    // TODO(adonovan): consider publishing something like this as Starlark.typeClass.
     private static Class<?> getTypeClass(Class<?> cls) {
       if (cls == String.class || cls == Integer.class || cls == Boolean.class) {
         return cls; // fast path for common case
