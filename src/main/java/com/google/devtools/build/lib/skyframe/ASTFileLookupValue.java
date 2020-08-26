@@ -19,6 +19,7 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.NotComparableSkyValue;
@@ -159,8 +160,8 @@ public abstract class ASTFileLookupValue implements NotComparableSkyValue {
   }
 
   /** SkyKey for retrieving a .bzl AST. */
+  @AutoCodec
   static class Key implements SkyKey {
-
     /** The root in which the .bzl file is to be found. Null for EMPTY_PRELUDE. */
     @Nullable final Root root;
 
@@ -177,6 +178,12 @@ public abstract class ASTFileLookupValue implements NotComparableSkyValue {
         Preconditions.checkNotNull(root);
         Preconditions.checkNotNull(label);
       }
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static Key create(Root root, Label label, Kind kind) {
+      return keyInterner.intern(new Key(root, label, kind));
     }
 
     boolean isPrelude() {
@@ -213,21 +220,22 @@ public abstract class ASTFileLookupValue implements NotComparableSkyValue {
 
   /** Constructs a key for loading a regular (non-prelude) .bzl. */
   public static Key key(Root root, Label label) {
-    return keyInterner.intern(new Key(root, label, Kind.NORMAL));
+    return Key.create(root, label, Kind.NORMAL);
   }
 
   /** Constructs a key for loading a builtins .bzl. */
   // TODO(#11437): Retrieve the builtins bzl from the root given by
   // --experimental_builtins_bzl_path, instead of making the caller specify it here.
   public static Key keyForBuiltins(Root root, Label label) {
-    return keyInterner.intern(new Key(root, label, Kind.BUILTINS));
+    return Key.create(root, label, Kind.BUILTINS);
   }
 
   /** Constructs a key for loading the prelude .bzl. */
   static Key keyForPrelude(Root root, Label label) {
-    return keyInterner.intern(new Key(root, label, Kind.PRELUDE));
+    return Key.create(root, label, Kind.PRELUDE);
   }
 
   /** The unique SkyKey of EMPTY_PRELUDE kind. */
+  @SerializationConstant
   static final Key EMPTY_PRELUDE_KEY = new Key(/*root=*/ null, /*label=*/ null, Kind.EMPTY_PRELUDE);
 }
