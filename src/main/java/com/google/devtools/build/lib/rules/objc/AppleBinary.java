@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
@@ -296,7 +295,6 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
           AppleExecutableBinaryInfo executableProvider =
               ruleContext.getPrerequisite(
                   BUNDLE_LOADER_ATTR_NAME,
-                  TransitionMode.TARGET,
                   AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR);
           extraLinkArgs.add(
               "-bundle_loader", executableProvider.getAppleExecutableBinary().getExecPathString());
@@ -315,8 +313,8 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
   private static ImmutableList<TransitiveInfoCollection> getDylibProviderTargets(
       RuleContext ruleContext) {
     return ImmutableList.<TransitiveInfoCollection>builder()
-        .addAll(ruleContext.getPrerequisites(DYLIBS_ATTR_NAME, TransitionMode.TARGET))
-        .addAll(ruleContext.getPrerequisites(BUNDLE_LOADER_ATTR_NAME, TransitionMode.TARGET))
+        .addAll(ruleContext.getPrerequisites(DYLIBS_ATTR_NAME))
+        .addAll(ruleContext.getPrerequisites(BUNDLE_LOADER_ATTR_NAME))
         .build();
   }
 
@@ -324,7 +322,6 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     AppleExecutableBinaryInfo executableProvider =
         ruleContext.getPrerequisite(
             BUNDLE_LOADER_ATTR_NAME,
-            TransitionMode.TARGET,
             AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR);
     if (executableProvider != null) {
       return ImmutableSet.<Artifact>of(executableProvider.getAppleExecutableBinary());

@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
@@ -48,8 +47,7 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
       ImmutableList.of("java_import", "java_library", "java_proto_library", "proto_library");
 
   private ObjcCommon common(RuleContext ruleContext) throws InterruptedException {
-    List<J2ObjcCcInfo> j2objcCcInfos =
-        ruleContext.getPrerequisites("deps", TransitionMode.TARGET, J2ObjcCcInfo.class);
+    List<J2ObjcCcInfo> j2objcCcInfos = ruleContext.getPrerequisites("deps", J2ObjcCcInfo.class);
     return new ObjcCommon.Builder(ObjcCommon.Purpose.LINK_ONLY, ruleContext)
         .setCompilationAttributes(
             CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
@@ -81,8 +79,7 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
 
     J2ObjcMappingFileProvider j2ObjcMappingFileProvider =
         J2ObjcMappingFileProvider.union(
-            ruleContext.getPrerequisites(
-                "deps", TransitionMode.TARGET, J2ObjcMappingFileProvider.class));
+            ruleContext.getPrerequisites("deps", J2ObjcMappingFileProvider.class));
 
     CompilationArtifacts moduleMapCompilationArtifacts =
         new CompilationArtifacts.Builder()

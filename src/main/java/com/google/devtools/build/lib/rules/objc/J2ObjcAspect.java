@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.analysis.TransitionMode.TARGET;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
@@ -368,8 +367,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     ImmutableList<Artifact> protoSources = protoInfo.getDirectProtoSources();
 
     ProtoLangToolchainProvider protoToolchain =
-        ruleContext.getPrerequisite(
-            J2OBJC_PROTO_TOOLCHAIN_ATTR, TARGET, ProtoLangToolchainProvider.class);
+        ruleContext.getPrerequisite(J2OBJC_PROTO_TOOLCHAIN_ATTR, ProtoLangToolchainProvider.class);
     // Avoid pulling in any generated files from blacklisted protos.
     ProtoSourceFileBlacklist protoBlacklist =
         new ProtoSourceFileBlacklist(ruleContext, protoToolchain.blacklistedProtos());
@@ -480,7 +478,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     PathFragment javaExecutable = JavaCommon.getHostJavaExecutable(ruleContext);
     argBuilder.add("--java", javaExecutable.getPathString());
 
-    Artifact j2ObjcDeployJar = ruleContext.getPrerequisiteArtifact("$j2objc", TransitionMode.HOST);
+    Artifact j2ObjcDeployJar = ruleContext.getPrerequisiteArtifact("$j2objc");
     argBuilder.addExecPath("--j2objc", j2ObjcDeployJar);
 
     argBuilder.add("--main_class").add("com.google.devtools.j2objc.J2ObjC");
@@ -523,13 +521,12 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     Artifact compiledLibrary = ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext).archive();
     argBuilder.addExecPath("--compiled_archive_file_path", compiledLibrary);
 
-    Artifact bootclasspathJar =
-        ruleContext.getPrerequisiteArtifact("$jre_emul_jar", TransitionMode.HOST);
+    Artifact bootclasspathJar = ruleContext.getPrerequisiteArtifact("$jre_emul_jar");
     argBuilder.addFormatted("-Xbootclasspath:%s", bootclasspathJar);
 
     // A valid Java system module contains 3 files. The top directory contains a file "release".
     ImmutableList<Artifact> moduleFiles =
-        ruleContext.getPrerequisiteArtifacts("$jre_emul_module", TransitionMode.HOST).list();
+        ruleContext.getPrerequisiteArtifacts("$jre_emul_module").list();
     for (Artifact a : moduleFiles) {
       if (a.getFilename().equals("release")) {
         argBuilder.add("--system", a.getDirname());
@@ -537,8 +534,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       }
     }
 
-    Artifact deadCodeReport =
-        ruleContext.getPrerequisiteArtifact(":dead_code_report", TransitionMode.HOST);
+    Artifact deadCodeReport = ruleContext.getPrerequisiteArtifact(":dead_code_report");
     if (deadCodeReport != null) {
       argBuilder.addExecPath("--dead-code-report", deadCodeReport);
     }
@@ -555,9 +551,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     SpawnAction.Builder transpilationAction =
         new SpawnAction.Builder()
             .setMnemonic("TranspilingJ2objc")
-            .setExecutable(
-                ruleContext.getPrerequisiteArtifact("$j2objc_wrapper", TransitionMode.HOST))
-            .addInput(ruleContext.getPrerequisiteArtifact("$j2objc_wrapper", TransitionMode.HOST))
+            .setExecutable(ruleContext.getPrerequisiteArtifact("$j2objc_wrapper"))
+            .addInput(ruleContext.getPrerequisiteArtifact("$j2objc_wrapper"))
             .addInput(j2ObjcDeployJar)
             .addInput(bootclasspathJar)
             .addInputs(moduleFiles)
@@ -599,10 +594,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       ruleContext.registerAction(
           new SpawnAction.Builder()
               .setMnemonic("GenerateJ2objcHeaderMap")
-              .setExecutable(
-                  ruleContext.getPrerequisiteArtifact("$j2objc_header_map", TransitionMode.HOST))
-              .addInput(
-                  ruleContext.getPrerequisiteArtifact("$j2objc_header_map", TransitionMode.HOST))
+              .setExecutable(ruleContext.getPrerequisiteArtifact("$j2objc_header_map"))
+              .addInput(ruleContext.getPrerequisiteArtifact("$j2objc_header_map"))
               .addInputs(sources)
               .addInputs(sourceJars)
               .addCommandLine(
@@ -677,8 +670,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       ImmutableList.Builder<J2ObjcMappingFileProvider> builder, RuleContext context,
       String attributeName) {
     if (context.attributes().has(attributeName, BuildType.LABEL_LIST)) {
-      for (TransitiveInfoCollection dependencyInfoDatum :
-          context.getPrerequisites(attributeName, TransitionMode.TARGET)) {
+      for (TransitiveInfoCollection dependencyInfoDatum : context.getPrerequisites(attributeName)) {
         J2ObjcMappingFileProvider provider =
             dependencyInfoDatum.getProvider(J2ObjcMappingFileProvider.class);
         if (provider != null) {

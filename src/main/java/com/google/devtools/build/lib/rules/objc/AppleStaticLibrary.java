@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -88,7 +87,6 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
     Iterable<ObjcProtoProvider> avoidProtoProviders =
         ruleContext.getPrerequisites(
             AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME,
-            TransitionMode.TARGET,
             ObjcProtoProvider.STARLARK_CONSTRUCTOR);
     NestedSet<Artifact> protosToAvoid = protoArtifactsToAvoid(avoidProtoProviders);
 

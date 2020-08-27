@@ -58,7 +58,6 @@ import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
@@ -212,13 +211,12 @@ public class CompilationSupport {
 
   /** Returns the location of the xcrunwrapper tool. */
   public static final FilesToRunProvider xcrunwrapper(RuleContext ruleContext) {
-    return ruleContext.getExecutablePrerequisite("$xcrunwrapper", TransitionMode.HOST);
+    return ruleContext.getExecutablePrerequisite("$xcrunwrapper");
   }
 
   /** Returns the location of the libtool tool. */
   public static final FilesToRunProvider libtool(RuleContext ruleContext) {
-    return ruleContext.getExecutablePrerequisite(
-        ObjcRuleClasses.LIBTOOL_ATTRIBUTE, TransitionMode.HOST);
+    return ruleContext.getExecutablePrerequisite(ObjcRuleClasses.LIBTOOL_ATTRIBUTE);
   }
 
   /**
@@ -440,8 +438,7 @@ public class CompilationSupport {
             .setTestOrTestOnlyTarget(ruleContext.isTestTarget() || ruleContext.isTestOnlyTarget())
             .addCcLinkingContexts(
                 CppHelper.getLinkingContextsFromDeps(
-                    ImmutableList.copyOf(
-                        ruleContext.getPrerequisites("deps", TransitionMode.TARGET))))
+                    ImmutableList.copyOf(ruleContext.getPrerequisites("deps"))))
             .setLinkedArtifactNameSuffix(intermediateArtifacts.archiveFileNameSuffix())
             .setNeverLink(true)
             .addVariableExtension(extensionBuilder.build());
@@ -660,14 +657,12 @@ public class CompilationSupport {
   static CompilationArtifacts compilationArtifacts(
       RuleContext ruleContext, IntermediateArtifacts intermediateArtifacts) {
     PrerequisiteArtifacts srcs =
-        ruleContext
-            .getPrerequisiteArtifacts("srcs", TransitionMode.TARGET)
-            .errorsForNonMatching(SRCS_TYPE);
+        ruleContext.getPrerequisiteArtifacts("srcs").errorsForNonMatching(SRCS_TYPE);
     return new CompilationArtifacts.Builder()
         .addSrcs(srcs.filter(COMPILABLE_SRCS_TYPE).list())
         .addNonArcSrcs(
             ruleContext
-                .getPrerequisiteArtifacts("non_arc_srcs", TransitionMode.TARGET)
+                .getPrerequisiteArtifacts("non_arc_srcs")
                 .errorsForNonMatching(NON_ARC_SRCS_TYPE)
                 .list())
         .addPrivateHdrs(srcs.filter(HEADERS).list())
@@ -922,8 +917,7 @@ public class CompilationSupport {
     if (ruleContext.attributes().has("srcs", BuildType.LABEL_LIST)) {
       ImmutableSet<Artifact> hdrsSet = attributes.hdrs().toSet();
       ImmutableSet<Artifact> srcsSet =
-          ImmutableSet.copyOf(
-              ruleContext.getPrerequisiteArtifacts("srcs", TransitionMode.TARGET).list());
+          ImmutableSet.copyOf(ruleContext.getPrerequisiteArtifacts("srcs").list());
 
       // Check for overlap between srcs and hdrs.
       for (Artifact header : Sets.intersection(hdrsSet, srcsSet)) {
@@ -934,8 +928,7 @@ public class CompilationSupport {
 
       // Check for overlap between srcs and non_arc_srcs.
       ImmutableSet<Artifact> nonArcSrcsSet =
-          ImmutableSet.copyOf(
-              ruleContext.getPrerequisiteArtifacts("non_arc_srcs", TransitionMode.TARGET).list());
+          ImmutableSet.copyOf(ruleContext.getPrerequisiteArtifacts("non_arc_srcs").list());
       for (Artifact conflict : Sets.intersection(nonArcSrcsSet, srcsSet)) {
         String path = conflict.getRootRelativePath().toString();
         ruleContext.attributeError(
@@ -1244,7 +1237,7 @@ public class CompilationSupport {
 
     for (CcLinkingContext context :
         CppHelper.getLinkingContextsFromDeps(
-            ImmutableList.copyOf(ruleContext.getPrerequisites("deps", TransitionMode.TARGET)))) {
+            ImmutableList.copyOf(ruleContext.getPrerequisites("deps")))) {
       executableLinkActionBuilder.addLinkstamps(context.getLinkstamps().toList());
     }
 
@@ -1456,8 +1449,7 @@ public class CompilationSupport {
       J2ObjcMappingFileProvider j2ObjcMappingFileProvider,
       J2ObjcEntryClassProvider j2ObjcEntryClassProvider) {
     NestedSet<String> entryClasses = j2ObjcEntryClassProvider.getEntryClasses();
-    Artifact pruner =
-        ruleContext.getPrerequisiteArtifact("$j2objc_dead_code_pruner", TransitionMode.HOST);
+    Artifact pruner = ruleContext.getPrerequisiteArtifact("$j2objc_dead_code_pruner");
     NestedSet<Artifact> j2ObjcDependencyMappingFiles =
         j2ObjcMappingFileProvider.getDependencyMappingFiles();
     NestedSet<Artifact> j2ObjcHeaderMappingFiles =
@@ -1469,8 +1461,7 @@ public class CompilationSupport {
       Artifact prunedJ2ObjcArchive = intermediateArtifacts.j2objcPrunedArchive(j2objcArchive);
       Artifact dummyArchive =
           ruleContext
-              .getPrerequisite(
-                  "$dummy_lib", TransitionMode.TARGET, ObjcProvider.STARLARK_CONSTRUCTOR)
+              .getPrerequisite("$dummy_lib", ObjcProvider.STARLARK_CONSTRUCTOR)
               .get(LIBRARY)
               .getSingleton();
 
@@ -1637,7 +1628,7 @@ public class CompilationSupport {
     }
     Artifact pchHdr = null;
     if (ruleContext.attributes().has("pch", BuildType.LABEL)) {
-      pchHdr = ruleContext.getPrerequisiteArtifact("pch", TransitionMode.TARGET);
+      pchHdr = ruleContext.getPrerequisiteArtifact("pch");
     }
     return Optional.fromNullable(pchHdr);
   }
@@ -1728,8 +1719,7 @@ public class CompilationSupport {
 
   public static Optional<Artifact> getCustomModuleMap(RuleContext ruleContext) {
     if (ruleContext.attributes().has("module_map", BuildType.LABEL)) {
-      return Optional.fromNullable(
-          ruleContext.getPrerequisiteArtifact("module_map", TransitionMode.TARGET));
+      return Optional.fromNullable(ruleContext.getPrerequisiteArtifact("module_map"));
     }
     return Optional.absent();
   }
