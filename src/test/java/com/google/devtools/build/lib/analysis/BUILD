@@ -104,7 +104,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_trimming_transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
-        "//src/main/java/com/google/devtools/build/lib/analysis:transition_mode",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
