@@ -711,7 +711,7 @@ public class DynamicSpawnStrategyTest {
               // for InterruptedException to propagate. Make sure that's the case here by checking
               // that we did indeed wait for the slow process.
               if (!slowCleanupFinished.get()) {
-                fail("Did not await for the other branch to do its cleanup");
+                fail("Did not await for the local branch to do its cleanup");
               }
             });
 
