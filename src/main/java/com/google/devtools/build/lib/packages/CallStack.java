@@ -84,31 +84,12 @@ public final class CallStack {
     StarlarkThread.CallStackEntry[] array = new StarlarkThread.CallStackEntry[size];
     int i = size;
     for (Node n = node; n != null; n = n.parent) {
-      array[--i] = nodeFrame(n);
+      String file = strings.get(n.file);
+      String name = strings.get(n.name);
+      Location loc = Location.fromFileLineColumn(file, n.line, n.col);
+      array[--i] = new StarlarkThread.CallStackEntry(name, loc);
     }
     return array;
-  }
-
-  /** Returns a single frame, like {@code toArray()[i]} but more efficient. */
-  public StarlarkThread.CallStackEntry getFrame(int i) {
-    for (Node n = node; n != null; n = n.parent) {
-      if (++i == size) {
-        return nodeFrame(n);
-      }
-    }
-    throw new IndexOutOfBoundsException(); // !(0 <= i < size)
-  }
-
-  /** Returns the number of frames in the call stack. */
-  public int size() {
-    return size;
-  }
-
-  private StarlarkThread.CallStackEntry nodeFrame(Node n) {
-    String file = strings.get(n.file);
-    String name = strings.get(n.name);
-    Location loc = Location.fromFileLineColumn(file, n.line, n.col);
-    return new StarlarkThread.CallStackEntry(name, loc);
   }
 
   // A Node is a node in a linked tree representing a prefix of the call stack.
