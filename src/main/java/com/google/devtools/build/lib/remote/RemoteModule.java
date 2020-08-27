@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.downloader.GrpcRemoteDownloader;
 import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
@@ -146,8 +147,7 @@ public final class RemoteModule extends BlazeModule {
       RemoteRetrier retrier,
       CommandEnvironment env,
       DigestUtil digestUtil,
-      boolean shouldCheckExecutionCapabilities,
-      boolean shouldCheckCacheCapabilities)
+      ServerCapabilitiesRequirement requirement)
       throws AbruptExitException {
     RemoteServerCapabilities rsc =
         new RemoteServerCapabilities(
@@ -171,7 +171,7 @@ public final class RemoteModule extends BlazeModule {
     }
     checkClientServerCompatibility(
         capabilities, remoteOptions, digestUtil.getDigestFunction(), env.getReporter(),
-        shouldCheckExecutionCapabilities, shouldCheckCacheCapabilities);
+        requirement);
   }
 
   @Override
@@ -384,20 +384,16 @@ public final class RemoteModule extends BlazeModule {
     if (execChannel != null) {
       if (cacheChannel != execChannel) {
         verifyServerCapabilities(remoteOptions, execChannel, credentials, retrier, env,
-            digestUtil, /* shouldCheckExecutionCapabilities */ true,
-            /* shouldCheckCacheCapabilities */ false);
+            digestUtil, ServerCapabilitiesRequirement.EXECUTION);
         verifyServerCapabilities(remoteOptions, cacheChannel, credentials, retrier, env,
-            digestUtil, /* shouldCheckExecutionCapabilities */ false,
-            /* shouldCheckCacheCapabilities */ true);
+            digestUtil, ServerCapabilitiesRequirement.CACHE);
       } else {
         verifyServerCapabilities(remoteOptions, execChannel, credentials, retrier, env,
-            digestUtil, /* shouldCheckExecutionCapabilities */ true,
-            /* shouldCheckCacheCapabilities */ true);
+            digestUtil, ServerCapabilitiesRequirement.EXECUTION_AND_CACHE);
       }
     } else {
       verifyServerCapabilities(remoteOptions, cacheChannel, credentials, retrier, env,
-          digestUtil, /* shouldCheckExecutionCapabilities */ false,
-          /* shouldCheckCacheCapabilities */ true);
+          digestUtil, ServerCapabilitiesRequirement.CACHE);
     }
 
     ByteStreamUploader uploader =
@@ -589,13 +585,11 @@ public final class RemoteModule extends BlazeModule {
       RemoteOptions remoteOptions,
       DigestFunction.Value digestFunction,
       Reporter reporter,
-      boolean shouldCheckExecutionCapabilities,
-      boolean shouldCheckCacheCapabilities)
+      ServerCapabilitiesRequirement requirement)
       throws AbruptExitException {
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
-            capabilities, remoteOptions, digestFunction, shouldCheckExecutionCapabilities,
-            shouldCheckCacheCapabilities);
+            capabilities, remoteOptions, digestFunction, requirement);
     for (String warning : st.getWarnings()) {
       reporter.handle(Event.warn(warning));
     }

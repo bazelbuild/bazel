@@ -152,14 +152,27 @@ class RemoteServerCapabilities {
     }
   }
 
-  /** Compare the remote server capabilities with those requested by current execution. */
+  public enum ServerCapabilitiesRequirement {
+    NONE,
+    CACHE,
+    EXECUTION,
+    EXECUTION_AND_CACHE,
+  }
+
+  /**
+   * Compare the remote server capabilities with those requested by current execution.
+   */
   public static ClientServerCompatibilityStatus checkClientServerCompatibility(
       ServerCapabilities capabilities,
       RemoteOptions remoteOptions,
       DigestFunction.Value digestFunction,
-      boolean shouldCheckExecutionCapabilities,
-      boolean shouldCheckCacheCapabilities) {
+      ServerCapabilitiesRequirement requirement) {
     ClientServerCompatibilityStatus.Builder result = new ClientServerCompatibilityStatus.Builder();
+    boolean shouldCheckExecutionCapabilities = (
+        requirement == ServerCapabilitiesRequirement.EXECUTION
+            || requirement == ServerCapabilitiesRequirement.EXECUTION_AND_CACHE);
+    boolean shouldCheckCacheCapabilities = (requirement == ServerCapabilitiesRequirement.CACHE
+        || requirement == ServerCapabilitiesRequirement.EXECUTION_AND_CACHE);
     if (!(shouldCheckCacheCapabilities || shouldCheckExecutionCapabilities)) {
       return result.build();
     }

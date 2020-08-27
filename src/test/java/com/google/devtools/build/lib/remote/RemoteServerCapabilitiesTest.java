@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
+import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -209,7 +210,7 @@ public class RemoteServerCapabilitiesTest {
         RemoteServerCapabilities.checkClientServerCompatibility(
             ServerCapabilities.getDefaultInstance(),
             Options.getDefaults(RemoteOptions.class),
-            DigestFunction.Value.SHA256, false, false);
+            DigestFunction.Value.SHA256, ServerCapabilitiesRequirement.NONE);
     assertThat(st.isOk()).isTrue();
   }
 
@@ -231,7 +232,7 @@ public class RemoteServerCapabilitiesTest {
     remoteOptions.remoteCache = "server:port";
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
-            caps, remoteOptions, DigestFunction.Value.SHA256, false, true);
+            caps, remoteOptions, DigestFunction.Value.SHA256, ServerCapabilitiesRequirement.CACHE);
     assertThat(st.getErrors()).isEmpty();
     assertThat(st.getWarnings()).hasSize(1);
     assertThat(st.getWarnings().get(0)).containsMatch("API.*deprecated.*100.0");
@@ -254,7 +255,7 @@ public class RemoteServerCapabilitiesTest {
     remoteOptions.remoteCache = "server:port";
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
-            caps, remoteOptions, DigestFunction.Value.SHA256, false, true);
+            caps, remoteOptions, DigestFunction.Value.SHA256, ServerCapabilitiesRequirement.CACHE);
     assertThat(st.getErrors()).hasSize(1);
     assertThat(st.getErrors().get(0)).containsMatch("API.*not supported.*100.0");
   }
@@ -277,7 +278,7 @@ public class RemoteServerCapabilitiesTest {
     remoteOptions.remoteCache = "server:port";
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
-            caps, remoteOptions, DigestFunction.Value.SHA256, false, true);
+            caps, remoteOptions, DigestFunction.Value.SHA256, ServerCapabilitiesRequirement.CACHE);
     assertThat(st.getErrors()).hasSize(1);
     assertThat(st.getErrors().get(0)).containsMatch("Cannot use hash function");
   }
@@ -298,7 +299,7 @@ public class RemoteServerCapabilitiesTest {
     remoteOptions.remoteCache = "server:port";
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
-            caps, remoteOptions, DigestFunction.Value.SHA256, false, true);
+            caps, remoteOptions, DigestFunction.Value.SHA256, ServerCapabilitiesRequirement.CACHE);
     assertThat(st.getErrors()).hasSize(1);
     assertThat(st.getErrors().get(0))
         .containsMatch("not authorized to write local results to the remote cache");
@@ -307,7 +308,7 @@ public class RemoteServerCapabilitiesTest {
     remoteOptions.remoteUploadLocalResults = false;
     st =
         RemoteServerCapabilities.checkClientServerCompatibility(
-            caps, remoteOptions, DigestFunction.Value.SHA256, false, true);
+            caps, remoteOptions, DigestFunction.Value.SHA256, ServerCapabilitiesRequirement.CACHE);
     assertThat(st.isOk()).isTrue();
   }
 
@@ -332,7 +333,8 @@ public class RemoteServerCapabilitiesTest {
     remoteOptions.remoteExecutor = "server:port";
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
-            caps, remoteOptions, DigestFunction.Value.SHA256, true, true);
+            caps, remoteOptions, DigestFunction.Value.SHA256,
+            ServerCapabilitiesRequirement.EXECUTION_AND_CACHE);
     assertThat(st.getErrors()).hasSize(1);
     assertThat(st.getErrors().get(0)).containsMatch("Remote execution is not supported");
     assertThat(st.getErrors().get(0)).containsMatch("not authorized to use remote execution");
@@ -361,7 +363,8 @@ public class RemoteServerCapabilitiesTest {
     remoteOptions.remoteExecutor = "server:port";
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
-            caps, remoteOptions, DigestFunction.Value.SHA256, true, true);
+            caps, remoteOptions, DigestFunction.Value.SHA256,
+            ServerCapabilitiesRequirement.EXECUTION_AND_CACHE);
     assertThat(st.getErrors()).hasSize(1);
     assertThat(st.getErrors().get(0)).containsMatch("Cannot use hash function");
   }
@@ -388,7 +391,8 @@ public class RemoteServerCapabilitiesTest {
     remoteOptions.remoteLocalFallback = true;
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
-            caps, remoteOptions, DigestFunction.Value.SHA256, true, true);
+            caps, remoteOptions, DigestFunction.Value.SHA256,
+            ServerCapabilitiesRequirement.EXECUTION_AND_CACHE);
     assertThat(st.getErrors()).hasSize(1);
     assertThat(st.getErrors().get(0))
         .containsMatch("not authorized to write local results to the remote cache");
@@ -397,7 +401,8 @@ public class RemoteServerCapabilitiesTest {
     remoteOptions.remoteLocalFallback = false;
     st =
         RemoteServerCapabilities.checkClientServerCompatibility(
-            caps, remoteOptions, DigestFunction.Value.SHA256, true, true);
+            caps, remoteOptions, DigestFunction.Value.SHA256,
+            ServerCapabilitiesRequirement.EXECUTION_AND_CACHE);
     assertThat(st.isOk()).isTrue();
 
     // Ignored when no uploading local results.
@@ -405,7 +410,8 @@ public class RemoteServerCapabilitiesTest {
     remoteOptions.remoteUploadLocalResults = false;
     st =
         RemoteServerCapabilities.checkClientServerCompatibility(
-            caps, remoteOptions, DigestFunction.Value.SHA256, true, true);
+            caps, remoteOptions, DigestFunction.Value.SHA256,
+            ServerCapabilitiesRequirement.EXECUTION_AND_CACHE);
     assertThat(st.isOk()).isTrue();
   }
 
@@ -432,7 +438,7 @@ public class RemoteServerCapabilitiesTest {
     remoteOptions.remoteResultCachePriority = 11;
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
-            caps, remoteOptions, DigestFunction.Value.SHA256, false, true);
+            caps, remoteOptions, DigestFunction.Value.SHA256, ServerCapabilitiesRequirement.CACHE);
     assertThat(st.getErrors()).hasSize(1);
     assertThat(st.getErrors().get(0)).containsMatch("remote_result_cache_priority");
 
@@ -440,14 +446,14 @@ public class RemoteServerCapabilitiesTest {
     remoteOptions.remoteResultCachePriority = 10;
     st =
         RemoteServerCapabilities.checkClientServerCompatibility(
-            caps, remoteOptions, DigestFunction.Value.SHA256, false, true);
+            caps, remoteOptions, DigestFunction.Value.SHA256, ServerCapabilitiesRequirement.CACHE);
     assertThat(st.isOk()).isTrue();
 
     // Check not performed if the value is 0.
     remoteOptions.remoteResultCachePriority = 0;
     st =
         RemoteServerCapabilities.checkClientServerCompatibility(
-            caps, remoteOptions, DigestFunction.Value.SHA256, false, true);
+            caps, remoteOptions, DigestFunction.Value.SHA256, ServerCapabilitiesRequirement.CACHE);
     assertThat(st.isOk()).isTrue();
   }
 
@@ -479,7 +485,8 @@ public class RemoteServerCapabilitiesTest {
     remoteOptions.remoteExecutionPriority = 11;
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
-            caps, remoteOptions, DigestFunction.Value.SHA256, true, true);
+            caps, remoteOptions, DigestFunction.Value.SHA256,
+            ServerCapabilitiesRequirement.EXECUTION_AND_CACHE);
     assertThat(st.getErrors()).hasSize(1);
     assertThat(st.getErrors().get(0)).containsMatch("remote_execution_priority");
 
@@ -487,14 +494,16 @@ public class RemoteServerCapabilitiesTest {
     remoteOptions.remoteExecutionPriority = 10;
     st =
         RemoteServerCapabilities.checkClientServerCompatibility(
-            caps, remoteOptions, DigestFunction.Value.SHA256, true, true);
+            caps, remoteOptions, DigestFunction.Value.SHA256,
+            ServerCapabilitiesRequirement.EXECUTION_AND_CACHE);
     assertThat(st.isOk()).isTrue();
 
     // Check not performed if the value is 0.
     remoteOptions.remoteExecutionPriority = 0;
     st =
         RemoteServerCapabilities.checkClientServerCompatibility(
-            caps, remoteOptions, DigestFunction.Value.SHA256, true, true);
+            caps, remoteOptions, DigestFunction.Value.SHA256,
+            ServerCapabilitiesRequirement.EXECUTION_AND_CACHE);
     assertThat(st.isOk()).isTrue();
 
     // Ignored when no remote execution requested.
@@ -503,7 +512,7 @@ public class RemoteServerCapabilitiesTest {
     remoteOptions.remoteCache = "server:port";
     st =
         RemoteServerCapabilities.checkClientServerCompatibility(
-            caps, remoteOptions, DigestFunction.Value.SHA256, false, true);
+            caps, remoteOptions, DigestFunction.Value.SHA256, ServerCapabilitiesRequirement.CACHE);
     assertThat(st.isOk()).isTrue();
   }
 
@@ -523,7 +532,8 @@ public class RemoteServerCapabilitiesTest {
     remoteOptions.remoteExecutor = "server:port";
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
-            caps, remoteOptions, DigestFunction.Value.SHA256, true, false);
+            caps, remoteOptions, DigestFunction.Value.SHA256,
+            ServerCapabilitiesRequirement.EXECUTION);
     assertThat(st.isOk()).isTrue();
   }
 
@@ -543,7 +553,7 @@ public class RemoteServerCapabilitiesTest {
     remoteOptions.remoteCache = "server:port";
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
-            caps, remoteOptions, DigestFunction.Value.SHA256, false, true);
+            caps, remoteOptions, DigestFunction.Value.SHA256, ServerCapabilitiesRequirement.CACHE);
     assertThat(st.isOk()).isTrue();
   }
 }
