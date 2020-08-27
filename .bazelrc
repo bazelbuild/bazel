@@ -1,3 +1,6 @@
+try-import %workspace%/.bazelrc.auth
+build --remote_upload_local_results=false
+
 common --enable_platform_specific_config
 
 # Shared configuration flags to build and test Bazel on RBE.
@@ -28,6 +31,10 @@ build:ubuntu1804_java11 --config=remote_shared
 build:remote --config=ubuntu1804_java11
 
 build:macos --macos_minimum_os=10.10
+
+# T172 Pipeline config
+build --compilation_mode=opt
+build --stamp
 
 # User-specific .bazelrc
 try-import user.bazelrc

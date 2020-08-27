@@ -1,0 +1,1397 @@
+#!/usr/bin/env python3
+"""Bazel wrapper
+
+Command line script to bootstrap Bazel usage for a/apollo prior to invoking
+bazel commands.
+"""
+
+from __future__ import absolute_import, print_function, unicode_literals
+
+import configparser
+import getpass
+import inspect
+import json
+import platform
+import os
+import os.path
+import random
+import re
+import socket
+import string
+import subprocess
+import sys
+import tempfile
+import termios
+import time
+import uuid
+
+try:
+    # Load type hint support if accessible
+    from typing import Any, Optional
+except ImportError:
+    # symbols are only used in comments, no need to load otherwise
+    pass
+
+# Use custom error codes to aid with VSCode integration
+#
+# The bazel documentation isn't very clear on what error codes we're allowed to use.
+# However, the source code for Bazel seems to indicate that exit codes 50 to 60 as
+# well as 253 are reserved for site specific wrappers. We'll use those here so that
+# callers (e.g. VSCode) can handle certain errors.
+#
+# See https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/util/ExitCode.java
+EXIT_CODE_MISSING_CREDENTIALS = 50
+EXIT_CODE_INVALID_CREDENTIALS = 51
+
+# For reading the HTTP status code from cURL
+HTTP_CODE_REGEX = re.compile(r'__HTTP_CODE__([0-9]*)__END_HTTP_CODE__', re.M)
+
+HTTP_PROXY_ENV_VAR_NAME = 'HTTP_PROXY'
+HTTPS_PROXY_ENV_VAR_NAME = 'HTTPS_PROXY'
+NO_PROXY_ENV_VAR_NAME = 'NO_PROXY'
+
+
+def artifactory_url(path):
+    return '/'.join(['https://artifactory.sg.apple.com/artifactory', path.lstrip('/')])
+
+
+def get_platform():
+    return sys.platform.rstrip(string.digits)
+
+
+def workspace_dir():
+    tools_dir = os.path.dirname(__file__)
+    return os.path.realpath(os.path.join(tools_dir, '..'))
+
+
+def curl_exe():
+    return os.environ.get('BAZELW_CURL_EXE', 'curl')
+
+
+def run(*args, **kw):
+    """
+    Runs subprocess, and gets stdout and stderr from it.
+    Output is wrapped to ensure returned data is a string in Py2 and 3
+
+    returns `returncode, stdout, stderr`
+    """
+    proc = subprocess.Popen(stdout=subprocess.PIPE, stderr=subprocess.PIPE, *args, **kw)
+    out, err = proc.communicate()
+
+    try:
+        out = out.decode('utf-8')
+        err = err.decode('utf-8')
+    except AttributeError:
+        pass
+    return proc.returncode, out, err
+
+
+def _retrieve_proxy_setup():
+    """Retrieve proxy setup from environment variables.
+
+    Returns:
+        Tuple of optional values for http_proxy, https_proxy and no_proxy
+
+    """
+    https_proxy = os.getenv(HTTPS_PROXY_ENV_VAR_NAME.lower()) or os.getenv(HTTPS_PROXY_ENV_VAR_NAME)
+    # we also support HTTP_PROXY even if curl does not, but give http_proxy precedence
+    http_proxy = os.getenv(HTTP_PROXY_ENV_VAR_NAME.lower()) or os.getenv(HTTP_PROXY_ENV_VAR_NAME)
+    no_proxy = os.getenv(NO_PROXY_ENV_VAR_NAME.lower()) or os.getenv(NO_PROXY_ENV_VAR_NAME)
+    return http_proxy, https_proxy, no_proxy
+
+
+def curl(*args, **kw):
+    """Run curl.
+
+    `args` are the positional arguments to pass to curl, `kw` are passed through
+    to `run` which returns the curl exit code, stdout and stderr.
+
+    If an error occurs during the call to cURL, BazelwCurlError or
+    BazelwCurlAuthenticationError will be raised depending on the HTTP status
+    code.
+
+    Note: -s is applied to curl to make it silent (no progress meter, no
+    messages on failure that could expose credentials). -w is also applied
+    to get the HTTP status code.
+
+    raises `BazelwCurlError` if cURL fails
+
+    returns:
+        `stderr, exitcode` on error
+        `stdout, exitcode` on success
+    """
+    http_proxy, https_proxy, no_proxy = _retrieve_proxy_setup()
+    # BEN-8572: '-vv', should be changed back to '-s', '-S' when we're done debugging
+    cmd = [curl_exe(),
+           '-vv',
+           '--fail',
+           '--retry', '5',
+           '--retry-connrefused',
+           '-w', '__HTTP_CODE__%{http_code}__END_HTTP_CODE__']
+    if https_proxy:
+        cmd.extend(['--proxy', https_proxy])
+    if http_proxy and http_proxy != https_proxy:
+        cmd.extend(['--proxy', http_proxy])
+    if no_proxy:
+        cmd.extend(['--noproxy', no_proxy])
+    cmd += [str(arg) for arg in args]
+    code, out, err = run(cmd, **kw)
+    # Separate the HTTP code from the output
+    http_code = None
+    for http_code_match in HTTP_CODE_REGEX.finditer(out):
+        try:
+            http_code = int(http_code_match.group(1))
+        except ValueError:
+            # An empty http code is implied to mean that there was none
+            pass
+    out = re.sub(HTTP_CODE_REGEX, '', out)
+    # Check for errors
+    if code != 0:
+        # Error occurred
+        msg = 'Error: cURL request failed: {curl_cmd}\n{reason}\n{stderr}' \
+            .format(curl_cmd=' '.join(cmd),
+                    reason=get_curl_error_details(code),
+                    stderr=' '.join((err, out)))
+        # HTTP 401 signifies invalid credentials
+        if http_code == 401:
+            raise BazelwCurlAuthenticationError(msg)
+        else:
+            raise BazelwCurlError(msg)
+
+    return out, code
+
+
+def get_curl_error_details(code):
+    """
+    Provides more meaningful explanations based on the more common cURL exit
+    codes. If code is not in list, 'Internal error' is returned.
+
+    Additional codes can be found at:
+    https://curl.haxx.se/libcurl/c/libcurl-errors.html
+
+    returns `str`
+    """
+    return {
+        2: 'Unspecified internal error',
+        4: 'Unsupported feature. Your cURL binary may not support the requested action',
+        5: 'Proxy could not be resolved',
+        6: 'Host could not be resolved',
+        7: 'Failed to connect to host',
+        16: 'HTTP/2 error occurred',
+        22: 'The requested URL returned an HTTP Code of 400 or above',
+        35: 'SSL connect or negotiation error occurred',
+        45: 'The network interface failed',
+        47: 'Too many redirects',
+        48: 'One or more options passed to cURL were not recognized',
+        55: 'Failed to send network data',
+        56: 'Failure while receiving network data',
+        60: 'SSL peer failed verification. Please ensure your system clock is accurate',
+        67: 'Remote server denied login',
+        77: 'CA cert file could not be read',
+        83: 'Certificate issuer check failed',
+        92: 'Stream error in HTTP/2 framing layer',
+    }.get(code, 'Internal error')
+
+
+class BazelwError(Exception):
+    """Errors detected by the wrapper script"""
+
+
+class BazelwPromptError(BazelwError):
+    """Errors caused by being unable to prompt for credentials"""
+
+
+class BazelwCurlError(BazelwError):
+    """Errors caused by failures in cURL calls"""
+
+
+class BazelwCurlAuthenticationError(BazelwCurlError):
+    """Errors caused by authentication errors (401) in cURL calls"""
+
+
+# Much of the scaffolding that follows is designed to address the
+# following requirement: We want to minimize the frequency with which
+# we require users to enter their OD password. So, if any
+# credential-gathering subsystem definitely needs the OD password, we
+# want to give each of the subsystems a chance to use that password to
+# refresh its credentials.
+#
+# We divide the processing into two phases. In the first phase, we use
+# the CredsManager and various Cred objects to gather credentials and
+# all the other information needed to create .bazelrc.auth. First, the
+# credentials cache is loaded from comment lines in
+# .bazelrc.auth. Then, each Cred object is asked: "Are you going to
+# need the OD password?", using its need_od_password() function. Each
+# Cred object is given a chance to actually gather the creds it needs,
+# using its update() function, and finally .bazelrc.auth is written out
+# to disk.
+#
+# In the second phase, driven by the Command manager and various
+# CommandBuilder objects, we're just gathering the actual Bazel binary,
+# and the environment variables and command line parameters that we
+# need to execute it.
+
+class CommandBuilder:
+    """Base class of objects passed to Command.register().
+
+    Every CommandBuilder object has an update(self, bazel) callback
+    method.  When the callback is called, the object is expected to
+    modify the argv[] and env{} properties of the Bazel command,
+    represented by the bazel parameter.
+
+    """
+
+    def update(self, bazel):
+        pass
+
+
+class Cred:
+    """Base class of objects passed to CredsManager.register()."""
+
+    def need_od_password(self, creds_mgr):
+        """Return true if this object will need OD password during update."""
+        return False
+
+    def update(self, creds_mgr, bazel):
+        """Get the credentials for this provider."""
+        pass
+
+
+class Command:
+    """Accumulates parameters and environment variables for an eventual program execution."""
+
+    argv = []
+    argv0 = ''
+    env = {}
+    _clients = []
+
+    def register(self, *clients):
+        self._clients.extend(clients)
+
+    def update(self):
+        for c in self._clients:
+            c.update(self)
+
+    def set_executable(self, exe):
+        self.argv0 = exe
+
+    def execute(self):
+        [s.flush() for s in (sys.stdout, sys.stderr)]
+        os.execve(self.argv0, [self.argv0] + self.argv, self.env)
+        # should never get here
+        return -1
+
+
+class CredsManager(CommandBuilder):
+    """Widget that manages a set of credential key-value pairs."""
+
+    BAZELRC_AUTH_TEMPLATE = '''\
+# THIS IS GENERATED BY BAZEL
+# ALL EDITS TO THIS FILE WILL BE WIPED OUT
+{SANDBOX}
+{CREDS_CACHE}
+#common --experimental_downloader_config={WORKSPACE_DIR}/.remote_downloader_config
+build --tls_certificate={WORKSPACE_DIR}/tools/certificates/apple-corporate-root-ca.pem
+build --remote_header=authorization="Bearer {BRE_AUTH_TOKEN}"
+build --remote_instance_name={REMOTE_INSTANCE_NAME}
+#build --remote_bytestream_uri_prefix={REMOTE_BYTESTREAM_URI_PREFIX}
+build:remote-cache --remote_cache={REMOTE_EXECUTOR}
+#build:remote-execution --remote_executor={REMOTE_EXECUTOR}
+{REMOTE_OUTPUT_SERVICE}
+{REMOTE_CACHE}
+{BUILD_REQUEST_ID}
+'''
+
+    REMOTE_DOWNLOADER_CONFIG_TEMPLATE = '''\
+# THIS IS GENERATED BY BAZEL
+# ALL EDITS TO THIS FILE WILL BE WIPED OUT
+
+# Block all hosts by default to make sure we don't reach-out to non-approved locations.
+block *
+
+# Blank approval for good known internal Apple hosts.
+allow artifacts.apple.com
+allow artifactory.sg.apple.com
+
+# Rewrite rules to redirect external hosts to internal mirrors.
+rewrite github.com/(.*) {OD_USER}:{AF_API_KEY}@artifactory.sg.apple.com/artifactory/github.com-remote/$1
+rewrite mirror.bazel.build/(.*) {OD_USER}:{AF_API_KEY}@artifactory.sg.apple.com/artifactory/mirror.bazel.build-remote/$1
+rewrite storage.googleapis.com/(.*) {OD_USER}:{AF_API_KEY}@artifactory.sg.apple.com/artifactory/storage.googleapis.com-remote/$1
+rewrite dl.google.com/(.*) {OD_USER}:{AF_API_KEY}@artifactory.sg.apple.com/artifactory/dl.google.com-remote/$1
+'''
+
+    auth_substitutions = {"WORKSPACE_DIR": workspace_dir()}
+    _bazelrc_auth = os.environ.get('BAZELW_BAZELRC_AUTH',
+                                   os.path.join(workspace_dir(), '.bazelrc.auth'))
+    _clients = []
+    _got_od_password = False
+    _remote_downloader_config = os.path.join(workspace_dir(), '.remote_downloader_config')
+
+    def __init__(self):
+        self._creds = {}
+        self._load_creds(self._bazelrc_auth)
+
+    def _load_creds(self, auth_file):
+        """Preload creds cache from comments in .bazelrc.auth"""
+
+        var_regex = re.compile(r'^# (\w+)=(.*)$', re.M)
+        try:
+            with open(self._bazelrc_auth) as fd:
+                for var_match in var_regex.finditer(fd.read()):
+                    self._creds[var_match.group(1)] = var_match.group(2)
+        except IOError:
+            pass
+
+    def _prompt_for_value(self, msg, secure=False):
+        """
+        Helpers to prompt user for value
+        Set secure=True to hide user input (for passwords, etc)
+        """
+        if sys.__stdin__.isatty() is False:
+            raise BazelwPromptError("Cannot prompt from non-interactive session: '{}'".format(msg))
+
+        try:
+            if secure:
+                try:
+                    rv = getpass.getpass(msg)  # pylint: disable=invalid-name
+                except (termios.error, IOError):
+                    # Fall back to standard input if getpass fails
+                    rv = input(msg)  # pylint: disable=invalid-name
+            else:
+                rv = input(msg)  # pylint: disable=invalid-name
+        except EOFError:
+            # Protects against automated systems
+            rv = None  # pylint: disable=invalid-name
+        return rv
+
+    def _format_creds_cache(self, d):
+        return '\n'.join(
+            ['# {}={}'.format(k, d[k]) for k in sorted(d.keys()) if not k.startswith('_')])
+
+    def _write_bazelrc_auth(self):
+        self.auth_substitutions.update(CREDS_CACHE=self._format_creds_cache(self._creds))
+
+        with open(self._bazelrc_auth, 'w') as fd:  # pylint: disable=invalid-name
+            fd.write(self.BAZELRC_AUTH_TEMPLATE.format(**self.auth_substitutions))
+
+    def _write_remote_downloader_config(self):
+        with open(self._remote_downloader_config, 'w') as fd:  # pylint: disable=invalid-name
+            fd.write(self.REMOTE_DOWNLOADER_CONFIG_TEMPLATE.format(**self.auth_substitutions))
+
+    def register(self, *clients):
+        self._clients.extend(clients)
+
+    def update(self, bazel):
+        self._got_od_password = False
+        for c in self._clients:
+            self._got_od_password = self._got_od_password or c.need_od_password(self)
+
+        for c in self._clients:
+            c.update(self, bazel)
+
+        self._write_bazelrc_auth()
+        self._write_remote_downloader_config()
+
+    def got_od_password(self):
+        """Return true iff any client reported that it needs the od_password.
+
+        Only valid in an update callback.
+        """
+
+        return self._got_od_password
+
+    # We recognize two kinds of creds: Persistent ones get saved into
+    # the .bazelrc.auth cache, non-persistent ones (such as OD_PASSWORD)
+    # don't. We do this by prepending '_' to the keys of non-persistent
+    # creds in the _creds dict.
+
+    def get(self, key, prompt=None, secure=False, persist=True):
+        x = os.environ.get(key) or self._creds.get(key) or self._creds.get('_' + key)
+        if prompt:
+            x = x or self._prompt_for_value(prompt, secure)
+        self.set(key, x, persist)
+        return x
+
+    def set(self, key, val, persist=True):
+        if not val:
+            return
+        if persist:
+            self._creds[key] = val
+        else:
+            self._creds['_' + key] = val
+
+    def remove(self, key):
+        """Remove key from credential store.
+
+        Args:
+            key: key to remove
+
+        """
+        if key in self._creds:
+            del self._creds[key]
+
+        persistent_key_name = '_' + key
+        if persistent_key_name in self._creds:
+            del self._creds[persistent_key_name]
+
+    # We only ask for this if we need it in order to get some other credential.
+    def od_password(self):
+        return self.get('OD_PASSWORD', 'Enter OD password: ', secure=True, persist=False)
+
+    def od_user(self):
+        return self.get('OD_USER', 'Enter OD username: ')
+
+
+class OdUserCred(Cred):
+    """Propagate OD_USER into bazel environment."""
+
+    def update(self, creds_mgr, bazel):
+        bazel.env['OD_USER'] = creds_mgr.od_user()
+        creds_mgr.auth_substitutions.update(OD_USER=creds_mgr.od_user())
+
+
+class ArtifactoryCred(Cred):
+    """Ensure AF_API_KEY gets into bazel environment."""
+
+    def need_od_password(self, creds_mgr):
+        return creds_mgr.get('AF_API_KEY') is None
+
+    def update(self, creds_mgr, bazel):
+        netrc_file_template = '''
+machine {HOST} login {OD_USER} password {OD_PASSWORD}
+'''
+
+        af_api_key = creds_mgr.get('AF_API_KEY')
+        if af_api_key is None:
+            # Create tempfile for credentials
+            with tempfile.NamedTemporaryFile() as fd:  # pylint: disable=invalid-name
+                payload = netrc_file_template.format(
+                    HOST='artifactory.sg.apple.com',
+                    OD_USER=creds_mgr.od_user(),
+                    OD_PASSWORD=creds_mgr.od_password(),
+                )
+                payload = payload.encode()  # Ensure bytes for python 3
+                fd.write(payload)
+                # Make sure a read occurs from the beginning of the file
+                fd.seek(0)
+                response, _ = curl('--netrc-file', fd.name, artifactory_url('/api/security/apiKey'))
+                af_api_key = json.loads(response)['apiKey']
+                creds_mgr.set('AF_API_KEY', af_api_key)
+
+        bazel.env['AF_API_KEY'] = af_api_key
+        creds_mgr.auth_substitutions.update(AF_API_KEY=af_api_key)
+
+
+class Warden:
+    """Helper class for credential managers that utilize Warden services"""
+
+    # For compute applications we need this token to be valid for at least two weeks
+    # after it has been issued (Compute Platform max job run time is 14 days right now.)
+    # The token is valid for 30 days. We refresh it after half of its lifetime.
+    AUTH_TOKEN_EXPIRATION_TIME_IN_DAYS = 15
+
+    def auth_endpoint(self, app):
+        return 'https://warden-lb.sg.apple.com/api/v1/auth/{}'.format(app)
+
+    def get_auth_token(self, app, od_user, od_passwd, asymmetrical):
+        """
+        Gets Warden Auth token used to authenticate to <app> from the
+        Warden service at warden-lb.sg.apple.com
+
+        return `WARDEN_AUTH_TOKEN`
+        """
+        with tempfile.NamedTemporaryFile() as fd:  # pylint: disable=invalid-name
+            payload = json.dumps(dict(
+                username=od_user,
+                password=od_passwd,
+                asymmetrical=asymmetrical,
+            ))
+            payload = payload.encode()  # Ensure bytes for Python 3
+            fd.write(payload)
+            fd.seek(0)
+            response, _ = \
+                curl('-XPOST', self.auth_endpoint(app), '-H', 'content-type: application/json',
+                     '-d', '@{}'.format(fd.name))
+
+        return json.loads(response)['token']
+
+    def valid_token_age(self, token_created):
+        """Check that token is less than AUTH_TOKEN_EXPIRATION_TIME_IN_DAYS days old."""
+        age_in_days = (time.time() - token_created) / 3600 / 24
+        if 0 < age_in_days < self.AUTH_TOKEN_EXPIRATION_TIME_IN_DAYS:
+            return True
+        return False
+
+
+class BuildbarnCred(Cred):
+    """Obtain credentials for Bazel remote execution."""
+
+    WARDEN_APP = 'BuildBarnStorage'
+    DEFAULT_BAZEL_REMOTE_CLUSTER = 'bb-prod.spg.g.apple.com'
+    DEFAULT_BAZEL_REMOTE_CLUSTER_USER = 'at-desk'
+    TOKEN_NAME = 'BRE_AUTH_TOKEN'
+    TOKEN_CREATED_NAME = 'BRE_AUTH_TOKEN_CREATED'
+
+    def need_od_password(self, creds_mgr):
+        warden = Warden()
+        auth_token = creds_mgr.get(self.TOKEN_NAME)
+        auth_token_created = float(creds_mgr.get(self.TOKEN_CREATED_NAME) or '0')
+
+        return auth_token is None or not warden.valid_token_age(auth_token_created)
+
+    def update(self, creds_mgr, bazel):
+        # Warden token for authentication.
+        if self.need_od_password(creds_mgr) or creds_mgr.got_od_password():
+            warden = Warden()
+            auth_token = warden.get_auth_token(self.WARDEN_APP, creds_mgr.od_user(),
+                                               creds_mgr.od_password(), asymmetrical=True)
+            creds_mgr.set(self.TOKEN_NAME, auth_token)
+            creds_mgr.set(self.TOKEN_CREATED_NAME, str(time.time()))
+        creds_mgr.auth_substitutions.update(BRE_AUTH_TOKEN=creds_mgr.get(self.TOKEN_NAME))
+
+        # Determine the gRPC endpoint for remote execution and the
+        # instance name. The values of these depend on which cluster is
+        # used, whether an office cache is used, and whether bb_clientd
+        # is installed on the local system.
+        remote_instance_name = ['a/apollo']
+
+        bazel_remote_cluster = os.environ.get(
+            'BAZEL_REMOTE_CLUSTER',
+            self.DEFAULT_BAZEL_REMOTE_CLUSTER)
+        # Snaprrci overrides BAZEL_REMOTE_CLUSTER and sets it to the
+        # name of the old production cluster, bb.sg.apple.com. We can't
+        # change it to the new cluster right now, as that would cause it
+        # to take effect on all branches. This would cause cache misses
+        # when doing at desk builds of other branches. Work around this
+        # by ignoring attempts to use the old cluster, so that we can
+        # leave snaprrci as is for the time being.
+        #
+        # TODO: Remove this workaround when the change to use the new
+        # cluster has propagated to all branches, and snaprrci's value
+        # of BAZEL_REMOTE_CLUSTER has been updated.
+        if bazel_remote_cluster == 'bb.sg.apple.com':
+            bazel_remote_cluster = self.DEFAULT_BAZEL_REMOTE_CLUSTER
+        # TODO: Remove BAZEL_REMOTE_CLUSTER_USER once we use bb_clientd
+        # for all builds in CI. bb_clientd in CI automatically picks the
+        # right gRPC endpoint.
+        bazel_remote_cluster_user = os.environ.get(
+            'BAZEL_REMOTE_CLUSTER_USER',
+            self.DEFAULT_BAZEL_REMOTE_CLUSTER_USER)
+        remote_executor = 'grpcs://api-%s.%s' % (
+            bazel_remote_cluster_user, bazel_remote_cluster,
+        )
+        remote_instance_name.insert(0, bazel_remote_cluster)
+
+        # Force the use of an empty hostname, followed by an instance
+        # name starting with the name of the cluster for bytestream://
+        # URIs. This ensures that URIs in Build Event Streams remain
+        # parseable, regardless of whether office caches or bb_clientd
+        # are used.
+        remote_bytestream_uri_prefix = '/' + '/'.join(remote_instance_name)
+
+        bazel_remote_office_cache = os.environ.get('BAZEL_REMOTE_OFFICE_CACHE')
+        if bazel_remote_office_cache:
+            print('''
+WARNING: Environment variable BAZEL_REMOTE_OFFICE_CACHE is deprecated.
+
+You currently have the BAZEL_REMOTE_OFFICE_CACHE environment variable
+set to accelerate the build of Apollo by using an on-premise office
+cache. Instead of using this option, we recommend installing bb_clientd
+on your system:
+
+- bb_clientd is capable of automatically choosing the right office cache
+  based on your system's physical location.
+
+- bb_clientd automatically falls back to contacting BRE directly in case
+  the office cache goes down (either unexpectedly, or for maintenance).
+
+Please remove the BAZEL_REMOTE_OFFICE_CACHE variable from your
+environment, and install bb_clientd from 2022-01-10 or later if you want
+to continue to use the office cache. Support for BAZEL_REMOTE_OFFICE_CACHE
+will be removed after 2022-03-31.
+
+More information can be found on the bb_clientd Wiki page:
+
+https://compass.scv.apple.com/confluence/pages/viewpage.action?pageId=714703276
+''', file=sys.stderr)
+            remote_executor = 'grpcs://' + bazel_remote_office_cache
+            remote_instance_name.insert(0, bazel_remote_office_cache)
+
+        remote_output_service_options = ""
+        if os.path.exists('/bb_clientd/shared/grpc'):
+            # Running on CI on a worker that offers bb_clientd. Send all
+            # gRPC traffic through bb_clientd. This increases cache hits
+            # for frequently requested CAS objects and reduces the size
+            # of FindMissingBlobs() requests significantly.
+            remote_executor = 'unix:/bb_clientd/shared/grpc'
+            remote_instance_name.insert(0, None)
+
+            # Provide an additional configuration for letting Bazel
+            # store its bazel-out/ directory on the FUSE file system
+            # provided by bb_clientd. Don't store runfile links by
+            # default, as that puts a lot of memory pressure on
+            # bb_clientd.
+            remote_output_service_options = (
+                'build:remote-output-service --remote_output_service %s --remote_output_service_output_path_prefix /bb_clientd/shared/mount/outputs --config=_remote-output-service'
+                % remote_executor
+            )
+        else:
+            socket_path = os.path.expanduser("~/.cache/bb_clientd/grpc")
+            if os.path.exists(socket_path):
+                remote_executor = 'unix:' + socket_path
+                remote_instance_name.insert(0, None)
+
+                mount_root_path = os.path.expanduser("~/bb_clientd")
+                mount_path = os.path.join(mount_root_path, "outputs")
+                if os.path.isdir(mount_path):
+                    remote_output_service_options = (
+                        'build:remote-output-service --remote_output_service %s --remote_output_service_output_path_prefix %s --config=_remote-output-service'
+                        % (remote_executor, mount_path)
+                    )
+                else:
+                    print('''
+WARNING: Found bb_clientd UNIX socket at %s,
+but did not find output path at %s.
+Please add the following lines to ~/.snaprrconfig and restart your
+SnapRR container to make --config=remote-output-service work:
+
+[defaults]
+mount = %s
+''' % (socket_path, mount_path, mount_root_path), file=sys.stderr)
+
+        creds_mgr.auth_substitutions.update(
+            REMOTE_EXECUTOR=remote_executor,
+            REMOTE_INSTANCE_NAME='/'.join(remote_instance_name[1:]),
+            REMOTE_BYTESTREAM_URI_PREFIX=remote_bytestream_uri_prefix,
+            REMOTE_OUTPUT_SERVICE=remote_output_service_options)
+
+
+class BuildAPICred(Cred):
+    """Obtain credentials for Build API (BRDS) interaction.
+
+    For the matching reference implementation, see https://code.sg.apple.com/gerrit/
+        a/apollo@develop/aut/-/blob/
+        cloud_compute/common/python/cloud_compute_common/auth/internal/build_api_auth.py
+    """
+
+    # We reuse the Buildbarn application name because it already has all permissions we
+    # currently need for BRDS. Unless that changes we uses a simplified setup.
+    _WARDEN_APP = 'BuildBarnStorage'
+    _TOKEN_FILE = '~/.build_api_token'  # type: str
+    _TOKEN_NAME = 'BRDS_AUTH_TOKEN'
+    _TOKEN_CREATED_NAME = 'BRDS_AUTH_TOKEN_CREATED'
+    _BRDS_AWS_USER_GENERATED_KEY = 'BRDS_AWS_USER_GENERATED'  # type: str
+
+    def need_od_password(self, creds_mgr):
+        # type: (CredsManager) -> bool
+        """Check if a token refresh is needed.
+
+        Args:
+            creds_mgr: credential manager to retrieve potentially existing token
+
+        Returns:
+            True, if token needs to be refreshed, False otherwise.
+
+        """
+        warden = Warden()
+        auth_token = creds_mgr.get(self._TOKEN_NAME)
+        auth_token_created = float(creds_mgr.get(self._TOKEN_CREATED_NAME) or '0')
+        return auth_token is None or not warden.valid_token_age(auth_token_created)
+
+    def update(self, creds_mgr, bazel):
+        # type: (CredsManager, Any) -> None
+
+        if self.need_od_password(creds_mgr) or creds_mgr.got_od_password():
+            warden = Warden()
+            auth_token = warden.get_auth_token(self._WARDEN_APP, creds_mgr.od_user(),
+                                               creds_mgr.od_password(), asymmetrical=False)
+            creds_mgr.set(self._TOKEN_NAME, auth_token)
+            creds_mgr.set(self._TOKEN_CREATED_NAME, str(time.time()))
+        token = creds_mgr.get(self._TOKEN_NAME)
+
+        # After token generation/retrieval, access Build API from Apple network to propagate
+        #   a new user to the AWS side of the service also.
+        # If this has already been done, skip.
+        if not creds_mgr.get(self._BRDS_AWS_USER_GENERATED_KEY):
+            validation_query = '{"query":"{allApolloBuilds(first:1){edges{node{id}}}}"}'
+            try:
+                curl(
+                    '-XPOST',
+                    '--header', 'Content-Type: application/json',
+                    '--header', 'Accept: application/json',
+                    '--header', 'Authorization: Bearer {}'.format(token),
+                    '-d', validation_query,
+                    'https://build.sg.apple.com/graphql')
+                creds_mgr.set(self._BRDS_AWS_USER_GENERATED_KEY, 'set')
+            except BazelwCurlError:
+                print('Build API token could not be validated.', file=sys.stderr)
+                return None
+
+        # The Build API token file is not mounted into a snaprr container and therefore does not
+        # exist initially in a new snaprr session. A token file is generated when this function
+        # is called. This avoids the need for manual credential population when using snaprr.
+        # If bazel is used outside snaprr this function overwrites an already existing token file.
+        # Build API tokens for the same user always grant the same permissions. It might be that
+        # a more recent token with longer time to live gets replaced with an older, but not expired
+        # token.
+        try:
+            with open(os.path.expanduser(self._TOKEN_FILE), 'w') as file_handle:
+                file_handle.write(token)
+        except IOError:
+            print('Build API token file could not be written to disk', file=sys.stderr)
+
+
+class TcloudCred(Cred):
+    """Obtain S3 credentials for tcloud services."""
+
+    WARDEN_APP = 'replay-auth-tokens'
+    AWS_PROFILE = 'tcloud'
+    CERBERUS_HOST_NAME = 'aws-s3-auth.sg.apple.com'
+    ENDPOINT = '/token'
+    S3_AUTH_ENDPOINT = 'https://{}{}'.format(CERBERUS_HOST_NAME, ENDPOINT)
+    S3_AUTH_TOKEN_EXPIRATION_TIME_IN_HOURS = 1
+
+    def _aws_config_dir(self):
+        return os.path.expanduser('~/.aws')
+
+    def _aws_config_file(self):
+        return os.path.join(self._aws_config_dir(), 'config')
+
+    def _aws_credentials_file(self):
+        return os.path.join(self._aws_config_dir(), 'credentials')
+
+    def _using_service_account(self):
+        return os.environ.get('TCLOUD_SERVICE_ACCOUNT', 'false').lower() != 'false'
+
+    def _aws_config_files_present(self):
+        # type: () -> bool
+        if os.path.isfile(self._aws_config_file()) and os.path.isfile(self._aws_credentials_file()):
+            return True
+        return False
+
+    def _need_aws_creds(self, creds_mgr):
+        aws_creds_created = float(creds_mgr.get('TCLOUD_AWS_CREDS_CREATED') or '0')
+        age = time.time() - aws_creds_created
+        if age > self.S3_AUTH_TOKEN_EXPIRATION_TIME_IN_HOURS * 3600:
+            return True
+        if not self._aws_config_files_present():
+            return True
+        return False
+
+    def _s3_svc_auth(self, warden_token):
+        """Retrieve AWS credentials for General Access role.
+
+        Args:
+            warden_token: Warden token to authenticate against Cerberus service
+
+        Returns:
+            Tuple of `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
+
+        """
+        http_proxy, https_proxy, _ = _retrieve_proxy_setup()
+        connect_to_args = []
+        if http_proxy or https_proxy:
+            address_list = socket.gethostbyname_ex(self.CERBERUS_HOST_NAME)[2]
+            connect_to_args = [
+                '--connect-to',
+                "{}::{}:".format(self.CERBERUS_HOST_NAME, random.choice(address_list))]
+
+        response, _ = \
+            curl(self.S3_AUTH_ENDPOINT,
+                 '-H', 'content-type: application/json',
+                 '-H', 'authorization: Bearer {}'.format(warden_token),
+                 *connect_to_args)
+
+        return (json.loads(response)['AWS_ACCESS_KEY_ID'],
+                json.loads(response)['AWS_SECRET_ACCESS_KEY'])
+
+    def _create_awscli_profile(self, profile, aws_access_key_id, aws_secret_access_key):
+        """Generate a profile in ~/.aws/config with credentials in ~/.aws/credentials."""
+        if not os.path.exists(self._aws_config_dir()):
+            os.mkdir(self._aws_config_dir())
+
+        credentials = configparser.ConfigParser()
+        credentials.read(self._aws_credentials_file())
+        if credentials.has_section(profile):
+            credentials.remove_section(profile)
+        credentials.add_section(profile)
+        credentials.set(profile, 'aws_access_key_id', aws_access_key_id)
+        credentials.set(profile, 'aws_secret_access_key', aws_secret_access_key)
+        with open(self._aws_credentials_file(), 'w') as fd:
+            credentials.write(fd)
+
+        profile_section = 'profile {}'.format(profile)
+        config = configparser.ConfigParser()
+
+        config.read(self._aws_config_file())
+        if config.has_section(profile_section):
+            config.remove_section(profile_section)
+        config.add_section(profile_section)
+        config.set(profile_section, 'region', 'us-west-2')
+        with open(self._aws_config_file(), 'w') as fd:
+            config.write(fd)
+
+    def need_od_password(self, creds_mgr):
+        if self._using_service_account():
+            return False
+
+        warden = Warden()
+        auth_token = creds_mgr.get('TCLOUD_AUTH_TOKEN')
+        auth_token_created = float(creds_mgr.get('TCLOUD_WARDEN_TOKEN_CREATED') or '0')
+
+        return auth_token is None or not warden.valid_token_age(auth_token_created)
+
+    def update(self, creds_mgr, bazel):
+        if self._using_service_account():
+            return
+
+        if self.need_od_password(creds_mgr) or creds_mgr.got_od_password():
+            warden = Warden()
+            auth_token = warden.get_auth_token(self.WARDEN_APP, creds_mgr.od_user(),
+                                               creds_mgr.od_password(), asymmetrical=False)
+            creds_mgr.set('TCLOUD_AUTH_TOKEN', auth_token)
+            creds_mgr.set('TCLOUD_WARDEN_TOKEN_CREATED', str(time.time()))
+
+        if self._need_aws_creds(creds_mgr):
+            # Since this happens fairly frequently, we'll swallow curl errors,
+            # so people can continue to do some work when offline. (But really,
+            # TCLOUD_SERVICE_ACCOUNT=true is a better solution in this case.)
+            try:
+                aws_access_key_id, aws_secret_access_key = self._s3_svc_auth(
+                    creds_mgr.get('TCLOUD_AUTH_TOKEN'))
+            except BazelwCurlError as exc:
+                print('Failed to update AWS tcloud credentials: %s', str(exc), file=sys.stderr)
+                return
+
+            creds_mgr.set('TCLOUD_AWS_CREDS_CREATED', str(time.time()))
+            self._create_awscli_profile(self.AWS_PROFILE,
+                                        aws_access_key_id, aws_secret_access_key)
+
+
+class TWSCred(Cred):
+    """Generates ~/.tws_token for TWS asset service use via bazel rules.
+
+    For the matching reference implementation, see https://code.sg.apple.com/gerrit/
+        a/apollo@develop/aut/-/blob/
+        cloud_compute/common/python/cloud_compute_common/auth/internal/tws_auth.py
+    """
+
+    _TOKEN_KEY = 'TWS_TOKEN'  # type: str
+    _TOKEN_CREATED_KEY = 'TWS_TOKEN_CREATED'  # type: str
+    _AUTH_ENDPOINT = 'https://spyglass-api.sg.apple.com/bouncer/api/v1/authenticate'  # type: str
+    _TOKEN_FILE = "~/.tws_token"  # type: str
+    # A TWS token is valid for 30 days. We refresh after 15 days.
+    _TOKEN_EXPIRATION_S = 3600 * 24 * 15  # type: int
+
+    def _valid_token_age(self, token_created_s):
+        # type: (float) -> bool
+        """Check if the token is less than _TOKEN_EXPIRATION_S seconds old.
+
+        Args:
+            token_created_s: POSIX time when a found token was created
+
+        Returns:
+            True if token is still valid, False otherwise
+
+        """
+        age_in_s = int(time.time() - token_created_s)
+        if 0 <= age_in_s < self._TOKEN_EXPIRATION_S:
+            return True
+        return False
+
+    def _query_token(self, od_user, od_password):
+        # type: (str, str) -> Optional[str]
+        """Query token from TWS auth service.
+
+        Args:
+            od_user: OD username
+            od_password: OD password
+
+        Returns:
+            token string if successful, otherwise None
+
+        """
+        try:
+            payload, http_code = curl(
+                '-XPOST',
+                '--header', 'Content-Type: application/json',
+                '--header', 'Accept: application/json',
+                '--header', 'Cache-Control: no-cache',
+                '-d',
+                '{{\"username\":\"{}\",\"password\":\"{}\",\"expires_in\":\"30d\"}}'.format(
+                    od_user, od_password),
+                self._AUTH_ENDPOINT)
+        except BazelwCurlError:
+            # we tolerate failures to not impact other apollo use if TWS is down
+            print('Unable to query TWS auth endpoint', file=sys.stderr)
+            return None
+        try:
+            # we tolerate failures to not impact other apollo use if TWS behavior is off
+            return json.loads(payload)['token']
+        except (KeyError, json.JSONDecodeError):
+            print('TWS auth returned malformed payload', file=sys.stderr)
+            return None
+
+    def need_od_password(self, creds_mgr):
+        # type: (CredsManager) -> bool
+        """Check if a token refresh is needed.
+
+        Args:
+            creds_mgr: credential manager to retrieve potentially existing token
+
+        Returns:
+            True, if token needs to be refreshed, False otherwise.
+
+        """
+        # retrieve token if already existent
+        token = creds_mgr.get(self._TOKEN_KEY)
+        token_created_s = float(creds_mgr.get(self._TOKEN_CREATED_KEY) or '0')
+        return token is None or not self._valid_token_age(token_created_s)
+
+    def update(self, creds_mgr, bazel):
+        # type: (CredsManager, Any) -> None
+
+        if self.need_od_password(creds_mgr=creds_mgr) or creds_mgr.got_od_password():
+            token = self._query_token(od_user=creds_mgr.od_user(),
+                                      od_password=creds_mgr.od_password())
+
+            if not token:
+                # we only refresh on best effort, to not block bazel use if TWS is not reachable
+                print('TWS token could not be retrieved.', file=sys.stderr)
+                return
+
+            creds_mgr.set(self._TOKEN_KEY, token)
+            creds_mgr.set(self._TOKEN_CREATED_KEY, str(time.time()))
+        else:
+            # we re-use the still valid TWS token from credential cache
+            token = creds_mgr.get(self._TOKEN_KEY)
+
+        # The TWS token file is not mounted into a snaprr container and therefore does not
+        # exist initially in a new snaprr session. A token file is generated when this function
+        # is called. This avoids the need for manual credential population when using snaprr.
+        # If bazel is used outside snaprr this function overwrites an already existing token file.
+        # TWS tokens for the same user always grant the same permissions. It might be that
+        # a more recent token with longer time to live gets replaced with an older token, but not
+        # with an expired token.
+        try:
+            with open(os.path.expanduser(self._TOKEN_FILE), 'w') as file_handle:
+                file_handle.write(token)
+        except IOError:
+            print('TWS token file could not be written to disk', file=sys.stderr)
+
+
+class CastleCred(Cred):
+    """Create ~/.tlab_hw_test file with all required credentials for castle tests"""
+
+    CT_JENKINS_TOS2_CRUMB_ENDPOINT = 'https://jenkins-tos2.sg.apple.com/crumbIssuer/api/json'
+    CT_JENKINS_TOS2_GENERATE_TOKEN_ENDPOINT = 'https://jenkins-tos2.sg.apple.com/me/descriptorByName/jenkins.security.ApiTokenProperty/generateNewToken'
+
+    def _tlab_hw_test_conf(self):
+        return os.path.expanduser(os.environ.get('CASTLE_AUTH_FILE', '~/.tlab_hw_test'))
+
+    def _need_tlab_hw_test_credentials(self):
+        """Determine if castle credentials are required.
+
+        They're only needed on macOS in non-test scenarios
+        """
+        return get_platform() == "darwin" and os.environ.get("BAZEL_WRAPPER_TEST", "0") != "1"
+
+    def _need_jenkins_tos2_token(self, creds_mgr):
+        jenkins_tos2_token = creds_mgr.get('CT_JENKINS_TOS2_PASSWORD')
+        return jenkins_tos2_token is None
+
+    def _generate_jenkins_tos2_token(self, od_user, od_passwd):
+        """
+        Uses od_user and od_passwd to generate a new jenkins token. Unfortunately,
+        jenkins does not allow us to read tokens that have already been generated.
+
+        returns token_name, token_value
+        """
+        # Create tempfile for credentials
+        with tempfile.NamedTemporaryFile() as fd, tempfile.NamedTemporaryFile() as cookie:  # pylint: disable=invalid-name
+            curl_config = '--user {}:{}'.format(od_user, od_passwd)
+            curl_config = curl_config.encode()  # Ensure bytes for Python 3
+            fd.write(curl_config)
+            fd.seek(0)
+            # Get the CSRF prevention crumb that we will need to send with each subsequent request
+            response, _ = curl(self.CT_JENKINS_TOS2_CRUMB_ENDPOINT, '-K', fd.name,
+                               '-c', cookie.name)
+            try:
+                json_response = json.loads(response)
+                crumb_header = json_response['crumbRequestField']
+                crumb_value = json_response['crumb']
+            except (KeyError, json.JSONDecodeError):
+                return None
+            # Generate a new jenkins token with the name 'Apollo_{UUID}'
+            token_name = 'Apollo_{}'.format(uuid.uuid1())
+            response, _ = curl('-XPOST',
+                               self.CT_JENKINS_TOS2_GENERATE_TOKEN_ENDPOINT,
+                               '-K', fd.name,
+                               '-b', cookie.name,
+                               '-F', 'newTokenName={}'.format(token_name),
+                               '-H', '{}: {}'.format(crumb_header, crumb_value))
+            try:
+                return token_name, json.loads(response)['data']['tokenValue']
+            except (KeyError, json.JSONDecodeError):
+                return None
+
+    def _write_tlab_hw_test_conf(self, creds_mgr):
+        # Merge new contents with ~/.tlab_hw_test, so we don't clobber existing tlab creds
+        content = {}
+        try:
+            with open(self._tlab_hw_test_conf(), 'r') as fd:
+                content = json.load(fd)
+        except (json.JSONDecodeError, IOError):
+            pass
+
+        content.update({
+            "tlab_hw_test.artifactory": [
+                creds_mgr.od_user(),
+                creds_mgr.get('AF_API_KEY'),
+            ],
+            "tlab_hw_test.jenkins": [
+                creds_mgr.get('CT_JENKINS_TOS2_USERNAME') or creds_mgr.od_user(),
+                creds_mgr.get('CT_JENKINS_TOS2_PASSWORD'),
+            ],
+        })
+
+        with open(self._tlab_hw_test_conf(), 'w') as fd:
+            json.dump(content, fd)
+
+    def need_od_password(self, creds_mgr):
+        if not self._need_tlab_hw_test_credentials():
+            return False
+
+        if self._need_jenkins_tos2_token(creds_mgr):
+            return True
+        return False
+
+    def update(self, creds_mgr, bazel):
+        if not self._need_tlab_hw_test_credentials():
+            return
+
+        if self._need_jenkins_tos2_token(creds_mgr):
+            token_name, token = self._generate_jenkins_tos2_token(creds_mgr.od_user(),
+                                                                  creds_mgr.od_password())
+            creds_mgr.set('CT_JENKINS_TOS2_PASSWORD', token)
+            creds_mgr.set('CT_JENKINS_TOS2_TOKEN_NAME', token_name)
+
+        self._write_tlab_hw_test_conf(creds_mgr)
+
+
+class SplunkCred(Cred):
+    """Possibly forward SPLUNK_ABS variables from the user environment to Bazel."""
+
+    # These aren't really creds in the tradidional sense. They're only
+    # ever provided via environment variables (usually in CI), and
+    # they're only ever used during `bazel run` (to upload benchmark
+    # data). So we'll forward them to Bazel if they both exist.
+
+    def update(self, creds_mgr, bazel):
+        token = os.environ.get('SPLUNK_ABS_TOKEN', '')
+        index = os.environ.get('SPLUNK_ABS_INDEX', '')
+        if token and index:
+            bazel.env.update(SPLUNK_ABS_TOKEN=token, SPLUNK_ABS_INDEX=index)
+
+
+class LinuxSandbox(Cred):
+    """Arrange to have the sandbox placed on a tmpfs (/tmp) on Linux."""
+
+    # On Linux, putting the sandbox base on a tmpfs significantly
+    # speeds up compilation. snaprr images have a tmpfs at /tmp, so
+    # we'll use that.
+
+    def update(self, creds_mgr, bazel):
+        sandbox = "#build --experimental_sandbox_base=/tmp" if get_platform() == "linux" else ""
+        creds_mgr.auth_substitutions.update(SANDBOX=sandbox)
+
+
+class RemoteCache(Cred):
+    """Allow end-users to disable the use of the bazel remote cache."""
+
+    def update(self, creds_mgr, bazel):
+        if os.environ.get('BAZEL_REMOTE_CACHE', '').lower() != 'false':
+            remote_cache = "build --config=remote-cache"
+        else:
+            print("WARNING: Remote caching is disabled because BAZEL_REMOTE_CACHE=false",
+                  file=sys.stderr)
+            remote_cache = ""
+        creds_mgr.auth_substitutions.update(REMOTE_CACHE=remote_cache)
+
+
+class BuildRequestID(Cred):
+    """Let Bazel send a deterministic correlated invocations ID to BRE.
+
+    BRE uses REv2's correlated_invocations_id and tool_invocation_id to
+    group actions. This grouping is used both for diagnostics and
+    scheduling (fairness) purposes.
+
+    This class ensures that correlated_invocations_id is set
+    deterministically for builds performed through CI, ensuring that all
+    pipeline stages use the same value.
+    """
+
+    def update(self, creds_mgr, bazel):
+        build_url = os.environ.get("BUILD_URL")
+        if build_url:
+            build_request_id = "common --build_request_id=%s" % uuid.uuid5(
+                uuid.NAMESPACE_URL, build_url
+            )
+        else:
+            build_request_id = ""
+        creds_mgr.auth_substitutions.update(BUILD_REQUEST_ID=build_request_id)
+
+
+class RealBazel(CommandBuilder):
+    """Download the correct bazel binary version from artifactory and
+    configure ourselves to use it
+    """
+
+    BAZEL_VERSION = '5.1.0'
+
+    def __init__(self, creds_mgr):
+        self.creds_mgr = creds_mgr
+
+        self.force_x86_64 = os.environ.get("BAZEL_FORCE_X86_64", "")
+
+    def update(self, bazel):
+        af_api_key = self.creds_mgr.get('AF_API_KEY')
+
+        bazel_bin_name = 'bazel-{}-{}-{}'.format(
+            self.BAZEL_VERSION, get_platform(), platform.machine() if not self.force_x86_64 else "x86_64"
+        )
+        bazel_real = "/var/tmp/{}".format(bazel_bin_name)
+        bazel_real_tmp = "{}.tmp".format(bazel_real)
+        af_bazel_path = "/bazel/external/bazelbuild/bazel/{}".format(bazel_bin_name)
+
+        # If bazel_real already exists, don't re-fetch it
+        if not os.path.exists(bazel_real):
+            print("Downloading bazel-{} to {}".format(self.BAZEL_VERSION, bazel_real),
+                  file=sys.stderr)
+            if not os.path.exists(os.path.dirname(bazel_real)):
+                os.makedirs(os.path.dirname(bazel_real))
+
+            # We want to make sure if the download gets interrupted, we
+            # don't end-up with an invalid file.  To do that, we're
+            # downloading it with the .tmp suffix and rename it upon
+            # completion.
+            curl("--header", "X-JFrog-Art-Api:{}".format(af_api_key), "--output", bazel_real_tmp,
+                 artifactory_url(af_bazel_path))
+            os.chmod(bazel_real_tmp, 0o755)
+            os.rename(bazel_real_tmp, bazel_real)
+
+        bazel.set_executable(bazel_real)
+
+
+class BaseEnv(CommandBuilder):
+    """Prepare the basic set of environment variables to be used by bazel."""
+
+    def update(self, bazel):
+        env_dict = dict(  # noqa: C408
+                # Disable the automatic local toolchain configuration
+                # We should set BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN here, but because because of an
+                # error in @bazel_tools repository rules, setting it results in a skylark exception.
+                # Se'll use BAZEL_USE_CPP_ONLY_TOOLCHAIN; this will not raise an exception, and it
+                # is effectively slightly different, but because we have our own toolchains anyway,
+                # this should be ok temporarily.
+                BAZEL_USE_CPP_ONLY_TOOLCHAIN='1',
+                BAZEL_WORKSPACE_ARTIFACTORY_LOCAL_PATH=os.environ.get(
+                    'BAZEL_WORKSPACE_ARTIFACTORY_LOCAL_PATH', ''),
+                BAZEL_WORKSPACE_ARTIFACTORY_REMOTE_PATH=os.environ.get(
+                    'BAZEL_WORKSPACE_ARTIFACTORY_REMOTE_PATH', ''),
+                BAZEL_FORCE_X86_64=os.environ.get('BAZEL_FORCE_X86_64', ''),
+                # Forward the build information needed by workspace_status.sh
+                AF_ARTIFACT_REPO=os.environ.get('AF_ARTIFACT_REPO', ''),
+                JOB_BASE_NAME=os.environ.get('JOB_BASE_NAME', ''),
+                JOB_NAME=os.environ.get('JOB_NAME', ''),
+                BUILD_NUMBER=os.environ.get('BUILD_NUMBER', ''),
+                BUILD_URL=os.environ.get('BUILD_URL', ''),
+                GERRIT_BRANCH=os.environ.get('GERRIT_BRANCH', ''),
+                GERRIT_CHANGE_COMMIT_MESSAGE=os.environ.get('GERRIT_CHANGE_COMMIT_MESSAGE', ''),
+                GERRIT_CHANGE_ID=os.environ.get('GERRIT_CHANGE_ID', ''),
+                GERRIT_CHANGE_NUMBER=os.environ.get('GERRIT_CHANGE_NUMBER', ''),
+                GERRIT_CHANGE_OWNER_EMAIL=os.environ.get('GERRIT_CHANGE_OWNER_EMAIL', ''),
+                GERRIT_CHANGE_OWNER_NAME=os.environ.get('GERRIT_CHANGE_OWNER_NAME', ''),
+                GERRIT_CHANGE_SUBJECT=os.environ.get('GERRIT_CHANGE_SUBJECT', ''),
+                GERRIT_CHANGE_URL=os.environ.get('GERRIT_CHANGE_URL', ''),
+                GERRIT_EVENT_ACCOUNT_NAME=os.environ.get('GERRIT_EVENT_ACCOUNT_NAME', ''),
+                GERRIT_EVENT_ACCOUNT_EMAIL=os.environ.get('GERRIT_EVENT_ACCOUNT_EMAIL', ''),
+                GERRIT_EVENT_TYPE=os.environ.get('GERRIT_EVENT_TYPE', ''),
+                GERRIT_PATCHSET_NUMBER=os.environ.get('GERRIT_PATCHSET_NUMBER', ''),
+                GERRIT_PATCHSET_REVISION=os.environ.get('GERRIT_PATCHSET_REVISION', ''),
+                GERRIT_PATCHSET_UPLOADER_EMAIL=os.environ.get('GERRIT_PATCHSET_UPLOADER_EMAIL', ''),
+                GERRIT_PATCHSET_UPLOADER_NAME=os.environ.get('GERRIT_PATCHSET_UPLOADER_NAME', ''),
+                GERRIT_PROJECT=os.environ.get('GERRIT_PROJECT', ''),
+                JENKINS_RUNTIME_ENVIRONMENT=os.environ.get('RUNTIME_ENVIRONMENT', ''),
+                RUN_DISPLAY_URL=os.environ.get('RUN_DISPLAY_URL', ''),
+                BUILD_PORTAL_S3_BUCKET=os.environ.get('BUILD_PORTAL_S3_BUCKET', ''),
+                # Put additional environment here
+                HOME=os.environ['HOME'],
+                PATH='/usr/bin:/bin:/usr/sbin:/sbin',
+                SSH_AUTH_SOCK=os.environ.get('SSH_AUTH_SOCK', ''),
+                SSH_CONNECTION=os.environ.get('SSH_CONNECTION', ''),
+                TERM=os.environ.get('TERM', 'dumb'),
+                USER=os.environ.get('USER', ''),
+                VERSION=os.environ.get('VERSION', ''),
+                NODE_NAME_OVERRIDE=os.environ.get('NODE_NAME_OVERRIDE', ''),
+                SAFETYNET_INTERFACE_IP=os.environ.get('SAFETYNET_INTERFACE_IP', ''),
+                SAFETYNET_LOOPBACK_ON=os.environ.get('SAFETYNET_LOOPBACK_ON', ''),
+                T32_MODE=os.environ.get('T32_MODE', ''),
+                T32_IP_ADDR=os.environ.get('T32_IP_ADDR', ''),
+                T32_CONFIG=os.environ.get('T32_CONFIG', ''),
+        )
+        for key in [HTTP_PROXY_ENV_VAR_NAME, HTTPS_PROXY_ENV_VAR_NAME, NO_PROXY_ENV_VAR_NAME,
+                    HTTP_PROXY_ENV_VAR_NAME.lower(), HTTPS_PROXY_ENV_VAR_NAME.lower(),
+                    NO_PROXY_ENV_VAR_NAME.lower()]:
+            # conditionally populate HTTP/S proxy setup if present
+            value = os.environ.get(key)
+            if value:
+                env_dict[key] = value
+
+        # Propagate BAZEL_REMOTE_*, BAZELW_*, and TCLOUD_* environment variables that have not yet
+        # been set. This is so `bazel run` actions that re-invoke bazel (such as the ones vscode
+        # uses for compile-commands.json generation) honour the users configuration.
+        prefixes = ("BAZEL_REMOTE_", "BAZELW_", "TCLOUD_")
+        for var_name, value in os.environ.items():
+            if any(var_name.startswith(prefix) for prefix in prefixes):
+                env_dict.setdefault(var_name, value)
+
+        bazel.env.update(env_dict)
+
+
+class AppleCerts(CommandBuilder):
+    """Configure bazel to use a certificate store with Apple certs."""
+
+    # The bazel daemon will download files from artifactory (when
+    # using repository_ctx.download()). In order for the daemon to
+    # authenticate artifactory, we need to start the JVM with our
+    # private keychain.
+    ROOT_CA_PATH = 'tools/certificates/apple_corporate_root_cas.jks'
+
+    # The .jks file must have a password, so even though we don't need
+    # it, we'll set it to the value of "changeit" which seems to be
+    # the default for java keystores.
+    ROOT_CA_JKS_PW = 'changeit'
+
+    def update(self, bazel):
+        root_ca_jks = os.path.join(workspace_dir(), self.ROOT_CA_PATH)
+
+        bazel.argv.insert(1, '--host_jvm_args=-Djavax.net.ssl.trustStore=' + root_ca_jks)
+        bazel.argv.insert(
+            1, '--host_jvm_args=-Djavax.net.ssl.trustStorePassword=' + self.ROOT_CA_JKS_PW)
+
+
+class UserArgs(CommandBuilder):
+    """Forward the arguments from the command line to Bazel."""
+
+    def update(self, bazel):
+        bazel.argv.extend(sys.argv[1:])
+
+
+# TODO(BEN-10010): Remove this CommandBuilder subclass. See message below.
+class ParamFile(CommandBuilder):
+    """This CommandBuilder is deprecated.
+
+    The usage of --param_file is no longer supported, in favor of --target_pattern_file (see
+    BEN-10010). This stub still remains around to give any stray usages of --param_file a helpful
+    error message until it is completely removed.
+    """
+
+    def param_file(self, argv):
+        param_file_opt = '--param_file'
+        for arg in argv:
+            if arg.startswith(param_file_opt):
+                raise ValueError("--param_file is no longer supported in this bazel wrapper. Use \
+--target_pattern_file instead to specify a file of targets.")
+        # Original argv unchanged.
+
+    def update(self, bazel):
+        self.param_file(bazel.argv)
+
+
+class IntellijFix(CommandBuilder):
+    """Workaround to make Intellij IDEs understand `strip_include_prefix` packages."""
+
+    OLD_ASPECT = b"--aspects=@intellij_aspect//:intellij_info_bundled.bzl%intellij_info_aspect"
+    NEW_ASPECT = b"--aspects=//bazel/tools:intellij.bzl%intellij_info_aspect"
+
+    def update(self, bazel):
+        """Perform a direct string substitution to replace the Intellij aspect with our own."""
+        for idx in range(len(bazel.argv)):
+            try:
+                if bazel.argv[idx] == self.OLD_ASPECT:
+                    bazel.argv[idx] = self.NEW_ASPECT
+            except UnicodeDecodeError:
+                pass
+
+
+def enable_tracing():
+    """Turn on python tracing (set -x for python)."""
+
+    def trace(frame, event, _arg):
+        if frame.f_code.co_filename != this_file:
+            return None
+        frame = inspect.getframeinfo(frame)
+        sys.stderr.write('{event:9} bazelw:{lineno:3} {function:22} >>> {line}'.format(
+            event=event,
+            function=frame.function,
+            line=frame.code_context[frame.index],
+            lineno=frame.lineno,
+        ))
+        return trace
+
+    this_file = __file__
+    sys.settrace(trace)
+
+
+def main():
+    creds_mgr = CredsManager()
+    creds_mgr.register(
+        OdUserCred(),
+        ArtifactoryCred(),
+        BuildbarnCred(),  # needs to be in order before BuildAPICred
+        BuildAPICred(),
+        TcloudCred(),
+        TWSCred(),
+        CastleCred(),
+        SplunkCred(),
+        LinuxSandbox(),
+        RemoteCache(),
+        BuildRequestID(),
+    )
+
+    bazel = Command()
+    bazel.register(
+        creds_mgr,
+        RealBazel(creds_mgr),
+        BaseEnv(),
+        AppleCerts(),
+        UserArgs(),
+        ParamFile(),
+        IntellijFix(),
+    )
+
+    # We're going to write a bunch of files that have secrets, so we'll
+    # try to prevent them from being world-readable by default.
+    old_umask = os.umask(0o077)
+
+    # Run through all of the registered callbacks
+    try:
+        bazel.update()
+    except BazelwPromptError as exc:
+        print(str(exc), file=sys.stderr)
+        return EXIT_CODE_MISSING_CREDENTIALS
+    except BazelwCurlAuthenticationError as exc:
+        print(str(exc), file=sys.stderr)
+        return EXIT_CODE_INVALID_CREDENTIALS
+
+    os.umask(old_umask)
+
+    # Ok, go run bazel
+    return bazel.execute()
+
+
+if __name__ == '__main__':
+    if os.environ.get('BAZELW_TRACE', '') == 'true':
+        enable_tracing()
+    sys.exit(main())

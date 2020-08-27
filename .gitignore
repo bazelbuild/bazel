@@ -21,6 +21,12 @@
 /.sass-cache
 # Bazelisk version file
 .bazelversion
+
 # User-specific .bazelrc
 user.bazelrc
+.bazelrc.auth
+uploads/
 
+# Titan infra-related
+.snaprr
+.remote_downloader_config
