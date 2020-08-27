@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.XcodeConfigEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
@@ -68,23 +67,20 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
       infoBuilder.setXcodeVersionFlag(appleOptions.xcodeVersion);
     }
     XcodeVersionRuleData explicitDefaultVersion =
-        ruleContext.getPrerequisite(
-            XcodeConfigRule.DEFAULT_ATTR_NAME, TransitionMode.TARGET, XcodeVersionRuleData.class);
+        ruleContext.getPrerequisite(XcodeConfigRule.DEFAULT_ATTR_NAME, XcodeVersionRuleData.class);
 
     List<XcodeVersionRuleData> explicitVersions =
         ruleContext.getPrerequisites(
-            XcodeConfigRule.VERSIONS_ATTR_NAME, TransitionMode.TARGET, XcodeVersionRuleData.class);
+            XcodeConfigRule.VERSIONS_ATTR_NAME, XcodeVersionRuleData.class);
 
     AvailableXcodesInfo remoteVersions =
         ruleContext.getPrerequisite(
             XcodeConfigRule.REMOTE_VERSIONS_ATTR_NAME,
-            TransitionMode.TARGET,
             AvailableXcodesInfo.PROVIDER);
 
     AvailableXcodesInfo localVersions =
         ruleContext.getPrerequisite(
             XcodeConfigRule.LOCAL_VERSIONS_ATTR_NAME,
-            TransitionMode.TARGET,
             AvailableXcodesInfo.PROVIDER);
 
     XcodeVersionProperties xcodeVersionProperties;
@@ -508,7 +504,6 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
   public static XcodeConfigInfo getXcodeConfigInfo(RuleContext ruleContext) {
     return ruleContext.getPrerequisite(
         XcodeConfigRule.XCODE_CONFIG_ATTR_NAME,
-        TransitionMode.TARGET,
         com.google.devtools.build.lib.rules.apple.XcodeConfigInfo.PROVIDER);
   }
 }
