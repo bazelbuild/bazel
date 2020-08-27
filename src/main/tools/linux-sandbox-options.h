@@ -28,6 +28,8 @@ struct Options {
   int timeout_secs;
   // How long to wait before sending SIGKILL in case of timeout (-t)
   int kill_delay_secs;
+  // Send a SIGTERM to the child on receipt of a SIGINT (-i)
+  bool sigint_sends_sigterm;
   // Where to redirect stdout (-l)
   std::string stdout_path;
   // Where to redirect stderr (-L)
