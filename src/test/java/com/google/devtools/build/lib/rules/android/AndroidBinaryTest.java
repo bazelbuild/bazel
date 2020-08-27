@@ -1050,26 +1050,21 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testV1SigningMethod() throws Exception {
-    actualSignerToolTests("v1", "true", "false", "false");
+    actualSignerToolTests("v1", "true", "false");
   }
 
   @Test
   public void testV2SigningMethod() throws Exception {
-    actualSignerToolTests("v2", "false", "true", "false");
+    actualSignerToolTests("v2", "false", "true");
   }
 
   @Test
   public void testV1V2SigningMethod() throws Exception {
-    actualSignerToolTests("v1_v2", "true", "true", "false");
+    actualSignerToolTests("v1_v2", "true", "true");
   }
 
-  @Test
-  public void testV4SigningMethod() throws Exception {
-    actualSignerToolTests("v4", "false", "false", "true");
-  }
-
-  private void actualSignerToolTests(
-      String apkSigningMethod, String signV1, String signV2, String signV4) throws Exception {
+  private void actualSignerToolTests(String apkSigningMethod, String signV1, String signV2)
+      throws Exception {
     scratch.file(
         "java/com/google/android/hello/BUILD",
         "android_binary(name = 'hello',",
@@ -1107,11 +1102,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     assertThat(flagValue("--v1-signing-enabled", args)).isEqualTo(signV1);
     assertThat(flagValue("--v2-signing-enabled", args)).isEqualTo(signV2);
-    assertThat(flagValue("--v4-signing-enabled", args)).isEqualTo(signV4);
-
-    if (signV4.equals("true")) {
-      assertThat(getFirstArtifactEndingWith(artifacts, "signed_hello.apk.idsig")).isNull();
-    }
   }
 
   @Test
