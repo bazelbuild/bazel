@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
@@ -36,8 +35,7 @@ public class ConstraintValue implements RuleConfiguredTargetFactory {
 
     ConstraintSettingInfo constraint =
         PlatformProviderUtils.constraintSetting(
-            ruleContext.getPrerequisite(
-                ConstraintValueRule.CONSTRAINT_SETTING_ATTR, TransitionMode.DONT_CHECK));
+            ruleContext.getPrerequisite(ConstraintValueRule.CONSTRAINT_SETTING_ATTR));
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
