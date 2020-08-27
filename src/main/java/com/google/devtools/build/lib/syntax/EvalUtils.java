@@ -13,14 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.Ordering;
 import java.util.IllegalFormatException;
 
-/** Utilities used by the evaluator. */
-// TODO(adonovan): move isNullOrNone and isImmutable to class Starlark and make this private.
-public final class EvalUtils {
+/** Internal declarations used by the evaluator. */
+final class EvalUtils {
 
   private EvalUtils() {}
 
@@ -130,12 +128,6 @@ public final class EvalUtils {
     return Starlark.isImmutable(o);
   }
 
-  /** Deprecated alias for {@link Starlark#isImmutable}. */
-  // TODO(adonovan): delete after Copybara update.
-  public static boolean isImmutable(Object x) {
-    return Starlark.isImmutable(x);
-  }
-
   static void addIterator(Object x) {
     if (x instanceof Mutability.Freezable) {
       ((Mutability.Freezable) x).updateIteratorCount(+1);
@@ -184,12 +176,6 @@ public final class EvalUtils {
     } else {
       return index;
     }
-  }
-
-  /** Deprecated alias for {@link Starlark#isNullOrNone}. */
-  // TODO(adonovan): delete after Copybara update.
-  public static boolean isNullOrNone(Object x) {
-    return Starlark.isNullOrNone(x);
   }
 
   /** Evaluates an eager binary operation, {@code x op y}. (Excludes AND and OR.) */
@@ -551,72 +537,4 @@ public final class EvalUtils {
           Starlark.type(object));
     }
   }
-
-  /**
-   * Parses the input as a file, resolves it in the module environment using the specified options
-   * and returns the syntax tree. Scan/parse/resolve errors are recorded in the StarlarkFile. It is
-   * the caller's responsibility to inspect them.
-   *
-   * @deprecated Use {@link Program#compileFile}.
-   */
-  @Deprecated
-  public static StarlarkFile parseAndValidate(
-      ParserInput input, FileOptions options, Module module) {
-    StarlarkFile file = StarlarkFile.parse(input, options);
-    Resolver.resolveFile(file, module);
-    return file;
-  }
-
-  /**
-   * Parses the input as a file, resolves it in the module environment using the specified options
-   * and executes it. It returns None, unless the final statement is an expression, in which case it
-   * returns the expression's value.
-   *
-   * @deprecated Use {@link Starlark#execFile}.
-   */
-  @Deprecated
-  public static Object exec(
-      ParserInput input, FileOptions options, Module module, StarlarkThread thread)
-      throws SyntaxError.Exception, EvalException, InterruptedException {
-    StarlarkFile file = parseAndValidate(input, options, module);
-    if (!file.ok()) {
-      throw new SyntaxError.Exception(file.errors());
-    }
-    return exec(file, module, thread);
-  }
-
-  /**
-   * Executes a parsed, resolved Starlark file in the given StarlarkThread.
-   *
-   * @deprecated Use {@link Starlark#execFile}, or parts thereof.
-   */
-  @Deprecated
-  public static Object exec(StarlarkFile file, Module module, StarlarkThread thread)
-      throws EvalException, InterruptedException {
-    Preconditions.checkNotNull(
-        file.getResolvedFunction(),
-        "cannot evaluate unresolved syntax (use other exec method, or parseAndValidate)");
-
-    Tuple<Object> defaultValues = Tuple.empty();
-    StarlarkFunction toplevel =
-        new StarlarkFunction(file.getResolvedFunction(), defaultValues, module);
-
-    return Starlark.fastcall(thread, toplevel, NOARGS, NOARGS);
-  }
-
-  /**
-   * Parses the input as an expression, resolves it in the module environment using the specified
-   * options, and evaluates it.
-   *
-   * @deprecated Use {@link Starlark#eval}.
-   */
-  @Deprecated
-  public static Object eval(
-      ParserInput input, FileOptions options, Module module, StarlarkThread thread)
-      throws SyntaxError.Exception, EvalException, InterruptedException {
-    StarlarkFunction fn = Starlark.newExprFunction(input, options, module);
-    return Starlark.fastcall(thread, fn, NOARGS, NOARGS);
-  }
-
-  private static final Object[] NOARGS = {};
 }

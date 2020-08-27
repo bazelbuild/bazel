@@ -37,10 +37,12 @@ public class StarlarkThreadDebuggingTest {
 
   // Executes the definition of a trivial function f and returns the function value.
   private static StarlarkFunction defineFunc() throws Exception {
-    Module module = Module.create();
-    Starlark.execFile(
-        ParserInput.fromLines("def f(): pass"), FileOptions.DEFAULT, module, newThread());
-    return (StarlarkFunction) module.getGlobal("f");
+    return (StarlarkFunction)
+        Starlark.execFile(
+            ParserInput.fromLines("def f(): pass\nf"),
+            FileOptions.DEFAULT,
+            Module.create(),
+            newThread());
   }
 
   @Test

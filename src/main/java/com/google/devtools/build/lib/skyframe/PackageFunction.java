@@ -1211,8 +1211,11 @@ public class PackageFunction implements SkyFunction {
         // Options for processing BUILD files.
         FileOptions options =
             FileOptions.builder()
-                .recordScope(false) // don't mutate BUILD syntax tree due to shared prelude
-                // TODO(adonovan): remove recordScope opt-out
+                // TODO(adonovan): remove recordScope opt-out. But first we need to fix the
+                // preexisting
+                // problem that fileSyntaxCache shares syntax trees which createPackageFromAst
+                // mutates.
+                .recordScope(false) // don't mutate BUILD syntax
                 .requireLoadStatementsFirst(false)
                 .allowToplevelRebinding(true)
                 .restrictStringEscapes(starlarkSemantics.incompatibleRestrictStringEscapes())
@@ -1258,7 +1261,7 @@ public class PackageFunction implements SkyFunction {
               repositoryMapping,
               packageId,
               buildFilePath,
-              file,
+              file, // becomes resolved as a side effect
               bzlLoadResult.preludeModule,
               bzlLoadResult.loadedModules,
               defaultVisibility,

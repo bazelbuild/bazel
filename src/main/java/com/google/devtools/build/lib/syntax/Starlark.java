@@ -38,7 +38,6 @@ import net.starlark.java.spelling.SpellChecker;
  * The Starlark class defines the most important entry points, constants, and functions needed by
  * all clients of the Starlark interpreter.
  */
-// TODO(adonovan): move these here: equal, compare, index, and so on.
 public final class Starlark {
 
   private Starlark() {} // uninstantiable

@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery.Code;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.Module;
@@ -69,11 +68,10 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
     String fileBody = "def f(target): return (" + options.expr + ")\n" + "f";
     ParserInput input = ParserInput.fromString(fileBody, "--starlark:expr");
 
-    try {
-      StarlarkThread thread =
-          new StarlarkThread(Mutability.create("foo"), StarlarkSemantics.DEFAULT);
+    try (Mutability mu = Mutability.create("formatter")) {
+      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
       this.exprEvalFn =
-          (StarlarkFunction) EvalUtils.exec(input, FileOptions.DEFAULT, Module.create(), thread);
+          (StarlarkFunction) Starlark.execFile(input, FileOptions.DEFAULT, Module.create(), thread);
     } catch (SyntaxError.Exception ex) {
       throw new QueryException(
           "invalid --starlark:expr: " + ex.getMessage(), Code.STARLARK_SYNTAX_ERROR);

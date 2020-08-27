@@ -54,15 +54,13 @@ import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.Program;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkList;
-import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
@@ -739,12 +737,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   private static void evalAndExport(EvaluationTestCase ev, String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
     Module module = ev.getModule();
-    StarlarkFile file = EvalUtils.parseAndValidate(input, FileOptions.DEFAULT, module);
-    if (!file.ok()) {
-      throw new SyntaxError.Exception(file.errors());
-    }
+    StarlarkFile file = StarlarkFile.parse(input);
+    Program prog = Program.compileFile(file, module);
     BzlLoadFunction.execAndExport(
-        file, FAKE_LABEL, ev.getEventHandler(), module, ev.getStarlarkThread());
+        prog, FAKE_LABEL, ev.getEventHandler(), module, ev.getStarlarkThread());
   }
 
   @Test

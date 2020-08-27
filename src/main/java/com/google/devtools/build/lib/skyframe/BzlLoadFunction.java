@@ -42,10 +42,11 @@ import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.skyframe.ASTFileLookupFunction.ASTLookupFailedException;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction.BuiltinsFailedException;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.Program;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -627,10 +628,23 @@ public class BzlLoadFunction implements SkyFunction {
     module.setClientData(
         BazelModuleContext.create(
             label, file.getStartLocation().file(), ImmutableMap.copyOf(loadMap), transitiveDigest));
+
+    // compile
+    //
+    // Note: file is shared: it belongs the to caller, which already resolved it
+    // (see skyframe.ASTFileLookupFunction.java:154).
+    // Can we compile it there too? Is the Module env consistent?
+    // If we move this step into caller, the runtime module must match resolver module:
+    // Validation (there) uses packageFactory.getRuleClassProvider().getEnvironment();
+    // Compilation (here) uses getAndDigestPredeclaredEnvironment, which is complex.
+    //
+    // For now, Program temporarily gives us a way to compile an already-resolved file:
+    Program prog = Program.compileResolvedFile(file);
+
     // executeBzlFile may post events to the Environment's handler, but events do not matter when
     // caching BzlLoadValues. Note that executing the code mutates the module.
     executeBzlFile(
-        file, key.getLabel(), module, loadMap, starlarkSemantics, env.getListener(), repoMapping);
+        prog, key.getLabel(), module, loadMap, starlarkSemantics, env.getListener(), repoMapping);
     return new BzlLoadValue(module, transitiveDigest);
   }
 
@@ -872,9 +886,9 @@ public class BzlLoadFunction implements SkyFunction {
     }
   }
 
-  /** Executes the .bzl file defining the module to be loaded. */
+  /** Executes the compiled .bzl file defining the module to be loaded. */
   private void executeBzlFile(
-      StarlarkFile file,
+      Program prog,
       Label label,
       Module module,
       Map<String, Module> loadedModules,
@@ -890,7 +904,7 @@ public class BzlLoadFunction implements SkyFunction {
       packageFactory
           .getRuleClassProvider()
           .setStarlarkThreadContext(thread, label, repositoryMapping);
-      execAndExport(file, label, starlarkEventHandler, module, thread);
+      execAndExport(prog, label, starlarkEventHandler, module, thread);
 
       Event.replayEventsOn(skyframeEventHandler, starlarkEventHandler.getEvents());
       for (Postable post : starlarkEventHandler.getPosts()) {
@@ -902,11 +916,10 @@ public class BzlLoadFunction implements SkyFunction {
     }
   }
 
-  // Precondition: file is validated and error-free.
   // Precondition: thread has a valid transitiveDigest.
   // TODO(adonovan): executeBzlFile would make a better public API than this function.
   public static void execAndExport(
-      StarlarkFile file, Label label, EventHandler handler, Module module, StarlarkThread thread)
+      Program prog, Label label, EventHandler handler, Module module, StarlarkThread thread)
       throws InterruptedException {
 
     // Intercept execution after every assignment at top level
@@ -927,7 +940,7 @@ public class BzlLoadFunction implements SkyFunction {
         });
 
     try {
-      EvalUtils.exec(file, module, thread);
+      Starlark.execFileProgram(prog, module, thread);
     } catch (EvalException ex) {
       handler.handle(Event.error(null, ex.getMessageWithStack()));
     }
