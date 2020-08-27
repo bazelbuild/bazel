@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.java.proto;
 
-import static com.google.devtools.build.lib.analysis.TransitionMode.TARGET;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 import static com.google.devtools.build.lib.rules.java.proto.JplCcLinkParams.createCcLinkingInfo;
 import static com.google.devtools.build.lib.rules.java.proto.StrictDepsUtils.constructJcapFromAspectDeps;
@@ -57,7 +56,7 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
     }
 
     Iterable<JavaProtoLibraryAspectProvider> javaProtoLibraryAspectProviders =
-        ruleContext.getPrerequisites("deps", TARGET, JavaProtoLibraryAspectProvider.class);
+        ruleContext.getPrerequisites("deps", JavaProtoLibraryAspectProvider.class);
 
     JavaCompilationArgsProvider dependencyArgsProviders =
         constructJcapFromAspectDeps(ruleContext, javaProtoLibraryAspectProviders);
@@ -75,7 +74,7 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
 
     JavaSourceJarsProvider sourceJarsProvider =
         JavaSourceJarsProvider.merge(
-            ruleContext.getPrerequisites("deps", TARGET, JavaSourceJarsProvider.class));
+            ruleContext.getPrerequisites("deps", JavaSourceJarsProvider.class));
 
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
 

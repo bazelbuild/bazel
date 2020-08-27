@@ -67,7 +67,7 @@ public final class ProguardLibrary {
     if (!localSpecs.isEmpty()) {
       // Pass our local proguard configs through the validator, which checks an allowlist.
       FilesToRunProvider proguardAllowlister =
-          ruleContext.getExecutablePrerequisite("$proguard_whitelister", TransitionMode.HOST);
+          ruleContext.getExecutablePrerequisite("$proguard_whitelister");
       for (Artifact specToValidate : localSpecs) {
         specsBuilder.add(validateProguardSpec(proguardAllowlister, specToValidate));
       }
@@ -81,7 +81,7 @@ public final class ProguardLibrary {
     if (!ruleContext.attributes().has(LOCAL_SPEC_ATTRIBUTE, BuildType.LABEL_LIST)) {
       return ImmutableList.of();
     }
-    return ruleContext.getPrerequisiteArtifacts(LOCAL_SPEC_ATTRIBUTE, TransitionMode.TARGET).list();
+    return ruleContext.getPrerequisiteArtifacts(LOCAL_SPEC_ATTRIBUTE).list();
   }
 
   /**

@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -99,8 +98,7 @@ public final class ImportDepsCheckActionBuilder {
     ruleContext.registerAction(
         new SpawnAction.Builder()
             .useDefaultShellEnvironment()
-            .setExecutable(
-                ruleContext.getExecutablePrerequisite("$import_deps_checker", TransitionMode.HOST))
+            .setExecutable(ruleContext.getExecutablePrerequisite("$import_deps_checker"))
             .addTransitiveInputs(jarsToCheck)
             .addTransitiveInputs(declaredDeps)
             .addTransitiveInputs(transitiveDeps)

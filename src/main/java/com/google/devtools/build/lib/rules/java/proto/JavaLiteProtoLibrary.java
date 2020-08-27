@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -54,8 +53,7 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
     JavaCommon.checkRuleLoadedThroughMacro(ruleContext);
 
     Iterable<JavaProtoLibraryAspectProvider> javaProtoLibraryAspectProviders =
-        ruleContext.getPrerequisites(
-            "deps", TransitionMode.TARGET, JavaProtoLibraryAspectProvider.class);
+        ruleContext.getPrerequisites("deps", JavaProtoLibraryAspectProvider.class);
 
     JavaCompilationArgsProvider dependencyArgsProviders =
         constructJcapFromAspectDeps(ruleContext, javaProtoLibraryAspectProviders);
@@ -69,8 +67,7 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
 
     JavaSourceJarsProvider sourceJarsProvider =
         JavaSourceJarsProvider.merge(
-            ruleContext.getPrerequisites(
-                "deps", TransitionMode.TARGET, JavaSourceJarsProvider.class));
+            ruleContext.getPrerequisites("deps", JavaSourceJarsProvider.class));
 
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
 
