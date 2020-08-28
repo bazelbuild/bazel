@@ -5792,6 +5792,28 @@ def _impl(ctx):
         bitcode_embedded_markers_feature = feature(name = "bitcode_embedded_markers")
         bitcode_embedded_feature = feature(name = "bitcode_embedded")
 
+    generate_linkmap_feature = feature(
+        name = "generate_linkmap",
+        flag_sets = [
+            flag_set(
+                actions = [
+                    ACTION_NAMES.objc_executable,
+                    ACTION_NAMES.objcpp_executable,
+                ],
+                flag_groups = [
+                    flag_group(
+                        flags = [
+                            "-Xlinker",
+                            "-map",
+                            "-Xlinker",
+                            "%{linkmap_exec_path}",
+                        ],
+                    ),
+                ],
+            ),
+        ],
+    )
+
     if (ctx.attr.cpu == "ios_arm64" or
         ctx.attr.cpu == "ios_arm64e" or
         ctx.attr.cpu == "ios_armv7" or
@@ -5816,6 +5838,7 @@ def _impl(ctx):
             default_compile_flags_feature,
             debug_prefix_map_pwd_is_dot_feature,
             generate_dsym_file_feature,
+            generate_linkmap_feature,
             oso_prefix_feature,
             contains_objc_source_feature,
             objc_actions_feature,
@@ -5888,6 +5911,7 @@ def _impl(ctx):
             default_compile_flags_feature,
             debug_prefix_map_pwd_is_dot_feature,
             generate_dsym_file_feature,
+            generate_linkmap_feature,
             oso_prefix_feature,
             contains_objc_source_feature,
             objc_actions_feature,
@@ -5962,6 +5986,7 @@ def _impl(ctx):
             default_compile_flags_feature,
             debug_prefix_map_pwd_is_dot_feature,
             generate_dsym_file_feature,
+            generate_linkmap_feature,
             oso_prefix_feature,
             contains_objc_source_feature,
             objc_actions_feature,
