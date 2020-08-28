@@ -533,18 +533,18 @@ public final class PackageFactory {
 
   @VisibleForTesting
   public Package.Builder newExternalPackageBuilder(
-      RootedPath workspacePath, String runfilesPrefix, StarlarkSemantics starlarkSemantics) {
+      RootedPath workspacePath, String workspaceName, StarlarkSemantics starlarkSemantics) {
     return Package.newExternalPackageBuilder(
-        packageSettings, workspacePath, runfilesPrefix, starlarkSemantics);
+        packageSettings, workspacePath, workspaceName, starlarkSemantics);
   }
 
   @VisibleForTesting
   public Package.Builder newPackageBuilder(
-      PackageIdentifier packageId, String runfilesPrefix, StarlarkSemantics starlarkSemantics) {
+      PackageIdentifier packageId, String workspaceName, StarlarkSemantics starlarkSemantics) {
     return new Package.Builder(
         packageSettings,
         packageId,
-        runfilesPrefix,
+        workspaceName,
         starlarkSemantics.incompatibleNoImplicitFileExport(),
         Package.Builder.EMPTY_REPOSITORY_MAPPING);
   }
@@ -896,7 +896,7 @@ public final class PackageFactory {
         new Package.Builder(
                 packageSettings,
                 packageId,
-                ruleClassProvider.getRunfilesPrefix(),
+                workspaceName,
                 semantics.incompatibleNoImplicitFileExport(),
                 repositoryMapping)
             .setFilename(buildFilePath)
@@ -908,7 +908,6 @@ public final class PackageFactory {
             // TODO(adonovan): opt: don't precompute this value, which is rarely needed
             // and can be derived from Package.loads (if available) on demand.
             .setStarlarkFileDependencies(transitiveClosureOfLabels(loadedModules))
-            .setWorkspaceName(workspaceName)
             .setThirdPartyLicenceExistencePolicy(
                 ruleClassProvider.getThirdPartyLicenseExistencePolicy());
     if (packageSettings.recordLoadedModules()) {

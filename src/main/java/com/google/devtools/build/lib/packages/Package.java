@@ -239,9 +239,9 @@ public class Package {
    * <p>{@code name} <b>MUST</b> be a suffix of {@code filename.getParentDirectory())}.
    */
   private Package(
-      PackageIdentifier packageId, String runfilesPrefix, boolean suggestNoSuchTargetCorrections) {
+      PackageIdentifier packageId, String workspaceName, boolean suggestNoSuchTargetCorrections) {
     this.packageIdentifier = packageId;
-    this.workspaceName = runfilesPrefix;
+    this.workspaceName = workspaceName;
     this.suggestNoSuchTargetCorrections = suggestNoSuchTargetCorrections;
   }
 
@@ -768,12 +768,12 @@ public class Package {
   public static Builder newExternalPackageBuilder(
       PackageSettings helper,
       RootedPath workspacePath,
-      String runfilesPrefix,
+      String workspaceName,
       StarlarkSemantics starlarkSemantics) {
     return new Builder(
             helper,
             LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
-            runfilesPrefix,
+            workspaceName,
             starlarkSemantics.incompatibleNoImplicitFileExport(),
             Builder.EMPTY_REPOSITORY_MAPPING)
         .setFilename(workspacePath);
@@ -923,10 +923,10 @@ public class Package {
     Builder(
         PackageSettings packageSettings,
         PackageIdentifier id,
-        String runfilesPrefix,
+        String workspaceName,
         boolean noImplicitFileExport,
         ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
-      this.pkg = new Package(id, runfilesPrefix, packageSettings.suggestNoSuchTargetCorrections());
+      this.pkg = new Package(id, workspaceName, packageSettings.suggestNoSuchTargetCorrections());
       this.noImplicitFileExport = noImplicitFileExport;
       this.repositoryMapping = repositoryMapping;
       if (pkg.getName().startsWith("javatests/")) {
