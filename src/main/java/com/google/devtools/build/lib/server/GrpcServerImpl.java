@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.net.InetAddresses;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
@@ -74,7 +73,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -275,56 +273,6 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     }
   }
 
-  /**
-   * A thread that watches if the PID file changes and shuts down the server immediately if so.
-   */
-  private class PidFileWatcherThread extends Thread {
-    private boolean shuttingDown = false;
-
-    private PidFileWatcherThread() {
-      super("pid-file-watcher");
-      setDaemon(true);
-    }
-
-    // The synchronized block is here so that if the "PID file deleted" timer kicks in during a
-    // regular shutdown, they don't race.
-    private synchronized void signalShutdown() {
-      shuttingDown = true;
-    }
-
-    @Override
-    public void run() {
-      while (true) {
-        Uninterruptibles.sleepUninterruptibly(5, TimeUnit.SECONDS);
-        boolean ok = false;
-        try {
-          String pidFileContents = new String(FileSystemUtils.readContentAsLatin1(pidFile));
-          ok = pidFileContents.equals(pidInFile);
-        } catch (IOException e) {
-          logger.atInfo().log("Cannot read PID file: %s", e.getMessage());
-          // Handled by virtue of ok not being set to true
-        }
-
-        if (!ok) {
-          synchronized (PidFileWatcherThread.this) {
-            if (shuttingDown) {
-              logger.atWarning().log(
-                  "PID file deleted or overwritten but shutdown is already in progress");
-              break;
-            }
-
-            shuttingDown = true;
-            // Someone overwrote the PID file. Maybe it's another server, so shut down as quickly
-            // as possible without even running the shutdown hooks (that would delete it)
-            logger.atSevere().log(
-                "PID file deleted or overwritten, exiting as quickly as possible");
-            Runtime.getRuntime().halt(ExitCode.BLAZE_INTERNAL_ERROR.getNumericExitCode());
-          }
-        }
-      }
-    }
-  }
-
   // These paths are all relative to the server directory
   private static final String PORT_FILE = "command_port";
   private static final String REQUEST_COOKIE_FILE = "request_cookie";
@@ -341,9 +289,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
   private final String requestCookie;
   private final String responseCookie;
   private final int maxIdleSeconds;
-  private final PidFileWatcherThread pidFileWatcherThread;
-  private final Path pidFile;
-  private final String pidInFile;
+  private final PidFileWatcher pidFileWatcherThread;
+  private final int serverPid;
   private final List<Path> filesToDeleteAtExit = new ArrayList<>();
   private final int port;
 
@@ -367,15 +314,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     // server.pid was written in the C++ launcher after fork() but before exec().
     // The client only accesses the pid file after connecting to the socket
     // which ensures that it gets the correct pid value.
-    pidFile = serverDirectory.getRelative("server.pid.txt");
-    try {
-      pidInFile = new String(FileSystemUtils.readContentAsLatin1(pidFile));
-    } catch (IOException e) {
-      throw createFilesystemFailureException(
-          "Server pid file read failed: " + e.getMessage(),
-          Code.SERVER_PID_TXT_FILE_READ_FAILURE,
-          e);
-    }
+    Path pidFile = serverDirectory.getRelative("server.pid.txt");
+    serverPid = readPidFile(pidFile);
     deleteAtExit(pidFile);
 
     this.dispatcher = dispatcher;
@@ -397,7 +337,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     this.requestCookie = requestCookie;
     this.responseCookie = responseCookie;
 
-    pidFileWatcherThread = new PidFileWatcherThread();
+    pidFileWatcherThread = new PidFileWatcher(pidFile, serverPid);
     pidFileWatcherThread.start();
     commandManager = new CommandManager(doIdleServerTasks);
   }
@@ -512,7 +452,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
 
     ServerInfo info =
         ServerInfo.newBuilder()
-            .setPid(Integer.parseInt(pidInFile))
+            .setPid(serverPid)
             .setAddress(addressString)
             .setRequestCookie(requestCookie)
             .setResponseCookie(responseCookie)
@@ -762,6 +702,23 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       // There is no one to report the failure to
       logger.atInfo().log(
           "Client cancelled RPC of cancellation request for %s", request.getCommandId());
+    }
+  }
+
+  private static int readPidFile(Path pidFile) throws AbruptExitException {
+    try {
+      return Integer.parseInt(new String(FileSystemUtils.readContentAsLatin1(pidFile)));
+    } catch (IOException e) {
+      throw createFilesystemFailureException(
+          "Server pid file read failed: " + e.getMessage(),
+          Code.SERVER_PID_TXT_FILE_READ_FAILURE,
+          e);
+    } catch (NumberFormatException e) {
+      // Invalid contents (not a number) is more likely than not a filesystem issue.
+      throw createFilesystemFailureException(
+          "Server pid file corrupted: " + e.getMessage(),
+          Code.SERVER_PID_TXT_FILE_READ_FAILURE,
+          new IOException(e));
     }
   }
 

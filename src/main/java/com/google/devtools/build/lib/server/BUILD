@@ -16,6 +16,7 @@ java_library(
         "CommandManager.java",
         "GrpcServerImpl.java",
         "IdleServerTasks.java",
+        "PidFileWatcher.java",
         "ServerWatcherRunnable.java",
     ],
     deps = [
