@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -132,8 +131,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     Depset allFiles = (Depset) getMyInfoFromTarget(r).getValue("all_files");
     RuleContext ruleContext = getRuleContext(r);
     CcToolchainProvider toolchain =
-        CppHelper.getToolchain(
-            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", TransitionMode.TARGET));
+        CppHelper.getToolchain(ruleContext, ruleContext.getPrerequisite("$cc_toolchain"));
     assertThat(allFiles.getSet(Artifact.class)).isEqualTo(toolchain.getAllFiles());
   }
 
@@ -193,8 +191,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     RuleContext ruleContext = getRuleContext(r);
     CcToolchainProvider toolchain =
-        CppHelper.getToolchain(
-            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", TransitionMode.TARGET));
+        CppHelper.getToolchain(ruleContext, ruleContext.getPrerequisite("$cc_toolchain"));
     assertThat(staticRuntimeLib.getSet(Artifact.class))
         .isEqualTo(toolchain.getStaticRuntimeLibForTesting());
     assertThat(dynamicRuntimeLib.getSet(Artifact.class))
@@ -234,8 +231,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     String actionToolPath = (String) getMyInfoFromTarget(r).getValue("action_tool_path");
     RuleContext ruleContext = getRuleContext(r);
     CcToolchainProvider toolchain =
-        CppHelper.getToolchain(
-            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", TransitionMode.TARGET));
+        CppHelper.getToolchain(ruleContext, ruleContext.getPrerequisite("$cc_toolchain"));
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
             ImmutableSet.of(),
@@ -402,8 +398,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         (Sequence<String>) getMyInfoFromTarget(r).getValue("command_line");
     RuleContext ruleContext = getRuleContext(r);
     CcToolchainProvider toolchain =
-        CppHelper.getToolchain(
-            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", TransitionMode.TARGET));
+        CppHelper.getToolchain(ruleContext, ruleContext.getPrerequisite("$cc_toolchain"));
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
             ImmutableSet.of(),
@@ -451,8 +446,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         (Map<String, String>) getMyInfoFromTarget(r).getValue("environment_variables");
     RuleContext ruleContext = getRuleContext(r);
     CcToolchainProvider toolchain =
-        CppHelper.getToolchain(
-            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", TransitionMode.TARGET));
+        CppHelper.getToolchain(ruleContext, ruleContext.getPrerequisite("$cc_toolchain"));
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
             ImmutableSet.of(),
@@ -1368,8 +1362,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget a = getConfiguredTarget("//foo:a");
     RuleContext ruleContext = getRuleContext(a);
     CcToolchainProvider toolchain =
-        CppHelper.getToolchain(
-            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", TransitionMode.TARGET));
+        CppHelper.getToolchain(ruleContext, ruleContext.getPrerequisite("$cc_toolchain"));
     StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
     Depset librariesToLink = info.getValue("libraries_to_link", Depset.class);
     assertThat(
@@ -1404,8 +1397,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget a = getConfiguredTarget("//foo:a");
     RuleContext ruleContext = getRuleContext(a);
     CcToolchainProvider toolchain =
-        CppHelper.getToolchain(
-            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", TransitionMode.TARGET));
+        CppHelper.getToolchain(ruleContext, ruleContext.getPrerequisite("$cc_toolchain"));
     StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
     Depset librariesToLink = info.getValue("libraries_to_link", Depset.class);
     assertThat(
