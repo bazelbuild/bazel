@@ -63,17 +63,12 @@ import io.netty.channel.epoll.Epoll;
 import io.netty.channel.unix.Socket;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * gRPC server class.
@@ -279,11 +274,11 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
   private static final String RESPONSE_COOKIE_FILE = "response_cookie";
   private static final String SERVER_INFO_FILE = "server_info.rawproto";
 
-  private static final AtomicBoolean runShutdownHooks = new AtomicBoolean(true);
 
   private final CommandManager commandManager;
   private final CommandDispatcher dispatcher;
   private final Executor commandExecutorPool;
+  private final ShutdownHooks shutdownHooks;
   private final Clock clock;
   private final Path serverDirectory;
   private final String requestCookie;
@@ -291,7 +286,6 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
   private final int maxIdleSeconds;
   private final PidFileWatcher pidFileWatcherThread;
   private final int serverPid;
-  private final List<Path> filesToDeleteAtExit = new ArrayList<>();
   private final int port;
 
   private Server server;
@@ -309,14 +303,14 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       boolean shutdownOnLowSysMem,
       boolean doIdleServerTasks)
       throws AbruptExitException {
-    Runtime.getRuntime().addShutdownHook(new Thread(() -> shutdownHook()));
+    this.shutdownHooks = ShutdownHooks.createAndRegister();
 
     // server.pid was written in the C++ launcher after fork() but before exec().
     // The client only accesses the pid file after connecting to the socket
     // which ensures that it gets the correct pid value.
     Path pidFile = serverDirectory.getRelative("server.pid.txt");
     serverPid = readPidFile(pidFile);
-    deleteAtExit(pidFile);
+    shutdownHooks.deleteAtExit(pidFile);
 
     this.dispatcher = dispatcher;
     this.clock = clock;
@@ -374,7 +368,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
    */
   @Override
   public void prepareForAbruptShutdown() {
-    disableShutdownHooks();
+    shutdownHooks.disable();
     pidFileWatcherThread.signalShutdown();
   }
 
@@ -466,7 +460,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       }
       Path serverInfoFile = serverDirectory.getChild(SERVER_INFO_FILE);
       serverInfoTmpFile.renameTo(serverInfoFile);
-      deleteAtExit(serverInfoFile);
+      shutdownHooks.deleteAtExit(serverInfoFile);
     } catch (IOException e) {
       throw createFilesystemFailureException(
           "Failed to write server info file: " + e.getMessage(), Code.SERVER_FILE_WRITE_FAILURE, e);
@@ -483,51 +477,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
           Code.SERVER_FILE_WRITE_FAILURE,
           e);
     }
-    deleteAtExit(file);
-  }
-
-  protected void disableShutdownHooks() {
-    runShutdownHooks.set(false);
-  }
-
-  private void shutdownHook() {
-    if (!runShutdownHooks.get()) {
-      return;
-    }
-
-    List<Path> files;
-    synchronized (filesToDeleteAtExit) {
-      files = new ArrayList<>(filesToDeleteAtExit);
-    }
-    for (Path path : files) {
-      try {
-        path.delete();
-      } catch (IOException e) {
-        printStack(e);
-      }
-    }
-  }
-
-  /**
-   * Schedule the specified file for (attempted) deletion at JVM exit.
-   */
-  protected void deleteAtExit(final Path path) {
-    synchronized (filesToDeleteAtExit) {
-      filesToDeleteAtExit.add(path);
-    }
-  }
-
-  static void printStack(IOException e) {
-    /*
-     * Hopefully this never happens. It's not very nice to just write this
-     * to the user's console, but I'm not sure what better choice we have.
-     */
-    StringWriter err = new StringWriter();
-    PrintWriter printErr = new PrintWriter(err);
-    printErr.println("=======[BAZEL SERVER: ENCOUNTERED IO EXCEPTION]=======");
-    e.printStackTrace(printErr);
-    printErr.println("=====================================================");
-    logger.atSevere().log(err.toString());
+    shutdownHooks.deleteAtExit(file);
   }
 
   private void executeCommand(RunRequest request, BlockingStreamObserver<RunResponse> observer) {

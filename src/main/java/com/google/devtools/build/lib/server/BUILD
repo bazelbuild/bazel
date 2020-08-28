@@ -18,6 +18,7 @@ java_library(
         "IdleServerTasks.java",
         "PidFileWatcher.java",
         "ServerWatcherRunnable.java",
+        "ShutdownHooks.java",
     ],
     deps = [
         ":rpc_server",
