@@ -641,6 +641,14 @@ java_import(
 )
 
 java_import(
+    name = "burst",
+    jars = [
+        "burst/burst-1.2.0.jar",
+        "burst/burst-junit4-1.2.0.jar",
+    ],
+)
+
+java_import(
     name = "objenesis",
     jars = ["objenesis/objenesis-1_3.jar"],
 )
