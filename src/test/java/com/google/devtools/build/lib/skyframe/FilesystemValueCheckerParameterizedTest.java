@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
@@ -31,32 +30,24 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.squareup.burst.BurstJUnit4;
+import com.squareup.burst.annotation.Burst;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
 
 /** {@link FilesystemValueChecker} checker parameterized on {@link BatchStatMode}. */
-@RunWith(Parameterized.class)
+@RunWith(BurstJUnit4.class)
 public final class FilesystemValueCheckerParameterizedTest extends FilesystemValueCheckerTestBase {
 
   private static final ActionLookupData ACTION_LOOKUP_DATA = actionLookupData(0);
 
-  @Parameter public BatchStatMode batchStat;
-
-  @Parameters(name = "batchStat={0}")
-  public static ImmutableList<Object[]> batchStatModes() {
-    return Arrays.stream(BatchStatMode.values())
-        .map(mode -> new BatchStatMode[] {mode})
-        .collect(toImmutableList());
-  }
+  @Burst
+  public BatchStatMode batchStat;
 
   @Test
   public void getDirtyActionValues_unchangedEmptyTreeArtifactWithArchivedFile_noDirtyKeys()
@@ -229,14 +220,14 @@ public final class FilesystemValueCheckerParameterizedTest extends FilesystemVal
   }
 
   private enum BatchStatMode {
-    DISABLED {
+    BATCH_STAT_DISABLED {
       @Nullable
       @Override
       BatchStat getBatchStat(FileSystem fileSystem) {
         return null;
       }
     },
-    ENABLED {
+    BATCH_STAT_ENABLED {
       @Override
       BatchStat getBatchStat(FileSystem fileSystem) {
         return (useDigest, includeLinks, paths) -> {
