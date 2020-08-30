@@ -329,15 +329,6 @@ public final class PackageFactory {
     return builtinsBzlEnv;
   }
 
-  /**
-   * Returns the subset of bindings of the "native" module (for BUILD-loaded .bzls) that are rules.
-   *
-   * <p>Excludes non-rule functions such as {@code glob()}.
-   */
-  public ImmutableMap<String, ?> getNativeRules() {
-    return ruleFunctions;
-  }
-
   /** Creates the map of arguments for the 'package' function. */
   private ImmutableMap<String, PackageArgument<?>> createPackageArguments() {
     ImmutableList.Builder<PackageArgument<?>> arguments =
@@ -726,18 +717,12 @@ public final class PackageFactory {
   private static ImmutableMap<String, Object> createUninjectedBuildBzlEnv(
       RuleClassProvider ruleClassProvider,
       ImmutableMap<String, Object> uninjectedBuildBzlNativeBindings) {
-    // TODO(#11437): Add tests to assert that build and workspace bzl predeclareds have the same
-    // symbol names (though values may differ). Then ASTFileLookupFunction can request the
-    // appropriate predeclared map from PackageFactory, without using injection -- but add a comment
-    // explaining that that's safe.
-
     Map<String, Object> env = new HashMap<>();
     env.putAll(ruleClassProvider.getEnvironment());
 
     // TODO(#11437): We *should* be able to uncomment the following line, but the native module is
-    // added prematurely (without its rule-logic fields) and overridden unconditionally. Fix this
-    // once ASTFileLookupFunction takes in the set of predeclared bindings (currently it directly
-    // checks getEnvironment()).
+    // added prematurely (without its rule-logic fields) and overridden unconditionally. There's no
+    // reason for this now that ASTFileLookupFunction observes the correct predeclared env.
     // Preconditions.checkState(!predeclared.containsKey("native"));
 
     // Determine the "native" module.
@@ -766,10 +751,11 @@ public final class PackageFactory {
     Map<String, Object> env = new HashMap<>();
     env.putAll(ruleClassProvider.getEnvironment());
 
-    // TODO($11437): We shouldn't have to delete the (not fully formed) "native" object here; see
+    // Clear out rule-specific symbols like CcInfo.
+    env.keySet().removeAll(ruleClassProvider.getNativeRuleSpecificBindings().keySet());
+    // TODO(#11437): We shouldn't have to delete the (not fully formed) "native" object here; see
     // above TODO in createUninjectedBuildBzlEnv().
     env.remove("native");
-    // TODO(#11437): Prohibit other rule logic names, e.g. "CcInfo".
 
     // TODO(#11437): To support inspection of StarlarkSemantics via _internal, we'll have to let
     // this method be parameterized by the StarlarkSemantics, which means it'll need to be computed
@@ -787,8 +773,25 @@ public final class PackageFactory {
     return StructProvider.STRUCT.create(bindings, "no native function or rule '%s'");
   }
 
+  /** Indicates a problem performing builtins injection. */
+  public static final class InjectionException extends Exception {
+    public InjectionException(String message) {
+      super(message);
+    }
+  }
+
+  /**
+   * Constructs an environment for a BUILD-loaded bzl file based on the default environment as well
+   * as the given injected top-level symbols and "native" bindings.
+   *
+   * <p>Injected symbols must override an existing symbol of that name. Furthermore, the overridden
+   * symbol must be a rule or a piece of a specific ruleset's logic (e.g., {@code CcInfo} or {@code
+   * cc_library}), not a generic built-in (e.g., {@code provider} or {@code glob}). Throws
+   * InjectionException if these conditions are not met.
+   */
   public ImmutableMap<String, Object> createBuildBzlEnvUsingInjection(
-      ImmutableMap<String, Object> injectedToplevels, ImmutableMap<String, Object> injectedRules) {
+      ImmutableMap<String, Object> injectedToplevels, ImmutableMap<String, Object> injectedRules)
+      throws InjectionException {
     // TODO(#11437): Builtins injection should take into account StarlarkSemantics and
     // FlagGuardedValues. If a builtin is disabled by a flag, we can either:
     //
@@ -799,18 +802,43 @@ public final class PackageFactory {
     //   2) Allow it to be exported and automatically suppress/omit it from the final environment,
     //      effectively rewrapping the injected builtin in the FlagGuardedValue.
 
+    // Determine top-level symbols.
     Map<String, Object> env = new HashMap<>();
-    env.putAll(ruleClassProvider.getEnvironment());
-    // TODO(#11437): Validate that all the injected symbols are overriding existing symbols. Throw
-    // an exception otherwise.
-    env.putAll(injectedToplevels);
+    env.putAll(uninjectedBuildBzlEnv);
+    for (Map.Entry<String, Object> symbol : injectedToplevels.entrySet()) {
+      String name = symbol.getKey();
+      if (!env.containsKey(name) && !Starlark.UNIVERSE.containsKey(name)) {
+        throw new InjectionException(
+            String.format(
+                "Injected top-level symbol '%s' must override an existing symbol by that name",
+                name));
+      } else if (!ruleClassProvider.getNativeRuleSpecificBindings().containsKey(name)) {
+        throw new InjectionException(
+            String.format("Cannot override top-level builtin '%s' with an injected value", name));
+      } else {
+        env.put(name, symbol.getValue());
+      }
+    }
 
+    // Determine "native" bindings.
     // See above comments for native in BUILD bzls.
     Map<String, Object> nativeBindings = new HashMap<>();
     nativeBindings.putAll(uninjectedBuildBzlNativeBindings);
-    nativeBindings.putAll(injectedRules);
-    env.put("native", createNativeModule(nativeBindings));
+    for (Map.Entry<String, Object> symbol : injectedRules.entrySet()) {
+      String name = symbol.getKey();
+      Object preexisting = nativeBindings.put(name, symbol.getValue());
+      if (preexisting == null) {
+        throw new InjectionException(
+            String.format(
+                "Injected native module field '%s' must override an existing symbol by that name",
+                name));
+      } else if (!ruleFunctions.containsKey(name)) {
+        throw new InjectionException(
+            String.format("Cannot override native module field '%s' with an injected value", name));
+      }
+    }
 
+    env.put("native", createNativeModule(nativeBindings));
     return ImmutableMap.copyOf(env);
   }
 

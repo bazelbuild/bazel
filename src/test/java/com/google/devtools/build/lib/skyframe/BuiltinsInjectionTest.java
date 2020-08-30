@@ -246,11 +246,8 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     assertContainsEvent("name 'native' is not defined");
   }
 
-  // TODO(#11437): Invert this behavior and test (and test name) -- builtins bzls should not be
-  // able to see rule logic symbols like CcInfo (and in our test, overridable_symbol). But they
-  // should still be able to see print(), rule(), etc.
   @Test
-  public void builtinsBzlCanAccessRuleLogicSymbols() throws Exception {
+  public void builtinsBzlCannotAccessRuleSpecificSymbol() throws Exception {
     // TODO(#11437): Use @builtins//:... syntax for load, once supported.
     scratch.file(
         "tools/builtins_staging/helper.bzl", //
@@ -266,13 +263,10 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
 
     buildDummyWithoutAssertingSuccess();
-    // TODO(#11437): Uncomment this comment (ha!) and replace the below assertion with the commented
-    // ones when we flip this test case.
-    // // The print() statement is never reached because we fail statically during name resolution
-    // // in ASTFileLookupFunction.
-    // assertDoesNotContainEvent("made it to evaluation");
-    // assertContainsEvent("name 'overridable_symbol' is not defined");
-    assertContainsEvent("overridable_symbol :: original_value");
+    // The print() statement is never reached because we fail statically during name resolution in
+    // ASTFileLookupFunction.
+    assertDoesNotContainEvent("made it to evaluation");
+    assertContainsEvent("name 'overridable_symbol' is not defined");
   }
 
   @Test

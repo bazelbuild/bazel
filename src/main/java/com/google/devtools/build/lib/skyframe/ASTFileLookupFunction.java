@@ -145,10 +145,14 @@ public class ASTFileLookupFunction implements SkyFunction {
       predeclared = packageFactory.getBuiltinsBzlEnv();
     } else {
       // Use the predeclared environment for BUILD-loaded bzl files, ignoring injection. It is not
-      // the right env for the actual evaluation of either BUILD-loaded bzl files or
-      // WORKSPACE-loaded bzl files. But the names of the symbols are the same, and the names are
+      // the right env for the actual evaluation of BUILD-loaded bzl files because it doesn't
+      // map to the injected symbols. But the names of the symbols are the same, and the names are
       // all we need to do symbol resolution (modulo FlagGuardedValues -- see TODO in
       // PackageFactory.createBuildBzlEnvUsingInjection()).
+      //
+      // For WORKSPACE-loaded bzl files, the env isn't quite right not because of injection but
+      // because the "native" object is different. But A) that will be fixed with #11954, and B) we
+      // don't care for the same reason as above.
       predeclared = packageFactory.getUninjectedBuildBzlEnv();
     }
 
