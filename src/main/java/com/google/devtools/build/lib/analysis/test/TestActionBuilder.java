@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.LazyWriteNestedSetOfPairAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -175,7 +174,7 @@ public final class TestActionBuilder {
 
     if (!isUsingTestWrapperInsteadOfTestSetupScript) {
       NestedSet<Artifact> testRuntime =
-          PrerequisiteArtifacts.nestedSet(ruleContext, "$test_runtime", TransitionMode.HOST);
+          PrerequisiteArtifacts.nestedSet(ruleContext, "$test_runtime");
       inputsBuilder.addTransitive(testRuntime);
     }
     TestTargetProperties testProperties =
@@ -212,8 +211,7 @@ public final class TestActionBuilder {
       NestedSet<Artifact> metadataFiles = instrumentedFiles.getInstrumentationMetadataFiles();
       inputsBuilder.addTransitive(metadataFiles);
       inputsBuilder.addTransitive(
-          PrerequisiteArtifacts.nestedSet(
-              ruleContext, ":coverage_support", TransitionMode.DONT_CHECK));
+          PrerequisiteArtifacts.nestedSet(ruleContext, ":coverage_support"));
 
       if (ruleContext.isAttrDefined("$collect_cc_coverage", LABEL)) {
         Artifact collectCcCoverage =
@@ -248,8 +246,7 @@ public final class TestActionBuilder {
         lcovMergerAttr = "$lcov_merger";
       }
       if (lcovMergerAttr != null) {
-        TransitiveInfoCollection lcovMerger =
-            ruleContext.getPrerequisite(lcovMergerAttr, TransitionMode.TARGET);
+        TransitiveInfoCollection lcovMerger = ruleContext.getPrerequisite(lcovMergerAttr);
         FilesToRunProvider lcovFilesToRun = lcovMerger.getProvider(FilesToRunProvider.class);
         if (lcovFilesToRun != null) {
           extraTestEnv.put(LCOV_MERGER, lcovFilesToRun.getExecutable().getExecPathString());
@@ -416,7 +413,7 @@ public final class TestActionBuilder {
       // contain rules with baseline coverage but no test rules that have coverage enabled, and in
       // that case, we still need the report generator.
       TransitiveInfoCollection reportGeneratorTarget =
-          ruleContext.getPrerequisite(":coverage_report_generator", TransitionMode.HOST);
+          ruleContext.getPrerequisite(":coverage_report_generator");
       reportGenerator = reportGeneratorTarget.getProvider(FilesToRunProvider.class);
     }
 
