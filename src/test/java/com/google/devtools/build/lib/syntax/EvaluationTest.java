@@ -636,7 +636,7 @@ public final class EvaluationTest {
   }
 
   @Test
-  public void testDictComprehension_ManyClauses() throws Exception {
+  public void testDictComprehension_manyClauses() throws Exception {
     ev.new Scenario()
         .testExpression(
             "{x : x * y for x in range(1, 10) if x % 2 == 0 for y in range(1, 10) if y == x}",
@@ -644,7 +644,7 @@ public final class EvaluationTest {
   }
 
   @Test
-  public void testDictComprehensions_MultipleKey() throws Exception {
+  public void testDictComprehensions_multipleKey() throws Exception {
     ev.new Scenario()
         .testExpression("{x : x for x in [1, 2, 1]}", ImmutableMap.of(1, 1, 2, 2))
         .testExpression(

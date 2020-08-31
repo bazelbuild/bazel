@@ -2478,7 +2478,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testConfigurationField_StarlarkSplitTransitionProhibited() throws Exception {
+  public void testConfigurationField_starlarkSplitTransitionProhibited() throws Exception {
     scratch.file(
         "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
@@ -2516,7 +2516,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testConfigurationField_NativeSplitTransitionProviderProhibited() throws Exception {
+  public void testConfigurationField_nativeSplitTransitionProviderProhibited() throws Exception {
     scratch.file(
         "test/rule.bzl",
         "def _foo_impl(ctx):",
@@ -2537,7 +2537,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testConfigurationField_NativeSplitTransitionProhibited() throws Exception {
+  public void testConfigurationField_nativeSplitTransitionProhibited() throws Exception {
     scratch.file(
         "test/rule.bzl",
         "def _foo_impl(ctx):",

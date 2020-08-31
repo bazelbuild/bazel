@@ -49,19 +49,19 @@ public final class TerminationStatusTest {
   }
 
   @Test
-  public void testBuilder_WithNoWaitResponse() {
+  public void testBuilder_withNoWaitResponse() {
     assertThrows(
         IllegalStateException.class, () -> TerminationStatus.builder().setTimedOut(false).build());
   }
 
   @Test
-  public void testBuilder_WithNoTimedOut() {
+  public void testBuilder_withNoTimedOut() {
     assertThrows(
         IllegalStateException.class, () -> TerminationStatus.builder().setWaitResponse(0).build());
   }
 
   @Test
-  public void testBuilder_WithNoExecutionTime() {
+  public void testBuilder_withNoExecutionTime() {
     TerminationStatus terminationStatus =
         TerminationStatus.builder().setWaitResponse(0).setTimedOut(false).build();
     assertThat(terminationStatus.getWallExecutionTime()).isEmpty();
@@ -70,7 +70,7 @@ public final class TerminationStatusTest {
   }
 
   @Test
-  public void testBuilder_WithExecutionTime() {
+  public void testBuilder_withExecutionTime() {
     TerminationStatus terminationStatus =
         TerminationStatus.builder()
             .setWaitResponse(0)

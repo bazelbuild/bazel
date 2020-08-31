@@ -676,7 +676,7 @@ public abstract class GlobFunctionTest {
 
   /** Regression test for b/13319874: Directory listing crash. */
   @Test
-  public void testResilienceToFilesystemInconsistencies_DirectoryExistence() throws Exception {
+  public void testResilienceToFilesystemInconsistencies_directoryExistence() throws Exception {
     // Our custom filesystem says "pkgPath/BUILD" exists but "pkgPath" does not exist.
     fs.stubStat(pkgPath, null);
     RootedPath pkgRootedPath = RootedPath.toRootedPath(Root.fromPath(root), pkgPath);
@@ -701,7 +701,7 @@ public abstract class GlobFunctionTest {
   }
 
   @Test
-  public void testResilienceToFilesystemInconsistencies_SubdirectoryExistence() throws Exception {
+  public void testResilienceToFilesystemInconsistencies_subdirectoryExistence() throws Exception {
     // Our custom filesystem says directory "pkgPath/foo/bar" contains a subdirectory "wiz" but a
     // direct stat on "pkgPath/foo/bar/wiz" says it does not exist.
     Path fooBarDir = pkgPath.getRelative("foo/bar");
@@ -725,7 +725,7 @@ public abstract class GlobFunctionTest {
   }
 
   @Test
-  public void testResilienceToFilesystemInconsistencies_SymlinkType() throws Exception {
+  public void testResilienceToFilesystemInconsistencies_symlinkType() throws Exception {
     RootedPath wizRootedPath =
         RootedPath.toRootedPath(Root.fromPath(root), pkgPath.getRelative("foo/bar/wiz"));
     RootedPath fileRootedPath =

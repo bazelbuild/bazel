@@ -108,7 +108,7 @@ public class RootTest {
   }
 
   @Test
-  public void testSerialization_Simple() throws Exception {
+  public void testSerialization_simple() throws Exception {
     Root fooPathRoot = Root.fromPath(fs.getPath("/foo"));
     Root barPathRoot = Root.fromPath(fs.getPath("/bar"));
     new SerializationTester(Root.absoluteRoot(fs), fooPathRoot, barPathRoot)
@@ -120,7 +120,7 @@ public class RootTest {
   }
 
   @Test
-  public void testSerialization_LikelyPopularRootIsCanonicalized() throws Exception {
+  public void testSerialization_likelyPopularRootIsCanonicalized() throws Exception {
     Root fooPathRoot = Root.fromPath(fs.getPath("/foo"));
     Root otherFooPathRoot = Root.fromPath(fs.getPath("/foo"));
     Root barPathRoot = Root.fromPath(fs.getPath("/bar"));

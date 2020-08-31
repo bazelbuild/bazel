@@ -3314,7 +3314,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLegacyProvider_AddCanonicalLegacyKeyAndModernKey() throws Exception {
+  public void testLegacyProvider_addCanonicalLegacyKeyAndModernKey() throws Exception {
     setStarlarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file(
         "test/starlark/extension.bzl",
@@ -3342,7 +3342,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLegacyProvider_DontAutomaticallyAddKeysAlreadyPresent() throws Exception {
+  public void testLegacyProvider_dontAutomaticallyAddKeysAlreadyPresent() throws Exception {
     setStarlarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file(
         "test/starlark/extension.bzl",
@@ -3371,7 +3371,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLegacyProvider_FirstNoncanonicalKeyBecomesCanonical() throws Exception {
+  public void testLegacyProvider_firstNoncanonicalKeyBecomesCanonical() throws Exception {
     setStarlarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file(
         "test/starlark/extension.bzl",

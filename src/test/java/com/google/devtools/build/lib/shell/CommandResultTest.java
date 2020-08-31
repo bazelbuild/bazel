@@ -28,7 +28,7 @@ import org.junit.runners.JUnit4;
 public final class CommandResultTest {
 
   @Test
-  public void testBuilder_WithNoStderr() {
+  public void testBuilder_withNoStderr() {
     Exception e =
         assertThrows(
             IllegalStateException.class,
@@ -41,7 +41,7 @@ public final class CommandResultTest {
   }
 
   @Test
-  public void testBuilder_WithNoStdout() {
+  public void testBuilder_withNoStdout() {
     Exception e =
         assertThrows(
             IllegalStateException.class,
@@ -54,7 +54,7 @@ public final class CommandResultTest {
   }
 
   @Test
-  public void testBuilder_WithNoTerminationStatus() {
+  public void testBuilder_withNoTerminationStatus() {
     Exception e =
         assertThrows(
             IllegalStateException.class,
@@ -67,7 +67,7 @@ public final class CommandResultTest {
   }
 
   @Test
-  public void testBuilder_WithNoExecutionTime() {
+  public void testBuilder_withNoExecutionTime() {
     CommandResult commandResult =
         CommandResult.builder()
             .setStdoutStream(CommandResult.EMPTY_OUTPUT)
@@ -80,7 +80,7 @@ public final class CommandResultTest {
   }
 
   @Test
-  public void testBuilder_WithExecutionTime() {
+  public void testBuilder_withExecutionTime() {
     CommandResult commandResult =
         CommandResult.builder()
             .setStdoutStream(CommandResult.EMPTY_OUTPUT)

@@ -267,7 +267,7 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void testGraphOutput_Factored() throws Exception {
+  public void testGraphOutput_factored() throws Exception {
     write(
         "fruits/BUILD",
         "sh_library(name='melon', deps=[':papaya', ':coconut', ':mango'])",
@@ -286,7 +286,7 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void testGraphOutput_Unfactored() throws Exception {
+  public void testGraphOutput_unfactored() throws Exception {
     write(
         "fruits/BUILD",
         "sh_library(name='melon', deps=[':papaya', ':coconut', ':mango'])",
@@ -431,17 +431,17 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void testNodepDeps_DefaultIsFalse() throws Exception {
+  public void testNodepDeps_defaultIsFalse() throws Exception {
     runNodepDepsTest(/*optsStringValue=*/ "[]", /*expectVisibilityDep=*/ false);
   }
 
   @Test
-  public void testNodepDeps_False() throws Exception {
+  public void testNodepDeps_false() throws Exception {
     runNodepDepsTest(/*optsStringValue=*/ "['--nodep_deps=false']", /*expectVisibilityDep=*/ false);
   }
 
   @Test
-  public void testNodepDeps_True() throws Exception {
+  public void testNodepDeps_true() throws Exception {
     runNodepDepsTest(/*optsStringValue=*/ "['--nodep_deps=true']", /*expectVisibilityDep=*/ true);
   }
 

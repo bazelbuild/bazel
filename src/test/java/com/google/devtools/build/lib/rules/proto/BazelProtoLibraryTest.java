@@ -391,7 +391,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
   }
 
   @Test
-  public void test_siblingRepoLayout_ExternalRepoWithGeneratedProto() throws Exception {
+  public void test_siblingRepoLayout_externalRepoWithGeneratedProto() throws Exception {
     testExternalRepoWithGeneratedProto(/*siblingRepoLayout=*/ true);
   }
 

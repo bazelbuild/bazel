@@ -167,11 +167,11 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   }
 
   /**
-   * Tests that ArtifactFunction rethrows transitive {@link IOException}s as
-   * {@link MissingInputFileException}s.
+   * Tests that ArtifactFunction rethrows transitive {@link IOException}s as {@link
+   * MissingInputFileException}s.
    */
   @Test
-  public void testIOException_EndToEnd() throws Throwable {
+  public void testIOException_endToEnd() throws Throwable {
     final IOException exception = new IOException("beep");
     setupRoot(
         new CustomInMemoryFs() {

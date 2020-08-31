@@ -223,7 +223,7 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testStringRepresentations_Strings() throws Exception {
+  public void testStringRepresentations_strings() throws Exception {
     assertThat(starlarkLoadingEval("str('foo')")).isEqualTo("foo");
     assertThat(starlarkLoadingEval("'%s' % 'foo'")).isEqualTo("foo");
     assertThat(starlarkLoadingEval("'{}'.format('foo')")).isEqualTo("foo");
@@ -232,7 +232,7 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testStringRepresentations_Labels() throws Exception {
+  public void testStringRepresentations_labels() throws Exception {
     assertThat(starlarkLoadingEval("str(Label('//foo:bar'))")).isEqualTo("//foo:bar");
     assertThat(starlarkLoadingEval("'%s' % Label('//foo:bar')")).isEqualTo("//foo:bar");
     assertThat(starlarkLoadingEval("'{}'.format(Label('//foo:bar'))")).isEqualTo("//foo:bar");
@@ -244,7 +244,7 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testStringRepresentations_Primitives() throws Exception {
+  public void testStringRepresentations_primitives() throws Exception {
     // Strings are tested in a separate test case as they have different str and repr values.
     assertStringRepresentation("1543", "1543");
     assertStringRepresentation("True", "True");
@@ -252,7 +252,7 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testStringRepresentations_Containers() throws Exception {
+  public void testStringRepresentations_containers() throws Exception {
     assertStringRepresentation("['a', 'b']", "[\"a\", \"b\"]");
     assertStringRepresentation("('a', 'b')", "(\"a\", \"b\")");
     assertStringRepresentation("{'a': 'b', 'c': 'd'}", "{\"a\": \"b\", \"c\": \"d\"}");
@@ -260,38 +260,38 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testStringRepresentations_Functions() throws Exception {
+  public void testStringRepresentations_functions() throws Exception {
     assertStringRepresentation("all", "<built-in function all>");
     assertStringRepresentation("def f(): pass", "f", "<function f from //eval:eval.bzl>");
   }
 
   @Test
-  public void testStringRepresentations_Rules() throws Exception {
+  public void testStringRepresentations_rules() throws Exception {
     assertStringRepresentation("native.cc_library", "<built-in rule cc_library>");
     assertStringRepresentation("def f(): pass", "rule(implementation=f)", "<rule>");
   }
 
   @Test
-  public void testStringRepresentations_Aspects() throws Exception {
+  public void testStringRepresentations_aspects() throws Exception {
     assertStringRepresentation("def f(): pass", "aspect(implementation=f)", "<aspect>");
   }
 
   @Test
-  public void testStringRepresentations_Providers() throws Exception {
+  public void testStringRepresentations_providers() throws Exception {
     assertStringRepresentation("provider()", "<provider>");
     assertStringRepresentation(
         "p = provider()", "p(b = 'foo', a = 1)", "struct(a = 1, b = \"foo\")");
   }
 
   @Test
-  public void testStringRepresentations_Select() throws Exception {
+  public void testStringRepresentations_select() throws Exception {
     assertStringRepresentation(
         "select({'//foo': ['//bar']}) + select({'//foo2': ['//bar2']})",
         "select({\"//foo\": [\"//bar\"]}) + select({\"//foo2\": [\"//bar2\"]})");
   }
 
   @Test
-  public void testStringRepresentations_RuleContext() throws Exception {
+  public void testStringRepresentations_ruleContext() throws Exception {
     generateFilesToTestStrings();
     ConfiguredTarget target = getConfiguredTarget("//test/starlark:check");
 
@@ -306,7 +306,7 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testStringRepresentations_Files() throws Exception {
+  public void testStringRepresentations_files() throws Exception {
     generateFilesToTestStrings();
     ConfiguredTarget target = getConfiguredTarget("//test/starlark:check");
 
@@ -319,7 +319,7 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testStringRepresentations_Root() throws Exception {
+  public void testStringRepresentations_root() throws Exception {
     generateFilesToTestStrings();
     ConfiguredTarget target = getConfiguredTarget("//test/starlark:check");
 
@@ -330,7 +330,7 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testStringRepresentations_Glob() throws Exception {
+  public void testStringRepresentations_glob() throws Exception {
     scratch.file("eval/one.txt");
     scratch.file("eval/two.txt");
     scratch.file("eval/three.txt");
@@ -341,7 +341,7 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testStringRepresentations_Attr() throws Exception {
+  public void testStringRepresentations_attr() throws Exception {
     assertStringRepresentation("attr", "<attr>");
     assertStringRepresentation("attr.int()", "<attr.int>");
     assertStringRepresentation("attr.string()", "<attr.string>");
@@ -358,7 +358,7 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testStringRepresentations_Targets() throws Exception {
+  public void testStringRepresentations_targets() throws Exception {
     generateFilesToTestStrings();
     ConfiguredTarget target = getConfiguredTarget("//test/starlark:check");
 
