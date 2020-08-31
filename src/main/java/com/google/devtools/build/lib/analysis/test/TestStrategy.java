@@ -330,7 +330,10 @@ public abstract class TestStrategy implements TestActionContext {
       if (testResultData.getStatus() != BlazeTestStatus.INCOMPLETE
           && TestLogHelper.shouldOutputTestLog(executionOptions.testOutput, isPassed)) {
         TestLogHelper.writeTestLog(
-            testLog, testName, actionExecutionContext.getFileOutErr().getOutputStream());
+            testLog,
+            testName,
+            actionExecutionContext.getFileOutErr().getOutputStream(),
+            executionOptions.maxTestOutputBytes);
       }
     } finally {
       if (isPassed) {
