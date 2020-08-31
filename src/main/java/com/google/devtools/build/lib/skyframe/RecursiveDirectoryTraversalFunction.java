@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -29,6 +30,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 /**
@@ -38,6 +40,7 @@ import javax.annotation.Nullable;
  */
 public abstract class RecursiveDirectoryTraversalFunction<
     TConsumer extends RecursiveDirectoryTraversalFunction.PackageDirectoryConsumer, TReturn> {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private final BlazeDirectories directories;
 
   protected RecursiveDirectoryTraversalFunction(BlazeDirectories directories) {
@@ -148,6 +151,10 @@ public abstract class RecursiveDirectoryTraversalFunction<
           consumer.notePackage(rootRelativePath);
           break;
         case ERROR:
+          // TODO(b/165676039): Remove this once bug is resolved.
+          logger.atInfo().atMostEvery(5, TimeUnit.SECONDS).log(
+              "Package contains errors RecursiveDirectoryTraversalFunction: "
+                  + rootRelativePath.getPathString());
           env.getListener()
               .handle(Event.error("package contains errors: " + rootRelativePath.getPathString()));
           consumer.notePackage(rootRelativePath);
