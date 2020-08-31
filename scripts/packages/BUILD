@@ -132,6 +132,7 @@ genrule(
         "//scripts:bash_completion",
         "//scripts/fish:completions/bazel.fish",
         "//scripts/zsh_completion:_bazel",
+        "//scripts:bazel.1",
     ],
     launcher = ":launcher_bin.sh",
 ) for kind in ("with-jdk", "without-jdk")]
