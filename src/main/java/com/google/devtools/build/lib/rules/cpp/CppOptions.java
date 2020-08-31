@@ -1082,6 +1082,8 @@ public class CppOptions extends FragmentOptions {
     host.hostLibcTopLabel = hostLibcTopLabel;
     host.hostLinkoptList = hostLinkoptList;
 
+    host.experimentalStarlarkCcImport = experimentalStarlarkCcImport;
+
     return host;
   }
 
