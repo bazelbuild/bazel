@@ -654,7 +654,7 @@ public class StarlarkRepositoryContext
       if (fragment.isAbsolute()) {
         // We ignore relative path as they don't mean much here (relative to where? the workspace
         // root?).
-        Path path = outputDirectory.getFileSystem().getPath(fragment).getChild(program);
+        Path path = outputDirectory.getFileSystem().getPath(fragment).getChild(program.trim());
         if (path.exists() && path.isFile(Symlinks.FOLLOW) && path.isExecutable()) {
           return new StarlarkPath(path);
         }
