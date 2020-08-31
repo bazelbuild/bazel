@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBeha
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
-import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -366,9 +365,7 @@ final class ActionMetadataHandler implements MetadataHandler {
       ArchivedTreeArtifact archivedTreeArtifact =
           ArchivedTreeArtifact.create(parent, derivedPathPrefix);
       tree.setArchivedRepresentation(
-          ArchivedRepresentation.create(
-              archivedTreeArtifact,
-              constructFileArtifactValueFromFilesystem(archivedTreeArtifact)));
+          archivedTreeArtifact, constructFileArtifactValueFromFilesystem(archivedTreeArtifact));
     }
 
     return tree.build();

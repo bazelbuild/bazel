@@ -297,12 +297,11 @@ public class ActionExecutionValue implements SkyValue {
         .ifPresent(
             archivedRepresentation -> {
               newTree.setArchivedRepresentation(
-                  ArchivedRepresentation.create(
-                      new ArchivedTreeArtifact(
-                          newParent,
-                          archivedRepresentation.archivedTreeFileArtifact().getRoot(),
-                          archivedRepresentation.archivedTreeFileArtifact().getExecPath()),
-                      archivedRepresentation.archivedFileValue()));
+                  new ArchivedTreeArtifact(
+                      newParent,
+                      archivedRepresentation.archivedTreeFileArtifact().getRoot(),
+                      archivedRepresentation.archivedTreeFileArtifact().getExecPath()),
+                  archivedRepresentation.archivedFileValue());
             });
 
     return newTree.build();

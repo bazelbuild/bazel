@@ -21,7 +21,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
@@ -419,14 +418,25 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       return this;
     }
 
-    public Builder setArchivedRepresentation(ArchivedRepresentation archivedRepresentation) {
+    public Builder setArchivedRepresentation(
+        ArchivedTreeArtifact archivedTreeArtifact, FileArtifactValue metadata) {
+      return setArchivedRepresentation(
+          ArchivedRepresentation.create(archivedTreeArtifact, metadata));
+    }
+
+    private Builder setArchivedRepresentation(ArchivedRepresentation archivedRepresentation) {
       checkState(
           this.archivedRepresentation == null,
           "Tried to add 2 archived representations for: %s",
-          archivedRepresentation);
+          parent);
       checkArgument(
-          archivedRepresentation.archivedTreeFileArtifact().getParent().equals(parent),
+          parent.equals(archivedRepresentation.archivedTreeFileArtifact().getParent()),
           "Cannot add archived representation: %s for a mismatching tree artifact: %s",
+          archivedRepresentation,
+          parent);
+      checkArgument(
+          !archivedRepresentation.archivedFileValue().equals(FileArtifactValue.OMITTED_FILE_MARKER),
+          "Cannot add archived representation: %s to %s because it has omitted metadata.",
           archivedRepresentation,
           parent);
       this.archivedRepresentation = archivedRepresentation;
@@ -507,10 +517,13 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
           archivedRepresentations.putIfAbsent(
               archivedArtifact.getParent(),
               ArchivedRepresentation.create(archivedArtifact, metadata));
-      Preconditions.checkArgument(
+      checkArgument(
           oldValue == null,
           "Tried to add 2 archived representations for %s",
           archivedArtifact.getParent());
+      // We inject entries based on keys in the children map. Make sure a placeholder exists in case
+      // the tree artifact is otherwise empty.
+      children.computeIfAbsent(archivedArtifact.getParent(), ignored -> new ConcurrentHashMap<>());
       return this;
     }
 
