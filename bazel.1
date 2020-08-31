@@ -1,0 +1,99 @@
+.TH BAZEL 1 "August 2020"
+.SH NAME
+bazel, bazel-3 \- tool to automate software builds and tests
+.SH SYNOPSIS
+.B bazel
+\fI\,<command> <options> \/\fR...
+.SH DESCRIPTION
+.IP
+[bazel release 3.4.0]
+.SS "Available commands:"
+.TP
+analyze\-profile
+Analyzes build profile data.
+.TP
+aquery
+Analyzes the given targets and queries the action graph.
+.TP
+build
+Builds the specified targets.
+.TP
+canonicalize\-flags
+Canonicalizes a list of bazel options.
+.TP
+clean
+Removes output files and optionally stops the server.
+.TP
+coverage
+Generates code coverage report for specified test targets.
+.TP
+cquery
+Loads, analyzes, and queries the specified targets w/ configurations.
+.TP
+dump
+Dumps the internal state of the bazel server process.
+.TP
+fetch
+Fetches external repositories that are prerequisites to the targets.
+.TP
+help
+Prints help for commands, or the index.
+.TP
+info
+Displays runtime info about the bazel server.
+.TP
+license
+Prints the license of this software.
+.TP
+mobile\-install
+Installs targets to mobile devices.
+.TP
+print_action
+Prints the command line args for compiling a file.
+.TP
+query
+Executes a dependency graph query.
+.TP
+run
+Runs the specified target.
+.TP
+shutdown
+Stops the bazel server.
+.TP
+sync
+Syncs all repositories specified in the workspace file
+.TP
+test
+Builds and runs the specified test targets.
+.TP
+version
+Prints version information for bazel.
+.SS "Getting more help:"
+.IP
+bazel help <command>
+.IP
+Prints help and options for <command>.
+.IP
+bazel help startup_options
+.IP
+Options for the JVM hosting bazel.
+.IP
+bazel help target\-syntax
+.IP
+Explains the syntax for specifying targets.
+.IP
+bazel help info\-keys
+.IP
+Displays a list of keys used by the info command.
+.SH "SEE ALSO"
+The full documentation for
+.B bazel
+is maintained as a Texinfo manual.  If the
+.B info
+and
+.B bazel
+programs are properly installed at your site, the command
+.IP
+.B info bazel
+.PP
+should give you access to the complete manual.
