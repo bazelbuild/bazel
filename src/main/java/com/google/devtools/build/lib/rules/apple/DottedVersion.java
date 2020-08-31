@@ -129,8 +129,11 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
   private static final Splitter DOT_SPLITTER = Splitter.on('.');
   private static final Pattern COMPONENT_PATTERN =
       Pattern.compile("(\\d+)([a-z0-9]*?)?(\\d+)?", Pattern.CASE_INSENSITIVE);
+  private static final Pattern COMMENTIVE_COMPONENT_PATTERN =
+      Pattern.compile("([a-z]\\w*)", Pattern.CASE_INSENSITIVE);
   private static final String ILLEGAL_VERSION =
-      "Dotted version components must all be of the form \\d+([a-z0-9]*?)?(\\d+)? but got '%s'";
+      "Dotted version components must all be starting of the form \\d+([a-z0-9]*?)?(\\d+)? " +
+      "but got '%s'";
   private static final String NO_ALPHA_SEQUENCE = null;
   private static final Component ZERO_COMPONENT = new Component(0, NO_ALPHA_SEQUENCE, 0, "0");
 
@@ -168,7 +171,14 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
     }
     ArrayList<Component> components = new ArrayList<>();
     for (String component : DOT_SPLITTER.split(version)) {
+      if (isCommentiveComponent(component)) {
+        break;
+      }
       components.add(toComponent(component, version));
+    }
+
+    if (components.isEmpty()) {
+      throw new InvalidDottedVersionException(String.format(ILLEGAL_VERSION, version));
     }
 
     int numOriginalComponents = components.size();
@@ -184,6 +194,12 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
     }
 
     return new DottedVersion(ImmutableList.copyOf(components), version, numOriginalComponents);
+  }
+
+  // Some of special build versions contains commentive components like "experimental" or
+  // "internal". These components are usually by the end of version number, and can be ignored.
+  private static boolean isCommentiveComponent(String component) {
+    return COMMENTIVE_COMPONENT_PATTERN.matcher(component).matches();
   }
 
   private static Component toComponent(String component, String version)

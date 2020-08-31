@@ -408,7 +408,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     scratch.file("foo/BUILD", "load(':extension.bzl', 'my_rule')", "my_rule(name='test')");
     assertNoEvents();
     assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:test"));
-    assertContainsEvent("Dotted version components must all be of the form");
+    assertContainsEvent("Dotted version components must all be starting of the form");
     assertContainsEvent("got 'not a valid dotted version'");
   }
 
