@@ -200,6 +200,7 @@ public final class Module implements Resolver.Module {
   }
 
   @Override
+  @Nullable
   public String getUndeclaredNameError(String name) {
     Object v = getPredeclared(name);
     return v instanceof FlagGuardedValue

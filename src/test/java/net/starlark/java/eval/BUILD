@@ -13,6 +13,7 @@ java_test(
     data = [
         "testdata/all_any.sky",
         "testdata/and_or_not.sky",
+        "testdata/cycles.sky",
         "testdata/dict.sky",
         "testdata/equality.sky",
         "testdata/function.sky",
@@ -40,6 +41,5 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/net/starlark/java/annot",
         "//third_party:guava",
-        "//third_party:junit4",
     ],
 )

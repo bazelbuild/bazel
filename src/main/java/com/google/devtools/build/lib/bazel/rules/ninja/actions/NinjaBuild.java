@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
@@ -51,7 +50,7 @@ public class NinjaBuild implements RuleConfiguredTargetFactory {
     Map<String, List<String>> outputGroupsMap =
         ruleContext.attributes().get("output_groups", Type.STRING_LIST_DICT);
     NinjaGraphProvider graphProvider =
-        ruleContext.getPrerequisite("ninja_graph", TransitionMode.TARGET, NinjaGraphProvider.class);
+        ruleContext.getPrerequisite("ninja_graph", NinjaGraphProvider.class);
     Preconditions.checkNotNull(graphProvider);
     List<PathFragment> pathsToBuild =
         outputGroupsMap.values().stream()
@@ -200,8 +199,7 @@ public class NinjaBuild implements RuleConfiguredTargetFactory {
       ImmutableSortedMap.Builder<PathFragment, Artifact> depsMapBuilder,
       ImmutableSortedMap.Builder<PathFragment, Artifact> symlinksMapBuilder)
       throws InterruptedException {
-    FileProvider fileProvider =
-        ruleContext.getPrerequisite("ninja_graph", TransitionMode.TARGET, FileProvider.class);
+    FileProvider fileProvider = ruleContext.getPrerequisite("ninja_graph", FileProvider.class);
     Preconditions.checkNotNull(fileProvider);
     new NestedSetVisitor<Artifact>(
             a -> {

@@ -63,6 +63,7 @@ public final class StarlarkThread {
   private boolean interruptible = true;
 
   long steps; // count of logical computation steps executed so far
+  long stepLimit = Long.MAX_VALUE; // limit on logical computation steps
 
   /**
    * Returns the number of Starlark computation steps executed by this thread according to a
@@ -72,6 +73,15 @@ public final class StarlarkThread {
    */
   public long getExecutedSteps() {
     return steps;
+  }
+
+  /**
+   * Sets the maximum number of Starlark computation steps that may be executed by this thread (see
+   * {@link #getExecutedSteps}). When the step counter reaches or exceeds this value, execution
+   * fails with an EvalException.
+   */
+  public void setMaxExecutionSteps(long steps) {
+    this.stepLimit = steps;
   }
 
   /**

@@ -46,6 +46,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/vfs:srcs",
         "//src/test/java/com/google/devtools/build/lib/unsafe:srcs",
         "//src/test/java/com/google/devtools/build/lib/util:srcs",
+        "//src/test/java/com/google/devtools/build/lib/testing/common:srcs",
         "//src/test/java/com/google/devtools/build/lib/testutil:srcs",
         "//src/test/java/com/google/devtools/build/lib/windows:srcs",
     ],
@@ -532,13 +533,22 @@ java_test(
 
 java_test(
     name = "worker-tests",
-    srcs = glob(["worker/*Test.java"]),
+    srcs =
+        glob([
+            "worker/*Test.java",
+        ]) + [
+            "worker/TestUtils.java",
+        ],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":AllTests",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
+        "//src/main/java/com/google/devtools/build/lib/exec/local",
         "//src/main/java/com/google/devtools/build/lib/sandbox",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/util",

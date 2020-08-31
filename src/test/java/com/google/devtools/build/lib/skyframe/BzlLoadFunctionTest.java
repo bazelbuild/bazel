@@ -405,7 +405,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testErrorReadingBzlFileInlineIsTransient() throws Exception {
+  public void testErrorReadingBzlFileIsTransientWhenUsingASTInlining() throws Exception {
     CustomInMemoryFs fs = (CustomInMemoryFs) fileSystem;
     scratch.file("a/BUILD");
     fs.badPathForRead = scratch.file("a/a1.bzl", "doesntmatter");

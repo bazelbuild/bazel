@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.rules.repository.ResolvedFileValue;
 import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.Statement;
@@ -89,7 +89,7 @@ public class WorkspaceASTFunction implements SkyFunction {
             // These three options follow BUILD norms, but should probably be flipped.
             .allowToplevelRebinding(true)
             .requireLoadStatementsFirst(false)
-            .recordScope(false)
+            .recordScope(false) // mustn't mutate (resolve) syntax in a downstream skyframe function
             .restrictStringEscapes(
                 semantics != null && semantics.incompatibleRestrictStringEscapes())
             .build();
@@ -230,7 +230,7 @@ public class WorkspaceASTFunction implements SkyFunction {
                   "In arguments to " + ((String) rule) + " found a non-string key.");
             }
             builder.append("    ").append((String) key).append(" = ");
-            builder.append(Printer.getPrinter().repr(arg.getValue()).toString());
+            builder.append(Starlark.repr(arg.getValue()));
             builder.append(",\n");
           }
           builder.append(")\n\n");

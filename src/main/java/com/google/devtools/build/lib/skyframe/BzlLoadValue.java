@@ -274,7 +274,7 @@ public class BzlLoadValue implements SkyValue {
 
     @Override
     ASTFileLookupValue.Key getASTKey(Root root) {
-      return ASTFileLookupValue.key(root, label);
+      return ASTFileLookupValue.keyForBuiltins(root, label);
     }
 
     @Override

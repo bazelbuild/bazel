@@ -429,6 +429,7 @@ public final class Actions {
           Artifact artifactI = Preconditions.checkNotNull(artifactPathMap.get(pathI), pathI);
           Artifact artifactJ = Preconditions.checkNotNull(artifactPathMap.get(pathJ), pathJ);
 
+          // TODO(b/159733792): Test this check with compressed tree artifact input.
           // We ignore the artifact prefix conflict between a TreeFileArtifact and its parent
           // TreeArtifact.
           // We can only have such a conflict here if:

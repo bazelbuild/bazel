@@ -1513,7 +1513,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     // TODO(gregce): cache invalid option errors in BuildConfigurationFunction, then use a dedicated
     // accessor (i.e. not the event handler) to trigger the exception below.
-    ErrorSensingEventHandler nosyEventHandler = new ErrorSensingEventHandler(eventHandler);
+    ErrorSensingEventHandler<Void> nosyEventHandler =
+        ErrorSensingEventHandler.withoutPropertyValueTracking(eventHandler);
     topLevelTargetConfigs.forEach(config -> config.reportInvalidOptions(nosyEventHandler));
     if (nosyEventHandler.hasErrors()) {
       throw new InvalidConfigurationException("Build options are invalid");

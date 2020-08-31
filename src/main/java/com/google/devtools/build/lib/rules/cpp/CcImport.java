@@ -79,12 +79,9 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(ruleContext, ccToolchain, semantics);
 
-    Artifact staticLibrary =
-        ruleContext.getPrerequisiteArtifact("static_library", TransitionMode.TARGET);
-    Artifact sharedLibrary =
-        ruleContext.getPrerequisiteArtifact("shared_library", TransitionMode.TARGET);
-    Artifact interfaceLibrary =
-        ruleContext.getPrerequisiteArtifact("interface_library", TransitionMode.TARGET);
+    Artifact staticLibrary = ruleContext.getPrerequisiteArtifact("static_library");
+    Artifact sharedLibrary = ruleContext.getPrerequisiteArtifact("shared_library");
+    Artifact interfaceLibrary = ruleContext.getPrerequisiteArtifact("interface_library");
     performErrorChecks(ruleContext, systemProvided, sharedLibrary, interfaceLibrary);
 
     Artifact resolvedSymlinkDynamicLibrary = null;
@@ -189,7 +186,7 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
             .setHeadersCheckingMode(HeadersCheckingMode.STRICT)
             .setCodeCoverageEnabled(CcCompilationHelper.isCodeCoverageEnabled(ruleContext))
             .setPurpose(common.getPurpose(semantics))
-            .compile();
+            .compile(ruleContext::ruleError);
 
     Map<String, NestedSet<Artifact>> outputGroups =
         CcCompilationHelper.buildOutputGroups(compilationInfo.getCcCompilationOutputs());

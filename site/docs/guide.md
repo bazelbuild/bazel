@@ -725,15 +725,14 @@ the use of a long-running server process doesn't interfere with proper
 versioning.
 
 
-<a id="bazelrc"></a>
+<a id="bazelrc></a>
 
 ## `.bazelrc`, the Bazel configuration file
 
-Bazel accepts many options. Typically, some of these are varied frequently (for
-example, `--subcommands`) while others stay the same across several builds (e.g.
-`--package_path`). To avoid having to specify these unchanged options for every
-build (and other commands) Bazel allows you to specify options in a
-configuration file.
+Bazel accepts many options. Some options are varied frequently (for example,
+`--subcommands`) while others stay the same across several builds (such as
+`--package_path`). To avoid specifying these unchanged options for every build
+(and other commands), you can specify options in a configuration file.
 
 ### Where are the `.bazelrc` files?
 Bazel looks for optional configuration files in the following locations,
@@ -779,6 +778,10 @@ before the command (`build`, `test`, etc).
 
     This flag is optional. However, if the flag is specified, then the file must
     exist.
+
+In addition to this optional configuration file, Bazel looks for a global rc
+file. For more details, see the [global bazelrc section](#global_bazelrc).
+
 
 ### `.bazelrc` syntax and semantics
 
@@ -935,6 +938,17 @@ that use other build systems. Place a file called
 and add the directories you want Bazel to ignore, one per
 line. Entries are relative to the workspace root.
 
+<a id="global_bazelrc"</a>
+
+### The global bazelrc file
+
+In addition to your personal `.bazelrc` file, Bazel reads global bazelrc
+files in this order: `$workspace/tools/bazel.rc`, `.bazelrc` next to the
+Bazel binary, and `/etc/bazel.bazelrc`. (It's fine if any are missing.)
+
+You can make Bazel ignore the global bazelrcs by passing the
+`--nomaster_bazelrc` startup option.
+
 
 <a id="scripting"></a>
 
@@ -1023,9 +1037,10 @@ Future Bazel versions may add additional exit codes, replacing generic failure
 exit code `1` with a different non-zero value with a particular meaning.
 However, all non-zero exit values will always constitute an error.
 
+
 ### Reading the .bazelrc file
 
-By default, Bazel will read the [`.bazelrc` file](#bazelrc) from the base
+By default, Bazel reads the [`.bazelrc` file](#bazelrc) from the base
 workspace directory or the user's home directory. Whether or not this is
 desirable is a choice for your script; if your script needs to be perfectly
 hermetic (e.g. when doing release builds), you should disable reading the

@@ -211,7 +211,7 @@ final class ParamDescriptor {
       // See https://docs.oracle.com/javase/specs/jls/se12/html/jls-12.html#jls-12.4
       thread.ignoreThreadInterrupts();
 
-      x = EvalUtils.eval(ParserInput.fromLines(expr), FileOptions.DEFAULT, module, thread);
+      x = Starlark.eval(ParserInput.fromLines(expr), FileOptions.DEFAULT, module, thread);
     } catch (InterruptedException ex) {
       throw new IllegalStateException(ex); // can't happen
     } catch (SyntaxError.Exception | EvalException ex) {

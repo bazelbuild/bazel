@@ -54,7 +54,6 @@ void PostException(JNIEnv *env, int error_number, const std::string& message) {
   const char *exception_classname;
   switch (error_number) {
     case EFAULT:  // Illegal pointer--not likely
-    case EBADF:   // Bad file number
       exception_classname = "java/lang/IllegalArgumentException";
       break;
     case ETIMEDOUT:  // Local socket timed out
@@ -82,6 +81,7 @@ void PostException(JNIEnv *env, int error_number, const std::string& message) {
                    // (aka EOPNOTSUPP)
       exception_classname = "java/lang/UnsupportedOperationException";
       break;
+    case EBADF:         // Bad file number or descriptor already closed.
     case ENAMETOOLONG:  // File name too long
     case ENODATA:    // No data available
     case EINVAL:     // Invalid argument

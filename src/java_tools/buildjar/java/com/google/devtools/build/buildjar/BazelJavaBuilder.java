@@ -23,14 +23,10 @@ import com.google.devtools.build.buildjar.javac.JavacOptions;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
 import com.google.devtools.build.buildjar.javac.plugins.errorprone.ErrorPronePlugin;
-import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
-import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStreamWriter;
-import java.io.PrintStream;
 import java.io.PrintWriter;
-import java.io.StringWriter;
+import java.io.Writer;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.List;
@@ -44,86 +40,17 @@ public class BazelJavaBuilder {
   public static void main(String[] args) {
     BazelJavaBuilder builder = new BazelJavaBuilder();
     if (args.length == 1 && args[0].equals("--persistent_worker")) {
-      System.exit(builder.runPersistentWorker(System.in, System.out, System.err));
+      WorkRequestHandler workerHandler = new WorkRequestHandler(builder::parseAndBuild);
+      System.exit(workerHandler.processRequests(System.in, System.out, System.err));
     } else {
-      System.exit(builder.runBatch(args, System.err));
+      System.exit(
+          builder.parseAndBuild(
+              Arrays.asList(args),
+              new PrintWriter(new OutputStreamWriter(System.err, Charset.defaultCharset()))));
     }
   }
 
-  /** Runs a single invocation of JavaBuilder (a.k.a. batch mode). */
-  private int runBatch(String[] args, PrintStream err) {
-    PrintWriter errorWriter =
-        new PrintWriter(new OutputStreamWriter(err, Charset.defaultCharset()));
-    int exitCode = parseAndProcessRequest(Arrays.asList(args), errorWriter);
-    errorWriter.flush();
-    return exitCode;
-  }
-
-  private int runPersistentWorker(InputStream in, PrintStream out, PrintStream err) {
-    while (true) {
-      try {
-        WorkRequest request = WorkRequest.parseDelimitedFrom(in);
-
-        if (request == null) {
-          break;
-        }
-
-        if (request.getRequestId() != 0) {
-          Thread t = createResponseThread(request, out, err);
-          t.start();
-        } else {
-          respondToRequest(request, out);
-        }
-      } catch (IOException e) {
-        e.printStackTrace(err);
-        return 1;
-      }
-    }
-    return 0;
-  }
-
-  /** Creates a new {@code Thread} to process a multiplex request. */
-  @VisibleForTesting
-  public Thread createResponseThread(WorkRequest request, PrintStream out, PrintStream err) {
-    Thread currentThread = Thread.currentThread();
-    return new Thread(
-        () -> {
-          try {
-            respondToRequest(request, out);
-          } catch (IOException e) {
-            e.printStackTrace(err);
-            // In case of error, shut down the entire worker.
-            currentThread.interrupt();
-          }
-        },
-        "multiplex-request-" + request.getRequestId());
-  }
-
-  /** Responds to {@code request}, writing the {@code WorkResponse} proto to {@code out}. */
-  @VisibleForTesting
-  void respondToRequest(WorkRequest request, PrintStream out) throws IOException {
-    try (StringWriter sw = new StringWriter();
-        PrintWriter pw = new PrintWriter(sw)) {
-      int exitCode = parseAndProcessRequest(request.getArgumentsList(), pw);
-      WorkResponse workResponse =
-          WorkResponse.newBuilder()
-              .setOutput(sw.toString())
-              .setExitCode(exitCode)
-              .setRequestId(request.getRequestId())
-              .build();
-      synchronized (this) {
-        workResponse.writeDelimitedTo(out);
-      }
-      out.flush();
-
-      // Hint to the system that now would be a good time to run a gc.  After a compile
-      // completes lots of objects should be available for collection and it should be cheap to
-      // collect them.
-      System.gc();
-    }
-  }
-
-  public int parseAndProcessRequest(List<String> args, PrintWriter err) {
+  public int parseAndBuild(List<String> args, PrintWriter pw) {
     try {
       JavaLibraryBuildRequest build = parse(args);
       try (SimpleJavaLibraryBuilder builder =
@@ -131,23 +58,35 @@ public class BazelJavaBuilder {
               ? new ReducedClasspathJavaLibraryBuilder()
               : new SimpleJavaLibraryBuilder()) {
 
-        BlazeJavacResult result = builder.run(build);
-        if (result.status() == Status.REQUIRES_FALLBACK) {
-          return 0;
-        }
-        for (FormattedDiagnostic d : result.diagnostics()) {
-          err.write(d.getFormatted() + "\n");
-        }
-        err.write(result.output());
-        return result.isOk() ? 0 : 1;
+        return build(builder, build, pw);
       }
     } catch (InvalidCommandLineException e) {
-      err.println(CMDNAME + " threw exception: " + e.getMessage());
+      pw.println(CMDNAME + " threw exception: " + e.getMessage());
       return 1;
     } catch (Exception e) {
-      e.printStackTrace(err);
+      e.printStackTrace();
       return 1;
     }
+  }
+
+  /**
+   * Uses {@code builder} to build the target passed in {@code buildRequest}. All errors and
+   * diagnostics should be written to {@code err}.
+   *
+   * @return An error code, 0 is success, any other value is an error.
+   */
+  protected int build(
+      SimpleJavaLibraryBuilder builder, JavaLibraryBuildRequest buildRequest, Writer err)
+      throws Exception {
+    BlazeJavacResult result = builder.run(buildRequest);
+    if (result.status() == Status.REQUIRES_FALLBACK) {
+      return 0;
+    }
+    for (FormattedDiagnostic d : result.diagnostics()) {
+      err.write(d.getFormatted() + "\n");
+    }
+    err.write(result.output());
+    return result.isOk() ? 0 : 1;
   }
 
   /**
@@ -159,7 +98,7 @@ public class BazelJavaBuilder {
    * @throws InvalidCommandLineException on any command line error
    */
   @VisibleForTesting
-  public static JavaLibraryBuildRequest parse(List<String> args)
+  public JavaLibraryBuildRequest parse(List<String> args)
       throws IOException, InvalidCommandLineException {
     OptionsParser optionsParser =
         new OptionsParser(args, JavacOptions.createWithWarningsAsErrorsDefault(ImmutableList.of()));

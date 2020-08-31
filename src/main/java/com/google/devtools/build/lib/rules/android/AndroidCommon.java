@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
@@ -29,7 +28,6 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
@@ -42,7 +40,6 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
@@ -95,30 +92,12 @@ public class AndroidCommon {
   private static final ResourceSet DEX_RESOURCE_SET =
       ResourceSet.createWithRamCpu(/* memoryMb= */ 4096.0, /* cpuUsage= */ DEX_THREADS);
 
-  public static final <T extends TransitiveInfoProvider> Iterable<T> getTransitivePrerequisites(
-      RuleContext ruleContext, TransitionMode mode, final Class<T> classType) {
-    IterablesChain.Builder<T> builder = IterablesChain.builder();
-    AttributeMap attributes = ruleContext.attributes();
-    for (String attr : TRANSITIVE_ATTRIBUTES) {
-      if (attributes.has(attr, BuildType.LABEL_LIST)) {
-        builder.add(ruleContext.getPrerequisites(attr, mode, classType));
-      }
-    }
-    return builder.build();
-  }
-
   public static final <T extends Info> Iterable<T> getTransitivePrerequisites(
-      RuleContext ruleContext, TransitionMode mode, NativeProvider<T> key) {
-    IterablesChain.Builder<T> builder = IterablesChain.builder();
-    AttributeMap attributes = ruleContext.attributes();
-    for (String attr : TRANSITIVE_ATTRIBUTES) {
-      if (attributes.has(attr, BuildType.LABEL_LIST)) {
-        builder.add(ruleContext.getPrerequisites(attr, mode, key));
-      }
-    }
-    return builder.build();
+      RuleContext ruleContext, BuiltinProvider<T> key) {
+    return getTransitivePrerequisites(ruleContext, TransitionMode.DONT_CHECK, key);
   }
 
+  // TODO(b/165916637): Update callers to not pass TransitionMode.
   public static final <T extends Info> Iterable<T> getTransitivePrerequisites(
       RuleContext ruleContext, TransitionMode mode, BuiltinProvider<T> key) {
     IterablesChain.Builder<T> builder = IterablesChain.builder();
@@ -423,11 +402,6 @@ public class AndroidCommon {
       NestedSetBuilder<Artifact> filesBuilder)
       throws InterruptedException, RuleErrorException {
 
-    // The resource class JAR should already have been generated.
-    Preconditions.checkArgument(
-        resourceJavaClassJar.equals(
-            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR)));
-
     packResourceSourceJar(javaSemantics, resourceJavaSrcJar);
 
     // Add the compiled resource jar to the classpath of the main compilation.
@@ -517,15 +491,13 @@ public class AndroidCommon {
     if (resourceJavaSrcJar != null) {
       filesBuilder.add(resourceJavaSrcJar);
 
-      if (resourceApk.addResourcesClassJarToCompilationClasspath()) {
-        compileResources(
-            javaSemantics,
-            resourceApk.getResourceJavaClassJar(),
-            resourceJavaSrcJar,
-            artifactsBuilder,
-            attributesBuilder,
-            filesBuilder);
-      }
+      compileResources(
+          javaSemantics,
+          resourceApk.getResourceJavaClassJar(),
+          resourceJavaSrcJar,
+          artifactsBuilder,
+          attributesBuilder,
+          filesBuilder);
 
       // Combined resource constants needs to come even before our own classes that may contain
       // local resource constants.
@@ -723,10 +695,14 @@ public class AndroidCommon {
             .setNeverlink(isNeverlink)
             .build();
 
-    if (ruleContext
-            .getFragment(AndroidConfiguration.class)
-            .omitResourcesInfoProviderFromAndroidBinary()
-        && !isLibrary) {
+    // Do not convert the ResourceApk into native providers when it is created from
+    // Starlark via AndroidApplicationResourceInfo, because native dependency providers are not
+    // created in the Starlark pipeline.
+    if (resourceApk.isFromAndroidApplicationResourceInfo()
+        || (ruleContext
+                .getFragment(AndroidConfiguration.class)
+                .omitResourcesInfoProviderFromAndroidBinary()
+            && !isLibrary)) {
       // Binary rule; allow extracting merged manifest from Starlark via
       // ctx.attr.android_binary.android.merged_manifest, but not much more.
       builder.addStarlarkTransitiveInfo(

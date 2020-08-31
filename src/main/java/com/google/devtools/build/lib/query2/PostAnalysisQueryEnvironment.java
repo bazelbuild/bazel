@@ -137,7 +137,8 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
           SkyframeExecutor skyframeExecutor,
           BuildConfiguration hostConfiguration,
           @Nullable TransitionFactory<Rule> trimmingTransitionFactory,
-          PackageManager packageManager);
+          PackageManager packageManager)
+          throws QueryException, InterruptedException;
 
   public abstract String getOutputFormat();
 

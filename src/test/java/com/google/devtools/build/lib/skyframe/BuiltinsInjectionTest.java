@@ -117,7 +117,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void evalWithInjection_errorInEvaluatingBuiltins() throws Exception {
+  public void errorInEvaluatingBuiltins() throws Exception {
     // Test case with a Starlark error in the @builtins pseudo-repo itself.
     // TODO(#11437): Use @builtins//:... syntax for load, once supported.
     scratch.file(
@@ -144,7 +144,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void evalWithInjection_errorInProcessingExports() throws Exception {
+  public void errorInProcessingExports() throws Exception {
     // Test case with an error in the symbols exported by exports.bzl, but no actual Starlark errors
     // in the @builtins files themselves.
     writeExportsBzl(
@@ -194,8 +194,12 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     assertContainsEvent("overridable_rule :: <built-in rule overridable_rule>");
   }
 
+  // TODO(#11954): Once WORKSPACE- and BUILD-loaded bzls use the exact same environments, we'll want
+  // to apply injection to both. This is for uniformity, not because we actually care about builtins
+  // injection for WORKSPACE bzls. In the meantime, assert the status quo: WORKSPACE bzls do not use
+  // injection.
   @Test
-  public void evalWorkspaceBzl_doesNotUseInjection() throws Exception {
+  public void workspaceBzlDoesNotUseInjection() throws Exception {
     writeExportsBzl(
         "exported_toplevels = {'overridable_symbol': 'new_value'}",
         "exported_rules = {'overridable_rule': 'new_rule'}",
@@ -219,40 +223,88 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     // contain our original mock rule. We can test this for WORKSPACE files at the top-level though.
   }
 
-  // TODO(#11437): Broaden to also assert that it can't access rule-specific symbols (like our
-  // override symbols) but can still access basic symbols (print(), rule()).
   @Test
-  public void evalBuiltinsBzl_cannotAccessNative() throws Exception {
+  public void builtinsBzlCannotAccessNative() throws Exception {
+    // TODO(#11437): Use @builtins//:... syntax for load, once supported.
+    scratch.file(
+        "tools/builtins_staging/helper.bzl", //
+        "builtins_dummy = None",
+        "print('made it to evaluation')",
+        "print('overridable_rule :: ' + str(native.overridable_rule))");
     writeExportsBzl(
-        // The load string here references a regular label, but it gets loaded using a
-        // BzlLoadValue.KeyForBuiltins because we're in exports.bzl.
-        // TODO(#11437): Rewrite this load syntax to @builtins//...
-        "load('//pkg:builtins_dummy.bzl', 'builtins_dummy')",
-        "exported_toplevels = {'overridable_symbol': 'new_value'}",
-        "exported_rules = {'overridable_rule': 'new_rule'}",
+        "load('//tools/builtins_staging:helper.bzl', 'builtins_dummy')",
+        "exported_toplevels = {}",
+        "exported_rules = {}",
         "exported_to_java = {}");
     writePkgBzl();
-    scratch.file(
-        "pkg/builtins_dummy.bzl", //
-        "builtins_dummy = None",
-        "print('overridable_symbol :: ' + str(overridable_symbol))",
-        "print('overridable_rule :: ' + str(native.overridable_rule))");
     reporter.removeHandler(failFastHandler);
 
     buildDummyWithoutAssertingSuccess();
-    // Currently overridable_symbol, a piece of (mock) rule logic, is accessible, but a future
-    // change will prevent that.
-    assertContainsEvent("overridable_symbol :: original_value");
-    // Currently, the "native" object actually exists, but isn't fully formed -- it contains generic
-    // methods but not specific rules. We will change this to be completely absent from @builtins.
-    assertContainsEvent("'native' value has no field or method 'overridable_rule'");
+    // The print() statement is never reached because we fail statically during name resolution in
+    // ASTFileLookupFunction.
+    assertDoesNotContainEvent("made it to evaluation");
+    assertContainsEvent("name 'native' is not defined");
+  }
+
+  @Test
+  public void builtinsBzlCannotAccessRuleSpecificSymbol() throws Exception {
+    // TODO(#11437): Use @builtins//:... syntax for load, once supported.
+    scratch.file(
+        "tools/builtins_staging/helper.bzl", //
+        "builtins_dummy = None",
+        "print('made it to evaluation')",
+        "print('overridable_symbol :: ' + str(overridable_symbol))");
+    writeExportsBzl(
+        "load('//tools/builtins_staging:helper.bzl', 'builtins_dummy')",
+        "exported_toplevels = {}",
+        "exported_rules = {}",
+        "exported_to_java = {}");
+    writePkgBzl();
+    reporter.removeHandler(failFastHandler);
+
+    buildDummyWithoutAssertingSuccess();
+    // The print() statement is never reached because we fail statically during name resolution in
+    // ASTFileLookupFunction.
+    assertDoesNotContainEvent("made it to evaluation");
+    assertContainsEvent("name 'overridable_symbol' is not defined");
+  }
+
+  @Test
+  public void regularBzlCannotAccessInternal() throws Exception {
+    writeExportsBzl(
+        "exported_toplevels = {}", //
+        "exported_rules = {}",
+        "exported_to_java = {}");
+    writePkgBzl("print('_internal :: ' + str(_internal))");
+    reporter.removeHandler(failFastHandler);
+
+    buildDummyWithoutAssertingSuccess();
+    assertContainsEvent("name '_internal' is not defined");
+  }
+
+  @Test
+  public void builtinsBzlCanAccessInternal() throws Exception {
+    // TODO(#11437): Use @builtins//:... syntax for load, once supported.
+    scratch.file(
+        "tools/builtins_staging/helper.bzl", //
+        "builtins_dummy = None",
+        "print('_internal in helper.bzl :: ' + str(_internal))");
+    writeExportsBzl(
+        "load('//tools/builtins_staging:helper.bzl', 'builtins_dummy')",
+        "exported_toplevels = {}",
+        "exported_rules = {}",
+        "exported_to_java = {}",
+        "print('_internal in exports.bzl :: ' + str(_internal))");
+    writePkgBzl();
+
+    buildDummyAndAssertSuccess();
+    assertContainsEvent("_internal in helper.bzl :: <_internal module>");
+    assertContainsEvent("_internal in exports.bzl :: <_internal module>");
   }
 
   // TODO(#11437): Reject overriding symbols that don't already exist. Reject overriding "native".
   // Reject overriding non-rule-logic symbols such as package(), select(), environment_extension,
   // varref(), etc.
-
-  // TODO(#11437): Add tests that the _internal symbol is accessible nowhere but builtins bzls.
 
   // TODO(#11437): Add tests of the _internal symbol's usage within builtins bzls.
 

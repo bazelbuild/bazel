@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -570,7 +569,7 @@ public final class JavaCompilationHelper {
     if (genClass != null) {
       return genClass;
     }
-    return ruleContext.getPrerequisiteArtifact("$genclass", TransitionMode.HOST);
+    return ruleContext.getPrerequisiteArtifact("$genclass");
   }
 
   /**

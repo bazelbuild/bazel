@@ -35,7 +35,8 @@ tasks:
       - "-//src/java_tools/import_deps_checker/..."
       # These tests are not compatible with the gcov version of CentOS 7.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
-      - "-//src/test/shell/bazel:bazel_coverage_cc_test_gcc"
+      - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
+      - "-//src/test/shell/bazel:bazel_coverage_cc_head_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_sh_test"
     include_json_profile:
       - build

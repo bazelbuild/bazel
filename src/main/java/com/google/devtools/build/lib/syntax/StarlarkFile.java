@@ -115,8 +115,8 @@ public final class StarlarkFile extends Node {
   }
 
   /**
-   * Returns informtion about the implicit function containing the top-level statements of the file.
-   * Set by the resolver.
+   * Returns information about the implicit function containing the top-level statements of the
+   * file. Set by the resolver.
    */
   @Nullable
   public Resolver.Function getResolvedFunction() {

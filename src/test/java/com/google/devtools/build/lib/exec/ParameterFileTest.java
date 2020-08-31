@@ -30,9 +30,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link ParameterFile}.
- */
+/** Tests for {@link ParameterFile}. */
 @TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
 public class ParameterFileTest extends FoundationTestCase {
@@ -67,6 +65,19 @@ public class ParameterFileTest extends FoundationTestCase {
         .containsExactly("--lambda=?");
     assertThat(writeContent(StandardCharsets.UTF_8, ImmutableList.of("--lambda=λ")))
         .containsExactly("--lambda=λ");
+  }
+
+  private static final ImmutableList<String> MIXED_ARGS =
+      ImmutableList.of("a", "--b", "--c=d", "e");
+
+  @Test
+  public void flagsOnly() throws Exception {
+    assertThat(ParameterFile.flagsOnly(MIXED_ARGS)).containsExactly("--b", "--c=d").inOrder();
+  }
+
+  @Test
+  public void nonFlags() throws Exception {
+    assertThat(ParameterFile.nonFlags(MIXED_ARGS)).containsExactly("a", "e").inOrder();
   }
 
   private static ImmutableList<String> writeContent(Charset charset, Iterable<String> content)

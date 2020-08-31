@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.MoreObjects;
 import com.google.common.base.Throwables;
 import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
@@ -81,6 +80,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.build.skyframe.ValueOrException2;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -546,9 +546,6 @@ public class PackageFunction implements SkyFunction {
       throw pfeFromLegacyPackageLoading;
     }
 
-    if (pkgBuilder.containsErrors()) {
-      pkgBuilder.setContainsErrors();
-    }
     Package pkg = pkgBuilder.finishBuild();
 
     Event.replayEventsOn(env.getListener(), pkgBuilder.getEvents());
@@ -661,14 +658,6 @@ public class PackageFunction implements SkyFunction {
           .setMessage(e.getMessage())
           .setPackageLoadingCode(PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR)
           .buildCause();
-    } catch (InconsistentFilesystemException e) {
-      throw PackageFunctionException.builder()
-          .setType(PackageFunctionException.Type.NO_SUCH_PACKAGE)
-          .setPackageIdentifier(packageId)
-          .setException(e)
-          .setMessage(e.getMessage())
-          .setPackageLoadingCode(PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR)
-          .buildCause();
     }
     if (bzlLoads == null) {
       return null; // Skyframe deps unavailable
@@ -693,12 +682,10 @@ public class PackageFunction implements SkyFunction {
   @Nullable
   private static List<BzlLoadValue> computeBzlLoadsNoInlining(
       Environment env, List<BzlLoadValue.Key> keys)
-      throws InterruptedException, BzlLoadFailedException, InconsistentFilesystemException {
+      throws InterruptedException, BzlLoadFailedException {
     List<BzlLoadValue> bzlLoads = Lists.newArrayListWithExpectedSize(keys.size());
-    Map<SkyKey, ValueOrException2<BzlLoadFailedException, InconsistentFilesystemException>>
-        starlarkLookupResults =
-            env.getValuesOrThrow(
-                keys, BzlLoadFailedException.class, InconsistentFilesystemException.class);
+    Map<SkyKey, ValueOrException<BzlLoadFailedException>> starlarkLookupResults =
+        env.getValuesOrThrow(keys, BzlLoadFailedException.class);
     for (BzlLoadValue.Key key : keys) {
       bzlLoads.add((BzlLoadValue) starlarkLookupResults.get(key).get());
     }
@@ -713,11 +700,11 @@ public class PackageFunction implements SkyFunction {
   @Nullable
   private static List<BzlLoadValue> computeBzlLoadsWithInlining(
       Environment env, List<BzlLoadValue.Key> keys, BzlLoadFunction bzlLoadFunctionForInlining)
-      throws InterruptedException, BzlLoadFailedException, InconsistentFilesystemException {
+      throws InterruptedException, BzlLoadFailedException {
     List<BzlLoadValue> bzlLoads = Lists.newArrayListWithExpectedSize(keys.size());
     // See the comment about the desire for deterministic graph structure in BzlLoadFunction for the
     // motivation of this approach to exception handling.
-    Exception deferredException = null;
+    BzlLoadFailedException deferredException = null;
     // Compute BzlLoadValue for each key, sharing the same inlining state, i.e. cache of loaded
     // modules. This ensures that each .bzl is loaded only once, regardless of diamond dependencies
     // or cache eviction. (Multiple loads of the same .bzl would screw up identity equality of some
@@ -729,8 +716,10 @@ public class PackageFunction implements SkyFunction {
         // Will complete right away if this key has been seen before in inliningState -- regardless
         // of whether it was evaluated successfully, had missing deps, or was found to be in error.
         skyValue = bzlLoadFunctionForInlining.computeInline(key, env, inliningState);
-      } catch (BzlLoadFailedException | InconsistentFilesystemException e) {
-        deferredException = MoreObjects.firstNonNull(deferredException, e);
+      } catch (BzlLoadFailedException e) {
+        if (deferredException == null) {
+          deferredException = e;
+        }
         continue;
       }
       if (skyValue != null) {
@@ -743,10 +732,7 @@ public class PackageFunction implements SkyFunction {
       // SkyFunctions that are requested and avoid a quadratic number of restarts.
     }
     if (deferredException != null) {
-      Throwables.throwIfInstanceOf(deferredException, BzlLoadFailedException.class);
-      Throwables.throwIfInstanceOf(deferredException, InconsistentFilesystemException.class);
-      throw new IllegalStateException(
-          "caught a checked exception of unexpected type", deferredException);
+      throw deferredException;
     }
     return env.valuesMissing() ? null : bzlLoads;
   }
@@ -1225,8 +1211,11 @@ public class PackageFunction implements SkyFunction {
         // Options for processing BUILD files.
         FileOptions options =
             FileOptions.builder()
-                .recordScope(false) // don't mutate BUILD syntax tree due to shared prelude
-                // TODO(adonovan): remove recordScope opt-out
+                // TODO(adonovan): remove recordScope opt-out. But first we need to fix the
+                // preexisting
+                // problem that fileSyntaxCache shares syntax trees which createPackageFromAst
+                // mutates.
+                .recordScope(false) // don't mutate BUILD syntax
                 .requireLoadStatementsFirst(false)
                 .allowToplevelRebinding(true)
                 .restrictStringEscapes(starlarkSemantics.incompatibleRestrictStringEscapes())
@@ -1272,7 +1261,7 @@ public class PackageFunction implements SkyFunction {
               repositoryMapping,
               packageId,
               buildFilePath,
-              file,
+              file, // becomes resolved as a side effect
               bzlLoadResult.preludeModule,
               bzlLoadResult.loadedModules,
               defaultVisibility,

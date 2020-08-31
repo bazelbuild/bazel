@@ -289,7 +289,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     commandMap.put(name, command);
   }
 
-  final void overrideCommands(Iterable<BlazeCommand> commands) {
+  @VisibleForTesting
+  public final void overrideCommands(Iterable<BlazeCommand> commands) {
     commandMap.clear();
     for (BlazeCommand command : commands) {
       addCommand(command);

@@ -17,7 +17,6 @@ import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -41,7 +40,7 @@ public abstract class JavaHelper {
   public static TransitiveInfoCollection launcherForTarget(
       JavaSemantics semantics, RuleContext ruleContext) {
     String launcher = filterLauncherForTarget(ruleContext);
-    return (launcher == null) ? null : ruleContext.getPrerequisite(launcher, TransitionMode.TARGET);
+    return (launcher == null) ? null : ruleContext.getPrerequisite(launcher);
   }
 
   /**
@@ -51,9 +50,7 @@ public abstract class JavaHelper {
   public static Artifact launcherArtifactForTarget(
       JavaSemantics semantics, RuleContext ruleContext) {
     String launcher = filterLauncherForTarget(ruleContext);
-    return (launcher == null)
-        ? null
-        : ruleContext.getPrerequisiteArtifact(launcher, TransitionMode.TARGET);
+    return (launcher == null) ? null : ruleContext.getPrerequisiteArtifact(launcher);
   }
 
   /**

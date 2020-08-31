@@ -1104,8 +1104,10 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "cc_library(name = 'z', srcs = ['z.cc'])");
     String hiddenTopLevel =
         ActionsTestUtil.baseNamesOf(getOutputGroup(x, OutputGroupInfo.HIDDEN_TOP_LEVEL));
-    assertThat(hiddenTopLevel).contains("y.h.processed");
+    assertThat(hiddenTopLevel).doesNotContain("y.h.processed");
     assertThat(hiddenTopLevel).doesNotContain("z.pic.o");
+    String validation = ActionsTestUtil.baseNamesOf(getOutputGroup(x, OutputGroupInfo.VALIDATION));
+    assertThat(validation).contains("y.h.processed");
   }
 
   @Test

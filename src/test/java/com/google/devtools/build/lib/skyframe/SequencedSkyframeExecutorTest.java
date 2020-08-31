@@ -75,6 +75,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.SkyframeBuilder;
@@ -193,7 +194,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         OptionsParser.builder()
             .optionsClasses(
                 ImmutableList.of(
-                    KeepGoingOption.class, BuildRequestOptions.class, AnalysisOptions.class))
+                    KeepGoingOption.class,
+                    BuildRequestOptions.class,
+                    AnalysisOptions.class,
+                    CoreOptions.class))
             .build();
     options.parse("--jobs=20");
   }

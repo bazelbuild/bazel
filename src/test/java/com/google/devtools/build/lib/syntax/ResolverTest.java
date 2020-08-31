@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.syntax;
 
 import static com.google.devtools.build.lib.syntax.LexerTest.assertContainsError;
 
+import com.google.common.collect.ImmutableSet;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -26,10 +27,14 @@ public class ResolverTest {
 
   private final FileOptions.Builder options = FileOptions.builder();
 
-  // Resolves a file using the current options.
+  // Resolves a file using the current options,
+  // in an environment with a single predeclared name, pre.
+  // Errors are recorded in file.errors().
   private StarlarkFile resolveFile(String... lines) throws SyntaxError.Exception {
     ParserInput input = ParserInput.fromLines(lines);
-    return EvalUtils.parseAndValidate(input, options.build(), Module.create());
+    StarlarkFile file = StarlarkFile.parse(input, options.build());
+    Resolver.resolveFile(file, () -> ImmutableSet.of("pre"));
+    return file;
   }
 
   // Assertions that parsing and resolution succeeds.
@@ -114,7 +119,7 @@ public class ResolverTest {
   public void testForbiddenToplevelIfStatement() throws Exception {
     assertInvalid(
         "if statements are not allowed at the top level", //
-        "if True: a = 2");
+        "if pre: a = 2");
   }
 
   @Test
@@ -170,7 +175,7 @@ public class ResolverTest {
 
   @Test
   public void testBuiltinsCanBeShadowed() throws Exception {
-    assertValid("repr = 1");
+    assertValid("pre = 1");
   }
 
   @Test
@@ -211,7 +216,7 @@ public class ResolverTest {
   public void testLocalVariableDefinedBelow() throws Exception {
     assertValid(
         "def bar():",
-        "    for i in range(5):",
+        "    for i in pre(5):",
         "        if i > 2: return x",
         "        x = i" // x is visible in the entire function block
         );
@@ -232,20 +237,6 @@ public class ResolverTest {
   @Test
   public void testDictExpressionDifferentValueTypeWorks() throws Exception {
     assertValid("{'a': 1, 'b': 'c'}");
-  }
-
-  @Test
-  public void testNoneAssignment() throws Exception {
-    assertValid("def func():", "  a = None", "  a = 2", "  a = None\n");
-  }
-
-  @Test
-  public void testNoneIsAnyType() throws Exception {
-    assertValid("None + None");
-    assertValid("2 == None");
-    assertValid("None > 'a'");
-    assertValid("[] in None");
-    assertValid("5 * None");
   }
 
   // Starlark built-in functions specific tests
@@ -275,24 +266,6 @@ public class ResolverTest {
   @Test
   public void testBuiltinGlobalFunctionsReadOnlyAsFuncDefArg() throws Exception {
     assertValid("def func(rule):", "  return rule");
-  }
-
-  @Test
-  public void testFunctionReturnsFunction() throws Exception {
-    assertValid(
-        "def rule(*, implementation): return None", //
-        "def impl(ctx): return None",
-        "",
-        "starlark_rule = rule(implementation = impl)",
-        "",
-        "def macro(name):",
-        "  starlark_rule(name = name)");
-  }
-
-  @Test
-  public void testTypeForBooleanLiterals() throws Exception {
-    assertValid("len([1, 2]) == 0 and True");
-    assertValid("len([1, 2]) == 0 and False");
   }
 
   @Test
@@ -368,41 +341,41 @@ public class ResolverTest {
     // positionals go before keywords
     assertInvalid(
         "positional argument may not follow keyword", //
-        "dict(a=1, 0)");
+        "pre(a=1, 0)");
 
     // keywords must be unique
     assertInvalid(
         "duplicate keyword argument: a", //
-        "dict(a=1, a=2)");
+        "pre(a=1, a=2)");
 
     // no arguments after **kwargs
     assertInvalid(
         "positional argument may not follow **kwargs", //
-        "dict(**0, 0)");
+        "pre(**0, 0)");
     assertInvalid(
         "keyword argument a may not follow **kwargs", //
-        "dict(**0, a=1)");
+        "pre(**0, a=1)");
     assertInvalid(
         "*args may not follow **kwargs", //
-        "dict(**0, *0)");
+        "pre(**0, *0)");
     assertInvalid(
         "multiple **kwargs not allowed", //
-        "dict(**0, **0)");
+        "pre(**0, **0)");
     assertInvalid(
         "*args may not follow **kwargs", // also, a parse error
-        "dict(**0, *)");
+        "pre(**0, *)");
 
     // bad arguments after *args
     assertInvalid(
         "positional argument may not follow *args", //
-        "dict(*0, 1)");
+        "pre(*0, 1)");
     assertInvalid(
         "keyword argument a may not follow *args", //
-        "dict(*0, a=1)"); // Python (even v2) allows this
+        "pre(*0, a=1)"); // Python (even v2) allows this
     assertInvalid(
         "multiple *args not allowed", //
-        "dict(*0, *0)");
+        "pre(*0, *0)");
 
-    assertValid("dict(0, a=0, *0, **0)");
+    assertValid("pre(0, a=0, *0, **0)");
   }
 }

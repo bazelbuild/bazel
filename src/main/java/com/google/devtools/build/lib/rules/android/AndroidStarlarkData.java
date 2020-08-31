@@ -553,9 +553,6 @@ public abstract class AndroidStarlarkData
           AndroidBinary.shrinkResources(
               ctx,
               binaryDataInfo.getResourcesInfo().getDirectAndroidResources().toList().get(0),
-              ResourceDependencies.fromProviders(
-                  getProviders(depsTargets, AndroidResourcesInfo.PROVIDER),
-                  /* neverlink = */ false),
               proguardOutputJar,
               proguardMapping,
               settings.resourceFilterFactory,

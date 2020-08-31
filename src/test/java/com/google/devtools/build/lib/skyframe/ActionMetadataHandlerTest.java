@@ -74,8 +74,9 @@ public final class ActionMetadataHandlerTest {
 
   private final ArtifactRoot sourceRoot =
       ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
+  private final PathFragment derivedPathPrefix = PathFragment.create("bin");
   private final ArtifactRoot outputRoot =
-      ArtifactRoot.asDerivedRoot(scratch.resolve("/output"), "bin");
+      ArtifactRoot.asDerivedRoot(scratch.resolve("/output"), derivedPathPrefix);
   private final Path execRoot = outputRoot.getRoot().asPath();
 
   @Before
@@ -89,10 +90,12 @@ public final class ActionMetadataHandlerTest {
     return ActionMetadataHandler.create(
         inputMap,
         forInputDiscovery,
+        /*archivedTreeArtifactsEnabled=*/ false,
         outputs,
         tsgm,
         ArtifactPathResolver.IDENTITY,
         execRoot.asFragment(),
+        derivedPathPrefix,
         /*expandedFilesets=*/ ImmutableMap.of());
   }
 
@@ -431,10 +434,12 @@ public final class ActionMetadataHandlerTest {
         ActionMetadataHandler.create(
             new ActionInputMap(0),
             /*forInputDiscovery=*/ false,
+            /*archivedTreeArtifactsEnabled=*/ false,
             /*outputs=*/ ImmutableSet.of(),
             tsgm,
             ArtifactPathResolver.IDENTITY,
             execRoot.asFragment(),
+            derivedPathPrefix,
             expandedFilesets);
 
     // Only the regular FileArtifactValue should have its metadata stored.

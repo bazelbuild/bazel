@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -152,7 +151,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     }
 
     ImmutableList<TransitiveInfoCollection> deps =
-        ImmutableList.copyOf(ruleContext.getPrerequisites("deps", TransitionMode.TARGET));
+        ImmutableList.copyOf(ruleContext.getPrerequisites("deps"));
     if (ruleContext.hasErrors()) {
       addEmptyRequiredProviders(targetBuilder);
       return;
@@ -206,7 +205,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             .emitInterfaceSharedLibraries(true)
             .setAlwayslink(alwaysLink)
             .setNeverLink(neverLink)
-            .addLinkstamps(ruleContext.getPrerequisites("linkstamp", TransitionMode.TARGET));
+            .addLinkstamps(ruleContext.getPrerequisites("linkstamp"));
 
     Artifact soImplArtifact = null;
     boolean supportsDynamicLinker = ccToolchain.supportsDynamicLinker(featureConfiguration);
@@ -228,7 +227,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
     if (ruleContext.getRule().isAttrDefined("textual_hdrs", BuildType.LABEL_LIST)) {
       compilationHelper.addPublicTextualHeaders(
-          ruleContext.getPrerequisiteArtifacts("textual_hdrs", TransitionMode.TARGET).list());
+          ruleContext.getPrerequisiteArtifacts("textual_hdrs").list());
     }
     if (ruleContext.getRule().isAttrDefined("include_prefix", Type.STRING)
         && ruleContext.attributes().isAttributeValueExplicitlySpecified("include_prefix")) {
@@ -299,7 +298,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
           + "even though there are no sources to compile in this configuration"));
     }
 
-    CompilationInfo compilationInfo = compilationHelper.compile();
+    CompilationInfo compilationInfo = compilationHelper.compile(ruleContext::ruleError);
     CcCompilationOutputs precompiledFilesObjects =
         CcCompilationOutputs.builder()
             .addObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ true))
@@ -382,8 +381,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             neverLink ? ImmutableList.of() : libraryToLinks,
             compilationInfo.getCcCompilationContext());
     CcNativeLibraryProvider ccNativeLibraryProvider =
-        CppHelper.collectNativeCcLibraries(
-            ruleContext.getPrerequisites("deps", TransitionMode.TARGET), libraryToLinks);
+        CppHelper.collectNativeCcLibraries(ruleContext.getPrerequisites("deps"), libraryToLinks);
 
     /*
      * We always generate a static library, even if there aren't any source files.
@@ -463,7 +461,9 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             ruleContext.getFragment(CppConfiguration.class),
             ccToolchain,
             featureConfiguration,
-            ruleContext);
+            ruleContext,
+            /* generateHeaderTokensGroup= */ true,
+            /* addSelfHeaderTokens= */ true);
     CcStarlarkApiProvider.maybeAdd(ruleContext, targetBuilder);
     targetBuilder
         .setFilesToBuild(filesToBuild)
@@ -483,13 +483,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         .addOutputGroup(
             OutputGroupInfo.HIDDEN_TOP_LEVEL,
             collectHiddenTopLevelArtifacts(
-                ruleContext, ccToolchain, ccCompilationOutputs, featureConfiguration))
-        .addOutputGroup(
-            CcCompilationHelper.HIDDEN_HEADER_TOKENS,
-            CcCompilationHelper.collectHeaderTokens(
-                ruleContext,
-                ruleContext.getFragment(CppConfiguration.class),
-                ccCompilationOutputs));
+                ruleContext, ccToolchain, ccCompilationOutputs, featureConfiguration));
 
     maybeAddDeniedImplicitOutputsProvider(targetBuilder, ruleContext);
   }
@@ -515,8 +509,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     artifactsToForceBuilder.addTransitive(
         ccCompilationOutputs.getFilesToCompile(processHeadersInDependencies, usePic));
     for (OutputGroupInfo dep :
-        ruleContext.getPrerequisites(
-            "deps", TransitionMode.TARGET, OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
+        ruleContext.getPrerequisites("deps", OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
       artifactsToForceBuilder.addTransitive(
           dep.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL));
     }

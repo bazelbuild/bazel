@@ -17,8 +17,7 @@ package com.google.devtools.build.skydoc.rendering;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Printer.BasePrinter;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionParamInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.StarlarkFunctionInfo;
@@ -80,14 +79,7 @@ public final class FunctionUtil {
     if (defaultValue == null) {
       paramBuilder.setMandatory(true);
     } else {
-      BasePrinter printer = Printer.getSimplifiedPrinter();
-      printer.repr(defaultValue);
-      String defaultValueString = printer.toString();
-
-      if (defaultValueString.isEmpty()) {
-        defaultValueString = "{unknown object}";
-      }
-      paramBuilder.setDefaultValue(defaultValueString).setMandatory(false);
+      paramBuilder.setDefaultValue(Starlark.repr(defaultValue)).setMandatory(false);
     }
     return paramBuilder.build();
   }

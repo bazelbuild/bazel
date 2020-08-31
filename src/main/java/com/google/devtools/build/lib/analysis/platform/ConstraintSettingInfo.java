@@ -90,9 +90,10 @@ public class ConstraintSettingInfo extends NativeInfo implements ConstraintSetti
 
   @Override
   public void repr(Printer printer) {
-    printer.format("ConstraintSettingInfo(%s", label.toString());
+    Printer.format(printer, "ConstraintSettingInfo(%s", label.toString());
     if (defaultConstraintValueLabel != null) {
-      printer.format(", default_constraint_value=%s", defaultConstraintValueLabel.toString());
+      Printer.format(
+          printer, ", default_constraint_value=%s", defaultConstraintValueLabel.toString());
     }
     printer.append(")");
   }

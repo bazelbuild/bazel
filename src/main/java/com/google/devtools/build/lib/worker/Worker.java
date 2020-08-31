@@ -62,8 +62,8 @@ class Worker {
   protected final int workerId;
   /** The execution root of the worker. */
   protected final Path workDir;
-  /** The path of the log file. */
-  protected final Path logFile;
+  /** The path of the log file for this worker. */
+  private final Path logFile;
   /** Stream for reading the protobuf WorkResponse. */
   @Nullable protected RecordingInputStream protoRecordingStream;
   /** Reader for reading the JSON WorkResponse. */
@@ -135,6 +135,11 @@ class Worker {
    */
   int getWorkerId() {
     return this.workerId;
+  }
+
+  /** Returns the path of the log file for this worker. */
+  public Path getLogFile() {
+    return logFile;
   }
 
   HashCode getWorkerFilesCombinedHash() {
@@ -276,8 +281,4 @@ class Worker {
   }
 
   public void finishExecution(Path execRoot) throws IOException {}
-
-  public Path getLogFile() {
-    return logFile;
-  }
 }

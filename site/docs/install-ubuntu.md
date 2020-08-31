@@ -16,7 +16,8 @@ it.
 
 Install Bazel on Ubuntu using one of the following methods:
 
-*   [Use our custom APT repository (recommended)](#install-on-ubuntu)
+*   [Use Bazelisk (recommended)](install-bazelisk.md)
+*   [Use our custom APT repository](#install-on-ubuntu)
 *   [Use the binary installer](#install-with-installer-ubuntu)
 *   [Compile Bazel from source](install-compile-source.md)
 

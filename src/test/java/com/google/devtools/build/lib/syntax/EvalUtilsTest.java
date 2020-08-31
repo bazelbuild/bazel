@@ -61,27 +61,27 @@ public final class EvalUtilsTest {
 
   @Test
   public void testDatatypeMutabilityPrimitive() throws Exception {
-    assertThat(EvalUtils.isImmutable("foo")).isTrue();
-    assertThat(EvalUtils.isImmutable(3)).isTrue();
+    assertThat(Starlark.isImmutable("foo")).isTrue();
+    assertThat(Starlark.isImmutable(3)).isTrue();
   }
 
   @Test
   public void testDatatypeMutabilityShallow() throws Exception {
-    assertThat(EvalUtils.isImmutable(Tuple.of(1, 2, 3))).isTrue();
+    assertThat(Starlark.isImmutable(Tuple.of(1, 2, 3))).isTrue();
 
-    assertThat(EvalUtils.isImmutable(makeList(null))).isTrue();
-    assertThat(EvalUtils.isImmutable(makeDict(null))).isTrue();
+    assertThat(Starlark.isImmutable(makeList(null))).isTrue();
+    assertThat(Starlark.isImmutable(makeDict(null))).isTrue();
 
     Mutability mu = Mutability.create("test");
-    assertThat(EvalUtils.isImmutable(makeList(mu))).isFalse();
-    assertThat(EvalUtils.isImmutable(makeDict(mu))).isFalse();
+    assertThat(Starlark.isImmutable(makeList(mu))).isFalse();
+    assertThat(Starlark.isImmutable(makeDict(mu))).isFalse();
   }
 
   @Test
   public void testDatatypeMutabilityDeep() throws Exception {
     Mutability mu = Mutability.create("test");
-    assertThat(EvalUtils.isImmutable(Tuple.of(makeList(null)))).isTrue();
-    assertThat(EvalUtils.isImmutable(Tuple.of(makeList(mu)))).isFalse();
+    assertThat(Starlark.isImmutable(Tuple.of(makeList(null)))).isTrue();
+    assertThat(Starlark.isImmutable(Tuple.of(makeList(mu)))).isFalse();
   }
 
   @Test

@@ -154,12 +154,14 @@ public class WorkerModule extends BlazeModule {
       SpawnStrategyRegistry.Builder registryBuilder, CommandEnvironment env) {
     Preconditions.checkNotNull(workerPool);
     SandboxOptions sandboxOptions = env.getOptions().getOptions(SandboxOptions.class);
+    options = env.getOptions().getOptions(WorkerOptions.class);
     LocalEnvProvider localEnvProvider = LocalEnvProvider.forCurrentOs(env.getClientEnv());
     WorkerSpawnRunner spawnRunner =
         new WorkerSpawnRunner(
             new SandboxHelpers(sandboxOptions.delayVirtualInputMaterialization),
             env.getExecRoot(),
             workerPool,
+            options.workerMultiplex,
             env.getReporter(),
             createFallbackRunner(env, localEnvProvider),
             localEnvProvider,

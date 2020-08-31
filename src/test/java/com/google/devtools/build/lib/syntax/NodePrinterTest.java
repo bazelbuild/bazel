@@ -21,10 +21,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests the {@code toString} and pretty printing methods for {@link Node} subclasses. */
+/** Tests {@link Node#toString} and {@code NodePrinter}. */
 @RunWith(JUnit4.class)
-// TODO(adonovan): rename to NodePrinterTest.
-public final class PrettyPrintTest {
+public final class NodePrinterTest {
 
   private static StarlarkFile parseFile(String... lines) throws SyntaxError.Exception {
     ParserInput input = ParserInput.fromLines(lines);
@@ -190,10 +189,10 @@ public final class PrettyPrintTest {
   public void listLiteralLong() throws SyntaxError.Exception {
     // List literals with enough elements to trigger the abbreviated toString() format.
     assertExprPrettyMatches("[1, 2, 3, 4, 5, 6]", "[1, 2, 3, 4, 5, 6]");
-    assertExprTostringMatches("[1, 2, 3, 4, 5, 6]", "[1, 2, 3, 4, <2 more arguments>]");
+    assertExprTostringMatches("[1, 2, 3, 4, 5, 6]", "[1, 2, 3, 4, +2 more]");
 
     assertExprPrettyMatches("(1, 2, 3, 4, 5, 6)", "(1, 2, 3, 4, 5, 6)");
-    assertExprTostringMatches("(1, 2, 3, 4, 5, 6)", "(1, 2, 3, 4, <2 more arguments>)");
+    assertExprTostringMatches("(1, 2, 3, 4, 5, 6)", "(1, 2, 3, 4, +2 more)");
   }
 
   @Test
@@ -204,8 +203,7 @@ public final class PrettyPrintTest {
         "[1, 2, 3, [10, 20, 30, 40, 50, 60], 4, 5, 6]",
         "[1, 2, 3, [10, 20, 30, 40, 50, 60], 4, 5, 6]");
     // It doesn't matter as much what toString does.
-    assertExprTostringMatches(
-        "[1, 2, 3, [10, 20, 30, 40, 50, 60], 4, 5, 6]", "[1, 2, 3, <4 more arguments>]");
+    assertExprTostringMatches("[1, 2, 3, [10, 20, 30, 40, 50, 60], 4, 5, 6]", "[1, 2, 3, +4 more]");
   }
 
   @Test

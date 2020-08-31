@@ -137,7 +137,10 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     resolvedTargetPatterns.clear();
     QueryEvalResult queryEvalResult = super.evaluateQuery(expr, callback);
     return new DigraphQueryEvalResult<>(
-        queryEvalResult.getSuccess(), queryEvalResult.isEmpty(), graph);
+        queryEvalResult.getSuccess(),
+        queryEvalResult.isEmpty(),
+        queryEvalResult.getDetailedExitCode(),
+        graph);
   }
 
   @Override
@@ -317,7 +320,10 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     }
 
     if (errorObserver.hasErrors()) {
-      reportBuildFileError(caller, "errors were encountered while computing transitive closure");
+      handleError(
+          caller,
+          "errors were encountered while computing transitive closure",
+          /*detailedExitCode=*/ null);
     }
   }
 

@@ -365,7 +365,7 @@ Bazel will see that `//my_pkg:my_bar_binary` is being built with a platform that
 has `@platforms//os:linux` and therefore resolve the
 `//bar_tools:toolchain_type` reference to `//bar_tools:barc_linux_toolchain`.
 This will end up building `//bar_tools:barc_linux` but not
-`//barc_tools:barc_windows`.
+`//bar_tools:barc_windows`.
 
 ## Toolchain resolution
 
