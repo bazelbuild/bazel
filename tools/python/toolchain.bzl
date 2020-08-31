@@ -42,11 +42,11 @@ def _py_runtime_pair_impl(ctx):
 py_runtime_pair = rule(
     implementation = _py_runtime_pair_impl,
     attrs = {
-        "py2_runtime": attr.label(providers = [PyRuntimeInfo], doc = """\
+        "py2_runtime": attr.label(providers = [PyRuntimeInfo], cfg = "exec", doc = """\
 The runtime to use for Python 2 targets. Must have `python_version` set to
 `PY2`.
 """),
-        "py3_runtime": attr.label(providers = [PyRuntimeInfo], doc = """\
+        "py3_runtime": attr.label(providers = [PyRuntimeInfo], cfg = "exec", doc = """\
 The runtime to use for Python 3 targets. Must have `python_version` set to
 `PY3`.
 """),
