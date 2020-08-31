@@ -26,7 +26,7 @@ import java.io.IOException;
 import javax.annotation.concurrent.GuardedBy;
 
 /** A thread that watches if the PID file changes and shuts down the server immediately if so. */
-class PidFileWatcher extends Thread {
+public class PidFileWatcher extends Thread {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   
   private final Path pidFile;
@@ -36,7 +36,7 @@ class PidFileWatcher extends Thread {
   @GuardedBy("this")
   private boolean shuttingDown = false;
 
-  PidFileWatcher(Path pidFile, int serverPid) {
+  public PidFileWatcher(Path pidFile, int serverPid) {
     this(
         pidFile,
         serverPid,

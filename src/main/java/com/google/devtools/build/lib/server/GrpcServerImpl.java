@@ -113,9 +113,12 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     @Override
     public RPCServer create(
         CommandDispatcher dispatcher,
+        ShutdownHooks shutdownHooks,
+        PidFileWatcher pidFileWatcher,
         Clock clock,
         int port,
         Path serverDirectory,
+        int serverPid,
         int maxIdleSeconds,
         boolean shutdownOnLowSysMem,
         boolean idleServerTasks)
@@ -123,11 +126,14 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       SecureRandom random = new SecureRandom();
       return new GrpcServerImpl(
           dispatcher,
+          shutdownHooks,
+          pidFileWatcher,
           clock,
           port,
           generateCookie(random, 16),
           generateCookie(random, 16),
           serverDirectory,
+          serverPid,
           maxIdleSeconds,
           shutdownOnLowSysMem,
           idleServerTasks);
@@ -284,7 +290,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
   private final String requestCookie;
   private final String responseCookie;
   private final int maxIdleSeconds;
-  private final PidFileWatcher pidFileWatcherThread;
+  private final PidFileWatcher pidFileWatcher;
   private final int serverPid;
   private final int port;
 
@@ -294,28 +300,29 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
   @VisibleForTesting
   GrpcServerImpl(
       CommandDispatcher dispatcher,
+      ShutdownHooks shutdownHooks,
+      PidFileWatcher pidFileWatcher,
       Clock clock,
       int port,
       String requestCookie,
       String responseCookie,
       Path serverDirectory,
+      int serverPid,
       int maxIdleSeconds,
       boolean shutdownOnLowSysMem,
-      boolean doIdleServerTasks)
-      throws AbruptExitException {
-    this.shutdownHooks = ShutdownHooks.createAndRegister();
-
-    // server.pid was written in the C++ launcher after fork() but before exec().
-    // The client only accesses the pid file after connecting to the socket
-    // which ensures that it gets the correct pid value.
-    Path pidFile = serverDirectory.getRelative("server.pid.txt");
-    serverPid = readPidFile(pidFile);
-    shutdownHooks.deleteAtExit(pidFile);
-
+      boolean doIdleServerTasks) {
     this.dispatcher = dispatcher;
+    this.shutdownHooks = shutdownHooks;
+    this.pidFileWatcher = pidFileWatcher;
+
     this.clock = clock;
-    this.serverDirectory = serverDirectory;
     this.port = port;
+    this.requestCookie = requestCookie;
+    this.responseCookie = responseCookie;
+
+    this.serverDirectory = serverDirectory;
+    this.serverPid = serverPid;
+
     this.maxIdleSeconds = maxIdleSeconds;
     this.shutdownOnLowSysMem = shutdownOnLowSysMem;
     this.serving = false;
@@ -328,11 +335,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
                     .setDaemon(true)
                     .build()));
 
-    this.requestCookie = requestCookie;
-    this.responseCookie = responseCookie;
 
-    pidFileWatcherThread = new PidFileWatcher(pidFile, serverPid);
-    pidFileWatcherThread.start();
     commandManager = new CommandManager(doIdleServerTasks);
   }
 
@@ -369,7 +372,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
   @Override
   public void prepareForAbruptShutdown() {
     shutdownHooks.disable();
-    pidFileWatcherThread.signalShutdown();
+    pidFileWatcher.signalShutdown();
   }
 
   @Override
@@ -652,23 +655,6 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       // There is no one to report the failure to
       logger.atInfo().log(
           "Client cancelled RPC of cancellation request for %s", request.getCommandId());
-    }
-  }
-
-  private static int readPidFile(Path pidFile) throws AbruptExitException {
-    try {
-      return Integer.parseInt(new String(FileSystemUtils.readContentAsLatin1(pidFile)));
-    } catch (IOException e) {
-      throw createFilesystemFailureException(
-          "Server pid file read failed: " + e.getMessage(),
-          Code.SERVER_PID_TXT_FILE_READ_FAILURE,
-          e);
-    } catch (NumberFormatException e) {
-      // Invalid contents (not a number) is more likely than not a filesystem issue.
-      throw createFilesystemFailureException(
-          "Server pid file corrupted: " + e.getMessage(),
-          Code.SERVER_PID_TXT_FILE_READ_FAILURE,
-          new IOException(e));
     }
   }
 

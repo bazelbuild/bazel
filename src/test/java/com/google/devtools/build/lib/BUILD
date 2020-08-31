@@ -320,6 +320,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/server",
+        "//src/main/java/com/google/devtools/build/lib/server:pid_file_watcher",
+        "//src/main/java/com/google/devtools/build/lib/server:shutdown_hooks",
         "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",

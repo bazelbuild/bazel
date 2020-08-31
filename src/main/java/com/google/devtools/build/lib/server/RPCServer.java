@@ -31,9 +31,12 @@ public interface RPCServer {
 
     RPCServer create(
         CommandDispatcher dispatcher,
+        ShutdownHooks shutdownHooks,
+        PidFileWatcher pidFileWatcher,
         Clock clock,
         int port,
         Path serverDirectory,
+        int serverPid,
         int maxIdleSeconds,
         boolean shutdownOnLowSysMem,
         boolean idleServerTasks)

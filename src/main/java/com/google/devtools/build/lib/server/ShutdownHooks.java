@@ -25,10 +25,11 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.concurrent.GuardedBy;
 
-class ShutdownHooks {
+/** Wrapper for common shutdown operations. */
+public class ShutdownHooks {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  static ShutdownHooks createAndRegister() {
+  public static ShutdownHooks createAndRegister() {
     ShutdownHooks result = new ShutdownHooks();
     Runtime.getRuntime().addShutdownHook(new Thread(result::runHooks));
     return result;
@@ -47,7 +48,7 @@ class ShutdownHooks {
   private ShutdownHooks() {}
 
   /** Schedules the specified file for (attempted) deletion at JVM exit. */
-  synchronized void deleteAtExit(Path path) {
+  public synchronized void deleteAtExit(Path path) {
     filesToDeleteAtExit.add(path);
   }
 
