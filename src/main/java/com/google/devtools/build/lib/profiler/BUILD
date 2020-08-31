@@ -42,7 +42,6 @@ java_library(
         ":profiler",
         "//third_party:flogger",
         "//third_party:guava",
-        "//third_party/java/flogger:log_site",
     ],
 )
 
