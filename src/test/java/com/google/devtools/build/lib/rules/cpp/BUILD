@@ -49,6 +49,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/instrumented_files_info",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",
+        "//src/main/java/com/google/devtools/build/lib/analysis:transition_mode",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
