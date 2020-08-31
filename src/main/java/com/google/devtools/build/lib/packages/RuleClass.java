@@ -651,7 +651,7 @@ public class RuleClass {
             attr("shard_count", Type.INTEGER).build(),
             attr("local", Type.BOOLEAN).build());
 
-    private String name;
+    private final String name;
     private ImmutableList<StarlarkThread.CallStackEntry> callstack = ImmutableList.of();
     private final RuleClassType type;
     private final boolean starlark;
@@ -671,7 +671,8 @@ public class RuleClass {
     private PredicateWithMessage<Rule> validityPredicate =
         PredicatesWithMessage.<Rule>alwaysTrue();
     private Predicate<String> preferredDependencyPredicate = Predicates.alwaysFalse();
-    private AdvertisedProviderSet.Builder advertisedProviders = AdvertisedProviderSet.builder();
+    private final AdvertisedProviderSet.Builder advertisedProviders =
+        AdvertisedProviderSet.builder();
     private StarlarkCallable configuredTargetFunction = null;
     private BuildSetting buildSetting = null;
     private Function<? super Rule, Map<String, Label>> externalBindingsFunction =
@@ -684,7 +685,7 @@ public class RuleClass {
     @Nullable private Label ruleDefinitionEnvironmentLabel;
 
     @Nullable private byte[] ruleDefinitionEnvironmentDigest = null;
-    private ConfigurationFragmentPolicy.Builder configurationFragmentPolicy =
+    private final ConfigurationFragmentPolicy.Builder configurationFragmentPolicy =
         new ConfigurationFragmentPolicy.Builder();
 
     private boolean supportsConstraintChecking = true;
@@ -721,7 +722,7 @@ public class RuleClass {
     private final Set<Label> requiredToolchains = new HashSet<>();
     private boolean useToolchainResolution = true;
     private boolean useToolchainTransition = false;
-    private Set<Label> executionPlatformConstraints = new HashSet<>();
+    private final Set<Label> executionPlatformConstraints = new HashSet<>();
     private OutputFile.Kind outputFileKind = OutputFile.Kind.FILE;
     private final Map<String, ExecGroup> execGroups = new HashMap<>();
 
@@ -1097,7 +1098,7 @@ public class RuleClass {
      * #cfg(TransitionFactory)}.
      */
     public Builder cfg(PatchTransition transition) {
-      return cfg((TransitionFactory<Rule>) (unused) -> (transition));
+      return cfg((TransitionFactory<Rule>) unused -> transition);
     }
 
     /**
@@ -1995,7 +1996,8 @@ public class RuleClass {
       boolean checkThirdPartyRulesHaveLicenses)
       throws LabelSyntaxException, InterruptedException, CannotPrecomputeDefaultsException {
     Rule rule =
-        pkgBuilder.createRule(ruleLabel, this, location, callstack, new AttributeContainer(this));
+        pkgBuilder.createRule(
+            ruleLabel, this, location, callstack, AttributeContainer.newMutableInstance(this));
     populateRuleAttributeValues(rule, pkgBuilder, attributeValues, eventHandler);
     checkAspectAllowedValues(rule, eventHandler);
     rule.populateOutputFiles(eventHandler, pkgBuilder);
@@ -2053,35 +2055,6 @@ public class RuleClass {
       EventHandler eventHandler)
       throws InterruptedException, CannotPrecomputeDefaultsException {
 
-    // TODO(b/157751486): opt: optimize attribute representation.
-    //
-    // Conceptually, the attribute values of a rule instance are a mapping
-    // from each attribute name to its value plus a boolean indicating
-    // whether it was set explicitly, equivalent to a table of triples:
-    //
-    //    (Attribute attr, Object value, bool explicit)
-    //
-    // (Attributes may be represented by name, Attribute reference, or by
-    // a small integer, because the RuleClass provides constant-time
-    // conversions between all three.)
-    //
-    // Empirically, about half of all rule attribute values are equal to
-    // the default value trivially provided by the RuleClass.
-    // To save space, don't record these values; instead, record only the
-    // explicitly provided ones, plus those whose defaults were non-trivially
-    // computed. (Because of the latter category, we must record the
-    // 'explicit' boolean.)
-    //
-    // One possible representation would be an Object[] array of length
-    // n, for the values sorted by ascending index, and a byte[] of length
-    // n bytes + n bits, the bytes being the indices and the bits being
-    // the 'explicit' flags. Lookup would require binary search over
-    // the bytes.
-    //
-    // Currently, the attributes are queried even as they are under
-    // construction (see checkAllowedValues), but that check could be moved after table
-    // construction, like
-    // checkForDuplicateLabels.
 
     BitSet definedAttrIndices =
         populateDefinedRuleAttributeValues(
@@ -2235,12 +2208,8 @@ public class RuleClass {
 
       } else if (attr.getName().equals("distribs") && attr.getType() == BuildType.DISTRIBUTIONS) {
         rule.setAttributeValue(attr, pkgBuilder.getDefaultDistribs(), /*explicit=*/ false);
-
-      } else {
-        Object defaultValue = attr.getDefaultValue(/*rule=*/ null);
-        rule.setAttributeValue(attr, defaultValue, /*explicit=*/ false);
-        checkAllowedValues(rule, attr, eventHandler);
       }
+      // Don't store default values, querying materializes them at read time.
     }
 
     // An instance of the built-in 'test_suite' rule with an undefined or empty 'tests' attribute
