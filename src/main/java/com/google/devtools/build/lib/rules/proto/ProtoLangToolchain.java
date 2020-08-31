@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
-import static com.google.devtools.build.lib.analysis.TransitionMode.HOST;
-import static com.google.devtools.build.lib.analysis.TransitionMode.TARGET;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 
 import com.google.devtools.build.lib.actions.Artifact;
@@ -39,8 +37,7 @@ public class ProtoLangToolchain implements RuleConfiguredTargetFactory {
       throws InterruptedException, RuleErrorException, ActionConflictException {
     ProtoCommon.checkRuleHasValidMigrationTag(ruleContext);
     NestedSetBuilder<Artifact> blacklistedProtos = NestedSetBuilder.stableOrder();
-    for (TransitiveInfoCollection protos :
-        ruleContext.getPrerequisites("blacklisted_protos", TARGET)) {
+    for (TransitiveInfoCollection protos : ruleContext.getPrerequisites("blacklisted_protos")) {
       ProtoInfo protoInfo = protos.get(ProtoInfo.PROVIDER);
       if (protoInfo == null
           && ruleContext
@@ -62,8 +59,8 @@ public class ProtoLangToolchain implements RuleConfiguredTargetFactory {
         .addProvider(
             ProtoLangToolchainProvider.create(
                 ruleContext.attributes().get("command_line", Type.STRING),
-                ruleContext.getPrerequisite("plugin", HOST, FilesToRunProvider.class),
-                ruleContext.getPrerequisite("runtime", TARGET),
+                ruleContext.getPrerequisite("plugin", FilesToRunProvider.class),
+                ruleContext.getPrerequisite("runtime"),
                 blacklistedProtos.build()))
         .setFilesToBuild(NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
         .addProvider(RunfilesProvider.simple(Runfiles.EMPTY))
