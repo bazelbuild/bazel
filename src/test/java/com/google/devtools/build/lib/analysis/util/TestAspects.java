@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -143,7 +142,7 @@ public class TestAspects {
         continue;
       }
       Iterable<AspectInfo> prerequisites =
-          ruleContext.getPrerequisites(attributeName, TransitionMode.DONT_CHECK, AspectInfo.class);
+          ruleContext.getPrerequisites(attributeName, AspectInfo.class);
       for (AspectInfo prerequisite : prerequisites) {
         result.addTransitive(prerequisite.getData());
       }
@@ -202,10 +201,8 @@ public class TestAspects {
     @Override
     public ConfiguredTarget create(RuleContext ruleContext)
         throws InterruptedException, RuleErrorException, ActionConflictException {
-      TransitiveInfoCollection fooAttribute =
-          ruleContext.getPrerequisite("foo", TransitionMode.DONT_CHECK);
-      TransitiveInfoCollection barAttribute =
-          ruleContext.getPrerequisite("bar", TransitionMode.DONT_CHECK);
+      TransitiveInfoCollection fooAttribute = ruleContext.getPrerequisite("foo");
+      TransitiveInfoCollection barAttribute = ruleContext.getPrerequisite("bar");
 
       NestedSetBuilder<String> infoBuilder = NestedSetBuilder.<String>stableOrder();
 
@@ -496,8 +493,7 @@ public class TestAspects {
         information.append(" data " + Iterables.getFirst(parameters.getAttribute("baz"), null));
         information.append(" ");
       }
-      List<? extends TransitiveInfoCollection> deps =
-          ruleContext.getPrerequisites("$dep", TransitionMode.TARGET);
+      List<? extends TransitiveInfoCollection> deps = ruleContext.getPrerequisites("$dep");
       information.append("$dep:[");
       for (TransitiveInfoCollection dep : deps) {
         information.append(" ");
