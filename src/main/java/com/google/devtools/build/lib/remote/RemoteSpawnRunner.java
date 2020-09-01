@@ -116,9 +116,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
   private static final String VIOLATION_TYPE_MISSING = "MISSING";
 
   private static boolean retriableExecErrors(Exception e) {
-    if (e instanceof BulkTransferException) {
-      BulkTransferException bulkTransferException = (BulkTransferException) e;
-      return bulkTransferException.onlyCausedByCacheNotFoundException();
+    if (BulkTransferException.isOnlyCausedByCacheNotFoundException(e)) {
+      return true;
     }
     if (!RemoteRetrierUtils.causedByStatus(e, Code.FAILED_PRECONDITION)) {
       return false;
@@ -613,11 +612,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
   private SpawnResult handleError(
       IOException exception, FileOutErr outErr, ActionKey actionKey, SpawnExecutionContext context)
       throws ExecException, InterruptedException, IOException {
-    boolean remoteCacheFailed = false;
-    if (exception instanceof BulkTransferException) {
-      BulkTransferException e = (BulkTransferException) exception;
-      remoteCacheFailed = e.onlyCausedByCacheNotFoundException();
-    }
+    boolean remoteCacheFailed = BulkTransferException.isOnlyCausedByCacheNotFoundException(exception);
     if (exception.getCause() instanceof ExecutionStatusException) {
       ExecutionStatusException e = (ExecutionStatusException) exception.getCause();
       if (e.getResponse() != null) {
