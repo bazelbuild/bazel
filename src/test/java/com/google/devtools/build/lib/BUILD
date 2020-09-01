@@ -164,6 +164,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset:fingerprint_cache",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset:testutils",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:constants",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",

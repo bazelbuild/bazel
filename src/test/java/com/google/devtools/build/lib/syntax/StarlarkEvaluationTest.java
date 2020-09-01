@@ -949,11 +949,6 @@ public final class StarlarkEvaluationTest {
   }
 
   @Test
-  public void testStructMembersAreImmutable() throws Exception {
-    assertResolutionError("cannot assign to 's.x'", "s = struct(x = 'a')", "s.x = 'b'\n");
-  }
-
-  @Test
   public void testNoneAssignment() throws Exception {
     ev.new Scenario()
         .setUp("def foo(x=None):", "  x = 1", "  x = None", "  return 2", "s = foo()")
@@ -1435,19 +1430,6 @@ public final class StarlarkEvaluationTest {
         .update("mock", new SimpleStruct(ImmutableMap.of("field", "a")))
         .setUp("v = mock.field")
         .testLookup("v", "a");
-  }
-
-  @Test
-  public void testSetIsNotIterable() throws Exception {
-    ev.new Scenario()
-        .testIfErrorContains("not iterable", "list(depset(['a', 'b']))")
-        .testIfErrorContains("not iterable", "max(depset([1, 2, 3]))")
-        .testIfErrorContains(
-            "unsupported binary operation: int in depset", "1 in depset([1, 2, 3])")
-        .testIfErrorContains("not iterable", "sorted(depset(['a', 'b']))")
-        .testIfErrorContains("not iterable", "tuple(depset(['a', 'b']))")
-        .testIfErrorContains("not iterable", "[x for x in depset()]")
-        .testIfErrorContains("not iterable", "len(depset(['a']))");
   }
 
   @Test

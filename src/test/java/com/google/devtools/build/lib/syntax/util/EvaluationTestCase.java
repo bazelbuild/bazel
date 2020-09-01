@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkModules; // a bad dependency
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
@@ -129,8 +128,6 @@ public class EvaluationTestCase {
   // Implementations may add to the predeclared environment,
   // and return the module's client data value.
   protected Object newModuleHook(ImmutableMap.Builder<String, Object> predeclared) {
-    StarlarkModules.addStarlarkGlobalsToBuilder(
-        predeclared); // TODO(adonovan): break bad dependency
     return null; // no client data
   }
 

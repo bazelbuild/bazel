@@ -199,7 +199,7 @@ public final class MethodLibraryTest {
   @Test
   public void testHasAttr() throws Exception {
     ev.new Scenario()
-        .testExpression("hasattr(depset(), 'to_list')", Boolean.TRUE)
+        .testExpression("hasattr([], 'append')", Boolean.TRUE)
         .testExpression("hasattr('test', 'count')", Boolean.TRUE)
         .testExpression("hasattr(dict(a = 1, b = 2), 'items')", Boolean.TRUE)
         .testExpression("hasattr({}, 'items')", Boolean.TRUE);
