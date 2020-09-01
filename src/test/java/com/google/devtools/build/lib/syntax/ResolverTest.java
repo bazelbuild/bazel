@@ -160,7 +160,7 @@ public class ResolverTest {
     // initialized).
     assertValid("a = a");
     assertValid("a += a");
-    assertValid("[[] for _ in [] for a in a]");
+    assertValid("[[] for a in a]");
     assertValid("def f():", "  for a in a: pass");
   }
 
@@ -283,13 +283,6 @@ public class ResolverTest {
         "  def bar(): return 0",
         "  return bar()",
         "");
-  }
-
-  @Test
-  public void testComprehension() throws Exception {
-    // The operand of the first for clause is resolved outside the comprehension block.
-    assertInvalid("name 'x' is not defined", "[() for x in x]");
-    assertValid("[() for x in () for x in x]"); // forward ref
   }
 
   @Test

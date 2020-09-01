@@ -13,7 +13,6 @@ java_test(
     data = [
         "testdata/all_any.sky",
         "testdata/and_or_not.sky",
-        "testdata/comprehension.sky",
         "testdata/cycles.sky",
         "testdata/dict.sky",
         "testdata/equality.sky",
