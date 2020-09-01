@@ -278,7 +278,7 @@ blaze_exit_code::ExitCode ParseErrorToExitCode(RcFile::ParseError parse_error) {
 }
 
 void WarnAboutDuplicateRcFiles(const std::set<std::string>& read_files,
-                               const std::deque<std::string>& loaded_rcs) {
+                               const std::vector<std::string>& loaded_rcs) {
   // The first rc file in the queue is the top-level one, the one that would
   // have imported all the others in the queue. The top-level rc is one of the
   // default locations (system, workspace, home) or the explicit path passed by
@@ -413,8 +413,7 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
     }
 
     // Check that none of the rc files loaded this time are duplicate.
-    const std::deque<std::string>& sources =
-        parsed_rc->canonical_source_paths();
+    const auto& sources = parsed_rc->canonical_source_paths();
     internal::WarnAboutDuplicateRcFiles(read_files_canonical_paths, sources);
     read_files_canonical_paths.insert(sources.begin(), sources.end());
 
@@ -552,7 +551,9 @@ blaze_exit_code::ExitCode OptionProcessor::ParseStartupOptions(
     if (iter == blazerc->options().end()) continue;
 
     for (const RcOption& option : iter->second) {
-      rcstartup_flags.push_back({*option.source_path, option.option});
+      const std::string& source_path =
+          blazerc->canonical_source_paths()[option.source_index];
+      rcstartup_flags.push_back({source_path, option.option});
     }
   }
 
@@ -675,9 +676,11 @@ std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
       if (command == "startup") continue;
 
       for (const RcOption& rcoption : command_options.second) {
+        const std::string& source_path =
+            blazerc->canonical_source_paths()[rcoption.source_index];
         std::ostringstream oss;
-        oss << "--default_override=" << rcfile_indexes[*rcoption.source_path]
-            << ':' << command << '=' << rcoption.option;
+        oss << "--default_override=" << rcfile_indexes[source_path] << ':'
+            << command << '=' << rcoption.option;
         result.push_back(oss.str());
       }
     }
