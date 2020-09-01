@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.SyntaxError;
@@ -31,13 +32,15 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Duration;
 
-// TODO(adonovan): rename class to "starlark" so we can import Starlark.
-
 /**
- * Starlark is a standalone starlark interpreter. The environment doesn't contain Bazel-specific
- * functions and variables. Load statements are forbidden for the moment.
+ * Main is a standalone interpreter for the core Starlark language. It does not yet support load
+ * statements.
+ *
+ * <p>The sad class name is due to the linting tool, which forbids lowercase "starlark", and Java's
+ * lack of renaming imports, which makes the name "Starlark" impractical due to conflicts with
+ * lib.syntax.Starlark.
  */
-class Starlark {
+class Main {
   private static final String START_PROMPT = ">> ";
   private static final String CONTINUATION_PROMPT = ".. ";
 
@@ -74,8 +77,8 @@ class Starlark {
         lineSeparator = "\n";
         System.out.print(CONTINUATION_PROMPT);
       }
-    } catch (IOException io) {
-      io.printStackTrace();
+    } catch (IOException e) {
+      System.err.format("Error reading line: %s\n", e);
       return null;
     }
   }
@@ -94,10 +97,9 @@ class Starlark {
     while ((line = prompt()) != null) {
       ParserInput input = ParserInput.fromString(line, "<stdin>");
       try {
-        Object result =
-            com.google.devtools.build.lib.syntax.Starlark.execFile(input, options, module, thread);
-        if (result != com.google.devtools.build.lib.syntax.Starlark.NONE) {
-          System.out.println(com.google.devtools.build.lib.syntax.Starlark.repr(result));
+        Object result = Starlark.execFile(input, options, module, thread);
+        if (result != Starlark.NONE) {
+          System.out.println(Starlark.repr(result));
         }
       } catch (SyntaxError.Exception ex) {
         for (SyntaxError error : ex.errors()) {
@@ -119,8 +121,10 @@ class Starlark {
     try {
       content = new String(Files.readAllBytes(Paths.get(filename)), CHARSET);
       return execute(filename, content);
-    } catch (Exception e) {
-      e.printStackTrace();
+    } catch (IOException e) {
+      // This results in such lame error messages as:
+      // "Error reading a.star: java.nio.file.NoSuchFileException: a.star"
+      System.err.format("Error reading %s: %s\n", filename, e);
       return 1;
     }
   }
@@ -128,8 +132,7 @@ class Starlark {
   /** Execute a Starlark file. */
   private int execute(String filename, String content) {
     try {
-      com.google.devtools.build.lib.syntax.Starlark.execFile(
-          ParserInput.fromString(content, filename), options, module, thread);
+      Starlark.execFile(ParserInput.fromString(content, filename), options, module, thread);
       return 0;
     } catch (SyntaxError.Exception ex) {
       for (SyntaxError error : ex.errors()) {
@@ -139,8 +142,8 @@ class Starlark {
     } catch (EvalException ex) {
       System.err.println(ex.getMessageWithStack());
       return 1;
-    } catch (Exception e) {
-      e.printStackTrace(System.err);
+    } catch (InterruptedException e) {
+      System.err.println("Interrupted");
       return 1;
     }
   }
@@ -184,26 +187,26 @@ class Starlark {
 
     if (cpuprofile != null) {
       FileOutputStream out = new FileOutputStream(cpuprofile);
-      com.google.devtools.build.lib.syntax.Starlark.startCpuProfile(out, Duration.ofMillis(10));
+      Starlark.startCpuProfile(out, Duration.ofMillis(10));
     }
 
     int exit;
     if (file == null) {
       if (cmd != null) {
-        exit = new Starlark().execute("<command-line>", cmd);
+        exit = new Main().execute("<command-line>", cmd);
       } else {
-        new Starlark().readEvalPrintLoop();
+        new Main().readEvalPrintLoop();
         exit = 0;
       }
     } else if (cmd == null) {
-      exit = new Starlark().executeFile(file);
+      exit = new Main().executeFile(file);
     } else {
       System.err.println("usage: Starlark [-cpuprofile file] [-c cmd | file]");
       exit = 1;
     }
 
     if (cpuprofile != null) {
-      com.google.devtools.build.lib.syntax.Starlark.stopCpuProfile();
+      Starlark.stopCpuProfile();
     }
 
     System.exit(exit);
