@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.util.io.AnsiTerminal;
 import com.google.devtools.build.lib.util.io.AnsiTerminal.Color;
 import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
-import com.google.devtools.build.lib.util.io.FileOutErr.OutputReference;
 import com.google.devtools.build.lib.util.io.LineCountingAnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.LineWrappingAnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.LoggingTerminalWriter;
@@ -68,6 +67,7 @@ import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** An experimental new output stream. */
@@ -86,16 +86,6 @@ public class UiEventHandler implements EventHandler {
   static final long SHORT_REFRESH_MILLIS = 1000L;
   /** Periodic update interval of a time-dependent progress bar if it cannot be updated in place */
   static final long LONG_REFRESH_MILLIS = 20000L;
-
-  /**
-   * Even if the output is not limited, we restrict the message size to something we can still
-   * handle internally. This is the maximal size specified here. Currently, it is the maximal length
-   * of a byte[] acceptable by {@code new String(message, 0, message.length,
-   * StandardCharsets.UTF_8}. (In JDK9+, if the message buffer contains a byte whose high bit is
-   * set, a UTF-8 decoding path is taken that allocates a new byte[] buffer twice as large as the
-   * message byte[] buffer)
-   */
-  static final int MAXIMAL_MESSAGE_LENGTH = (Integer.MAX_VALUE - 8) >> 1;
 
   private static final DateTimeFormatter TIMESTAMP_FORMAT =
       DateTimeFormatter.ofPattern("(HH:mm:ss) ");
@@ -128,6 +118,7 @@ public class UiEventHandler implements EventHandler {
   private byte[] stdoutBuffer;
   private byte[] stderrBuffer;
 
+  private final int maxStdoutErrBytes;
   public final int terminalWidth;
 
   /**
@@ -165,6 +156,7 @@ public class UiEventHandler implements EventHandler {
   public UiEventHandler(
       OutErr outErr, UiOptions options, Clock clock, @Nullable PathFragment workspacePathFragment) {
     this.terminalWidth = (options.terminalColumns > 0 ? options.terminalColumns : 80);
+    this.maxStdoutErrBytes = options.maxStdoutErrBytes;
     this.outErr =
         OutErr.create(
             new FullyBufferedOutputStream(outErr.getOutputStream()),
@@ -252,21 +244,26 @@ public class UiEventHandler implements EventHandler {
   /**
    * Helper function for {@link #handleInternal} to process events in debug mode, which causes all
    * events to be dumped to the terminal.
+   *
+   * @param event the event to process
+   * @param stdout the event's stdout, already read from disk to avoid blocking within the critical
+   *     section. Null if there is no stdout for this event or if it is empty.
+   * @param stderr the event's stderr, already read from disk to avoid blocking within the critical
+   *     section. Null if there is no stderr for this event or if it is empty.
    */
-  private void handleDebug(Event event) throws IOException {
+  private void handleLockedDebug(Event event, @Nullable byte[] stdout, @Nullable byte[] stderr)
+      throws IOException {
     synchronized (this) {
       // Debugging only: show all events visible to the new UI.
       clearProgressBar();
       terminal.flush();
       OutputStream stream = outErr.getOutputStream();
       stream.write((event + "\n").getBytes(StandardCharsets.ISO_8859_1));
-      byte[] stdout = event.getStdOut();
       if (stdout != null) {
         stream.write("... with STDOUT: ".getBytes(StandardCharsets.ISO_8859_1));
         stream.write(stdout);
         stream.write("\n".getBytes(StandardCharsets.ISO_8859_1));
       }
-      byte[] stderr = event.getStdErr();
       if (stderr != null) {
         stream.write("... with STDERR: ".getBytes(StandardCharsets.ISO_8859_1));
         stream.write(stderr);
@@ -279,10 +276,17 @@ public class UiEventHandler implements EventHandler {
   }
 
   /**
-   * Helper function for {@link #handleInternal} to process events in non-debug mode, which
-   * primarily means that they are printed if available terminal capacity permits.
+   * Helper function for {@link #handleInternal} to process events in non-debug mode, which filters
+   * out and pretty-prints some events.
+   *
+   * @param event the event to process
+   * @param stdout the event's stdout, already read from disk to avoid blocking within the critical
+   *     section. Null if there is no stdout for this event or if it is empty.
+   * @param stderr the event's stderr, already read from disk to avoid blocking within the critical
+   *     section. Null if there is no stderr for this event or if it is empty.
    */
-  private void actuallyHandle(Event event) throws IOException {
+  private void handleLocked(Event event, @Nullable byte[] stdout, @Nullable byte[] stderr)
+      throws IOException {
     synchronized (this) {
       maybeAddDate();
       switch (event.getKind()) {
@@ -299,7 +303,7 @@ public class UiEventHandler implements EventHandler {
             writeToStream(
                 stream,
                 event.getKind(),
-                event.getMessageReference(),
+                event.getMessageBytes(),
                 /* readdProgressBar= */ showProgress && cursorControl);
           }
           break;
@@ -356,21 +360,19 @@ public class UiEventHandler implements EventHandler {
         case DEPCHECKER:
           break;
       }
-      if (event.hasStdoutStderr()) {
+      if (stdout != null || stderr != null) {
         clearProgressBar();
         terminal.flush();
-        writeToStream(
-            outErr.getErrorStream(),
-            EventKind.STDERR,
-            event.getStdErrReference(),
-            /* readdProgressBar= */ false);
-        outErr.getErrorStream().flush();
-        writeToStream(
-            outErr.getOutputStream(),
-            EventKind.STDOUT,
-            event.getStdOutReference(),
-            /* readdProgressBar= */ false);
-        outErr.getOutputStream().flush();
+        if (stderr != null) {
+          writeToStream(
+              outErr.getErrorStream(), EventKind.STDERR, stderr, /* readdProgressBar= */ false);
+          outErr.getErrorStream().flush();
+        }
+        if (stdout != null) {
+          writeToStream(
+              outErr.getOutputStream(), EventKind.STDOUT, stdout, /* readdProgressBar= */ false);
+          outErr.getOutputStream().flush();
+        }
         if (showProgress && cursorControl) {
           addProgressBar();
         }
@@ -379,15 +381,40 @@ public class UiEventHandler implements EventHandler {
     }
   }
 
+  @Nullable
+  private byte[] getContentIfSmallEnough(String name, long size, Supplier<byte[]> getContent) {
+    if (size == 0) {
+      // Avoid any possible I/O when we know it'll be empty anyway.
+      return null;
+    }
+
+    if (size < maxStdoutErrBytes) {
+      return getContent.get();
+    } else {
+      return (name + " exceeds maximum size of " + maxStdoutErrBytes + " bytes; skipping")
+          .getBytes(StandardCharsets.ISO_8859_1);
+    }
+  }
+
   private void handleInternal(Event event) {
     if (this.filteredEvents.contains(event.getKind())) {
       return;
     }
     try {
+      // stdout and stderr may be files. Buffer them in memory to avoid doing I/O in the critical
+      // sections of handleLocked*, at the expense of having to cap their size to avoid using too
+      // much memory.
+      byte[] stdout = null;
+      byte[] stderr = null;
+      if (event.hasStdoutStderr()) {
+        stdout = getContentIfSmallEnough("stdout", event.getStdOutSize(), event::getStdOut);
+        stderr = getContentIfSmallEnough("stderr", event.getStdErrSize(), event::getStdErr);
+      }
+
       if (debugAllEvents) {
-        handleDebug(event);
+        handleLockedDebug(event, stdout, stderr);
       } else {
-        actuallyHandle(event);
+        handleLocked(event, stdout, stderr);
       }
     } catch (IOException e) {
       logger.atWarning().withCause(e).log("IO Error writing to output stream");
@@ -410,18 +437,14 @@ public class UiEventHandler implements EventHandler {
   }
 
   private void writeToStream(
-      OutputStream stream, EventKind eventKind, OutputReference reference, boolean readdProgressBar)
+      OutputStream stream, EventKind eventKind, byte[] message, boolean readdProgressBar)
       throws IOException {
-    byte[] message = reference.getFinalBytes(MAXIMAL_MESSAGE_LENGTH);
-    if (message.length == MAXIMAL_MESSAGE_LENGTH) {
-      logger.atWarning().log("truncated message longer than %d bytes", MAXIMAL_MESSAGE_LENGTH);
-    }
     int eolIndex = Bytes.lastIndexOf(message, (byte) '\n');
     if (eolIndex >= 0) {
       clearProgressBar();
       terminal.flush();
       stream.write(eventKind == EventKind.STDOUT ? stdoutBuffer : stderrBuffer);
-      stream.write(Arrays.copyOf(message, eolIndex + 1));
+      stream.write(message, 0, eolIndex + 1);
       byte[] restMessage = Arrays.copyOfRange(message, eolIndex + 1, message.length);
       if (eventKind == EventKind.STDOUT) {
         stdoutBuffer = restMessage;

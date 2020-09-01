@@ -512,4 +512,84 @@ function test_ui_events_filters() {
   expect_not_log "^INFO: Elapsed time"
 }
 
+function test_max_stdouterr_bytes_capping_behavior() {
+  mkdir -p outs
+  cat >outs/BUILD <<'EOF'
+genrule(
+  name = "short-stdout",
+  outs = ["short-stdout.txt"],
+  cmd = "echo 'abc'; touch $@",
+)
+genrule(
+  name = "short-stderr",
+  outs = ["short-stderr.txt"],
+  cmd = "echo 'abc' 1>&2; touch $@",
+)
+genrule(
+  name = "long-stdout",
+  outs = ["long-stdout.txt"],
+  cmd = "echo 'long line of text'; touch $@",
+)
+genrule(
+  name = "long-stderr",
+  outs = ["long-stderr.txt"],
+  cmd = "echo 'long line of text' 1>&2; touch $@",
+)
+genrule(
+  name = "short-stdout-long-stderr",
+  outs = ["short-stdout-long-stderr.txt"],
+  cmd = "echo 'abc'; echo 'long line of text' 1>&2; touch $@",
+)
+genrule(
+  name = "long-stdout-short-stderr",
+  outs = ["long-stdout-short-stderr.txt"],
+  cmd = "echo 'abc' 1>&2; echo 'long line of text'; touch $@",
+)
+EOF
+
+  for n in stdout stderr; do
+    bazel build --experimental_ui_max_stdouterr_bytes=5 "//outs:short-$n" \
+        >"${TEST_log}" 2>&1 || fail "build failed"
+    expect_log 'abc'
+    expect_not_log 'exceeds maximum size'
+
+    bazel build --experimental_ui_max_stdouterr_bytes=5 "//outs:long-$n" \
+        >"${TEST_log}" 2>&1 || fail "build failed"
+    expect_not_log 'long line of text'
+    expect_log 'exceeds maximum size'
+  done
+
+  bazel build --experimental_ui_max_stdouterr_bytes=5 \
+      //outs:short-stdout-long-stderr \
+      >"${TEST_log}" 2>&1 || fail "build failed"
+  expect_log 'abc'
+  expect_log 'stderr exceeds maximum size'
+
+  bazel build --experimental_ui_max_stdouterr_bytes=5 \
+      //outs:long-stdout-short-stderr \
+      >"${TEST_log}" 2>&1 || fail "build failed"
+  expect_log 'abc'
+  expect_log 'stdout exceeds maximum size'
+}
+
+function test_max_stdouterr_bytes_is_for_individual_outputs() {
+  mkdir -p outs
+  cat >>outs/BUILD <<'EOF'
+[genrule(
+    name = "out-%d" % i,
+    outs = [("out-%d.txt") % i],
+    cmd = ("echo '>>>%d<<<'; touch $@") % i,
+) for i in range(1000)]
+EOF
+  # Set --experimental_ui_max_stdouterr_bytes to a low-enough number that
+  # tolerates a single stdout and run many concurrent jobs at once to ensure
+  # that this limit applies to individual outputs even if we are trying to read
+  # all files concurrently.
+  bazel build --experimental_ui_max_stdouterr_bytes=20 --jobs=200 //outs/... \
+      >"${TEST_log}" 2>&1 || fail "build failed"
+  for i in $(seq 0 999); do
+    expect_log ">>>${i}<<<"
+  done
+}
+
 run_suite "Integration tests for ${PRODUCT_NAME}'s UI"
