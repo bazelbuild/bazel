@@ -250,7 +250,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  public void createDirectoryAndParents(Path path) throws IOException {
+  public void createDirectoryAndParents(Path path) throws IOException, InvalidPathException {
     java.nio.file.Path nioPath = getNioPath(path);
     try {
       Files.createDirectories(nioPath);

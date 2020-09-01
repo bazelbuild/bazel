@@ -80,6 +80,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.InvalidPathException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -257,6 +258,10 @@ public class StarlarkRepositoryContext
               "Could not create symlink from " + fromPath + " to " + toPath + ": " + e.getMessage(),
               e),
           Transience.TRANSIENT);
+    } catch (InvalidPathException e) {
+      throw new RepositoryFunctionException(
+          Starlark.errorf("Could not create %s: %s", toPath, e.getMessage()),
+          Transience.PERSISTENT);
     }
   }
 
@@ -301,6 +306,9 @@ public class StarlarkRepositoryContext
       }
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    } catch (InvalidPathException e) {
+      throw new RepositoryFunctionException(
+          Starlark.errorf("Could not create %s: %s", p, e.getMessage()), Transience.PERSISTENT);
     }
   }
 
@@ -342,6 +350,9 @@ public class StarlarkRepositoryContext
       }
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    } catch (InvalidPathException e) {
+      throw new RepositoryFunctionException(
+          Starlark.errorf("Could not create %s: %s", p, e.getMessage()), Transience.PERSISTENT);
     }
   }
 
@@ -361,7 +372,7 @@ public class StarlarkRepositoryContext
   }
 
   // Create parent directories for the given path
-  private void makeDirectories(Path path) throws IOException {
+  private void makeDirectories(Path path) throws IOException, InvalidPathException {
     Path parent = path.getParentDirectory();
     if (parent != null) {
       parent.createDirectoryAndParents();
@@ -390,6 +401,9 @@ public class StarlarkRepositoryContext
       }
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    } catch (InvalidPathException e) {
+      throw new RepositoryFunctionException(
+          Starlark.errorf("Could not create %s: %s", directory, e.getMessage()), Transience.PERSISTENT);
     }
   }
 
@@ -753,6 +767,10 @@ public class StarlarkRepositoryContext
       } else {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
+    } catch (InvalidPathException e) {
+      throw new RepositoryFunctionException(
+          Starlark.errorf("Could not create output path %s: %s", outputPath, e.getMessage()),
+          Transience.PERSISTENT);
     }
     if (checksumValidation != null) {
       throw checksumValidation;
