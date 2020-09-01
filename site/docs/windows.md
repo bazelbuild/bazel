@@ -197,6 +197,19 @@ C:\projects\bazel> bazel build //examples/cpp:hello-world
 C:\projects\bazel> bazel-bin\examples\cpp\hello-world.exe
 ```
 
+By default, the built binaries target x64 architecture. To specify a different
+target architecture, set the `--cpu` build option for your target architecture:
+*  x64 (default):  `--cpu=x64_windows` or no option
+*  x86: `--cpu=x64_x86_windows`
+*  ARM: `--cpu=x64_arm_windows`
+*  ARM64: `--cpu=x64_arm64_windows`
+
+For example, to build targets for ARM architecture, run:
+
+```
+C:\projects\bazel> bazel build //examples/cpp:hello-world --cpu=x64_arm_windows
+```
+
 To build and use Dynamically Linked Libraries (DLL files), see [this
 example](https://github.com/bazelbuild/bazel/tree/master/examples/windows/dll).
 
