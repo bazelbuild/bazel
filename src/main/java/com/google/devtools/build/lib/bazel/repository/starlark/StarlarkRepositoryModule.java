@@ -79,7 +79,6 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
     builder.addAttribute(attr("$configure", BOOLEAN).defaultValue(configure).build());
     if (thread.getSemantics().experimentalRepoRemoteExec()) {
       builder.addAttribute(attr("$remotable", BOOLEAN).defaultValue(remotable).build());
-      BaseRuleClasses.execPropertiesAttribute(builder);
     }
     builder.addAttribute(attr("$environ", STRING_LIST).defaultValue(environ).build());
     BaseRuleClasses.nameAttribute(builder);
@@ -97,6 +96,13 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
         }
         builder.addAttribute(attrDescriptor.build(attrName));
       }
+    }
+    if (thread.getSemantics().experimentalRepoRemoteExec()) {
+      // Add the 'exec_properties' attribute last. That way it's backwards compatible with
+      // repository rules that already declare 'exec_properties'. In particular
+      // https://github.com/bazelbuild/bazel-toolchains
+      // TODO(buchgr): Remove this backwards compatiblity hack once the feature is marked stable.
+      BaseRuleClasses.addOrOverrideExecPropertiesAttribute(builder);
     }
     builder.setConfiguredTargetFunction(implementation);
     BazelModuleContext bzlModule =

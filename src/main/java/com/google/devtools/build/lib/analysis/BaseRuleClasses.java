@@ -27,6 +27,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING_DICT;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -49,6 +50,8 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.FileTypeSet;
+
+import java.util.Map;
 
 /**
  * Rule class definitions used by (almost) every rule.
@@ -343,10 +346,23 @@ public class BaseRuleClasses {
     return builder.add(attr("name", STRING).nonconfigurable("Rule name"));
   }
 
-  public static RuleClass.Builder execPropertiesAttribute(RuleClass.Builder builder)
+  /**
+   * Adds an {@code exec_properties} attribute of type {@code STRING_DICT} if the rule does not
+   * already have one.
+   */
+  public static void addOrOverrideExecPropertiesAttribute(RuleClass.Builder builder)
       throws ConversionException {
-    return builder.add(
-        attr(RuleClass.EXEC_PROPERTIES, STRING_DICT).defaultValue(ImmutableMap.of()));
+    Attribute.Builder<Map<String, String>> attr =
+        attr(RuleClass.EXEC_PROPERTIES, STRING_DICT).defaultValue(ImmutableMap.of());
+    Attribute oldAttr = builder.getAttribute(RuleClass.EXEC_PROPERTIES);
+    if (oldAttr == null) {
+      builder.add(attr);
+    } else {
+      Preconditions.checkArgument(
+          oldAttr.getType().equals(STRING_DICT),
+          "There is already a built-in attribute '%s' with the type other than STRING_DICT",
+          RuleClass.EXEC_PROPERTIES);
+    }
   }
 
   /**

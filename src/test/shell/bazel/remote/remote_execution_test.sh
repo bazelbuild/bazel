@@ -2022,6 +2022,45 @@ EOF
     @local_foo//:all
 }
 
+function test_repo_remote_exec_override_exec_properties() {
+  # Test that --experimental_repo_remote_exec continues to work if a repository_rule declares an
+  # "exec_properties" attribute. In particular, this is to ensure backwards compatibility with
+  # https://github.com/bazelbuild/bazel-toolchains
+
+  touch BUILD
+
+  cat > test.bzl <<'EOF'
+def _impl(repository_ctx):
+  if repository_ctx.attr.exec_properties["foo"] != "bar":
+    fail("Expected exec_properties attribute to be a dict with key foo and value bar")
+  repository_ctx.file("BUILD")
+foo_configure = repository_rule(
+  implementation = _impl,
+  attrs = {
+    "exec_properties" : attr.string_dict(),
+  },
+)
+EOF
+
+cat > WORKSPACE <<'EOF'
+load("//:test.bzl", "foo_configure")
+foo_configure(
+  name = "default_foo",
+  exec_properties = {
+    "foo" : "bar",
+  },
+)
+EOF
+
+  bazel fetch @default_foo//:all
+
+  bazel clean --expunge
+
+  bazel fetch \
+    --experimental_repo_remote_exec \
+    @default_foo//:all
+}
+
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 

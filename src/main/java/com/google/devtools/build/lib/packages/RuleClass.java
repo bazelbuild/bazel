@@ -1259,6 +1259,10 @@ public class RuleClass {
       return attributes.containsKey(name);
     }
 
+    public Attribute getAttribute(String name) {
+      return attributes.get(name);
+    }
+
     /** Sets the rule implementation function. Meant for Starlark usage. */
     public Builder setConfiguredTargetFunction(StarlarkCallable func) {
       this.configuredTargetFunction = func;
