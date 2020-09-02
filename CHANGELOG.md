@@ -5,6 +5,45 @@ Baseline: 889bc0b523b47eeb38a72bf9bb6858ee525a7c7e
 
 Cherry picks:
 
+   + a7a0d48fbeb059ee60e77580e5d05baeefdd5699:
+     Make no-op starlark transition not affect the output directory.
+   + b37c51c7085f0aefe04034dd451acb847605ddb5:
+     Add include_prefix and strip_include_prefix to cc_common.compile
+   + f6ad35fcde93f92c591778ed7db38d167f5bbc03:
+     Delete --experimental_transparent_compression
+   + 39bc97eab295bddb35b38bfc4a2ff3d2b15d034e:
+     Remove --experimental_action_args
+   + b9706675a7abf6ceebb250f0b3dfa4087a0c35f6:
+     Stop needlessly parsing WORKSPACE files from external
+     repositories.
+   + e574d558da17cfd0f818e7a937a07926aa270069:
+     Allow hyphen char in workspace name
+   + 9993785fa0c4fa4172aa31d306f3abea76833abf:
+     Allow dot ('.') in workspace names.
+```
+
+New features:
+
+  - cc_common.compile support for include_prefix/strip_include_prefix
+
+Important changes:
+
+  - Removed the flag --experimental_transparent_compression.
+  - Removed the flag --experimental_action_args.
+  - Stop needlessly parsing WORKSPACE files from external
+    repositories.
+  - Dot ('.') is now allowed in workspace names. See
+    https://github.com/bazelbuild/bazel/issues/11837.
+
+This release contains contributions from many people at Google, as well as David Ostrovsky.
+
+## Release 3.5.0 (2020-09-02)
+
+```
+Baseline: 889bc0b523b47eeb38a72bf9bb6858ee525a7c7e
+
+Cherry picks:
+
    + d6b9469efebd200a39d7fd43876a18822fcdbe7b:
      Make no-op starlark transition not affect the output directory.
    + b37c51c7085f0aefe04034dd451acb847605ddb5:
