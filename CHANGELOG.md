@@ -1,3 +1,82 @@
+## Release 3.5.0 (2020-09-02)
+
+```
+Baseline: 889bc0b523b47eeb38a72bf9bb6858ee525a7c7e
+
+Cherry picks:
+
+   + d6b9469efebd200a39d7fd43876a18822fcdbe7b:
+     Make no-op starlark transition not affect the output directory.
+   + b37c51c7085f0aefe04034dd451acb847605ddb5:
+     Add include_prefix and strip_include_prefix to cc_common.compile
+   + 0ebb1d5a5388109e3f026a355c77fdf0121f3a43:
+     Delete --experimental_transparent_compression
+   + 312e121c70aebfaa91b0a3106fa964e0bc12d1df:
+     Remove --experimental_action_args
+   + 7e6e855bb82734f582e03c2c7fad3148c139d0e0:
+     Stop needlessly parsing WORKSPACE files from external
+     repositories.
+   + d4049f6f85efb8f48d1f6b72764115af5b184831:
+     Allow hyphen char in workspace name
+   + 0a35be1843a2e4d49d5e5c3893cd6673705b7fb1:
+     Allow dot ('.') in workspace names.
+```
+
+Incompatible changes:
+
+  - The --experimental_process_wrapper_wait_fix flag (used
+    purely to roll out a risky bug fix) has been removed.
+  - Removed the --experimental_ui_deduplicate flag.
+  - Bazel now correctly prefers Xcode versions in `/Applications`
+    over any other paths, which resolves an issue with accidentally
+    picking up an Xcode version from a Time Machine backup or network
+    disk. In the improbable case that you relied on the old behavior
+    and Bazel now picks up Xcode from the wrong location, you can fix
+    it by moving that Xcode version to /Applications.
+
+New features:
+
+  - cquery now follows aspects with --include_aspects.
+  - cc_common.compile support for include_prefix/strip_include_prefix
+
+Important changes:
+
+  - Add support to bazel/crosstool for building arm64 on macos aka
+    darwin
+  - Add opt in 'oso_prefix_is_pwd' feature for Apple builds
+  - Add InstrumentedFilesInfo provider to Starlark globals.
+  - Fixed resource shrinking when <overlayable/> tags are used.
+  - Remove old incompatible flag
+    --incompatible_symlinked_sandbox_expands_tree_artifacts_in_runfile
+    s_tree.
+  - Update coverage configuration for Python, filegroup, and shell
+    script rules to distinguish between source and dependency
+    attributes.
+  - Add support to bazel/crosstool for building arm64e on macos aka
+    darwin
+  - Make filegroup always forward InstrumentedFilesProvider and not
+    collect any sources directly.
+  - Support signing key rotation in android_binary
+  - Remove legacy handling of --extra_checks
+  - Support signing key rotation in android_binary
+    GO...
+  - `--apple_bitcode` now takes an optional platform and only applies
+    the Bitcode mode to that platform if present. The option may be
+    provided multiple times.
+  - Support signing key rotation in android_binary
+  - NS_BLOCK_ASSERTIONS is now passed for all Apple architectures.
+  - Major changes to reporting of Starlark errors and the call stack.
+    (Please be alert to possible regressions, such as errors that
+    lack relevant location information.)
+  - Removed the flag --experimental_transparent_compression.
+  - Removed the flag --experimental_action_args.
+  - Stop needlessly parsing WORKSPACE files from external
+    repositories.
+  - Dot ('.') is now allowed in workspace names. See
+    https://github.com/bazelbuild/bazel/issues/11837.
+
+This release contains contributions from many people at Google, as well as Adam Gross, Andrew Suffield, Benjamin Peterson, bnczk, David Ostrovsky, Ed Schouten, Greg Estren, Grzegorz Lukasik, Holger Freyther, Kalle Johansson, Keith Smiley, Kerrick Staley, Kyle Teske, Mostyn Bramley-Moore, Ryan Beasley, Ryan Pavlik, Siggi Simonarson, Stiopa Koltsov, Ulf Adams, Xiaoyi Shi, Yannic Bonenberger, Yesudeep Mangalapilly.
+
 ## Release 3.4.1 (2020-07-14)
 
 ```
