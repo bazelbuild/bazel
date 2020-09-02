@@ -15,10 +15,16 @@ package com.google.devtools.build.lib.shell;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.util.OS;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -42,34 +48,45 @@ public class InterruptibleTest {
 
   // Interrupt main thread after 1 second.  Hopefully by then /bin/sleep
   // should be running.
-  private final Thread interrupter = new Thread() {
-      @Override
-      public void run() {
-        try {
-          Thread.sleep(1000); // 1 sec
-        } catch (InterruptedException e) {
-          throw new IllegalStateException("Unexpected interrupt!");
-        }
-        mainThread.interrupt();
-      }
-    };
+  private final Thread interrupter =
+      new Thread(
+          () -> {
+            try {
+              Thread.sleep(1000); // 1 sec
+            } catch (InterruptedException e) {
+              throw new IllegalStateException("Unexpected interrupt!");
+            }
+            mainThread.interrupt();
+          });
 
   private Command command;
+  private Path tmpDir;
 
   @Before
-  public final void startInterrupter() throws Exception  {
+  public final void startInterrupter() throws IOException {
     Thread.interrupted(); // side effect: clear interrupted status
     assertWithMessage("Unexpected interruption!").that(mainThread.isInterrupted()).isFalse();
 
     // We interrupt after 1 sec, so this gives us plenty of time for the library to notice the
     // subprocess exit.
-    this.command = new Command(new String[] { "/bin/sleep", "20" });
+    tmpDir = Files.createTempDirectory("script_outs");
+    String dirString = tmpDir + "/";
+    Path script =
+        Files.createTempFile(
+            "script",
+            ".sh",
+            PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwxrwxrwx")));
+    Files.write(
+        script,
+        ImmutableList.of(
+            "echo start", "sleep 20", "touch " + dirString + "endfile", "echo end >&2"));
+    this.command = new Command(new String[] {script.toString()});
 
     interrupter.start();
   }
 
   @After
-  public final void waitForInterrupter() throws Exception  {
+  public final void waitForInterrupter() throws Exception {
     interrupter.join();
     Thread.interrupted(); // Clear interrupted status, or else other tests may fail.
   }
@@ -79,14 +96,15 @@ public class InterruptibleTest {
    * interrupted, and does not terminate the subprocess.
    */
   @Test
-  public void testUninterruptibleCommandRunsToCompletion() throws Exception {
+  public void uninterruptibleCommandRunsToCompletion() throws Exception {
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
 
     CommandResult result =
         command.executeAsync(Command.NO_INPUT, Command.CONTINUE_SUBPROCESS_ON_INTERRUPT).get();
     assertThat(result.getTerminationStatus().success()).isTrue();
-    assertThat(result.getStderr()).isEmpty();
-    assertThat(result.getStdout()).isEmpty();
+    assertThat(new String(result.getStdout(), UTF_8)).isEqualTo("start\n");
+    assertThat(new String(result.getStderr(), UTF_8)).isEqualTo("end\n");
+    assertThat(Files.exists(tmpDir.resolve("endfile"))).isTrue();
 
     // The interrupter thread should have exited about 1000ms ago.
     assertWithMessage("Interrupter thread is still alive!").that(interrupter.isAlive()).isFalse();
@@ -99,20 +117,14 @@ public class InterruptibleTest {
 
   /**
    * Test that interrupting a thread in an "interruptible" Command.execute does terminate the
-   * subprocess, and also marks the thread as interrupted.
+   * subprocess and throws an {@link InterruptedException}.
    */
   @Test
-  public void testInterruptibleCommandRunsToCompletion() throws Exception {
+  public void interruptibleCommandIsInterrupted() throws CommandException {
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
-
-    AbnormalTerminationException expected =
-        assertThrows(AbnormalTerminationException.class, () -> command.execute());
-    assertThat(expected).hasMessageThat().isEqualTo("Process terminated by signal 15");
-    assertThat(expected.getResult().getTerminationStatus().exited()).isFalse();
-
-    // The interrupter thread should have set the main thread's interrupt flag.
-    assertWithMessage("Main thread was not interrupted during command execution!")
-        .that(mainThread.isInterrupted())
-        .isTrue();
+    FutureCommandResult result = command.executeAsync();
+    assertThrows(InterruptedException.class, result::get);
+    assertThat(Files.exists(tmpDir.resolve("endfile"))).isFalse();
+    assertThat(result.isDone()).isTrue();
   }
 }

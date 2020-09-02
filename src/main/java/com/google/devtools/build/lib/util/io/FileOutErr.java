@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -120,6 +121,11 @@ public class FileOutErr extends OutErr {
     return getFileOutputStream().getFile();
   }
 
+  /** Returns the length of the stdout contents. */
+  public long outSize() throws IOException {
+    return getFileOutputStream().getRecordedOutputSize();
+  }
+
   /**
    * Returns the {@link Path} this OutErr uses to buffer stderr.
    *
@@ -147,14 +153,9 @@ public class FileOutErr extends OutErr {
     return new String(errAsBytes(), StandardCharsets.ISO_8859_1);
   }
 
-  /** Return a reference to the recorded stderr */
-  public OutputReference getOutReference() {
-    return new FileOutputReference(getFileOutputStream());
-  }
-
-  /** Return a reference to the recorded stdout */
-  public OutputReference getErrReference() {
-    return new FileOutputReference(getFileErrorStream());
+  /** Returns the length of the stderr contents. */
+  public long errSize() throws IOException {
+    return getFileErrorStream().getRecordedOutputSize();
   }
 
   /**
@@ -243,6 +244,9 @@ public class FileOutErr extends OutErr {
     /** Returns the output this AbstractFileOutErr has recorded. */
     abstract byte[] getRecordedOutput();
 
+    /** Returns the size of the recorded output. */
+    abstract long getRecordedOutputSize() throws IOException;
+
     /**
      * Writes the output to the given output stream,
      * avoiding keeping the entire contents in memory.
@@ -289,6 +293,11 @@ public class FileOutErr extends OutErr {
     @Override
     byte[] getRecordedOutput() {
       return new byte[] {};
+    }
+
+    @Override
+    long getRecordedOutputSize() {
+      return 0;
     }
 
     @Override
@@ -399,17 +408,8 @@ public class FileOutErr extends OutErr {
 
     @Override
     boolean hasRecordedOutput() {
-      if (hadError()) {
-        return true;
-      }
-      if (!mightHaveOutput) {
-        return false;
-      }
-      if (!outputFile.exists()) {
-        return false;
-      }
       try {
-        return outputFile.getFileSize() > 0;
+        return getRecordedOutputSize() > 0;
       } catch (IOException ex) {
         recordError(ex);
         return true;
@@ -441,6 +441,21 @@ public class FileOutErr extends OutErr {
         }
       }
       return bytes == null ? new byte[] {} : bytes;
+    }
+
+    @Override
+    long getRecordedOutputSize() throws IOException {
+      if (hadError()) {
+        return error.length();
+      }
+      if (!mightHaveOutput) {
+        return 0;
+      }
+      try {
+        return outputFile.getFileSize();
+      } catch (FileNotFoundException e) {
+        return 0;
+      }
     }
 
     @Override
@@ -504,55 +519,6 @@ public class FileOutErr extends OutErr {
     public synchronized void close() throws IOException {
       if (hasOutputStream()) {
         getOutputStream().close();
-      }
-    }
-  }
-
-  /** Provide access to a sequence of bytes that might be too long to be stored in memory. */
-  public interface OutputReference {
-    /** Return the length of the output. */
-    long getLength();
-
-    /** Return the final up to n bytes of the message. */
-    byte[] getFinalBytes(int count) throws IOException;
-  }
-
-  private static class FileOutputReference implements OutputReference {
-    private final AbstractFileRecordingOutputStream stream;
-    long fileSize;
-
-    FileOutputReference(AbstractFileRecordingOutputStream stream) {
-      this.stream = stream;
-      if (!stream.mightHaveOutput()) {
-        this.fileSize = 0;
-        return;
-      }
-      Path file = stream.getFileUnsafe();
-      try {
-        this.fileSize = file.getFileSize();
-      } catch (IOException ex) {
-        this.fileSize = 0;
-      }
-    }
-
-    @Override
-    public long getLength() {
-      return fileSize;
-    }
-
-    @Override
-    public byte[] getFinalBytes(int count) throws IOException {
-      if (fileSize == 0) {
-        // We used file size 0 to mark any errors in accessing the underlying file.
-        // So stick to this to give a consistent view.
-        return new byte[0];
-      }
-
-      try (InputStream in = stream.getFileUnsafe().getInputStream()) {
-        if (fileSize > count) {
-          in.skip(fileSize - (long) count);
-        }
-        return ByteStreams.toByteArray(in);
       }
     }
   }

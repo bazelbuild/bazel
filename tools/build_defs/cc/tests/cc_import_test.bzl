@@ -240,6 +240,63 @@ def _cc_import_deps_test_impl(ctx):
 
 cc_import_deps_test = analysistest.make(_cc_import_deps_test_impl)
 
+def _cc_import_data_test_setup(
+        name,
+        test,
+        tests_list):
+    test_target_name = "cc_import_" + name + "_test"
+    cc_import_target_name = test_target_name + "_import"
+    cc_import_second_target_name = test_target_name + "_second_import"
+    cc_binary_target_name = test_target_name + "_binary"
+
+    cc_import(
+        name = cc_import_target_name,
+        static_library = "libmy.a",
+        deps = [":" + cc_import_second_target_name],
+        data = ["data1.file"],
+        tags = TAGS,
+    )
+
+    cc_import(
+        name = cc_import_second_target_name,
+        static_library = "libmy2.a",
+        data = ["data2.file"],
+        tags = TAGS,
+    )
+
+    native.cc_binary(
+        name = cc_binary_target_name,
+        deps = [":" + cc_import_target_name],
+        srcs = ["source.cc"],
+        tags = TAGS,
+    )
+
+    target_under_test = ":" + cc_binary_target_name
+
+    test(
+        name = test_target_name,
+        target_under_test = target_under_test,
+        tags = TAGS,
+        size = "small",
+    )
+
+    tests_list.append(":" + test_target_name)
+
+def _cc_import_data_test_impl(ctx):
+    env = analysistest.begin(ctx)
+
+    target_under_test = analysistest.target_under_test(env)
+    runfiles = target_under_test[DefaultInfo].default_runfiles.files.to_list()
+    runfile_names = []
+    for runfile in runfiles:
+        runfile_names.append(runfile.basename)
+    asserts.true(env, "data1.file" in runfile_names, "'data1.file' should be present runfiles")
+    asserts.true(env, "data2.file" in runfile_names, "'data2.file' should be present runfiles")
+
+    return analysistest.end(env)
+
+cc_import_data_test = analysistest.make(_cc_import_data_test_impl)
+
 def cc_import_test_suite(name):
     _tests = []
 
@@ -293,6 +350,11 @@ def cc_import_test_suite(name):
     _cc_import_deps_test_setup(
         name = "deps",
         test = cc_import_deps_test,
+        tests_list = _tests,
+    )
+    _cc_import_data_test_setup(
+        name = "data",
+        test = cc_import_data_test,
         tests_list = _tests,
     )
 

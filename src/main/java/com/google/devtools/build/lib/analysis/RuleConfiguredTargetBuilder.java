@@ -287,8 +287,7 @@ public final class RuleConfiguredTargetBuilder {
           ruleContext.attributes().getAttributeDefinition(attributeName).getType();
       if (attributeType.getLabelClass() == LabelClass.DEPENDENCY) {
         for (TransitiveLabelsInfo labelsInfo :
-            ruleContext.getPrerequisites(
-                attributeName, TransitionMode.DONT_CHECK, TransitiveLabelsInfo.class)) {
+            ruleContext.getPrerequisites(attributeName, TransitiveLabelsInfo.class)) {
           nestedSetBuilder.addTransitive(labelsInfo.getLabels());
         }
       }
@@ -320,8 +319,7 @@ public final class RuleConfiguredTargetBuilder {
           && attribute.getType().getLabelClass() == LabelClass.DEPENDENCY) {
 
         for (OutputGroupInfo outputGroup :
-            ruleContext.getPrerequisites(
-                attributeName, TransitionMode.DONT_CHECK, OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
+            ruleContext.getPrerequisites(attributeName, OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
 
           NestedSet<Artifact> validationArtifacts =
               outputGroup.getOutputGroup(OutputGroupInfo.VALIDATION);

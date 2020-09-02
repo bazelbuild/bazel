@@ -756,7 +756,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "ERROR /workspace/test/BUILD:1:13: in "
             + "//test:aspect.bzl%MyAspect aspect on java_library rule //test:xxx: \n"
             + "Traceback (most recent call last):\n"
-            + "\tFile \"/workspace/test/BUILD\", line 1, column 13, in //test:aspect.bzl%MyAspect\n"
             + "\tFile \"/workspace/test/aspect.bzl\", line 2, column 13, in _impl\n"
             + "Error: integer division by zero");
   }

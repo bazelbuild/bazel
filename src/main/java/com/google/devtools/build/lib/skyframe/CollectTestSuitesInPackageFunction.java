@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
@@ -27,6 +28,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 /**
@@ -34,6 +36,8 @@ import javax.annotation.Nullable;
  * test_suite rules' "tests" attribute.
  */
 public class CollectTestSuitesInPackageFunction implements SkyFunction {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
@@ -45,6 +49,10 @@ public class CollectTestSuitesInPackageFunction implements SkyFunction {
     }
     Package pkg = packageValue.getPackage();
     if (pkg.containsErrors()) {
+      // TODO(b/165676039): Remove this once bug is resolved.
+      logger.atInfo().atMostEvery(5, TimeUnit.SECONDS).log(
+          "Package contains errors CollectTestSuitesInPackage: "
+              + packageId.getPackageFragment().getPathString());
       env.getListener()
           .handle(
               Event.error(

@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.Runfiles.Builder;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubstitution;
@@ -92,8 +91,6 @@ public interface JavaSemantics {
   FileType JAR = FileType.of(".jar");
   FileType PROPERTIES = FileType.of(".properties");
   FileType SOURCE_JAR = FileType.of(".srcjar");
-  // TODO(bazel-team): Rename this metadata extension to something meaningful.
-  FileType COVERAGE_METADATA = FileType.of(".em");
 
   /** Label to the Java Toolchain rule. It is resolved from a label given in the java options. */
   String JAVA_TOOLCHAIN_LABEL = "//tools/jdk:toolchain";
@@ -357,8 +354,7 @@ public interface JavaSemantics {
 
     boolean createExecutable = ruleContext.attributes().get("create_executable", Type.BOOLEAN);
     if (createExecutable && ruleContext.attributes().get("use_testrunner", Type.BOOLEAN)) {
-      return Iterables.getOnlyElement(
-          ruleContext.getPrerequisites("$testsupport", TransitionMode.TARGET));
+      return Iterables.getOnlyElement(ruleContext.getPrerequisites("$testsupport"));
     } else {
       return null;
     }

@@ -84,7 +84,7 @@ public final class StarlarkThreadTest {
     Module module = Module.create();
     try (Mutability mu = Mutability.create("test")) {
       StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
-      EvalUtils.exec(ParserInput.fromLines("True = 123"), FileOptions.DEFAULT, module, thread);
+      Starlark.execFile(ParserInput.fromLines("True = 123"), FileOptions.DEFAULT, module, thread);
     }
     assertThat(module.getGlobal("True")).isEqualTo(123);
   }

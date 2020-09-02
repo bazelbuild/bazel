@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.Runfiles.Builder;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
@@ -184,7 +183,7 @@ public class BazelJavaSemantics implements JavaSemantics {
       return ImmutableList.of();
     }
 
-    return ruleContext.getPrerequisiteArtifacts("resources", TransitionMode.TARGET).list();
+    return ruleContext.getPrerequisiteArtifacts("resources").list();
   }
 
   /**
@@ -617,7 +616,7 @@ public class BazelJavaSemantics implements JavaSemantics {
 
       // Add the coverage runner to the list of dependencies when compiling in coverage mode.
       TransitiveInfoCollection runnerTarget =
-          helper.getRuleContext().getPrerequisite("$jacocorunner", TransitionMode.TARGET);
+          helper.getRuleContext().getPrerequisite("$jacocorunner");
       if (JavaInfo.getProvider(JavaCompilationArgsProvider.class, runnerTarget) != null) {
         helper.addLibrariesToAttributes(ImmutableList.of(runnerTarget));
       } else {

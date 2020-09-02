@@ -87,6 +87,24 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
       structField = true)
   FileT getMainDexProguardConfig();
 
+  /** The R.txt file. */
+  @StarlarkMethod(
+      name = "r_txt",
+      doc = "The R.txt file.",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  FileT getRTxt();
+
+  /** The merged resource files zip. */
+  @StarlarkMethod(
+      name = "resources_zip",
+      doc = "The merged resource files zip.",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  FileT getResourcesZip();
+
   /** Provider for {@link AndroidApplicationResourceInfoApi}. */
   @StarlarkBuiltin(
       name = "Provider",
@@ -132,6 +150,20 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
               noneable = true,
               named = true,
               doc = ""),
+          @Param(
+              name = "r_txt",
+              type = FileApi.class,
+              noneable = true,
+              named = true,
+              doc = "",
+              defaultValue = "None"),
+          @Param(
+              name = "resources_zip",
+              type = FileApi.class,
+              noneable = true,
+              named = true,
+              doc = "",
+              defaultValue = "None"),
         },
         selfCall = true)
     @StarlarkConstructor(objectType = AndroidApplicationResourceInfoApi.class)
@@ -141,7 +173,9 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
         Object resourceJavaClassJar,
         FileT manifest,
         Object resourceProguardConfig,
-        Object mainDexProguardConfig)
+        Object mainDexProguardConfig,
+        Object rTxt,
+        Object resourcesZip)
         throws EvalException;
   }
 }

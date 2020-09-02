@@ -192,8 +192,6 @@ public final class StarlarkLibrary {
     public Object select(Dict<?, ?> dict, String noMatchError) throws EvalException {
       return SelectorList.select(dict, noMatchError);
     }
-
-    // TODO(adonovan): move depset here.
   }
 
   /**

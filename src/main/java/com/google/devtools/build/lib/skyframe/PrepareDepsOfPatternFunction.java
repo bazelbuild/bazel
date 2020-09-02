@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -47,6 +48,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
@@ -56,6 +58,7 @@ import javax.annotation.Nullable;
  */
 public class PrepareDepsOfPatternFunction implements SkyFunction {
 
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private final AtomicReference<PathPackageLocator> pkgPath;
   private final boolean traverseTestSuites;
 
@@ -223,6 +226,9 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
         }
         return ImmutableSet.of();
       } catch (NoSuchThingException e) {
+        // TODO(b/165676039): Remove this once bug is resolved.
+        logger.atInfo().atMostEvery(5, TimeUnit.SECONDS).log(
+            "Package contains errors PrepareDepsOfPatternFunction: " + originalPattern);
         String message = TargetPatternResolverUtil.getParsingErrorMessage(
             "package contains errors", originalPattern);
         throw new TargetParsingException(message, e, e.getDetailedExitCode());

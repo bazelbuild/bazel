@@ -229,6 +229,9 @@ filegroup(
         "//src/conditions:linux_ppc64le": [
             "@openjdk_linux_ppc64le_vanilla//file",
         ],
+        "//src/conditions:linux_s390x": [
+            "@openjdk_linux_s390x_vanilla//file",
+        ],
         "//conditions:default": [
             "@openjdk_linux_vanilla//file",
         ],
@@ -769,6 +772,7 @@ filegroup(
         "@remotejdk11_linux_aarch64_for_testing//:WORKSPACE",
         "@remotejdk11_linux_for_testing//:WORKSPACE",
         "@remotejdk11_linux_ppc64le_for_testing//:WORKSPACE",
+        "@remotejdk11_linux_s390x_for_testing//:WORKSPACE",
         "@remotejdk11_macos_for_testing//:WORKSPACE",
         "@remotejdk11_win_for_testing//:WORKSPACE",
         "@remotejdk14_linux_for_testing//:WORKSPACE",

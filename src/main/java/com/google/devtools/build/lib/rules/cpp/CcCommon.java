@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -250,7 +249,7 @@ public final class CcCommon {
   List<Pair<Artifact, Label>> getPrivateHeaders() {
     Map<Artifact, Label> map = Maps.newLinkedHashMap();
     Iterable<? extends TransitiveInfoCollection> providers =
-        ruleContext.getPrerequisitesIf("srcs", TransitionMode.TARGET, FileProvider.class);
+        ruleContext.getPrerequisitesIf("srcs", FileProvider.class);
     for (TransitiveInfoCollection provider : providers) {
       for (Artifact artifact :
           provider.getProvider(FileProvider.class).getFilesToBuild().toList()) {
@@ -274,7 +273,7 @@ public final class CcCommon {
   List<Pair<Artifact, Label>> getSources() {
     Map<Artifact, Label> map = Maps.newLinkedHashMap();
     Iterable<? extends TransitiveInfoCollection> providers =
-        ruleContext.getPrerequisitesIf("srcs", TransitionMode.TARGET, FileProvider.class);
+        ruleContext.getPrerequisitesIf("srcs", FileProvider.class);
     for (TransitiveInfoCollection provider : providers) {
       for (Artifact artifact :
           provider.getProvider(FileProvider.class).getFilesToBuild().toList()) {
@@ -311,7 +310,7 @@ public final class CcCommon {
   public static List<Pair<Artifact, Label>> getHeaders(RuleContext ruleContext) {
     Map<Artifact, Label> map = Maps.newLinkedHashMap();
     for (TransitiveInfoCollection target :
-        ruleContext.getPrerequisitesIf("hdrs", TransitionMode.TARGET, FileProvider.class)) {
+        ruleContext.getPrerequisitesIf("hdrs", FileProvider.class)) {
       FileProvider provider = target.getProvider(FileProvider.class);
       for (Artifact artifact : provider.getFilesToBuild().toList()) {
         if (CppRuleClasses.DISALLOWED_HDRS_FILES.matches(artifact.getFilename())) {
@@ -396,8 +395,7 @@ public final class CcCommon {
       try {
         return CcCommon.computeCcFlags(
             ruleContext,
-            ruleContext.getPrerequisite(
-                CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, TransitionMode.TARGET));
+            ruleContext.getPrerequisite(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME));
       } catch (RuleErrorException e) {
         throw new ExpansionException(e.getMessage());
       }
@@ -599,14 +597,15 @@ public final class CcCommon {
             .experimentalSiblingRepositoryLayout();
     List<PathFragment> result = new ArrayList<>();
     PackageIdentifier packageIdentifier = ruleContext.getLabel().getPackageIdentifier();
-    PathFragment packageFragment = packageIdentifier.getExecPath(siblingRepositoryLayout);
+    PathFragment packageExecPath = packageIdentifier.getExecPath(siblingRepositoryLayout);
+    PathFragment packageSourceRoot = packageIdentifier.getSourceRoot();
     for (String includesAttr : ruleContext.getExpander().list("includes")) {
       if (includesAttr.startsWith("/")) {
         ruleContext.attributeWarning("includes",
             "ignoring invalid absolute path '" + includesAttr + "'");
         continue;
       }
-      PathFragment includesPath = packageFragment.getRelative(includesAttr);
+      PathFragment includesPath = packageExecPath.getRelative(includesAttr);
       if (!siblingRepositoryLayout && includesPath.containsUplevelReferences()) {
         ruleContext.attributeError("includes",
             "Path references a path above the execution root.");
@@ -619,7 +618,7 @@ public final class CcCommon {
                 + "' resolves to the workspace root, which would allow this rule and all of its "
                 + "transitive dependents to include any file in your workspace. Please include only"
                 + " what you need");
-      } else if (!includesPath.startsWith(packageFragment)) {
+      } else if (!includesPath.startsWith(packageExecPath)) {
         ruleContext.attributeWarning(
             "includes",
             "'"
@@ -627,14 +626,18 @@ public final class CcCommon {
                 + "' resolves to '"
                 + includesPath
                 + "' not below the relative path of its package '"
-                + packageFragment
+                + packageExecPath
                 + "'. This will be an error in the future");
       }
       result.add(includesPath);
+      // We don't need to perform the above checks against outIncludesPath again since any errors
+      // must have manifested in includesPath already.
+      PathFragment outIncludesPath = packageSourceRoot.getRelative(includesAttr);
       if (ruleContext.getConfiguration().hasSeparateGenfilesDirectory()) {
-        result.add(ruleContext.getConfiguration().getGenfilesFragment().getRelative(includesPath));
+        result.add(
+            ruleContext.getConfiguration().getGenfilesFragment().getRelative(outIncludesPath));
       }
-      result.add(ruleContext.getConfiguration().getBinFragment().getRelative(includesPath));
+      result.add(ruleContext.getConfiguration().getBinFragment().getRelative(outIncludesPath));
     }
     return result;
   }
@@ -651,8 +654,7 @@ public final class CcCommon {
     // prerequisites.
     NestedSetBuilder<Artifact> prerequisites = NestedSetBuilder.stableOrder();
     if (ruleContext.attributes().has("srcs", BuildType.LABEL_LIST)) {
-      for (FileProvider provider :
-          ruleContext.getPrerequisites("srcs", TransitionMode.TARGET, FileProvider.class)) {
+      for (FileProvider provider : ruleContext.getPrerequisites("srcs", FileProvider.class)) {
         prerequisites.addAll(
             FileType.filter(
                 provider.getFilesToBuild().toList(), SourceCategory.CC_AND_OBJC.getSourceTypes()));
@@ -670,9 +672,7 @@ public final class CcCommon {
    * the rule.
    */
   List<Artifact> getAdditionalLinkerInputs() {
-    return ruleContext
-        .getPrerequisiteArtifacts("additional_linker_inputs", TransitionMode.TARGET)
-        .list();
+    return ruleContext.getPrerequisiteArtifacts("additional_linker_inputs").list();
   }
 
   /**
@@ -701,10 +701,7 @@ public final class CcCommon {
 
   /** Returns any linker scripts found in the "deps" attribute of the rule. */
   List<Artifact> getLinkerScripts() {
-    return ruleContext
-        .getPrerequisiteArtifacts("deps", TransitionMode.TARGET)
-        .filter(CppFileTypes.LINKER_SCRIPT)
-        .list();
+    return ruleContext.getPrerequisiteArtifacts("deps").filter(CppFileTypes.LINKER_SCRIPT).list();
   }
 
   /** Returns the Windows DEF file specified in win_def_file attribute of the rule. */
@@ -714,7 +711,7 @@ public final class CcCommon {
       return null;
     }
 
-    return ruleContext.getPrerequisiteArtifact("win_def_file", TransitionMode.TARGET);
+    return ruleContext.getPrerequisiteArtifact("win_def_file");
   }
 
   /**
@@ -726,7 +723,7 @@ public final class CcCommon {
       return null;
     }
 
-    return ruleContext.getPrerequisiteArtifact("$def_parser", TransitionMode.HOST);
+    return ruleContext.getPrerequisiteArtifact("$def_parser");
   }
 
   /** Provides support for instrumentation. */

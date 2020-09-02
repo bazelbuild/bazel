@@ -60,7 +60,7 @@ final class WorkerProxy extends Worker {
   public void prepareExecution(
       SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
       throws IOException {
-    workerMultiplexer.createProcess(workerKey, workDir, logFile);
+    workerMultiplexer.createProcess(workerKey, workDir);
   }
 
   @Override

@@ -178,6 +178,7 @@ message Interrupted {
     MOBILE_INSTALL_COMMAND = 21 [(metadata) = { exit_code: 8 }];
     QUERY = 22 [(metadata) = { exit_code: 8 }];
     RUN_COMMAND = 23 [(metadata) = { exit_code: 8 }];
+    OPTIONS_PARSING = 27 [(metadata) = { exit_code: 8 }];
 
     reserved 1 to 3; // For internal use
     reserved 11 to 16; // For internal use
@@ -414,6 +415,7 @@ message Execution {
     CYCLE = 35 [(metadata) = { exit_code: 1 }];
     SOURCE_INPUT_MISSING = 36 [(metadata) = { exit_code: 1 }];
     UNEXPECTED_EXCEPTION = 37 [(metadata) = { exit_code: 1 }];
+    reserved 38;
   }
 
   Code code = 1;
@@ -618,6 +620,9 @@ message Query {
     PREMATURE_END_OF_INPUT_ERROR = 34 [(metadata) = { exit_code: 2 }];
     SYNTAX_ERROR = 35 [(metadata) = { exit_code: 2 }];
     OUTPUT_FORMATTER_IO_EXCEPTION = 36 [(metadata) = { exit_code: 36 }];
+    SKYQUERY_TRANSITIVE_TARGET_ERROR = 37 [(metadata) = { exit_code: 7 }];
+    SKYQUERY_TARGET_EXCEPTION = 38 [(metadata) = { exit_code: 7 }];
+    INVALID_LABEL_IN_TEST_SUITE = 39 [(metadata) = { exit_code: 7 }];
 
     reserved 7 to 12; // For internal use
   }
@@ -813,6 +818,8 @@ message ConfigurableQuery {
     ATTRIBUTE_MISSING = 7 [(metadata) = { exit_code: 2 }];
     INCORRECT_CONFIG_ARGUMENT_ERROR = 8 [(metadata) = { exit_code: 2 }];
     TARGET_MISSING = 9 [(metadata) = { exit_code: 2 }];
+    STARLARK_SYNTAX_ERROR = 10 [(metadata) = { exit_code: 2 }];
+    STARLARK_EVAL_ERROR = 11 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;

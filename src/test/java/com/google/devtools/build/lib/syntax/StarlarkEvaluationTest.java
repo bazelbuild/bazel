@@ -443,7 +443,7 @@ public final class StarlarkEvaluationTest {
   }
 
   private static String debugPrintArgs(Iterable<?> args) {
-    Printer p = Printer.getPrinter();
+    Printer p = new Printer();
     p.append("args(");
     String sep = "";
     for (Object arg : args) {
@@ -564,17 +564,17 @@ public final class StarlarkEvaluationTest {
   }
 
   @Test
-  public void testIfElifElse_IfExecutes() throws Exception {
+  public void testIfElifElse_ifExecutes() throws Exception {
     execIfElifElse(1, 0, 1);
   }
 
   @Test
-  public void testIfElifElse_ElifExecutes() throws Exception {
+  public void testIfElifElse_elifExecutes() throws Exception {
     execIfElifElse(0, 1, 2);
   }
 
   @Test
-  public void testIfElifElse_ElseExecutes() throws Exception {
+  public void testIfElifElse_elseExecutes() throws Exception {
     execIfElifElse(0, 0, 3);
   }
 
@@ -946,11 +946,6 @@ public final class StarlarkEvaluationTest {
         "      pass",
         "   " + statement,
         "y = foo2()");
-  }
-
-  @Test
-  public void testStructMembersAreImmutable() throws Exception {
-    assertResolutionError("cannot assign to 's.x'", "s = struct(x = 'a')", "s.x = 'b'\n");
   }
 
   @Test
@@ -1438,19 +1433,6 @@ public final class StarlarkEvaluationTest {
   }
 
   @Test
-  public void testSetIsNotIterable() throws Exception {
-    ev.new Scenario()
-        .testIfErrorContains("not iterable", "list(depset(['a', 'b']))")
-        .testIfErrorContains("not iterable", "max(depset([1, 2, 3]))")
-        .testIfErrorContains(
-            "unsupported binary operation: int in depset", "1 in depset([1, 2, 3])")
-        .testIfErrorContains("not iterable", "sorted(depset(['a', 'b']))")
-        .testIfErrorContains("not iterable", "tuple(depset(['a', 'b']))")
-        .testIfErrorContains("not iterable", "[x for x in depset()]")
-        .testIfErrorContains("not iterable", "len(depset(['a']))");
-  }
-
-  @Test
   public void testFieldReturnsNonStarlarkValue() throws Exception {
     ev.update("s", new SimpleStruct(ImmutableMap.of("bad", new StringBuilder())));
     RuntimeException e = assertThrows(RuntimeException.class, () -> ev.eval("s.bad"));
@@ -1512,7 +1494,7 @@ public final class StarlarkEvaluationTest {
   }
 
   @Test
-  public void testInvalidAugmentedAssignment_ListExpression() throws Exception {
+  public void testInvalidAugmentedAssignment_listExpression() throws Exception {
     assertResolutionError(
         "cannot perform augmented assignment on a list or tuple expression",
         //
@@ -1521,9 +1503,8 @@ public final class StarlarkEvaluationTest {
         "f(1, 2)");
   }
 
-
   @Test
-  public void testInvalidAugmentedAssignment_NotAnLValue() throws Exception {
+  public void testInvalidAugmentedAssignment_notAnLValue() throws Exception {
     assertResolutionError(
         "cannot assign to 'x + 1'",
         //
@@ -1553,7 +1534,7 @@ public final class StarlarkEvaluationTest {
   }
 
   @Test
-  public void testDictComprehensions_IterationOrder() throws Exception {
+  public void testDictComprehensions_iterationOrder() throws Exception {
     ev.new Scenario()
         .setUp(
             "def foo():",

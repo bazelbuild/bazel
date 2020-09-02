@@ -93,8 +93,7 @@ public final class ListExpression extends Expression {
       // or 4 elements (with more elements following).
       if (buf.length() >= 32 || (i == 4 && i + 1 < n)) {
         buf.setLength(mark);
-        // TODO(adonovan): "+%d more" is shorter and better suits ListExpression.
-        buf.append(String.format("<%d more arguments>", n - i));
+        buf.append(String.format("+%d more", n - i));
         break;
       }
     }

@@ -51,7 +51,9 @@ public class FakeAndroidApplicationResourceInfo implements AndroidDeviceBrokerIn
         Object resourceJavaClassJar,
         FileApi manifest,
         Object resourceProguardConfig,
-        Object mainDexProguardConfig)
+        Object mainDexProguardConfig,
+        Object rTxt,
+        Object resourcesZip)
         throws EvalException {
       return null;
     }

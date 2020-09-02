@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
@@ -206,8 +205,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     builder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
     // TODO(plf): Why do we need .so files produced by cc_library in data dependencies of cc_binary?
     // This can probably be removed safely.
-    for (TransitiveInfoCollection transitiveInfoCollection :
-        ruleContext.getPrerequisites("data", TransitionMode.DONT_CHECK)) {
+    for (TransitiveInfoCollection transitiveInfoCollection : ruleContext.getPrerequisites("data")) {
       builder.merge(
           CppHelper.runfilesFunction(ruleContext, /* linkingStatically= */ true)
               .apply(transitiveInfoCollection));
@@ -333,7 +331,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
     ImmutableList<TransitiveInfoCollection> deps =
         ImmutableList.<TransitiveInfoCollection>builder()
-            .addAll(ruleContext.getPrerequisites("deps", TransitionMode.TARGET))
+            .addAll(ruleContext.getPrerequisites("deps"))
             .add(CppHelper.mallocForTarget(ruleContext))
             .build();
 
@@ -363,7 +361,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
                 ImmutableList.of(CcCompilationHelper.getStlCcCompilationContext(ruleContext)))
             .setHeadersCheckingMode(semantics.determineHeadersCheckingMode(ruleContext))
             .setCodeCoverageEnabled(CcCompilationHelper.isCodeCoverageEnabled(ruleContext));
-    CompilationInfo compilationInfo = compilationHelper.compile();
+    CompilationInfo compilationInfo = compilationHelper.compile(ruleContext::ruleError);
     CcCompilationContext ccCompilationContext = compilationInfo.getCcCompilationContext();
     CcCompilationOutputs precompiledFileObjects =
         CcCompilationOutputs.builder()
@@ -1051,8 +1049,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   private static CcLinkingContext collectCcLinkingContext(RuleContext context) {
     ImmutableList.Builder<CcInfo> ccInfoListBuilder = ImmutableList.builder();
 
-    ccInfoListBuilder.addAll(
-        context.getPrerequisites("deps", TransitionMode.TARGET, CcInfo.PROVIDER));
+    ccInfoListBuilder.addAll(context.getPrerequisites("deps", CcInfo.PROVIDER));
     if (!isLinkShared(context)) {
       CcInfo ccInfo = CppHelper.mallocForTarget(context).get(CcInfo.PROVIDER);
       if (ccInfo != null) {
@@ -1085,7 +1082,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
     NestedSet<Artifact> headerTokens =
         CcCompilationHelper.collectHeaderTokens(
-            ruleContext, cppConfiguration, ccCompilationOutputs);
+            ruleContext, cppConfiguration, ccCompilationOutputs, /* addSelfTokens= */ true);
 
     Map<String, NestedSet<Artifact>> outputGroups =
         CcCompilationHelper.buildOutputGroupsForEmittingCompileProviders(
@@ -1094,7 +1091,9 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             cppConfiguration,
             toolchain,
             featureConfiguration,
-            ruleContext);
+            ruleContext,
+            /* generateHeaderTokensGroup= */ false,
+            /* addSelfHeaderTokens= */ false);
 
     builder
         .setFilesToBuild(filesToBuild)
@@ -1104,10 +1103,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             CcNativeLibraryProvider.class,
             new CcNativeLibraryProvider(collectTransitiveCcNativeLibraries(ruleContext, libraries)))
         .addNativeDeclaredProvider(instrumentedFilesProvider)
-        // For CcBinary targets, we only want to ensure that we process headers in dependencies and
-        // thus only add header tokens to HIDDEN_TOP_LEVEL. If we add all HIDDEN_TOP_LEVEL artifacts
-        // from dependent CcLibrary targets, we'd be building .pic.o files in nopic builds.
-        .addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, headerTokens)
+        .addOutputGroup(OutputGroupInfo.VALIDATION, headerTokens)
         .addOutputGroups(outputGroups);
 
     CppHelper.maybeAddStaticLinkMarkerProvider(builder, ruleContext);
@@ -1118,8 +1114,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     NestedSetBuilder<LibraryToLink> builder = NestedSetBuilder.linkOrder();
     builder.addAll(libraries);
     for (CcNativeLibraryProvider dep :
-        ruleContext.getPrerequisites(
-            "deps", TransitionMode.TARGET, CcNativeLibraryProvider.class)) {
+        ruleContext.getPrerequisites("deps", CcNativeLibraryProvider.class)) {
       builder.addTransitive(dep.getTransitiveCcNativeLibraries());
     }
     return builder.build();
@@ -1172,8 +1167,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         ImmutableList.builder();
     ImmutableList.Builder<CcSharedLibraryInfo> transitiveMergedCcSharedLibraryInfos =
         ImmutableList.builder();
-    for (TransitiveInfoCollection dep :
-        ruleContext.getPrerequisites("dynamic_deps", TransitionMode.TARGET)) {
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("dynamic_deps")) {
       StructImpl ccSharedLibraryInfo = cppSemantics.getCcSharedLibraryInfo(dep);
       if (ccSharedLibraryInfo == null) {
         ruleContext.ruleError(
@@ -1331,8 +1325,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     List<CcLinkingContext.LinkerInput> linkerInputs = new ArrayList<>();
 
     linkerInputs.addAll(ccLinkingContext.getLinkerInputs().toList());
-    for (TransitiveInfoCollection dep :
-        ruleContext.getPrerequisites("deps", TransitionMode.TARGET)) {
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps")) {
       graphStructureAspectNodes.add(dep.getProvider(GraphNodeInfo.class));
     }
     graphStructureAspectNodes.add(
@@ -1393,8 +1386,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   private static ImmutableList<CcLinkingContext.LinkerInput> getPreloadedDepsFromDynamicDeps(
       RuleContext ruleContext, CppSemantics cppSemantics) {
     ImmutableList.Builder<CcInfo> ccInfos = ImmutableList.builder();
-    for (TransitiveInfoCollection dep :
-        ruleContext.getPrerequisites("dynamic_deps", TransitionMode.TARGET)) {
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("dynamic_deps")) {
       StructImpl ccSharedLibraryInfo = cppSemantics.getCcSharedLibraryInfo(dep);
       try {
         Object preloadedDepsField = ccSharedLibraryInfo.getValue("preloaded_deps");

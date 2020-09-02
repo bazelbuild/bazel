@@ -45,7 +45,7 @@ public interface ProjectFile {
         List<Root> packagePath,
         PathFragment path,
         OptionsParser optionsParser)
-        throws OptionsParsingException;
+        throws OptionsParsingException, InterruptedException;
   }
 
   /**

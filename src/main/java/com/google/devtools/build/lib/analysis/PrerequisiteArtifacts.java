@@ -63,6 +63,11 @@ public final class PrerequisiteArtifacts {
     return new PrerequisiteArtifacts(ruleContext, attributeName, ImmutableList.copyOf(result));
   }
 
+  public static NestedSet<Artifact> nestedSet(RuleContext ruleContext, String attributeName) {
+    return nestedSet(ruleContext, attributeName, TransitionMode.DONT_CHECK);
+  }
+
+  // TODO(b/165916637): Update callers to not pass TransitionMode.
   public static NestedSet<Artifact> nestedSet(
       RuleContext ruleContext, String attributeName, TransitionMode mode) {
     NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();

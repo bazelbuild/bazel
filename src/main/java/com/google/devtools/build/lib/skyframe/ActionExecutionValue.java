@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -30,8 +31,10 @@ import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.function.BiFunction;
 import javax.annotation.Nullable;
 
@@ -139,6 +142,17 @@ public class ActionExecutionValue implements SkyValue {
     if (artifact.isChildOfDeclaredDirectory()) {
       TreeArtifactValue tree = treeArtifactData.get(artifact.getParent());
       result = tree == null ? null : tree.getChildValues().get(artifact);
+    } else if (artifact instanceof ArchivedTreeArtifact) {
+      TreeArtifactValue tree = treeArtifactData.get(artifact.getParent());
+      ArchivedRepresentation archivedRepresentation =
+          tree.getArchivedRepresentation()
+              .orElseThrow(
+                  () -> new NoSuchElementException("Missing archived representation in: " + tree));
+      Preconditions.checkArgument(
+          archivedRepresentation.archivedTreeFileArtifact().equals(artifact),
+          "Multiple archived tree artifacts for: %s",
+          artifact.getParent());
+      result = archivedRepresentation.archivedFileValue();
     } else {
       result = artifactData.get(artifact);
     }
@@ -278,6 +292,17 @@ public class ActionExecutionValue implements SkyValue {
           TreeFileArtifact.createTreeOutput(newParent, child.getKey().getParentRelativePath()),
           child.getValue());
     }
+
+    tree.getArchivedRepresentation()
+        .ifPresent(
+            archivedRepresentation -> {
+              newTree.setArchivedRepresentation(
+                  new ArchivedTreeArtifact(
+                      newParent,
+                      archivedRepresentation.archivedTreeFileArtifact().getRoot(),
+                      archivedRepresentation.archivedTreeFileArtifact().getExecPath()),
+                  archivedRepresentation.archivedFileValue());
+            });
 
     return newTree.build();
   }

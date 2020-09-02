@@ -113,7 +113,7 @@ public class AbstractContainerizingSandboxedSpawnTest {
   }
 
   @Test
-  public void testMoveOutputs_WarnOnceIfCopyHappened() throws Exception {
+  public void testMoveOutputs_warnOnceIfCopyHappened() throws Exception {
     class MultipleDeviceFS extends InMemoryFileSystem {
       @Override
       public void renameTo(Path source, Path target) throws IOException {

@@ -42,7 +42,7 @@ public class ExecutionStatisticsTestUtil {
       Duration systemTimeToSpend,
       List<String> fullCommandLine,
       Path statisticsFilePath)
-      throws CommandException, IOException {
+      throws CommandException, IOException, InterruptedException {
     Duration userTimeLowerBound = userTimeToSpend;
     Duration userTimeUpperBound = userTimeToSpend.plusSeconds(9);
     Duration systemTimeLowerBound = systemTimeToSpend;

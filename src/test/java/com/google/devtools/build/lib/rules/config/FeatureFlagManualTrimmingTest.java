@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -543,9 +542,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//test:target");
     RuleContext ruleContext = getRuleContext(target);
     BuildConfiguration childConfiguration =
-        Iterables.getOnlyElement(
-                ruleContext.getPrerequisiteConfiguredTargetAndTargets(
-                    "exports_flag", TransitionMode.TARGET))
+        Iterables.getOnlyElement(ruleContext.getPrerequisiteConfiguredTargets("exports_flag"))
             .getConfiguration();
 
     Label childLabel = Label.parseAbsoluteUnchecked("//test:read_flag");

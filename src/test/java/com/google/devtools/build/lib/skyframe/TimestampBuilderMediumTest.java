@@ -123,7 +123,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
   }
 
   @Test
-  public void testPersistentCache_ModifyingInputCausesActionReexecution() throws Exception {
+  public void testPersistentCache_modifyingInputCausesActionReexecution() throws Exception {
     // /hello -> [action] -> /goodbye
     Artifact hello = createSourceArtifact("hello");
     BlazeTestUtils.makeEmptyFile(hello.getPath());
@@ -316,7 +316,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
   }
 
   @Test
-  public void testPersistentCache_ModifyingOutputCausesActionReexecution() throws Exception {
+  public void testPersistentCache_modifyingOutputCausesActionReexecution() throws Exception {
     // [action] -> /hello
     Artifact hello = createDerivedArtifact("hello");
     Button button = createActionButton(emptyNestedSet, ImmutableSet.of(hello));

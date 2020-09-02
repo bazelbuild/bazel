@@ -239,8 +239,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleNoRuleOutputsParam();
 
-  public abstract boolean incompatibleNoSupportToolsInActionInputs();
-
   public abstract boolean incompatibleRunShellCommandString();
 
   public abstract boolean incompatibleStringReplaceCount();
@@ -327,7 +325,6 @@ public abstract class StarlarkSemantics {
           .incompatibleNoAttrLicense(true)
           .incompatibleNoImplicitFileExport(false)
           .incompatibleNoRuleOutputsParam(false)
-          .incompatibleNoSupportToolsInActionInputs(true)
           .incompatibleRunShellCommandString(false)
           .incompatibleStringReplaceCount(false)
           .incompatibleVisibilityPrivateAttributesAtDefinition(false)
@@ -397,8 +394,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleNoImplicitFileExport(boolean value);
 
     public abstract Builder incompatibleNoRuleOutputsParam(boolean value);
-
-    public abstract Builder incompatibleNoSupportToolsInActionInputs(boolean value);
 
     public abstract Builder incompatibleRunShellCommandString(boolean value);
 

@@ -318,7 +318,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testPropagatesFilesystemInconsistencies_Globbing() throws Exception {
+  public void testPropagatesFilesystemInconsistencies_globbing() throws Exception {
     getSkyframeExecutor().turnOffSyscallCacheForTesting();
     reporter.removeHandler(failFastHandler);
     RecordingDifferencer differencer = getSkyframeExecutor().getDifferencerForTesting();
@@ -937,7 +937,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGlobAllowEmpty_ParamValueMustBeBoolean() throws Exception {
+  public void testGlobAllowEmpty_paramValueMustBeBoolean() throws Exception {
     reporter.removeHandler(failFastHandler);
 
     scratch.file("pkg/BUILD", "x = " + "glob(['*.foo'], allow_empty = 5)");
@@ -950,7 +950,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGlobAllowEmpty_FunctionParam() throws Exception {
+  public void testGlobAllowEmpty_functionParam() throws Exception {
     scratch.file("pkg/BUILD", "x = " + "glob(['*.foo'], allow_empty=True)");
     invalidatePackages();
 
@@ -961,7 +961,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGlobAllowEmpty_StarlarkOption() throws Exception {
+  public void testGlobAllowEmpty_starlarkOption() throws Exception {
     preparePackageLoadingWithCustomStarklarkSemanticsOptions(
         Options.parse(StarlarkSemanticsOptions.class, "--incompatible_disallow_empty_glob=false")
             .getOptions(),
@@ -977,7 +977,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGlobDisallowEmpty_FunctionParam_WasNonEmptyAndBecomesEmpty() throws Exception {
+  public void testGlobDisallowEmpty_functionParam_wasNonEmptyAndBecomesEmpty() throws Exception {
     scratch.file("pkg/BUILD", "x = " + "glob(['*.foo'], allow_empty=False)");
     scratch.file("pkg/blah.foo");
     invalidatePackages();
@@ -1004,7 +1004,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGlobDisallowEmpty_StarlarkOption_WasNonEmptyAndBecomesEmpty() throws Exception {
+  public void testGlobDisallowEmpty_starlarkOption_wasNonEmptyAndBecomesEmpty() throws Exception {
     preparePackageLoadingWithCustomStarklarkSemanticsOptions(
         Options.parse(StarlarkSemanticsOptions.class, "--incompatible_disallow_empty_glob=true")
             .getOptions(),
@@ -1036,7 +1036,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGlobDisallowEmpty_FunctionParam_WasEmptyAndStaysEmpty() throws Exception {
+  public void testGlobDisallowEmpty_functionParam_wasEmptyAndStaysEmpty() throws Exception {
     scratch.file("pkg/BUILD", "x = " + "glob(['*.foo'], allow_empty=False)");
     invalidatePackages();
 
@@ -1063,7 +1063,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGlobDisallowEmpty_StarlarkOption_WasEmptyAndStaysEmpty() throws Exception {
+  public void testGlobDisallowEmpty_starlarkOption_wasEmptyAndStaysEmpty() throws Exception {
     preparePackageLoadingWithCustomStarklarkSemanticsOptions(
         Options.parse(StarlarkSemanticsOptions.class, "--incompatible_disallow_empty_glob=true")
             .getOptions(),
@@ -1095,7 +1095,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGlobDisallowEmpty_FunctionParam_WasEmptyDueToExcludeAndStaysEmpty()
+  public void testGlobDisallowEmpty_functionParam_wasEmptyDueToExcludeAndStaysEmpty()
       throws Exception {
     scratch.file("pkg/BUILD", "x = glob(include=['*.foo'], exclude=['blah.*'], allow_empty=False)");
     scratch.file("pkg/blah.foo");
@@ -1126,7 +1126,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGlobDisallowEmpty_StarlarkOption_WasEmptyDueToExcludeAndStaysEmpty()
+  public void testGlobDisallowEmpty_starlarkOption_wasEmptyDueToExcludeAndStaysEmpty()
       throws Exception {
     preparePackageLoadingWithCustomStarklarkSemanticsOptions(
         Options.parse(StarlarkSemanticsOptions.class, "--incompatible_disallow_empty_glob=true")
@@ -1160,7 +1160,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGlobDisallowEmpty_FunctionParam_WasEmptyAndBecomesNonEmpty() throws Exception {
+  public void testGlobDisallowEmpty_functionParam_wasEmptyAndBecomesNonEmpty() throws Exception {
     scratch.file("pkg/BUILD", "x = " + "glob(['*.foo'], allow_empty=False)");
     invalidatePackages();
 
@@ -1188,7 +1188,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGlobDisallowEmpty_StarlarkOption_WasEmptyAndBecomesNonEmpty() throws Exception {
+  public void testGlobDisallowEmpty_starlarkOption_wasEmptyAndBecomesNonEmpty() throws Exception {
     preparePackageLoadingWithCustomStarklarkSemanticsOptions(
         Options.parse(StarlarkSemanticsOptions.class, "--incompatible_disallow_empty_glob=true")
             .getOptions(),

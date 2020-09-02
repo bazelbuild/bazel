@@ -13,16 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.Ordering;
 import java.util.IllegalFormatException;
 
-/** Utilities used by the evaluator. */
-// TODO(adonovan): move all fundamental values and operators of the language to Starlark
-// class---equal, compare, index, slice, parse, exec, eval, and so on---and make this
-// private.
-public final class EvalUtils {
+/** Internal declarations used by the evaluator. */
+final class EvalUtils {
 
   private EvalUtils() {}
 
@@ -129,28 +125,7 @@ public final class EvalUtils {
     if (o instanceof StarlarkValue) {
       return ((StarlarkValue) o).isHashable();
     }
-    return isImmutable(o);
-  }
-
-  /** Reports whether a Starlark value is assumed to be deeply immutable. */
-  // TODO(adonovan): eliminate the concept of querying for immutability. It is currently used for
-  // only one purpose, the precondition for adding an element to a Depset, but Depsets should check
-  // hashability, like Dicts. (Similarly, querying for hashability should go: just attempt to hash a
-  // value, and be prepared for it to fail.) In practice, a value may be immutable, either
-  // inherently (e.g. string) or because it has become frozen, but we don't need to query for it.
-  // Just attempt a mutation and be prepared for it to fail.
-  // It is inefficient and potentially inconsistent to ask before doing.
-  public static boolean isImmutable(Object x) {
-    // NB: This is used as the basis for accepting objects in Depsets,
-    // as well as for accepting objects as keys for Starlark dicts.
-
-    if (x instanceof String || x instanceof Integer || x instanceof Boolean) {
-      return true;
-    } else if (x instanceof StarlarkValue) {
-      return ((StarlarkValue) x).isImmutable();
-    } else {
-      throw new IllegalArgumentException("invalid Starlark value: " + x.getClass());
-    }
+    return Starlark.isImmutable(o);
   }
 
   static void addIterator(Object x) {
@@ -201,11 +176,6 @@ public final class EvalUtils {
     } else {
       return index;
     }
-  }
-
-  /** @return true if x is Java null or Starlark None */
-  public static boolean isNullOrNone(Object x) {
-    return x == null || x == Starlark.NONE;
   }
 
   /** Evaluates an eager binary operation, {@code x op y}. (Excludes AND and OR.) */
@@ -567,65 +537,4 @@ public final class EvalUtils {
           Starlark.type(object));
     }
   }
-
-  /**
-   * Parses the input as a file, resolves it in the module environment using the specified options
-   * and returns the syntax tree. Scan/parse/resolve errors are recorded in the StarlarkFile. It is
-   * the caller's responsibility to inspect them.
-   */
-  public static StarlarkFile parseAndValidate(
-      ParserInput input, FileOptions options, Module module) {
-    StarlarkFile file = StarlarkFile.parse(input, options);
-    Resolver.resolveFile(file, module);
-    return file;
-  }
-
-  /**
-   * Parses the input as a file, resolves it in the module environment using the specified options
-   * and executes it. It returns None, unless the final statement is an expression, in which case it
-   * returns the expression's value.
-   */
-  public static Object exec(
-      ParserInput input, FileOptions options, Module module, StarlarkThread thread)
-      throws SyntaxError.Exception, EvalException, InterruptedException {
-    StarlarkFile file = parseAndValidate(input, options, module);
-    if (!file.ok()) {
-      throw new SyntaxError.Exception(file.errors());
-    }
-    return exec(file, module, thread);
-  }
-
-  /** Executes a parsed, resolved Starlark file in the given StarlarkThread. */
-  public static Object exec(StarlarkFile file, Module module, StarlarkThread thread)
-      throws EvalException, InterruptedException {
-    Preconditions.checkNotNull(
-        file.getResolvedFunction(),
-        "cannot evaluate unresolved syntax (use other exec method, or parseAndValidate)");
-
-    Tuple<Object> defaultValues = Tuple.empty();
-    StarlarkFunction toplevel =
-        new StarlarkFunction(file.getResolvedFunction(), defaultValues, module);
-
-    return Starlark.fastcall(thread, toplevel, NOARGS, NOARGS);
-  }
-
-  /**
-   * Parses the input as an expression, resolves it in the module environment using the specified
-   * options, and evaluates it.
-   */
-  public static Object eval(
-      ParserInput input, FileOptions options, Module module, StarlarkThread thread)
-      throws SyntaxError.Exception, EvalException, InterruptedException {
-    Expression expr = Expression.parse(input, options);
-
-    Resolver.Function rfn = Resolver.resolveExpr(expr, module, options);
-
-    // Turn expression into a no-arg StarlarkFunction.
-    Tuple<Object> defaultValues = Tuple.empty();
-    StarlarkFunction exprFunc = new StarlarkFunction(rfn, defaultValues, module);
-
-    return Starlark.fastcall(thread, exprFunc, NOARGS, NOARGS);
-  }
-
-  private static final Object[] NOARGS = {};
 }

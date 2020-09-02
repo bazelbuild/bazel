@@ -333,7 +333,7 @@ public abstract class BlazeModule {
    */
   public void registerSpawnStrategies(
       SpawnStrategyRegistry.Builder registryBuilder, CommandEnvironment env)
-      throws AbruptExitException {}
+      throws AbruptExitException, InterruptedException {}
 
   /**
    * Called after each command.

@@ -203,8 +203,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
             AssertionError.class, () -> getConfiguredTarget("//examples/apple_starlark:my_target"));
     assertThat(e)
         .hasMessageThat()
-        .contains("File \"/workspace/examples/apple_starlark/BUILD\", line 3");
-    assertThat(e).hasMessageThat().contains("my_rule(name = 'my_target')"); // (fake source)
+        .contains("apple_starlark/BUILD:3:8: in my_rule rule //examples/apple_starlark:my_target:");
     assertThat(e)
         .hasMessageThat()
         .contains(

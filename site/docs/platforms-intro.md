@@ -213,7 +213,7 @@ criteria.
 
 Globally common properties are declared in the
 [`@platforms`](https://github.com/bazelbuild/platforms) repo
-(so the canonical label for the above example is `//third_party/bazel_platforms//cpu:arm`).
+(so the canonical label for the above example is `@platforms//cpu:arm`).
 Language-common properties should be declared in the repos of their respective
 languages.
 

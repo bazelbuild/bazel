@@ -15,8 +15,6 @@
 package com.google.devtools.build.buildjar;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doReturn;
 
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
@@ -30,12 +28,11 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
-/** Tests for the BazelJavaBuilder */
+/** Tests for the WorkRequestHandler */
 @RunWith(JUnit4.class)
-public class BazelJavaBuilderTest {
+public class WorkRequestHandlerTest {
 
   @Before
   public void init() {
@@ -44,14 +41,12 @@ public class BazelJavaBuilderTest {
 
   @Test
   public void testNormalWorkRequest() throws IOException {
-    BazelJavaBuilder builder = new BazelJavaBuilder();
-    BazelJavaBuilder builderSpy = Mockito.spy(builder);
-    doReturn(1).when(builderSpy).parseAndProcessRequest(any(), any());
+    WorkRequestHandler handler = new WorkRequestHandler((args, err) -> 1);
 
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
     List<String> args = Arrays.asList("--sources", "A.java");
     WorkRequest request = WorkRequest.newBuilder().addAllArguments(args).build();
-    builderSpy.respondToRequest(request, new PrintStream(out));
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    handler.respondToRequest(request, new PrintStream(out));
 
     WorkResponse response =
         WorkResponse.parseDelimitedFrom(new ByteArrayInputStream(out.toByteArray()));
@@ -62,14 +57,12 @@ public class BazelJavaBuilderTest {
 
   @Test
   public void testMultiplexWorkRequest() throws IOException {
-    BazelJavaBuilder builder = new BazelJavaBuilder();
-    BazelJavaBuilder builderSpy = Mockito.spy(builder);
-    doReturn(0).when(builderSpy).parseAndProcessRequest(any(), any());
+    WorkRequestHandler handler = new WorkRequestHandler((args, err) -> 0);
 
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
     List<String> args = Arrays.asList("--sources", "A.java");
     WorkRequest request = WorkRequest.newBuilder().addAllArguments(args).setRequestId(42).build();
-    builderSpy.respondToRequest(request, new PrintStream(out));
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    handler.respondToRequest(request, new PrintStream(out));
 
     WorkResponse response =
         WorkResponse.parseDelimitedFrom(new ByteArrayInputStream(out.toByteArray()));
@@ -79,20 +72,43 @@ public class BazelJavaBuilderTest {
   }
 
   @Test
-  public void testBrokenWorkRequest() throws IOException {
-    BazelJavaBuilder builder = new BazelJavaBuilder();
+  public void testOutput() throws IOException {
+    WorkRequestHandler handler =
+        new WorkRequestHandler(
+            (args, err) -> {
+              err.println("Failed!");
+              return 1;
+            });
 
-    List<String> args = Arrays.asList("Foo", "Bar");
+    List<String> args = Arrays.asList("--sources", "A.java");
     WorkRequest request = WorkRequest.newBuilder().addAllArguments(args).build();
     ByteArrayOutputStream out = new ByteArrayOutputStream();
+    handler.respondToRequest(request, new PrintStream(out));
 
-    builder.respondToRequest(request, new PrintStream(out));
     WorkResponse response =
         WorkResponse.parseDelimitedFrom(new ByteArrayInputStream(out.toByteArray()));
-
     assertThat(response.getRequestId()).isEqualTo(0);
     assertThat(response.getExitCode()).isEqualTo(1);
-    assertThat(response.getOutput())
-        .contains("BazelJavaBuilder threw exception: unknown option : 'Foo'");
+    assertThat(response.getOutput()).contains("Failed!");
+  }
+
+  @Test
+  public void testException() throws IOException {
+    WorkRequestHandler handler =
+        new WorkRequestHandler(
+            (args, err) -> {
+              throw new RuntimeException("Exploded!");
+            });
+
+    List<String> args = Arrays.asList("--sources", "A.java");
+    WorkRequest request = WorkRequest.newBuilder().addAllArguments(args).build();
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    handler.respondToRequest(request, new PrintStream(out));
+
+    WorkResponse response =
+        WorkResponse.parseDelimitedFrom(new ByteArrayInputStream(out.toByteArray()));
+    assertThat(response.getRequestId()).isEqualTo(0);
+    assertThat(response.getExitCode()).isEqualTo(1);
+    assertThat(response.getOutput()).startsWith("java.lang.RuntimeException: Exploded!");
   }
 }

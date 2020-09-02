@@ -132,7 +132,8 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
     Map<SkyKey, SkyValue> configs = env.getValues(targetConfigurationKeys);
 
     // We only report invalid options for the target configurations, and abort if there's an error.
-    ErrorSensingEventHandler nosyEventHandler = new ErrorSensingEventHandler(env.getListener());
+    ErrorSensingEventHandler<Void> nosyEventHandler =
+        ErrorSensingEventHandler.withoutPropertyValueTracking(env.getListener());
     targetConfigurationKeys
         .stream()
         .map(k -> configs.get(k))

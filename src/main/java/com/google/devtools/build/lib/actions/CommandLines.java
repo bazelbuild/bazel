@@ -168,12 +168,28 @@ public class CommandLines {
                   paramFileInfo.getFlagFormatString(), paramFileExecPath.getPathString());
           arguments.addElement(paramArg);
           cmdLineLength += paramArg.length() + 1;
-          paramFiles.add(
-              new ParamFileActionInput(
-                  paramFileExecPath,
-                  args,
-                  paramFileInfo.getFileType(),
-                  paramFileInfo.getCharset()));
+
+          if (paramFileInfo.flagsOnly()) {
+            // Move just the flags into the file, and keep the positional parameters on the command
+            // line.
+            paramFiles.add(
+                new ParamFileActionInput(
+                    paramFileExecPath,
+                    ParameterFile.flagsOnly(args),
+                    paramFileInfo.getFileType(),
+                    paramFileInfo.getCharset()));
+            for (String positionalArg : ParameterFile.nonFlags(args)) {
+              arguments.addElement(positionalArg);
+              cmdLineLength += positionalArg.length() + 1;
+            }
+          } else {
+            paramFiles.add(
+                new ParamFileActionInput(
+                    paramFileExecPath,
+                    args,
+                    paramFileInfo.getFileType(),
+                    paramFileInfo.getCharset()));
+          }
         }
       }
     }

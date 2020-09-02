@@ -29,7 +29,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
-        "//src/main/java/com/google/devtools/build/lib/analysis:transition_mode",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/android/ndkcrosstools",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/android/ndkcrosstools:android_ndk_crosstools",

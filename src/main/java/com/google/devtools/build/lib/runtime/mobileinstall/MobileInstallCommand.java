@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.MobileInstall;
 import com.google.devtools.build.lib.server.FailureDetails.MobileInstall.Code;
-import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.CommandBuilder;
@@ -320,15 +319,14 @@ public class MobileInstallCommand implements BlazeCommand {
               + e.getMessage();
       env.getReporter().handle(Event.error(message));
       return createFailureResult(message, Code.NON_ZERO_EXIT);
-    } catch (AbnormalTerminationException e) {
-      // The process was likely terminated by a signal in this case.
-      return BlazeCommandResult.detailedExitCode(
-          InterruptedFailureDetails.detailedExitCode(
-              "mobile install interrupted", Interrupted.Code.MOBILE_INSTALL_COMMAND));
     } catch (CommandException e) {
       String message = "Error running program: " + e.getMessage();
       env.getReporter().handle(Event.error(message));
       return createFailureResult(message, Code.ERROR_RUNNING_PROGRAM);
+    } catch (InterruptedException e) {
+      return BlazeCommandResult.detailedExitCode(
+          InterruptedFailureDetails.detailedExitCode(
+              "mobile install interrupted", Interrupted.Code.MOBILE_INSTALL_COMMAND));
     }
   }
 

@@ -78,7 +78,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
 
   @Override
   public final SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
-      throws ExecException, IOException, InterruptedException {
+      throws ExecException, InterruptedException {
     ActionExecutionMetadata owner = spawn.getResourceOwner();
     context.report(ProgressStatus.SCHEDULING, getName());
     try (ResourceHandle ignored =
@@ -105,7 +105,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   }
 
   protected abstract SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, ExecException;
+      throws IOException, ExecException, InterruptedException;
 
   private SpawnResult runSpawn(
       Spawn originalSpawn, SandboxedSpawn sandbox, SpawnExecutionContext context)

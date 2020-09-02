@@ -94,7 +94,7 @@ class ExtraActionUtils {
     // We copy the multimap here every time. This could be expensive.
     Multimap<String, ExtraActionSpec> mnemonicToExtraActionMap = HashMultimap.create();
     for (TransitiveInfoCollection actionListener :
-        ruleContext.getPrerequisites(":action_listener", TransitionMode.HOST)) {
+        ruleContext.getPrerequisites(":action_listener")) {
       ExtraActionMapProvider provider = actionListener.getProvider(ExtraActionMapProvider.class);
       if (provider == null) {
         ruleContext.ruleError(String.format(

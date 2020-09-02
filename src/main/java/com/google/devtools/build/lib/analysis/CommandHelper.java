@@ -79,7 +79,7 @@ public final class CommandHelper {
      */
     public Builder addHostToolDependencies(String toolAttributeName) {
       List<? extends TransitiveInfoCollection> dependencies =
-          ruleContext.getPrerequisites(toolAttributeName, TransitionMode.HOST);
+          ruleContext.getPrerequisites(toolAttributeName);
       addToolDependencies(dependencies);
       return this;
     }
@@ -90,7 +90,7 @@ public final class CommandHelper {
      */
     public Builder addToolDependencies(String toolAttributeName) {
       List<? extends TransitiveInfoCollection> dependencies =
-          ruleContext.getPrerequisites(toolAttributeName, TransitionMode.TARGET);
+          ruleContext.getPrerequisites(toolAttributeName);
       return addToolDependencies(dependencies);
     }
 

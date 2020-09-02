@@ -245,6 +245,13 @@ static void SetupSignalHandlers() {
       case SIGTERM:
         InstallSignalHandler(signum, OnTimeoutOrTerm);
         break;
+      case SIGINT:
+        if (opt.sigint_sends_sigterm) {
+          InstallSignalHandler(signum, OnTimeoutOrTerm);
+        } else {
+          InstallSignalHandler(signum, ForwardSignal);
+        }
+        break;
       // All other signals should be forwarded to the child.
       default:
         InstallSignalHandler(signum, ForwardSignal);

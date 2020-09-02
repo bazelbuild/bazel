@@ -372,7 +372,7 @@ public final class LocationExpander {
 
     if (ruleContext.getRule().isAttrDefined("srcs", BuildType.LABEL_LIST)) {
       for (TransitiveInfoCollection src :
-          ruleContext.getPrerequisitesIf("srcs", TransitionMode.TARGET, FileProvider.class)) {
+          ruleContext.getPrerequisitesIf("srcs", FileProvider.class)) {
         for (Label label : AliasProvider.getDependencyLabels(src)) {
           mapGet(locationMap, label)
               .addAll(src.getProvider(FileProvider.class).getFilesToBuild().toList());
@@ -384,21 +384,16 @@ public final class LocationExpander {
     List<TransitiveInfoCollection> depsDataAndTools = new ArrayList<>();
     if (ruleContext.getRule().isAttrDefined("deps", BuildType.LABEL_LIST)) {
       Iterables.addAll(
-          depsDataAndTools,
-          ruleContext.getPrerequisitesIf(
-              "deps", TransitionMode.DONT_CHECK, FilesToRunProvider.class));
+          depsDataAndTools, ruleContext.getPrerequisitesIf("deps", FilesToRunProvider.class));
     }
     if (allowDataAttributeEntriesInLabel
         && ruleContext.getRule().isAttrDefined("data", BuildType.LABEL_LIST)) {
       Iterables.addAll(
-          depsDataAndTools,
-          ruleContext.getPrerequisitesIf(
-              "data", TransitionMode.DONT_CHECK, FilesToRunProvider.class));
+          depsDataAndTools, ruleContext.getPrerequisitesIf("data", FilesToRunProvider.class));
     }
     if (ruleContext.getRule().isAttrDefined("tools", BuildType.LABEL_LIST)) {
       Iterables.addAll(
-          depsDataAndTools,
-          ruleContext.getPrerequisitesIf("tools", TransitionMode.HOST, FilesToRunProvider.class));
+          depsDataAndTools, ruleContext.getPrerequisitesIf("tools", FilesToRunProvider.class));
     }
 
     for (TransitiveInfoCollection dep : depsDataAndTools) {

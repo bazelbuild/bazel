@@ -246,8 +246,7 @@ public class PackageLookupFunction implements SkyFunction {
         // There is a repository mismatch, this is an error.
         // The correct package path is the one originally given, minus the part that is the local
         // repository.
-        PathFragment pathToRequestedPackage =
-            packageIdentifier.getExecPath(starlarkSemantics.experimentalSiblingRepositoryLayout());
+        PathFragment pathToRequestedPackage = packageIdentifier.getSourceRoot();
         PathFragment localRepositoryPath = localRepository.getPath();
         if (localRepositoryPath.isAbsolute()) {
           // We need the package path to also be absolute.

@@ -49,7 +49,7 @@ public final class ProjectFileSupport {
       Path workingDir,
       OptionsParser optionsParser,
       String command)
-      throws OptionsParsingException {
+      throws OptionsParsingException, InterruptedException {
     List<String> targets = optionsParser.getResidue();
     if (projectFileProvider != null
         && !targets.isEmpty()

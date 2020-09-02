@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -420,7 +419,7 @@ public final class InstrumentedFilesCollector {
     for (String attr : attributeNames) {
       if (ruleContext.getRule().isAttrDefined(attr, BuildType.LABEL_LIST) ||
           ruleContext.getRule().isAttrDefined(attr, BuildType.LABEL)) {
-        prerequisites.addAll(ruleContext.getPrerequisites(attr, TransitionMode.DONT_CHECK));
+        prerequisites.addAll(ruleContext.getPrerequisites(attr));
       }
     }
     return prerequisites;
@@ -432,8 +431,7 @@ public final class InstrumentedFilesCollector {
     for (Attribute attr : ruleContext.getRule().getAttributes()) {
       if ((attr.getType() == BuildType.LABEL_LIST || attr.getType() == BuildType.LABEL)
           && !attr.getTransitionFactory().isTool()) {
-        prerequisites.addAll(
-            ruleContext.getPrerequisites(attr.getName(), TransitionMode.DONT_CHECK));
+        prerequisites.addAll(ruleContext.getPrerequisites(attr.getName()));
       }
     }
     return prerequisites;

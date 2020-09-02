@@ -191,7 +191,7 @@ public final class SelectorList implements StarlarkValue, HasBinary {
 
   @Override
   public void repr(Printer printer) {
-    printer.printList(elements, "", " + ", "", null);
+    printer.printList(elements, "", " + ", "");
   }
 
   @Override

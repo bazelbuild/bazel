@@ -125,18 +125,11 @@ public final class StarlarkRuleConfiguredTargetUtil {
         }
       }
 
-      // Add dummy wrapper to show call that instantiated rule.
-      StarlarkCallable fn =
-          newDummyFunction(
-              ruleClass.getConfiguredTargetFunction(),
-              String.format("%s(name = '%s')", ruleClass, ruleContext.getRule().getName()),
-              ruleContext.getRule().getLocation());
-
       // call rule.implementation(ctx)
       Object target =
           Starlark.fastcall(
               thread,
-              fn,
+              ruleClass.getConfiguredTargetFunction(),
               /*positional=*/ new Object[] {starlarkRuleContext},
               /*named=*/ new Object[0]);
 
@@ -175,23 +168,6 @@ public final class StarlarkRuleConfiguredTargetUtil {
             .add(RunfilesProvider.class, RunfilesProvider.EMPTY)
             .build();
       }
-      // TODO(adonovan): rather than interpose a wrapper function to show the call that instantiated
-      // the rule, consider manipulating the stack after the fact, like so:
-      //
-      // Rule rule = ruleContext.getRule();
-      // StarlarkThread.CallStackEntry dummy =
-      //     new StarlarkThread.CallStackEntry(
-      //         String.format("%s(name = '%s')", rule.getRuleClass(), rule.getName()),
-      //         rule.getLocation());
-      // ImmutableList<StarlarkThread.CallStackEntry> stack =
-      //
-      // ImmutableList.<StarlarkThread.CallStackEntry>builder().add(dummy).addAll(ex.getCallStack()).build();
-      // ruleContext.ruleError("\n" + EvalException.formatCallStack(stack, ex.getMessage(),
-      // /*src=*/null));
-      //
-      // However, this causes some tests to fail, and I don't want it to block this change.
-      // (Hypothesis: the dummy function affects only EvalExceptions raised during fastcall(), but
-      // not before.)
       ruleContext.ruleError("\n" + ex.getMessageWithStack());
       return null;
     } finally {
@@ -199,28 +175,6 @@ public final class StarlarkRuleConfiguredTargetUtil {
         starlarkRuleContext.nullify();
       }
     }
-  }
-
-  // Returns a dummy Starlark built-in function that simply delegates to fn,
-  // but causes the information name and location to the appear in the call stack.
-  private static StarlarkCallable newDummyFunction(StarlarkCallable fn, String name, Location loc) {
-    return new StarlarkCallable() {
-      @Override
-      public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
-          throws EvalException, InterruptedException {
-        return Starlark.fastcall(thread, fn, positional, named);
-      }
-
-      @Override
-      public String getName() {
-        return name;
-      }
-
-      @Override
-      public Location getLocation() {
-        return loc;
-      }
-    };
   }
 
   private static void checkDeclaredProviders(

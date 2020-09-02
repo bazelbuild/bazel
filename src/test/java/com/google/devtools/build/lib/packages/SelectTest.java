@@ -18,11 +18,11 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.SyntaxError;
@@ -42,7 +42,7 @@ public class SelectTest {
         Module.withPredeclared(StarlarkSemantics.DEFAULT, /*predeclared=*/ StarlarkLibrary.COMMON);
     try (Mutability mu = Mutability.create()) {
       StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
-      return EvalUtils.eval(input, FileOptions.DEFAULT, module, thread);
+      return Starlark.eval(input, FileOptions.DEFAULT, module, thread);
     }
   }
 

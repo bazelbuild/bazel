@@ -63,7 +63,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcModuleApi;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -341,7 +340,7 @@ public abstract class CcModule
    */
   @SuppressWarnings("unchecked")
   protected static <T> T convertFromNoneable(Object obj, @Nullable T defaultValue) {
-    if (EvalUtils.isNullOrNone(obj)) {
+    if (Starlark.isNullOrNone(obj)) {
       return defaultValue;
     }
     return (T) obj; // totally unsafe
@@ -754,7 +753,7 @@ public abstract class CcModule
       Object nonCodeInputsObject,
       StarlarkThread thread)
       throws EvalException {
-    if (EvalUtils.isNullOrNone(linkerInputs)) {
+    if (Starlark.isNullOrNone(linkerInputs)) {
       if (thread.getSemantics().incompatibleRequireLinkerInputCcApi()) {
         throw Starlark.errorf("linker_inputs cannot be None");
       }
@@ -1838,7 +1837,7 @@ public abstract class CcModule
       helper.setStripIncludePrefix(stripIncludePrefix);
     }
     try {
-      CompilationInfo compilationInfo = helper.compile();
+      CompilationInfo compilationInfo = helper.compile(actions.getRuleContext()::ruleError);
       return Tuple.of(
           compilationInfo.getCcCompilationContext(), compilationInfo.getCcCompilationOutputs());
     } catch (RuleErrorException e) {

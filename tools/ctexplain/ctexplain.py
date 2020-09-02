@@ -12,14 +12,148 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""ctexplain main entry point.
+"""ctexplain: how does configuration affect build graphs?
 
-Currently a stump.
+This is a swiss army knife tool that tries to explain why build graphs are the
+size they are and how build flags, configuration transitions, and dependency
+structures affect that.
+
+This can help developers use flags and transitions with minimal memory and
+maximum build speed.
+
+Usage:
+
+  $ ctexplain [--analysis=...] -b "<targets_to_build> [build flags]"
+
+Example:
+
+  $ ctexplain -b "//mypkg:mybinary --define MY_FEATURE=1"
+
+Relevant terms in https://docs.bazel.build/versions/master/glossary.html:
+  "target", "configuration", "analysis phase", "configured target",
+  "configuration trimming", "transition"
+
+TODO(gregce): link to proper documentation for full details.
 """
+from typing import Callable
+from typing import Tuple
+
+# Do not edit this line. Copybara replaces it with PY2 migration helper.
+from absl import app
+from absl import flags
+from dataclasses import dataclass
+
+# Do not edit this line. Copybara replaces it with PY2 migration helper..third_party.bazel.tools.ctexplain.analyses.summary as summary
 from tools.ctexplain.bazel_api import BazelApi
+# Do not edit this line. Copybara replaces it with PY2 migration helper..third_party.bazel.tools.ctexplain.lib as lib
+from tools.ctexplain.types import ConfiguredTarget
+# Do not edit this line. Copybara replaces it with PY2 migration helper..third_party.bazel.tools.ctexplain.util as util
 
-bazel_api = BazelApi()
+FLAGS = flags.FLAGS
 
-# TODO(gregce): move all logic to a _lib library so we can easily include
-# end-to-end testing. We'll only handle flag parsing here, which we pass
-# into the main invoker as standard Python args.
+
+@dataclass(frozen=True)
+class Analysis():
+  """Supported analysis type."""
+  # The value in --analysis=<value> that triggers this analysis.
+  key: str
+  # The function that invokes this analysis.
+  exec: Callable[[Tuple[ConfiguredTarget, ...]], None]
+  # User-friendly analysis description.
+  description: str
+
+available_analyses = [
+    Analysis(
+        "summary",
+        lambda x: summary.report(summary.analyze(x)),
+        "summarizes build graph size and how trimming could help"
+    ),
+    Analysis(
+        "culprits",
+        lambda x: print("this analysis not yet implemented"),
+        "shows which flags unnecessarily fork configured targets. These\n"
+        + "are conceptually mergeable."
+    ),
+    Analysis(
+        "forked_targets",
+        lambda x: print("this analysis not yet implemented"),
+        "ranks targets by how many configured targets they\n"
+        + "create. These may be legitimate forks (because they behave "
+        + "differently with\n different flags) or identical clones that are "
+        + "conceptually mergeable."
+    ),
+    Analysis(
+        "cloned_targets",
+        lambda x: print("this analysis not yet implemented"),
+        "ranks targets by how many behavior-identical configured\n targets "
+        + "they produce. These are conceptually mergeable."
+    )
+]
+
+# Available analyses, keyed by --analysis=<value> triggers.
+analyses = {analysis.key: analysis for analysis in available_analyses}
+
+
+# Command-line flag registration:
+
+
+def _render_analysis_help_text() -> str:
+  """Pretty-prints help text for available analyses."""
+  return "\n".join(f'- "{name}": {analysis.description}'
+                   for name, analysis in analyses.items())
+
+flags.DEFINE_list("analysis", ["summary"], f"""
+Analyses to run. May be any comma-separated combination of
+
+{_render_analysis_help_text()}
+""")
+
+flags.register_validator(
+    "analysis",
+    lambda flag_value: all(name in analyses for name in flag_value),
+    message=f'available analyses: {", ".join(analyses.keys())}')
+
+flags.DEFINE_multi_string(
+    "build", [],
+    """command-line invocation of the build to analyze. For example:
+"//foo --define a=b". If listed multiple times, this is a "multi-build
+analysis" that measures how much distinct builds can share subgraphs""",
+    short_name="b")
+
+
+# Core program logic:
+
+
+def _get_build_flags(cmdline: str) -> Tuple[Tuple[str, ...], Tuple[str, ...]]:
+  """Parses a build invocation command line.
+
+  Args:
+    cmdline: raw build invocation string. For example: "//foo --cpu=x86"
+
+  Returns:
+    Tuple of ((target labels to build), (build flags))
+  """
+  cmdlist = cmdline.split()
+  labels = [arg for arg in cmdlist if arg.startswith("//")]
+  build_flags = [arg for arg in cmdlist if not arg.startswith("//")]
+  return (tuple(labels), tuple(build_flags))
+
+
+def main(argv):
+  del argv  # Satisfy py linter's "unused" warning.
+  if not FLAGS.build:
+    exit("ctexplain: build efficiency measurement tool. Add --help "
+         + "for usage.")
+  elif len(FLAGS.build) > 1:
+    exit("TODO(gregce): support multi-build shareability analysis")
+
+  (labels, build_flags) = _get_build_flags(FLAGS.build[0])
+  build_desc = ",".join(labels)
+  with util.ProgressStep(f"Collecting configured targets for {build_desc}"):
+    cts = lib.analyze_build(BazelApi(), labels, build_flags)
+  for analysis in FLAGS.analysis:
+    analyses[analysis].exec(cts)
+
+
+if __name__ == "__main__":
+  app.run(main)

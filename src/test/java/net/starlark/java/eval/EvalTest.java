@@ -20,7 +20,6 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -151,7 +150,7 @@ public final class EvalTest {
         try (Mutability mu = Mutability.create("test")) {
           StarlarkThread thread = new StarlarkThread(mu, semantics);
           thread.setThreadLocal(Reporter.class, EvalTest::reportError);
-          EvalUtils.exec(input, FileOptions.DEFAULT, module, thread);
+          Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
 
         } catch (SyntaxError.Exception ex) {
           // parser/resolver errors

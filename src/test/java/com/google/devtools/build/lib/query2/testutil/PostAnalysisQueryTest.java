@@ -623,19 +623,19 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
   // siblings() operator.
 
   @Override
-  public void testSiblings_DuplicatePackages() {}
+  public void testSiblings_duplicatePackages() {}
 
   @Override
-  public void testSiblings_SamePackageRdeps() {}
+  public void testSiblings_samePackageRdeps() {}
 
   @Override
-  public void testSiblings_MatchesTargetNamedAll() {}
+  public void testSiblings_matchesTargetNamedAll() {}
 
   @Override
-  public void testSiblings_Simple() {}
+  public void testSiblings_simple() {}
 
   @Override
-  public void testSiblings_WithBuildfiles() {}
+  public void testSiblings_withBuildfiles() {}
 
   // same_pkg_direct_rdeps() operator.
 
@@ -679,10 +679,10 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
   // We don't support --nodep_deps=false.
   @Override
   @Test
-  public void testNodepDeps_False() throws Exception {}
+  public void testNodepDeps_false() throws Exception {}
 
   // package_group instances have a null configuration and are filtered out by --host_deps=false.
   @Override
   @Test
-  public void testDefaultVisibilityReturnedInDeps_NonEmptyDependencyFilter() throws Exception {}
+  public void testDefaultVisibilityReturnedInDeps_nonEmptyDependencyFilter() throws Exception {}
 }

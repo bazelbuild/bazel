@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.syntax.Printer.BasePrinter;
 import java.util.List;
 import java.util.Map;
 
@@ -91,7 +90,7 @@ final class FormatParser {
       History history,
       StringBuilder output)
       throws EvalException {
-    BasePrinter printer = Printer.getPrinter(output);
+    Printer printer = new Printer(output);
     if (has(chars, pos + 1, '{')) {
       // Escaped brace -> output and move to char after right brace
       printer.append("{");

@@ -28,6 +28,14 @@ cc_library(
             "blaze_util_darwin.cc",
             "blaze_util_posix.cc",
         ],
+        "//src/conditions:darwin_arm64": [
+            "blaze_util_darwin.cc",
+            "blaze_util_posix.cc",
+        ],
+        "//src/conditions:darwin_arm64e": [
+            "blaze_util_darwin.cc",
+            "blaze_util_posix.cc",
+        ],
         "//src/conditions:freebsd": [
             "blaze_util_bsd.cc",
             "blaze_util_posix.cc",
@@ -53,6 +61,12 @@ cc_library(
             "-framework CoreFoundation",
         ],
         "//src/conditions:darwin_x86_64": [
+            "-framework CoreFoundation",
+        ],
+        "//src/conditions:darwin_arm64": [
+            "-framework CoreFoundation",
+        ],
+        "//src/conditions:darwin_arm64e": [
             "-framework CoreFoundation",
         ],
         "//src/conditions:freebsd": [
@@ -115,6 +129,10 @@ cc_binary(
         "//src/conditions:darwin": [
         ],
         "//src/conditions:darwin_x86_64": [
+        ],
+        "//src/conditions:darwin_arm64": [
+        ],
+        "//src/conditions:darwin_arm64e": [
         ],
         "//src/conditions:freebsd": [
             "-lprocstat",

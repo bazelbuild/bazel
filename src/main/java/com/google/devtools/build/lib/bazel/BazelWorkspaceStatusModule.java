@@ -96,9 +96,8 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     }
 
     private String getAdditionalWorkspaceStatus(
-        Options options,
-        ActionExecutionContext actionExecutionContext)
-        throws ActionExecutionException {
+        Options options, ActionExecutionContext actionExecutionContext)
+        throws ActionExecutionException, InterruptedException {
       com.google.devtools.build.lib.shell.Command getWorkspaceStatusCommand =
           actionExecutionContext.getContext(WorkspaceStatusAction.Context.class).getCommand();
       try {
@@ -175,7 +174,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
 
     @Override
     public ActionResult execute(ActionExecutionContext actionExecutionContext)
-        throws ActionExecutionException {
+        throws ActionExecutionException, InterruptedException {
       WorkspaceStatusAction.Context context =
           actionExecutionContext.getContext(WorkspaceStatusAction.Context.class);
       Options options = context.getOptions();

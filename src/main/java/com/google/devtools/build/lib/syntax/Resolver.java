@@ -223,7 +223,9 @@ public final class Resolver extends NodeVisitor {
      * file.
      */
     @Nullable
-    String getUndeclaredNameError(String name);
+    default String getUndeclaredNameError(String name) {
+      return null;
+    }
   }
 
   private static class Block {
@@ -492,18 +494,29 @@ public final class Resolver extends NodeVisitor {
 
   @Override
   public void visit(Comprehension node) {
+    ImmutableList<Comprehension.Clause> clauses = node.getClauses();
+
+    // Following Python3, the first for clause is resolved
+    // outside the comprehension block. All the other loops
+    // are resolved in the scope of their own bindings,
+    // permitting forward references.
+    Comprehension.For for0 = (Comprehension.For) clauses.get(0);
+    visit(for0.getIterable());
+
     openBlock(Scope.LOCAL);
-    for (Comprehension.Clause clause : node.getClauses()) {
+    for (Comprehension.Clause clause : clauses) {
       if (clause instanceof Comprehension.For) {
         Comprehension.For forClause = (Comprehension.For) clause;
         createBindings(forClause.getVars());
       }
     }
-    // TODO(adonovan): opt: combine loops
-    for (Comprehension.Clause clause : node.getClauses()) {
+    for (int i = 0; i < clauses.size(); i++) {
+      Comprehension.Clause clause = clauses.get(i);
       if (clause instanceof Comprehension.For) {
         Comprehension.For forClause = (Comprehension.For) clause;
-        visit(forClause.getIterable());
+        if (i > 0) {
+          visit(forClause.getIterable());
+        }
         assign(forClause.getVars());
       } else {
         Comprehension.If ifClause = (Comprehension.If) clause;
