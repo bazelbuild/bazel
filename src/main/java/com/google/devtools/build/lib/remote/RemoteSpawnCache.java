@@ -26,6 +26,7 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Platform;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -73,6 +74,7 @@ final class RemoteSpawnCache implements SpawnCache {
 
   private final Path execRoot;
   private final RemoteOptions options;
+  private final boolean verboseFailures;
 
   private final RemoteCache remoteCache;
   private final String buildRequestId;
@@ -93,6 +95,7 @@ final class RemoteSpawnCache implements SpawnCache {
   RemoteSpawnCache(
       Path execRoot,
       RemoteOptions options,
+      boolean verboseFailures,
       RemoteCache remoteCache,
       String buildRequestId,
       String commandId,
@@ -101,6 +104,7 @@ final class RemoteSpawnCache implements SpawnCache {
       ImmutableSet<ActionInput> filesToDownload) {
     this.execRoot = execRoot;
     this.options = options;
+    this.verboseFailures = verboseFailures;
     this.remoteCache = remoteCache;
     this.cmdlineReporter = cmdlineReporter;
     this.buildRequestId = buildRequestId;
@@ -214,12 +218,22 @@ final class RemoteSpawnCache implements SpawnCache {
       } catch (CacheNotFoundException e) {
         // Intentionally left blank
       } catch (IOException e) {
-        String errorMsg = Utils.grpcAwareErrorMessage(e);
-        if (isNullOrEmpty(errorMsg)) {
-          errorMsg = e.getClass().getSimpleName();
+        if (BulkTransferException.isOnlyCausedByCacheNotFoundException(e)) {
+          // Intentionally left blank
+        } else {
+          String errorMessage;
+          if (!verboseFailures) {
+            errorMessage = Utils.grpcAwareErrorMessage(e);
+          } else {
+            // On --verbose_failures print the whole stack trace
+            errorMessage = Throwables.getStackTraceAsString(e);
+          }
+          if (isNullOrEmpty(errorMessage)) {
+            errorMessage = e.getClass().getSimpleName();
+          }
+          errorMessage = "Reading from Remote Cache:\n" + errorMessage;
+          report(Event.warn(errorMessage));
         }
-        errorMsg = "Reading from Remote Cache:\n" + errorMsg;
-        report(Event.warn(errorMsg));
       } finally {
         withMetadata.detach(previous);
       }
@@ -268,12 +282,18 @@ final class RemoteSpawnCache implements SpawnCache {
             remoteCache.upload(
                 actionKey, action, command, execRoot, files, context.getFileOutErr());
           } catch (IOException e) {
-            String errorMsg = Utils.grpcAwareErrorMessage(e);
-            if (isNullOrEmpty(errorMsg)) {
-              errorMsg = e.getClass().getSimpleName();
+            String errorMessage;
+            if (!verboseFailures) {
+              errorMessage = Utils.grpcAwareErrorMessage(e);
+            } else {
+              // On --verbose_failures print the whole stack trace
+              errorMessage = Throwables.getStackTraceAsString(e);
             }
-            errorMsg = "Writing to Remote Cache:\n" + errorMsg;
-            report(Event.warn(errorMsg));
+            if (isNullOrEmpty(errorMessage)) {
+              errorMessage = e.getClass().getSimpleName();
+            }
+            errorMessage = "Writing to Remote Cache:\n" + errorMessage;
+            report(Event.warn(errorMessage));
           } finally {
             withMetadata.detach(previous);
           }
