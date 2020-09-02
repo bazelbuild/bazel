@@ -41,10 +41,9 @@ public final class PrerequisiteArtifacts {
     this.artifacts = Preconditions.checkNotNull(artifacts);
   }
 
-  static PrerequisiteArtifacts get(
-      RuleContext ruleContext, String attributeName, TransitionMode mode) {
+  static PrerequisiteArtifacts get(RuleContext ruleContext, String attributeName) {
     ImmutableList<FileProvider> prerequisites =
-        ImmutableList.copyOf(ruleContext.getPrerequisites(attributeName, mode, FileProvider.class));
+        ImmutableList.copyOf(ruleContext.getPrerequisites(attributeName, FileProvider.class));
     // Fast path #1: Many attributes are not set.
     if (prerequisites.isEmpty()) {
       return new PrerequisiteArtifacts(ruleContext, attributeName, ImmutableList.of());
@@ -64,15 +63,8 @@ public final class PrerequisiteArtifacts {
   }
 
   public static NestedSet<Artifact> nestedSet(RuleContext ruleContext, String attributeName) {
-    return nestedSet(ruleContext, attributeName, TransitionMode.DONT_CHECK);
-  }
-
-  // TODO(b/165916637): Update callers to not pass TransitionMode.
-  public static NestedSet<Artifact> nestedSet(
-      RuleContext ruleContext, String attributeName, TransitionMode mode) {
     NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
-    for (FileProvider target :
-        ruleContext.getPrerequisites(attributeName, mode, FileProvider.class)) {
+    for (FileProvider target : ruleContext.getPrerequisites(attributeName, FileProvider.class)) {
       result.addTransitive(target.getFilesToBuild());
     }
     return result.build();
