@@ -73,6 +73,7 @@ public class PythonToolchainTest extends BuildViewTestCase {
         "myrule = rule(",
         "    implementation = _myrule_impl,",
         "    toolchains = ['" + TOOLCHAIN_TYPE + "'],",
+        "    incompatible_use_toolchain_transition = True,",
         ")");
     // A toolchain implementation and an instance of the rule that will use it.
     scratch.file(
