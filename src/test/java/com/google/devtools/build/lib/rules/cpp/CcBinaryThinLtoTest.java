@@ -204,7 +204,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     assertThat(linkstampCompileActions).hasSize(1);
     ActionAnalysisMetadata linkstampCompileAction = linkstampCompileActions.get(0);
     assertThat(indexAction.getInputs().toList())
-        .doesNotContain(linkstampCompileAction.getOutputs());
+        .containsNoneIn(linkstampCompileAction.getOutputs());
 
     assertThat(indexAction.getArguments())
         .containsAtLeast(
