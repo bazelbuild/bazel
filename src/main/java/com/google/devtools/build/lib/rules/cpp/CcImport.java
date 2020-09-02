@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
@@ -148,6 +149,22 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
               .build();
     }
 
+    // Propagate the runfiles from deps and data attributes
+    Runfiles.Builder runfilesBuilder = new Runfiles.Builder(ruleContext.getWorkspaceName());
+    runfilesBuilder.addDataDeps(ruleContext);
+    runfilesBuilder.add(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
+
+    // If the library is a target with data runfiles, propagate them as well
+    String[] libraryAttributeNames = {"shared_library", "static_library", "interface_library"};
+    for (String attributeName : libraryAttributeNames) {
+      TransitiveInfoCollection target = ruleContext.getPrerequisite(attributeName);
+      if (target != null) {
+        runfilesBuilder.addTarget(target, RunfilesProvider.DATA_RUNFILES);
+      }
+    }
+
+    Runfiles runfiles = runfilesBuilder.build();
+
     final CcCommon common = new CcCommon(ruleContext);
     common.reportInvalidOptions(ruleContext);
     CompilationInfo compilationInfo =
@@ -181,7 +198,7 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
                         CcDebugInfoContext.from(compilationInfo.getCcCompilationOutputs()))
                     .build())
             .addOutputGroups(outputGroups)
-            .addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
+            .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles));
 
     CcStarlarkApiProvider.maybeAdd(ruleContext, result);
     return result.build();
