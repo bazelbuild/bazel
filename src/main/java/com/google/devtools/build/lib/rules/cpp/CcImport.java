@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -159,7 +158,7 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
     String[] libraryAttributeNames = {"shared_library", "static_library", "interface_library"};
     for (String attributeName : libraryAttributeNames) {
       TransitiveInfoCollection target =
-          ruleContext.getPrerequisite(attributeName, TransitionMode.DONT_CHECK);
+          ruleContext.getPrerequisite(attributeName);
       if (target != null) {
         runfilesBuilder.addTarget(target, RunfilesProvider.DATA_RUNFILES);
       }
