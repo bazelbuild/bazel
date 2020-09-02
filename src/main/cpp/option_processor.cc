@@ -488,15 +488,20 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
     }
   }
 
+  // The helpers expect regular pointers, not unique_ptrs.
+  std::vector<RcFile*> rc_file_ptrs;
+  rc_file_ptrs.reserve(rc_files.size());
+  for (auto& rc_file : rc_files) { rc_file_ptrs.push_back(rc_file.get()); }
+
   // Parse the startup options in the correct priority order.
   const blaze_exit_code::ExitCode parse_startup_options_exit_code =
-      ParseStartupOptions(rc_files, error);
+      ParseStartupOptions(rc_file_ptrs, error);
   if (parse_startup_options_exit_code != blaze_exit_code::SUCCESS) {
     return parse_startup_options_exit_code;
   }
 
   blazerc_and_env_command_args_ =
-      GetBlazercAndEnvCommandArgs(cwd, rc_files, GetProcessedEnv());
+      GetBlazercAndEnvCommandArgs(cwd, rc_file_ptrs, GetProcessedEnv());
   return blaze_exit_code::SUCCESS;
 }
 
@@ -538,15 +543,14 @@ void OptionProcessor::PrintStartupOptionsProvenanceMessage() const {
 }
 
 blaze_exit_code::ExitCode OptionProcessor::ParseStartupOptions(
-    const std::vector<std::unique_ptr<RcFile>> &rc_files,
-    std::string *error) {
+    const std::vector<RcFile*> &rc_files, std::string *error) {
   // Rc files can import other files at any point, and these imported rcs are
   // expanded in place. Here, we isolate just the startup options but keep the
   // file they came from attached for the option_sources tracking and for
   // sending to the server.
   std::vector<RcStartupFlag> rcstartup_flags;
 
-  for (const auto& blazerc : rc_files) {
+  for (const auto* blazerc : rc_files) {
     const auto iter = blazerc->options().find("startup");
     if (iter == blazerc->options().end()) continue;
 
@@ -637,7 +641,7 @@ static std::vector<std::string> GetProcessedEnv() {
 // BlazeOptionHandler.INTERNAL_COMMAND_OPTIONS!
 std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
     const std::string& cwd,
-    const std::vector<std::unique_ptr<RcFile>>& blazercs,
+    const std::vector<RcFile*>& blazercs,
     const std::vector<std::string>& env) {
   // Provide terminal options as coming from the least important rc file.
   std::vector<std::string> result = {
@@ -656,7 +660,7 @@ std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
   // is reserved the "client" options created by this function.
   int cur_index = 1;
   std::map<std::string, int> rcfile_indexes;
-  for (const auto& blazerc : blazercs) {
+  for (const auto* blazerc : blazercs) {
     for (const std::string& source_path : blazerc->canonical_source_paths()) {
       // Deduplicate the rc_source list because the same file might be included
       // from multiple places.
@@ -669,7 +673,7 @@ std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
   }
 
   // Add RcOptions as default_overrides.
-  for (const auto& blazerc : blazercs) {
+  for (const auto* blazerc : blazercs) {
     for (const auto& command_options : blazerc->options()) {
       const string& command = command_options.first;
       // Skip startup flags, which are already parsed by the client.
