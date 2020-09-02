@@ -35,7 +35,8 @@ tasks:
       - "-//src/java_tools/import_deps_checker/..."
       # These tests are not compatible with the gcov version of CentOS 7.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
-      - "-//src/test/shell/bazel:bazel_coverage_cc_test_gcc"
+      - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
+      - "-//src/test/shell/bazel:bazel_coverage_cc_head_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_sh_test"
     include_json_profile:
       - build
@@ -217,3 +218,13 @@ tasks:
       - "//src:bazel_jdk_minimal"
     include_json_profile:
       - build
+  kythe_ubuntu2004:
+    shell_commands:
+    - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/'
+      -e 's/^# android_ndk_repository/android_ndk_repository/' WORKSPACE
+    - rm -f WORKSPACE.bak
+    index_flags:
+    - "--define=kythe_corpus=github.com/bazelbuild/bazel"
+    index_targets_query: "kind(\"cc_(binary|library|test|proto_library) rule\", ...) union kind(\"java_(binary|import|library|plugin|test|proto_library) rule\", ...) union kind(\"proto_library rule\", ...)"
+    index_upload_policy: Always
+    index_upload_gcs: True

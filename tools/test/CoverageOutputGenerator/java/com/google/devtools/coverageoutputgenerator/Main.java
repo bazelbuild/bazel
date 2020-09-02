@@ -18,11 +18,13 @@ import static com.google.devtools.coverageoutputgenerator.Constants.GCOV_EXTENSI
 import static com.google.devtools.coverageoutputgenerator.Constants.GCOV_JSON_EXTENSION;
 import static com.google.devtools.coverageoutputgenerator.Constants.PROFDATA_EXTENSION;
 import static com.google.devtools.coverageoutputgenerator.Constants.TRACEFILE_EXTENSION;
+import static java.lang.Math.max;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -53,7 +55,7 @@ public class Main {
       int exitCode = runWithArgs(args);
       System.exit(exitCode);
     } catch (Exception e) {
-      logger.log(Level.SEVERE, "Unhandled exception on lcov tool: " + e.getMessage());
+      logger.log(Level.SEVERE, "Unhandled exception on lcov tool: " + e.getMessage(), e);
       System.exit(1);
     }
   }
@@ -332,7 +334,8 @@ public class Main {
       } catch (IOException | IncompatibleMergeException e) {
         logger.log(
             Level.SEVERE,
-            "File " + file.getAbsolutePath() + " could not be parsed due to: " + e.getMessage());
+            "File " + file.getAbsolutePath() + " could not be parsed due to: " + e.getMessage(),
+            e);
         System.exit(1);
       }
     }
@@ -342,25 +345,12 @@ public class Main {
   static Coverage parseFilesInParallel(List<File> files, Parser parser, int parallelism)
       throws ExecutionException, InterruptedException {
     ForkJoinPool pool = new ForkJoinPool(parallelism);
+    int partitionSize = max(1, files.size() / parallelism);
+    List<List<File>> partitions = Lists.partition(files, partitionSize);
     return pool.submit(
             () ->
-                files.parallelStream()
-                    .map(
-                        file -> {
-                          try (FileInputStream inputStream = new FileInputStream(file)) {
-                            logger.log(Level.INFO, "Parsing file " + file);
-                            return Coverage.create(parser.parse(inputStream));
-                          } catch (IOException | IncompatibleMergeException e) {
-                            logger.log(
-                                Level.SEVERE,
-                                "File "
-                                    + file.getAbsolutePath()
-                                    + " could not be parsed due to: "
-                                    + e.getMessage());
-                            System.exit(1);
-                          }
-                          return null;
-                        })
+                partitions.parallelStream()
+                    .map((p) -> parseFilesSequentially(p, parser))
                     .reduce(Coverage::mergeUnchecked)
                     .orElse(Coverage.create()))
         .get();

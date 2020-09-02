@@ -58,7 +58,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    * Returns whether the linux sandbox is supported on the local machine by running a small command
    * in it.
    */
-  public static boolean isSupported(final CommandEnvironment cmdEnv) {
+  public static boolean isSupported(final CommandEnvironment cmdEnv) throws InterruptedException {
     if (OS.getCurrent() != OS.LINUX) {
       return false;
     }
@@ -66,11 +66,20 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       return false;
     }
     Path linuxSandbox = LinuxSandboxUtil.getLinuxSandbox(cmdEnv);
-    return isSupportedMap.computeIfAbsent(
-        linuxSandbox, linuxSandboxPath -> computeIsSupported(cmdEnv, linuxSandboxPath));
+    Boolean isSupported;
+    synchronized (isSupportedMap) {
+      isSupported = isSupportedMap.get(linuxSandbox);
+      if (isSupported != null) {
+        return isSupported;
+      }
+      isSupported = computeIsSupported(cmdEnv, linuxSandbox);
+      isSupportedMap.put(linuxSandbox, isSupported);
+    }
+    return isSupported;
   }
 
-  private static boolean computeIsSupported(CommandEnvironment cmdEnv, Path linuxSandbox) {
+  private static boolean computeIsSupported(CommandEnvironment cmdEnv, Path linuxSandbox)
+      throws InterruptedException {
     ImmutableList<String> linuxSandboxArgv =
         LinuxSandboxUtil.commandLineBuilder(linuxSandbox, ImmutableList.of("/bin/true")).build();
     ImmutableMap<String, String> env = ImmutableMap.of();
@@ -144,7 +153,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   @Override
   protected SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, ExecException {
+      throws IOException, ExecException, InterruptedException {
     // Each invocation of "exec" gets its own sandbox base.
     // Note that the value returned by context.getId() is only unique inside one given SpawnRunner,
     // so we have to prefix our name to turn it into a globally unique value.

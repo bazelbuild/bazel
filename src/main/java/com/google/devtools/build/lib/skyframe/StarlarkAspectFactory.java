@@ -32,10 +32,8 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.Map;
@@ -88,10 +86,7 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
         Object aspectStarlarkObject =
             Starlark.fastcall(
                 thread,
-                newDummyFunction(
-                    starlarkAspect.getImplementation(),
-                    starlarkAspect.getName(),
-                    ctadBase.getTarget().getAssociatedRule().getLocation()),
+                starlarkAspect.getImplementation(),
                 /*positional=*/ new Object[] {ctadBase.getConfiguredTarget(), starlarkRuleContext},
                 /*named=*/ new Object[0]);
 
@@ -113,7 +108,6 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
         }
         return createAspect(aspectStarlarkObject, ruleContext);
       } catch (EvalException e) {
-        // TODO(adonovan): manipulate the stack here, not before the call (see SRCTU.java).
         ruleContext.ruleError("\n" + e.getMessageWithStack());
         return null;
       }
@@ -122,28 +116,6 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
         starlarkRuleContext.nullify();
       }
     }
-  }
-
-  // Returns a dummy Starlark built-in function that simply delegates to fn,
-  // but causes the information name and location to the appear in the call stack.
-  private static StarlarkCallable newDummyFunction(StarlarkCallable fn, String name, Location loc) {
-    return new StarlarkCallable() {
-      @Override
-      public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
-          throws EvalException, InterruptedException {
-        return Starlark.fastcall(thread, fn, positional, named);
-      }
-
-      @Override
-      public String getName() {
-        return name;
-      }
-
-      @Override
-      public Location getLocation() {
-        return loc;
-      }
-    };
   }
 
   private static ConfiguredAspect createAspect(Object aspectStarlarkObject, RuleContext ruleContext)

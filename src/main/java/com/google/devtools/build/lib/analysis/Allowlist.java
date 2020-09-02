@@ -102,8 +102,7 @@ public final class Allowlist {
         continue;
       }
       Preconditions.checkArgument(ruleContext.isAttrDefined(attributeName, LABEL), attributeName);
-      TransitiveInfoCollection packageGroup =
-          ruleContext.getPrerequisite(attributeName, TransitionMode.HOST);
+      TransitiveInfoCollection packageGroup = ruleContext.getPrerequisite(attributeName);
       PackageSpecificationProvider packageSpecificationProvider =
           packageGroup.getProvider(PackageSpecificationProvider.class);
       return requireNonNull(packageSpecificationProvider, packageGroup.getLabel().toString());

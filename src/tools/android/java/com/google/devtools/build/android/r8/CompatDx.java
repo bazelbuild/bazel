@@ -18,7 +18,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
 
 import com.android.tools.r8.ByteDataView;
-import com.android.tools.r8.CompatDxSupport;
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.D8;
@@ -46,7 +45,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -332,15 +330,6 @@ public class CompatDx {
     public int minApiLevel;
 
     @Option(
-        name = "desugar-backport-statics",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        help = "Backport additional Java 8 APIs.")
-    public boolean backportStatics;
-
-    @Option(
         name = "input-list",
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -392,7 +381,6 @@ public class CompatDx {
     public final String mainDexList;
     public final boolean minimalMainDex;
     public final int minApiLevel;
-    public final boolean backportStatics;
     public final String inputList;
     public final List<String> inputs;
     // Undocumented option
@@ -466,7 +454,6 @@ public class CompatDx {
       mainDexList = options.mainDexList;
       minimalMainDex = options.minimalMainDex;
       minApiLevel = options.minApiLevel;
-      backportStatics = options.backportStatics;
       inputList = options.inputList;
       inputs = remaining;
       maxIndexNumber = options.maxIndexNumber;
@@ -601,7 +588,13 @@ public class CompatDx {
     }
 
     if (dexArgs.minimalMainDex && dexArgs.verbose) {
-      System.out.println("Warning: minimal main-dex support is not yet supported");
+      if (dexArgs.debug) {
+        System.out.println(
+            "Info: minimal main-dex generation is always done for D8 debug builds."
+                + " Please remove option --minimal-main-dex");
+      } else {
+        throw new DxUsageMessage("Error: minimal main-dex is not supported for D8 release builds");
+      }
     }
 
     if (dexArgs.maxIndexNumber != 0 && dexArgs.verbose) {
@@ -628,26 +621,7 @@ public class CompatDx {
       if (mainDexList != null) {
         builder.addMainDexListFiles(mainDexList);
       }
-      if (dexArgs.backportStatics) {
-        CompatDxSupport.enableDesugarBackportStatics(builder);
-      }
-      try {
-        // Check if the referenced r8.jar has these methods. If so, the support code accessing
-        // the internals is not required.
-        Method setEnableMainDexListCheck =
-            D8Command.Builder.class.getDeclaredMethod("setEnableMainDexListCheck", boolean.class);
-        Method setMinimalMainDex =
-            D8Command.Builder.class.getDeclaredMethod("setMinimalMainDex", boolean.class);
-        // The methods are package private to not reveal them as part of the external API.
-        setEnableMainDexListCheck.setAccessible(true);
-        setMinimalMainDex.setAccessible(true);
-        setEnableMainDexListCheck.invoke(builder, Boolean.FALSE);
-        setMinimalMainDex.invoke(builder, dexArgs.minimalMainDex);
-        D8.run(builder.build());
-      } catch (ReflectiveOperationException e) {
-        // Go through the support code accessing the internals for the compilation.
-        CompatDxSupport.run(builder.build(), dexArgs.minimalMainDex);
-      }
+      D8.run(builder.build());
     } finally {
       executor.shutdown();
     }

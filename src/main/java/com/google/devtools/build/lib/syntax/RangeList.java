@@ -171,9 +171,9 @@ final class RangeList extends AbstractList<Integer> implements Sequence<Integer>
   @Override
   public void repr(Printer printer) {
     if (step == 1) {
-      printer.format("range(%d, %d)", start, stop);
+      Printer.format(printer, "range(%d, %d)", start, stop);
     } else {
-      printer.format("range(%d, %d, %d)", start, stop, step);
+      Printer.format(printer, "range(%d, %d, %d)", start, stop, step);
     }
   }
 }

@@ -108,7 +108,7 @@ public final class Tuple<E> extends AbstractList<E> implements Sequence<E> {
   @Override
   public boolean isImmutable() {
     for (Object x : elems) {
-      if (!EvalUtils.isImmutable(x)) {
+      if (!Starlark.isImmutable(x)) {
         return false;
       }
     }
@@ -161,9 +161,17 @@ public final class Tuple<E> extends AbstractList<E> implements Sequence<E> {
 
   @Override
   public void repr(Printer printer) {
-    // TODO(adonovan): when Printer moves into this package,
-    // inline and simplify this, the sole call with isTuple=true.
-    printer.printList(this, /*isTuple=*/ true);
+    printer.append('(');
+    String sep = "";
+    for (Object elem : elems) {
+      printer.append(sep);
+      sep = ", ";
+      printer.repr(elem);
+    }
+    if (elems.length == 1) {
+      printer.append(',');
+    }
+    printer.append(')');
   }
 
   // TODO(adonovan): StarlarkValue has 3 String methods yet still we need this fourth. Why?

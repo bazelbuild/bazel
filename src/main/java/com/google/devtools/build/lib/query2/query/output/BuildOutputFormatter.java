@@ -185,7 +185,13 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
       } else if (value instanceof TriState) {
         value = ((TriState) value).toInt();
       }
-      return new LabelPrinter().repr(value).toString();
+      return new Printer() {
+        // Print labels in their canonical form.
+        @Override
+        public Printer repr(Object o) {
+          return super.repr(o instanceof Label ? ((Label) o).getCanonicalForm() : o);
+        }
+      }.repr(value).toString();
     }
 
     /**
@@ -247,18 +253,5 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
   @Override
   public String getName() {
     return "build";
-  }
-
-  /** Prints labels in their canonical form. */
-  private static class LabelPrinter extends Printer.BasePrinter {
-    @Override
-    public LabelPrinter repr(Object o) {
-      if (o instanceof Label) {
-        writeString(((Label) o).getCanonicalForm());
-      } else {
-        super.repr(o);
-      }
-      return this;
-    }
   }
 }

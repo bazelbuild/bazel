@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpanderImpl;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -482,23 +481,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCreateSpawnActionWithToolInInputsLegacy() throws Exception {
-    setStarlarkSemanticsOptions("--incompatible_no_support_tools_in_action_inputs=false");
-    setupToolInInputsTest(
-        "output = ctx.actions.declare_file('bar.out')",
-        "ctx.actions.run_shell(",
-        "  inputs = ctx.attr.exe.files,",
-        "  outputs = [output],",
-        "  command = 'boo bar baz',",
-        ")");
-    RuleConfiguredTarget target = (RuleConfiguredTarget) getConfiguredTarget("//bar:my_rule");
-    SpawnAction action = (SpawnAction) Iterables.getOnlyElement(target.getActions());
-    assertThat(action.getTools().toList()).isNotEmpty();
-  }
-
-  @Test
   public void testCreateSpawnActionWithToolAttribute() throws Exception {
-    setStarlarkSemanticsOptions("--incompatible_no_support_tools_in_action_inputs=true");
     setupToolInInputsTest(
         "output = ctx.actions.declare_file('bar.out')",
         "ctx.actions.run_shell(",
@@ -514,7 +497,6 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testCreateSpawnActionWithToolAttributeIgnoresToolsInInputs() throws Exception {
-    setStarlarkSemanticsOptions("--incompatible_no_support_tools_in_action_inputs=true");
     setupToolInInputsTest(
         "output = ctx.actions.declare_file('bar.out')",
         "ctx.actions.run_shell(",
@@ -526,26 +508,6 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     RuleConfiguredTarget target = (RuleConfiguredTarget) getConfiguredTarget("//bar:my_rule");
     SpawnAction action = (SpawnAction) Iterables.getOnlyElement(target.getActions());
     assertThat(action.getTools().toList()).isNotEmpty();
-  }
-
-  @Test
-  public void testCreateSpawnActionWithToolInInputsFailAtAnalysisTime() throws Exception {
-    setStarlarkSemanticsOptions("--incompatible_no_support_tools_in_action_inputs=true");
-    setupToolInInputsTest(
-        "output = ctx.actions.declare_file('bar.out')",
-        "ctx.actions.run_shell(",
-        "  inputs = ctx.attr.exe.files,",
-        "  outputs = [output],",
-        "  command = 'boo bar baz',",
-        ")");
-    try {
-      getConfiguredTarget("//bar:my_rule");
-    } catch (Throwable t) {
-      // Expected
-    }
-    assertThat(eventCollector).hasSize(1);
-    assertThat(eventCollector.iterator().next().getMessage())
-        .containsMatch("Found tool\\(s\\) '.*' in inputs");
   }
 
   @Test
@@ -2516,7 +2478,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testConfigurationField_StarlarkSplitTransitionProhibited() throws Exception {
+  public void testConfigurationField_starlarkSplitTransitionProhibited() throws Exception {
     scratch.file(
         "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
@@ -2554,7 +2516,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testConfigurationField_NativeSplitTransitionProviderProhibited() throws Exception {
+  public void testConfigurationField_nativeSplitTransitionProviderProhibited() throws Exception {
     scratch.file(
         "test/rule.bzl",
         "def _foo_impl(ctx):",
@@ -2575,7 +2537,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testConfigurationField_NativeSplitTransitionProhibited() throws Exception {
+  public void testConfigurationField_nativeSplitTransitionProhibited() throws Exception {
     scratch.file(
         "test/rule.bzl",
         "def _foo_impl(ctx):",
@@ -3114,6 +3076,15 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     };
   }
 
+  private static ArtifactExpander createArtifactExpander(
+      Artifact directory, ImmutableList<Artifact> files) {
+    return (artifact, output) -> {
+      if (artifact.equals(directory)) {
+        output.addAll(files);
+      }
+    };
+  }
+
   private String getDigest(CommandLine commandLine) throws CommandLineExpansionException {
     return getDigest(commandLine, /*artifactExpander=*/ null);
   }
@@ -3135,7 +3106,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     setRuleContext(createRuleContext("//foo:foo"));
     ev.exec("args = ruleContext.actions.args()", "args.add_all(['--foo', '--bar'])");
     Args args = (Args) ev.eval("args");
-    assertThat(Printer.getPrinter().debugPrint(args).toString()).isEqualTo("--foo --bar");
+    assertThat(new Printer().debugPrint(args).toString()).isEqualTo("--foo --bar");
   }
 
   @Test
@@ -3157,9 +3128,8 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     // Now ask for one with an expanded directory
     Artifact file1 = getBinArtifactWithNoOwner("foo/dir/file1");
     Artifact file2 = getBinArtifactWithNoOwner("foo/dir/file2");
-    ArtifactExpanderImpl artifactExpander =
-        new ArtifactExpanderImpl(
-            ImmutableMap.of(directory, ImmutableList.of(file1, file2)), ImmutableMap.of());
+    ArtifactExpander artifactExpander =
+        createArtifactExpander(directory, ImmutableList.of(file1, file2));
     assertThat(commandLine.arguments(artifactExpander))
         .containsExactly("foo/dir/file1", "foo/dir/file2");
   }
@@ -3180,9 +3150,8 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
 
     Artifact file1 = getBinArtifactWithNoOwner("foo/dir/file1");
     Artifact file2 = getBinArtifactWithNoOwner("foo/dir/file2");
-    ArtifactExpanderImpl artifactExpander =
-        new ArtifactExpanderImpl(
-            ImmutableMap.of(directory, ImmutableList.of(file1, file2)), ImmutableMap.of());
+    ArtifactExpander artifactExpander =
+        createArtifactExpander(directory, ImmutableList.of(file1, file2));
     // First expanded, then not expanded (two separate calls)
     assertThat(commandLine.arguments(artifactExpander))
         .containsExactly("foo/dir/file1", "foo/dir/file2", "foo/dir");
@@ -3232,9 +3201,8 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
 
     Artifact file1 = getBinArtifactWithNoOwner("foo/dir/file1");
     Artifact file2 = getBinArtifactWithNoOwner("foo/dir/file2");
-    ArtifactExpanderImpl artifactExpander =
-        new ArtifactExpanderImpl(
-            ImmutableMap.of(directory, ImmutableList.of(file1, file2)), ImmutableMap.of());
+    ArtifactExpander artifactExpander =
+        createArtifactExpander(directory, ImmutableList.of(file1, file2));
     assertThat(commandLine.arguments(artifactExpander))
         .containsExactly("foo/dir/file1", "foo/dir/file2", "foo/file3");
   }

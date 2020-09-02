@@ -22,6 +22,7 @@ java_library(
         "//external:has_androidsdk": glob(
             ["*Test.java"],
             exclude = [
+                "DexFileMergerTest.java",
                 "NoAndroidSdkStubTest.java",
                 "AllTests.java",
             ],

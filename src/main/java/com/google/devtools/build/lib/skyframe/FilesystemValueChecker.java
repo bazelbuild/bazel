@@ -21,6 +21,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.profiler.AutoProfiler.ElapsedTimeReceiver;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker.DirtyResult;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -294,6 +296,14 @@ public class FilesystemValueChecker {
                   fileToKeyAndValue.put(child, keyAndValue);
                 }
               }
+              tree.getArchivedRepresentation()
+                  .map(ArchivedRepresentation::archivedTreeFileArtifact)
+                  .filter(
+                      archivedTreeArtifact ->
+                          shouldCheckFile(knownModifiedOutputFiles, archivedTreeArtifact))
+                  .ifPresent(
+                      archivedTreeArtifact ->
+                          fileToKeyAndValue.put(archivedTreeArtifact, keyAndValue));
               if (shouldCheckTreeArtifact(sortedKnownModifiedOutputFiles.get(), treeArtifact)) {
                 treeArtifactsToKeyAndValue.put(treeArtifact, keyAndValue);
               }
@@ -500,6 +510,18 @@ public class FilesystemValueChecker {
             isDirty = true;
           }
         }
+        isDirty =
+            isDirty
+                || tree.getArchivedRepresentation()
+                    .map(
+                        archivedRepresentation ->
+                            artifactIsDirtyWithDirectSystemCalls(
+                                knownModifiedOutputFiles,
+                                trustRemoteArtifacts,
+                                Maps.immutableEntry(
+                                    archivedRepresentation.archivedTreeFileArtifact(),
+                                    archivedRepresentation.archivedFileValue())))
+                    .orElse(false);
       }
 
       Artifact treeArtifact = entry.getKey();

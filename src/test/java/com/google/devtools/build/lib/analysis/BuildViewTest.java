@@ -846,12 +846,12 @@ public class BuildViewTest extends BuildViewTestBase {
   }
 
   @Test
-  public void testDepOnGoodTargetInBadPkgAndTransitiveCycle_NotIncremental() throws Exception {
+  public void testDepOnGoodTargetInBadPkgAndTransitiveCycle_notIncremental() throws Exception {
     runTestDepOnGoodTargetInBadPkgAndTransitiveCycle(/*incremental=*/false);
   }
 
   @Test
-  public void testDepOnGoodTargetInBadPkgAndTransitiveCycle_Incremental() throws Exception {
+  public void testDepOnGoodTargetInBadPkgAndTransitiveCycle_incremental() throws Exception {
     if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
       // TODO(b/67412276): handle cycles properly.
       return;
@@ -864,7 +864,7 @@ public class BuildViewTest extends BuildViewTestBase {
    * in error.
    */
   @Test
-  public void testCycleReporting_TargetCycleWhenPackageInError() throws Exception {
+  public void testCycleReporting_targetCycleWhenPackageInError() throws Exception {
     if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
       // TODO(b/67412276): handle cycles properly.
       return;
@@ -1253,7 +1253,7 @@ public class BuildViewTest extends BuildViewTestBase {
   }
 
   @Test
-  public void testNonTopLevelErrorsPrintedExactlyOnce_KeepGoing() throws Exception {
+  public void testNonTopLevelErrorsPrintedExactlyOnce_keepGoing() throws Exception {
     if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
       // TODO(b/67651960): fix or justify disabling.
       return;
@@ -1270,7 +1270,7 @@ public class BuildViewTest extends BuildViewTestBase {
   }
 
   @Test
-  public void testNonTopLevelErrorsPrintedExactlyOnce_ActionListener() throws Exception {
+  public void testNonTopLevelErrorsPrintedExactlyOnce_actionListener() throws Exception {
     if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
       // TODO(b/67651960): fix or justify disabling.
       return;
@@ -1290,7 +1290,7 @@ public class BuildViewTest extends BuildViewTestBase {
   }
 
   @Test
-  public void testNonTopLevelErrorsPrintedExactlyOnce_ActionListener_KeepGoing() throws Exception {
+  public void testNonTopLevelErrorsPrintedExactlyOnce_actionListener_keepGoing() throws Exception {
     if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
       // TODO(b/67651960): fix or justify disabling.
       return;
@@ -1550,8 +1550,7 @@ public class BuildViewTest extends BuildViewTestBase {
 
     @Override
     @Test
-    public void testCycleReporting_TargetCycleWhenPackageInError() {
-    }
+    public void testCycleReporting_targetCycleWhenPackageInError() {}
 
     @Override
     @Test

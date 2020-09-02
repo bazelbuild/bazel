@@ -55,6 +55,8 @@ static void Usage(char *program_name, const char *fmt, ...) {
           "terminated with SIGTERM\n"
           "  -t <timeout>  in case timeout occurs, how long to wait before "
           "killing the child with SIGKILL\n"
+          "  -i  on receipt of a SIGINT, forward it to the child process as a "
+          "SIGTERM first and then as a SIGKILL after the -T timeout\n"
           "  -l <file>  redirect stdout to a file\n"
           "  -L <file>  redirect stderr to a file\n"
           "  -w <file>  make a file or directory writable for the sandboxed "
@@ -92,7 +94,7 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
   bool source_specified = false;
 
   while ((c = getopt(args->size(), args->data(),
-                     ":W:T:t:l:L:w:e:M:m:S:HNRUD")) != -1) {
+                     ":W:T:t:il:L:w:e:M:m:S:HNRUD")) != -1) {
     if (c != 'M' && c != 'm') source_specified = false;
     switch (c) {
       case 'W':
@@ -115,6 +117,9 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
             opt.kill_delay_secs < 0) {
           Usage(args->front(), "Invalid kill delay (-t) value: %s", optarg);
         }
+        break;
+      case 'i':
+        opt.sigint_sends_sigterm = true;
         break;
       case 'l':
         if (opt.stdout_path.empty()) {

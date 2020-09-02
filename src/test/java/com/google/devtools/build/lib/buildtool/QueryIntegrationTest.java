@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
@@ -297,7 +298,8 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
             /*useGraphlessQuery=*/ false);
     AggregateAllOutputFormatterCallback<Target, ?> callback =
         QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnv);
-    QueryEvalResult result = queryEnv.evaluateQuery(queryString, callback);
+    QueryEvalResult result =
+        queryEnv.evaluateQuery(QueryExpression.parse(queryString, queryEnv), callback);
 
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 

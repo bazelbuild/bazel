@@ -48,14 +48,13 @@ import com.google.devtools.build.lib.starlarkbuildapi.stubs.StarlarkAspectStub;
 import com.google.devtools.build.lib.starlarkbuildapi.test.TestingBootstrap;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.ExpressionStatement;
-import com.google.devtools.build.lib.syntax.LoadStatement;
+import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.Resolver;
+import com.google.devtools.build.lib.syntax.Program;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
@@ -64,6 +63,7 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.StringLiteral;
+import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeActionsInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeBuildApiGlobals;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeConfigApi;
@@ -440,40 +440,56 @@ public class SkydocMain {
     }
     pending.add(path);
 
-    ParserInput parserInputSource = getInputSource(path.toString());
-    StarlarkFile file = StarlarkFile.parse(parserInputSource);
-    Event.replayEventsOn(eventHandler, file.errors());
+    Module module =
+        Module.withPredeclared(
+            semantics, getPredeclaredEnvironment(ruleInfoList, providerInfoList, aspectInfoList));
 
-    moduleDocMap.put(label, getModuleDoc(file));
+    // parse & compile (and get doc)
+    ParserInput input = getInputSource(path.toString());
+    Program prog;
+    try {
+      StarlarkFile file = StarlarkFile.parse(input, FileOptions.DEFAULT);
+      moduleDocMap.put(label, getModuleDoc(file));
+      prog = Program.compileFile(file, module);
+    } catch (SyntaxError.Exception ex) {
+      Event.replayEventsOn(eventHandler, ex.errors());
+      throw new StarlarkEvaluationException(ex.getMessage());
+    }
 
+    // process loads
     Map<String, Module> imports = new HashMap<>();
-    for (Statement stmt : file.getStatements()) {
-      if (stmt instanceof LoadStatement) {
-        LoadStatement load = (LoadStatement) stmt;
-        String module = load.getImport().getValue();
-        Label relativeLabel = label.getRelativeWithRemapping(module, ImmutableMap.of());
-        try {
-          Module loadedModule =
-              recursiveEval(
-                  semantics,
-                  relativeLabel,
-                  ruleInfoList,
-                  providerInfoList,
-                  aspectInfoList,
-                  moduleDocMap);
-          imports.put(module, loadedModule);
-        } catch (NoSuchFileException noSuchFileException) {
-          throw new StarlarkEvaluationException(
-              String.format(
-                  "File %s imported '%s', yet %s was not found, even at roots %s.",
-                  path, module, pathOfLabel(relativeLabel, semantics), depRoots),
-              noSuchFileException);
-        }
+    for (String load : prog.getLoads()) {
+      Label relativeLabel = label.getRelativeWithRemapping(load, ImmutableMap.of());
+      try {
+        Module loadedModule =
+            recursiveEval(
+                semantics,
+                relativeLabel,
+                ruleInfoList,
+                providerInfoList,
+                aspectInfoList,
+                moduleDocMap);
+        imports.put(load, loadedModule);
+      } catch (NoSuchFileException noSuchFileException) {
+        throw new StarlarkEvaluationException(
+            String.format(
+                "File %s imported '%s', yet %s was not found, even at roots %s.",
+                path, load, pathOfLabel(relativeLabel, semantics), depRoots),
+            noSuchFileException);
       }
     }
 
-    Module module =
-        evalStarlarkBody(semantics, file, imports, ruleInfoList, providerInfoList, aspectInfoList);
+    // execute
+    try (Mutability mu = Mutability.create("Skydoc")) {
+      StarlarkThread thread = new StarlarkThread(mu, semantics);
+      // We use the default print handler, which writes to stderr.
+      thread.setLoader(imports::get);
+
+      Starlark.execFileProgram(prog, module, thread);
+    } catch (EvalException | InterruptedException ex) {
+      // This exception class seems a bit unnecessary. Replace with EvalException?
+      throw new StarlarkEvaluationException("Starlark evaluation error", ex);
+    }
 
     pending.remove(path);
     loaded.put(path, module);
@@ -499,39 +515,6 @@ public class SkydocMain {
 
     // All depRoots attempted and no valid file was found.
     throw new NoSuchFileException(bzlWorkspacePath);
-  }
-
-  /** Evaluates the AST from a single Starlark file, given the already-resolved imports. */
-  private static Module evalStarlarkBody(
-      StarlarkSemantics semantics,
-      StarlarkFile file,
-      Map<String, Module> imports,
-      List<RuleInfoWrapper> ruleInfoList,
-      List<ProviderInfoWrapper> providerInfoList,
-      List<AspectInfoWrapper> aspectInfoList)
-      throws InterruptedException, StarlarkEvaluationException {
-
-    Module module =
-        Module.withPredeclared(
-            semantics, getPredeclaredEnvironment(ruleInfoList, providerInfoList, aspectInfoList));
-
-    Resolver.resolveFile(file, module);
-    if (!file.ok()) {
-      throw new StarlarkEvaluationException(file.errors().get(0).toString());
-    }
-
-    // execute
-    try (Mutability mu = Mutability.create("Skydoc")) {
-      StarlarkThread thread = new StarlarkThread(mu, semantics);
-      // We use the default print handler, which writes to stderr.
-      thread.setLoader(imports::get);
-
-      EvalUtils.exec(file, module, thread);
-    } catch (EvalException | InterruptedException ex) {
-      // This exception class seems a bit unnecessary. Replace with EvalException?
-      throw new StarlarkEvaluationException("Starlark evaluation error", ex);
-    }
-    return module;
   }
 
   /**

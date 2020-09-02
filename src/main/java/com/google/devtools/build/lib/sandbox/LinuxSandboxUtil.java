@@ -45,9 +45,7 @@ public final class LinuxSandboxUtil {
   /** Returns a new command line builder for the {@code linux-sandbox} tool. */
   public static CommandLineBuilder commandLineBuilder(
       Path linuxSandboxPath, List<String> commandArguments) {
-    return new CommandLineBuilder()
-        .setLinuxSandboxPath(linuxSandboxPath)
-        .setCommandArguments(commandArguments);
+    return new CommandLineBuilder(linuxSandboxPath, commandArguments);
   }
 
   /**
@@ -55,7 +53,9 @@ public final class LinuxSandboxUtil {
    * linux-sandbox} tool.
    */
   public static class CommandLineBuilder {
-    private Path linuxSandboxPath;
+    private final Path linuxSandboxPath;
+    private final List<String> commandArguments;
+
     private Path workingDirectory;
     private Duration timeout;
     private Duration killDelay;
@@ -70,16 +70,10 @@ public final class LinuxSandboxUtil {
     private boolean useFakeRoot = false;
     private boolean useFakeUsername = false;
     private boolean useDebugMode = false;
-    private List<String> commandArguments = ImmutableList.of();
 
-    private CommandLineBuilder() {
-      // Prevent external construction via "new".
-    }
-
-    /** Sets the path of the {@code linux-sandbox} tool. */
-    public CommandLineBuilder setLinuxSandboxPath(Path linuxSandboxPath) {
+    private CommandLineBuilder(Path linuxSandboxPath, List<String> commandArguments) {
       this.linuxSandboxPath = linuxSandboxPath;
-      return this;
+      this.commandArguments = commandArguments;
     }
 
     /** Sets the working directory to use, if any. */
@@ -173,18 +167,10 @@ public final class LinuxSandboxUtil {
       return this;
     }
 
-    /** Sets the command (and its arguments) to run using the {@code linux-sandbox} tool. */
-    public CommandLineBuilder setCommandArguments(List<String> commandArguments) {
-      this.commandArguments = commandArguments;
-      return this;
-    }
-
     /**
      * Builds the command line to invoke a specific command using the {@code linux-sandbox} tool.
      */
     public ImmutableList<String> build() {
-      Preconditions.checkNotNull(this.linuxSandboxPath, "linuxSandboxPath is required");
-      Preconditions.checkState(!this.commandArguments.isEmpty(), "commandArguments are required");
       Preconditions.checkState(
           !(this.useFakeUsername && this.useFakeRoot),
           "useFakeUsername and useFakeRoot are exclusive");

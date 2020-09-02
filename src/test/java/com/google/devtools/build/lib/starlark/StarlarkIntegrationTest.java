@@ -341,7 +341,8 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
             OutputGroupInfo.HIDDEN_TOP_LEVEL,
             OutputGroupInfo.COMPILATION_PREREQUISITES,
             OutputGroupInfo.FILES_TO_COMPILE,
-            OutputGroupInfo.TEMP_FILES);
+            OutputGroupInfo.TEMP_FILES,
+            OutputGroupInfo.VALIDATION);
   }
 
   @Test
@@ -428,11 +429,9 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     String expectedTrace =
         Joiner.on("\n")
             .join(
+                "ERROR /workspace/test/starlark/BUILD:3:12: in custom_rule rule"
+                    + " //test/starlark:cr: ",
                 "Traceback (most recent call last):",
-                // outermost frame is fake:
-                "\tFile \"/workspace/test/starlark/BUILD\", line 3, column 12, in custom_rule(name"
-                    + " = 'cr')",
-                // "\t\tcustom_rule(name = 'cr')",
                 "\tFile \"/workspace/test/starlark/extension.bzl\", line 6, column 6, in"
                     + " custom_rule_impl",
                 // "\t\tfoo()",
@@ -848,6 +847,13 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
             ActionsTestUtil.baseArtifactNames(
                 ((Depset) myInfo.getValue("metadata_files")).getSet(Artifact.class)))
         .containsExactly("A.gcno");
+    ConfiguredTarget customRule = getConfiguredTarget("//test/starlark:cr");
+    assertThat(
+            ActionsTestUtil.baseArtifactNames(
+                customRule
+                    .get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR)
+                    .getBaselineCoverageInstrumentedFiles()))
+        .containsExactly("a.txt", "A.cc");
   }
 
   @Test
@@ -3308,7 +3314,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLegacyProvider_AddCanonicalLegacyKeyAndModernKey() throws Exception {
+  public void testLegacyProvider_addCanonicalLegacyKeyAndModernKey() throws Exception {
     setStarlarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file(
         "test/starlark/extension.bzl",
@@ -3336,7 +3342,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLegacyProvider_DontAutomaticallyAddKeysAlreadyPresent() throws Exception {
+  public void testLegacyProvider_dontAutomaticallyAddKeysAlreadyPresent() throws Exception {
     setStarlarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file(
         "test/starlark/extension.bzl",
@@ -3365,7 +3371,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLegacyProvider_FirstNoncanonicalKeyBecomesCanonical() throws Exception {
+  public void testLegacyProvider_firstNoncanonicalKeyBecomesCanonical() throws Exception {
     setStarlarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file(
         "test/starlark/extension.bzl",

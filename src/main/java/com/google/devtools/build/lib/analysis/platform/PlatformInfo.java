@@ -143,7 +143,8 @@ public class PlatformInfo extends NativeInfo
 
   @Override
   public void repr(Printer printer) {
-    printer.format("PlatformInfo(%s, constraints=%s)", label.toString(), constraints.toString());
+    Printer.format(
+        printer, "PlatformInfo(%s, constraints=%s)", label.toString(), constraints.toString());
   }
 
   /** Returns a new {@link Builder} for creating a fresh {@link PlatformInfo} instance. */

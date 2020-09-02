@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 
 /** Implementation for the {@code available_xcodes} rule. */
 public class AvailableXcodes implements RuleConfiguredTargetFactory {
@@ -33,12 +32,10 @@ public class AvailableXcodes implements RuleConfiguredTargetFactory {
     Iterable<XcodeVersionRuleData> availableVersions =
         ruleContext.getPrerequisites(
             AvailableXcodesRule.VERSIONS_ATTR_NAME,
-            TransitionMode.TARGET,
             XcodeVersionRuleData.class);
     XcodeVersionRuleData defaultVersion =
         ruleContext.getPrerequisite(
             AvailableXcodesRule.DEFAULT_ATTR_NAME,
-            TransitionMode.TARGET,
             XcodeVersionRuleData.class);
     AvailableXcodesInfo availableXcodes =
         new AvailableXcodesInfo(availableVersions, defaultVersion);

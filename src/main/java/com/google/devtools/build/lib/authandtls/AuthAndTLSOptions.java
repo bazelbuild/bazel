@@ -15,11 +15,13 @@
 package com.google.devtools.build.lib.authandtls;
 
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
+import com.google.devtools.common.options.Converters.DurationConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import java.time.Duration;
 import java.util.List;
 
 /**
@@ -100,4 +102,33 @@ public class AuthAndTLSOptions extends OptionsBase {
             + "value a valid TLS authority."
   )
   public String tlsAuthorityOverride;
+
+  @Option(
+      name = "grpc_keepalive_time",
+      defaultValue = "null",
+      converter = DurationConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Configures keep-alive pings for outgoing gRPC connections. If this is set, then "
+              + "Bazel sends pings after this much time of no read operations on the connection, "
+              + "but only if there is at least one pending gRPC call. Times are treated as second "
+              + "granularity; it is an error to set a value less than one second. By default, "
+              + "keep-alive pings are disabled. You should coordinate with the service owner "
+              + "before enabling this setting.")
+  public Duration grpcKeepaliveTime;
+
+  @Option(
+      name = "grpc_keepalive_timeout",
+      defaultValue = "20s",
+      converter = DurationConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Configures a keep-alive timeout for outgoing gRPC connections. If keep-alive pings are "
+              + "enabled with --grpc_keepalive_time, then Bazel times out a connection if it does "
+              + "not receive a ping reply after this much time. Times are treated as second "
+              + "granularity; it is an error to set a value less than one second. If keep-alive "
+              + "pings are disabled, then this setting is ignored.")
+  public Duration grpcKeepaliveTimeout;
 }

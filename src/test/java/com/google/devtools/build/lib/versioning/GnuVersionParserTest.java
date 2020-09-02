@@ -43,7 +43,7 @@ public class GnuVersionParserTest {
       };
 
   @Test
-  public void testParse_Ok() throws Exception {
+  public void testParse_ok() throws Exception {
     GnuVersionParser<SemVer> parser = new GnuVersionParser<>("sandboxfs", SemVer::parse);
     assertThat(parser.parse("sandboxfs 0.1.3")).isEqualTo(SemVer.from(0, 1, 3));
   }
@@ -54,7 +54,7 @@ public class GnuVersionParserTest {
   }
 
   @Test
-  public void testFromInputStream_Ok() throws Exception {
+  public void testFromInputStream_ok() throws Exception {
     GnuVersionParser<SemVer> parser = new GnuVersionParser<>("GNU Emacs", SemVer::parse);
     for (String stdout :
         new String[] {
@@ -68,7 +68,7 @@ public class GnuVersionParserTest {
   }
 
   @Test
-  public void testFromInputStream_ErrorIfEmpty() {
+  public void testFromInputStream_errorIfEmpty() {
     GnuVersionParser<SemVer> parser = new GnuVersionParser<>("GNU Emacs", SemVer::parse);
     InputStream input = newInputStream("");
     Exception e = assertThrows(ParseException.class, () -> parser.fromInputStream(input));
@@ -76,7 +76,7 @@ public class GnuVersionParserTest {
   }
 
   @Test
-  public void testFromInputStream_ErrorOnBadVersion() {
+  public void testFromInputStream_errorOnBadVersion() {
     GnuVersionParser<SemVer> parser = new GnuVersionParser<>("GNU Emacs", SemVer::parse);
     InputStream input = newInputStream("GNU Emacs 0.abc");
     Exception e = assertThrows(ParseException.class, () -> parser.fromInputStream(input));
@@ -84,7 +84,7 @@ public class GnuVersionParserTest {
   }
 
   @Test
-  public void testFromInputStream_DrainsInput() throws Exception {
+  public void testFromInputStream_drainsInput() throws Exception {
     GnuVersionParser<SemVer> parser = new GnuVersionParser<>("foo", SemVer::parse);
     InputStream input = newInputStream("foo 1\nsome extra text");
     parser.fromInputStream(input);
@@ -106,14 +106,14 @@ public class GnuVersionParserTest {
   }
 
   @Test
-  public void testFromProgram_Ok() throws Exception {
+  public void testFromProgram_ok() throws Exception {
     Path helper = createHelper("echo test 9.8; echo some more text that is ignored");
     GnuVersionParser<SemVer> parser = new GnuVersionParser<>("test", SemVer::parse);
     assertThat(parser.fromProgram(helper.asFragment())).isEqualTo(SemVer.from(9, 8));
   }
 
   @Test
-  public void testFromProgram_BadPackageName() throws Exception {
+  public void testFromProgram_badPackageName() throws Exception {
     Path helper = createHelper("echo foo 9.8; echo some more text that is ignored");
     GnuVersionParser<?> parser = new GnuVersionParser<>("test", UNUSED_PARSER);
     Exception e = assertThrows(ParseException.class, () -> parser.fromProgram(helper.asFragment()));
@@ -121,7 +121,7 @@ public class GnuVersionParserTest {
   }
 
   @Test
-  public void testFromProgram_BadVersion() throws Exception {
+  public void testFromProgram_badVersion() throws Exception {
     Path helper = createHelper("echo test 8.3a");
     GnuVersionParser<?> parser = new GnuVersionParser<>("test", SemVer::parse);
     Exception e = assertThrows(ParseException.class, () -> parser.fromProgram(helper.asFragment()));
@@ -129,7 +129,7 @@ public class GnuVersionParserTest {
   }
 
   @Test
-  public void testFromProgram_BadExitCode() throws Exception {
+  public void testFromProgram_badExitCode() throws Exception {
     Path helper = createHelper("echo test 9.1; return 1");
     GnuVersionParser<?> parser = new GnuVersionParser<>("test", SemVer::parse);
     Exception e = assertThrows(IOException.class, () -> parser.fromProgram(helper.asFragment()));
@@ -137,7 +137,7 @@ public class GnuVersionParserTest {
   }
 
   @Test
-  public void testFromProgram_ExecError() {
+  public void testFromProgram_execError() {
     GnuVersionParser<?> parser = new GnuVersionParser<>("test", UNUSED_PARSER);
     Exception e =
         assertThrows(

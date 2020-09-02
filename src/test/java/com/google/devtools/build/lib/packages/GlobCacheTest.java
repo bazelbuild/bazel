@@ -205,13 +205,13 @@ public class GlobCacheTest {
   }
 
   @Test
-  public void testSingleFileExclude_Star() throws Exception {
+  public void testSingleFileExclude_star() throws Exception {
     assertThat(cache.globUnsorted(list("*"), list("first.txt"), false, true))
         .containsExactly("BUILD", "bar", "first.js", "foo", "second.js", "second.txt");
   }
 
   @Test
-  public void testSingleFileExclude_StarStar() throws Exception {
+  public void testSingleFileExclude_starStar() throws Exception {
     assertThat(cache.globUnsorted(list("**"), list("first.txt"), false, true))
         .containsExactly(
             "BUILD",
@@ -227,22 +227,22 @@ public class GlobCacheTest {
   }
 
   @Test
-  public void testExcludeAll_Star() throws Exception {
+  public void testExcludeAll_star() throws Exception {
     assertThat(cache.globUnsorted(list("*"), list("*"), false, true)).isEmpty();
   }
 
   @Test
-  public void testExcludeAll_Star_NoMatchesAnyway() throws Exception {
+  public void testExcludeAll_star_noMatchesAnyway() throws Exception {
     assertThat(cache.globUnsorted(list("nope"), list("*"), false, true)).isEmpty();
   }
 
   @Test
-  public void testExcludeAll_StarStar() throws Exception {
+  public void testExcludeAll_starStar() throws Exception {
     assertThat(cache.globUnsorted(list("**"), list("**"), false, true)).isEmpty();
   }
 
   @Test
-  public void testExcludeAll_Manual() throws Exception {
+  public void testExcludeAll_manual() throws Exception {
     assertThat(cache.globUnsorted(list("**"), list("*", "*/*", "*/*/*"), false, true)).isEmpty();
   }
 

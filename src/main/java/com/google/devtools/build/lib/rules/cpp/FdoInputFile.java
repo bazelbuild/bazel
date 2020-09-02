@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.FileType.HasFileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -88,7 +87,7 @@ public final class FdoInputFile implements HasFileType {
     }
 
     if (isLabel) {
-      Artifact artifact = ruleContext.getPrerequisiteArtifact("profile", TransitionMode.TARGET);
+      Artifact artifact = ruleContext.getPrerequisiteArtifact("profile");
       if (!artifact.isSourceArtifact()) {
         ruleContext.attributeError("profile", " the target is not an input file");
       }

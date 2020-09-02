@@ -59,6 +59,7 @@ java_library(
         "Parameter.java",
         "Parser.java",
         "ParserInput.java",
+        "Program.java",
         "Resolver.java",
         "ReturnStatement.java",
         "SliceExpression.java",

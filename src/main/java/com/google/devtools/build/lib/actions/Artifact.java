@@ -220,17 +220,32 @@ public abstract class Artifact
     default ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact) {
       throw new UnsupportedOperationException();
     }
+
+    /**
+     * Return an {@link ArchivedTreeArtifact} for a provided {@linkplain SpecialArtifact tree
+     * artifact} if one is available.
+     *
+     * <p>The {@linkplain ArchivedTreeArtifact archived tree artifact} can be used instead of the
+     * tree artifact expansion.
+     */
+    @Nullable
+    default ArchivedTreeArtifact getArchivedTreeArtifact(SpecialArtifact treeArtifact) {
+      return null;
+    }
   }
 
   /** Implementation of {@link ArtifactExpander} */
   public static class ArtifactExpanderImpl implements ArtifactExpander {
     private final Map<Artifact, Collection<Artifact>> expandedInputs;
+    private final Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts;
     private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets;
 
     public ArtifactExpanderImpl(
         Map<Artifact, Collection<Artifact>> expandedInputs,
+        Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets) {
       this.expandedInputs = expandedInputs;
+      this.archivedTreeArtifacts = archivedTreeArtifacts;
       this.expandedFilesets = expandedFilesets;
     }
 
@@ -248,6 +263,11 @@ public abstract class Artifact
     public ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact) {
       Preconditions.checkState(artifact.isFileset());
       return Preconditions.checkNotNull(expandedFilesets.get(artifact));
+    }
+
+    @Override
+    public ArchivedTreeArtifact getArchivedTreeArtifact(SpecialArtifact treeArtifact) {
+      return archivedTreeArtifacts.get(treeArtifact);
     }
   }
 
@@ -775,7 +795,7 @@ public abstract class Artifact
    * access for their contents should be safe, even in a distributed context.
    *
    * TODO(shahan): move {@link Artifact#getPath} to this subclass.
-   * */
+   */
   public static final class SourceArtifact extends Artifact {
     private final ArtifactOwner owner;
 
@@ -937,6 +957,100 @@ public abstract class Artifact
       artifact.setGeneratingActionKey(generatingActionKey);
       return (SpecialArtifact)
           context.getDependency(ArtifactResolverSupplier.class).intern(artifact);
+    }
+  }
+
+  /**
+   * Artifact representing a single-file archive with the filesystem tree belonging to a {@linkplain
+   * SpecialArtifact tree artifact}.
+   *
+   * <p>The archive is equivalent to the entire tree artifact -- it contains all of the {@linkplain
+   * TreeFileArtifact children} (and nothing else) of the tree artifact with their filesystem
+   * structure, relative to the {@linkplain SpecialArtifact#getExecPath() tree artifact directory}.
+   */
+  @AutoCodec
+  public static final class ArchivedTreeArtifact extends DerivedArtifact {
+    private static final PathFragment ARCHIVED_ARTIFACTS_DERIVED_TREE_ROOT =
+        PathFragment.create(":archived_tree_artifacts");
+    private final SpecialArtifact treeArtifact;
+
+    public ArchivedTreeArtifact(
+        SpecialArtifact treeArtifact, ArtifactRoot root, PathFragment execPath) {
+      super(root, execPath, treeArtifact.getArtifactOwner());
+      this.treeArtifact = treeArtifact;
+    }
+
+    @Override
+    public SpecialArtifact getParent() {
+      return treeArtifact;
+    }
+
+    /**
+     * Creates an {@link ArchivedTreeArtifact} for a given tree artifact. Returned artifact is
+     * stored in a permanent location, therefore can be shared across actions and builds.
+     *
+     * <p>Example: for a tree artifact of {@code bazel-out/k8-fastbuild/bin/directory} returns an
+     * {@linkplain ArchivedTreeArtifact artifact} of: {@code
+     * bazel-out/:archived_tree_artifacts/k8-fastbuild/bin/directory.zip}.
+     */
+    public static ArchivedTreeArtifact create(
+        SpecialArtifact treeArtifact, PathFragment derivedPathPrefix) {
+      return createWithCustomDerivedTreeRoot(
+          treeArtifact,
+          derivedPathPrefix,
+          ARCHIVED_ARTIFACTS_DERIVED_TREE_ROOT,
+          treeArtifact.getRootRelativePath().replaceName(treeArtifact.getFilename() + ".zip"));
+    }
+
+    /**
+     * Creates an {@link ArchivedTreeArtifact} for a given tree artifact within provided derived
+     * tree directory.
+     *
+     * <p>Example: for a tree artifact with root of {@code bazel-out/k8-fastbuild/bin} returns an
+     * {@linkplain ArchivedTreeArtifact artifact} of: {@code
+     * bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin/{rootRelativePath}} with root of: {@code
+     * bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin}.
+     */
+    public static ArchivedTreeArtifact createWithCustomDerivedTreeRoot(
+        SpecialArtifact treeArtifact,
+        PathFragment derivedPathPrefix,
+        PathFragment customDerivedTreeRoot,
+        PathFragment rootRelativePath) {
+      ArtifactRoot artifactRoot =
+          createRootForArchivedArtifact(
+              treeArtifact.getRoot(), derivedPathPrefix, customDerivedTreeRoot);
+      ArchivedTreeArtifact archivedTreeArtifact =
+          new ArchivedTreeArtifact(
+              treeArtifact, artifactRoot, artifactRoot.getExecPath().getRelative(rootRelativePath));
+
+      archivedTreeArtifact.setGeneratingActionKey(treeArtifact.getGeneratingActionKey());
+      return archivedTreeArtifact;
+    }
+
+    private static ArtifactRoot createRootForArchivedArtifact(
+        ArtifactRoot treeArtifactRoot,
+        PathFragment derivedPathPrefix,
+        PathFragment customDerivedTreeRoot) {
+      Path execRoot = getExecRoot(treeArtifactRoot);
+
+      // bazel-out/k8-fastbuild/bin -> bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin
+      PathFragment rootExecPath =
+          derivedPathPrefix
+              .getRelative(customDerivedTreeRoot)
+              .getRelative(treeArtifactRoot.getExecPath().relativeTo(derivedPathPrefix));
+
+      return ArtifactRoot.asDerivedRoot(execRoot, rootExecPath);
+    }
+
+    private static Path getExecRoot(ArtifactRoot artifactRoot) {
+      // /output_base/execroot/bazel-out/k8-fastbuild/bin
+      Path rootPath = artifactRoot.getRoot().asPath();
+      PathFragment rootPathFragment = rootPath.asFragment();
+      // /output_base/execroot
+      PathFragment execRootPath =
+          rootPathFragment.subFragment(
+              0, rootPathFragment.segmentCount() - artifactRoot.getExecPath().segmentCount());
+      return rootPath.getFileSystem().getPath(execRootPath);
     }
   }
 

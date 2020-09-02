@@ -74,7 +74,9 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
 import com.google.devtools.build.lib.server.FailureDetails.GrpcServer;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
+import com.google.devtools.build.lib.server.PidFileWatcher;
 import com.google.devtools.build.lib.server.RPCServer;
+import com.google.devtools.build.lib.server.ShutdownHooks;
 import com.google.devtools.build.lib.server.signal.InterruptSignalHandler;
 import com.google.devtools.build.lib.shell.JavaSubprocessFactory;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
@@ -289,7 +291,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     commandMap.put(name, command);
   }
 
-  final void overrideCommands(Iterable<BlazeCommand> commands) {
+  @VisibleForTesting
+  public final void overrideCommands(Iterable<BlazeCommand> commands) {
     commandMap.clear();
     for (BlazeCommand command : commands) {
       addCommand(command);
@@ -1038,6 +1041,18 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       final RPCServer[] rpcServer = new RPCServer[1];
       Runnable prepareForAbruptShutdown = () -> rpcServer[0].prepareForAbruptShutdown();
       BlazeRuntime runtime = newRuntime(modules, Arrays.asList(args), prepareForAbruptShutdown);
+
+      // server.pid was written in the C++ launcher after fork() but before exec(). The client only
+      // accesses the pid file after connecting to the socket which ensures that it gets the correct
+      // pid value.
+      Path pidFile = runtime.getServerDirectory().getRelative("server.pid.txt");
+      int serverPid = readPidFile(pidFile);
+      PidFileWatcher pidFileWatcher = new PidFileWatcher(pidFile, serverPid);
+      pidFileWatcher.start();
+
+      ShutdownHooks shutdownHooks = ShutdownHooks.createAndRegister();
+      shutdownHooks.deleteAtExit(pidFile);
+
       BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime);
       BlazeServerStartupOptions startupOptions =
           runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class);
@@ -1050,9 +1065,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         rpcServer[0] =
             factory.create(
                 dispatcher,
+                shutdownHooks,
+                pidFileWatcher,
                 runtime.getClock(),
                 startupOptions.commandPort,
                 runtime.getServerDirectory(),
+                serverPid,
                 startupOptions.maxIdleSeconds,
                 startupOptions.shutdownOnLowSysMem,
                 startupOptions.idleServerTasks);
@@ -1695,5 +1713,24 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             .filter(validator -> validator != null)
             .collect(toImmutableList());
     return PackageLoadingListener.create(listeners);
+  }
+
+  private static int readPidFile(Path pidFile) throws AbruptExitException {
+    try {
+      return Integer.parseInt(new String(FileSystemUtils.readContentAsLatin1(pidFile)));
+    } catch (IOException e) {
+      throw createFilesystemExitException(
+          "Server pid file read failed: " + e.getMessage(),
+          ExitCode.BUILD_FAILURE,
+          Filesystem.Code.SERVER_PID_TXT_FILE_READ_FAILURE,
+          e);
+    } catch (NumberFormatException e) {
+      // Invalid contents (not a number) is more likely than not a filesystem issue.
+      throw createFilesystemExitException(
+          "Server pid file corrupted: " + e.getMessage(),
+          ExitCode.BUILD_FAILURE,
+          Filesystem.Code.SERVER_PID_TXT_FILE_READ_FAILURE,
+          new IOException(e));
+    }
   }
 }

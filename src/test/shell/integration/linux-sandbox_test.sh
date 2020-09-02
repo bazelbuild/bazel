@@ -110,6 +110,22 @@ function test_timeout_kill() {
   expect_log "^before$"
 }
 
+function test_sigint_sends_sigterm() {
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -T 100000 -i -- /bin/bash -c \
+    'trap "echo ignoring signal" SIGTERM; \
+     trap "echo should not get here" SIGINT SIGALRM; \
+     for i in $(seq 5); do sleep 1; done; echo after' \
+    &> $TEST_log &
+  local pid=$!
+  sleep 1
+  kill -INT "${pid}"
+  local code=0
+  wait "${pid}" || code=$?
+  assert_equals 130 "$code"
+  expect_log 'ignoring signal
+after'
+}
+
 function test_debug_logging() {
   touch ${TEST_TMPDIR}/testfile
   $linux_sandbox $SANDBOX_DEFAULT_OPTS -D -- /bin/true &> $TEST_log || code=$?

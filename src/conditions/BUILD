@@ -65,6 +65,18 @@ config_setting(
 )
 
 config_setting(
+    name = "darwin_arm64",
+    values = {"cpu": "darwin_arm64"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "darwin_arm64e",
+    values = {"cpu": "darwin_arm64e"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
     name = "iphonesdk",
     values = {"define": "IPHONE_SDK=1"},
     visibility = ["//visibility:public"],

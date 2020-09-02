@@ -181,8 +181,13 @@ public final class RemoteModule extends BlazeModule {
 
     boolean enableDiskCache = RemoteCacheClientFactory.isDiskCache(remoteOptions);
     boolean enableHttpCache = RemoteCacheClientFactory.isHttpCache(remoteOptions);
-    boolean enableGrpcCache = GrpcCacheClient.isRemoteCacheOptions(remoteOptions);
     boolean enableRemoteExecution = shouldEnableRemoteExecution(remoteOptions);
+    // If --remote_cache is empty but --remote_executor is not, endpoint for cache should be the one
+    // for execution.
+    if (enableRemoteExecution && Strings.isNullOrEmpty(remoteOptions.remoteCache)) {
+      remoteOptions.remoteCache = remoteOptions.remoteExecutor;
+    }
+    boolean enableGrpcCache = GrpcCacheClient.isRemoteCacheOptions(remoteOptions);
     boolean enableRemoteDownloader = shouldEnableRemoteDownloader(remoteOptions);
 
     if (enableRemoteDownloader && !enableGrpcCache) {
@@ -292,8 +297,7 @@ public final class RemoteModule extends BlazeModule {
       }
       // Create a separate channel if --remote_executor and --remote_cache point to different
       // endpoints.
-      if (Strings.isNullOrEmpty(remoteOptions.remoteCache)
-          || remoteOptions.remoteCache.equals(remoteOptions.remoteExecutor)) {
+      if (remoteOptions.remoteCache.equals(remoteOptions.remoteExecutor)) {
         cacheChannel = execChannel.retain();
       }
     }

@@ -483,7 +483,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   }
 
   @Test
-  public void testSomePath_DepInCustomConfiguration() throws Exception {
+  public void testSomePath_depInCustomConfiguration() throws Exception {
     createConfigTransitioningRuleClass();
     writeFile(
         "test/BUILD",

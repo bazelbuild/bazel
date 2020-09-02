@@ -263,7 +263,7 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
-  public void testAlgebraicSetOperations_ManyOperands() throws Exception {
+  public void testAlgebraicSetOperations_manyOperands() throws Exception {
     writeBuildFiles1();
     assertThat(evalToString("//a:BUILD + //a:x + //a:y + //a:z + //a/b:BUILD + //a/b:p + //a/b:q"))
         .isEqualTo(A_AB_FILES);
@@ -933,12 +933,12 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
-  public void testNodepDeps_DefaultIsTrue() throws Exception {
+  public void testNodepDeps_defaultIsTrue() throws Exception {
     runNodepDepsTest(/*expectVisibilityDep=*/ true);
   }
 
   @Test
-  public void testNodepDeps_False() throws Exception {
+  public void testNodepDeps_false() throws Exception {
     runNodepDepsTest(/*expectVisibilityDep=*/ false, Setting.NO_NODEP_DEPS);
   }
 
@@ -1138,7 +1138,7 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
-  public void testDefaultVisibilityReturnedInDeps_NonEmptyDependencyFilter() throws Exception {
+  public void testDefaultVisibilityReturnedInDeps_nonEmptyDependencyFilter() throws Exception {
     writeFile(
         "kiwi/BUILD", "package(default_visibility=['//mango:mango'])", "sh_library(name='kiwi')");
     writeFile("mango/BUILD", "package_group(name='mango', packages=[])");
@@ -1772,7 +1772,7 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
-  public void testSiblings_Simple() throws Exception {
+  public void testSiblings_simple() throws Exception {
     writeFile(
         "foo/BUILD",
         "sh_library(name = 'a')",
@@ -1784,7 +1784,7 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
-  public void testSiblings_DuplicatePackages() throws Exception {
+  public void testSiblings_duplicatePackages() throws Exception {
     writeFile(
         "foo/BUILD",
         "sh_library(name = 'a')",
@@ -1796,7 +1796,7 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
-  public void testSiblings_SamePackageRdeps() throws Exception {
+  public void testSiblings_samePackageRdeps() throws Exception {
     writeFile(
         "foo/BUILD",
         "sh_library(name = 'a', deps = [':b'])",
@@ -1817,7 +1817,7 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
-  public void testSiblings_MatchesTargetNamedAll() throws Exception {
+  public void testSiblings_matchesTargetNamedAll() throws Exception {
     writeFile(
         "foo/BUILD",
         // NOTE: target named 'all' collides with, takes precedence over the ':all' wildcard
@@ -1836,7 +1836,7 @@ public abstract class AbstractQueryTest<T> {
   // thing blaze can do with the unfortunate implementation details of 'buildfiles' and 'loadfiles'
   // (see FakeLoadTarget and other tests dealing with these functions).
   @Test
-  public void testSiblings_WithBuildfiles() throws Exception {
+  public void testSiblings_withBuildfiles() throws Exception {
     writeFile("foo/BUILD", "load('//bar:bar.bzl', 'x')", "sh_library(name = 'foo')");
     writeFile("bar/BUILD", "sh_library(name = 'bar')");
     writeFile("bar/bar.bzl", "x = 42");
@@ -1925,7 +1925,7 @@ public abstract class AbstractQueryTest<T> {
   // Regression test for default visibility of output file targets being traversed even with
   // --noimplicit_deps is set.
   @Test
-  public void testDefaultVisibilityOfOutputTarget_NoImplicitDeps() throws Exception {
+  public void testDefaultVisibilityOfOutputTarget_noImplicitDeps() throws Exception {
     writeFile(
         "foo/BUILD",
         "package(default_visibility = [':pg'])",

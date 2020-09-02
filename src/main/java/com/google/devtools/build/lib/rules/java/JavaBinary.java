@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
@@ -86,7 +85,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     JavaTargetAttributes.Builder attributesBuilder = common.initCommon();
     attributesBuilder.addClassPathResources(
-        ruleContext.getPrerequisiteArtifacts("classpath_resources", TransitionMode.TARGET).list());
+        ruleContext.getPrerequisiteArtifacts("classpath_resources").list());
 
     // Add Java8 timezone resource data
     addTimezoneResourceForJavaBinaries(ruleContext, attributesBuilder);
@@ -125,8 +124,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     // deploy_env is valid for java_binary, but not for java_test.
     if (ruleContext.getRule().isAttrDefined("deploy_env", BuildType.LABEL_LIST)) {
       for (JavaRuntimeClasspathProvider envTarget :
-          ruleContext.getPrerequisites(
-              "deploy_env", TransitionMode.TARGET, JavaRuntimeClasspathProvider.class)) {
+          ruleContext.getPrerequisites("deploy_env", JavaRuntimeClasspathProvider.class)) {
         attributesBuilder.addExcludedArtifacts(envTarget.getRuntimeClasspathNestedSet());
       }
     }
@@ -512,7 +510,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     if (!ruleContext.getRule().isAttrDefined("classlist", BuildType.LABEL)) {
       return null;
     }
-    Artifact classlist = ruleContext.getPrerequisiteArtifact("classlist", TransitionMode.HOST);
+    Artifact classlist = ruleContext.getPrerequisiteArtifact("classlist");
     if (classlist == null) {
       return null;
     }
@@ -531,8 +529,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
             jsa.getRoot());
     SingleJarActionBuilder.createSingleJarAction(ruleContext, classpath, merged);
     JavaRuntimeInfo javaRuntime = JavaRuntimeInfo.from(ruleContext);
-    Artifact configFile =
-        ruleContext.getPrerequisiteArtifact("cds_config_file", TransitionMode.HOST);
+    Artifact configFile = ruleContext.getPrerequisiteArtifact("cds_config_file");
 
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder()
@@ -550,8 +547,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
               .getExpander()
               .withDataExecLocations()
               .list("jvm_flags_for_cds_image_creation"));
-      spawnAction.addTransitiveInputs(
-          PrerequisiteArtifacts.nestedSet(ruleContext, "data", TransitionMode.TARGET));
+      spawnAction.addTransitiveInputs(PrerequisiteArtifacts.nestedSet(ruleContext, "data"));
     }
     spawnAction
         .setExecutable(javaRuntime.javaBinaryExecPathFragment())
@@ -639,7 +635,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     builder.add(ruleContext, JavaRunfilesProvider.TO_RUNFILES);
 
     List<? extends TransitiveInfoCollection> runtimeDeps =
-        ruleContext.getPrerequisites("runtime_deps", TransitionMode.TARGET);
+        ruleContext.getPrerequisites("runtime_deps");
     builder.addTargets(runtimeDeps, JavaRunfilesProvider.TO_RUNFILES);
     builder.addTargets(runtimeDeps, RunfilesProvider.DEFAULT_RUNFILES);
 

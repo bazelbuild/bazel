@@ -300,6 +300,7 @@ EOF
         "remotejdk11_linux_for_testing"
         "remotejdk11_linux_aarch64_for_testing"
         "remotejdk11_linux_ppc64le_for_testing"
+        "remotejdk11_linux_s390x_for_testing"
         "remotejdk11_macos_for_testing"
         "remotejdk11_win_for_testing"
         "remotejdk14_linux_for_testing"

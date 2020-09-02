@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -35,6 +34,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -63,10 +63,8 @@ public class ASTFileLookupFunction implements SkyFunction {
     try {
       return computeInline(
           (ASTFileLookupValue.Key) skyKey.argument(), env, packageFactory, digestHashFunction);
-    } catch (ErrorReadingStarlarkExtensionException e) {
-      throw new ASTLookupFunctionException(e, e.getTransience());
-    } catch (InconsistentFilesystemException e) {
-      throw new ASTLookupFunctionException(e, Transience.PERSISTENT);
+    } catch (ASTLookupFailedException e) {
+      throw new ASTLookupFunctionException(e);
     }
   }
 
@@ -75,8 +73,7 @@ public class ASTFileLookupFunction implements SkyFunction {
       Environment env,
       PackageFactory packageFactory,
       DigestHashFunction digestHashFunction)
-      throws ErrorReadingStarlarkExtensionException, InconsistentFilesystemException,
-          InterruptedException {
+      throws ASTLookupFailedException, InterruptedException {
     byte[] bytes;
     byte[] digest;
     String inputName;
@@ -95,7 +92,7 @@ public class ASTFileLookupFunction implements SkyFunction {
       try {
         fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class);
       } catch (IOException e) {
-        throw new ErrorReadingStarlarkExtensionException(e, Transience.PERSISTENT);
+        throw new ASTLookupFailedException(e, Transience.PERSISTENT);
       }
       if (fileValue == null) {
         return null;
@@ -117,7 +114,7 @@ public class ASTFileLookupFunction implements SkyFunction {
                   ? FileSystemUtils.readContent(path)
                   : FileSystemUtils.readWithKnownFileSize(path, fileValue.getSize());
         } catch (IOException e) {
-          throw new ErrorReadingStarlarkExtensionException(e, Transience.TRANSIENT);
+          throw new ASTLookupFailedException(e, Transience.TRANSIENT);
         }
         digest = fileValue.getDigest(); // may be null
         inputName = path.toString();
@@ -143,6 +140,22 @@ public class ASTFileLookupFunction implements SkyFunction {
       return null;
     }
 
+    Map<String, Object> predeclared;
+    if (key.kind == ASTFileLookupValue.Kind.BUILTINS) {
+      predeclared = packageFactory.getBuiltinsBzlEnv();
+    } else {
+      // Use the predeclared environment for BUILD-loaded bzl files, ignoring injection. It is not
+      // the right env for the actual evaluation of BUILD-loaded bzl files because it doesn't
+      // map to the injected symbols. But the names of the symbols are the same, and the names are
+      // all we need to do symbol resolution (modulo FlagGuardedValues -- see TODO in
+      // PackageFactory.createBuildBzlEnvUsingInjection()).
+      //
+      // For WORKSPACE-loaded bzl files, the env isn't quite right not because of injection but
+      // because the "native" object is different. But A) that will be fixed with #11954, and B) we
+      // don't care for the same reason as above.
+      predeclared = packageFactory.getUninjectedBuildBzlEnv();
+    }
+
     // We have all deps. Parse, resolve, and return.
     ParserInput input = ParserInput.fromLatin1(bytes, inputName);
     FileOptions options =
@@ -152,8 +165,7 @@ public class ASTFileLookupFunction implements SkyFunction {
             .restrictStringEscapes(semantics.incompatibleRestrictStringEscapes())
             .build();
     StarlarkFile file = StarlarkFile.parse(input, options);
-    Module module =
-        Module.withPredeclared(semantics, packageFactory.getRuleClassProvider().getEnvironment());
+    Module module = Module.withPredeclared(semantics, predeclared);
     Resolver.resolveFile(file, module);
     Event.replayEventsOn(env.getListener(), file.errors()); // TODO(adonovan): fail if !ok()?
     return ASTFileLookupValue.withFile(file, digest);
@@ -165,14 +177,22 @@ public class ASTFileLookupFunction implements SkyFunction {
     return null;
   }
 
-  private static final class ASTLookupFunctionException extends SkyFunctionException {
-    private ASTLookupFunctionException(
-        ErrorReadingStarlarkExtensionException e, Transience transience) {
-      super(e, transience);
+  static final class ASTLookupFailedException extends Exception {
+    private final Transience transience;
+
+    private ASTLookupFailedException(Exception cause, Transience transience) {
+      super(cause.getMessage(), cause);
+      this.transience = transience;
     }
 
-    private ASTLookupFunctionException(InconsistentFilesystemException e, Transience transience) {
-      super(e, transience);
+    Transience getTransience() {
+      return transience;
+    }
+  }
+
+  private static final class ASTLookupFunctionException extends SkyFunctionException {
+    private ASTLookupFunctionException(ASTLookupFailedException cause) {
+      super(cause, cause.transience);
     }
   }
 }

@@ -373,11 +373,10 @@ public final class Label
               + " \"external/repo\"</pre>",
       useStarlarkSemantics = true)
   public String getWorkspaceRoot(StarlarkSemantics semantics) {
-    if (semantics.experimentalSiblingRepositoryLayout()) {
-      return packageIdentifier.getRepository().getExecPath(true).toString();
-    } else {
-      return packageIdentifier.getRepository().getSourceRoot().toString();
-    }
+    return packageIdentifier
+        .getRepository()
+        .getExecPath(semantics.experimentalSiblingRepositoryLayout())
+        .toString();
   }
 
   /**

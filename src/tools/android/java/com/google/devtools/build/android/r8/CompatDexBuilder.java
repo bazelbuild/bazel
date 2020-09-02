@@ -17,7 +17,6 @@ import static com.google.common.base.Verify.verify;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.android.tools.r8.ByteDataView;
-import com.android.tools.r8.CompatDxSupport;
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.D8;
@@ -76,7 +75,6 @@ public class CompatDexBuilder {
   private String output;
   private int numberOfThreads = 8;
   private boolean noLocals;
-  private boolean backportStatics;
 
   public static void main(String[] args)
       throws IOException, InterruptedException, ExecutionException {
@@ -125,9 +123,6 @@ public class CompatDexBuilder {
           break;
         case "--nolocals":
           noLocals = true;
-          break;
-        case "--desugar-backport-statics":
-          backportStatics = true;
           break;
         default:
           System.err.println("Unsupported option: " + flag);
@@ -187,9 +182,6 @@ public class CompatDexBuilder {
         .setMode(noLocals ? CompilationMode.RELEASE : CompilationMode.DEBUG)
         .setMinApiLevel(13) // H_MR2.
         .setDisableDesugaring(true);
-    if (backportStatics) {
-      CompatDxSupport.enableDesugarBackportStatics(builder);
-    }
     try (InputStream stream = zipFile.getInputStream(classEntry)) {
       builder.addClassProgramData(
           ByteStreams.toByteArray(stream),

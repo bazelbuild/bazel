@@ -31,14 +31,23 @@
 
 namespace blaze {
 using ::testing::ContainsRegex;
+using ::testing::ElementsAre;
 using ::testing::HasSubstr;
+using ::testing::IsEmpty;
 using ::testing::MatchesRegex;
+using ::testing::Pointee;
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 constexpr const char* kNullDevice = "NUL";
 #else  // Assume POSIX if not Windows.
 constexpr const char* kNullDevice = "/dev/null";
 #endif
+
+// Matches an RcFile's canonical source paths list.
+MATCHER_P(CanonicalSourcePathsAre, paths_matcher, "") {
+  return ExplainMatchResult(ElementsAre(paths_matcher),
+                            arg.canonical_source_paths(), result_listener);
+}
 
 class RcFileTest : public ::testing::Test {
  protected:
@@ -172,13 +181,9 @@ TEST_F(GetRcFileTest, GetRcFilesLoadsAllDefaultBazelrcs) {
 
   // There should be 2 rc files: the system one and the workspace one. --bazelrc
   // is not passed and therefore is not relevant.
-  ASSERT_EQ(2, parsed_rcs.size());
-  const std::deque<std::string> expected_system_rc_que = {system_rc};
-  const std::deque<std::string> expected_workspace_rc_que = {workspace_rc};
-  EXPECT_EQ(expected_system_rc_que,
-            parsed_rcs[0].get()->canonical_source_paths());
-  EXPECT_EQ(expected_workspace_rc_que,
-            parsed_rcs[1].get()->canonical_source_paths());
+  EXPECT_THAT(parsed_rcs,
+              ElementsAre(Pointee(CanonicalSourcePathsAre(system_rc)),
+                          Pointee(CanonicalSourcePathsAre(workspace_rc))));
 }
 
 TEST_F(GetRcFileTest, GetRcFilesRespectsNoSystemRc) {
@@ -197,10 +202,8 @@ TEST_F(GetRcFileTest, GetRcFilesRespectsNoSystemRc) {
   EXPECT_EQ(blaze_exit_code::SUCCESS, exit_code);
   EXPECT_EQ("check that this string is not modified", error);
 
-  ASSERT_EQ(1, parsed_rcs.size());
-  const std::deque<std::string> expected_workspace_rc_que = {workspace_rc};
-  EXPECT_EQ(expected_workspace_rc_que,
-            parsed_rcs[0].get()->canonical_source_paths());
+  EXPECT_THAT(parsed_rcs,
+              ElementsAre(Pointee(CanonicalSourcePathsAre(workspace_rc))));
 }
 
 TEST_F(GetRcFileTest, GetRcFilesRespectsNoWorkspaceRc) {
@@ -219,10 +222,8 @@ TEST_F(GetRcFileTest, GetRcFilesRespectsNoWorkspaceRc) {
   EXPECT_EQ(blaze_exit_code::SUCCESS, exit_code);
   EXPECT_EQ("check that this string is not modified", error);
 
-  ASSERT_EQ(1, parsed_rcs.size());
-  const std::deque<std::string> expected_system_rc_que = {system_rc};
-  EXPECT_EQ(expected_system_rc_que,
-            parsed_rcs[0].get()->canonical_source_paths());
+  EXPECT_THAT(parsed_rcs,
+              ElementsAre(Pointee(CanonicalSourcePathsAre(system_rc))));
 }
 
 TEST_F(GetRcFileTest, GetRcFilesRespectsNoWorkspaceRcAndNoSystemCombined) {
@@ -241,7 +242,7 @@ TEST_F(GetRcFileTest, GetRcFilesRespectsNoWorkspaceRcAndNoSystemCombined) {
   EXPECT_EQ(blaze_exit_code::SUCCESS, exit_code);
   EXPECT_EQ("check that this string is not modified", error);
 
-  ASSERT_EQ(0, parsed_rcs.size());
+  EXPECT_THAT(parsed_rcs, IsEmpty());
 }
 
 TEST_F(GetRcFileTest, GetRcFilesWarnsAboutIgnoredMasterRcFiles) {
@@ -323,8 +324,8 @@ TEST_F(GetRcFileTest, GetRcFilesReadsCommandLineRc) {
   // Because of the variety of path representations in windows, this
   // equality test does not attempt to check the entire path.
   ASSERT_EQ(1, parsed_rcs.size());
-  ASSERT_EQ(1, parsed_rcs[0].get()->canonical_source_paths().size());
-  EXPECT_THAT(parsed_rcs[0].get()->canonical_source_paths().front(),
+  ASSERT_EQ(1, parsed_rcs[0]->canonical_source_paths().size());
+  EXPECT_THAT(parsed_rcs[0]->canonical_source_paths()[0],
               HasSubstr("mybazelrc"));
 }
 
@@ -343,9 +344,8 @@ TEST_F(GetRcFileTest, GetRcFilesAcceptsNullCommandLineRc) {
   EXPECT_EQ(blaze_exit_code::SUCCESS, exit_code);
   EXPECT_EQ("check that this string is not modified", error);
   // but it does technically count as a file
-  ASSERT_EQ(1, parsed_rcs.size());
-  const std::deque<std::string> expected_rc_que = {kNullDevice};
-  EXPECT_EQ(expected_rc_que, parsed_rcs[0].get()->canonical_source_paths());
+  EXPECT_THAT(parsed_rcs,
+              ElementsAre(Pointee(CanonicalSourcePathsAre(kNullDevice))));
 }
 
 class ParseOptionsTest : public RcFileTest {

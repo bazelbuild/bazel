@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDefinition;
@@ -181,7 +180,7 @@ final class LabelVisitor {
    * cache the result.
    */
   public void syncUncached(
-      ErrorSensingEventHandler eventHandler,
+      ExtendedEventHandler eventHandler,
       Iterable<Target> targetsToVisit,
       boolean keepGoing,
       int parallelThreads,

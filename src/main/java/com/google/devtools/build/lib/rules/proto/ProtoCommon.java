@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -472,13 +471,11 @@ public class ProtoCommon {
       RuleContext ruleContext, boolean generatedProtosInVirtualImports)
       throws InterruptedException {
     ImmutableList<Artifact> originalDirectProtoSources =
-        ruleContext.getPrerequisiteArtifacts("srcs", TransitionMode.TARGET).list();
+        ruleContext.getPrerequisiteArtifacts("srcs").list();
     ImmutableList<ProtoInfo> deps =
-        ImmutableList.copyOf(
-            ruleContext.getPrerequisites("deps", TransitionMode.TARGET, ProtoInfo.PROVIDER));
+        ImmutableList.copyOf(ruleContext.getPrerequisites("deps", ProtoInfo.PROVIDER));
     ImmutableList<ProtoInfo> exports =
-        ImmutableList.copyOf(
-            ruleContext.getPrerequisites("exports", TransitionMode.TARGET, ProtoInfo.PROVIDER));
+        ImmutableList.copyOf(ruleContext.getPrerequisites("exports", ProtoInfo.PROVIDER));
 
     Artifact directDescriptorSet =
         ruleContext.getGenfilesArtifact(

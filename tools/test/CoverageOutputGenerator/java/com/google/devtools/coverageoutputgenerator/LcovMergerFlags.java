@@ -26,7 +26,7 @@ import javax.annotation.Nullable;
 @Parameters(separators = "= ", optionPrefixes = "--")
 class LcovMergerFlags {
   private static final Logger logger = Logger.getLogger(LcovMergerFlags.class.getName());
-  private static final int DEFAULT_PARSE_FILE_PARALLELISM = 8;
+  private static final int DEFAULT_PARSE_FILE_PARALLELISM = 4;
 
   @Parameter(names = "--coverage_dir")
   private String coverageDir;

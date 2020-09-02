@@ -472,7 +472,7 @@ public final class Dict<K, V>
 
   @Override
   public void repr(Printer printer) {
-    printer.printList(entrySet(), "{", ", ", "}", null);
+    printer.printList(entrySet(), "{", ", ", "}");
   }
 
   @Override

@@ -310,7 +310,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
    * errors already happen when loading the file. Consequently, all tests would fail at the same
    * statement. */
   @Test
-  public void testPackageBoundaryError_NativeRule() throws Exception {
+  public void testPackageBoundaryError_nativeRule() throws Exception {
     scratch.file("test/BUILD", "cc_library(name = 'cclib',", "  srcs = ['sub/my_sub_lib.h'])");
     scratch.file("test/sub/BUILD", "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
     reporter.removeHandler(failFastHandler);
@@ -322,7 +322,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testPackageBoundaryError_StarlarkRule() throws Exception {
+  public void testPackageBoundaryError_starlarkRule() throws Exception {
     scratch.file(
         "test/BUILD",
         "load('//test:macros.bzl', 'starlark_rule')",
@@ -348,7 +348,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testPackageBoundaryError_StarlarkMacro() throws Exception {
+  public void testPackageBoundaryError_starlarkMacro() throws Exception {
     scratch.file(
         "test/BUILD",
         "load('//test:macros.bzl', 'macro_starlark_rule')",
@@ -377,7 +377,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   /* The error message for this case used to be wrong. */
   @Test
-  public void testPackageBoundaryError_ExternalRepository_Boundary() throws Exception {
+  public void testPackageBoundaryError_externalRepository_boundary() throws Exception {
     scratch.file("r/WORKSPACE");
     scratch.file("r/BUILD");
     scratch.overwriteFile(
@@ -398,7 +398,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   /* The error message for this case used to be wrong. */
   @Test
-  public void testPackageBoundaryError_ExternalRepository_EntirelyInside() throws Exception {
+  public void testPackageBoundaryError_externalRepository_entirelyInside() throws Exception {
     scratch.file("/r/WORKSPACE");
     scratch.file("/r/BUILD", "cc_library(name = 'cclib',", "  srcs = ['sub/my_sub_lib.h'])");
     scratch.file("/r/sub/BUILD", "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
@@ -428,7 +428,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
    * with it.
    */
   @Test
-  public void testPackageBoundaryError_StarlarkMacroWithErrorInBzlFile() throws Exception {
+  public void testPackageBoundaryError_starlarkMacroWithErrorInBzlFile() throws Exception {
     scratch.file(
         "test/BUILD",
         "load('//test:macros.bzl', 'macro_starlark_rule')",
@@ -454,7 +454,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testPackageBoundaryError_NativeMacro() throws Exception {
+  public void testPackageBoundaryError_nativeMacro() throws Exception {
     scratch.file(
         "test/BUILD",
         "load('//test:macros.bzl', 'macro_native_rule')",

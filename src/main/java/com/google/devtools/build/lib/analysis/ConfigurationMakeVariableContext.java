@@ -50,8 +50,7 @@ public class ConfigurationMakeVariableContext implements TemplateContext {
             .flatMap(
                 attrName ->
                     Streams.stream(
-                        ruleContext.getPrerequisites(
-                            attrName, TransitionMode.DONT_CHECK, TemplateVariableInfo.PROVIDER)))
+                        ruleContext.getPrerequisites(attrName, TemplateVariableInfo.PROVIDER)))
             .collect(Collectors.toList());
     providers.addAll(fromAttributes);
 

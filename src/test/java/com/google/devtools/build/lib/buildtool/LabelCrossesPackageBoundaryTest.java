@@ -31,7 +31,7 @@ import org.junit.runners.JUnit4;
 public class LabelCrossesPackageBoundaryTest extends BuildIntegrationTestCase {
 
   @Test
-  public void testLabelCrossesPackageBoundary_Target() throws Exception {
+  public void testLabelCrossesPackageBoundary_target() throws Exception {
     write("x/BUILD",
         "genrule(name = 'x',",
         "        srcs = ['//x:y/z'],",

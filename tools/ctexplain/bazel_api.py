@@ -43,11 +43,11 @@ def run_bazel_in_client(args: List[str]) -> Tuple[int, List[str], List[str]]:
     Tuple of (return code, stdout, stderr)
   """
   result = subprocess.run(
-      ["bazel"] + args,
+      ["blaze"] + args,
       cwd=os.getcwd(),
       stdout=subprocess.PIPE,
       stderr=subprocess.PIPE,
-      check=True)
+      check=False)
   return (result.returncode, result.stdout.decode("utf-8").split(os.linesep),
           result.stderr)
 
@@ -73,17 +73,23 @@ class BazelApi():
       stderr contains the query's stderr (regardless of success value), and cts
       is the configured targets found by the query if successful, empty
       otherwise.
+
+      ct order preserves cquery's output order. This is topologically sorted
+      with duplicates removed. So no unique configured target appears twice and
+      if A depends on B, A appears before B.
     """
     base_args = ["cquery", "--show_config_fragments=transitive"]
     (returncode, stdout, stderr) = self.run_bazel(base_args + args)
     if returncode != 0:
       return (False, stderr, ())
 
-    cts = set()
+    cts = []
     for line in stdout:
+      if not line.strip():
+        continue
       ctinfo = _parse_cquery_result_line(line)
       if ctinfo is not None:
-        cts.add(ctinfo)
+        cts.append(ctinfo)
 
     return (True, stderr, tuple(cts))
 
@@ -97,7 +103,7 @@ class BazelApi():
       The matching configuration or None if no match is found.
 
     Raises:
-      ValueError on any parsing problems.
+      ValueError: On any parsing problems.
     """
     if config_hash == "HOST":
       return HostConfiguration()
@@ -109,11 +115,13 @@ class BazelApi():
     if returncode != 0:
       raise ValueError("Could not get config: " + stderr)
     config_json = json.loads(os.linesep.join(stdout))
-    fragments = [
-        fragment["name"].split(".")[-1] for fragment in config_json["fragments"]
-    ]
+    fragments = frozendict({
+        _base_name(entry["name"]):
+        tuple(_base_name(clazz) for clazz in entry["fragmentOptions"])
+        for entry in config_json["fragments"]
+    })
     options = frozendict({
-        entry["name"].split(".")[-1]: frozendict(entry["options"])
+        _base_name(entry["name"]): frozendict(entry["options"])
         for entry in config_json["fragmentOptions"]
     })
     return Configuration(fragments, options)
@@ -156,3 +164,19 @@ def _parse_cquery_result_line(line: str) -> ConfiguredTarget:
       config=None,  # Not yet available: we'll need `bazel config` to get this.
       config_hash=config_hash,
       transitive_fragments=fragments)
+
+
+def _base_name(full_name: str) -> str:
+  """Strips a fully qualified Java class name to the file scope.
+
+  Examples:
+    - "A.B.OuterClass" -> "OuterClass"
+    - "A.B.OuterClass$InnerClass" -> "OuterClass$InnerClass"
+
+  Args:
+    full_name: Fully qualified class name.
+
+  Returns:
+    Stripped name.
+  """
+  return full_name.split(".")[-1]

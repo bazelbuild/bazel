@@ -80,7 +80,7 @@ public class NativePosixFilesTest {
   }
 
   @Test
-  public void testGetxattr_AttributeFound() throws Exception {
+  public void testGetxattr_attributeFound() throws Exception {
     assumeXattrsSupported();
 
     String myfile = Files.createTempFile("getxattrtest", null).toString();
@@ -92,7 +92,7 @@ public class NativePosixFilesTest {
   }
 
   @Test
-  public void testGetxattr_AttributeNotFoundReturnsNull() throws Exception {
+  public void testGetxattr_attributeNotFoundReturnsNull() throws Exception {
     assumeXattrsSupported();
 
     String myfile = Files.createTempFile("getxattrtest", null).toString();
@@ -102,7 +102,7 @@ public class NativePosixFilesTest {
   }
 
   @Test
-  public void testGetxattr_FileNotFound() throws Exception {
+  public void testGetxattr_fileNotFound() throws Exception {
     String nonexistentFile = workingDir.getChild("nonexistent").toString();
 
     assertThrows(

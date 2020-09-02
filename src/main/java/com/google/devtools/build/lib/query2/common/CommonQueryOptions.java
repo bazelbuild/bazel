@@ -209,6 +209,16 @@ public class CommonQueryOptions extends OptionsBase {
       help = "Whether or not to calculate and populate the $internal_attr_hash attribute.")
   public boolean protoIncludeSyntheticAttributeHash;
 
+  @Option(
+      name = "proto:instantiation_stack",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Populate the instantiation call stack of each rule. "
+              + "Note that this requires the stack to be present")
+  public boolean protoIncludeInstantiationStack;
+
   /** An enum converter for {@code AspectResolver.Mode} . Should be used internally only. */
   public static class AspectResolutionModeConverter extends EnumConverter<Mode> {
     public AspectResolutionModeConverter() {

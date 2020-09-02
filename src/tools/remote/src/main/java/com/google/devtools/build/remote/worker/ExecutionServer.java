@@ -242,8 +242,8 @@ final class ExecutionServer extends ExecutionImplBase {
 
   private ActionResult execute(Digest actionDigest, Path execRoot)
       throws IOException, InterruptedException, StatusException {
-    Command command = null;
-    Action action = null;
+    Command command;
+    Action action;
     ActionKey actionKey = digestUtil.asActionKey(actionDigest);
     try {
       action = Action.parseFrom(getFromFuture(cache.downloadBlob(actionDigest)));
@@ -376,7 +376,7 @@ final class ExecutionServer extends ExecutionImplBase {
   // This is used to set "-u UID" flag for commands running inside Docker containers. There are
   // only a small handful of cases where uid is vital (e.g., if strict permissions are set on the
   // output files), so most use cases would work without setting uid.
-  private static long getUid() {
+  private static long getUid() throws InterruptedException {
     com.google.devtools.build.lib.shell.Command cmd =
         new com.google.devtools.build.lib.shell.Command(
             new String[] {"id", "-u"},
@@ -442,7 +442,7 @@ final class ExecutionServer extends ExecutionImplBase {
   // arguments. Otherwise, returns a Command that would run the specified command inside the
   // specified docker container.
   private com.google.devtools.build.lib.shell.Command getCommand(Command cmd, String pathString)
-      throws StatusException {
+      throws StatusException, InterruptedException {
     Map<String, String> environmentVariables = getEnvironmentVariables(cmd);
     // This allows Bazel's integration tests to test for the remote platform.
     environmentVariables.put("BAZEL_REMOTE_PLATFORM", platformAsString(cmd.getPlatform()));

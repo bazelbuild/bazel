@@ -275,7 +275,7 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
   }
 
   @Test
-  public void testLocalRepository_LocalWorkspace_SymlinkCycle() throws Exception {
+  public void testLocalRepository_localWorkspace_symlinkCycle() throws Exception {
     scratch.overwriteFile("WORKSPACE", "local_repository(name='local', path='local/repo')");
     Path localRepoWorkspace = scratch.resolve("local/repo/WORKSPACE");
     Path localRepoWorkspaceLink = scratch.resolve("local/repo/WORKSPACE.link");
@@ -301,7 +301,7 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
   }
 
   @Test
-  public void testLocalRepository_MainWorkspace_NotFound() throws Exception {
+  public void testLocalRepository_mainWorkspace_notFound() throws Exception {
     // Do not add a local_repository to WORKSPACE.
     scratch.overwriteFile("WORKSPACE", "");
     scratch.deleteFile("WORKSPACE");

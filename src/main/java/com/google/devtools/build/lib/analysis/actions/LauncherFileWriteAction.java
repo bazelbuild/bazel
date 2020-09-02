@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -54,7 +53,7 @@ public final class LauncherFileWriteAction extends AbstractFileWriteAction {
         new LauncherFileWriteAction(
             ruleContext.getActionOwner(),
             output,
-            ruleContext.getPrerequisiteArtifact("$launcher", TransitionMode.HOST),
+            ruleContext.getPrerequisiteArtifact("$launcher"),
             launchInfo));
   }
 

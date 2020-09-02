@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -208,7 +207,7 @@ public class AndroidIdlHelper {
     return ruleContext.getRule().isAttrDefined("idl_parcelables", BuildType.LABEL_LIST)
         ? ImmutableList.copyOf(
             ruleContext
-                .getPrerequisiteArtifacts("idl_parcelables", TransitionMode.TARGET)
+                .getPrerequisiteArtifacts("idl_parcelables")
                 .filter(AndroidRuleClasses.ANDROID_IDL)
                 .list())
         : ImmutableList.<Artifact>of();
@@ -221,7 +220,7 @@ public class AndroidIdlHelper {
     }
     checkIdlSrcsSamePackage(ruleContext);
     return ruleContext
-        .getPrerequisiteArtifacts("idl_srcs", TransitionMode.TARGET)
+        .getPrerequisiteArtifacts("idl_srcs")
         .filter(AndroidRuleClasses.ANDROID_IDL)
         .list();
   }
@@ -233,7 +232,7 @@ public class AndroidIdlHelper {
     PathFragment packageName = ruleContext.getLabel().getPackageFragment();
     Collection<Artifact> idls =
         ruleContext
-            .getPrerequisiteArtifacts("idl_srcs", TransitionMode.TARGET)
+            .getPrerequisiteArtifacts("idl_srcs")
             .filter(AndroidRuleClasses.ANDROID_IDL)
             .list();
     for (Artifact idl : idls) {
@@ -342,7 +341,7 @@ public class AndroidIdlHelper {
             .addInputs(generatedIdlJavaFiles)
             .addOutput(idlClassJar)
             .addOutput(idlSourceJar)
-            .setExecutable(ruleContext.getExecutablePrerequisite("$idlclass", TransitionMode.HOST))
+            .setExecutable(ruleContext.getExecutablePrerequisite("$idlclass"))
             .addCommandLine(
                 CustomCommandLine.builder()
                     .addExecPath("--manifest_proto", manifestProtoOutput)
@@ -432,8 +431,7 @@ public class AndroidIdlHelper {
     }
 
     for (AndroidIdlProvider dep :
-        AndroidCommon.getTransitivePrerequisites(
-            ruleContext, TransitionMode.TARGET, AndroidIdlProvider.PROVIDER)) {
+        AndroidCommon.getTransitivePrerequisites(ruleContext, AndroidIdlProvider.PROVIDER)) {
       rootsBuilder.addTransitive(dep.getTransitiveIdlImportRoots());
       importsBuilder.addTransitive(dep.getTransitiveIdlImports());
       preprocessedBuilder.addTransitive(dep.getTransitiveIdlPreprocessed());
@@ -506,7 +504,7 @@ public class AndroidIdlHelper {
   private static Collection<Artifact> getIdlPreprocessed(RuleContext ruleContext) {
     return ruleContext.isAttrDefined("idl_preprocessed", BuildType.LABEL_LIST)
         ? ruleContext
-            .getPrerequisiteArtifacts("idl_preprocessed", TransitionMode.TARGET)
+            .getPrerequisiteArtifacts("idl_preprocessed")
             .filter(AndroidRuleClasses.ANDROID_IDL)
             .list()
         : ImmutableList.<Artifact>of();

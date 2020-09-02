@@ -434,7 +434,7 @@ public class SymlinkForestTest {
   }
 
   @Test
-  public void test_withSubdirRepoLayout_TestExternalDirInMainRepoIsIgnored1() throws Exception {
+  public void test_withSubdirRepoLayout_testExternalDirInMainRepoIsIgnored1() throws Exception {
     // Test external/ is ignored even when packages like "//external/foo" is specified.
     Root outputBase = Root.fromPath(fileSystem.getPath("/ob"));
     Root mainRepo = Root.fromPath(fileSystem.getPath("/my_repo"));
@@ -476,7 +476,7 @@ public class SymlinkForestTest {
   }
 
   @Test
-  public void test_withSubDirRepoLayout_TestExternalDirInMainRepoIsIgnored2() throws Exception {
+  public void test_withSubDirRepoLayout_testExternalDirInMainRepoIsIgnored2() throws Exception {
     // Test external/ is ignored when root package "//:" is specified.
     Root outputBase = Root.fromPath(fileSystem.getPath("/ob"));
     Root mainRepo = Root.fromPath(fileSystem.getPath("/my_repo"));
@@ -520,7 +520,7 @@ public class SymlinkForestTest {
   }
 
   @Test
-  public void test_withSiblingRepoLayout_TestExternalDirInMainRepoExists() throws Exception {
+  public void test_withSiblingRepoLayout_testExternalDirInMainRepoExists() throws Exception {
     // Test external/ is ignored even when packages like "//external/foo" is specified.
     Root outputBase = Root.fromPath(fileSystem.getPath("/ob"));
     Root mainRepo = Root.fromPath(fileSystem.getPath("/my_repo"));
@@ -585,7 +585,7 @@ public class SymlinkForestTest {
   }
 
   @Test
-  public void test_withSiblingRepoLayoutAndRootPackageInRoots_TestExternalDirInMainRepoExists()
+  public void test_withSiblingRepoLayoutAndRootPackageInRoots_testExternalDirInMainRepoExists()
       throws Exception {
     // Test external/ is ignored when root package "//:" is specified.
     Root outputBase = Root.fromPath(fileSystem.getPath("/ob"));

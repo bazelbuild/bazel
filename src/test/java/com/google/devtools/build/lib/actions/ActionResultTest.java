@@ -27,7 +27,7 @@ import org.junit.runners.JUnit4;
 public final class ActionResultTest {
 
   @Test
-  public void testCumulativeCommandExecutionTime_NoSpawnResults() {
+  public void testCumulativeCommandExecutionTime_noSpawnResults() {
     List<SpawnResult> spawnResults = ImmutableList.of();
     ActionResult actionResult = ActionResult.create(spawnResults);
     assertThat(actionResult.cumulativeCommandExecutionWallTime()).isEmpty();
@@ -40,7 +40,7 @@ public final class ActionResultTest {
   }
 
   @Test
-  public void testCumulativeCommandExecutionTime_OneSpawnResult() {
+  public void testCumulativeCommandExecutionTime_oneSpawnResult() {
     SpawnResult spawnResult =
         new SpawnResult.Builder()
             .setWallTime(Duration.ofMillis(1984))
@@ -64,7 +64,7 @@ public final class ActionResultTest {
   }
 
   @Test
-  public void testCumulativeCommandExecutionTime_ManySpawnResults() {
+  public void testCumulativeCommandExecutionTime_manySpawnResults() {
     SpawnResult spawnResult1 =
         new SpawnResult.Builder()
             .setWallTime(Duration.ofMillis(1979))
@@ -110,7 +110,7 @@ public final class ActionResultTest {
   }
 
   @Test
-  public void testCumulativeCommandExecutionTime_ManyEmptySpawnResults() {
+  public void testCumulativeCommandExecutionTime_manyEmptySpawnResults() {
     SpawnResult spawnResult1 =
         new SpawnResult.Builder()
             .setStatus(SpawnResult.Status.SUCCESS)
@@ -138,7 +138,7 @@ public final class ActionResultTest {
   }
 
   @Test
-  public void testCumulativeCommandExecutionTime_ManySpawnResults_ButOnlyUserTime() {
+  public void testCumulativeCommandExecutionTime_manySpawnResults_butOnlyUserTime() {
     SpawnResult spawnResult1 =
         new SpawnResult.Builder()
             .setUserTime(Duration.ofMillis(2))
@@ -164,7 +164,7 @@ public final class ActionResultTest {
   }
 
   @Test
-  public void testCumulativeCommandExecutionTime_ManySpawnResults_ButOnlySystemTime() {
+  public void testCumulativeCommandExecutionTime_manySpawnResults_butOnlySystemTime() {
     SpawnResult spawnResult1 =
         new SpawnResult.Builder()
             .setSystemTime(Duration.ofMillis(33))
