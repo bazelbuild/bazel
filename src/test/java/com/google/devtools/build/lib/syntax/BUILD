@@ -48,6 +48,7 @@ java_test(
         # CpuProfilerTest.java doesn't run under OSS Bazel
         "EvalUtilsTest.java",
         "EvaluationTest.java",
+        "Examples.java",
         "FunctionTest.java",
         "MethodLibraryTest.java",
         "MutabilityTest.java",
