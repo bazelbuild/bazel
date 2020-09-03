@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.runtime.QueryRuntimeHelper;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
@@ -78,10 +80,19 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
     QueryExpression expr;
     try (SilentCloseable closeable = Profiler.instance().profile("QueryExpression.parse")) {
       expr = QueryExpression.parse(query, queryEnv);
-    } catch (QueryException e) {
+    } catch (QuerySyntaxException e) {
       String message = "Error while parsing '" + query + "': " + e.getMessage();
       env.getReporter().handle(Event.error(null, message));
-      return Either.ofLeft(finalizeBlazeCommandResult(ExitCode.COMMAND_LINE_ERROR, e));
+      return Either.ofLeft(
+          BlazeCommandResult.detailedExitCode(
+              DetailedExitCode.of(
+                  ExitCode.COMMAND_LINE_ERROR,
+                  FailureDetail.newBuilder()
+                      .setMessage(e.getMessage())
+                      .setQuery(
+                          FailureDetails.Query.newBuilder()
+                              .setCode(FailureDetails.Query.Code.SYNTAX_ERROR))
+                      .build())));
     }
 
     try {

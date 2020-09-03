@@ -17,9 +17,9 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
+import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
 import com.google.devtools.build.lib.query2.engine.RdepsFunction;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -29,7 +29,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class UniverseScopeTest {
   @Test
-  public void testInferFromQueryExpression() throws QueryException {
+  public void testInferFromQueryExpression() throws QuerySyntaxException {
     UniverseScope underTest = UniverseScope.INFER_FROM_QUERY_EXPRESSION;
 
     ImmutableMap<QueryExpression, ImmutableList<String>> cases =
@@ -50,7 +50,7 @@ public class UniverseScopeTest {
         });
   }
 
-  private static QueryExpression parse(String exprString) throws QueryException {
+  private static QueryExpression parse(String exprString) throws QuerySyntaxException {
     return QueryParser.parse(exprString, ImmutableMap.of("rdeps", new RdepsFunction()));
   }
 }
