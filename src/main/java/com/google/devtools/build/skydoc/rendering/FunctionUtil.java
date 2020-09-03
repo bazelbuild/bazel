@@ -19,6 +19,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionDeprecationInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionParamInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionReturnInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.StarlarkFunctionInfo;
@@ -48,6 +49,7 @@ public final class FunctionUtil {
     String functionDescription = "";
     Map<String, String> paramNameToDocMap = Maps.newLinkedHashMap();
     FunctionReturnInfo retInfo = FunctionReturnInfo.getDefaultInstance();
+    FunctionDeprecationInfo deprInfo = FunctionDeprecationInfo.getDefaultInstance();
 
     String doc = fn.getDocumentation();
 
@@ -66,6 +68,7 @@ public final class FunctionUtil {
         paramNameToDocMap.put(paramDoc.getParameterName(), paramDoc.getDescription());
       }
       retInfo = returnInfo(docstringInfo);
+      deprInfo = deprecationInfo(docstringInfo);
     }
     List<FunctionParamInfo> paramsInfo = parameterInfos(fn, paramNameToDocMap);
 
@@ -74,6 +77,7 @@ public final class FunctionUtil {
         .setDocString(functionDescription)
         .addAllParameter(paramsInfo)
         .setReturn(retInfo)
+        .setDeprecated(deprInfo)
         .build();
   }
 
@@ -132,6 +136,12 @@ public final class FunctionUtil {
   private static FunctionReturnInfo returnInfo(DocstringInfo docstringInfo) {
     return FunctionReturnInfo.newBuilder()
         .setDocString(docstringInfo.getReturns())
+        .build();
+  }
+
+  private static FunctionDeprecationInfo deprecationInfo(DocstringInfo docstringInfo) {
+    return FunctionDeprecationInfo.newBuilder()
+        .setDocString(docstringInfo.getDeprecated())
         .build();
   }
 }

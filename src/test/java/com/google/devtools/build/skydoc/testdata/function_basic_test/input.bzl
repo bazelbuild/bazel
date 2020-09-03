@@ -44,5 +44,13 @@ def returns_a_thing(name):
     """
     pass
 
+def deprecated_do_not_use():
+    """This function is deprecated.
+
+    Deprecated:
+        Use literally anything but this function.
+    """
+    pass
+
 def undocumented_function(a, b, c):
     pass

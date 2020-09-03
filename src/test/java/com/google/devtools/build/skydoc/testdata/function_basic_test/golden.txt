@@ -87,6 +87,22 @@ Use `bazel build` to run the check.
 </table>
 
 
+<a name="#deprecated_do_not_use"></a>
+
+## deprecated_do_not_use
+
+<pre>
+deprecated_do_not_use()
+</pre>
+
+This function is deprecated.
+
+### Deprecated
+
+Use literally anything but this function.
+
+
+
 <a name="#returns_a_thing"></a>
 
 ## returns_a_thing
