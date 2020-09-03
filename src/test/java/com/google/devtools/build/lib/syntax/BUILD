@@ -48,6 +48,7 @@ java_test(
         # CpuProfilerTest.java doesn't run under OSS Bazel
         "EvalUtilsTest.java",
         "EvaluationTest.java",
+        "EvaluationTestCase.java",
         "Examples.java",
         "FunctionTest.java",
         "MethodLibraryTest.java",
@@ -69,7 +70,6 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/net/starlark/java/annot",
-        "//src/test/java/com/google/devtools/build/lib/syntax/util",  # TODO(adonovan): break this dep
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",

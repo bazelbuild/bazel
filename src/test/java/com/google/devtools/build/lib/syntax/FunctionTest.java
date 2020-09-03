@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Test;
