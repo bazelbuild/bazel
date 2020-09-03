@@ -253,6 +253,31 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testGeneratorAttributesWhenCallstackEnabled_macro() throws Exception {
+    // generator_* attributes are derived using alternative logic from the call stack when
+    // --record_rule_instantiation_callstack is enabled. This test exercises that.
+    scratch.file(
+        "mypkg/inc.bzl",
+        "def _impl(ctx):",
+        "  pass",
+        "",
+        "myrule = rule(implementation = _impl)",
+        "",
+        "def f(name):",
+        "  g()",
+        "",
+        "def g():",
+        "  myrule(name='a')",
+        "");
+    scratch.file("mypkg/BUILD", "load(':inc.bzl', 'f')", "f(name='foo')");
+    setStarlarkSemanticsOptions("--record_rule_instantiation_callstack");
+    Rule rule = (Rule) getTarget("//mypkg:a");
+    assertThat(rule.getAttr("generator_function")).isEqualTo("f");
+    assertThat(rule.getAttr("generator_location")).isEqualTo("mypkg/BUILD:2:2");
+    assertThat(rule.getAttr("generator_name")).isEqualTo("foo");
+  }
+
+  @Test
   public void sanityCheckUserDefinedTestRule() throws Exception {
     scratch.file(
         "test/starlark/test_rule.bzl",
