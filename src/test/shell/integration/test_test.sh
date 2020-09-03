@@ -252,4 +252,89 @@ eof
   expect_log "foo=()"
 }
 
+# Runs a Bazel command, waits for the console output to contain a given message,
+# and then interrupts Bazel's execution. The first argument to this function
+# indicates the message to wait for, and all other arguments are passed to
+# bazel. The output of the command is left in the TEST_log for inspection.
+function run_bazel_and_interrupt() {
+  local exp_message="${1}"; shift
+
+  bazel "${@}" >"${TEST_log}" 2>&1 &
+  local bazel_pid="${!}"
+  local timeout=60
+  while ! grep -q "${exp_message}" "${TEST_log}"; do
+    sleep 1
+    timeout=$((timeout - 1))
+    [[ "${timeout}" -gt 0 ]] || break
+  done
+  if [[ "${timeout}" -eq 0 ]]; then
+    kill "${bazel_pid}" || true
+    fail "Subtest failed to start on time"
+  fi
+  echo 'Sending SIGINT to Bazel and waiting for completion'
+  kill -SIGINT "${bazel_pid}"
+  if wait "${bazel_pid}"; then
+    fail "Bazel reported success on interrupt"
+  fi
+  echo 'Bazel command terminated'
+}
+
+function do_test_interrupt_streamed_output() {
+  # TODO(jmmv): --test_output=streamed, which we need below, doesn't seem to
+  # work on Windows: we cannot find the expected test output as it makes
+  # progresse. This feature had been broken before (#7392) for subtle reasons
+  # and there are no tests for it, so it might be broken again. Investigate and
+  # enable this test.
+  [[ "$is_windows" == "true" ]] && return 0
+
+  local strategy="${1}"; shift
+
+  mkdir -p pkg
+  cat >pkg/BUILD <<EOF
+sh_test(
+  name = "sleep",
+  srcs = ["sleep.sh"],
+)
+EOF
+  cat >pkg/sleep.sh <<'EOF'
+#! /bin/sh
+echo 'Ready for interrupt'
+sleep 10000
+EOF
+  chmod +x pkg/sleep.sh
+
+  # There used to be a bug that caused Bazel to crash after an interrupt when
+  # using test streamed output. The interrupt wouldn't be handled properly by
+  # the local strategies, and the callers wouldn't close the stream upon
+  # interrupt. Try to do this a few times, checking after each interrupt if
+  # Bazel died.
+  bazel shutdown
+  local jvm_out="$(bazel --max_idle_secs=600 info output_base)/server/jvm.out"
+  for i in 1 2; do
+    run_bazel_and_interrupt "Ready for interrupt" \
+        --max_idle_secs=600 \
+        test --test_output=streamed --spawn_strategy="${strategy}" //pkg:sleep
+
+    # We need to give Blaze some time to actually crash and flush out the logs.
+    # Otherwise we might not detect the error.
+    sleep 5
+
+    # If Bazel crashed at any point, we expect it to tell us it had to restart
+    # and/or the jvm.out log contains an error message.
+    cat "${jvm_out}" >>"${TEST_log}"
+    expect_not_log "Starting local Blaze server"
+    if grep -q 'crash in async thread' "${jvm_out}"; then
+      fail "Bazel crashed"
+    fi
+  done
+}
+
+function test_interrupt_streamed_output_local() {
+  do_test_interrupt_streamed_output local
+}
+
+function test_interrupt_streamed_output_sandboxed() {
+  do_test_interrupt_streamed_output sandboxed
+}
+
 run_suite "test tests"
