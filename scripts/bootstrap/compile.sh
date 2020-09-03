@@ -19,7 +19,7 @@
 if [ -d derived/jars ]; then
   ADDITIONAL_JARS=derived/jars
 else
-  DISTRIBUTION=${DISTRIBUTION:-debian}
+  DISTRIBUTION=${BAZEL_DISTRIBUTION:-debian}
   ADDITIONAL_JARS="$(grep -o '".*\.jar"' tools/distributions/${DISTRIBUTION}/${DISTRIBUTION}_java.BUILD | sed 's/"//g' | sed 's|^|/usr/share/java/|g')"
 fi
 
