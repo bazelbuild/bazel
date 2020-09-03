@@ -351,7 +351,7 @@ public class Main {
             () ->
                 partitions.parallelStream()
                     .map((p) -> parseFilesSequentially(p, parser))
-                    .reduce(Coverage::mergeUnchecked)
+                    .reduce((c1, c2) -> Coverage.mergeUnchecked(c1, c2))
                     .orElse(Coverage.create()))
         .get();
   }
