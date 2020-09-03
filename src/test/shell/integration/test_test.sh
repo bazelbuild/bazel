@@ -337,4 +337,77 @@ function test_interrupt_streamed_output_sandboxed() {
   do_test_interrupt_streamed_output sandboxed
 }
 
+function do_sigint_test() {
+  local strategy="${1}"; shift
+  local tags="${1}"; shift
+
+  mkdir -p pkg
+  cat >pkg/BUILD <<EOF
+sh_test(
+  name = "test_with_cleanup",
+  srcs = ["test_with_cleanup.sh"],
+  tags = ${tags},
+)
+EOF
+  cat >pkg/test_with_cleanup.sh <<'EOF'
+#! /bin/sh
+trap 'echo Caught SIGINT; exit' INT
+trap 'echo Caught SIGTERM; sleep 1; echo Cleaned up; sleep 1; exit' TERM
+echo 'Ready for interrupt'
+for i in $(seq 10000); do
+  # If the signal interrupts the sleep, keep sleeping so that the SIGTERM
+  # cleanup can actually run.
+  sleep 1
+done
+EOF
+  chmod +x pkg/test_with_cleanup.sh
+
+  run_bazel_and_interrupt "Ready for interrupt" \
+      test --test_output=streamed --spawn_strategy="${strategy}" \
+      //pkg:test_with_cleanup
+}
+
+function test_sigint_not_graceful_by_default_local() {
+  [[ "$is_windows" == "true" ]] && return 0
+
+  do_sigint_test local '[]'
+  expect_not_log 'Caught SIGTERM'
+  expect_not_log 'Cleaned up'
+  expect_not_log 'Caught SIGINT'
+}
+
+function test_sigint_not_graceful_by_default_sandboxed() {
+  [[ "$is_windows" == "true" ]] && return 0
+
+  do_sigint_test sandboxed '[]'
+  if [[ "$(uname -s)" == "Linux" ]]; then
+    # TODO(jmmv): When using the linux-sandbox, interrupt termination is always
+    # graceful. Should homogenize behavior with the process-wrapper.
+    expect_log 'Caught SIGTERM'
+  else
+    expect_not_log 'Caught SIGTERM'
+    expect_not_log 'Cleaned up'
+    expect_not_log 'Caught SIGINT'
+  fi
+}
+
+function do_test_sigint_with_graceful_termination() {
+  local strategy="${1}"; shift
+
+  [[ "$is_windows" == "true" ]] && return 0
+
+  do_sigint_test "${strategy}" '["supports-graceful-termination"]'
+  expect_log 'Caught SIGTERM'
+  expect_log 'Cleaned up'
+  expect_not_log 'Caught SIGINT'
+}
+
+function test_sigint_with_graceful_termination_local() {
+  do_test_sigint_with_graceful_termination local
+}
+
+function test_sigint_with_graceful_termination_sandboxed() {
+  do_test_sigint_with_graceful_termination sandboxed
+}
+
 run_suite "test tests"

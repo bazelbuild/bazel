@@ -49,7 +49,7 @@ public final class CommandUsingProcessWrapperTest {
             .getPath(BlazeTestUtils.runfilesDir())
             .getRelative(TestConstants.PROCESS_WRAPPER_PATH),
         /*killDelay=*/ null,
-        /*extraFlags=*/ ImmutableList.of());
+        /*gracefulSigterm=*/ false);
   }
 
   private String getCpuTimeSpenderPath() {

@@ -354,6 +354,7 @@ public class LocalSpawnRunner implements SpawnRunner {
           ProcessWrapper.CommandLineBuilder commandLineBuilder =
               processWrapper
                   .commandLineBuilder(spawn.getArguments())
+                  .addExecutionInfo(spawn.getExecutionInfo())
                   .setTimeout(context.getTimeout());
           if (localExecutionOptions.collectLocalExecutionStatistics) {
             statisticsPath = tmpDir.getRelative("stats.out");

@@ -318,7 +318,9 @@ public class LocalSpawnRunnerTest {
 
   private static ProcessWrapper makeProcessWrapper(FileSystem fs, LocalExecutionOptions options) {
     return new ProcessWrapper(
-        fs.getPath("/process-wrapper"), options.getLocalSigkillGraceSeconds(), ImmutableList.of());
+        fs.getPath("/process-wrapper"),
+        options.getLocalSigkillGraceSeconds(),
+        /*gracefulSigterm=*/ false);
   }
 
   /**
@@ -915,9 +917,7 @@ public class LocalSpawnRunnerTest {
             LocalSpawnRunnerTest::keepLocalEnvUnchanged,
             binTools,
             new ProcessWrapper(
-                processWrapperPath,
-                /*killDelay=*/ Duration.ZERO,
-                /*extraFlags=*/ ImmutableList.of()),
+                processWrapperPath, /*killDelay=*/ Duration.ZERO, /*gracefulSigterm=*/ false),
             Mockito.mock(RunfilesTreeUpdater.class));
 
     Spawn spawn =
@@ -982,9 +982,7 @@ public class LocalSpawnRunnerTest {
             LocalSpawnRunnerTest::keepLocalEnvUnchanged,
             binTools,
             new ProcessWrapper(
-                processWrapperPath,
-                /*killDelay=*/ Duration.ZERO,
-                /*extraFlags=*/ ImmutableList.of()),
+                processWrapperPath, /*killDelay=*/ Duration.ZERO, /*gracefulSigterm=*/ false),
             Mockito.mock(RunfilesTreeUpdater.class));
 
     Spawn spawn =
