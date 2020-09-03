@@ -81,8 +81,8 @@ import org.junit.runners.JUnit4;
 public class StarlarkCcCommonTest extends BuildViewTestCase {
 
   @Before
-  public void setStarlarkSemanticsOptions() throws Exception {
-    this.setStarlarkSemanticsOptions(StarlarkCcCommonTestHelper.CC_STARLARK_WHITELIST_FLAG);
+  public void setBuildLanguageOptions() throws Exception {
+    this.setBuildLanguageOptions(StarlarkCcCommonTestHelper.CC_STARLARK_WHITELIST_FLAG);
     invalidatePackages();
 
     scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
@@ -1316,7 +1316,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                     CppRuleClasses.PIC,
                     CppRuleClasses.SUPPORTS_PIC,
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
-    this.setStarlarkSemanticsOptions("--incompatible_depset_for_libraries_to_link_getter");
+    this.setBuildLanguageOptions("--incompatible_depset_for_libraries_to_link_getter");
     setUpCcLinkingContextTest(false);
     ConfiguredTarget a = getConfiguredTarget("//a:a");
     StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
@@ -1430,7 +1430,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
       List<String> dynamicLibraryList)
       throws Exception {
     useConfiguration("--features=-supports_interface_shared_libraries");
-    this.setStarlarkSemanticsOptions("--incompatible_depset_for_libraries_to_link_getter");
+    this.setBuildLanguageOptions("--incompatible_depset_for_libraries_to_link_getter");
     setUpCcLinkingContextTest(false);
     ConfiguredTarget a = getConfiguredTarget("//a:a");
 
@@ -6364,7 +6364,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   /** Fixes #10580 */
   @Test
   public void testMixedLinkerInputsWithOwnerAndWithout() throws Exception {
-    setStarlarkSemanticsOptions("--noincompatible_require_linker_input_cc_api");
+    setBuildLanguageOptions("--noincompatible_require_linker_input_cc_api");
     setUpCcLinkingContextTest(false);
     scratch.file("foo/BUILD", "load(':rule.bzl', 'crule')", "crule(name='a')");
     scratch.file(

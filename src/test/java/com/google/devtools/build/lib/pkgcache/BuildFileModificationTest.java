@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -102,14 +102,14 @@ public class BuildFileModificationTest extends FoundationTestCase {
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     OptionsParser parser =
         OptionsParser.builder()
-            .optionsClasses(PackageOptions.class, StarlarkSemanticsOptions.class)
+            .optionsClasses(PackageOptions.class, BuildLanguageOptions.class)
             .build();
     setUpSkyframe(
-        parser.getOptions(PackageOptions.class), parser.getOptions(StarlarkSemanticsOptions.class));
+        parser.getOptions(PackageOptions.class), parser.getOptions(BuildLanguageOptions.class));
   }
 
   private void setUpSkyframe(
-      PackageOptions packageOptions, StarlarkSemanticsOptions starlarkSemanticsOptions) {
+      PackageOptions packageOptions, BuildLanguageOptions starlarkSemanticsOptions) {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             null,

@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
@@ -73,7 +73,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
                 ImmutableList.of(Root.fromPath(rootDirectory), Root.fromPath(alternativeRoot)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageOptions,
-            Options.getDefaults(StarlarkSemanticsOptions.class),
+            Options.getDefaults(BuildLanguageOptions.class),
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));

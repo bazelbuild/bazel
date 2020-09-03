@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-package com.google.devtools.build.lib.packages;
+package com.google.devtools.build.lib.packages.semantics;
 
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -28,7 +28,7 @@ import java.io.Serializable;
 import java.util.List;
 
 /**
- * Contains options that affect Starlark's semantics.
+ * Options that affect the semantics of Bazel's build language.
  *
  * <p>These are injected into Skyframe (as an instance of {@link StarlarkSemantics}) when a new
  * build invocation occurs. Changing these options between builds will therefore trigger a
@@ -59,7 +59,9 @@ import java.util.List;
  * must be kept consistent; to make it easy we use alphabetic order. The parts that need updating
  * are marked with the comment "<== Add new options here in alphabetic order ==>".
  */
-public class StarlarkSemanticsOptions extends OptionsBase implements Serializable {
+// TODO(adonovan): define "class BuildLanguageSemantics extends StarlarkSemantics"
+// and move all Bazelisms into it. See StarlarkSemantics for details.
+public class BuildLanguageOptions extends OptionsBase implements Serializable {
 
   // <== Add new options here in alphabetic order ==>
 

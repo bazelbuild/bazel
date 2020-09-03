@@ -36,8 +36,8 @@ import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.LoadingMock;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
@@ -479,7 +479,7 @@ public class IncrementalLoadingTest {
               ImmutableList.of(Root.fromPath(workspace)),
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
           packageOptions,
-          Options.getDefaults(StarlarkSemanticsOptions.class),
+          Options.getDefaults(BuildLanguageOptions.class),
           UUID.randomUUID(),
           ImmutableMap.<String, String>of(),
           new TimestampGranularityMonitor(BlazeClock.instance()));
@@ -569,7 +569,7 @@ public class IncrementalLoadingTest {
               ImmutableList.of(Root.fromPath(workspace)),
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
           packageOptions,
-          Options.getDefaults(StarlarkSemanticsOptions.class),
+          Options.getDefaults(BuildLanguageOptions.class),
           UUID.randomUUID(),
           ImmutableMap.<String, String>of(),
           new TimestampGranularityMonitor(BlazeClock.instance()));

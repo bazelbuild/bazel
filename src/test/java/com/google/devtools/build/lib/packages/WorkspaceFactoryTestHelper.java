@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -116,15 +117,14 @@ class WorkspaceFactoryTestHelper {
   }
 
   protected void setStarlarkSemantics(String... options) throws Exception {
-    starlarkSemantics = parseStarlarkSemanticsOptions(options);
+    starlarkSemantics = parseBuildLanguageOptions(options);
   }
 
-  private static StarlarkSemantics parseStarlarkSemanticsOptions(String... options)
-      throws Exception {
+  private static StarlarkSemantics parseBuildLanguageOptions(String... options) throws Exception {
     OptionsParser parser =
-        OptionsParser.builder().optionsClasses(StarlarkSemanticsOptions.class).build();
+        OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
     parser.parse(options);
-    return parser.getOptions(StarlarkSemanticsOptions.class).toStarlarkSemantics();
+    return parser.getOptions(BuildLanguageOptions.class).toStarlarkSemantics();
   }
 
 }

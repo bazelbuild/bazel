@@ -27,7 +27,7 @@ java_library(
         ["*.java"],
         exclude = TYPE_SRCS + BUILD_TYPE_SRCS + [
             "BuilderFactoryForTesting.java",
-            "StarlarkSemanticsOptions.java",
+            "BuildLanguageOptions.java",
         ],
     ),
     deps = [
@@ -85,19 +85,6 @@ java_library(
     deps = [
         ":packages",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
-        "//third_party:guava",
-    ],
-)
-
-# This class is broken out of lib.packages because skydoc is not supposed to depend on lib.packages.
-# TODO(adonovan): rethink skydoc's dependency mess.
-java_library(
-    name = "starlark_semantics_options",
-    srcs = ["StarlarkSemanticsOptions.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
-        "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
     ],
 )

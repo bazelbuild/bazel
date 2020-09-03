@@ -45,8 +45,8 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
@@ -1285,7 +1285,7 @@ public class LoadingPhaseRunnerTest {
       skyframeExecutor.preparePackageLoading(
           pkgLocator,
           packageOptions,
-          Options.getDefaults(StarlarkSemanticsOptions.class),
+          Options.getDefaults(BuildLanguageOptions.class),
           UUID.randomUUID(),
           ImmutableMap.<String, String>of(),
           new TimestampGranularityMonitor(clock));

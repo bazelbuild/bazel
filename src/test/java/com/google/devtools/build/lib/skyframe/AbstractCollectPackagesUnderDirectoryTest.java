@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.BuildFileName;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
@@ -305,7 +305,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
         reporter,
         packageOptions,
         pathPackageLocator,
-        Options.getDefaults(StarlarkSemanticsOptions.class),
+        Options.getDefaults(BuildLanguageOptions.class),
         UUID.randomUUID(),
         /*clientEnv=*/ ImmutableMap.of(),
         new TimestampGranularityMonitor(BlazeClock.instance()),

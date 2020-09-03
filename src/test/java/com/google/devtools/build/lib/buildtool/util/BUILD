@@ -63,7 +63,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/network:connectivity_status",
         "//src/main/java/com/google/devtools/build/lib/network:noop_connectivity",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:starlark_semantics_options",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/query2",

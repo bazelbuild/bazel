@@ -122,8 +122,8 @@ import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -1352,7 +1352,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   public void preparePackageLoading(
       PathPackageLocator pkgLocator,
       PackageOptions packageOptions,
-      StarlarkSemanticsOptions starlarkSemanticsOptions,
+      BuildLanguageOptions starlarkSemanticsOptions,
       UUID commandId,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm) {
@@ -1400,7 +1400,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   public StarlarkSemantics getEffectiveStarlarkSemantics(
-      StarlarkSemanticsOptions starlarkSemanticsOptions) {
+      BuildLanguageOptions starlarkSemanticsOptions) {
     return starlarkSemanticsOptions.toStarlarkSemantics();
   }
 
@@ -2638,7 +2638,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       ExtendedEventHandler eventHandler,
       PackageOptions packageOptions,
       PathPackageLocator pathPackageLocator,
-      StarlarkSemanticsOptions starlarkSemanticsOptions,
+      BuildLanguageOptions starlarkSemanticsOptions,
       UUID commandId,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm,
@@ -2690,7 +2690,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   protected void syncPackageLoading(
       PackageOptions packageOptions,
       PathPackageLocator pathPackageLocator,
-      StarlarkSemanticsOptions starlarkSemanticsOptions,
+      BuildLanguageOptions starlarkSemanticsOptions,
       UUID commandId,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm,

@@ -24,14 +24,15 @@ import java.util.List;
 /**
  * Options that affect the dynamic behavior of Starlark execution and operators.
  *
- * <p>For descriptions of what these options do, see {@link packages.StarlarkSemanticsOptions}.
+ * <p>For descriptions of what these options do, see {@link
+ * packages.semantics.BuildLanguageOptions}.
  *
  * <p>For options that affect the static behavior of the Starlark frontend (lexer, parser,
  * validator, compiler), see FileOptions.
  */
 // TODO(brandjon): User error messages that reference options should maybe be substituted with the
 // option name outside of the core Starlark interpreter?
-// TODO(brandjon): Eventually these should be documented in full here, and StarlarkSemanticsOptions
+// TODO(brandjon): Eventually these should be documented in full here, and BuildLanguageOptions
 // should refer to this class for documentation. But this doesn't play nice with the options
 // parser's annotation mechanism.
 //

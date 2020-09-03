@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-package com.google.devtools.build.lib.packages;
+package com.google.devtools.build.lib.packages.semantics;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -33,18 +33,18 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Tests for the flow of flags from {@link StarlarkSemanticsOptions} to {@link StarlarkSemantics},
- * and to and from {@code StarlarkSemantics}' serialized representation.
+ * Tests for the flow of flags from {@link BuildLanguageOptions} to {@link StarlarkSemantics}, and
+ * to and from {@code StarlarkSemantics}' serialized representation.
  *
  * <p>When adding a new option, it is trivial to make a transposition error or a copy/paste error.
  * These tests guard against such errors. The following possible bugs are considered:
  *
  * <ul>
  *   <li>If a new option is added to {@code StarlarkSemantics} but not to {@code
- *       StarlarkSemanticsOptions}, or vice versa, then the programmer will either be unable to
+ *       BuildLanguageOptions}, or vice versa, then the programmer will either be unable to
  *       implement its behavior, or unable to test it from the command line and add user
  *       documentation. We hope that the programmer notices this on their own.
- *   <li>If {@link StarlarkSemanticsOptions#toStarlarkSemantics} is not updated to set all fields of
+ *   <li>If {@link BuildLanguageOptions#toStarlarkSemantics} is not updated to set all fields of
  *       {@code StarlarkSemantics}, then it will fail immediately because all fields of {@link
  *       StarlarkSemantics.Builder} are mandatory.
  *   <li>To catch a copy/paste error where the wrong field's data is threaded through {@code
@@ -57,19 +57,19 @@ import org.junit.runners.JUnit4;
  * </ul>
  */
 @RunWith(JUnit4.class)
-public class StarlarkSemanticsConsistencyTest {
+public class ConsistencyTest {
 
   private static final int NUM_RANDOM_TRIALS = 10;
 
   /**
-   * Checks that a randomly generated {@link StarlarkSemanticsOptions} object can be converted to a
+   * Checks that a randomly generated {@link BuildLanguageOptions} object can be converted to a
    * {@link StarlarkSemantics} object with the same field values.
    */
   @Test
   public void optionsToSemantics() throws Exception {
     for (int i = 0; i < NUM_RANDOM_TRIALS; i++) {
       long seed = i;
-      StarlarkSemanticsOptions options = buildRandomOptions(new Random(seed));
+      BuildLanguageOptions options = buildRandomOptions(new Random(seed));
       StarlarkSemantics semantics = buildRandomSemantics(new Random(seed));
       StarlarkSemantics semanticsFromOptions = options.toStarlarkSemantics();
       assertThat(semanticsFromOptions).isEqualTo(semantics);
@@ -97,7 +97,7 @@ public class StarlarkSemanticsConsistencyTest {
 
   @Test
   public void checkDefaultsMatch() {
-    StarlarkSemanticsOptions defaultOptions = Options.getDefaults(StarlarkSemanticsOptions.class);
+    BuildLanguageOptions defaultOptions = Options.getDefaults(BuildLanguageOptions.class);
     StarlarkSemantics defaultSemantics = StarlarkSemantics.DEFAULT;
     StarlarkSemantics semanticsFromOptions = defaultOptions.toStarlarkSemantics();
     assertThat(semanticsFromOptions).isEqualTo(defaultSemantics);
@@ -112,11 +112,10 @@ public class StarlarkSemanticsConsistencyTest {
   }
 
   /**
-   * Constructs a {@link StarlarkSemanticsOptions} object with random fields. Must access {@code
-   * rand} using the same sequence of operations (for the same fields) as {@link
-   * #buildRandomSemantics}.
+   * Constructs a {@link BuildLanguageOptions} object with random fields. Must access {@code rand}
+   * using the same sequence of operations (for the same fields) as {@link #buildRandomSemantics}.
    */
-  private static StarlarkSemanticsOptions buildRandomOptions(Random rand) throws Exception {
+  private static BuildLanguageOptions buildRandomOptions(Random rand) throws Exception {
     return parseOptions(
         // <== Add new options here in alphabetic order ==>
         "--experimental_disable_external_package=" + rand.nextBoolean(),
@@ -211,13 +210,13 @@ public class StarlarkSemanticsConsistencyTest {
         .build();
   }
 
-  private static StarlarkSemanticsOptions parseOptions(String... args) throws Exception {
+  private static BuildLanguageOptions parseOptions(String... args) throws Exception {
     OptionsParser parser =
         OptionsParser.builder()
-            .optionsClasses(StarlarkSemanticsOptions.class)
+            .optionsClasses(BuildLanguageOptions.class)
             .allowResidue(false)
             .build();
     parser.parse(Arrays.asList(args));
-    return parser.getOptions(StarlarkSemanticsOptions.class);
+    return parser.getOptions(BuildLanguageOptions.class);
   }
 }

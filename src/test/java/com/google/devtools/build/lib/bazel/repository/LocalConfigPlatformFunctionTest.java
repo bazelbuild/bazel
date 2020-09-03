@@ -178,7 +178,7 @@ public class LocalConfigPlatformFunctionTest {
           "    constraints = HOST_CONSTRAINTS,",
           ")");
 
-      setStarlarkSemanticsOptions("--experimental_platforms_api");
+      setBuildLanguageOptions("--experimental_platforms_api");
       ConfiguredTarget platform = getConfiguredTarget("//test/platform:custom");
       assertThat(platform).isNotNull();
 

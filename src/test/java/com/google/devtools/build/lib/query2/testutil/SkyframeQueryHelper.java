@@ -30,8 +30,8 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -291,7 +291,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
           getReporter(),
           packageOptions,
           packageLocator,
-          Options.getDefaults(StarlarkSemanticsOptions.class),
+          Options.getDefaults(BuildLanguageOptions.class),
           UUID.randomUUID(),
           ImmutableMap.<String, String>of(),
           new TimestampGranularityMonitor(BlazeClock.instance()),

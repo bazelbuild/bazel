@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -107,13 +107,13 @@ public class PackageFactoryApparatus {
       throws Exception {
 
     OptionsParser parser =
-        OptionsParser.builder().optionsClasses(StarlarkSemanticsOptions.class).build();
+        OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
     parser.parse(
         starlarkOption == null
             ? ImmutableList.<String>of()
             : ImmutableList.<String>of(starlarkOption));
     StarlarkSemantics semantics =
-        parser.getOptions(StarlarkSemanticsOptions.class).toStarlarkSemantics();
+        parser.getOptions(BuildLanguageOptions.class).toStarlarkSemantics();
 
     try {
       Package externalPkg =

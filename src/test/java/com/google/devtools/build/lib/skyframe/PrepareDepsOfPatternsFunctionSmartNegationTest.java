@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
@@ -104,7 +104,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
             ImmutableList.of(Root.fromPath(rootDirectory)),
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
         Options.getDefaults(PackageOptions.class),
-        Options.getDefaults(StarlarkSemanticsOptions.class),
+        Options.getDefaults(BuildLanguageOptions.class),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(null));

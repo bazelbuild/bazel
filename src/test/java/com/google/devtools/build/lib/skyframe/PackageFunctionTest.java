@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
@@ -107,11 +107,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   private void preparePackageLoading(Path... roots) {
     preparePackageLoadingWithCustomStarklarkSemanticsOptions(
-        Options.getDefaults(StarlarkSemanticsOptions.class), roots);
+        Options.getDefaults(BuildLanguageOptions.class), roots);
   }
 
   private void preparePackageLoadingWithCustomStarklarkSemanticsOptions(
-      StarlarkSemanticsOptions starlarkSemanticsOptions, Path... roots) {
+      BuildLanguageOptions starlarkSemanticsOptions, Path... roots) {
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
     packageOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
     packageOptions.showLoadingProgress = true;
@@ -450,7 +450,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageOptions,
-            Options.getDefaults(StarlarkSemanticsOptions.class),
+            Options.getDefaults(BuildLanguageOptions.class),
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
             tsgm);
@@ -963,7 +963,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   @Test
   public void testGlobAllowEmpty_starlarkOption() throws Exception {
     preparePackageLoadingWithCustomStarklarkSemanticsOptions(
-        Options.parse(StarlarkSemanticsOptions.class, "--incompatible_disallow_empty_glob=false")
+        Options.parse(BuildLanguageOptions.class, "--incompatible_disallow_empty_glob=false")
             .getOptions(),
         rootDirectory);
 
@@ -1006,7 +1006,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   @Test
   public void testGlobDisallowEmpty_starlarkOption_wasNonEmptyAndBecomesEmpty() throws Exception {
     preparePackageLoadingWithCustomStarklarkSemanticsOptions(
-        Options.parse(StarlarkSemanticsOptions.class, "--incompatible_disallow_empty_glob=true")
+        Options.parse(BuildLanguageOptions.class, "--incompatible_disallow_empty_glob=true")
             .getOptions(),
         rootDirectory);
 
@@ -1065,7 +1065,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   @Test
   public void testGlobDisallowEmpty_starlarkOption_wasEmptyAndStaysEmpty() throws Exception {
     preparePackageLoadingWithCustomStarklarkSemanticsOptions(
-        Options.parse(StarlarkSemanticsOptions.class, "--incompatible_disallow_empty_glob=true")
+        Options.parse(BuildLanguageOptions.class, "--incompatible_disallow_empty_glob=true")
             .getOptions(),
         rootDirectory);
 
@@ -1129,7 +1129,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   public void testGlobDisallowEmpty_starlarkOption_wasEmptyDueToExcludeAndStaysEmpty()
       throws Exception {
     preparePackageLoadingWithCustomStarklarkSemanticsOptions(
-        Options.parse(StarlarkSemanticsOptions.class, "--incompatible_disallow_empty_glob=true")
+        Options.parse(BuildLanguageOptions.class, "--incompatible_disallow_empty_glob=true")
             .getOptions(),
         rootDirectory);
 
@@ -1190,7 +1190,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   @Test
   public void testGlobDisallowEmpty_starlarkOption_wasEmptyAndBecomesNonEmpty() throws Exception {
     preparePackageLoadingWithCustomStarklarkSemanticsOptions(
-        Options.parse(StarlarkSemanticsOptions.class, "--incompatible_disallow_empty_glob=true")
+        Options.parse(BuildLanguageOptions.class, "--incompatible_disallow_empty_glob=true")
             .getOptions(),
         rootDirectory);
 
