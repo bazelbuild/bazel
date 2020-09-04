@@ -55,9 +55,10 @@ import net.starlark.java.annot.StarlarkMethod;
             + "# Slice steps can be used, too:\n"
             + "s = \"hello\"[::2] # \"hlo\"\n"
             + "t = \"hello\"[3:0:-1] # \"lle\"\n</pre>"
-            + "Strings are iterable and support the <code>in</code> operator. Examples:<br>"
+            + "Strings are not directly iterable, use the <code>.elems()</code> "
+            + "method to iterate over their characters. Examples:<br>"
             + "<pre class=\"language-python\">\"bc\" in \"abcd\"   # evaluates to True\n"
-            + "x = [s for s in \"abc\"]  # x == [\"a\", \"b\", \"c\"]</pre>\n"
+            + "x = [s for s.elems() in \"abc\"]  # x == [\"a\", \"b\", \"c\"]</pre>\n"
             + "Implicit concatenation of strings is not allowed; use the <code>+</code> "
             + "operator instead. Comparison operators perform a lexicographical comparison; "
             + "use <code>==</code> to test for equality.")
