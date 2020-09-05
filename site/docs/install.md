@@ -5,13 +5,16 @@ title: Installing Bazel
 
 # Installing Bazel
 
-See the instructions for installing Bazel on:
+The Bazel team officially supports Bazel on the following platforms. See the instructions for installing Bazel on:
 
 *   [Ubuntu Linux](install-ubuntu.md)
 *   [macOS](install-os-x.md)
 *   [Windows](install-windows.md)
 
 ## Community-supported packages
+
+These packages are maintained by Bazel community members and are not officially supported by the Bazel Team. Please 
+reach out to the respective package maintainers for support and questions.
 
 *   [Arch Linux](https://www.archlinux.org/packages/community/x86_64/bazel/)
 *   [Fedora 25, 26, 27, 28, and CentOS 7](install-redhat.md)
@@ -25,7 +28,7 @@ See the instructions for installing Bazel on:
 *   [Scoop](https://github.com/scoopinstaller/scoop-main/blob/master/bucket/bazel.json)
 
 ## Community-supported architectures
-*   [ppc64le](https://oplab9.parqtec.unicamp.br/pub/ppc64el/bazel)
 
+*   [ppc64le](https://oplab9.parqtec.unicamp.br/pub/ppc64el/bazel)
 
 For other platforms, you can try to [compile from source](install-compile-source.md).
