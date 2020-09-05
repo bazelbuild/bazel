@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.windows.jni.WindowsFileOperations;
 import com.google.devtools.common.options.OptionsProvider;
 import com.sun.nio.file.ExtendedWatchEventModifier;
 import java.io.IOException;
@@ -120,24 +121,7 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
     Set<Path> modifiedAbsolutePaths;
     if (isFirstCall()) {
       try {
-        // Due to a known issue nested watches may result in errors on windows:
-        // https://bugs.openjdk.java.net/browse/JDK-6972833
-        // Therefore on windows we register using the special ExtendedWatchEventModifier.FILE_TREE
-        // This watches a folder recursively so there is no need to apply this ourselves
-        if (isWindows) {
-          WatchKey key =
-              watchRootPath.register(
-                  watchService,
-                  new Kind<?>[] {
-                    StandardWatchEventKinds.ENTRY_CREATE,
-                    StandardWatchEventKinds.ENTRY_MODIFY,
-                    StandardWatchEventKinds.ENTRY_DELETE,
-                  },
-                  ExtendedWatchEventModifier.FILE_TREE);
-          watchKeyToDirBiMap.put(key, watchRootPath);
-        } else {
-          registerSubDirectoriesAndReturnContents(watchRootPath);
-        }
+        registerSubDirectories(watchRootPath);
       } catch (IOException e) {
         close();
         throw new BrokenDiffAwarenessException(
@@ -273,6 +257,12 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
     return changedPaths;
   }
 
+  /** Traverses directory tree to register subdirectories. */
+  private void registerSubDirectories(Path rootDir) throws IOException {
+    // Note that this does not follow symlinks.
+    Files.walkFileTree(rootDir, new WatcherFileVisitor());
+  }
+
   /**
    * Traverses directory tree to register subdirectories. Returns all paths traversed (as absolute
    * paths).
@@ -288,9 +278,16 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
   private class WatcherFileVisitor extends SimpleFileVisitor<Path> {
 
     private final Set<Path> visitedAbsolutePaths;
+    private final boolean visitedPathsUsed;
 
     private WatcherFileVisitor(Set<Path> visitedPaths) {
       this.visitedAbsolutePaths = visitedPaths;
+      this.visitedPathsUsed = true;
+    }
+
+    private WatcherFileVisitor() {
+      this.visitedAbsolutePaths = new HashSet<>();
+      this.visitedPathsUsed = false;
     }
 
     @Override
@@ -308,9 +305,8 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
       // Otherwise, e.g., an intra-build creation of a child directory will be forever missed if it
       // happens before the directory is listed as part of the visitation.
       Preconditions.checkState(path.isAbsolute(), path);
-      // On windows we register the root path with ExtendedWatchEventModifier.FILE_TREE
-      // Therefore there is no need to register recursive watchers
-      if (!isWindows) {
+      
+      if (!isWindows || path.equals(watchRootPath)) {
         WatchKey key =
             path.register(
                 watchService,
@@ -318,6 +314,35 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
                 StandardWatchEventKinds.ENTRY_MODIFY,
                 StandardWatchEventKinds.ENTRY_DELETE);
         watchKeyToDirBiMap.put(key, path);
+      } else if (path.getParent().equals(watchRootPath)) {
+        // Due to a known issue nested watches may result in errors on windows:
+        // https://bugs.openjdk.java.net/browse/JDK-6972833
+        // Therefore on windows we register using the special ExtendedWatchEventModifier.FILE_TREE
+        
+        // We should not register the recursive watcher on the root folder because this results
+        // in watching the bazel-* convenience symlinks as well. Therefore we register a non-recursive 
+        // watch on the root, and register recursive watches for all direct subdirectories.
+
+        // Do not watch the bazel-* convencience symlinks
+        if (WindowsFileOperations.isSymlinkOrJunction(path.toString())) {
+          return FileVisitResult.SKIP_SUBTREE;
+        }
+
+        WatchKey key =
+            path.register(
+                watchService,
+                new Kind<?>[] {
+                  StandardWatchEventKinds.ENTRY_CREATE,
+                  StandardWatchEventKinds.ENTRY_MODIFY,
+                  StandardWatchEventKinds.ENTRY_DELETE,
+                },
+                ExtendedWatchEventModifier.FILE_TREE);
+        watchKeyToDirBiMap.put(key, path);
+
+        // Our watcher will handle the subtree. Only continue when collecting visitedAbsolutePaths
+        if (!visitedPathsUsed) {
+          return FileVisitResult.SKIP_SUBTREE;
+        }
       }
       visitedAbsolutePaths.add(path);
       return FileVisitResult.CONTINUE;

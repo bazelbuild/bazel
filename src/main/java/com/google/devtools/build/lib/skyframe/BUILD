@@ -1560,6 +1560,7 @@ java_library(
         ":diff_awareness",
         ":incompatible_view_exception",
         "//src/main/java/com/google/devtools/build/lib/unix/jni",
+        "//src/main/java/com/google/devtools/build/lib/windows/jni",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
