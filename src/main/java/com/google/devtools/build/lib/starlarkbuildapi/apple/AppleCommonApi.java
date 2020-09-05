@@ -385,7 +385,7 @@ public interface AppleCommonApi<
   @StarlarkMethod(
       name = "objc_proto_aspect",
       doc =
-          "objc_proto_aspect gathers the proto dependencies of the attached rule target,and"
+          "objc_proto_aspect gathers the proto dependencies of the attached rule target, and"
               + " propagates the proto values of its dependencies through the ObjcProto provider.",
       structField = true)
   StarlarkAspectApi getObjcProtoAspect();
