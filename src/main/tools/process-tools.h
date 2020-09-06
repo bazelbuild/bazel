@@ -55,12 +55,13 @@ void ClearSignalMask();
 void SetTimeout(double timeout_secs);
 
 // Wait for "pid" to exit and return its exit code.
-int WaitChild(pid_t pid, bool wait_fix);
+int WaitChild(pid_t pid, bool child_subreaper_enabled);
 
 // Wait for "pid" to exit and return its exit code.
 // Resource usage is returned in "rusage" regardless of the exit status of the
 // child process.
-int WaitChildWithRusage(pid_t pid, struct rusage *rusage, bool wait_fix);
+int WaitChildWithRusage(pid_t pid, struct rusage *rusage,
+                        bool child_subreaper_enabled);
 
 // Write execution statistics to a file.
 void WriteStatsToFile(struct rusage *rusage, const std::string &stats_path);

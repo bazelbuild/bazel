@@ -20,7 +20,6 @@ import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -86,6 +85,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -104,7 +104,7 @@ public class FileFunctionTest {
       EvaluationContext.newBuilder()
           .setKeepGoing(false)
           .setNumThreads(DEFAULT_THREAD_COUNT)
-          .setEventHander(NullEventHandler.INSTANCE)
+          .setEventHandler(NullEventHandler.INSTANCE)
           .build();
 
   private InMemoryFileSystem fs;
@@ -202,7 +202,7 @@ public class FileFunctionTest {
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
-        differencer, Optional.absent());
+        differencer, Optional.empty());
     return new SequentialBuildDriver(evaluator);
   }
 
@@ -902,7 +902,7 @@ public class FileFunctionTest {
   }
 
   @Test
-  public void testFilesystemInconsistencies_GetFastDigest() throws Exception {
+  public void testFilesystemInconsistencies_getFastDigest() throws Exception {
     CustomInMemoryFs fs = (CustomInMemoryFs) this.fs;
     file("a");
     // Our custom filesystem says "a/b" exists but "a" does not exist.
@@ -919,7 +919,7 @@ public class FileFunctionTest {
   }
 
   @Test
-  public void testFilesystemInconsistencies_GetFastDigestAndIsReadableFailure() throws Exception {
+  public void testFilesystemInconsistencies_getFastDigestAndIsReadableFailure() throws Exception {
     createFsAndRoot(
         new CustomInMemoryFs(manualClock) {
           @Override
@@ -1011,7 +1011,7 @@ public class FileFunctionTest {
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
             .setNumThreads(DEFAULT_THREAD_COUNT)
-            .setEventHander(eventHandler)
+            .setEventHandler(eventHandler)
             .build();
     EvaluationResult<FileValue> result = driver.evaluate(keys, evaluationContext);
     assertThat(result.hasError()).isTrue();
@@ -1033,22 +1033,22 @@ public class FileFunctionTest {
   }
 
   @Test
-  public void testSymlinkCycle_AncestorCycle_StartInCycle() throws Exception {
+  public void testSymlinkCycle_ancestorCycle_startInCycle() throws Exception {
     runTestSymlinkCycle(/*ancestorCycle=*/ true, /*startInCycle=*/ true);
   }
 
   @Test
-  public void testSymlinkCycle_AncestorCycle_StartOutOfCycle() throws Exception {
+  public void testSymlinkCycle_ancestorCycle_startOutOfCycle() throws Exception {
     runTestSymlinkCycle(/*ancestorCycle=*/ true, /*startInCycle=*/ false);
   }
 
   @Test
-  public void testSymlinkCycle_RegularCycle_StartInCycle() throws Exception {
+  public void testSymlinkCycle_regularCycle_startInCycle() throws Exception {
     runTestSymlinkCycle(/*ancestorCycle=*/ false, /*startInCycle=*/ true);
   }
 
   @Test
-  public void testSymlinkCycle_RegularCycle_StartOutOfCycle() throws Exception {
+  public void testSymlinkCycle_regularCycle_startOutOfCycle() throws Exception {
     runTestSymlinkCycle(/*ancestorCycle=*/ false, /*startInCycle=*/ false);
   }
 
@@ -1161,7 +1161,7 @@ public class FileFunctionTest {
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
             .setNumThreads(DEFAULT_THREAD_COUNT)
-            .setEventHander(eventHandler)
+            .setEventHandler(eventHandler)
             .build();
     EvaluationResult<FileValue> result = driver.evaluate(keys, evaluationContext);
     assertThat(result.hasError()).isTrue();
@@ -1181,30 +1181,30 @@ public class FileFunctionTest {
   }
 
   @Test
-  public void testInfiniteSymlinkExpansion_AbsoluteSymlinkToDescendant() throws Exception {
+  public void testInfiniteSymlinkExpansion_absoluteSymlinkToDescendant() throws Exception {
     runTestSimpleInfiniteSymlinkExpansion(
         /* symlinkToAncestor= */ false, /*absoluteSymlink=*/ true);
   }
 
   @Test
-  public void testInfiniteSymlinkExpansion_RelativeSymlinkToDescendant() throws Exception {
+  public void testInfiniteSymlinkExpansion_relativeSymlinkToDescendant() throws Exception {
     runTestSimpleInfiniteSymlinkExpansion(
         /* symlinkToAncestor= */ false, /*absoluteSymlink=*/ false);
   }
 
   @Test
-  public void testInfiniteSymlinkExpansion_AbsoluteSymlinkToAncestor() throws Exception {
+  public void testInfiniteSymlinkExpansion_absoluteSymlinkToAncestor() throws Exception {
     runTestSimpleInfiniteSymlinkExpansion(/* symlinkToAncestor= */ true, /*absoluteSymlink=*/ true);
   }
 
   @Test
-  public void testInfiniteSymlinkExpansion_RelativeSymlinkToAncestor() throws Exception {
+  public void testInfiniteSymlinkExpansion_relativeSymlinkToAncestor() throws Exception {
     runTestSimpleInfiniteSymlinkExpansion(
         /* symlinkToAncestor= */ true, /*absoluteSymlink=*/ false);
   }
 
   @Test
-  public void testInfiniteSymlinkExpansion_SymlinkToReferrerToAncestor() throws Exception {
+  public void testInfiniteSymlinkExpansion_symlinkToReferrerToAncestor() throws Exception {
     symlink("d", "a");
     Path abPath = directory("a/b");
     Path abcPath = abPath.getChild("c");
@@ -1222,7 +1222,7 @@ public class FileFunctionTest {
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
             .setNumThreads(DEFAULT_THREAD_COUNT)
-            .setEventHander(eventHandler)
+            .setEventHandler(eventHandler)
             .build();
     EvaluationResult<FileValue> result =
         driver.evaluate(ImmutableList.of(keyABC), evaluationContext);
@@ -1246,7 +1246,7 @@ public class FileFunctionTest {
   }
 
   @Test
-  public void testInfiniteSymlinkExpansion_SymlinkToReferrerToAncestor_LevelsOfDirectorySymlinks()
+  public void testInfiniteSymlinkExpansion_symlinkToReferrerToAncestor_levelsOfDirectorySymlinks()
       throws Exception {
     symlink("dir1/a", "../dir2");
     symlink("dir2/b", "../dir1");
@@ -1265,7 +1265,7 @@ public class FileFunctionTest {
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
             .setNumThreads(DEFAULT_THREAD_COUNT)
-            .setEventHander(eventHandler)
+            .setEventHandler(eventHandler)
             .build();
     EvaluationResult<FileValue> result =
         driver.evaluate(ImmutableList.of(keyDir1AB), evaluationContext);
@@ -1308,7 +1308,7 @@ public class FileFunctionTest {
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
             .setNumThreads(1)
-            .setEventHander(NullEventHandler.INSTANCE)
+            .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     EvaluationResult<FileValue> result =
         driver.evaluate(ImmutableList.of(fooKey), evaluationContext);
@@ -1331,7 +1331,7 @@ public class FileFunctionTest {
   }
 
   @Test
-  public void testMultipleLevelsOfDirectorySymlinks_Clean() throws Exception {
+  public void testMultipleLevelsOfDirectorySymlinks_clean() throws Exception {
     symlink("a/b/c", "../c");
     Path abcd = path("a/b/c/d");
     symlink("a/c/d", "../d");
@@ -1339,7 +1339,7 @@ public class FileFunctionTest {
   }
 
   @Test
-  public void testMultipleLevelsOfDirectorySymlinks_Incremental() throws Exception {
+  public void testMultipleLevelsOfDirectorySymlinks_incremental() throws Exception {
     SequentialBuildDriver driver = makeDriver();
 
     symlink("a/b/c", "../c");
@@ -1377,7 +1377,7 @@ public class FileFunctionTest {
   }
 
   @Test
-  public void testLogicalChainDuringResolution_Directory_SimpleSymlink() throws Exception {
+  public void testLogicalChainDuringResolution_directory_simpleSymlink() throws Exception {
     symlink("a", "b");
     symlink("b", "c");
     directory("c");
@@ -1390,7 +1390,7 @@ public class FileFunctionTest {
   }
 
   @Test
-  public void testLogicalChainDuringResolution_Directory_SimpleAncestorSymlink() throws Exception {
+  public void testLogicalChainDuringResolution_directory_simpleAncestorSymlink() throws Exception {
     symlink("a", "b");
     symlink("b", "c");
     directory("c/d");
@@ -1403,7 +1403,7 @@ public class FileFunctionTest {
   }
 
   @Test
-  public void testLogicalChainDuringResolution_File_SimpleSymlink() throws Exception {
+  public void testLogicalChainDuringResolution_file_simpleSymlink() throws Exception {
     symlink("a", "b");
     symlink("b", "c");
     file("c");
@@ -1414,7 +1414,7 @@ public class FileFunctionTest {
   }
 
   @Test
-  public void testLogicalChainDuringResolution_File_SimpleAncestorSymlink() throws Exception {
+  public void testLogicalChainDuringResolution_file_simpleAncestorSymlink() throws Exception {
     symlink("a", "b");
     symlink("b", "c");
     file("c/d");
@@ -1425,7 +1425,7 @@ public class FileFunctionTest {
   }
 
   @Test
-  public void testLogicalChainDuringResolution_Complicated() throws Exception {
+  public void testLogicalChainDuringResolution_complicated() throws Exception {
     symlink("a", "b");
     symlink("b", "c");
     directory("c");

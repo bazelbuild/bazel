@@ -13,171 +13,227 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Comparator.comparing;
 
-import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.build.lib.util.io.FileOutErr;
-import com.google.devtools.build.lib.util.io.FileOutErr.OutputReference;
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 /**
- * An event is a situation encountered by the build system that's worth
- * reporting: A 3-tuple of ({@link EventKind}, {@link Location}, message).
+ * A situation encountered by the build system that's worth reporting.
+ *
+ * <p>An event specifies an {@link EventKind}, a message, and (optionally) additional properties.
+ *
+ * <p>Although this is serializable, use caution if {@link Class}es with the same name and different
+ * classloaders are expected to be found in the same event's properties. Common class object
+ * serialization techniques ignore classloaders, so duplicate entry keys may be deserialized,
+ * violating assumptions.
  */
 @Immutable
 public final class Event implements Serializable {
-  private final EventKind kind;
-  private final Location location;
-  private final String message;
-  @Nullable private final FileOutErr outErr;
-
-  /**
-   * An alternative representation for message.
-   *
-   * <p>Exactly one of message or messageBytes will be non-null. If messageBytes is non-null, then
-   * it contains the UTF-8-encoded bytes of the message. We do this to avoid converting back and
-   * forth between Strings and bytes.
-   */
-  private final byte[] messageBytes;
-
-  @Nullable
-  private final String tag;
-
   private int hashCode;
 
-  private Event(
-      EventKind kind,
-      @Nullable Location location,
-      String message,
-      @Nullable String tag,
-      @Nullable FileOutErr outErr) {
-    this.kind = Preconditions.checkNotNull(kind);
-    this.location = location;
-    this.message = Preconditions.checkNotNull(message);
-    this.messageBytes = null;
-    this.tag = tag;
-    this.outErr = outErr;
-  }
+  private final EventKind kind;
 
-  private Event(
-      EventKind kind,
-      @Nullable Location location,
-      byte[] messageBytes,
-      @Nullable String tag,
-      @Nullable FileOutErr outErr) {
-    this.kind = Preconditions.checkNotNull(kind);
-    this.location = location;
-    this.message = null;
-    this.messageBytes = Preconditions.checkNotNull(messageBytes);
-    this.tag = tag;
-    this.outErr = outErr;
-  }
+  /**
+   * This field has type {@link String} or {@link byte[]}.
+   *
+   * <p>If this field is a byte array then it contains the UTF-8-encoded bytes of a message. This
+   * optimization avoids converting back and forth between strings and bytes.
+   */
+  private final Object message;
 
-  public Event withTag(String tag) {
-    if (Objects.equals(tag, this.tag)) {
-      return this;
-    }
-    if (this.message != null) {
-      return new Event(this.kind, this.location, this.message, tag, this.outErr);
-    } else {
-      return new Event(this.kind, this.location, this.messageBytes, tag, this.outErr);
-    }
-  }
+  /**
+   * This map's entries are ordered by {@link Class#getName}.
+   *
+   * <p>That is not a total ordering because of classloaders. The order of entries whose key names
+   * are equal is not deterministic.
+   */
+  private final ImmutableClassToInstanceMap<Object> properties;
 
-  public Event withStdoutStderr(FileOutErr outErr) {
-    if (this.message != null) {
-      return new Event(this.kind, this.location, this.message, this.tag, outErr);
-    } else {
-      return new Event(this.kind, this.location, this.messageBytes, this.tag, outErr);
-    }
-  }
-
-  public String getMessage() {
-    return message != null ? message : new String(messageBytes, UTF_8);
-  }
-
-  public byte[] getMessageBytes() {
-    return messageBytes != null ? messageBytes : message.getBytes(UTF_8);
-  }
-
-  /** Provide the message as a reference object. */
-  public OutputReference getMessageReference() {
-    // The message is short and we have it in memory anyway; so just wrap it into
-    // the common interface.
-    return new ArrayOutputReference(getMessageBytes());
+  private Event(EventKind kind, Object message, ImmutableClassToInstanceMap<Object> properties) {
+    this.kind = checkNotNull(kind);
+    this.message = checkNotNull(message);
+    this.properties = checkNotNull(properties);
   }
 
   public EventKind getKind() {
     return kind;
   }
 
+  public String getMessage() {
+    return message instanceof String ? (String) message : new String((byte[]) message, UTF_8);
+  }
+
   /**
-   * the tag is typically the action that generated the event.
+   * Returns this event's message as a {@link byte[]}. If this event was instantiated using a {@link
+   * String}, the returned byte array is encoded using {@link
+   * java.nio.charset.StandardCharsets#UTF_8}.
    */
+  public byte[] getMessageBytes() {
+    return message instanceof byte[] ? (byte[]) message : ((String) message).getBytes(UTF_8);
+  }
+
+  /** Returns the property value associated with {@code type} if any, and {@code null} otherwise. */
+  @Nullable
+  public <T> T getProperty(Class<T> type) {
+    return properties.getInstance(type);
+  }
+
+  /**
+   * Returns an {@link Event} instance that has the same type, message, and properties as the event
+   * this is called on, and additionally associates {@code propertyValue} (if non-{@code null}) with
+   * {@code type}.
+   *
+   * <p>If the event this is called on already has a property associated with {@code type} and
+   * {@code propertyValue} is non-{@code null}, the returned event will have {@code propertyValue}
+   * associated with it instead. If {@code propertyValue} is non-{@code null}, the returned event
+   * will have no property associated with {@code type}.
+   *
+   * <p>If the event this is called on has no property associated with {@code type}, and {@code
+   * propertyValue} is {@code null}, then this returns that event (it does not create a new {@link
+   * Event} instance).
+   *
+   * <p>In any case, the event this is called on does not change.
+   */
+  // This implementation would be inefficient if #withProperty is called repeatedly because it may
+  // copy and sort the key collection. In practice we expect it to be called a small number of times
+  // per event (e.g. fewer than 5; usually 0).
+  //
+  // If that changes then consider an Event.Builder strategy instead.
+  public <T> Event withProperty(Class<T> type, @Nullable T propertyValue) {
+    Iterable<Class<?>> orderedKeys;
+    boolean containsKey = properties.containsKey(type);
+    if (!containsKey && propertyValue != null) {
+      orderedKeys =
+          Stream.concat(properties.keySet().stream(), Stream.of(type))
+              .sorted(comparing(Class::getName))
+              .collect(toImmutableList());
+    } else if (containsKey) {
+      orderedKeys = properties.keySet();
+    } else {
+      // !containsKey and propertyValue is null, so there's nothing to change.
+      return this;
+    }
+
+    ImmutableClassToInstanceMap.Builder<Object> newProperties =
+        new ImmutableClassToInstanceMap.Builder<>();
+    for (Class<?> key : orderedKeys) {
+      if (key.equals(type)) {
+        if (propertyValue != null) {
+          newProperties.put(type, propertyValue);
+        }
+      } else {
+        addToBuilder(newProperties, key);
+      }
+    }
+
+    return new Event(kind, message, newProperties.build());
+  }
+
+  /**
+   * This type-parameterized method solves a problem where a {@code properties.getInstance(key)}
+   * expression would have type {@link Object} when {@code key} is a wildcard-parameterized {@link
+   * Class}. That {@link Object}-typed expression would then fail to type check in a {@code
+   * builder.put(key, properties.getInstance(key))} statement.
+   */
+  private <T> void addToBuilder(ImmutableClassToInstanceMap.Builder<Object> builder, Class<T> key) {
+    builder.put(key, checkNotNull(properties.getInstance(key)));
+  }
+
+  /**
+   * Like {@link #withProperty(Class, Object)}, with {@code type.equals(String.class)}.
+   *
+   * <p>Additionally, if the event this is called on already has a {@link String} property with
+   * value {@code tag}, or if {@code tag} is {@code null} and the event has no {@link String}
+   * property, then this returns that event (it does not create a new {@link Event} instance).
+   */
+  public Event withTag(@Nullable String tag) {
+    if (Objects.equals(tag, getProperty(String.class))) {
+      return this;
+    }
+    return withProperty(String.class, tag);
+  }
+
+  /** Like {@link #withProperty(Class, Object)}, with {@code type.equals(FileOutErr.class)}. */
+  public Event withStdoutStderr(FileOutErr outErr) {
+    return withProperty(FileOutErr.class, outErr);
+  }
+
+  /**
+   * Returns the {@link String} property, if any, asssociated with the event. When non-null, this
+   * value typically describes some property of the action that generated the event.
+   */
+  // TODO(mschaller): change code which relies on this to rely on a more structured value, using
+  //  types less prone to interference.
   @Nullable
   public String getTag() {
-    return tag;
+    return getProperty(String.class);
   }
 
-  /** Indicate if any output is associated with this event. */
+  /** Indicates if a {@link FileOutErr} property is associated with this event. */
   public boolean hasStdoutStderr() {
-    return outErr != null;
+    return getProperty(FileOutErr.class) != null;
   }
 
-  /**
-   * Get the stdout bytes associated with this event; typically, the event will report where the
-   * output originated from.
-   */
+  /** Gets the size of the stdout associated with this event without reading it. */
+  public long getStdOutSize() throws IOException {
+    FileOutErr outErr = getProperty(FileOutErr.class);
+    return outErr == null ? 0 : outErr.outSize();
+  }
+
+  /** Returns the stdout bytes associated with this event if any, and {@code null} otherwise. */
   @Nullable
-  public String getStdOut() {
+  public byte[] getStdOut() {
+    FileOutErr outErr = getProperty(FileOutErr.class);
     if (outErr == null) {
       return null;
     }
-    return outErr.outAsLatin1();
+    return outErr.outAsBytes();
   }
 
-  /**
-   * Get the stdout bytes associated with this event; typically, the event will report where the
-   * output originated from.
-   */
+  /** Gets the size of the stderr associated with this event without reading it. */
+  public long getStdErrSize() throws IOException {
+    FileOutErr outErr = getProperty(FileOutErr.class);
+    return outErr == null ? 0 : outErr.errSize();
+  }
+
+  /** Returns the stderr bytes associated with this event if any, and {@code null} otherwise. */
   @Nullable
-  public String getStdErr() {
+  public byte[] getStdErr() {
+    FileOutErr outErr = getProperty(FileOutErr.class);
     if (outErr == null) {
       return null;
     }
-    return outErr.errAsLatin1();
-  }
-
-  /** Get a reference to the associated output. */
-  public OutputReference getStdOutReference() {
-    return outErr.getOutReference();
-  }
-
-  /** Get a reference to the associated output. */
-  public OutputReference getStdErrReference() {
-    return outErr.getErrReference();
+    return outErr.errAsBytes();
   }
 
   /**
-   * Returns the location of this event, if any.  Returns null iff the event
-   * wasn't associated with any particular location, for example, a progress
-   * message.
+   * Returns the location of this event, if any. Returns null iff the event wasn't associated with
+   * any particular location, for example, a progress message.
    */
-  @Nullable public Location getLocation() {
-    return location;
+  @Nullable
+  public Location getLocation() {
+    return getProperty(Location.class);
   }
 
   /** Returns the event formatted as {@code "ERROR foo.bzl:1:2: oops"}. */
   @Override
   public String toString() {
+    Location location = getLocation();
     // TODO(adonovan): <no location> is just noise.
     return kind
         + " "
@@ -199,7 +255,11 @@ public final class Event implements Serializable {
     // read, so we must take care to only read the field once.
     int h = hashCode;
     if (h == 0) {
-      h = Objects.hash(kind, location, message, tag, Arrays.hashCode(messageBytes), outErr);
+      h =
+          Objects.hash(
+              kind,
+              message instanceof String ? message : Arrays.hashCode((byte[]) message),
+              properties);
       hashCode = h;
     }
     return h;
@@ -215,11 +275,125 @@ public final class Event implements Serializable {
     }
     Event that = (Event) other;
     return Objects.equals(this.kind, that.kind)
-        && Objects.equals(this.location, that.location)
-        && Objects.equals(this.tag, that.tag)
-        && Objects.equals(this.message, that.message)
-        && Objects.equals(this.outErr, that.outErr)
-        && Arrays.equals(this.messageBytes, that.messageBytes);
+        && this.message.getClass().equals(that.message.getClass())
+        && (this.message instanceof String
+            ? Objects.equals(this.message, that.message)
+            : Arrays.equals((byte[]) this.message, (byte[]) that.message))
+        && Objects.equals(this.properties, that.properties);
+  }
+
+  /** Constructs an event with the provided {@link EventKind} and {@link String} message. */
+  public static Event of(EventKind kind, String message) {
+    return new Event(kind, message, ImmutableClassToInstanceMap.of());
+  }
+
+  /**
+   * Constructs an event with the provided {@link EventKind}, {@link String} message, and single
+   * property value.
+   *
+   * <p>See {@link #withProperty(Class, Object)} if more than one property value is desired.
+   */
+  public static <T> Event of(
+      EventKind kind, String message, Class<T> propertyType, T propertyValue) {
+    return new Event(kind, message, ImmutableClassToInstanceMap.of(propertyType, propertyValue));
+  }
+
+  /** Constructs an event with the provided {@link EventKind} and {@link byte[]} message. */
+  public static Event of(EventKind kind, byte[] messageBytes) {
+    return new Event(kind, messageBytes, ImmutableClassToInstanceMap.of());
+  }
+
+  /**
+   * Constructs an event with the provided {@link EventKind}, {@link byte[]} message, and single
+   * property value.
+   *
+   * <p>See {@link #withProperty(Class, Object)} if more than one property value is desired.
+   */
+  public static <T> Event of(
+      EventKind kind, byte[] messageBytes, Class<T> propertyType, T propertyValue) {
+    return new Event(
+        kind, messageBytes, ImmutableClassToInstanceMap.of(propertyType, propertyValue));
+  }
+
+  /**
+   * Constructs an event with the provided {@link EventKind} and {@link String} message, with an
+   * optional {@link Location}.
+   */
+  public static Event of(EventKind kind, @Nullable Location location, String message) {
+    return location == null ? of(kind, message) : of(kind, message, Location.class, location);
+  }
+
+  /**
+   * Constructs an event with a {@code byte[]} array instead of a {@link String} for its message.
+   *
+   * <p>The bytes must be decodable as UTF-8 text.
+   */
+  public static Event of(EventKind kind, @Nullable Location location, byte[] messageBytes) {
+    return location == null
+        ? of(kind, messageBytes)
+        : of(kind, messageBytes, Location.class, location);
+  }
+
+  /** Constructs an event with kind {@link EventKind#ERROR}, with an optional {@link Location}. */
+  public static Event error(@Nullable Location location, String message) {
+    return location == null
+        ? of(EventKind.ERROR, message)
+        : of(EventKind.ERROR, message, Location.class, location);
+  }
+
+  /** Constructs an event with kind {@link EventKind#ERROR}. */
+  public static Event error(String message) {
+    return of(EventKind.ERROR, message);
+  }
+
+  /** Constructs an event with kind {@link EventKind#WARNING}, with an optional {@link Location}. */
+  public static Event warn(@Nullable Location location, String message) {
+    return location == null
+        ? of(EventKind.WARNING, message)
+        : of(EventKind.WARNING, message, Location.class, location);
+  }
+
+  /** Constructs an event with kind {@link EventKind#WARNING}. */
+  public static Event warn(String message) {
+    return of(EventKind.WARNING, message);
+  }
+
+  /** Constructs an event with kind {@link EventKind#INFO}, with an optional {@link Location}. */
+  public static Event info(@Nullable Location location, String message) {
+    return location == null
+        ? of(EventKind.INFO, message)
+        : of(EventKind.INFO, message, Location.class, location);
+  }
+
+  /** Constructs an event with kind {@link EventKind#INFO}. */
+  public static Event info(String message) {
+    return of(EventKind.INFO, message);
+  }
+
+  /**
+   * Constructs an event with kind {@link EventKind#PROGRESS}, with an optional {@link Location}.
+   */
+  public static Event progress(@Nullable Location location, String message) {
+    return location == null
+        ? of(EventKind.PROGRESS, message)
+        : of(EventKind.PROGRESS, message, Location.class, location);
+  }
+
+  /** Constructs an event with kind {@link EventKind#PROGRESS}. */
+  public static Event progress(String message) {
+    return of(EventKind.PROGRESS, message);
+  }
+
+  /** Constructs an event with kind {@link EventKind#DEBUG}, with an optional {@link Location}. */
+  public static Event debug(@Nullable Location location, String message) {
+    return location == null
+        ? of(EventKind.DEBUG, message)
+        : of(EventKind.DEBUG, message, Location.class, location);
+  }
+
+  /** Constructs an event with kind {@link EventKind#DEBUG}. */
+  public static Event debug(String message) {
+    return of(EventKind.DEBUG, message);
   }
 
   /** Replays a sequence of events on {@code handler}. */
@@ -229,105 +403,17 @@ public final class Event implements Serializable {
     }
   }
 
-  /** Converts a list of SyntaxErrors to Events and replay on {@code handler}. */
+  /** Converts a list of {@link SyntaxError}s to events and replays them on {@code handler}. */
   public static void replayEventsOn(EventHandler handler, List<SyntaxError> errors) {
     for (SyntaxError error : errors) {
       handler.handle(Event.error(error.location(), error.message()));
     }
   }
 
-  public static Event of(EventKind kind, @Nullable Location location, String message) {
-    return new Event(kind, location, message, null, null);
-  }
-
   /**
-   * Construct an event by passing in the {@code byte[]} array instead of a String.
-   *
-   * The bytes must be decodable as UTF-8 text.
+   * Returns a {@link StarlarkThread.PrintHandler} that sends {@link EventKind#DEBUG} events to the
+   * provided {@link EventHandler}.
    */
-  public static Event of(EventKind kind, @Nullable Location location, byte[] messageBytes) {
-    return new Event(kind, location, messageBytes, null, null);
-  }
-
-  /** Reports an error. */
-  public static Event error(@Nullable Location location, String message) {
-    return new Event(EventKind.ERROR, location, message, null, null);
-  }
-
-  /** Reports an error. */
-  public static Event error(String message) {
-    return error(null, message);
-  }
-
-  /** Reports a warning. */
-  public static Event warn(@Nullable Location location, String message) {
-    return new Event(EventKind.WARNING, location, message, null, null);
-  }
-
-  /** Reports a warning. */
-  public static Event warn(String message) {
-    return warn(null, message);
-  }
-
-  /**
-   * Reports atemporal statements about the build, i.e. they're true for the duration of execution.
-   */
-  public static Event info(@Nullable Location location, String message) {
-    return new Event(EventKind.INFO, location, message, null, null);
-  }
-
-  /**
-   * Reports atemporal statements about the build, i.e. they're true for the duration of execution.
-   */
-  public static Event info(String message) {
-    return info(null, message);
-  }
-
-  /** Reports a temporal statement about the build. */
-  public static Event progress(@Nullable Location location, String message) {
-    return new Event(EventKind.PROGRESS, location, message, null, null);
-  }
-
-  /** Reports a temporal statement about the build. */
-  public static Event progress(String message) {
-    return progress(null, message);
-  }
-
-  /** Reports a debug message. */
-  public static Event debug(@Nullable Location location, String message) {
-    return new Event(EventKind.DEBUG, location, message, null, null);
-  }
-
-  /**
-   * Reports a debug message.
-   */
-  public static Event debug(String message) {
-    return debug(null, message);
-  }
-
-  private static class ArrayOutputReference implements OutputReference {
-    private final byte[] message;
-
-    ArrayOutputReference(byte[] message) {
-      this.message = message;
-    }
-
-    @Override
-    public long getLength() {
-      return message.length;
-    }
-
-    @Override
-    public byte[] getFinalBytes(int count) {
-      if (count >= message.length) {
-        return message;
-      } else {
-        return Arrays.copyOfRange(message, message.length - count, message.length);
-      }
-    }
-  }
-
-  /** Returns a StarlarkThread PrintHandler that sends DEBUG events to the provided EventHandler. */
   public static StarlarkThread.PrintHandler makeDebugPrintHandler(EventHandler h) {
     return (thread, msg) -> h.handle(Event.debug(thread.getCallerLocation(), msg));
   }

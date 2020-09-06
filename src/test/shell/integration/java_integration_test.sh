@@ -850,4 +850,40 @@ EOF
   expect_log "Hello World!"
 }
 
+
+function test_arg_compile_action() {
+  local package="${FUNCNAME[0]}"
+  mkdir -p "${package}"
+
+  cat > "${package}/lib.bzl" <<EOF
+def _actions_test_impl(target, ctx):
+    action = target.actions[0] # digest action
+    if action.mnemonic != "Javac":
+      fail("Expected the first action to be Javac.")
+    aspect_out = ctx.actions.declare_file('aspect_out')
+    ctx.actions.run_shell(inputs = action.inputs,
+                          outputs = [aspect_out],
+                          command = "echo \$@ > " + aspect_out.path,
+                          arguments = action.args)
+    return [OutputGroupInfo(out=[aspect_out])]
+
+actions_test_aspect = aspect(implementation = _actions_test_impl)
+EOF
+
+  touch "${package}/x.java"
+  cat > "${package}/BUILD" <<EOF
+java_library(
+  name = "x",
+  srcs = ["x.java"],
+)
+EOF
+
+  bazel build "${package}:x" \
+      --aspects="//${package}:lib.bzl%actions_test_aspect" \
+      --output_groups=out
+
+  cat "${PRODUCT_NAME}-bin/${package}/aspect_out" | grep "0.params .*1.params" \
+      || fail "aspect Args do not contain both params files"
+}
+
 run_suite "Java integration tests"

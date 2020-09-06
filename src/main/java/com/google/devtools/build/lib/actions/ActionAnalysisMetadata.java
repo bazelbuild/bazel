@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import java.util.Map;
@@ -85,8 +86,16 @@ public interface ActionAnalysisMetadata {
    *
    * <p>Note the following exception: for actions that discover inputs, the key must change if any
    * input names change or else action validation may falsely validate.
+   *
+   * <p>In case the {@link ArtifactExpander} is not provided, the key is not guaranteed to be
+   * correct. In fact, getting the key of an action is generally impossible until we have all the
+   * information necessary to execute the action. An example of this is when arguments to an action
+   * are defined as a lazy evaluation of Starlark over outputs of another action, after expanding
+   * directories. In such case, if the dependent action outputs a tree artifact, creating a truly
+   * unique key will depend on knowing the tree artifact contents. At analysis time, we only know
+   * about the tree artifact directory and we find what is in it only after we execute that action.
    */
-  String getKey(ActionKeyContext actionKeyContext);
+  String getKey(ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander);
 
   /**
    * Returns a pretty string representation of this action, suitable for use in
@@ -201,41 +210,6 @@ public interface ActionAnalysisMetadata {
 
   /** Returns the action type. Must not be {@code null}. */
   MiddlemanType getActionType();
-
-  /** The action type. */
-  enum MiddlemanType {
-
-    /** A normal action. */
-    NORMAL,
-
-    /** A normal middleman, which just encapsulates a list of artifacts. */
-    AGGREGATING_MIDDLEMAN,
-
-    /**
-     * A middleman that denotes a scheduling dependency.
-     *
-     * <p>If an action has dependencies through scheduling dependency middleman, those dependencies
-     * will get built before the action is run and the build will error out if they cannot be built,
-     * but the dependencies will not be considered inputs of the action.
-     *
-     * <p>This is useful in cases when an action <em>might</em> need some inputs, but that is only
-     * found out right before it gets executed. The most salient case is C++ compilation where all
-     * files that can possibly be included need to be built before the action is executed, but if
-     * include scanning is used, only a subset of them will end up as inputs.
-     */
-    SCHEDULING_DEPENDENCY_MIDDLEMAN,
-
-    /**
-     * A runfiles middleman, which is validated by the dependency checker, but is not expanded
-     * in blaze. Instead, the runfiles manifest is sent to remote execution client, which
-     * performs the expansion.
-     */
-    RUNFILES_MIDDLEMAN;
-
-    public boolean isMiddleman() {
-      return this != NORMAL;
-    }
-  }
 
   /**
    * Indicates whether this action has loose headers, or if this is an {@link ActionTemplate},

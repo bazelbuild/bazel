@@ -66,7 +66,7 @@ public class RunfilesTreeUpdater {
       ImmutableMap<String, String> env,
       OutErr outErr,
       boolean enableRunfiles)
-      throws IOException, ExecException {
+      throws IOException, ExecException, InterruptedException {
     Path runfilesDirPath = execRoot.getRelative(runfilesDir);
     Path inputManifest = RunfilesSupport.inputManifestPath(runfilesDirPath);
     if (!inputManifest.exists()) {
@@ -129,7 +129,7 @@ public class RunfilesTreeUpdater {
       BinTools binTools,
       ImmutableMap<String, String> env,
       OutErr outErr)
-      throws ExecException, IOException {
+      throws ExecException, IOException, InterruptedException {
     for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> runfiles :
         runfilesSupplier.getMappings().entrySet()) {
       PathFragment runfilesDir = runfiles.getKey();

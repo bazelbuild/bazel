@@ -99,6 +99,8 @@ public class MockPlatformSupport {
     mockToolsConfig.create(
         TestConstants.PLATFORMS_PATH + "/BUILD",
         "package(default_visibility=['//visibility:public'])",
+        "constraint_setting(name = 'os')",
+        "constraint_value(name = 'android', constraint_setting = ':os')",
         "platform(",
         "    name = 'default_target',",
         "    parents = ['" + basePlatform + "'],",

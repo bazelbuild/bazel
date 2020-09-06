@@ -80,7 +80,7 @@ public final class PlatformUtilsTest {
   }
 
   @Test
-  public void testParsePlatformSortsProperties_ExecProperties() throws Exception {
+  public void testParsePlatformSortsProperties_execProperties() throws Exception {
     // execProperties are chosen even if there are remoteOptions
     ImmutableMap<String, String> map = ImmutableMap.of("aa", "99", "zz", "66", "dd", "11");
     Spawn s = new SpawnBuilder("dummy").withExecProperties(map).build();

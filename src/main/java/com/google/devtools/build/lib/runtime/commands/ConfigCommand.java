@@ -124,16 +124,22 @@ public class ConfigCommand implements BlazeCommand {
   protected static class ConfigurationForOutput {
     final String skyKey;
     final String configHash;
+    final boolean isHost;
+    final boolean isExec;
     final List<FragmentForOutput> fragments;
     final List<FragmentOptionsForOutput> fragmentOptions;
 
     ConfigurationForOutput(
         String skyKey,
         String configHash,
+        boolean isHost,
+        boolean isExec,
         List<FragmentForOutput> fragments,
         List<FragmentOptionsForOutput> fragmentOptions) {
       this.skyKey = skyKey;
       this.configHash = configHash;
+      this.isHost = isHost;
+      this.isExec = isExec;
       this.fragments = fragments;
       this.fragmentOptions = fragmentOptions;
     }
@@ -442,6 +448,8 @@ public class ConfigCommand implements BlazeCommand {
     return new ConfigurationForOutput(
         skyKey.toString(),
         configHash,
+        config.isHostConfiguration(),
+        config.isExecConfiguration(),
         fragments.build().asList(),
         fragmentOptions.build().asList());
   }
@@ -505,8 +513,7 @@ public class ConfigCommand implements BlazeCommand {
   private BlazeCommandResult reportConfigurationIds(
       ConfigCommandOutputFormatter writer,
       ImmutableSortedSet<ConfigurationForOutput> configurations) {
-    writer.writeConfigurationIDs(
-        configurations.stream().map(config -> config.configHash).collect(toList()));
+    writer.writeConfigurationIDs(configurations);
     return BlazeCommandResult.success();
   }
 

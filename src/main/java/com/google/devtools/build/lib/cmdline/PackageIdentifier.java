@@ -228,7 +228,15 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
   }
 
   @Override
+  @SuppressWarnings("ReferenceEquality") // Performance optimization.
   public int compareTo(PackageIdentifier that) {
+    // Fast-paths for the common case of the same package or a package in the same repository.
+    if (this == that) {
+      return 0;
+    }
+    if (repository == that.repository) {
+      return pkgName.compareTo(that.pkgName);
+    }
     return ComparisonChain.start()
         .compare(repository.toString(), that.repository.toString())
         .compare(pkgName, that.pkgName)

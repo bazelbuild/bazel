@@ -117,6 +117,9 @@ public class CppRuleClasses {
   public static final SafeImplicitOutputsFunction CC_BINARY_DEBUG_PACKAGE =
       fromTemplates("%{name}.dwp");
 
+  /** A string constant for the Objective-C language feature. */
+  public static final String LANG_OBJC = "lang_objc";
+
   /** Name of the feature that will be exempt from flag filtering when nocopts are used */
   public static final String UNFILTERED_COMPILE_FLAGS_FEATURE_NAME = "unfiltered_compile_flags";
 
@@ -384,9 +387,6 @@ public class CppRuleClasses {
 
   /** A string constant for the match-clif action. */
   public static final String MATCH_CLIF = "match_clif";
-
-  /** A string constant for is_cc_fake_binary feature. */
-  public static final String IS_CC_FAKE_BINARY = "is_cc_fake_binary";
 
   /** A feature marking that the toolchain can use --start-lib/--end-lib flags */
   public static final String SUPPORTS_START_END_LIB = "supports_start_end_lib";

@@ -113,10 +113,10 @@ public final class Lexer {
   }
 
   /**
-   * Entry point to the lexer.  Returns the list of tokens for the specified
-   * input, or throws QueryException.
+   * Entry point to the lexer. Returns the list of tokens for the specified input, or throws
+   * QueryException.
    */
-  public static List<Token> scan(String input) throws QueryException {
+  static List<Token> scan(String input) throws QuerySyntaxException {
     Lexer lexer = new Lexer(input);
     lexer.tokenize();
     return lexer.tokens;
@@ -140,12 +140,12 @@ public final class Lexer {
   /**
    * Scans a quoted word delimited by 'quot'.
    *
-   * ON ENTRY: 'pos' is 1 + the index of the first delimiter
-   * ON EXIT: 'pos' is 1 + the index of the last delimiter.
+   * <p>ON ENTRY: 'pos' is 1 + the index of the first delimiter ON EXIT: 'pos' is 1 + the index of
+   * the last delimiter.
    *
    * @return the word token.
    */
-  private Token quotedWord(char quot) throws QueryException {
+  private Token quotedWord(char quot) throws QuerySyntaxException {
     int oldPos = pos - 1;
     while (pos < input.length()) {
       char c = input.charAt(pos++);
@@ -158,7 +158,7 @@ public final class Lexer {
           }
       }
     }
-    throw new QueryException("unclosed quotation");
+    throw new QuerySyntaxException("unclosed quotation");
   }
 
   private TokenKind getTokenKindForWord(String word) {
@@ -209,11 +209,8 @@ public final class Lexer {
     return kind == TokenKind.WORD ? new Token(word) : new Token(kind);
   }
 
-  /**
-   * Performs tokenization of the character buffer of file contents provided to
-   * the constructor.
-   */
-  private void tokenize() throws QueryException {
+  /** Performs tokenization of the character buffer of file contents provided to the constructor. */
+  private void tokenize() throws QuerySyntaxException {
     while (pos < input.length()) {
       char c = input.charAt(pos);
       pos++;

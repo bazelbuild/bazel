@@ -34,6 +34,14 @@
 #include "src/main/tools/process-wrapper-options.h"
 #include "src/main/tools/process-wrapper.h"
 
+static bool child_subreaper_enabled = false;
+#if defined(__linux__)
+#if !defined(PR_SET_CHILD_SUBREAPER)
+// https://github.com/torvalds/linux/blob/v5.7/tools/include/uapi/linux/prctl.h#L158
+#define PR_SET_CHILD_SUBREAPER 36
+#endif
+#endif
+
 pid_t LegacyProcessWrapper::child_pid = 0;
 volatile sig_atomic_t LegacyProcessWrapper::last_signal = 0;
 
@@ -43,13 +51,15 @@ void LegacyProcessWrapper::RunCommand() {
 }
 
 void LegacyProcessWrapper::SpawnChild() {
-  if (opt.wait_fix) {
 #if defined(__linux__)
-    if (prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) == -1) {
+  if (prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) == 0) {
+    child_subreaper_enabled = true;
+  } else {
+    if (errno != EINVAL) {
       DIE("prctl");
     }
-#endif
   }
+#endif
 
   child_pid = fork();
   if (child_pid < 0) {
@@ -98,36 +108,36 @@ void LegacyProcessWrapper::WaitForChild() {
     SetTimeout(opt.timeout_secs);
   }
 
-  if (opt.wait_fix) {
-    // On macOS, we have to ensure the whole process group is terminated before
-    // collecting the status of the PID we are interested in. (Otherwise other
-    // processes could race us and grab the PGID.)
+  // On macOS, we have to ensure the whole process group is terminated before
+  // collecting the status of the PID we are interested in. (Otherwise other
+  // processes could race us and grab the PGID.)
 #if defined(__APPLE__)
-    if (WaitForProcessToTerminate(child_pid) == -1) {
-      DIE("WaitForProcessToTerminate");
-    }
-
-    // The child is done for, but may have grandchildren that we still have to
-    // kill.
-    kill(-child_pid, SIGKILL);
-
-    if (WaitForProcessGroupToTerminate(child_pid) == -1) {
-      DIE("WaitForProcessGroupToTerminate");
-    }
-#endif
+  if (WaitForProcessToTerminate(child_pid) == -1) {
+    DIE("WaitForProcessToTerminate");
   }
+
+  // The child is done for, but may have grandchildren that we still have to
+  // kill.
+  kill(-child_pid, SIGKILL);
+
+  if (WaitForProcessGroupToTerminate(child_pid) == -1) {
+    DIE("WaitForProcessGroupToTerminate");
+  }
+#endif
 
   int status;
   if (!opt.stats_path.empty()) {
     struct rusage child_rusage;
-    status = WaitChildWithRusage(child_pid, &child_rusage, opt.wait_fix);
+    status = WaitChildWithRusage(child_pid, &child_rusage,
+                                 child_subreaper_enabled);
     WriteStatsToFile(&child_rusage, opt.stats_path);
   } else {
-    status = WaitChild(child_pid, opt.wait_fix);
+    status = WaitChild(child_pid, child_subreaper_enabled);
   }
 
-  if (opt.wait_fix) {
-    // On Linux, we enabled the child subreaper feature, so now that we have
+#if !defined(__APPLE__)
+  if (child_subreaper_enabled) {
+    // If we enabled the child subreaper feature (on Linux), now that we have
     // collected the status of the PID we were interested in, terminate the
     // rest of the process group and wait until all the children are gone.
     //
@@ -135,16 +145,15 @@ void LegacyProcessWrapper::WaitForChild() {
     // because those can have subtle effects on the processes we spawn (like
     // them assuming that the PIDs that they get are unique). The linux-sandbox
     // offers this functionality.
-#if defined(__linux__)
     if (TerminateAndWaitForAll(child_pid) == -1) {
       DIE("TerminateAndWaitForAll");
     }
-#endif
   } else {
     // The child is done for, but may have grandchildren that we still have to
     // kill.
     kill(-child_pid, SIGKILL);
   }
+#endif
 
   if (last_signal > 0) {
     // Don't trust the exit code if we got a timeout or signal.

@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.server.FailureDetails.CleanCommand.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.CommandBuilder;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
@@ -136,7 +135,8 @@ public final class CleanCommand implements BlazeCommand {
     if (!residue.isEmpty()) {
       String message = "Unrecognized arguments: " + Joiner.on(' ').join(residue);
       env.getReporter().handle(Event.error(message));
-      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+      return BlazeCommandResult.failureDetail(
+          createFailureDetail(message, Code.ARGUMENTS_NOT_RECOGNIZED));
     }
 
     Options cleanOptions = options.getOptions(Options.class);
@@ -188,7 +188,7 @@ public final class CleanCommand implements BlazeCommand {
   }
 
   private static void asyncClean(CommandEnvironment env, Path path, String pathItemName)
-      throws IOException, CommandException {
+      throws IOException, CommandException, InterruptedException {
     String tempBaseName = path.getBaseName() + "_tmp_" + ProcessUtils.getpid();
 
     // Keeping tempOutputBase in the same directory ensures it remains in the
@@ -322,10 +322,14 @@ public final class CleanCommand implements BlazeCommand {
     }
 
     private FailureDetail getFailureDetail() {
-      return FailureDetail.newBuilder()
-          .setMessage(getMessage())
-          .setCleanCommand(FailureDetails.CleanCommand.newBuilder().setCode(detailedCode))
-          .build();
+      return createFailureDetail(getMessage(), detailedCode);
     }
+  }
+
+  private static FailureDetail createFailureDetail(String message, Code detailedCode) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setCleanCommand(FailureDetails.CleanCommand.newBuilder().setCode(detailedCode))
+        .build();
   }
 }

@@ -40,5 +40,15 @@ do
     (cd "${PACKAGE_DIR}" && ${UNPACK} "${ARCHIVE}")
 done
 
-(cd "${PACKAGE_DIR}" && tar -c -f "${OUTPUT}" --group=0 --owner=0 \
-   $(find . -type f | sort))
+ID_OPTS="--group=0 --owner=0"
+if [ "$(uname -s)" == "Darwin" ]; then
+  ID_OPTS="--gid=0 --uid=0"
+fi
+
+(
+  cd "${PACKAGE_DIR}"
+  FILE_LIST="$(mktemp ${TMP_DIR%%/}/bazel-distfile-files.XXXXXXXX)"
+  trap "rm -fr \"${FILE_LIST}\"" EXIT
+  find . -type f | sort > "${FILE_LIST}"
+  tar -c -f "${OUTPUT}" ${ID_OPTS} -T "${FILE_LIST}"
+)

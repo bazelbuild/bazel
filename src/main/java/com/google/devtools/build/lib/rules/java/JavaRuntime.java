@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -49,8 +48,7 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
     JavaCommon.checkRuleLoadedThroughMacro(ruleContext);
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();
     BuildConfiguration configuration = checkNotNull(ruleContext.getConfiguration());
-    filesBuilder.addTransitive(
-        PrerequisiteArtifacts.nestedSet(ruleContext, "srcs", TransitionMode.TARGET));
+    filesBuilder.addTransitive(PrerequisiteArtifacts.nestedSet(ruleContext, "srcs"));
     boolean siblingRepositoryLayout =
         ruleContext
             .getAnalysisEnvironment()
@@ -75,7 +73,7 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
     PathFragment javaBinaryRunfilesPath =
         getRunfilesJavaExecutable(javaHome, ruleContext.getLabel());
 
-    Artifact java = ruleContext.getPrerequisiteArtifact("java", TransitionMode.TARGET);
+    Artifact java = ruleContext.getPrerequisiteArtifact("java");
     if (java != null) {
       if (javaHome.isAbsolute()) {
         ruleContext.ruleError("'java_home' with an absolute path requires 'java' to be empty.");

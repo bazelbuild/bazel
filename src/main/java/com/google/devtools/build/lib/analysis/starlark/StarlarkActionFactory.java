@@ -13,14 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.starlark;
 
-import static java.util.stream.Collectors.toList;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -50,8 +48,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.StarlarkActionFactoryApi;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
@@ -105,7 +103,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       }
 
       @Override
-      public ActionLookupValue.ActionLookupKey getOwner() {
+      public ActionLookupKey getOwner() {
         return starlarkActionFactory
             .getActionConstructionContext()
             .getAnalysisEnvironment()
@@ -147,18 +145,15 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
 
     if (!fragment.startsWith(ruleContext.getPackageDirectory())) {
-      throw new EvalException(
-          String.format(
-              "the output directory '%s' is not under package directory '%s' for target '%s'",
-              fragment, ruleContext.getPackageDirectory(), ruleContext.getLabel()));
+      throw Starlark.errorf(
+          "the output directory '%s' is not under package directory '%s' for target '%s'",
+          fragment, ruleContext.getPackageDirectory(), ruleContext.getLabel());
     }
 
     Artifact result = ruleContext.getTreeArtifact(fragment, newFileRoot());
     if (!result.isTreeArtifact()) {
-      throw new EvalException(
-          null,
-          String.format(
-              "'%s' has already been declared as a regular file, not directory.", filename));
+      throw Starlark.errorf(
+          "'%s' has already been declared as a regular file, not directory.", filename);
     }
     return result;
   }
@@ -455,10 +450,9 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       List<String> command = Sequence.cast(commandList, String.class, "command");
       builder.setShellCommand(command);
     } else {
-      throw new EvalException(
-          null,
-          "expected string or list of strings for command instead of "
-              + Starlark.type(commandUnchecked));
+      throw Starlark.errorf(
+          "expected string or list of strings for command instead of %s",
+          Starlark.type(commandUnchecked));
     }
     if (argumentList.size() > 0) {
       // When we use a shell command, add an empty argument before other arguments.
@@ -497,10 +491,9 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         ParamFileInfo paramFileInfo = args.getParamFileInfo();
         builder.addCommandLine(args.build(), paramFileInfo);
       } else {
-        throw new EvalException(
-            null,
-            "expected list of strings or ctx.actions.args() for arguments instead of "
-                + Starlark.type(value));
+        throw Starlark.errorf(
+            "expected list of strings or ctx.actions.args() for arguments instead of %s",
+            Starlark.type(value));
       }
     }
     if (!stringArgs.isEmpty()) {
@@ -544,12 +537,6 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     builder.addOutputs(outputArtifacts);
 
     if (unusedInputsList != Starlark.NONE) {
-      if (!starlarkSemantics.experimentalStarlarkUnusedInputsList()) {
-        throw Starlark.errorf(
-            "'unused_inputs_list' attribute is experimental and disabled by default. "
-                + "This API is in development and subject to change at any time. "
-                + "Use --experimental_starlark_unused_inputs_list to use this experimental API.");
-      }
       if (unusedInputsList instanceof Artifact) {
         builder.setUnusedInputsList(Optional.of((Artifact) unusedInputsList));
       } else {
@@ -577,59 +564,20 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         } else if (toolUnchecked instanceof FilesToRunProvider) {
           builder.addTool((FilesToRunProvider) toolUnchecked);
         } else {
-          throw new EvalException(
-              null,
-              "expected value of type 'File or FilesToRunProvider' for "
-                  + "a member of parameter 'tools' but got "
-                  + Starlark.type(toolUnchecked)
-                  + " instead");
-        }
-      }
-    } else {
-      // Users didn't pass 'tools', kick in compatibility modes
-      if (starlarkSemantics.incompatibleNoSupportToolsInActionInputs()) {
-        // In this mode we error out if we find any tools among the inputs
-        List<Artifact> tools = null;
-        for (Artifact artifact : inputArtifacts) {
-          FilesToRunProvider provider = context.getExecutableRunfiles(artifact);
-          if (provider != null) {
-            tools = tools != null ? tools : new ArrayList<>(1);
-            tools.add(artifact);
-          }
-        }
-        if (tools != null) {
-          String toolsAsString =
-              Joiner.on(", ")
-                  .join(
-                      tools
-                          .stream()
-                          .map(Artifact::getExecPathString)
-                          .map(s -> "'" + s + "'")
-                          .collect(toList()));
           throw Starlark.errorf(
-              "Found tool(s) %s in inputs. "
-                  + "A tool is an input with executable=True set. "
-                  + "All tools should be passed using the 'tools' "
-                  + "argument instead of 'inputs' in order to make their runfiles available "
-                  + "to the action. This safety check will not be performed once the action "
-                  + "is modified to take a 'tools' argument. "
-                  + "To temporarily disable this check, "
-                  + "set --incompatible_no_support_tools_in_action_inputs=false.",
-              toolsAsString);
-        }
-      } else {
-        // Full legacy support -- add tools from inputs
-        for (Artifact artifact : inputArtifacts) {
-          FilesToRunProvider provider = context.getExecutableRunfiles(artifact);
-          if (provider != null) {
-            builder.addTool(provider);
-          }
+              "expected value of type 'File or FilesToRunProvider' for a member of parameter"
+                  + " 'tools' but got %s instead",
+              Starlark.type(toolUnchecked));
         }
       }
     }
 
     String mnemonic = getMnemonic(mnemonicUnchecked);
-    builder.setMnemonic(mnemonic);
+    try {
+      builder.setMnemonic(mnemonic);
+    } catch (IllegalArgumentException e) {
+      throw Starlark.errorf("%s", e.getMessage());
+    }
     if (envUnchecked != Starlark.NONE) {
       builder.setEnvironment(
           ImmutableMap.copyOf(Dict.cast(envUnchecked, String.class, String.class, "env")));
@@ -688,10 +636,10 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     ImmutableList.Builder<Substitution> substitutionsBuilder = ImmutableList.builder();
     for (Map.Entry<String, String> substitution :
         Dict.cast(substitutionsUnchecked, String.class, String.class, "substitutions").entrySet()) {
-      // ParserInput.create(Path) uses Latin1 when reading BUILD files, which might
+      // Blaze calls ParserInput.fromLatin1 when reading BUILD files, which might
       // contain UTF-8 encoded symbols as part of template substitution.
       // As a quick fix, the substitution values are corrected before being passed on.
-      // In the long term, fixing ParserInput.create(Path) would be a better approach.
+      // In the long term, avoiding ParserInput.fromLatin would be a better approach.
       substitutionsBuilder.add(
           Substitution.of(substitution.getKey(), convertLatin1ToUtf8(substitution.getValue())));
     }

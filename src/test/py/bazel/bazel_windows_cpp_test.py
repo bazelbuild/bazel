@@ -651,6 +651,9 @@ class BazelWindowsCppTest(test_base.TestBase):
 
   def testCcImportRule(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile('A.lib', [])
+    self.ScratchFile('A.dll', [])
+    self.ScratchFile('A.if.lib', [])
     self.ScratchFile('BUILD', [
         'cc_import(',
         '  name = "a_import",',
@@ -665,6 +668,38 @@ class BazelWindowsCppTest(test_base.TestBase):
         'build', '//:a_import',
     ])
     self.AssertExitCode(exit_code, 0, stderr)
+
+  def testCopyDLLAsSource(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile('BUILD', [
+        'cc_import(',
+        '  name = "a_import",',
+        '  shared_library = "A.dll",',
+        ')',
+        '',
+        'cc_binary(',
+        '  name = "bin",',
+        '  srcs = ["bin.cc"],',
+        '  deps = ["//:a_import"],',
+        ')',
+    ])
+    self.ScratchFile('A.dll')
+    self.ScratchFile('bin.cc', [
+        'int main() {',
+        '  return 0;',
+        '}',
+    ])
+    exit_code, _, stderr = self.RunBazel([
+        'build',
+        '//:bin',
+    ])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    bazel_bin = self.getBazelInfo('bazel-bin')
+    a_dll = os.path.join(bazel_bin, 'A.dll')
+    # Even though A.dll is in the same package as bin.exe, but it still should
+    # be copied to the output directory of bin.exe.
+    self.assertTrue(os.path.exists(a_dll))
 
   def testCppErrorShouldBeVisible(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
@@ -822,6 +857,60 @@ class BazelWindowsCppTest(test_base.TestBase):
     ])
     exit_code, _, stderr = self.RunBazel(['build', '//:main'])
     self.AssertExitCode(exit_code, 0, stderr)
+
+  def testBuild32BitCppBinaryWithMsvcCL(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile('BUILD', [
+        'cc_binary(',
+        '  name = "main",',
+        '  srcs = ["main.cc"],',
+        ')',
+    ])
+    self.ScratchFile('main.cc', [
+        'int main() {',
+        '  return 0;',
+        '}',
+    ])
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '-s', '--cpu=x64_x86_windows', '//:main'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('x86/cl.exe', ''.join(stderr))
+
+  def testBuildArmCppBinaryWithMsvcCL(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile('BUILD', [
+        'cc_binary(',
+        '  name = "main",',
+        '  srcs = ["main.cc"],',
+        ')',
+    ])
+    self.ScratchFile('main.cc', [
+        'int main() {',
+        '  return 0;',
+        '}',
+    ])
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '-s', '--cpu=x64_arm_windows', '//:main'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('arm/cl.exe', ''.join(stderr))
+
+  def testBuildArm64CppBinaryWithMsvcCL(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile('BUILD', [
+        'cc_binary(',
+        '  name = "main",',
+        '  srcs = ["main.cc"],',
+        ')',
+    ])
+    self.ScratchFile('main.cc', [
+        'int main() {',
+        '  return 0;',
+        '}',
+    ])
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '-s', '--cpu=x64_arm64_windows', '//:main'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('arm64/cl.exe', ''.join(stderr))
 
 
 if __name__ == '__main__':

@@ -172,11 +172,12 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
         String value = aspectParams.getOnlyValueOfAttribute(attr.getName());
         Preconditions.checkState(!Attribute.isImplicit(attr.getName()));
         Preconditions.checkState(attr.getType() == Type.STRING);
-        Preconditions.checkArgument(aspectParams.getAttribute(attr.getName()).size() == 1,
-            String.format("Aspect %s parameter %s has %d values (must have exactly 1).",
-                          getName(),
-                          attr.getName(),
-                          aspectParams.getAttribute(attr.getName()).size()));
+        Preconditions.checkArgument(
+            aspectParams.getAttribute(attr.getName()).size() == 1,
+            "Aspect %s parameter %s has %s values (must have exactly 1).",
+            getName(),
+            attr.getName(),
+            aspectParams.getAttribute(attr.getName()).size());
         attr = attr.cloneBuilder(Type.STRING).value(value).build(attr.getName());
       }
       builder.add(attr);
@@ -206,29 +207,35 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
       AttributeMap ruleAttrs = RawAttributeMapper.of(rule);
       AspectParameters.Builder builder = new AspectParameters.Builder();
       for (Attribute aspectAttr : attributes) {
-        if (!Attribute.isImplicit(aspectAttr.getName())) {
-          String param = aspectAttr.getName();
-          Attribute ruleAttr = ruleAttrs.getAttributeDefinition(param);
-          if (paramAttributes.contains(aspectAttr.getName())) {
-            // These are preconditions because if they are false, RuleFunction.call() should
-            // already have generated an error.
-            Preconditions.checkArgument(
-                ruleAttr != null,
-                String.format(
-                    "Cannot apply aspect %s to %s that does not define attribute '%s'.",
-                    getName(), rule.getTargetKind(), param));
-            Preconditions.checkArgument(
-                ruleAttr.getType() == Type.STRING,
-                String.format(
-                    "Cannot apply aspect %s to %s with non-string attribute '%s'.",
-                    getName(), rule.getTargetKind(), param));
-          }
-          if (ruleAttr != null && ruleAttr.getType() == aspectAttr.getType()) {
-            // If the attribute has a select() (which aspect attributes don't yet support), the
-            // error gets reported in RuleClass.checkAspectAllowedValues.
-            if (!ruleAttrs.isConfigurable(param)) {
-              builder.addAttribute(param, (String) ruleAttrs.get(param, ruleAttr.getType()));
-            }
+        String param = aspectAttr.getName();
+        if (Attribute.isImplicit(param) || Attribute.isLateBound(param)) {
+          // These attributes are the private matters of the aspect
+          continue;
+        }
+
+        Attribute ruleAttr = ruleAttrs.getAttributeDefinition(param);
+        if (paramAttributes.contains(aspectAttr.getName())) {
+          // These are preconditions because if they are false, RuleFunction.call() should
+          // already have generated an error.
+          Preconditions.checkArgument(
+              ruleAttr != null,
+              "Cannot apply aspect %s to %s that does not define attribute '%s'.",
+              getName(),
+              rule.getTargetKind(),
+              param);
+          Preconditions.checkArgument(
+              ruleAttr.getType() == Type.STRING,
+              "Cannot apply aspect %s to %s with non-string attribute '%s'.",
+              getName(),
+              rule.getTargetKind(),
+              param);
+        }
+
+        if (ruleAttr != null && ruleAttr.getType() == aspectAttr.getType()) {
+          // If the attribute has a select() (which aspect attributes don't yet support), the
+          // error gets reported in RuleClass.checkAspectAllowedValues.
+          if (!ruleAttrs.isConfigurable(param)) {
+            builder.addAttribute(param, (String) ruleAttrs.get(param, ruleAttr.getType()));
           }
         }
       }

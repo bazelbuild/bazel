@@ -24,10 +24,10 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.Template;
@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
@@ -163,8 +162,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     String testClass = getAndCheckTestClass(ruleContext, javaCommon.getSrcsArtifacts());
     getAndCheckTestSupport(ruleContext);
-    if (Allowlist.hasAllowlist(ruleContext, "multiple_proto_rule_types_in_deps_whitelist")
-        && !Allowlist.isAvailable(ruleContext, "multiple_proto_rule_types_in_deps_whitelist")) {
+    if (Allowlist.hasAllowlist(ruleContext, "multiple_proto_rule_types_in_deps_allowlist")
+        && !Allowlist.isAvailable(ruleContext, "multiple_proto_rule_types_in_deps_allowlist")) {
       javaSemantics.checkForProtoLibraryAndJavaProtoLibraryOnSameProto(ruleContext, javaCommon);
     }
     if (ruleContext.hasErrors()) {
@@ -425,10 +424,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     ImmutableList<TransitiveInfoCollection> depsForRunfiles =
         ImmutableList.<TransitiveInfoCollection>builder()
-            .addAll(
-                ruleContext.getPrerequisites(
-                    "$robolectric_implicit_classpath", TransitionMode.TARGET))
-            .addAll(ruleContext.getPrerequisites("runtime_deps", TransitionMode.TARGET))
+            .addAll(ruleContext.getPrerequisites("$robolectric_implicit_classpath"))
+            .addAll(ruleContext.getPrerequisites("runtime_deps"))
             .build();
 
     Artifact androidAllJarsPropertiesFile = getAndroidAllJarsPropertiesFile(ruleContext);
@@ -528,7 +525,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
   private static NestedSet<Artifact> getLibraryResourceJars(RuleContext ruleContext) {
     Iterable<AndroidLibraryResourceClassJarProvider> libraryResourceJarProviders =
         AndroidCommon.getTransitivePrerequisites(
-            ruleContext, TransitionMode.TARGET, AndroidLibraryResourceClassJarProvider.PROVIDER);
+            ruleContext, AndroidLibraryResourceClassJarProvider.PROVIDER);
 
     NestedSetBuilder<Artifact> libraryResourceJarsBuilder = NestedSetBuilder.naiveLinkOrder();
     for (AndroidLibraryResourceClassJarProvider provider : libraryResourceJarProviders) {
@@ -581,13 +578,12 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     if (ruleContext.isAttrDefined("$junit", BuildType.LABEL)) {
       // JUnit jar must be ahead of android runtime jars since these contain stubbed definitions
       // for framework.junit.* classes which Robolectric does not re-write.
-      javaCompilationHelper.addLibrariesToAttributes(
-          ruleContext.getPrerequisites("$junit", TransitionMode.TARGET));
+      javaCompilationHelper.addLibrariesToAttributes(ruleContext.getPrerequisites("$junit"));
     }
     // Robolectric jars must be ahead of other potentially conflicting jars
     // (e.g., Android runtime jars) in the classpath to make sure they always take precedence.
     javaCompilationHelper.addLibrariesToAttributes(
-        ruleContext.getPrerequisites("$robolectric_implicit_classpath", TransitionMode.TARGET));
+        ruleContext.getPrerequisites("$robolectric_implicit_classpath"));
 
     javaCompilationHelper.addLibrariesToAttributes(
         javaCommon.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));

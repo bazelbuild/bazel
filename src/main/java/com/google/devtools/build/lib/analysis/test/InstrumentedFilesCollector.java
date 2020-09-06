@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -192,9 +191,6 @@ public final class InstrumentedFilesCollector {
       NestedSetBuilder<Artifact> localSourcesBuilder = NestedSetBuilder.stableOrder();
       for (TransitiveInfoCollection dep :
           getPrerequisitesForAttributes(ruleContext, spec.sourceAttributes)) {
-        if (!spec.splitLists && dep.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR) != null) {
-          continue;
-        }
         for (Artifact artifact : dep.getProvider(FileProvider.class).getFilesToBuild().toList()) {
           if (artifact.isSourceArtifact() &&
               spec.instrumentedFileTypes.matches(artifact.getFilename())) {
@@ -252,59 +248,56 @@ public final class InstrumentedFilesCollector {
     private final FileTypeSet instrumentedFileTypes;
 
     /** The list of attributes which should be checked for sources. */
-    private final Collection<String> sourceAttributes;
+    private final ImmutableList<String> sourceAttributes;
 
     /** The list of attributes from which to collect transitive coverage information. */
-    private final Collection<String> dependencyAttributes;
+    private final ImmutableList<String> dependencyAttributes;
 
-    /** Whether the source and dependency lists are separate. */
-    private final boolean splitLists;
-
-    public InstrumentationSpec(FileTypeSet instrumentedFileTypes,
-        String... instrumentedAttributes) {
-      this(instrumentedFileTypes, ImmutableList.copyOf(instrumentedAttributes));
-    }
-
-    public InstrumentationSpec(FileTypeSet instrumentedFileTypes,
-        Collection<String> instrumentedAttributes) {
-      this(instrumentedFileTypes, instrumentedAttributes, instrumentedAttributes, false);
-    }
-
-    private InstrumentationSpec(FileTypeSet instrumentedFileTypes,
-        Collection<String> instrumentedSourceAttributes,
-        Collection<String> instrumentedDependencyAttributes,
-        boolean splitLists) {
+    private InstrumentationSpec(
+        FileTypeSet instrumentedFileTypes,
+        ImmutableList<String> instrumentedSourceAttributes,
+        ImmutableList<String> instrumentedDependencyAttributes) {
       this.instrumentedFileTypes = instrumentedFileTypes;
-      this.sourceAttributes = ImmutableList.copyOf(instrumentedSourceAttributes);
-      this.dependencyAttributes =
-          ImmutableList.copyOf(instrumentedDependencyAttributes);
-      this.splitLists = splitLists;
+      this.sourceAttributes = instrumentedSourceAttributes;
+      this.dependencyAttributes = instrumentedDependencyAttributes;
+    }
+
+    public InstrumentationSpec(FileTypeSet instrumentedFileTypes) {
+      this(instrumentedFileTypes, ImmutableList.of(), ImmutableList.of());
     }
 
     /**
-     * Returns a new instrumentation spec with the given attribute names replacing the ones
-     * stored in this object.
+     * Returns a new instrumentation spec with the given attribute names replacing the ones stored
+     * in this object.
      */
-    public InstrumentationSpec withAttributes(String... instrumentedAttributes) {
-      return new InstrumentationSpec(instrumentedFileTypes, instrumentedAttributes);
+    public InstrumentationSpec withSourceAttributes(Collection<String> attributes) {
+      return new InstrumentationSpec(
+          instrumentedFileTypes, ImmutableList.copyOf(attributes), dependencyAttributes);
     }
 
     /**
-     * Returns a new instrumentation spec with the given attribute names replacing the ones
-     * stored in this object.
+     * Returns a new instrumentation spec with the given attribute names replacing the ones stored
+     * in this object.
      */
-    public InstrumentationSpec withSourceAttributes(String... instrumentedAttributes) {
-      return new InstrumentationSpec(instrumentedFileTypes,
-          ImmutableList.copyOf(instrumentedAttributes), dependencyAttributes, true);
+    public InstrumentationSpec withSourceAttributes(String... attributes) {
+      return withSourceAttributes(ImmutableList.copyOf(attributes));
     }
 
     /**
-     * Returns a new instrumentation spec with the given attribute names replacing the ones
-     * stored in this object.
+     * Returns a new instrumentation spec with the given attribute names replacing the ones stored
+     * in this object.
      */
-    public InstrumentationSpec withDependencyAttributes(String... instrumentedAttributes) {
-      return new InstrumentationSpec(instrumentedFileTypes,
-          sourceAttributes, ImmutableList.copyOf(instrumentedAttributes), true);
+    public InstrumentationSpec withDependencyAttributes(Collection<String> attributes) {
+      return new InstrumentationSpec(
+          instrumentedFileTypes, sourceAttributes, ImmutableList.copyOf(attributes));
+    }
+
+    /**
+     * Returns a new instrumentation spec with the given attribute names replacing the ones stored
+     * in this object.
+     */
+    public InstrumentationSpec withDependencyAttributes(String... attributes) {
+      return withDependencyAttributes(ImmutableList.copyOf(attributes));
     }
   }
 
@@ -426,7 +419,7 @@ public final class InstrumentedFilesCollector {
     for (String attr : attributeNames) {
       if (ruleContext.getRule().isAttrDefined(attr, BuildType.LABEL_LIST) ||
           ruleContext.getRule().isAttrDefined(attr, BuildType.LABEL)) {
-        prerequisites.addAll(ruleContext.getPrerequisites(attr, TransitionMode.DONT_CHECK));
+        prerequisites.addAll(ruleContext.getPrerequisites(attr));
       }
     }
     return prerequisites;
@@ -438,8 +431,7 @@ public final class InstrumentedFilesCollector {
     for (Attribute attr : ruleContext.getRule().getAttributes()) {
       if ((attr.getType() == BuildType.LABEL_LIST || attr.getType() == BuildType.LABEL)
           && !attr.getTransitionFactory().isTool()) {
-        prerequisites.addAll(
-            ruleContext.getPrerequisites(attr.getName(), TransitionMode.DONT_CHECK));
+        prerequisites.addAll(ruleContext.getPrerequisites(attr.getName()));
       }
     }
     return prerequisites;

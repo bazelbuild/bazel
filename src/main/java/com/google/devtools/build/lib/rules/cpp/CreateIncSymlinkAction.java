@@ -28,13 +28,19 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.SymlinkAction;
+import com.google.devtools.build.lib.server.FailureDetails.SymlinkAction.Code;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.Map;
 import java.util.SortedMap;
+import javax.annotation.Nullable;
 
 /** This action creates a set of symbolic links. */
 @AutoCodec
@@ -59,11 +65,12 @@ public final class CreateIncSymlinkAction extends AbstractAction {
   }
 
   @Override
-  public void prepare(Path execRoot) throws IOException {
+  public void prepare(Path execRoot, @Nullable BulkDeleter bulkDeleter)
+      throws IOException, InterruptedException {
     if (includePath.isDirectory(Symlinks.NOFOLLOW)) {
       includePath.deleteTree();
     }
-    super.prepare(execRoot);
+    super.prepare(execRoot, bulkDeleter);
   }
 
   @Override
@@ -76,7 +83,14 @@ public final class CreateIncSymlinkAction extends AbstractAction {
       }
     } catch (IOException e) {
       String message = "IO Error while creating symlink: " + e.getMessage();
-      throw new ActionExecutionException(message, e, this, false);
+      DetailedExitCode code =
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(message)
+                  .setSymlinkAction(
+                      SymlinkAction.newBuilder().setCode(Code.LINK_CREATION_IO_EXCEPTION))
+                  .build());
+      throw new ActionExecutionException(message, e, this, false, code);
     }
     return ActionResult.EMPTY;
   }
@@ -87,7 +101,10 @@ public final class CreateIncSymlinkAction extends AbstractAction {
   }
 
   @Override
-  public void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+  public void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable Artifact.ArtifactExpander artifactExpander,
+      Fingerprint fp) {
     for (Map.Entry<Artifact, Artifact> entry : symlinks.entrySet()) {
       fp.addPath(entry.getKey().getExecPath());
       fp.addPath(entry.getValue().getExecPath());

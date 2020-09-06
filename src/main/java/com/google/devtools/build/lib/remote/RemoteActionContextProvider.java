@@ -96,8 +96,7 @@ final class RemoteActionContextProvider implements ExecutorLifecycleListener {
             env.getExecRoot(),
             checkNotNull(env.getOptions().getOptions(RemoteOptions.class)),
             env.getOptions().getOptions(ExecutionOptions.class),
-            checkNotNull(env.getOptions().getOptions(ExecutionOptions.class))
-                .getVerboseFailuresPredicate(),
+            checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)).verboseFailures,
             env.getReporter(),
             env.getBuildRequestId(),
             env.getCommandId().toString(),
@@ -121,6 +120,7 @@ final class RemoteActionContextProvider implements ExecutorLifecycleListener {
         new RemoteSpawnCache(
             env.getExecRoot(),
             checkNotNull(env.getOptions().getOptions(RemoteOptions.class)),
+            checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)).verboseFailures,
             cache,
             env.getBuildRequestId(),
             env.getCommandId().toString(),

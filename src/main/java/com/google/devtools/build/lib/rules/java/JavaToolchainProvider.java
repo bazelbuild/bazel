@@ -23,18 +23,17 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkList;
@@ -50,8 +49,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   /** Returns the Java Toolchain associated with the rule being analyzed or {@code null}. */
   public static JavaToolchainProvider from(RuleContext ruleContext) {
     TransitiveInfoCollection prerequisite =
-        ruleContext.getPrerequisite(
-            JavaRuleClasses.JAVA_TOOLCHAIN_ATTRIBUTE_NAME, TransitionMode.TARGET);
+        ruleContext.getPrerequisite(JavaRuleClasses.JAVA_TOOLCHAIN_ATTRIBUTE_NAME);
     return from(prerequisite, ruleContext);
   }
 
@@ -78,6 +76,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       ImmutableList<String> javabuilderJvmOptions,
       ImmutableList<String> turbineJvmOptions,
       boolean javacSupportsWorkers,
+      boolean javacSupportsMultiplexWorkers,
       BootClassPathInfo bootclasspath,
       @Nullable Artifact javac,
       NestedSet<Artifact> tools,
@@ -126,6 +125,7 @@ public class JavaToolchainProvider extends ToolchainInfo
         javabuilderJvmOptions,
         turbineJvmOptions,
         javacSupportsWorkers,
+        javacSupportsMultiplexWorkers,
         packageConfiguration,
         jacocoRunner,
         javaSemantics);
@@ -156,6 +156,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   private final ImmutableList<String> javabuilderJvmOptions;
   private final ImmutableList<String> turbineJvmOptions;
   private final boolean javacSupportsWorkers;
+  private final boolean javacSupportsMultiplexWorkers;
   private final ImmutableList<JavaPackageConfigurationProvider> packageConfiguration;
   private final FilesToRunProvider jacocoRunner;
   private final JavaSemantics javaSemantics;
@@ -187,6 +188,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       ImmutableList<String> javabuilderJvmOptions,
       ImmutableList<String> turbineJvmOptions,
       boolean javacSupportsWorkers,
+      boolean javacSupportsMultiplexWorkers,
       ImmutableList<JavaPackageConfigurationProvider> packageConfiguration,
       FilesToRunProvider jacocoRunner,
       JavaSemantics javaSemantics) {
@@ -217,6 +219,7 @@ public class JavaToolchainProvider extends ToolchainInfo
     this.javabuilderJvmOptions = javabuilderJvmOptions;
     this.turbineJvmOptions = turbineJvmOptions;
     this.javacSupportsWorkers = javacSupportsWorkers;
+    this.javacSupportsMultiplexWorkers = javacSupportsMultiplexWorkers;
     this.packageConfiguration = packageConfiguration;
     this.jacocoRunner = jacocoRunner;
     this.javaSemantics = javaSemantics;
@@ -289,6 +292,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   }
 
   /** Returns the {@link Artifact} of the SingleJar deploy jar */
+  @Override
   public Artifact getSingleJar() {
     return singleJar;
   }
@@ -377,6 +381,11 @@ public class JavaToolchainProvider extends ToolchainInfo
   /** @return whether JavaBuilders supports running as a persistent worker or not */
   public boolean getJavacSupportsWorkers() {
     return javacSupportsWorkers;
+  }
+
+  /** Returns whether JavaBuilders supports running persistent workers in multiplex mode */
+  public boolean getJavacSupportsMultiplexWorkers() {
+    return javacSupportsMultiplexWorkers;
   }
 
   /** Returns the global {@code java_plugin_configuration} data. */

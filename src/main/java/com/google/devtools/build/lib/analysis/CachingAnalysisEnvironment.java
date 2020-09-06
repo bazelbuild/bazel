@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
@@ -61,7 +61,7 @@ import javax.annotation.Nullable;
 public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   private final ArtifactFactory artifactFactory;
 
-  private final ActionLookupValue.ActionLookupKey owner;
+  private final ActionLookupKey owner;
   /**
    * If this is the system analysis environment, then errors and warnings are directly reported
    * to the global reporter, rather than stored, i.e., we don't track here whether there are any
@@ -96,7 +96,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   public CachingAnalysisEnvironment(
       ArtifactFactory artifactFactory,
       ActionKeyContext actionKeyContext,
-      ActionLookupValue.ActionLookupKey owner,
+      ActionLookupKey owner,
       boolean isSystemEnv,
       boolean extendedSanityChecks,
       boolean allowAnalysisFailures,
@@ -395,7 +395,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public ActionLookupValue.ActionLookupKey getOwner() {
+  public ActionLookupKey getOwner() {
     return owner;
   }
 

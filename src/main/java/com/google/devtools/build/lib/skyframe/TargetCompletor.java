@@ -25,6 +25,9 @@ import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.server.FailureDetails.Execution;
+import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.CompletionFunction.Completor;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -33,7 +36,11 @@ import javax.annotation.Nullable;
 
 /** Manages completing builds for configured targets. */
 class TargetCompletor
-    implements Completor<ConfiguredTargetValue, TargetCompletionValue, TargetCompletionKey> {
+    implements Completor<
+        ConfiguredTargetValue,
+        TargetCompletionValue,
+        TargetCompletionKey,
+        ConfiguredTargetAndData> {
   static SkyFunction targetCompletionFunction(
       PathResolverFactory pathResolverFactory, SkyframeActionExecutor skyframeActionExecutor) {
     return new CompletionFunction<>(
@@ -62,10 +69,13 @@ class TargetCompletor
       return null;
     }
     return new MissingInputFileException(
-        configuredTargetAndData.getTarget().getLocation()
-            + " "
-            + missingCount
-            + " input file(s) do not exist",
+        FailureDetail.newBuilder()
+            .setMessage(
+                String.format(
+                    "%s %d input file(s) do not exist",
+                    configuredTargetAndData.getTarget().getLocation(), missingCount))
+            .setExecution(Execution.newBuilder().setCode(Code.SOURCE_INPUT_MISSING))
+            .build(),
         configuredTargetAndData.getTarget().getLocation());
   }
 
@@ -76,20 +86,22 @@ class TargetCompletor
 
   @Override
   @Nullable
+  public ConfiguredTargetAndData getFailureData(
+      TargetCompletionKey key, ConfiguredTargetValue value, Environment env)
+      throws InterruptedException {
+    ConfiguredTarget target = value.getConfiguredTarget();
+    return ConfiguredTargetAndData.fromConfiguredTargetInSkyframe(target, env);
+  }
+
+  @Override
+  @Nullable
   public ExtendedEventHandler.Postable createFailed(
       ConfiguredTargetValue value,
       NestedSet<Cause> rootCauses,
+      CompletionContext ctx,
       NestedSet<ArtifactsInOutputGroup> outputs,
-      Environment env,
-      TargetCompletionKey key)
-      throws InterruptedException {
-    ConfiguredTarget target = value.getConfiguredTarget();
-    ConfiguredTargetAndData configuredTargetAndData =
-        ConfiguredTargetAndData.fromConfiguredTargetInSkyframe(target, env);
-    if (configuredTargetAndData == null) {
-      return null;
-    }
-    return TargetCompleteEvent.createFailed(configuredTargetAndData, rootCauses, outputs);
+      ConfiguredTargetAndData configuredTargetAndData) {
+    return TargetCompleteEvent.createFailed(configuredTargetAndData, ctx, rootCauses, outputs);
   }
 
   @Override

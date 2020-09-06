@@ -244,7 +244,7 @@ py_library(
 )
 EOF
 
-  bazel cquery "//$pkg:all" --show_config_fragments=transitive > output \
+  bazel cquery "//$pkg:*" --show_config_fragments=transitive > output \
     2>"$TEST_log" || fail "Expected success"
 
   assert_contains "//$pkg:cclib .*CppConfiguration" output
@@ -255,6 +255,8 @@ EOF
 
   assert_not_contains "//$pkg:pylib .*CppConfiguration" output
   assert_contains "//$pkg:pylib .*PythonConfiguration" output
+
+  assert_contains "//$pkg:mylib.cc (null) \[\]" output
 }
 
 function test_show_transitive_config_fragments_select() {
@@ -407,6 +409,32 @@ EOF
 
   assert_contains "//$pkg:cclib_with_py_dep .*CppConfiguration" output
   assert_not_contains "//$pkg:cclib_with_py_dep .*PythonConfiguration" output
+}
+
+function test_show_direct_host_only_config_fragments() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+genrule(
+    name = "gen",
+    outs = ["gen.out"],
+    cmd = "$(location :tool) > $@",
+    tools = [":tool"],
+)
+
+genrule(
+    name = "tool",
+    outs = ["tool.sh"],
+    cmd = 'echo "echo built by TOOL" > $@',
+)
+EOF
+
+  bazel cquery "deps(//$pkg:gen)" --show_config_fragments=direct_host_only \
+    > output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:gen" output
+  assert_not_contains "//$pkg:gen .*CoreOptions" output
+  assert_contains "//$pkg:tool .*CoreOptions" output
 }
 
 function test_show_direct_config_fragments_select() {
@@ -750,6 +778,121 @@ EOF
   bazel cquery "//$pkg:all" > output 2>"$TEST_log" || fail "Expected success"
   assert_contains "//$pkg:my_suite" output
   assert_contains "//$pkg:my_test" output
+}
+
+function test_label_output_shows_alias_labels() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+filegroup(name = "fg", srcs = [":the_alias"])
+alias(name = "the_alias", actual = "some_file")
+EOF
+
+  bazel cquery "deps(//$pkg:fg)" > output 2>"$TEST_log" || fail "Expected
+  success"
+  assert_contains "//$pkg:the_alias" output
+  assert_contains "//$pkg:some_file (null)" output
+  assert_equals "$(grep some_file output | wc -l | egrep -o '[0-9]+')" "1"
+}
+
+function test_transitions_output_shows_alias_labels() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+filegroup(name = "fg", srcs = [":the_alias"])
+alias(name = "the_alias", actual = "some_file")
+EOF
+
+  bazel cquery "deps(//$pkg:fg)" --transitions=lite > output 2>"$TEST_log" || fail "Expected
+  success"
+  assert_contains "//$pkg:the_alias" output
+  assert_contains "//$pkg:some_file (null)" output
+  assert_equals "$(grep some_file output | wc -l | egrep -o '[0-9]+')" "1"
+}
+
+function test_starlark_output_mode() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+py_library(
+    name = "pylib",
+    srcs = ["pylib.py"],
+)
+
+py_library(
+    name = "pylibtwo",
+    srcs = ["pylibtwo.py", "pylibtwo2.py",],
+)
+EOF
+
+  bazel cquery "//$pkg:all" --output=starlark \
+    --starlark:expr="str(target.label) + '%foo'" > output \
+    2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:pylib%foo" output
+  assert_contains "//$pkg:pylibtwo%foo" output
+
+  bazel cquery "//$pkg:all" --output=starlark \
+    --starlark:expr="str(target.label) + '%' + str(target.files.to_list()[1].is_directory)" \
+    > output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:pylibtwo%False" output
+  # pylib evaluation will fail, as it has only one output file.
+  assert_contains "Starlark evaluation error for //$pkg:pylib" "$TEST_log"
+}
+
+function test_starlark_output_invalid_expression() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  touch $pkg/BUILD
+
+  bazel cquery "//$pkg:all" --output=starlark \
+    --starlark:expr="no_symbol" \
+    > output 2>"$TEST_log" && fail "Expected failure"
+
+  assert_contains "invalid --starlark:expr: name 'no_symbol' is not defined" $TEST_log
+
+  bazel cquery "//$pkg:all" --output=starlark \
+    --starlark:expr="def foo(): return 5" \
+    > output 2>"$TEST_log" && fail "Expected failure"
+
+  assert_contains "syntax error at 'def': expected expression" $TEST_log
+}
+
+function test_starlark_output_cc_library_files() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+cc_library(
+    name = "cclib",
+    srcs = ["mylib.cc"],
+)
+EOF
+
+  bazel cquery "//$pkg:all" --output=starlark \
+    --starlark:expr="' '.join([f.basename for f in target.files.to_list()])" \
+    > output 2>"$TEST_log" || fail "Expected failure"
+
+  if "$is_windows"; then
+    assert_contains "cclib.lib" output
+  else
+    assert_contains "libcclib.a" output
+    assert_contains "libcclib.so" output
+  fi
+}
+
+function test_starlark_file_output() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+exports_files(srcs = ["foo"])
+EOF
+
+  bazel cquery "//$pkg:foo" --output=starlark \
+    --starlark:expr="'path=' + target.files.to_list()[0].path" \
+    > output 2>"$TEST_log" || fail "Expected failure"
+
+  assert_contains "^path=$pkg/foo$" output
 }
 
 run_suite "${PRODUCT_NAME} configured query tests"

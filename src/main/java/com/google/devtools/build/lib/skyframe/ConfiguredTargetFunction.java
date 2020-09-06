@@ -339,13 +339,15 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             ToolchainCollection.builder();
         for (Map.Entry<String, UnloadedToolchainContext> unloadedContext :
             unloadedToolchainContexts.getContextMap().entrySet()) {
+          Set<ConfiguredTargetAndData> toolchainDependencies =
+              depValueMap.get(DependencyKind.forExecGroup(unloadedContext.getKey()));
           contextsBuilder.addContext(
               unloadedContext.getKey(),
               ResolvedToolchainContext.load(
                   target.getPackage().getRepositoryMapping(),
                   unloadedContext.getValue(),
                   targetDescription,
-                  depValueMap.get(DependencyKind.TOOLCHAIN_DEPENDENCY)));
+                  toolchainDependencies));
         }
         toolchainContexts = contextsBuilder.build();
       }
@@ -642,10 +644,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               ((ConfiguredRuleClassProvider) ruleClassProvider).getTrimmingTransitionFactory());
     } catch (EvalException e) {
       // EvalException can only be thrown by computed Starlark attributes in the current rule.
-      env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
-      env.getListener().post(new AnalysisRootCauseEvent(configuration, label, e.getMessage()));
+      String msgWithStack = e.getMessageWithStack();
+      env.getListener().handle(Event.error(null, msgWithStack));
+      env.getListener().post(new AnalysisRootCauseEvent(configuration, label, msgWithStack));
       throw new DependencyEvaluationException(
-          new ConfiguredValueCreationException(e.print(), label, configuration));
+          new ConfiguredValueCreationException(msgWithStack, label, configuration));
     } catch (InconsistentAspectOrderException e) {
       env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
       throw new DependencyEvaluationException(e);
@@ -929,12 +932,12 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       aliasPackageValues = env.getValues(aliasPackagesToFetch);
       depsToProcess = aliasDepsToRedo;
     }
-    if (missedValues) {
-      return null;
-    } else if (failWithMessage != null) {
+    if (failWithMessage != null) {
       throw new DependencyEvaluationException(
           new ConfiguredValueCreationException(
               failWithMessage, ctgValue.getConfiguration(), transitiveRootCauses.build()));
+    } else if (missedValues) {
+      return null;
     } else {
       return result;
     }

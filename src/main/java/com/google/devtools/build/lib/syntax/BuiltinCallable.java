@@ -75,7 +75,7 @@ public final class BuiltinCallable implements StarlarkCallable {
   }
 
   private MethodDescriptor getMethodDescriptor(StarlarkSemantics semantics) {
-    return CallUtils.getMethod(semantics, obj.getClass(), methodName);
+    return CallUtils.getAnnotatedMethod(semantics, obj.getClass(), methodName);
   }
 
   /**

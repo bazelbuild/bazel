@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.rules.java;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkApiProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaStarlarkApiProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaStarlarkApiProviderApi;
 
 /**
  * A class that exposes the Java providers to Starlark. It is intended to provide a simple and

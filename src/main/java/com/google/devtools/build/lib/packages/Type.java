@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -35,6 +34,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.RandomAccess;
 import java.util.Set;
 import java.util.logging.Level;
 import javax.annotation.Nullable;
@@ -119,7 +119,7 @@ public abstract class Type<T> {
   @Nullable
   public final T convertOptional(Object x, String what, @Nullable Object context, T defaultValue)
       throws ConversionException {
-    if (EvalUtils.isNullOrNone(x)) {
+    if (Starlark.isNullOrNone(x)) {
       return defaultValue;
     }
     return convert(x, what, context);
@@ -264,7 +264,7 @@ public abstract class Type<T> {
    */
   public static class ConversionException extends EvalException {
     private static String message(Type<?> type, Object value, @Nullable Object what) {
-      Printer.BasePrinter printer = Printer.getPrinter();
+      Printer printer = new Printer();
       printer.append("expected value of type '").append(type.toString()).append("'");
       if (what != null) {
         printer.append(" for ").append(what.toString());
@@ -276,11 +276,11 @@ public abstract class Type<T> {
     }
 
     public ConversionException(Type<?> type, Object value, @Nullable Object what) {
-      super(null, message(type, value, what));
+      super(message(type, value, what));
     }
 
     public ConversionException(String message) {
-      super(null, message);
+      super(message);
     }
   }
 
@@ -467,9 +467,11 @@ public abstract class Type<T> {
 
     @Override
     public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
-      for (Map.Entry<KeyT, ValueT> entry : cast(value).entrySet()) {
-        keyType.visitLabels(visitor, entry.getKey(), context);
-        valueType.visitLabels(visitor, entry.getValue(), context);
+      if (labelClass != LabelClass.NONE) {
+        for (Map.Entry<KeyT, ValueT> entry : cast(value).entrySet()) {
+          keyType.visitLabels(visitor, entry.getKey(), context);
+          valueType.visitLabels(visitor, entry.getValue(), context);
+        }
       }
     }
 
@@ -585,9 +587,13 @@ public abstract class Type<T> {
 
     @Override
     public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
+      if (elemType.getLabelClass() == LabelClass.NONE) {
+        return;
+      }
+
       List<ElemT> elems = cast(value);
       // Hot code path. Optimize for lists with O(1) access to avoid iterator garbage.
-      if (elems instanceof ImmutableList || elems instanceof ArrayList) {
+      if (elems instanceof RandomAccess) {
         for (int i = 0; i < elems.size(); i++) {
           elemType.visitLabels(visitor, elems.get(i), context);
         }
@@ -702,7 +708,7 @@ public abstract class Type<T> {
     @SuppressWarnings("unchecked")
     public List<Object> convert(Object x, Object what, Object context)
         throws ConversionException {
-      // TODO(adonovan): converge on EvalUtils.toIterable.
+      // TODO(adonovan): converge on Starlark.toIterable.
       if (x instanceof Sequence) {
         return ((Sequence) x).getImmutableList();
       } else if (x instanceof List) {

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileStateValue;
@@ -54,6 +53,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 import org.junit.Test;
@@ -133,7 +133,7 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
-        differencer, Optional.<RootedPath>absent());
+        differencer, Optional.empty());
   }
 
   private static SkyKey createKey(RootedPath directory) {
@@ -152,7 +152,7 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
             .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
-            .setEventHander(NullEventHandler.INSTANCE)
+            .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     return driver.<LocalRepositoryLookupValue>evaluate(
         ImmutableList.of(directoryKey), evaluationContext);
@@ -275,7 +275,7 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
   }
 
   @Test
-  public void testLocalRepository_LocalWorkspace_SymlinkCycle() throws Exception {
+  public void testLocalRepository_localWorkspace_symlinkCycle() throws Exception {
     scratch.overwriteFile("WORKSPACE", "local_repository(name='local', path='local/repo')");
     Path localRepoWorkspace = scratch.resolve("local/repo/WORKSPACE");
     Path localRepoWorkspaceLink = scratch.resolve("local/repo/WORKSPACE.link");
@@ -301,7 +301,7 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
   }
 
   @Test
-  public void testLocalRepository_MainWorkspace_NotFound() throws Exception {
+  public void testLocalRepository_mainWorkspace_notFound() throws Exception {
     // Do not add a local_repository to WORKSPACE.
     scratch.overwriteFile("WORKSPACE", "");
     scratch.deleteFile("WORKSPACE");

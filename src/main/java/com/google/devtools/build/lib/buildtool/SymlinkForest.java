@@ -139,7 +139,7 @@ public class SymlinkForest {
     Path execrootLink = execroot.getRelative(repository.getExecPath(siblingRepositoryLayout));
 
     if (!siblingRepositoryLayout && externalRepoLinks.isEmpty()) {
-      execroot.getRelative(LabelConstants.EXTERNAL_PACKAGE_NAME).createDirectoryAndParents();
+      execroot.getRelative(LabelConstants.EXTERNAL_PATH_PREFIX).createDirectoryAndParents();
     }
     if (!externalRepoLinks.add(execrootLink)) {
       return;

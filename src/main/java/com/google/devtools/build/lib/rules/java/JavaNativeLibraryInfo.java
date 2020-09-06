@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaNativeLibraryInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaNativeLibraryInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /**

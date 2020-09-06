@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.ShToolchain;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
@@ -76,14 +75,10 @@ import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
-import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -298,7 +293,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
           "Cannot add outputs to immutable Outputs object");
       if (outputs.containsKey(key)
           || (context.isExecutable() && EXECUTABLE_OUTPUT_NAME.equals(key))) {
-        throw new EvalException(null, "Multiple outputs with the same key: " + key);
+        throw Starlark.errorf("Multiple outputs with the same key: %s", key);
       }
       outputs.put(key, value);
     }
@@ -368,12 +363,9 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
 
     private void checkMutable() throws EvalException {
       if (isImmutable()) {
-        throw new EvalException(
-            null,
-            String.format(
-                "cannot access outputs of rule '%s' outside of its own "
-                    + "rule implementation function",
-                context.ruleLabelCanonicalName));
+        throw Starlark.errorf(
+            "cannot access outputs of rule '%s' outside of its own rule implementation function",
+            context.ruleLabelCanonicalName);
       }
     }
 
@@ -409,9 +401,10 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
 
   public void checkMutable(String attrName) throws EvalException {
     if (isImmutable()) {
-      throw new EvalException(null, String.format(
-          "cannot access field or method '%s' of rule context for '%s' outside of its own rule " 
-              + "implementation function", attrName, ruleLabelCanonicalName));
+      throw Starlark.errorf(
+          "cannot access field or method '%s' of rule context for '%s' outside of its own rule "
+              + "implementation function",
+          attrName, ruleLabelCanonicalName);
     }
   }
 
@@ -529,27 +522,26 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   public StructImpl getSplitAttr() throws EvalException {
     checkMutable("split_attr");
     if (splitAttributes == null) {
-      throw new EvalException(
-          Location.BUILTIN, "'split_attr' is available only in rule implementations");
+      throw new EvalException("'split_attr' is available only in rule implementations");
     }
     return splitAttributes;
   }
 
-  /** See {@link RuleContext#getExecutablePrerequisite(String, TransitionMode)}. */
+  /** See {@link RuleContext#getExecutablePrerequisite(String)}. */
   @Override
   public StructImpl getExecutable() throws EvalException {
     checkMutable("executable");
     return attributesCollection.getExecutable();
   }
 
-  /** See {@link RuleContext#getPrerequisiteArtifact(String, TransitionMode)}. */
+  /** See {@link RuleContext#getPrerequisiteArtifact(String)}. */
   @Override
   public StructImpl getFile() throws EvalException {
     checkMutable("file");
     return attributesCollection.getFile();
   }
 
-  /** See {@link RuleContext#getPrerequisiteArtifacts(String, TransitionMode)}. */
+  /** See {@link RuleContext#getPrerequisiteArtifacts(String)}. */
   @Override
   public StructImpl getFiles() throws EvalException {
     checkMutable("files");
@@ -596,11 +588,9 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   @Nullable
   public Object getBuildSettingValue() throws EvalException {
     if (ruleContext.getRule().getRuleClassObject().getBuildSetting() == null) {
-      throw new EvalException(
-          Location.BUILTIN,
-          String.format(
-              "attempting to access 'build_setting_value' of non-build setting %s",
-              ruleLabelCanonicalName));
+      throw Starlark.errorf(
+          "attempting to access 'build_setting_value' of non-build setting %s",
+          ruleLabelCanonicalName);
     }
     ImmutableMap<Label, Object> starlarkFlagSettings =
         ruleContext.getConfiguration().getOptions().getStarlarkOptions();
@@ -660,7 +650,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   public ClassObject outputs() throws EvalException {
     checkMutable("outputs");
     if (outputsObject == null) {
-      throw new EvalException(Location.BUILTIN, "'outputs' is not defined");
+      throw new EvalException("'outputs' is not defined");
     }
     return outputsObject;
   }
@@ -669,8 +659,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   public StarlarkAttributesCollection rule() throws EvalException {
     checkMutable("rule");
     if (!isForAspect) {
-      throw new EvalException(
-          Location.BUILTIN, "'rule' is only available in aspect implementations");
+      throw new EvalException("'rule' is only available in aspect implementations");
     }
     return ruleAttributesCollection;
   }
@@ -679,8 +668,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   public ImmutableList<String> aspectIds() throws EvalException {
     checkMutable("aspect_ids");
     if (!isForAspect) {
-      throw new EvalException(
-          Location.BUILTIN, "'aspect_ids' is only available in aspect implementations");
+      throw new EvalException("'aspect_ids' is only available in aspect implementations");
     }
 
     ImmutableList.Builder<String> result = ImmutableList.builder();
@@ -725,7 +713,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     try {
       ShellUtils.tokenize(options, optionString);
     } catch (TokenizationException e) {
-      throw new EvalException(null, e.getMessage() + " while tokenizing '" + optionString + "'");
+      throw Starlark.errorf("%s while tokenizing '%s'", e.getMessage(), optionString);
     }
     return StarlarkList.immutableCopyOf(options);
   }
@@ -744,7 +732,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       }
       return LabelExpander.expand(expression, labelMap, labelResolver);
     } catch (NotUniqueExpansionException e) {
-      throw new EvalException(null, e.getMessage() + " while expanding '" + expression + "'");
+      throw Starlark.errorf("%s while expanding '%s'", e.getMessage(), expression);
     }
   }
 
@@ -800,7 +788,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     if (type.isInstance(obj)) {
       return type.cast(obj);
     } else {
-      throw new EvalException(null, errorMessage);
+      throw new EvalException(errorMessage);
     }
   }
 
@@ -874,72 +862,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     return pkg.getSourceRoot().get().relativize(pkg.getBuildFile().getPath()).getPathString();
   }
 
-  /**
-   * A Starlark built-in function to create and register a SpawnAction using a dictionary of
-   * parameters: action( inputs = [input1, input2, ...], outputs = [output1, output2, ...],
-   * executable = executable, arguments = [argument1, argument2, ...], mnemonic = 'Mnemonic',
-   * command = 'command', )
-   */
-  @Override
-  public NoneType action(
-      Sequence<?> outputs,
-      Object inputs,
-      Object executableUnchecked,
-      Object toolsUnchecked,
-      Object arguments,
-      Object mnemonicUnchecked,
-      Object commandUnchecked,
-      Object progressMessage,
-      Boolean useDefaultShellEnv,
-      Object envUnchecked,
-      Object executionRequirementsUnchecked,
-      Object inputManifestsUnchecked,
-      StarlarkThread thread)
-      throws EvalException {
-    checkDeprecated(
-        "ctx.actions.run or ctx.actions.run_shell", "ctx.action", thread.getSemantics());
-    checkMutable("action");
-    if ((commandUnchecked == Starlark.NONE) == (executableUnchecked == Starlark.NONE)) {
-      throw Starlark.errorf("You must specify either 'command' or 'executable' argument");
-    }
-    boolean hasCommand = commandUnchecked != Starlark.NONE;
-    if (!hasCommand) {
-      actions()
-          .run(
-              outputs,
-              inputs,
-              /*unusedInputsList=*/ Starlark.NONE,
-              executableUnchecked,
-              toolsUnchecked,
-              arguments,
-              mnemonicUnchecked,
-              progressMessage,
-              useDefaultShellEnv,
-              envUnchecked,
-              executionRequirementsUnchecked,
-              inputManifestsUnchecked,
-              /* execGroupUnchecked= */ Starlark.NONE);
-
-    } else {
-      actions()
-          .runShell(
-              outputs,
-              inputs,
-              toolsUnchecked,
-              arguments,
-              mnemonicUnchecked,
-              commandUnchecked,
-              progressMessage,
-              useDefaultShellEnv,
-              envUnchecked,
-              executionRequirementsUnchecked,
-              inputManifestsUnchecked,
-              /* execGroupUnchecked= */ Starlark.NONE,
-              thread);
-    }
-    return Starlark.NONE;
-  }
-
   @Override
   public String expandLocation(String input, Sequence<?> targets, StarlarkThread thread)
       throws EvalException {
@@ -950,18 +872,8 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
               makeLabelMap(Sequence.cast(targets, TransitiveInfoCollection.class, "targets")))
           .expand(input);
     } catch (IllegalStateException ise) {
-      throw new EvalException(null, ise);
+      throw new EvalException(ise);
     }
-  }
-
-  @Override
-  public NoneType fileAction(
-      FileApi output, String content, Boolean executable, StarlarkThread thread)
-      throws EvalException {
-    checkDeprecated("ctx.actions.write", "ctx.file_action", thread.getSemantics());
-    checkMutable("file_action");
-    actions().write(output, content, executable);
-    return Starlark.NONE;
   }
 
   @Override
@@ -1038,7 +950,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       command =
           helper.resolveCommandAndExpandLabels(command, attribute, /*allowDataInLabel=*/ false);
     }
-    if (!EvalUtils.isNullOrNone(makeVariablesUnchecked)) {
+    if (!Starlark.isNullOrNone(makeVariablesUnchecked)) {
       Map<String, String> makeVariables =
           Type.STRING_DICT.convert(makeVariablesUnchecked, "make_variables", ruleLabel);
       command = expandMakeVariables(attribute, command, makeVariables);

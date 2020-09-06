@@ -1,3 +1,220 @@
+## Release 3.5.0 (2020-09-02)
+
+```
+Baseline: 889bc0b523b47eeb38a72bf9bb6858ee525a7c7e
+
+Cherry picks:
+
+   + a7a0d48fbeb059ee60e77580e5d05baeefdd5699:
+     Make no-op starlark transition not affect the output directory.
+   + b37c51c7085f0aefe04034dd451acb847605ddb5:
+     Add include_prefix and strip_include_prefix to cc_common.compile
+   + f6ad35fcde93f92c591778ed7db38d167f5bbc03:
+     Delete --experimental_transparent_compression
+   + 39bc97eab295bddb35b38bfc4a2ff3d2b15d034e:
+     Remove --experimental_action_args
+   + b9706675a7abf6ceebb250f0b3dfa4087a0c35f6:
+     Stop needlessly parsing WORKSPACE files from external
+     repositories.
+   + e574d558da17cfd0f818e7a937a07926aa270069:
+     Allow hyphen char in workspace name
+   + 9993785fa0c4fa4172aa31d306f3abea76833abf:
+     Allow dot ('.') in workspace names.
+```
+
+New features:
+
+  - cc_common.compile support for include_prefix/strip_include_prefix
+
+Important changes:
+
+  - Removed the flag --experimental_transparent_compression.
+  - Removed the flag --experimental_action_args.
+  - Stop needlessly parsing WORKSPACE files from external
+    repositories.
+  - Dot ('.') is now allowed in workspace names. See
+    https://github.com/bazelbuild/bazel/issues/11837.
+
+This release contains contributions from many people at Google, as well as David Ostrovsky.
+
+## Release 3.5.0 (2020-09-02)
+
+```
+Baseline: 889bc0b523b47eeb38a72bf9bb6858ee525a7c7e
+
+Cherry picks:
+
+   + d6b9469efebd200a39d7fd43876a18822fcdbe7b:
+     Make no-op starlark transition not affect the output directory.
+   + b37c51c7085f0aefe04034dd451acb847605ddb5:
+     Add include_prefix and strip_include_prefix to cc_common.compile
+   + 0ebb1d5a5388109e3f026a355c77fdf0121f3a43:
+     Delete --experimental_transparent_compression
+   + 312e121c70aebfaa91b0a3106fa964e0bc12d1df:
+     Remove --experimental_action_args
+   + 7e6e855bb82734f582e03c2c7fad3148c139d0e0:
+     Stop needlessly parsing WORKSPACE files from external
+     repositories.
+   + d4049f6f85efb8f48d1f6b72764115af5b184831:
+     Allow hyphen char in workspace name
+   + 0a35be1843a2e4d49d5e5c3893cd6673705b7fb1:
+     Allow dot ('.') in workspace names.
+```
+
+Incompatible changes:
+
+  - The --experimental_process_wrapper_wait_fix flag (used
+    purely to roll out a risky bug fix) has been removed.
+  - Removed the --experimental_ui_deduplicate flag.
+  - Bazel now correctly prefers Xcode versions in `/Applications`
+    over any other paths, which resolves an issue with accidentally
+    picking up an Xcode version from a Time Machine backup or network
+    disk. In the improbable case that you relied on the old behavior
+    and Bazel now picks up Xcode from the wrong location, you can fix
+    it by moving that Xcode version to /Applications.
+
+New features:
+
+  - cquery now follows aspects with --include_aspects.
+  - cc_common.compile support for include_prefix/strip_include_prefix
+
+Important changes:
+
+  - Add support to bazel/crosstool for building arm64 on macos aka
+    darwin
+  - Add opt in 'oso_prefix_is_pwd' feature for Apple builds
+  - Add InstrumentedFilesInfo provider to Starlark globals.
+  - Fixed resource shrinking when <overlayable/> tags are used.
+  - Remove old incompatible flag
+    --incompatible_symlinked_sandbox_expands_tree_artifacts_in_runfile
+    s_tree.
+  - Update coverage configuration for Python, filegroup, and shell
+    script rules to distinguish between source and dependency
+    attributes.
+  - Add support to bazel/crosstool for building arm64e on macos aka
+    darwin
+  - Make filegroup always forward InstrumentedFilesProvider and not
+    collect any sources directly.
+  - Support signing key rotation in android_binary
+  - Remove legacy handling of --extra_checks
+  - Support signing key rotation in android_binary
+    GO...
+  - `--apple_bitcode` now takes an optional platform and only applies
+    the Bitcode mode to that platform if present. The option may be
+    provided multiple times.
+  - Support signing key rotation in android_binary
+  - NS_BLOCK_ASSERTIONS is now passed for all Apple architectures.
+  - Major changes to reporting of Starlark errors and the call stack.
+    (Please be alert to possible regressions, such as errors that
+    lack relevant location information.)
+  - Removed the flag --experimental_transparent_compression.
+  - Removed the flag --experimental_action_args.
+  - Stop needlessly parsing WORKSPACE files from external
+    repositories.
+  - Dot ('.') is now allowed in workspace names. See
+    https://github.com/bazelbuild/bazel/issues/11837.
+
+This release contains contributions from many people at Google, as well as Adam Gross, Andrew Suffield, Benjamin Peterson, bnczk, David Ostrovsky, Ed Schouten, Greg Estren, Grzegorz Lukasik, Holger Freyther, Kalle Johansson, Keith Smiley, Kerrick Staley, Kyle Teske, Mostyn Bramley-Moore, Ryan Beasley, Ryan Pavlik, Siggi Simonarson, Stiopa Koltsov, Ulf Adams, Xiaoyi Shi, Yannic Bonenberger, Yesudeep Mangalapilly.
+
+## Release 3.4.1 (2020-07-14)
+
+```
+Baseline: 7404d17ac76da876ae0b432d1fccf222a9e991fe
+
+Cherry picks:
+
+   + f31f2d787116120b2b16e9aa9a64fab171c0d954:
+     fixup! Gracefully handle the lack of subreaper support in Linux.
+   + 3a4f221e3c57495c1ed0d1ec8128f92323b13079:
+     Revert "Replace the remaining dependencies for Bazel Debian
+     build (third_party)"
+   + c55ec0f2cb3f5b44e5025bf9d3c5dc91d94db287:
+     Revert "Upgrade gRPC to 1.26.0"
+```
+
+This release contains contributions from many people at Google, as well as Ryan Beasley.
+
+## Release 3.4.0 (2020-07-13)
+
+```
+Baseline: 7404d17ac76da876ae0b432d1fccf222a9e991fe
+
+Cherry picks:
+
+   + a4334be50a206bf8d676a0196af11056c48ac35b:
+     fixup! Gracefully handle the lack of subreaper support in Linux.
+```
+
+Incompatible changes:
+
+  - This removes the short-lived --process_wrapper_extra_flags
+    flag, which was introduced primarily to roll out a bug fix.
+    Unfortunately,
+    this made us inadvertently expose all of the process-wrapper's
+    command line
+    interface to the public, which should not have happened.  Given
+    the corner
+    case of the utility of this flag, the lack of documentation for
+    it, and the
+    fact that it only appeared in a single release, we are treating
+    this as a
+    bug instead of a backwards compatibility breakage.
+
+New features:
+
+  - bazel info: Allow to specify multiple keys.
+  - Support code coverage with GCC 9.
+
+Important changes:
+
+  - Allow InstrumentedFilesInfo fields to be read from Starlark.
+  - The --starlark_cpu_profile=<file> flag writes a profile in
+    pprof format containing a statistical summary of CPU usage
+    by all Starlark execution during the bazel command. Use it
+    to identify slow Starlark functions in loading and analysis.
+  - The --debug_depset_flag has been removed as it is in effect
+    always on at no cost.
+  - Rule authors should use the
+    incompatible_use_toolchain_transition rule attribute to migrate
+    to using
+    the toolchain transition. jcater to udpate notes further.
+  - `apple_binary` rules now accept the `stamp` attribute with the
+    same
+    semantics that it has in `cc_binary` rules.
+  - --incompatible_objc_provider_remove_compile_info turns off
+    the compile info/mege_zip Starlark APIs in ObjcProvider.  See
+    #11359.
+  - The --debug_depset_flag has been removed as it is in effect
+    always on at no cost.
+  - Fix behavior of ctx.actions.write so content is written without
+    an incorrect encoding to UTF-8.
+    See https://github.com/bazelbuild/bazel/issues/10174 for details.
+  - Collect more performance metrics for worker execution.
+  - Add flag --incompatible_force_strict_header_check_from_starlark
+  - Configure coverage and runfiles for sh_library.
+  - Adds --incompatible_blacklisted_protos_requires_proto_info to
+    indicate whether proto_lang_toolchain.blacklisted_protos requires
+    ProtoInfo.
+
+This release contains contributions from many people at Google, as well as Andrzej Guszak, Benjamin Peterson, Benjamin Romano, Carlos Eduardo Seo, Claudio Bley, dannysullivan, David Ostrovsky, George Gensure, Graham Jenson, Grzegorz Lukasik, Gunnar Wagenknecht, Henk van der Laan, Jin, John Millikin, Marin Baron, Nikhil Marathe, Robin Nabel, Ryan Beasley, Samuel Giddins, Sergey Balabanov, utsav-dbx, Vo Van Nghia, Yannic Bonenberger.
+
+## Release 3.3.1 (2020-06-30)
+
+```
+Baseline: c063b5caf776dee665497b64c5c17d4ed7e6750a
+
+Cherry picks:
+
+   + cb798a475eb54087e1e83f8aa1dc1c54550877b5:
+     Restore missing Building with Platforms docs.
+   + 9be97678b02bbd45d164c8458c8fd4f7791cb7aa:
+     Release 3.3.0 (2020-06-17)
+   + 3b0439e37247a480e08337a6314d06231bdbafd3:
+     Fix incorrect assumption of desugar persistent worker conditional
+```
+
+This release contains contributions from many people at Google, as well as .
+
 ## Release 3.3.0 (2020-06-17)
 
 ```

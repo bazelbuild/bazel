@@ -11,6 +11,16 @@ filegroup(
 )
 
 java_library(
+    name = "BuildEventServiceAvailabilityEvent",
+    srcs = ["BuildEventServiceAvailabilityEvent.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "buildeventservice-options",
     srcs = ["BuildEventServiceOptions.java"],
     deps = [

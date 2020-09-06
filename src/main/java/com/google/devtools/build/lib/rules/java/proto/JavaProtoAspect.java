@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -174,18 +173,15 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       this.rpcSupport = rpcSupport;
       this.aspectCommon = aspectCommon;
       this.javaProtoLibraryAspectProviders =
-          ruleContext.getPrerequisites(
-              "deps", TransitionMode.TARGET, JavaProtoLibraryAspectProvider.class);
+          ruleContext.getPrerequisites("deps", JavaProtoLibraryAspectProvider.class);
 
       this.dependencyCompilationArgs =
           JavaCompilationArgsProvider.merge(
-              ruleContext.getPrerequisites(
-                  "deps", TransitionMode.TARGET, JavaCompilationArgsProvider.class));
+              ruleContext.getPrerequisites("deps", JavaCompilationArgsProvider.class));
 
       this.exportsCompilationArgs =
           JavaCompilationArgsProvider.merge(
-              ruleContext.getPrerequisites(
-                  "exports", TransitionMode.TARGET, JavaCompilationArgsProvider.class));
+              ruleContext.getPrerequisites("exports", JavaCompilationArgsProvider.class));
     }
 
     void addProviders(ConfiguredAspect.Builder aspect) throws InterruptedException {
@@ -265,7 +261,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
      * proto_library.
      */
     private boolean shouldGenerateCode() {
-      if (protoInfo.getDirectProtoSources().isEmpty()) {
+      if (protoInfo.getOriginalDirectProtoSources().isEmpty()) {
         return false;
       }
 
@@ -276,7 +272,8 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
       protoBlackList = new ProtoSourceFileBlacklist(ruleContext, blacklistedProtos.build());
 
-      return protoBlackList.checkSrcs(protoInfo.getDirectProtoSources(), "java_proto_library");
+      return protoBlackList.checkSrcs(
+          protoInfo.getOriginalDirectProtoSources(), "java_proto_library");
     }
 
     private void createProtoCompileAction(Artifact sourceJar) throws InterruptedException {

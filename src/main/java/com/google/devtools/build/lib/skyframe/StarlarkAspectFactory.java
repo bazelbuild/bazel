@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -32,10 +30,8 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
-import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalExceptionWithStackTrace;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -67,7 +63,10 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
         starlarkRuleContext =
             new StarlarkRuleContext(
                 ruleContext, aspectDescriptor, analysisEnv.getStarlarkSemantics());
-      } catch (EvalException | RuleErrorException e) {
+      } catch (EvalException e) {
+        ruleContext.ruleError(e.getMessageWithStack());
+        return null;
+      } catch (RuleErrorException e) {
         ruleContext.ruleError(e.getMessage());
         return null;
       }
@@ -85,11 +84,11 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
             .storeInThread(thread);
 
         Object aspectStarlarkObject =
-            Starlark.call(
+            Starlark.fastcall(
                 thread,
                 starlarkAspect.getImplementation(),
-                /*args=*/ ImmutableList.of(ctadBase.getConfiguredTarget(), starlarkRuleContext),
-                /*kwargs=*/ ImmutableMap.of());
+                /*positional=*/ new Object[] {ctadBase.getConfiguredTarget(), starlarkRuleContext},
+                /*named=*/ new Object[0]);
 
         // If allowing analysis failures, targets should be created somewhat normally, and errors
         // will be propagated via a hook elsewhere as AnalysisFailureInfo.
@@ -109,8 +108,7 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
         }
         return createAspect(aspectStarlarkObject, ruleContext);
       } catch (EvalException e) {
-        addAspectToStackTrace(ctadBase.getTarget(), e);
-        ruleContext.ruleError("\n" + e.print());
+        ruleContext.ruleError("\n" + e.getMessageWithStack());
         return null;
       }
     } finally {
@@ -183,16 +181,6 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
           entry.getKey(),
           StarlarkRuleConfiguredTargetUtil.convertToOutputGroupValue(
               entry.getKey(), entry.getValue()));
-    }
-  }
-
-  private void addAspectToStackTrace(Target base, EvalException e) {
-    if (e instanceof EvalExceptionWithStackTrace) {
-      ((EvalExceptionWithStackTrace) e)
-          .registerPhantomCall(
-              String.format("%s(...)", starlarkAspect.getName()),
-              base.getAssociatedRule().getLocation(),
-              starlarkAspect.getImplementation());
     }
   }
 }

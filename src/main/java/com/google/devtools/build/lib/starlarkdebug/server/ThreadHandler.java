@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.P
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Value;
 import com.google.devtools.build.lib.syntax.Debug;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Module;
@@ -74,9 +73,9 @@ final class ThreadHandler {
    */
   private static class SteppingThreadState {
     /** Determines when execution should next be paused. */
-    final StarlarkThread.ReadyToPause readyToPause;
+    final Debug.ReadyToPause readyToPause;
 
-    SteppingThreadState(StarlarkThread.ReadyToPause readyToPause) {
+    SteppingThreadState(Debug.ReadyToPause readyToPause) {
       this.readyToPause = readyToPause;
     }
   }
@@ -197,8 +196,8 @@ final class ThreadHandler {
   private void resumePausedThread(
       PausedThreadState thread, StarlarkDebuggingProtos.Stepping stepping) {
     pausedThreads.remove(thread.id);
-    StarlarkThread.ReadyToPause readyToPause =
-        thread.thread.stepControl(DebugEventHelper.convertSteppingEnum(stepping));
+    Debug.ReadyToPause readyToPause =
+        Debug.stepControl(thread.thread, DebugEventHelper.convertSteppingEnum(stepping));
     if (readyToPause != null) {
       steppingThreads.put(thread.id, new SteppingThreadState(readyToPause));
     }
@@ -282,7 +281,9 @@ final class ThreadHandler {
     try {
       Object result = doEvaluate(thread, statement);
       return DebuggerSerialization.getValueProto(objectMap, "Evaluation result", result);
-    } catch (SyntaxError.Exception | EvalException | InterruptedException e) {
+    } catch (EvalException e) {
+      throw new DebugRequestException(e.getMessageWithStack());
+    } catch (SyntaxError.Exception | InterruptedException e) {
       throw new DebugRequestException(e.getMessage());
     }
   }
@@ -302,10 +303,10 @@ final class ThreadHandler {
 
       // TODO(adonovan): opt: don't parse and resolve the expression every time we hit a breakpoint
       // (!).
-      ParserInput input = ParserInput.create(content, "<debug eval>");
-      // TODO(adonovan): the module or call frame should be a parameter.
+      ParserInput input = ParserInput.fromString(content, "<debug eval>");
+      // TODO(adonovan): the module or call frame should be a parameter to doEvaluate.
       Module module = Module.ofInnermostEnclosingStarlarkFunction(thread);
-      return EvalUtils.exec(input, FileOptions.DEFAULT, module, thread);
+      return Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
     } finally {
       servicingEvalRequest.set(false);
     }
@@ -391,7 +392,9 @@ final class ThreadHandler {
     }
     try {
       return Starlark.truth(doEvaluate(thread, condition));
-    } catch (SyntaxError.Exception | EvalException | InterruptedException e) {
+    } catch (EvalException e) {
+      throw new ConditionalBreakpointException(e.getMessageWithStack());
+    } catch (SyntaxError.Exception | InterruptedException e) {
       throw new ConditionalBreakpointException(e.getMessage());
     }
   }

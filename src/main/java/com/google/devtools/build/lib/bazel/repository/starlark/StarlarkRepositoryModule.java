@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
-import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryModuleApi;
+import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryModuleApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Module;
@@ -100,7 +100,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
     }
     builder.setConfiguredTargetFunction(implementation);
     BazelModuleContext bzlModule =
-        (BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData();
+        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
     builder.setRuleDefinitionEnvironmentLabelAndDigest(
         bzlModule.label(), bzlModule.bzlTransitiveDigest());
     builder.setWorkspaceOnly();
@@ -154,8 +154,9 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
     @Override
     public Object call(StarlarkThread thread, Tuple<Object> args, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
+      BazelStarlarkContext.from(thread).checkWorkspacePhase("repository rule " + exportedName);
       if (!args.isEmpty()) {
-        throw new EvalException(null, "unexpected positional arguments");
+        throw new EvalException("unexpected positional arguments");
       }
       String ruleClassName;
       // If the function ever got exported (the common case), we take the name
@@ -172,7 +173,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
         // now many projects create and instantiate repository_rules without an
         // intervening export; see b/111199163. An incompatible flag is required.
         if (false) {
-          throw new EvalException(null, "attempt to instantiate a non-exported repository rule");
+          throw new EvalException("attempt to instantiate a non-exported repository rule");
         }
 
         // The historical workaround was a fragile hack to introspect on the call

@@ -17,13 +17,13 @@ package com.google.devtools.build.skydoc.fakebuildapi.java;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.StarlarkActionFactoryApi;
-import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi;
-import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCommonApi;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -91,7 +91,8 @@ public class FakeJavaCommon
   @Override
   public FileApi packSources(
       StarlarkActionFactoryApi actions,
-      FileApi outputJar,
+      Object outputJar,
+      Object outputSourceJar,
       Sequence<?> sourceFiles,
       Sequence<?> sourceJars,
       FakeJavaToolchainStarlarkApiProviderApi javaToolchain,
@@ -143,6 +144,17 @@ public class FakeJavaCommon
 
   @Override
   public FakeJavaInfo removeAnnotationProcessors(FakeJavaInfo javaInfo) {
+    return new FakeJavaInfo();
+  }
+
+  @Override
+  public FakeJavaInfo setAnnotationProcessing(
+      FakeJavaInfo javaInfo,
+      boolean enabled,
+      Sequence<?> processorClassnames,
+      Object processorClasspath,
+      Object classJar,
+      Object sourceJar) {
     return new FakeJavaInfo();
   }
 

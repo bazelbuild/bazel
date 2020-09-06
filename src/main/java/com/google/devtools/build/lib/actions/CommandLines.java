@@ -168,31 +168,50 @@ public class CommandLines {
                   paramFileInfo.getFlagFormatString(), paramFileExecPath.getPathString());
           arguments.addElement(paramArg);
           cmdLineLength += paramArg.length() + 1;
-          paramFiles.add(
-              new ParamFileActionInput(
-                  paramFileExecPath,
-                  args,
-                  paramFileInfo.getFileType(),
-                  paramFileInfo.getCharset()));
+
+          if (paramFileInfo.flagsOnly()) {
+            // Move just the flags into the file, and keep the positional parameters on the command
+            // line.
+            paramFiles.add(
+                new ParamFileActionInput(
+                    paramFileExecPath,
+                    ParameterFile.flagsOnly(args),
+                    paramFileInfo.getFileType(),
+                    paramFileInfo.getCharset()));
+            for (String positionalArg : ParameterFile.nonFlags(args)) {
+              arguments.addElement(positionalArg);
+              cmdLineLength += positionalArg.length() + 1;
+            }
+          } else {
+            paramFiles.add(
+                new ParamFileActionInput(
+                    paramFileExecPath,
+                    args,
+                    paramFileInfo.getFileType(),
+                    paramFileInfo.getCharset()));
+          }
         }
       }
     }
     return new ExpandedCommandLines(arguments.build(), paramFiles);
   }
 
-  public void addToFingerprint(ActionKeyContext actionKeyContext, Fingerprint fingerprint)
+  public void addToFingerprint(
+      ActionKeyContext actionKeyContext,
+      @Nullable ArtifactExpander artifactExpander,
+      Fingerprint fingerprint)
       throws CommandLineExpansionException {
     // Optimize for simple case of single command line
     if (commandLines instanceof CommandLine) {
       CommandLine commandLine = (CommandLine) commandLines;
-      commandLine.addToFingerprint(actionKeyContext, fingerprint);
+      commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint);
       return;
     }
     List<CommandLineAndParamFileInfo> commandLines = getCommandLines();
     for (CommandLineAndParamFileInfo pair : commandLines) {
       CommandLine commandLine = pair.commandLine;
       ParamFileInfo paramFileInfo = pair.paramFileInfo;
-      commandLine.addToFingerprint(actionKeyContext, fingerprint);
+      commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint);
       if (paramFileInfo != null) {
         addParamFileInfoToFingerprint(paramFileInfo, fingerprint);
       }
@@ -274,7 +293,6 @@ public class CommandLines {
   }
 
   // Helper function to unpack the optimized storage format into a list
-  @SuppressWarnings("unchecked")
   public List<CommandLineAndParamFileInfo> getCommandLines() {
     if (commandLines instanceof CommandLine) {
       return ImmutableList.of(new CommandLineAndParamFileInfo((CommandLine) commandLines, null));

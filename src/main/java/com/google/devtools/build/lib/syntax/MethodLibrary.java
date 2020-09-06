@@ -26,8 +26,6 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.Set;
-import java.util.TreeSet;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -52,7 +50,7 @@ class MethodLibrary {
     try {
       return findExtreme(args, EvalUtils.STARLARK_COMPARATOR.reverse());
     } catch (ComparisonException e) {
-      throw new EvalException(null, e);
+      throw new EvalException(e);
     }
   }
 
@@ -69,7 +67,7 @@ class MethodLibrary {
     try {
       return findExtreme(args, EvalUtils.STARLARK_COMPARATOR);
     } catch (ComparisonException e) {
-      throw new EvalException(null, e);
+      throw new EvalException(e);
     }
   }
 
@@ -82,7 +80,7 @@ class MethodLibrary {
       Iterable<?> items = (args.size() == 1) ? Starlark.toIterable(args.get(0)) : args;
       return maxOrdering.max(items);
     } catch (NoSuchElementException ex) {
-      throw new EvalException(null, "expected at least one item", ex);
+      throw new EvalException("expected at least one item", ex);
     }
   }
 
@@ -451,10 +449,8 @@ class MethodLibrary {
       String parseable = isNegative ? "-" + digits : digits;
       return Integer.parseInt(parseable, base);
     } catch (NumberFormatException | ArithmeticException e) {
-      throw new EvalException(
-          null,
-          Starlark.format("invalid literal for int() with base %d: %r", base, stringForErrors),
-          e);
+      throw Starlark.errorf(
+          "invalid literal for int() with base %d: %s", base, Starlark.repr(stringForErrors));
     }
   }
 
@@ -603,13 +599,7 @@ class MethodLibrary {
       },
       useStarlarkThread = true)
   public Boolean hasattr(Object obj, String name, StarlarkThread thread) throws EvalException {
-    // TODO(adonovan): factor the core logic of hasattr, getattr, and dir into three adjacent
-    // functions so that we can convince ourselves of their ongoing consistency.
-    // Are we certain that getValue doesn't sometimes return None to mean 'no field'?
-    if (obj instanceof ClassObject && ((ClassObject) obj).getValue(name) != null) {
-      return true;
-    }
-    return CallUtils.getMethodNames(thread.getSemantics(), obj.getClass()).contains(name);
+    return Starlark.hasattr(thread.getSemantics(), obj, name);
   }
 
   @StarlarkMethod(
@@ -634,14 +624,12 @@ class MethodLibrary {
       useStarlarkThread = true)
   public Object getattr(Object obj, String name, Object defaultValue, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    Object result = EvalUtils.getAttr(thread, obj, name);
-    if (result == null) {
-      if (defaultValue != Starlark.UNBOUND) {
-        return defaultValue;
-      }
-      throw EvalUtils.getMissingAttrException(obj, name, thread.getSemantics());
-    }
-    return result;
+    return Starlark.getattr(
+        thread.mutability(),
+        thread.getSemantics(),
+        obj,
+        name,
+        defaultValue == Starlark.UNBOUND ? null : defaultValue);
   }
 
   @StarlarkMethod(
@@ -652,13 +640,7 @@ class MethodLibrary {
       parameters = {@Param(name = "x", doc = "The object to check.", noneable = true)},
       useStarlarkThread = true)
   public StarlarkList<?> dir(Object object, StarlarkThread thread) throws EvalException {
-    // Order the fields alphabetically.
-    Set<String> fields = new TreeSet<>();
-    if (object instanceof ClassObject) {
-      fields.addAll(((ClassObject) object).getFieldNames());
-    }
-    fields.addAll(CallUtils.getMethodNames(thread.getSemantics(), object.getClass()));
-    return StarlarkList.copyOf(thread.mutability(), fields);
+    return Starlark.dir(thread.mutability(), thread.getSemantics(), object);
   }
 
   @StarlarkMethod(
@@ -717,7 +699,7 @@ class MethodLibrary {
       extraPositionals = @Param(name = "args", doc = "The objects to print."),
       useStarlarkThread = true)
   public NoneType print(String sep, Sequence<?> args, StarlarkThread thread) throws EvalException {
-    Printer p = Printer.getPrinter();
+    Printer p = new Printer();
     String separator = "";
     for (Object x : args) {
       p.append(separator);

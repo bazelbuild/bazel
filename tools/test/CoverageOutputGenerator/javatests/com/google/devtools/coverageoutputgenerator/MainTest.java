@@ -36,7 +36,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class MainTest {
 
-  private static final int TEST_PARSE_PARALLELISM = 8;
+  private static final int TEST_PARSE_PARALLELISM = 4;
   @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
   @Rule public TestName testName = new TestName();
   private Path coverageDir;
@@ -72,6 +72,11 @@ public class MainTest {
   @Test
   public void testParallelParse_1MLoC_4LcovFiles() throws Exception {
     assertParallelParse(4, 1024, 1024);
+  }
+
+  @Test
+  public void testParallelParse_1MLoC_1LcovFiles() throws Exception {
+    assertParallelParse(1, 1024, 1024);
   }
 
   @Test

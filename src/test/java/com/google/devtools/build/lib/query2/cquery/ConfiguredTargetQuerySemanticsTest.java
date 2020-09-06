@@ -177,6 +177,28 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     assertThat(eval("labels('string_dep', //test:my_rule)")).isEmpty();
   }
 
+  /**
+   * Regression test for b/162431514. the {@code labels} query operator uses {@link
+   * ConfiguredTargetAccessor#getPrerequisites} which is the actual logic being tested here.
+   */
+  @Test
+  public void testGetPrerequisitesFromAliasReturnsActualPrerequisites() throws Exception {
+    MockRule ruleWithDep =
+        () ->
+            MockRule.define(
+                "rule_with_dep", attr("dep", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE));
+
+    helper.useRuleClassProvider(setRuleClassProviders(ruleWithDep).build());
+    writeFile(
+        "test/BUILD",
+        "alias(name = 'alias', actual = ':actual')",
+        "rule_with_dep(name = 'actual', dep = ':dep')",
+        "rule_with_dep(name = 'dep')");
+
+    ConfiguredTarget dep = Iterables.getOnlyElement(eval("labels('dep', '//test:alias')"));
+    assertThat(dep.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:dep"));
+  }
+
   @Test
   public void testAlias_filtering() throws Exception {
     MockRule ruleWithHostDep =
@@ -268,9 +290,9 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
 
   private void createConfigTransitioningRuleClass() throws Exception {
     writeFile(
-        "tools/whitelists/function_transition_whitelist/BUILD",
+        "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
-        "    name = 'function_transition_whitelist',",
+        "    name = 'function_transition_allowlist',",
         "    packages = [",
         "        '//test/...',",
         "    ],",
@@ -294,8 +316,8 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
         "    implementation = _rule_impl,",
         "    attrs = {",
         "        'deps': attr.label_list(cfg = my_transition),",
-        "        '_whitelist_function_transition': attr.label(",
-        "            default = '//tools/whitelists/function_transition_whitelist',",
+        "        '_allowlist_function_transition': attr.label(",
+        "            default = '//tools/allowlists/function_transition_allowlist',",
         "        ),",
         "    }",
         ")",
@@ -461,7 +483,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   }
 
   @Test
-  public void testSomePath_DepInCustomConfiguration() throws Exception {
+  public void testSomePath_depInCustomConfiguration() throws Exception {
     createConfigTransitioningRuleClass();
     writeFile(
         "test/BUILD",

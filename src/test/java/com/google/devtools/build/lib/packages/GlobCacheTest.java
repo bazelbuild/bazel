@@ -91,12 +91,12 @@ public class GlobCacheTest {
     createCache();
   }
 
-  private void createCache(PathFragment... blacklistedDirectories) {
+  private void createCache(PathFragment... ignoredDirectories) {
     cache =
         new GlobCache(
             packageDirectory,
             PackageIdentifier.createInMainRepo("isolated"),
-            ImmutableSet.copyOf(blacklistedDirectories),
+            ImmutableSet.copyOf(ignoredDirectories),
             new CachingPackageLocator() {
               @Override
               public Path getBuildFileForPackage(PackageIdentifier packageId) {
@@ -121,7 +121,7 @@ public class GlobCacheTest {
   }
 
   @Test
-  public void testBlacklistedDirectory() throws Exception {
+  public void testIgnoredDirectory() throws Exception {
     createCache(PathFragment.create("isolated/foo"));
     List<Path> paths = cache.safeGlobUnsorted("**/*.js", true).get();
     assertPathsAre(
@@ -205,13 +205,13 @@ public class GlobCacheTest {
   }
 
   @Test
-  public void testSingleFileExclude_Star() throws Exception {
+  public void testSingleFileExclude_star() throws Exception {
     assertThat(cache.globUnsorted(list("*"), list("first.txt"), false, true))
         .containsExactly("BUILD", "bar", "first.js", "foo", "second.js", "second.txt");
   }
 
   @Test
-  public void testSingleFileExclude_StarStar() throws Exception {
+  public void testSingleFileExclude_starStar() throws Exception {
     assertThat(cache.globUnsorted(list("**"), list("first.txt"), false, true))
         .containsExactly(
             "BUILD",
@@ -227,22 +227,22 @@ public class GlobCacheTest {
   }
 
   @Test
-  public void testExcludeAll_Star() throws Exception {
+  public void testExcludeAll_star() throws Exception {
     assertThat(cache.globUnsorted(list("*"), list("*"), false, true)).isEmpty();
   }
 
   @Test
-  public void testExcludeAll_Star_NoMatchesAnyway() throws Exception {
+  public void testExcludeAll_star_noMatchesAnyway() throws Exception {
     assertThat(cache.globUnsorted(list("nope"), list("*"), false, true)).isEmpty();
   }
 
   @Test
-  public void testExcludeAll_StarStar() throws Exception {
+  public void testExcludeAll_starStar() throws Exception {
     assertThat(cache.globUnsorted(list("**"), list("**"), false, true)).isEmpty();
   }
 
   @Test
-  public void testExcludeAll_Manual() throws Exception {
+  public void testExcludeAll_manual() throws Exception {
     assertThat(cache.globUnsorted(list("**"), list("*", "*/*", "*/*/*"), false, true)).isEmpty();
   }
 

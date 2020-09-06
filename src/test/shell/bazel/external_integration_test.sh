@@ -1385,6 +1385,10 @@ http_archive(
   sha256="${sha256}",
 )
 EOF
+
+  # Prime the repository cache.
+  bazel build '@ext//:foo' || fail "expected success"
+
   # Use `--repository_cache` with no path to explicitly disable repository cache
   bazel build --repository_cache= '@ext//:foo' || fail "expected success"
 
@@ -1399,10 +1403,14 @@ EOF
   rm -f "${TOPDIR}/ext.zip"
   bazel clean --expunge
 
+  # Do a noop build with the cache enabled to ensure the cache can be disabled
+  # after the server starts.
+  bazel build
+
   # The build should fail since we are not using the repository cache, but the
   # original file can no longer be "downloaded".
   bazel build --repository_cache= '@ext//:foo' \
-      && fail "Should fail for lack of fetchable faile" || :
+      && fail "Should fail for lack of fetchable archive" || :
 }
 
 function test_repository_cache() {

@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -30,14 +31,14 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain.AdditionalBuildVariablesComputer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 
@@ -103,7 +104,8 @@ public final class CcToolchainProvider extends ToolchainInfo
           /* targetSystemName= */ "",
           /* additionalMakeVariables= */ ImmutableMap.of(),
           /* legacyCcFlagsMakeVariable= */ "",
-          /* allowlistForLayeringCheck= */ null);
+          /* allowlistForLayeringCheck= */ null,
+          /* allowListForLooseHeaderCheck= */ null);
 
   @Nullable private final CppConfiguration cppConfiguration;
   private final PathFragment crosstoolTopPathFragment;
@@ -166,6 +168,7 @@ public final class CcToolchainProvider extends ToolchainInfo
 
   private final LicensesProvider licensesProvider;
   private final PackageSpecificationProvider allowlistForLayeringCheck;
+  private final PackageSpecificationProvider allowListForLooseHeaderCheck;
 
   public CcToolchainProvider(
       ImmutableMap<String, Object> values,
@@ -221,7 +224,8 @@ public final class CcToolchainProvider extends ToolchainInfo
       String targetSystemName,
       ImmutableMap<String, String> additionalMakeVariables,
       String legacyCcFlagsMakeVariable,
-      PackageSpecificationProvider allowlistForLayeringCheck) {
+      PackageSpecificationProvider allowlistForLayeringCheck,
+      PackageSpecificationProvider allowListForLooseHeaderCheck) {
     super(values, Location.BUILTIN);
     this.cppConfiguration = cppConfiguration;
     this.crosstoolTopPathFragment = crosstoolTopPathFragment;
@@ -279,6 +283,7 @@ public final class CcToolchainProvider extends ToolchainInfo
     this.additionalMakeVariables = additionalMakeVariables;
     this.legacyCcFlagsMakeVariable = legacyCcFlagsMakeVariable;
     this.allowlistForLayeringCheck = allowlistForLayeringCheck;
+    this.allowListForLooseHeaderCheck = allowListForLooseHeaderCheck;
   }
 
   /**
@@ -551,10 +556,9 @@ public final class CcToolchainProvider extends ToolchainInfo
       throws EvalException {
     if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
       if (staticRuntimeLinkInputs == null) {
-        throw new EvalException(
-            Location.BUILTIN,
-            "Toolchain supports embedded runtimes, but didn't "
-                + "provide static_runtime_lib attribute.");
+        throw Starlark.errorf(
+            "Toolchain supports embedded runtimes, but didn't provide static_runtime_lib"
+                + " attribute.");
       }
       return staticRuntimeLinkInputs;
     } else {
@@ -585,9 +589,8 @@ public final class CcToolchainProvider extends ToolchainInfo
     if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
       if (dynamicRuntimeLinkInputs == null) {
         throw new EvalException(
-            Location.BUILTIN,
-            "Toolchain supports embedded runtimes, but didn't "
-                + "provide dynamic_runtime_lib attribute.");
+            "Toolchain supports embedded runtimes, but didn't provide dynamic_runtime_lib"
+                + " attribute.");
       }
       return dynamicRuntimeLinkInputs;
     } else {
@@ -646,6 +649,7 @@ public final class CcToolchainProvider extends ToolchainInfo
     return toolchainFeatures;
   }
 
+  @Override
   public Label getCcToolchainLabel() {
     return ccToolchainLabel;
   }
@@ -912,6 +916,10 @@ public final class CcToolchainProvider extends ToolchainInfo
 
   public PackageSpecificationProvider getAllowlistForLayeringCheck() {
     return allowlistForLayeringCheck;
+  }
+
+  public PackageSpecificationProvider getAllowlistForLooseHeaderCheck() {
+    return allowListForLooseHeaderCheck;
   }
 }
 

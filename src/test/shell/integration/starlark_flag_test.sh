@@ -18,7 +18,7 @@
 # line, in several different evaluation contexts.
 #
 # The --internal_starlark_flag_test_canary flag is built into
-# StarlarkSemanticsOptions specifically for this test suite.
+# BuildLanguageOptions specifically for this test suite.
 
 # --- begin runfiles.bash initialization ---
 # Copy-pasted from Bazel's Bash runfiles library (tools/bash/runfiles/runfiles.bash).

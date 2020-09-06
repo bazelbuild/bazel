@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
-import com.google.devtools.build.lib.skylarkbuildapi.WorkspaceGlobalsApi;
+import com.google.devtools.build.lib.starlarkbuildapi.WorkspaceGlobalsApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Module;
@@ -49,8 +49,8 @@ import javax.annotation.Nullable;
 /** A collection of global Starlark build API functions that apply to WORKSPACE files. */
 public class WorkspaceGlobals implements WorkspaceGlobalsApi {
 
-  // Must start with a letter and can contain letters, numbers, and underscores
-  private static final Pattern LEGAL_WORKSPACE_NAME = Pattern.compile("^\\p{Alpha}\\w*$");
+  // Must start with a letter and can contain letters, numbers, underscores and hyphens.
+  private static final Pattern LEGAL_WORKSPACE_NAME = Pattern.compile("^\\p{Alpha}[-.\\w]*$");
 
   private final boolean allowOverride;
   private final RuleFactory ruleFactory;
@@ -238,7 +238,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
   private static ImmutableList<String> renamePatterns(
       List<String> patterns, Package.Builder builder, StarlarkThread thread) {
     BazelModuleContext bzlModule =
-        (BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData();
+        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
     RepositoryName myName = getRepositoryName((bzlModule != null ? bzlModule.label() : null));
     Map<RepositoryName, RepositoryName> renaming = builder.getRepositoryMappingFor(myName);
     return patterns.stream()
@@ -284,8 +284,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
           nameLabel,
           actual == NONE ? null : Label.parseAbsolute((String) actual, ImmutableMap.of()),
           thread.getSemantics(),
-          thread.getCallStack(),
-          new AttributeContainer(ruleClass));
+          thread.getCallStack());
     } catch (InvalidRuleException | Package.NameConflictException | LabelSyntaxException e) {
       throw Starlark.errorf("%s", e.getMessage());
     }

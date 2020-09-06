@@ -315,6 +315,26 @@ cc_library(
   targets also in non-target configurations.
 </p>
 
+<h4><code>--include_aspects</code> (boolean, default=False)</h4>
+
+<p>
+  <a href="https://docs.bazel.build/versions/master/skylark/aspects.html">Aspects</a> can add
+  additional dependencies to a build. By default, <code>cquery</code> doesn't follow aspects because
+  they make the queryable graph bigger, which uses more memory. But following them produces more
+  accurate results.
+</p>
+
+<p>
+  If you're not worried about the memory impact of large queries, enable this flag by default in
+  your bazelrc.
+</p>
+
+<p>
+  If you query with aspects disabled, you can experience a problem where target X fails while
+  building target Y but <code>cquery somepath(Y, X)</code> and <code>cquery deps(Y) | grep 'X'
+  </code> return no results because the dependency occurs through an aspect.
+</p>
+
 <h2 id='output-formats'>Output formats</h2>
 
 <p> By default, cquery outputs results in a dependency-ordered list of label and configuration pairs.
@@ -334,7 +354,7 @@ There are other options for exposing the results as well. </p>
 </p>
 
 <p>
-  For example, a target might impose a transition to the host transition on all
+  For example, a target might impose a transition to the host configuration on all
   dependencies in its <code>tools</code> attribute. These are known as attribute
   transitions. Rules can also impose transitions on their own configurations,
   known as rule class transitions. This output format outputs information about
@@ -349,7 +369,7 @@ There are other options for exposing the results as well. </p>
   without the options diff.
 </p>
 
-<h3>Proto</h3>
+<h3>Protocol message output</h3>
 
 <pre>
 --output=proto
@@ -380,6 +400,58 @@ There are other options for exposing the results as well. </p>
   targets and within attributes, all possible inputs for selects are still
   included as <code>rule_input</code> fields.
 </p>
+
+<h3>Formatting output with a Starlark expression</h3>
+
+<pre>
+--output=starlark
+</pre>
+
+<p>
+  This output format evaluates and prints a given
+  <a href="https://docs.bazel.build/versions/master/skylark/language.html">Starlark</a>
+  expression for each resulting target. The expression may be specified with the
+  <code>--starlark:expr</code> flag.
+</p><p>
+ The specified expression can access only the core Starlark
+ <a href="https://github.com/bazelbuild/starlark/blob/master/spec.md#built-in-constants-and-functions">
+ built-in constants and functions</a>, and a global <code>target</code>, of type
+ <a href="https://docs.bazel.build/versions/master/skylark/lib/Target.html">Target</a>.
+ Note it does <b>not</b> have access to many of the
+ additional built-in constants and functions supported for rule/macro code, such as
+ <code>glob()</code> or <code>rule()</code>
+</p>
+<h4>Examples</h4>
+
+<p>
+Print a space-separated list of the base names of all files produced by <code>//foo</code>:
+</p>
+<pre>
+  bazel cquery //foo --output=starlark \
+    --starlark:expr="' '.join([f.basename for f in target.files.to_list()])"
+</pre>
+<p>
+Print a space-separated list of the paths of all files produced by <b>rule</b> targets in
+<code>//bar</code> and its subpackages:
+</p>
+<pre>
+  bazel cquery 'kind(rule, //bar/...)' --output=starlark \
+    --starlark:expr="' '.join([f.path for f in target.files.to_list()])"
+</pre>
+<p>
+Print a list of the mnemonics of all actions registered by <code>//foo</code>.
+</p>
+<pre>
+  bazel cquery //foo --output=starlark \
+    --starlark:expr="[a.mnemonic for a in target.actions]"
+</pre>
+<p>
+Print a list of compilation outputs registered by a <code>cc_library</code> <code>//baz</code>.
+</p>
+<pre>
+  bazel cquery //baz --output=starlark \
+    --starlark:expr="[f.path for f in target.output_groups.compilation_outputs.to_list()]"
+</pre>
 
 <h2 id='compare'>cquery vs. query</h2>
 
@@ -460,22 +532,8 @@ $ bazel cquery 'somepath(//foo, //bar)' --universe_scope=//foo
 
   <li>
     <strong>No support
-      for <a href="https://docs.bazel.build/versions/master/skylark/aspects.html">aspects</a>.</strong>
-    Aspects can add additional dependencies which <code>cquery</code> will not see.
-    This can manifest as seeing a failure on target X while building target Y but a <code>cquery
-    somepath(Y, X)</code> and <code>cquery deps(Y) | grep 'X'</code> will return no results because
-    somewhere in the path between Y and X there's an aspect dependency.
-      </li>
-
-  <li>
-    <strong>No support
     for <a href="query.html#output-graph"><code>--output=graph</code></a>
       or <a href="query.html#output-xml"><code>--output=xml</code></a>.</strong>
-  </li>
-
-  <li>
-    <strong>No support for recursive target patterns (<code>
-        "/..."</code>).</strong>
   </li>
 
   <li>

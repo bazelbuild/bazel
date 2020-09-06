@@ -14,7 +14,6 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
@@ -22,6 +21,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import java.io.PrintStream;
 import java.util.Map;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -125,7 +125,6 @@ public interface MemoizingEvaluator {
    * <p>This method should mainly be used by tests that need to verify the presence of a value in
    * the graph after an {@link #evaluate} call.
    */
-  @VisibleForTesting
   @Nullable
   SkyValue getExistingValue(SkyKey key) throws InterruptedException;
 
@@ -139,6 +138,7 @@ public interface MemoizingEvaluator {
    * <p>This method should only be used by tests that need to verify the presence of an error in the
    * graph after an {@link #evaluate} call.
    */
+  @SuppressWarnings("VisibleForTestingMisused") // Only exists for testing.
   @VisibleForTesting
   @Nullable
   ErrorInfo getExistingErrorForTesting(SkyKey key) throws InterruptedException;

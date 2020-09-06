@@ -3,7 +3,7 @@
 
 package_group(
     name = "function_transition_whitelist",
-    packages = ["//..."],
+    includes = ["//tools/allowlists/function_transition_allowlist"],
 )
 
 filegroup(

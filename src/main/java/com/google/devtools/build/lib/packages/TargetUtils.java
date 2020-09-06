@@ -135,14 +135,6 @@ public final class TargetUtils {
   }
 
   /**
-   * Returns true if the rule is a test or test suite and is local or exclusive.
-   * Wraps the above calls into one generic check safely applicable to any rule.
-   */
-  public static boolean isTestRuleAndRunsLocally(Rule rule) {
-    return isTestOrTestSuiteRule(rule) && (isLocalTestRule(rule) || isExclusiveTestRule(rule));
-  }
-
-  /**
    * Returns true if test marked as "external" by the appropriate keyword
    * in the tags attribute.
    *
@@ -212,7 +204,7 @@ public final class TargetUtils {
       return null;
     }
     Rule rule = (Rule) target;
-    return (rule.isAttrDefined("deprecation", Type.STRING))
+    return rule.isAttrDefined("deprecation", Type.STRING)
         ? NonconfigurableAttributeMapper.of(rule).get("deprecation", Type.STRING)
         : null;
   }
@@ -252,7 +244,7 @@ public final class TargetUtils {
    * @param rule a rule instance to get tags from
    * @param allowTagsPropagation if set to true, tags will be propagated from a target to the
    *     actions' execution requirements, for more details {@see
-   *     StarlarkSemanticsOptions#experimentalAllowTagsPropagation}
+   *     BuildLanguageOptions#experimentalAllowTagsPropagation}
    */
   public static ImmutableMap<String, String> getExecutionInfo(
       Rule rule, boolean allowTagsPropagation) {

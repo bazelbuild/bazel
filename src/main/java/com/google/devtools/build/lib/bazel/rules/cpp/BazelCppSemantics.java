@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.rules.cpp;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -61,7 +62,8 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
   public void finalizeCompileActionBuilder(
       BuildConfiguration configuration,
       FeatureConfiguration featureConfiguration,
-      CppCompileActionBuilder actionBuilder) {
+      CppCompileActionBuilder actionBuilder,
+      RuleErrorConsumer ruleErrorConsumer) {
     CcToolchainProvider toolchain = actionBuilder.getToolchain();
     actionBuilder
         .addTransitiveMandatoryInputs(
@@ -76,6 +78,15 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
   @Override
   public HeadersCheckingMode determineHeadersCheckingMode(RuleContext ruleContext) {
     return HeadersCheckingMode.STRICT;
+  }
+
+  @Override
+  public HeadersCheckingMode determineStarlarkHeadersCheckingMode(
+      RuleContext ruleContext, CppConfiguration cppConfig, CcToolchainProvider toolchain) {
+    if (cppConfig.strictHeaderCheckingFromStarlark()) {
+      return HeadersCheckingMode.STRICT;
+    }
+    return HeadersCheckingMode.LOOSE;
   }
 
   @Override

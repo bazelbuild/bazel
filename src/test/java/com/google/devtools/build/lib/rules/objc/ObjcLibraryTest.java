@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
+import static com.google.devtools.build.lib.rules.apple.AppleBitcodeConverter.INVALID_APPLE_BITCODE_OPTION_FORMAT;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.ABSOLUTE_INCLUDES_PATH_FORMAT;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.BOTH_MODULE_NAME_AND_MODULE_MAP_SPECIFIED;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.FILE_IN_SRCS_AND_HDRS_WARNING_FORMAT;
@@ -41,6 +42,7 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -50,6 +52,7 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
@@ -509,6 +512,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     useConfiguration(
         "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
         "--incompatible_objc_compile_info_migration=false");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=false");
     addBinWithTransitiveDepOnFrameworkImport(false);
     CommandAction compileAction = compileAction("//lib:lib", "a.o");
 
@@ -677,6 +681,138 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
     assertThat(compileActionA.getArguments()).doesNotContain("-fembed-bitcode");
     assertThat(compileActionA.getArguments()).doesNotContain("-fembed-bitcode-marker");
+  }
+
+  @Test
+  public void testCompilationActionsWithEmbeddedBitcodeForMultiplePlatformsWithMatch()
+      throws Exception {
+    useConfiguration(
+        "--apple_platform_type=ios",
+        "--ios_multi_cpus=arm64",
+        "--apple_bitcode=ios=embedded",
+        "--apple_bitcode=watchos=embedded");
+    createLibraryTargetWriter("//objc:lib")
+        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
+        .setAndCreateFiles("hdrs", "c.h")
+        .write();
+
+    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
+
+    assertThat(compileActionA.getArguments()).contains("-fembed-bitcode");
+  }
+
+  @Test
+  public void testCompilationActionsWithEmbeddedBitcodeForMultiplePlatformsWithoutMatch()
+      throws Exception {
+    useConfiguration(
+        "--apple_platform_type=ios",
+        "--ios_multi_cpus=arm64",
+        "--apple_bitcode=tvos=embedded",
+        "--apple_bitcode=watchos=embedded");
+    createLibraryTargetWriter("//objc:lib")
+        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
+        .setAndCreateFiles("hdrs", "c.h")
+        .write();
+
+    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
+
+    assertThat(compileActionA.getArguments()).doesNotContain("-fembed-bitcode");
+    assertThat(compileActionA.getArguments()).doesNotContain("-fembed-bitcode-marker");
+  }
+
+  @Test
+  public void testLaterBitcodeOptionsOverrideEarlierOptionsForSamePlatform() throws Exception {
+    useConfiguration(
+        "--apple_platform_type=ios",
+        "--ios_multi_cpus=arm64",
+        "--apple_bitcode=ios=embedded",
+        "--apple_bitcode=ios=embedded_markers");
+    createLibraryTargetWriter("//objc:lib")
+        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
+        .setAndCreateFiles("hdrs", "c.h")
+        .write();
+
+    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
+
+    assertThat(compileActionA.getArguments()).doesNotContain("-fembed-bitcode");
+    assertThat(compileActionA.getArguments()).contains("-fembed-bitcode-marker");
+  }
+
+  @Test
+  public void testLaterBitcodeOptionWithoutPlatformOverridesEarlierOptionWithPlatform()
+      throws Exception {
+    useConfiguration(
+        "--apple_platform_type=ios",
+        "--ios_multi_cpus=arm64",
+        "--apple_bitcode=ios=embedded",
+        "--apple_bitcode=embedded_markers");
+    createLibraryTargetWriter("//objc:lib")
+        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
+        .setAndCreateFiles("hdrs", "c.h")
+        .write();
+
+    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
+
+    assertThat(compileActionA.getArguments()).doesNotContain("-fembed-bitcode");
+    assertThat(compileActionA.getArguments()).contains("-fembed-bitcode-marker");
+  }
+
+  @Test
+  public void testLaterPlatformBitcodeOptionWithPlatformOverridesEarlierOptionWithoutPlatform()
+      throws Exception {
+    useConfiguration(
+        "--apple_platform_type=ios",
+        "--ios_multi_cpus=arm64",
+        "--apple_bitcode=embedded",
+        "--apple_bitcode=ios=embedded_markers");
+    createLibraryTargetWriter("//objc:lib")
+        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
+        .setAndCreateFiles("hdrs", "c.h")
+        .write();
+
+    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
+
+    assertThat(compileActionA.getArguments()).doesNotContain("-fembed-bitcode");
+    assertThat(compileActionA.getArguments()).contains("-fembed-bitcode-marker");
+  }
+
+  @Test
+  public void testAppleBitcode_invalidPlatformNameGivesError() throws Exception {
+    checkBitcodeModeError(
+        "--apple_platform_type=ios",
+        "--ios_multi_cpus=arm64",
+        "--apple_bitcode=ios=embedded",
+        "--apple_bitcode=nachos=embedded");
+  }
+
+  @Test
+  public void testAppleBitcode_invalidBitcodeModeGivesError() throws Exception {
+    checkBitcodeModeError(
+        "--apple_platform_type=ios", "--ios_multi_cpus=arm64", "--apple_bitcode=indebted");
+  }
+
+  @Test
+  public void testAppleBitcode_invalidBitcodeModeWithPlatformGivesError() throws Exception {
+    checkBitcodeModeError(
+        "--apple_platform_type=ios", "--ios_multi_cpus=arm64", "--apple_bitcode=ios=indebted");
+  }
+
+  @Test
+  public void testAppleBitcode_emptyBitcodeModeGivesError() throws Exception {
+    checkBitcodeModeError(
+        "--apple_platform_type=ios", "--ios_multi_cpus=arm64", "--apple_bitcode=ios=");
+  }
+
+  @Test
+  public void testAppleBitcode_emptyValueGivesError() throws Exception {
+    checkBitcodeModeError(
+        "--apple_platform_type=ios", "--ios_multi_cpus=arm64", "--apple_bitcode=");
+  }
+
+  private void checkBitcodeModeError(String... args) throws Exception {
+    OptionsParsingException thrown =
+        assertThrows(OptionsParsingException.class, () -> useConfiguration(args));
+    assertThat(thrown).hasMessageThat().contains(INVALID_APPLE_BITCODE_OPTION_FORMAT);
   }
 
   @Test
@@ -1992,5 +2128,67 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .write();
     CommandAction compileAction = compileAction("//cc/lib", "a.o");
     assertThat(compileAction.getArguments()).contains("-DDUMMY_GENERATE_DSYM_FILE");
+  }
+
+  @Test
+  public void testLangObjcFeature() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
+    ConfiguredTarget x =
+        scratchConfiguredTarget("foo", "x", "objc_library(name = 'x', hdrs = ['x.h'])");
+    Artifact header =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            getOutputGroup(x, CcCompilationHelper.HIDDEN_HEADER_TOKENS), "x.h.processed");
+
+    CommandAction compileAction = (CommandAction) getGeneratingAction(header);
+    assertThat(compileAction.getArguments()).contains("-DDUMMY_LANG_OBJC");
+  }
+
+  @Test
+  public void testProcessHeadersInArcOnly() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
+    ConfiguredTarget x =
+        scratchConfiguredTarget("foo", "x", "objc_library(name = 'x', hdrs = ['x.h'])");
+    assertThat(
+            Artifact.toRootRelativePaths(
+                getOutputGroup(x, CcCompilationHelper.HIDDEN_HEADER_TOKENS)))
+        .containsExactly("foo/_objs/x/arc/x.h.processed");
+  }
+
+  @Test
+  public void testProcessHeadersInDependencies() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
+    ConfiguredTarget x =
+        scratchConfiguredTarget(
+            "foo",
+            "x",
+            "objc_library(name = 'x', deps = [':y'])",
+            "objc_library(name = 'y', hdrs = ['y.h'])");
+    assertThat(
+            ActionsTestUtil.baseNamesOf(
+                getOutputGroup(x, CcCompilationHelper.HIDDEN_HEADER_TOKENS)))
+        .isEqualTo("y.h.processed");
+  }
+
+  @Test
+  public void testProcessHeadersInDependenciesOfCcBinary() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
+    ConfiguredTarget x =
+        scratchConfiguredTarget(
+            "foo",
+            "x",
+            "cc_binary(name = 'x', deps = [':y', ':z'])",
+            "cc_library(name = 'y', hdrs = ['y.h'])",
+            "objc_library(name = 'z', srcs = ['z.h'])");
+    String validation = ActionsTestUtil.baseNamesOf(getOutputGroup(x, OutputGroupInfo.VALIDATION));
+    assertThat(validation).contains("y.h.processed");
+    assertThat(validation).contains("z.h.processed");
   }
 }

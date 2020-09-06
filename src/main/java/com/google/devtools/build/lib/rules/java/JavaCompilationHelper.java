@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -28,7 +27,6 @@ import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -149,12 +147,6 @@ public final class JavaCompilationHelper {
         JavaRuntimeInfo.forHost(ruleContext),
         additionalJavaBaseInputs,
         disableStrictDeps);
-  }
-
-  @VisibleForTesting
-  JavaCompilationHelper(
-      RuleContext ruleContext, JavaSemantics semantics, JavaTargetAttributes.Builder attributes) {
-    this(ruleContext, semantics, getDefaultJavacOptsFromRule(ruleContext), attributes);
   }
 
   JavaTargetAttributes getAttributes() {
@@ -365,13 +357,16 @@ public final class JavaCompilationHelper {
 
   private ImmutableMap<String, String> getExecutionInfo() throws InterruptedException {
     ImmutableMap.Builder<String, String> executionInfo = ImmutableMap.builder();
+    ImmutableMap.Builder<String, String> workerInfo = ImmutableMap.builder();
+    if (javaToolchain.getJavacSupportsWorkers()) {
+      workerInfo.put(ExecutionRequirements.SUPPORTS_WORKERS, "1");
+    }
+    if (javaToolchain.getJavacSupportsMultiplexWorkers()) {
+      workerInfo.put(ExecutionRequirements.SUPPORTS_MULTIPLEX_WORKERS, "1");
+    }
     executionInfo.putAll(
         getConfiguration()
-            .modifiedExecutionInfo(
-                javaToolchain.getJavacSupportsWorkers()
-                    ? ExecutionRequirements.WORKER_MODE_ENABLED
-                    : ImmutableMap.of(),
-                JavaCompileActionBuilder.MNEMONIC));
+            .modifiedExecutionInfo(workerInfo.build(), JavaCompileActionBuilder.MNEMONIC));
     executionInfo.putAll(
         TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
 
@@ -574,7 +569,7 @@ public final class JavaCompilationHelper {
     if (genClass != null) {
       return genClass;
     }
-    return ruleContext.getPrerequisiteArtifact("$genclass", TransitionMode.HOST);
+    return ruleContext.getPrerequisiteArtifact("$genclass");
   }
 
   /**
@@ -815,24 +810,8 @@ public final class JavaCompilationHelper {
    * Gets the value of the "javacopts" attribute combining them with the default options. If the
    * current rule has no javacopts attribute, this method only returns the default options.
    */
-  @VisibleForTesting
-  public ImmutableList<String> getJavacOpts() {
+  private ImmutableList<String> getJavacOpts() {
     return customJavacOpts;
-  }
-
-  /**
-   * Obtains the standard list of javac opts needed to build {@code rule}.
-   *
-   * <p>This method must only be called during initialization.
-   *
-   * @param ruleContext a rule context
-   * @return a list of options to provide to javac
-   */
-  private static ImmutableList<String> getDefaultJavacOptsFromRule(RuleContext ruleContext) {
-    return ImmutableList.copyOf(
-        Iterables.concat(
-            JavaToolchainProvider.from(ruleContext).getJavacOptions(ruleContext),
-            ruleContext.getExpander().withDataLocations().tokenized("javacopts")));
   }
 
   public void setTranslations(Collection<Artifact> translations) {
@@ -860,7 +839,7 @@ public final class JavaCompilationHelper {
    *     the current rule
    * @return the Artifact to create with the Action
    */
-  protected static Artifact createIjarAction(
+  static Artifact createIjarAction(
       RuleContext ruleContext,
       JavaToolchainProvider javaToolchain,
       Artifact inputJar,

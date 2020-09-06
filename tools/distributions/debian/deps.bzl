@@ -57,6 +57,8 @@ def debian_bin_deps():
         name = "debian_bin_deps",
         symlinks = {
             "protoc": "/usr/bin/protoc",
+            "grpc_cpp_plugin": "/usr/bin/grpc_cpp_plugin",
+            "grpc_java_plugin": "/usr/bin/grpc_java_plugin",
         },
         build_file = "//tools/distributions/debian:debian_bin.BUILD",
     )

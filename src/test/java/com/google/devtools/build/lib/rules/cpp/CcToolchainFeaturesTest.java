@@ -1255,7 +1255,7 @@ public class CcToolchainFeaturesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testWithFeature_OneSetOneFeature() throws Exception {
+  public void testWithFeature_oneSetOneFeature() throws Exception {
     CcToolchainFeatures features =
         buildFeatures(
             "feature {",
@@ -1282,7 +1282,7 @@ public class CcToolchainFeaturesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testWithFeature_OneSetMultipleFeatures() throws Exception {
+  public void testWithFeature_oneSetMultipleFeatures() throws Exception {
     CcToolchainFeatures features =
         buildFeatures(
             "feature {",
@@ -1315,7 +1315,7 @@ public class CcToolchainFeaturesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testWithFeature_MulipleSetsMultipleFeatures() throws Exception {
+  public void testWithFeature_mulipleSetsMultipleFeatures() throws Exception {
     CcToolchainFeatures features =
         buildFeatures(
             "feature {",
@@ -1351,7 +1351,7 @@ public class CcToolchainFeaturesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testWithFeature_NotFeature() throws Exception {
+  public void testWithFeature_notFeature() throws Exception {
     CcToolchainFeatures features =
         buildFeatures(
             "feature {",

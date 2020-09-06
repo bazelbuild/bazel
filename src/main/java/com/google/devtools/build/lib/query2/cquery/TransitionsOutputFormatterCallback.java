@@ -18,6 +18,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DependencyKind;
+import com.google.devtools.build.lib.analysis.DependencyKind.ToolchainDependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
@@ -98,15 +99,17 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
       return;
     }
     partialResult.forEach(
-        ct -> partialResultMap.put(ct.getLabel(), accessor.getTargetFromConfiguredTarget(ct)));
+        ct ->
+            partialResultMap.put(
+                ct.getOriginalLabel(), accessor.getTargetFromConfiguredTarget(ct)));
     for (ConfiguredTarget configuredTarget : partialResult) {
-      Target target = partialResultMap.get(configuredTarget.getLabel());
+      Target target = partialResultMap.get(configuredTarget.getOriginalLabel());
       BuildConfiguration config =
           skyframeExecutor.getConfiguration(
               eventHandler, configuredTarget.getConfigurationKey());
       addResult(
           getRuleClassTransition(configuredTarget, target)
-              + configuredTarget.getLabel()
+              + configuredTarget.getOriginalLabel()
               + " ("
               + (config != null && config.isHostConfiguration() ? "HOST" : config)
               + ")");
@@ -135,6 +138,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
                     DependencyResolver.shouldUseToolchainTransition(config, target),
                     trimmingTransitionFactory);
       } catch (EvalException | InconsistentAspectOrderException e) {
+        // This is an abuse of InterruptedException.
         throw new InterruptedException(e.getMessage());
       }
       for (Map.Entry<DependencyKind, DependencyKey> attributeAndDep : deps.entries()) {
@@ -153,8 +157,13 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
                 .values();
         String hostConfigurationChecksum = hostConfiguration.checksum();
         String dependencyName;
-        if (attributeAndDep.getKey() == DependencyKind.TOOLCHAIN_DEPENDENCY) {
-          dependencyName = "[toolchain dependency]";
+        if (DependencyKind.isToolchain(attributeAndDep.getKey())) {
+          ToolchainDependencyKind tdk = (ToolchainDependencyKind) attributeAndDep.getKey();
+          if (tdk.isDefaultExecGroup()) {
+            dependencyName = "[toolchain dependency]";
+          } else {
+            dependencyName = String.format("[toolchain dependency: %s]", tdk.getExecGroupName());
+          }
         } else {
           dependencyName = attributeAndDep.getKey().getAttribute().getName();
         }
@@ -215,4 +224,3 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
     }
   }
 }
-

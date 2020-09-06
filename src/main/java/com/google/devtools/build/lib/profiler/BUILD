@@ -52,7 +52,6 @@ java_library(
             "JsonProfile.java",
             "TraceEvent.java",
         ] + glob([
-            "analysis/*.java",
             "output/*.java",
             "statistics/*.java",
         ]),

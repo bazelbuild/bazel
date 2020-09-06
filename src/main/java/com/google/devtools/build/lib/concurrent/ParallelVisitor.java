@@ -48,7 +48,7 @@ public abstract class ParallelVisitor<
     OutputKeyT,
     OutputResultT,
     ExceptionT extends Exception,
-    CallbackT extends ThreadSafeBatchCallback<OutputResultT, ExceptionT>> {
+    CallbackT extends BatchCallback<OutputResultT, ExceptionT>> {
   protected final CallbackT callback;
   protected final Class<ExceptionT> exceptionClass;
   private final int visitBatchSize;
@@ -143,7 +143,7 @@ public abstract class ParallelVisitor<
       OutputKeyT,
       OutputResultT,
       ExceptionT extends Exception,
-      CallbackT extends ThreadSafeBatchCallback<OutputResultT, ExceptionT>> {
+      CallbackT extends BatchCallback<OutputResultT, ExceptionT>> {
     ParallelVisitor<InputT, VisitKeyT, OutputKeyT, OutputResultT, ExceptionT, CallbackT> create();
   }
 

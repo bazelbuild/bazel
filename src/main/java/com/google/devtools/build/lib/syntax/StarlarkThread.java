@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -64,6 +63,7 @@ public final class StarlarkThread {
   private boolean interruptible = true;
 
   long steps; // count of logical computation steps executed so far
+  long stepLimit = Long.MAX_VALUE; // limit on logical computation steps
 
   /**
    * Returns the number of Starlark computation steps executed by this thread according to a
@@ -73,6 +73,15 @@ public final class StarlarkThread {
    */
   public long getExecutedSteps() {
     return steps;
+  }
+
+  /**
+   * Sets the maximum number of Starlark computation steps that may be executed by this thread (see
+   * {@link #getExecutedSteps}). When the step counter reaches or exceeds this value, execution
+   * fails with an EvalException.
+   */
+  public void setMaxExecutionSteps(long steps) {
+    this.stepLimit = steps;
   }
 
   /**
@@ -112,14 +121,21 @@ public final class StarlarkThread {
   static final class Frame implements Debug.Frame {
     final StarlarkThread thread;
     final StarlarkCallable fn; // the called function
-    @Nullable final Debugger dbg = Debug.debugger.get(); // the debugger, if active for this frame
+
+    @Nullable
+    final Debug.Debugger dbg = Debug.debugger.get(); // the debugger, if active for this frame
+
     int compcount = 0; // number of enclosing comprehensions
 
     Object result = Starlark.NONE; // the operand of a Starlark return statement
 
     // Current PC location. Initially fn.getLocation(); for Starlark functions,
-    // it is updated at key points when it may be observed: calls, breakpoints.
+    // it is updated at key points when it may be observed: calls, breakpoints, errors.
     private Location loc;
+
+    // Indicates that setErrorLocation has been called already and the error
+    // location (loc) should not be overrwritten.
+    private boolean errorLocationSet;
 
     // The locals of this frame, if fn is a StarlarkFunction, otherwise empty.
     Map<String, Object> locals;
@@ -134,6 +150,20 @@ public final class StarlarkThread {
     // Updates the PC location in this frame.
     void setLocation(Location loc) {
       this.loc = loc;
+    }
+
+    // Sets location only the first time it is called,
+    // to ensure that the location of the innermost expression
+    // is used for errors.
+    // (Once we switch to a bytecode interpreter, we can afford
+    // to update fr.pc before each fallible operation, but until then
+    // we must materialize Locations only after the fact of failure.)
+    // Sets errorLocationSet.
+    void setErrorLocation(Location loc) {
+      if (!errorLocationSet) {
+        errorLocationSet = true;
+        setLocation(loc);
+      }
     }
 
     @Override
@@ -373,6 +403,11 @@ public final class StarlarkThread {
     return ImmutableList.<Debug.Frame>copyOf(callstack);
   }
 
+  /** Returns the size of the callstack. This is needed for the debugger. */
+  int getCallStackSize() {
+    return callstack.size();
+  }
+
   /**
    * A CallStackEntry describes the name and PC location of an active function call. See {@link
    * #getCallStack}.
@@ -405,65 +440,6 @@ public final class StarlarkThread {
       stack.add(new CallStackEntry(fr.fn.getName(), fr.loc));
     }
     return stack.build();
-  }
-
-  /**
-   * Given a requested stepping behavior, returns a predicate over the context that tells the
-   * debugger when to pause. (Debugger API)
-   *
-   * <p>The predicate will return true if we are at the next statement where execution should pause,
-   * and it will return false if we are not yet at that statement. No guarantee is made about the
-   * predicate's return value after we have reached the desired statement.
-   *
-   * <p>A null return value indicates that no further pausing should occur.
-   */
-  // TODO(adonovan): move to Debug.
-  @Nullable
-  public ReadyToPause stepControl(Stepping stepping) {
-    final int depth = callstack.size();
-    switch (stepping) {
-      case NONE:
-        return null;
-      case INTO:
-        // pause at the very next statement
-        return thread -> true;
-      case OVER:
-        return thread -> thread.callstack.size() <= depth;
-      case OUT:
-        // if we're at the outermost frame, same as NONE
-        return depth == 0 ? null : thread -> thread.callstack.size() < depth;
-    }
-    throw new IllegalArgumentException("Unsupported stepping type: " + stepping);
-  }
-
-  /** See stepControl (Debugger API) */
-  // TODO(adonovan): move to Debug.
-  public interface ReadyToPause extends Predicate<StarlarkThread> {}
-
-  /**
-   * Describes the stepping behavior that should occur when execution of a thread is continued.
-   * (Debugger API)
-   */
-  // TODO(adonovan): move to Debug.
-  public enum Stepping {
-    /** Continue execution without stepping. */
-    NONE,
-    /**
-     * If the thread is paused on a statement that contains a function call, step into that
-     * function. Otherwise, this is the same as OVER.
-     */
-    INTO,
-    /**
-     * Step over the current statement and any functions that it may call, stopping at the next
-     * statement in the same frame. If no more statements are available in the current frame, same
-     * as OUT.
-     */
-    OVER,
-    /**
-     * Continue execution until the current frame has been exited and then pause. If we are
-     * currently in the outer-most frame, same as NONE.
-     */
-    OUT,
   }
 
   @Override

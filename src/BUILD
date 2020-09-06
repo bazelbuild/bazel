@@ -229,6 +229,9 @@ filegroup(
         "//src/conditions:linux_ppc64le": [
             "@openjdk_linux_ppc64le_vanilla//file",
         ],
+        "//src/conditions:linux_s390x": [
+            "@openjdk_linux_s390x_vanilla//file",
+        ],
         "//conditions:default": [
             "@openjdk_linux_vanilla//file",
         ],
@@ -456,7 +459,6 @@ filegroup(
         "//src/test/gen:srcs",
         "//src/test/res:srcs",
         "//src/test/native/windows:srcs",
-        "//src/test/starlark:srcs",
         "//src/test/java/com/google/devtools/build/android:srcs",
         "//src/test/java/com/google/devtools/build/docgen:srcs",
         "//src/test/java/com/google/devtools/build/lib:srcs",
@@ -464,6 +466,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/skydoc:srcs",
         "//src/test/java/com/google/devtools/build/skyframe:srcs",
         "//src/test/java/com/google/devtools/common/options:srcs",
+        "//src/test/java/net/starlark/java/eval:srcs",
         "//src/test/java/net/starlark/java/spelling:srcs",
         "//src/test/py/bazel:srcs",
         "//src/test/shell:srcs",
@@ -489,6 +492,7 @@ genrule(
         "//src/main/protobuf:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:dist_jars",
+        "//src/main/java/com/google/devtools/build/lib/packages/metrics:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/skyframe/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:dist_jars",
@@ -567,15 +571,17 @@ JAVA_TOOLS_DEPLOY_JARS = [
     "//conditions:default": [],
 })
 
-JAVA_VERSIONS = ("11", "12")
+JAVA_VERSIONS = ("11", "14")
+
+# TODO(davido): Hard code the javac 11 for now; it is required for default toolchain.
 
 [
     genrule(
         name = "jars_java_tools_java" + java_version + "_zip",
         srcs = JAVA_TOOLS_DEPLOY_JARS + [
-            "@java_tools_langtools_javac" + java_version + "//:jdk_compiler_jar",
-            "@java_tools_langtools_javac" + java_version + "//:java_compiler_jar",
-            "@java_tools_langtools_javac" + java_version + "//:javac_jar",
+            "@java_tools_langtools_javac11//:jdk_compiler_jar",
+            "@java_tools_langtools_javac11//:java_compiler_jar",
+            "@java_tools_langtools_javac11//:javac_jar",
         ],
         outs = ["jars_java_tools_java" + java_version + ".zip"],
         cmd = "zip -qjX $@ $$(echo $(SRCS) | sort)",
@@ -598,7 +604,7 @@ JAVA_VERSIONS = ("11", "12")
             "//third_party/ijar:transitive_sources",
             "//third_party/java/jacoco:transitive_sources",
             "//third_party/java/proguard:srcs",
-            "@java_tools_langtools_javac" + java_version + "//:srcs",
+            "@java_tools_langtools_javac11//:srcs",
         ],
         outs = ["java_tools_dist_javac" + java_version + ".zip"],
         cmd = "zip -qXr $@ $$(echo $(SRCS) | sort)",
@@ -638,8 +644,10 @@ JAVA_VERSIONS = ("11", "12")
 [
     # The java_tools releases can have BUILD files that vary depending on the
     # javac version they embed. Currently the only difference is in the
-    # java_toolchain source version which has to be 12 for javac 12 to be able
-    # to build new Java 12 features.
+    # java_toolchain source version which has to be 14 for javac 14 to be able
+    # to build new Java 14 features. This is not used atm, as the toolchain for
+    # javac 14 was duplicated, but it might be used in future Bazel releases to
+    # support new javac release, so that we preserve this step for now.
     genrule(
         name = "create_java_tools_build_java" + java_version,
         srcs = ["//tools/jdk:BUILD.java_tools"],
@@ -744,9 +752,9 @@ filegroup(
         "@openjdk11_darwin_archive//:WORKSPACE",
         "@openjdk11_linux_archive//:WORKSPACE",
         "@openjdk11_windows_archive//:WORKSPACE",
-        "@openjdk12_darwin_archive//:WORKSPACE",
-        "@openjdk12_linux_archive//:WORKSPACE",
-        "@openjdk12_windows_archive//:WORKSPACE",
+        "@openjdk14_darwin_archive//:WORKSPACE",
+        "@openjdk14_linux_archive//:WORKSPACE",
+        "@openjdk14_windows_archive//:WORKSPACE",
         "@openjdk_linux_aarch64_minimal//file",
         "@openjdk_linux_minimal//file",
         "@openjdk_macos_minimal//file",
@@ -756,16 +764,20 @@ filegroup(
         "@remote_java_tools_javac11_test_darwin//:WORKSPACE",
         "@remote_java_tools_javac11_test_linux//:WORKSPACE",
         "@remote_java_tools_javac11_test_windows//:WORKSPACE",
-        "@remote_java_tools_javac12_test_darwin//:WORKSPACE",
-        "@remote_java_tools_javac12_test_linux//:WORKSPACE",
-        "@remote_java_tools_javac12_test_windows//:WORKSPACE",
+        "@remote_java_tools_javac14_test_darwin//:WORKSPACE",
+        "@remote_java_tools_javac14_test_linux//:WORKSPACE",
+        "@remote_java_tools_javac14_test_windows//:WORKSPACE",
         "@remote_java_tools_linux_for_testing//:WORKSPACE",
         "@remote_java_tools_windows_for_testing//:WORKSPACE",
         "@remotejdk11_linux_aarch64_for_testing//:WORKSPACE",
         "@remotejdk11_linux_for_testing//:WORKSPACE",
         "@remotejdk11_linux_ppc64le_for_testing//:WORKSPACE",
+        "@remotejdk11_linux_s390x_for_testing//:WORKSPACE",
         "@remotejdk11_macos_for_testing//:WORKSPACE",
         "@remotejdk11_win_for_testing//:WORKSPACE",
+        "@remotejdk14_linux_for_testing//:WORKSPACE",
+        "@remotejdk14_macos_for_testing//:WORKSPACE",
+        "@remotejdk14_win_for_testing//:WORKSPACE",
         "@rules_cc//:WORKSPACE",
         "@rules_java//:WORKSPACE",
         "@rules_pkg//:WORKSPACE",

@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -41,7 +40,7 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.Link.Picness;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.LinkingInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkingInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -107,7 +106,6 @@ public final class CcLinkingHelper {
   private Artifact pdbFile;
   private Artifact defFile;
   private LinkingMode linkingMode = LinkingMode.DYNAMIC;
-  private boolean fake;
   private boolean nativeDeps;
   private boolean wholeArchive;
   private LinkArtifactFactory linkArtifactFactory = CppLinkAction.DEFAULT_ARTIFACT_FACTORY;
@@ -175,7 +173,7 @@ public final class CcLinkingHelper {
   public CcLinkingHelper fromCommon(RuleContext ruleContext, CcCommon common) {
     addCcLinkingContexts(
         CppHelper.getLinkingContextsFromDeps(
-            ImmutableList.copyOf(ruleContext.getPrerequisites("deps", TransitionMode.TARGET))));
+            ImmutableList.copyOf(ruleContext.getPrerequisites("deps"))));
     addNonCodeLinkerInputs(common.getLinkerScripts());
     return this;
   }
@@ -516,11 +514,6 @@ public final class CcLinkingHelper {
     return this;
   }
 
-  public CcLinkingHelper setFake(boolean fake) {
-    this.fake = fake;
-    return this;
-  }
-
   public CcLinkingHelper setPdbFile(Artifact pdbFile) {
     this.pdbFile = pdbFile;
     return this;
@@ -688,18 +681,13 @@ public final class CcLinkingHelper {
             .addNonCodeInputs(ccOutputs.getHeaderTokenFiles())
             .addLtoCompilationContext(ccOutputs.getLtoCompilationContext())
             .setLinkingMode(linkingMode)
-            .setFake(fake)
             .addActionInputs(linkActionInputs)
             .addLinkopts(linkopts)
             .addLinkopts(sonameLinkopts)
             .addNonCodeInputs(nonCodeLinkerInputs)
             .addVariablesExtensions(variablesExtensions);
 
-    if (fake) {
-      dynamicLinkActionBuilder.addFakeObjectFiles(ccOutputs.getObjectFiles(usePic));
-    } else {
-      dynamicLinkActionBuilder.addObjectFiles(ccOutputs.getObjectFiles(usePic));
-    }
+    dynamicLinkActionBuilder.addObjectFiles(ccOutputs.getObjectFiles(usePic));
 
     if (!dynamicLinkType.isExecutable()) {
       dynamicLinkActionBuilder.setLibraryIdentifier(mainLibraryIdentifier);
@@ -779,9 +767,6 @@ public final class CcLinkingHelper {
     CppLinkAction dynamicLinkAction = dynamicLinkActionBuilder.build();
     if (dynamicLinkType.isExecutable()) {
       ccLinkingOutputs.setExecutable(linkerOutput);
-    }
-    if (fake) {
-      ccLinkingOutputs.addLinkActionInputs(dynamicLinkAction.getInputs());
     }
     actionConstructionContext.registerAction(dynamicLinkAction);
 

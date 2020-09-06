@@ -3,24 +3,28 @@ platforms:
   centos7:
     build_targets:
       - "//src:bazel"
+      - "//src:bazel_nojdk"
     build_flags:
       - "-c"
       - "opt"
   ubuntu1604:
     build_targets:
       - "//src:bazel"
+      - "//src:bazel_nojdk"
     build_flags:
       - "-c"
       - "opt"
   ubuntu1804:
     build_targets:
       - "//src:bazel"
+      - "//src:bazel_nojdk"
     build_flags:
       - "-c"
       - "opt"
   macos:
     build_targets:
       - "//src:bazel"
+      - "//src:bazel_nojdk"
     build_flags:
       - "-c"
       - "opt"
@@ -32,3 +36,4 @@ platforms:
       - "opt"
     build_targets:
       - "//src:bazel.exe"
+      - "//src:bazel_nojdk.exe"

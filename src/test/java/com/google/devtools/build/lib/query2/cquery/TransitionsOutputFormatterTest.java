@@ -56,6 +56,7 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
   @Before
   public final void setUpCqueryOptions() {
     this.options = new CqueryOptions();
+    helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
     this.reporter = new Reporter(new EventBus(), events::add);
   }
 

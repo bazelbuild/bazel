@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
-import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -123,7 +123,8 @@ public class StarlarkAttributeTransitionProvider
       } catch (EvalException e) {
         eventHandler.handle(
             Event.error(
-                starlarkDefinedConfigTransition.getLocationForErrorReporting(), e.getMessage()));
+                starlarkDefinedConfigTransition.getLocationForErrorReporting(),
+                e.getMessageWithStack()));
         return ImmutableMap.of("error", buildOptions.clone());
       }
     }

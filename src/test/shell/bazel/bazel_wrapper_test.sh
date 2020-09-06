@@ -175,7 +175,7 @@ test_recommends_curl() {
   if PATH="$(pwd)/mockpath" USE_BAZEL_VERSION="foobar" ../bin/bazel &> "$TEST_log"; then
     fail "Bazel wrapper should have failed"
   fi
-  expect_log "curl -LO"
+  expect_log "curl -fLO"
   expect_not_log "wget"
 }
 

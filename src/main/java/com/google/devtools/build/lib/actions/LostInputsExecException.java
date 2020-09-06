@@ -18,6 +18,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.server.FailureDetails.Execution;
+import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -63,9 +67,15 @@ public class LostInputsExecException extends ExecException {
   @Override
   public ActionExecutionException toActionExecutionException(
       String messagePrefix, boolean verboseFailures, Action action) {
-    String message = messagePrefix + " failed";
+    String message = String.format("%s failed: %s", messagePrefix, getMessage());
+    DetailedExitCode code =
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setExecution(Execution.newBuilder().setCode(Code.ACTION_INPUT_LOST))
+                .build());
     return new LostInputsActionExecutionException(
-        message + ": " + getMessage(), lostInputs, owners, action, /*cause=*/ this);
+        message, lostInputs, owners, action, /*cause=*/ this, code);
   }
 
   public void combineAndThrow(LostInputsExecException other) throws LostInputsExecException {

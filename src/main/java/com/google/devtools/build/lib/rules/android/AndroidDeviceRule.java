@@ -171,7 +171,7 @@ public final class AndroidDeviceRule implements RuleDefinition {
                 .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
         .add(
             Allowlist.getAttributeFromAllowlistName(AndroidDevice.ALLOWLIST_NAME)
-                .value(env.getToolsLabel("//tools/android:android_device_whitelist")))
+                .value(env.getToolsLabel("//tools/android:android_device_allowlist")))
         .removeAttribute("deps")
         .removeAttribute("data")
         .build();

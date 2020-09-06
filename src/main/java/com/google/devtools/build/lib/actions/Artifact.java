@@ -26,8 +26,6 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
-import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -41,10 +39,12 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.ShareabilityOfValue;
@@ -220,17 +220,32 @@ public abstract class Artifact
     default ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact) {
       throw new UnsupportedOperationException();
     }
+
+    /**
+     * Return an {@link ArchivedTreeArtifact} for a provided {@linkplain SpecialArtifact tree
+     * artifact} if one is available.
+     *
+     * <p>The {@linkplain ArchivedTreeArtifact archived tree artifact} can be used instead of the
+     * tree artifact expansion.
+     */
+    @Nullable
+    default ArchivedTreeArtifact getArchivedTreeArtifact(SpecialArtifact treeArtifact) {
+      return null;
+    }
   }
 
   /** Implementation of {@link ArtifactExpander} */
   public static class ArtifactExpanderImpl implements ArtifactExpander {
     private final Map<Artifact, Collection<Artifact>> expandedInputs;
+    private final Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts;
     private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets;
 
     public ArtifactExpanderImpl(
         Map<Artifact, Collection<Artifact>> expandedInputs,
+        Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets) {
       this.expandedInputs = expandedInputs;
+      this.archivedTreeArtifacts = archivedTreeArtifacts;
       this.expandedFilesets = expandedFilesets;
     }
 
@@ -248,6 +263,11 @@ public abstract class Artifact
     public ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact) {
       Preconditions.checkState(artifact.isFileset());
       return Preconditions.checkNotNull(expandedFilesets.get(artifact));
+    }
+
+    @Override
+    public ArchivedTreeArtifact getArchivedTreeArtifact(SpecialArtifact treeArtifact) {
+      return archivedTreeArtifacts.get(treeArtifact);
     }
   }
 
@@ -298,12 +318,12 @@ public abstract class Artifact
 
     @Override
     public ArtifactOwner getArtifactOwner() {
-      return ArtifactOwner.NullArtifactOwner.INSTANCE;
+      return ArtifactOwner.NULL_OWNER;
     }
 
     @Override
     public Label getOwnerLabel() {
-      return ArtifactOwner.NullArtifactOwner.INSTANCE.getLabel();
+      return ArtifactOwner.NULL_OWNER.getLabel();
     }
 
     @Override
@@ -384,7 +404,7 @@ public abstract class Artifact
     }
 
     @Override
-    public final ActionLookupValue.ActionLookupKey getArtifactOwner() {
+    public final ActionLookupKey getArtifactOwner() {
       return owner instanceof ActionLookupData
           ? getGeneratingActionKey().getActionLookupKey()
           : (ActionLookupKey) owner;
@@ -525,6 +545,11 @@ public abstract class Artifact
     return fileType.matches(this);
   }
 
+  /** Checks whether this artifact is of one of the types in the supplied set. */
+  public boolean isFileType(FileTypeSet fileTypeSet) {
+    return fileTypeSet.matches(filePathForFileTypeMatcher());
+  }
+
   @Override
   public final String filePathForFileTypeMatcher() {
     return getExecPath().filePathForFileTypeMatcher();
@@ -543,11 +568,10 @@ public abstract class Artifact
 
   /**
    * Gets the {@code ActionLookupKey} of the {@code ConfiguredTarget} that owns this artifact, if it
-   * was set. Otherwise, this should be a dummy value -- either {@link
-   * ArtifactOwner.NullArtifactOwner#INSTANCE} or a dummy owner set in tests. Such a dummy value
-   * should only occur for source artifacts if created without specifying the owner, or for special
-   * derived artifacts, such as target completion middleman artifacts, build info artifacts, and the
-   * like.
+   * was set. Otherwise, this should be a dummy value -- either {@link ArtifactOwner#NULL_OWNER} or
+   * a dummy owner set in tests. Such a dummy value should only occur for source artifacts if
+   * created without specifying the owner, or for special derived artifacts, such as target
+   * completion middleman artifacts, build info artifacts, and the like.
    */
   public abstract ArtifactOwner getArtifactOwner();
 
@@ -604,7 +628,7 @@ public abstract class Artifact
 
   @Override
   public String getTreeRelativePathString() throws EvalException {
-    throw new EvalException(
+    throw Starlark.errorf(
         "tree_relative_path not allowed for files that are not tree artifact files.");
   }
 
@@ -771,7 +795,7 @@ public abstract class Artifact
    * access for their contents should be safe, even in a distributed context.
    *
    * TODO(shahan): move {@link Artifact#getPath} to this subclass.
-   * */
+   */
   public static final class SourceArtifact extends Artifact {
     private final ArtifactOwner owner;
 
@@ -933,6 +957,100 @@ public abstract class Artifact
       artifact.setGeneratingActionKey(generatingActionKey);
       return (SpecialArtifact)
           context.getDependency(ArtifactResolverSupplier.class).intern(artifact);
+    }
+  }
+
+  /**
+   * Artifact representing a single-file archive with the filesystem tree belonging to a {@linkplain
+   * SpecialArtifact tree artifact}.
+   *
+   * <p>The archive is equivalent to the entire tree artifact -- it contains all of the {@linkplain
+   * TreeFileArtifact children} (and nothing else) of the tree artifact with their filesystem
+   * structure, relative to the {@linkplain SpecialArtifact#getExecPath() tree artifact directory}.
+   */
+  @AutoCodec
+  public static final class ArchivedTreeArtifact extends DerivedArtifact {
+    private static final PathFragment ARCHIVED_ARTIFACTS_DERIVED_TREE_ROOT =
+        PathFragment.create(":archived_tree_artifacts");
+    private final SpecialArtifact treeArtifact;
+
+    public ArchivedTreeArtifact(
+        SpecialArtifact treeArtifact, ArtifactRoot root, PathFragment execPath) {
+      super(root, execPath, treeArtifact.getArtifactOwner());
+      this.treeArtifact = treeArtifact;
+    }
+
+    @Override
+    public SpecialArtifact getParent() {
+      return treeArtifact;
+    }
+
+    /**
+     * Creates an {@link ArchivedTreeArtifact} for a given tree artifact. Returned artifact is
+     * stored in a permanent location, therefore can be shared across actions and builds.
+     *
+     * <p>Example: for a tree artifact of {@code bazel-out/k8-fastbuild/bin/directory} returns an
+     * {@linkplain ArchivedTreeArtifact artifact} of: {@code
+     * bazel-out/:archived_tree_artifacts/k8-fastbuild/bin/directory.zip}.
+     */
+    public static ArchivedTreeArtifact create(
+        SpecialArtifact treeArtifact, PathFragment derivedPathPrefix) {
+      return createWithCustomDerivedTreeRoot(
+          treeArtifact,
+          derivedPathPrefix,
+          ARCHIVED_ARTIFACTS_DERIVED_TREE_ROOT,
+          treeArtifact.getRootRelativePath().replaceName(treeArtifact.getFilename() + ".zip"));
+    }
+
+    /**
+     * Creates an {@link ArchivedTreeArtifact} for a given tree artifact within provided derived
+     * tree directory.
+     *
+     * <p>Example: for a tree artifact with root of {@code bazel-out/k8-fastbuild/bin} returns an
+     * {@linkplain ArchivedTreeArtifact artifact} of: {@code
+     * bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin/{rootRelativePath}} with root of: {@code
+     * bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin}.
+     */
+    public static ArchivedTreeArtifact createWithCustomDerivedTreeRoot(
+        SpecialArtifact treeArtifact,
+        PathFragment derivedPathPrefix,
+        PathFragment customDerivedTreeRoot,
+        PathFragment rootRelativePath) {
+      ArtifactRoot artifactRoot =
+          createRootForArchivedArtifact(
+              treeArtifact.getRoot(), derivedPathPrefix, customDerivedTreeRoot);
+      ArchivedTreeArtifact archivedTreeArtifact =
+          new ArchivedTreeArtifact(
+              treeArtifact, artifactRoot, artifactRoot.getExecPath().getRelative(rootRelativePath));
+
+      archivedTreeArtifact.setGeneratingActionKey(treeArtifact.getGeneratingActionKey());
+      return archivedTreeArtifact;
+    }
+
+    private static ArtifactRoot createRootForArchivedArtifact(
+        ArtifactRoot treeArtifactRoot,
+        PathFragment derivedPathPrefix,
+        PathFragment customDerivedTreeRoot) {
+      Path execRoot = getExecRoot(treeArtifactRoot);
+
+      // bazel-out/k8-fastbuild/bin -> bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin
+      PathFragment rootExecPath =
+          derivedPathPrefix
+              .getRelative(customDerivedTreeRoot)
+              .getRelative(treeArtifactRoot.getExecPath().relativeTo(derivedPathPrefix));
+
+      return ArtifactRoot.asDerivedRoot(execRoot, rootExecPath);
+    }
+
+    private static Path getExecRoot(ArtifactRoot artifactRoot) {
+      // /output_base/execroot/bazel-out/k8-fastbuild/bin
+      Path rootPath = artifactRoot.getRoot().asPath();
+      PathFragment rootPathFragment = rootPath.asFragment();
+      // /output_base/execroot
+      PathFragment execRootPath =
+          rootPathFragment.subFragment(
+              0, rootPathFragment.segmentCount() - artifactRoot.getExecPath().segmentCount());
+      return rootPath.getFileSystem().getPath(execRootPath);
     }
   }
 
@@ -1129,7 +1247,7 @@ public abstract class Artifact
    * method.
    */
   public static void addExecPaths(Iterable<Artifact> artifacts, Collection<String> output) {
-    addNonMiddlemanArtifacts(artifacts, output, ActionInputHelper.EXEC_PATH_STRING_FORMATTER);
+    addNonMiddlemanArtifacts(artifacts, output, ActionInput::getExecPathString);
   }
 
   /**
@@ -1169,7 +1287,8 @@ public abstract class Artifact
    * this method.
    */
   public static Iterable<String> toExecPaths(Iterable<Artifact> artifacts) {
-    return ActionInputHelper.toExecPaths(Iterables.filter(artifacts, MIDDLEMAN_FILTER));
+    return Iterables.transform(
+        Iterables.filter(artifacts, MIDDLEMAN_FILTER), ActionInput::getExecPathString);
   }
 
   /**

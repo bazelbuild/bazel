@@ -32,12 +32,13 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkbuildapi.ActionApi;
-import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
+import com.google.devtools.build.lib.starlarkbuildapi.ActionApi;
+import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -350,8 +351,15 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    * directory recursively removes the contents of the directory.
    *
    * @param execRoot the exec root in which this action is executed
+   * @param bulkDeleter a helper to bulk delete outputs to avoid delegating to the filesystem
    */
-  protected void deleteOutputs(Path execRoot) throws IOException {
+  protected void deleteOutputs(Path execRoot, @Nullable BulkDeleter bulkDeleter)
+      throws IOException, InterruptedException {
+    if (bulkDeleter != null) {
+      bulkDeleter.bulkDelete(Artifact.asPathFragments(getOutputs()));
+      return;
+    }
+
     for (Artifact output : getOutputs()) {
       deleteOutput(output.getPath(), output.getRoot());
     }
@@ -449,8 +457,9 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public void prepare(Path execRoot) throws IOException {
-    deleteOutputs(execRoot);
+  public void prepare(Path execRoot, @Nullable BulkDeleter bulkDeleter)
+      throws IOException, InterruptedException {
+    deleteOutputs(execRoot, bulkDeleter);
   }
 
   @Override
@@ -471,7 +480,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
     ExtraActionInfo.Builder result =
         ExtraActionInfo.newBuilder()
             .setOwner(owner.getLabel().toString())
-            .setId(getKey(actionKeyContext))
+            .setId(getKey(actionKeyContext, /*artifactExpander=*/ null))
             .setMnemonic(getMnemonic());
     Iterable<AspectDescriptor> aspectDescriptors = owner.getAspectDescriptors();
     AspectDescriptor lastAspect = null;

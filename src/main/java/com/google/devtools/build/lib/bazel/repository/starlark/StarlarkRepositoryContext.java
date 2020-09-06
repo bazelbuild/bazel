@@ -52,10 +52,9 @@ import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
-import com.google.devtools.build.lib.skylarkbuildapi.repository.StarlarkRepositoryContextApi;
+import com.google.devtools.build.lib.starlarkbuildapi.repository.StarlarkRepositoryContextApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -81,6 +80,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.InvalidPathException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -107,7 +107,7 @@ public class StarlarkRepositoryContext
   private final Path outputDirectory;
   private final StructImpl attrObject;
   private final StarlarkOS osObject;
-  private final ImmutableSet<PathFragment> blacklistedPatterns;
+  private final ImmutableSet<PathFragment> ignoredPatterns;
   private final Environment env;
   private final DownloadManager downloadManager;
   private final double timeoutScaling;
@@ -124,7 +124,7 @@ public class StarlarkRepositoryContext
       Rule rule,
       PathPackageLocator packageLocator,
       Path outputDirectory,
-      ImmutableSet<PathFragment> blacklistedPatterns,
+      ImmutableSet<PathFragment> ignoredPatterns,
       Environment environment,
       Map<String, String> env,
       DownloadManager downloadManager,
@@ -137,7 +137,7 @@ public class StarlarkRepositoryContext
     this.rule = rule;
     this.packageLocator = packageLocator;
     this.outputDirectory = outputDirectory;
-    this.blacklistedPatterns = blacklistedPatterns;
+    this.ignoredPatterns = ignoredPatterns;
     this.env = environment;
     this.osObject = new StarlarkOS(env);
     this.downloadManager = downloadManager;
@@ -178,8 +178,8 @@ public class StarlarkRepositoryContext
     }
     Path workspaceRoot = packageLocator.getWorkspaceFile().getParentDirectory();
     PathFragment relativePath = path.relativeTo(workspaceRoot);
-    for (PathFragment blacklistedPattern : blacklistedPatterns) {
-      if (relativePath.startsWith(blacklistedPattern)) {
+    for (PathFragment ignoredPattern : ignoredPatterns) {
+      if (relativePath.startsWith(ignoredPattern)) {
         return starlarkPath;
       }
     }
@@ -258,6 +258,10 @@ public class StarlarkRepositoryContext
               "Could not create symlink from " + fromPath + " to " + toPath + ": " + e.getMessage(),
               e),
           Transience.TRANSIENT);
+    } catch (InvalidPathException e) {
+      throw new RepositoryFunctionException(
+          Starlark.errorf("Could not create %s: %s", toPath, e.getMessage()),
+          Transience.PERSISTENT);
     }
   }
 
@@ -302,6 +306,9 @@ public class StarlarkRepositoryContext
       }
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    } catch (InvalidPathException e) {
+      throw new RepositoryFunctionException(
+          Starlark.errorf("Could not create %s: %s", p, e.getMessage()), Transience.PERSISTENT);
     }
   }
 
@@ -343,6 +350,9 @@ public class StarlarkRepositoryContext
       }
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    } catch (InvalidPathException e) {
+      throw new RepositoryFunctionException(
+          Starlark.errorf("Could not create %s: %s", p, e.getMessage()), Transience.PERSISTENT);
     }
   }
 
@@ -362,7 +372,7 @@ public class StarlarkRepositoryContext
   }
 
   // Create parent directories for the given path
-  private void makeDirectories(Path path) throws IOException {
+  private static void makeDirectories(Path path) throws IOException {
     Path parent = path.getParentDirectory();
     if (parent != null) {
       parent.createDirectoryAndParents();
@@ -391,11 +401,15 @@ public class StarlarkRepositoryContext
       }
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    } catch (InvalidPathException e) {
+      throw new RepositoryFunctionException(
+          Starlark.errorf("Could not create %s: %s", directory, e.getMessage()),
+          Transience.PERSISTENT);
     }
   }
 
   boolean isRemotable() {
-    Object remotable = rule.getAttributeContainer().getAttr("$remotable");
+    Object remotable = rule.getAttr("$remotable");
     if (remotable != null) {
       return (Boolean) remotable;
     }
@@ -480,13 +494,11 @@ public class StarlarkRepositoryContext
       Object arg = arguments.get(i);
       if (isRemotable) {
         if (!(arg instanceof String || arg instanceof Label)) {
-          throw new EvalException(
-              Location.BUILTIN, "Argument " + i + " of execute is neither a label nor a string.");
+          throw Starlark.errorf("Argument %d of execute is neither a label nor a string.", i);
         }
       } else {
-        if (!(arg instanceof String || arg instanceof StarlarkPath)) {
-          throw new EvalException(
-              Location.BUILTIN, "Argument " + i + " of execute is neither a path nor a string.");
+        if (!(arg instanceof String || arg instanceof Label || arg instanceof StarlarkPath)) {
+          throw Starlark.errorf("Argument %d of execute is neither a path, label, nor string.", i);
         }
       }
     }
@@ -657,7 +669,7 @@ public class StarlarkRepositoryContext
       if (fragment.isAbsolute()) {
         // We ignore relative path as they don't mean much here (relative to where? the workspace
         // root?).
-        Path path = outputDirectory.getFileSystem().getPath(fragment).getChild(program);
+        Path path = outputDirectory.getFileSystem().getPath(fragment).getChild(program.trim());
         if (path.exists() && path.isFile(Symlinks.FOLLOW) && path.isExecutable()) {
           return new StarlarkPath(path);
         }
@@ -756,6 +768,10 @@ public class StarlarkRepositoryContext
       } else {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
+    } catch (InvalidPathException e) {
+      throw new RepositoryFunctionException(
+          Starlark.errorf("Could not create output path %s: %s", outputPath, e.getMessage()),
+          Transience.PERSISTENT);
     }
     if (checksumValidation != null) {
       throw checksumValidation;
@@ -994,12 +1010,10 @@ public class StarlarkRepositoryContext
 
     for (Object o : urlList) {
       if (!(o instanceof String)) {
-        throw new EvalException(
-            null,
-            String.format(
-                "Expected a string or sequence of strings for 'url' argument, "
-                    + "but got '%s' item in the sequence",
-                Starlark.type(o)));
+        throw Starlark.errorf(
+            "Expected a string or sequence of strings for 'url' argument, but got '%s' item in the"
+                + " sequence",
+            Starlark.type(o));
       }
       result.add((String) o);
     }
@@ -1151,11 +1165,10 @@ public class StarlarkRepositoryContext
         if (authMap.containsKey("type")) {
           if ("basic".equals(authMap.get("type"))) {
             if (!authMap.containsKey("login") || !authMap.containsKey("password")) {
-              throw new EvalException(
-                  null,
-                  "Found request to do basic auth for "
-                      + entry.getKey()
-                      + " without 'login' and 'password' being provided.");
+              throw Starlark.errorf(
+                  "Found request to do basic auth for %s without 'login' and 'password' being"
+                      + " provided.",
+                  entry.getKey());
             }
             String credentials = authMap.get("login") + ":" + authMap.get("password");
             headers.put(
@@ -1167,11 +1180,9 @@ public class StarlarkRepositoryContext
                             .encodeToString(credentials.getBytes(StandardCharsets.UTF_8))));
           } else if ("pattern".equals(authMap.get("type"))) {
             if (!authMap.containsKey("pattern")) {
-              throw new EvalException(
-                  null,
-                  "Found request to do pattern auth for "
-                      + entry.getKey()
-                      + " without a pattern being provided");
+              throw Starlark.errorf(
+                  "Found request to do pattern auth for %s without a pattern being provided",
+                  entry.getKey());
             }
 
             String result = (String) authMap.get("pattern");
@@ -1181,11 +1192,9 @@ public class StarlarkRepositoryContext
 
               if (result.contains(demarcatedComponent)) {
                 if (!authMap.containsKey(component)) {
-                  throw new EvalException(
-                      null,
-                      "Auth pattern contains "
-                          + demarcatedComponent
-                          + " but it was not provided in auth dict.");
+                  throw Starlark.errorf(
+                      "Auth pattern contains %s but it was not provided in auth dict.",
+                      demarcatedComponent);
                 }
               } else {
                 // component isn't in the pattern, ignore it
@@ -1201,7 +1210,7 @@ public class StarlarkRepositoryContext
       } catch (MalformedURLException e) {
         throw new RepositoryFunctionException(e, Transience.PERSISTENT);
       } catch (URISyntaxException e) {
-        throw new EvalException(null, e.getMessage());
+        throw new EvalException(e);
       }
     }
     return headers.build();

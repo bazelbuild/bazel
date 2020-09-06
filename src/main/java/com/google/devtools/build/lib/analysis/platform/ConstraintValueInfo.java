@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -60,8 +60,11 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
 
   @Override
   public void repr(Printer printer) {
-    printer.format(
-        "ConstraintValueInfo(setting=%s, %s)", constraint.label().toString(), label.toString());
+    Printer.format(
+        printer,
+        "ConstraintValueInfo(setting=%s, %s)",
+        constraint.label().toString(),
+        label.toString());
   }
 
   /** Returns a new {@link ConstraintValueInfo} with the given data. */

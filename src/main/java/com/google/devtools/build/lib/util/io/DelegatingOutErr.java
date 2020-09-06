@@ -85,8 +85,22 @@ public final class DelegatingOutErr extends OutErr {
 
     @Override
     public void close() throws IOException {
+      // Ensure that we close all sinks even if one throws.
+      IOException firstException = null;
       for (OutputStream sink : sinks) {
-        sink.close();
+        try {
+          sink.close();
+        } catch (IOException e) {
+          if (firstException == null) {
+            firstException = e;
+          } else {
+            firstException.addSuppressed(e);
+          }
+        }
+      }
+
+      if (firstException != null) {
+        throw firstException;
       }
     }
 

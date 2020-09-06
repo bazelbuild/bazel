@@ -137,7 +137,6 @@ public class StarlarkOptionsParser {
       if (!value.equals(
           buildSettingTarget
               .getAssociatedRule()
-              .getAttributeContainer()
               .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))) {
         parsedOptions.put(loadedFlag, value);
       }
@@ -209,11 +208,11 @@ public class StarlarkOptionsParser {
     } catch (InterruptedException | TargetParsingException e) {
       Thread.currentThread().interrupt();
       throw new OptionsParsingException(
-          "Error loading option " + targetToBuild + ": " + e.getMessage(), e);
+          "Error loading option " + targetToBuild + ": " + e.getMessage(), targetToBuild, e);
     }
     Rule associatedRule = buildSetting.getAssociatedRule();
     if (associatedRule == null || associatedRule.getRuleClassObject().getBuildSetting() == null) {
-      throw new OptionsParsingException("Unrecognized option: " + targetToBuild);
+      throw new OptionsParsingException("Unrecognized option: " + targetToBuild, targetToBuild);
     }
     return buildSetting;
   }

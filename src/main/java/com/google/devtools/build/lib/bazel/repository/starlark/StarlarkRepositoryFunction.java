@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.rules.repository.ResolvedHashesValue;
 import com.google.devtools.build.lib.rules.repository.WorkspaceFileHelper;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
-import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesValue;
+import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -137,13 +137,13 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
       return null;
     }
 
-    BlacklistedPackagePrefixesValue blacklistedPackagesValue =
-        (BlacklistedPackagePrefixesValue) env.getValue(BlacklistedPackagePrefixesValue.key());
+    IgnoredPackagePrefixesValue ignoredPackagesValue =
+        (IgnoredPackagePrefixesValue) env.getValue(IgnoredPackagePrefixesValue.key());
     if (env.valuesMissing()) {
       return null;
     }
-    ImmutableSet<PathFragment> blacklistedPatterns =
-        Preconditions.checkNotNull(blacklistedPackagesValue).getPatterns();
+    ImmutableSet<PathFragment> ignoredPatterns =
+        Preconditions.checkNotNull(ignoredPackagesValue).getPatterns();
 
     try (Mutability mu = Mutability.create("Starlark repository")) {
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
@@ -165,7 +165,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
               rule,
               packageLocator,
               outputDirectory,
-              blacklistedPatterns,
+              ignoredPatterns,
               env,
               clientEnvironment,
               downloadManager,
@@ -253,7 +253,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
                   "An error occurred during the fetch of repository '"
                       + rule.getName()
                       + "':\n   "
-                      + e.getMessage()));
+                      + e.getMessageWithStack()));
       env.getListener()
           .handle(Event.info(RepositoryResolvedEvent.getRuleDefinitionInformation(rule)));
 
@@ -274,17 +274,17 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
 
   @SuppressWarnings("unchecked")
   private static Iterable<String> getEnviron(Rule rule) {
-    return (Iterable<String>) rule.getAttributeContainer().getAttr("$environ");
+    return (Iterable<String>) rule.getAttr("$environ");
   }
 
   @Override
   protected boolean isLocal(Rule rule) {
-    return (Boolean) rule.getAttributeContainer().getAttr("$local");
+    return (Boolean) rule.getAttr("$local");
   }
 
   @Override
   protected boolean isConfigure(Rule rule) {
-    return (Boolean) rule.getAttributeContainer().getAttr("$configure");
+    return (Boolean) rule.getAttr("$configure");
   }
 
   /**
@@ -294,8 +294,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
    * method can also be used as a universal check.
    */
   public static boolean isConfigureRule(Rule rule) {
-    return rule.getRuleClassObject().isStarlark()
-        && ((Boolean) rule.getAttributeContainer().getAttr("$configure"));
+    return rule.getRuleClassObject().isStarlark() && ((Boolean) rule.getAttr("$configure"));
   }
 
   @Override

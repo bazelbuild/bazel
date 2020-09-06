@@ -215,11 +215,11 @@ public final class TargetCompleteEvent
    */
   public static TargetCompleteEvent createFailed(
       ConfiguredTargetAndData ct,
+      CompletionContext completionContext,
       NestedSet<Cause> rootCauses,
       NestedSet<ArtifactsInOutputGroup> outputs) {
     Preconditions.checkArgument(!rootCauses.isEmpty());
-    return new TargetCompleteEvent(
-        ct, rootCauses, CompletionContext.FAILED_COMPLETION_CTX, outputs, false);
+    return new TargetCompleteEvent(ct, rootCauses, completionContext, outputs, false);
   }
 
   /** Returns the label of the target associated with the event. */

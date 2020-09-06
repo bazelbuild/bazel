@@ -515,20 +515,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help = "Use action_listener to attach an extra_action to existing build actions.")
   public List<Label> actionListeners;
 
-  // TODO(bazel-team): Either remove this flag once transparent compression is shown to not
-  // noticeably affect running time, or keep this flag and move it into a new configuration
-  // fragment.
-  @Option(
-      name = "experimental_transparent_compression",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "Enables gzip compression for the contents of FileWriteActions, which reduces "
-              + "memory usage in the analysis phase at the expense of additional time overhead.")
-  public boolean transparentCompression;
-
   @Option(
       name = "is host configuration",
       defaultValue = "false",
@@ -764,21 +750,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public TriState useGraphlessQuery;
 
   @Option(
-      name = "experimental_inmemory_unused_inputs_list",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.EXECUTION,
-        OptionEffectTag.AFFECTS_OUTPUTS
-      },
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "If enabled, the optional 'unused_inputs_list' file will be passed through in memory "
-              + "directly from the remote build nodes instead of being written to disk.")
-  public boolean inmemoryUnusedInputsList;
-
-  @Option(
       name = "include_config_fragments_provider",
       defaultValue = "off",
       converter = IncludeConfigFragmentsEnumConverter.class,
@@ -788,7 +759,8 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help =
           "INTERNAL BLAZE DEVELOPER FEATURE: If \"direct\", all configured targets expose "
               + "RequiredConfigFragmentsProvider with the configuration fragments they directly "
-              + "require. If \"transitive\", they do the same but also include the fragments their "
+              + "require (use \"direct_host_only\" to limit to targets in the host configuration). "
+              + "If \"transitive\", they do the same but also include the fragments their "
               + "transitive dependencies require. If \"off\", the provider is omitted. "
               + ""
               + "If not \"off\", this also populates config_setting's "
@@ -845,14 +817,55 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help = "Whether to enable the use of AggregatingMiddleman in rules.")
   public boolean enableAggregatingMiddleman;
 
+  // TODO(b/132346407): Remove when all usages are gone.
+  @Option(
+      name = "experimental_enable_flag_alias",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "When enabled, alternate names can be assigned to Starlark-defined flags.")
+  public boolean enableFlagAlias;
+
+  // TODO(b/132346407): Update docs when the feature is fully implemented
+  @Option(
+      name = "flag_alias",
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form"
+              + " \"<key>=<value>\" as an argument. This is an experimental feature and will be"
+              + " ignored unless --experimental_enable_flag_alias is set to true.")
+  public List<Map.Entry<String, String>> commandLineFlagAliases;
+
+  @Option(
+      name = "experimental_send_archived_tree_artifact_inputs",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
+      defaultValue = "false",
+      help =
+          "Send input tree artifacts as a single archived file rather than sending each file in the"
+              + " artifact as a separate input.")
+  public boolean sendArchivedTreeArtifactInputs;
+
   /** Ways configured targets may provide the {@link Fragment}s they require. */
   public enum IncludeConfigFragmentsEnum {
-    // Don't offer the provider at all. This is best for most builds, which don't use this
-    // information and don't need the extra memory hit over every configured target.
+    /**
+     * Don't offer the provider at all. This is best for most builds, which don't use this
+     * information and don't need the extra memory hit over every configured target.
+     */
     OFF,
-    // Provide the fragments required *directly* by this rule.
+    /**
+     * Provide the fragments required <em>directly</em> by this rule if it is being analyzed in the
+     * host configuration.
+     */
+    DIRECT_HOST_ONLY,
+    /** Provide the fragments required <em>directly</em> by this rule. */
     DIRECT,
-    // Provide the fragments required by this rule and its transitive dependencies.
+    /** Provide the fragments required by this rule and its transitive dependencies. */
     TRANSITIVE;
   }
 
@@ -863,6 +876,36 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       super(IncludeConfigFragmentsEnum.class, "include config fragments provider option");
     }
   }
+
+  /** Used to specify which sanitizer is enabled in the current APK split. */
+  public enum FatApkSplitSanitizer {
+    NONE(null, ""),
+    HWASAN("hwasan", "-hwasan");
+
+    private FatApkSplitSanitizer(String feature, String androidLibDirSuffix) {
+      this.feature = feature;
+      this.androidLibDirSuffix = androidLibDirSuffix;
+    }
+
+    public final String feature;
+    public final String androidLibDirSuffix;
+  }
+
+  /** Converter for {@link FatApkSplitSanitizer}. */
+  public static class FatApkSplitSanitizerConverter extends EnumConverter<FatApkSplitSanitizer> {
+    public FatApkSplitSanitizerConverter() {
+      super(FatApkSplitSanitizer.class, "fat apk split sanitizer");
+    }
+  }
+
+  @Option(
+      name = "fat_apk_split_sanitizer",
+      defaultValue = "NONE",
+      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = {OptionMetadataTag.INTERNAL},
+      converter = FatApkSplitSanitizerConverter.class)
+  public FatApkSplitSanitizer fatApkSplitSanitizer;
 
   @Override
   public FragmentOptions getHost() {
@@ -881,9 +924,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.enforceConstraints = enforceConstraints;
     host.mergeGenfilesDirectory = mergeGenfilesDirectory;
     host.cpu = hostCpu;
-    host.inmemoryUnusedInputsList = inmemoryUnusedInputsList;
     host.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
     host.enableAggregatingMiddleman = enableAggregatingMiddleman;
+    host.sendArchivedTreeArtifactInputs = sendArchivedTreeArtifactInputs;
 
     // === Runfiles ===
     host.buildRunfilesManifests = buildRunfilesManifests;

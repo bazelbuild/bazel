@@ -13,10 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
-import com.google.common.base.Throwables;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
@@ -39,15 +37,16 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
+import com.google.devtools.build.lib.skyframe.ASTFileLookupFunction.ASTLookupFailedException;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction.BuiltinsFailedException;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.Program;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -64,6 +63,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -76,33 +76,23 @@ import javax.annotation.Nullable;
  * <p>Given a {@link Label} referencing a .bzl file, attempts to locate the file and load it. The
  * Label must be absolute, and must not reference the special {@code external} package. If loading
  * is successful, returns a {@link BzlLoadValue} that encapsulates the loaded {@link Module} and its
- * transitive digest and {@link StarlarkFileDependency} information. If loading is unsuccessful,
- * throws a {@link BzlLoadFunctionException} that encapsulates the cause of the failure.
+ * transitive digest information. If loading is unsuccessful, throws a {@link
+ * BzlLoadFunctionException} that encapsulates the cause of the failure.
  *
- * <p>This Skyframe function supports a special "inlining" mode in which all (indirectly) recursive
- * calls to {@code BzlLoadFunction} are made in the same thread rather than through Skyframe. The
- * inlining mode's entry point is {@link #computeInline}; see that method for more details. Note
- * that it may only be called on an instance of this Skyfunction created by {@link
- * #createForInlining}.
+ * <p>This Skyframe function supports a special bzl "inlining" mode in which all (indirectly)
+ * recursive calls to {@code BzlLoadFunction} are made in the same thread rather than through
+ * Skyframe. This inlining mode's entry point is {@link #computeInline}; see that method for more
+ * details. Note that it may only be called on an instance of this Skyfunction created by {@link
+ * #createForInlining}. Bzl inlining is not to be confused with the separate inlining of {@code
+ * ASTFileLookupFunction}
  */
 public class BzlLoadFunction implements SkyFunction {
 
-  // We need the RuleClassProvider to 1) create the BazelStarlarkContext for Starlark evaluation,
-  // and 2) to pass it to ASTFileLookupFunction's inlining code path.
-  // TODO(#11437): The second use can probably go away by refactoring ASTFileLookupFunction to
-  // instead accept the set of predeclared bindings. Simplify the code path and then this comment.
-  private final RuleClassProvider ruleClassProvider;
-
-  // Used for StarlarkBuiltinsFunction's inlining code path.
+  // Used for: 1) obtaining a RuleClassProvider to create the BazelStarlarkContext for Starlark
+  // evaluation; 2) providing predeclared environments to other Skyfunctions
+  // (StarlarkBuiltinsFunction, ASTFileLookupFunction) when they are inlined and called via a static
+  // computeInline() entry point.
   private final PackageFactory packageFactory;
-
-  // Used for BUILD .bzls if injection is disabled.
-  // TODO(#11437): Remove once injection is on unconditionally.
-  private final StarlarkBuiltinsValue uninjectedStarlarkBuiltins;
-
-  private final ImmutableMap<String, Object> predeclaredForWorkspaceBzl;
-
-  private final ImmutableMap<String, Object> predeclaredForBuiltinsBzl;
 
   // Handles retrieving ASTFileLookupValues, either by calling Skyframe or by inlining
   // ASTFileLookupFunction; the latter is not to be confused with inlining of BzlLoadFunction. See
@@ -115,31 +105,19 @@ public class BzlLoadFunction implements SkyFunction {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private BzlLoadFunction(
-      RuleClassProvider ruleClassProvider,
       PackageFactory packageFactory,
       ASTManager astManager,
       @Nullable CachedBzlLoadDataManager cachedBzlLoadDataManager) {
-    this.ruleClassProvider = ruleClassProvider;
     this.packageFactory = packageFactory;
-    this.uninjectedStarlarkBuiltins =
-        StarlarkBuiltinsFunction.createStarlarkBuiltinsValueWithoutInjection(
-            ruleClassProvider, packageFactory);
-    this.predeclaredForWorkspaceBzl =
-        StarlarkBuiltinsFunction.createPredeclaredForWorkspaceBzl(
-            ruleClassProvider, packageFactory);
-    this.predeclaredForBuiltinsBzl =
-        StarlarkBuiltinsFunction.createPredeclaredForBuiltinsBzl(ruleClassProvider);
     this.astManager = astManager;
     this.cachedBzlLoadDataManager = cachedBzlLoadDataManager;
   }
 
   public static BzlLoadFunction create(
-      RuleClassProvider ruleClassProvider,
       PackageFactory packageFactory,
       DigestHashFunction digestHashFunction,
-      Cache<Label, ASTFileLookupValue> astFileLookupValueCache) {
+      Cache<ASTFileLookupValue.Key, ASTFileLookupValue> astFileLookupValueCache) {
     return new BzlLoadFunction(
-        ruleClassProvider,
         packageFactory,
         // When we are not inlining BzlLoadValue nodes, there is no need to have separate
         // ASTFileLookupValue nodes for bzl files. Instead we inline ASTFileLookupFunction for a
@@ -165,16 +143,13 @@ public class BzlLoadFunction implements SkyFunction {
         // (b) The memory overhead of the extra Skyframe node and edge per bzl file is pure
         // waste.
         new InliningAndCachingASTManager(
-            ruleClassProvider, digestHashFunction, astFileLookupValueCache),
+            packageFactory, digestHashFunction, astFileLookupValueCache),
         /*cachedBzlLoadDataManager=*/ null);
   }
 
   public static BzlLoadFunction createForInlining(
-      RuleClassProvider ruleClassProvider,
-      PackageFactory packageFactory,
-      int bzlLoadValueCacheSize) {
+      PackageFactory packageFactory, int bzlLoadValueCacheSize) {
     return new BzlLoadFunction(
-        ruleClassProvider,
         packageFactory,
         // When we are inlining BzlLoadValue nodes, then we want to have explicit ASTFileLookupValue
         // nodes, since now (1) in the comment above doesn't hold. This way we read and parse each
@@ -192,8 +167,6 @@ public class BzlLoadFunction implements SkyFunction {
     BzlLoadValue.Key key = (BzlLoadValue.Key) skyKey.argument();
     try {
       return computeInternal(key, env, /*inliningState=*/ null);
-    } catch (InconsistentFilesystemException e) {
-      throw new BzlLoadFunctionException(e, Transience.PERSISTENT);
     } catch (BzlLoadFailedException e) {
       throw new BzlLoadFunctionException(e);
     }
@@ -203,17 +176,24 @@ public class BzlLoadFunction implements SkyFunction {
    * Entry point for computing "inline", without any direct or indirect Skyframe calls back into
    * {@link BzlLoadFunction}. (Other Skyframe calls are permitted.)
    *
-   * <p><b>USAGE NOTE:</b> This function is intended to be called from {@link PackageFunction} and
-   * {@link StarlarkBuiltinsFunction} and probably shouldn't be used anywhere else. If you think you
-   * need inline Starlark computation, consult with the Core subteam and check out cl/305127325 for
-   * an example of correcting a misuse.
+   * <p><b>USAGE NOTES:</b>
+   *
+   * <ul>
+   *   <li>This method is intended to be called from {@link PackageFunction} and {@link
+   *       StarlarkBuiltinsFunction} and probably shouldn't be used anywhere else. If you think you
+   *       need inline Starlark computation, consult with the Core subteam and check out
+   *       cl/305127325 for an example of correcting a misuse.
+   *   <li>If this method is used with --keep_going and if Skyframe evaluation will never be
+   *       interrupted, then this function ensures that the evaluation graph and any error reported
+   *       are deterministic.
+   * </ul>
    *
    * <p>Under bzl inlining, there is some calling context that wants to obtain a set of {@link
    * BzlLoadValue}s without Skyframe evaluation. For example, a calling context can be a BUILD file
    * trying to resolve its top-level {@code load()} statements. Although this work proceeds in a
    * single thread, multiple calling contexts may evaluate .bzls in parallel. To avoid redundant
    * work, they share a single (global to this Skyfunction instance) cache in lieu of the regular
-   * Skyframe cache.
+   * Skyframe cache. Unlike the regular Skyframe cache, this cache stores only successes.
    *
    * <p>If two calling contexts race to compute the same .bzl, each one will see a different copy of
    * it, and only one will end up in the shared cache. This presents a hazard: Suppose A and B both
@@ -224,27 +204,38 @@ public class BzlLoadFunction implements SkyFunction {
    * weren't concerned about racing, A may also reevaluate previously computed items due to cache
    * evictions.
    *
-   * <p>To solve this, we keep a second cache, {@link InliningState#visitedBzls}, that is local to
-   * the current calling context, and which never evicts entries. This cache is always checked in
-   * preference to the shared one; it may deviate from the shared one in some of its entries, but
-   * the calling context won't know the difference. (If bzl inlining is only used for the loading
-   * phase, we don't need to worry about Starlark values from different packages interacting.) The
-   * cache is stored as part of the {@code inliningState} passed in by the caller; the caller can
-   * obtain this object using {@link InliningState#create}.
+   * <p>To solve this, we keep a second cache, {@link InliningState#successfulLoads}, that is local
+   * to the current calling context, and which never evicts entries. Like the global cache discussed
+   * above, this cache stores only successes. This cache is always checked in preference to the
+   * shared one; it may deviate from the shared one in some of its entries, but the calling context
+   * won't know the difference. (Since bzl inlining is only used for the loading phase, we don't
+   * need to worry about Starlark values from different packages interacting.) The cache is stored
+   * as part of the {@code inliningState} passed in by the caller; the caller can obtain this object
+   * using {@link InliningState#create}.
    *
-   * <p>As an aside, note that we can't avoid having a second cache by simply naively blocking
-   * evaluation of .bzls on retrievals from the shared cache. This is because two contexts could
-   * deadlock while trying to evaluate an illegal {@code load()} cycle from opposite ends. It would
-   * be possible to construct a waits-for graph and perform cycle detection, or to monitor slow
-   * threads and do detection lazily, but these do not address the cache eviction issue.
-   * Alternatively, we could make Starlark tolerant of reloading, but that would be tantamount to
-   * implementing full Starlark serialization.
+   * <p>As an aside, note that we can't avoid having {@link InliningState#successfulLoads} by simply
+   * naively blocking evaluation of .bzls on retrievals from the shared cache. This is because two
+   * contexts could deadlock while trying to evaluate an illegal {@code load()} cycle from opposite
+   * ends. It would be possible to construct a waits-for graph and perform cycle detection, or to
+   * monitor slow threads and do detection lazily, but these do not address the cache eviction
+   * issue. Alternatively, we could make Starlark tolerant of reloading, but that would be
+   * tantamount to implementing full Starlark serialization.
    *
-   * @return the requested {@code BzlLoadValue}, or null if there is a Skyframe restart or error
+   * <p>Since our local {@link InliningState#successfulLoads} stores only successes, a separate
+   * concern is that we don't want to unsuccessfully visit the same .bzl more than once in the same
+   * context. (A visitation is unsuccessful if it fails due to an error or if it cannot complete
+   * because of a missing Skyframe dep.) To address this concern we maintain a separate {@link
+   * InliningState#unsuccessfulLoads} set, and use this set to return null instead of duplicating an
+   * unsuccessful visitation.
+   *
+   * @return the requested {@code BzlLoadValue}, or null if there was a missing Skyframe dep, an
+   *     unspecified exception in a Skyframe dep request, or if this was a duplicate unsuccessful
+   *     visitation
    */
+  // TODO(brandjon): Pick one of the nouns "load" and "bzl" and use that term consistently.
   @Nullable
   BzlLoadValue computeInline(BzlLoadValue.Key key, Environment env, InliningState inliningState)
-      throws InconsistentFilesystemException, BzlLoadFailedException, InterruptedException {
+      throws BzlLoadFailedException, InterruptedException {
     // Note to refactorors: No Skyframe calls may be made before the RecordingSkyFunctionEnvironment
     // is set up below in computeInlineForCacheMiss.
     Preconditions.checkNotNull(cachedBzlLoadDataManager);
@@ -253,45 +244,61 @@ public class BzlLoadFunction implements SkyFunction {
   }
 
   /**
-   * Retrieves or creates the requested {@link CachedBzlLoadData} object, entering it into the
-   * local and shared caches. This is the entry point for recursive calls to the inline code path.
+   * Retrieves or creates the requested {@link CachedBzlLoadData} object for the given bzl, entering
+   * it into the local and shared caches. This is the entry point for recursive calls to the inline
+   * code path.
    *
    * <p>Skyframe calls made underneath this function will be logged in the resulting {@code
    * CachedBzlLoadData) (or its transitive dependencies). The given Skyframe environment must not
    * be a {@link RecordingSkyFunctionEnvironment}, since that would imply that calls are being
    * logged in both the returned value and the parent value.
    *
-   * <p>Returns null on Skyframe restart or error.
+   * @return null if there was a missing Skyframe dep, an unspecified exception in a Skyframe dep
+   *     request, or if this was a duplicate unsuccessful visitation
    */
   @Nullable
   private CachedBzlLoadData computeInlineCachedData(
       BzlLoadValue.Key key, Environment env, InliningState inliningState)
-      throws InconsistentFilesystemException, BzlLoadFailedException, InterruptedException {
+      throws BzlLoadFailedException, InterruptedException {
     // Note to refactorors: No Skyframe calls may be made before the RecordingSkyFunctionEnvironment
     // is set up below in computeInlineForCacheMiss.
 
-    // Try the caches. We must try the thread-local cache before the shared one.
-    CachedBzlLoadData cachedData = inliningState.visitedBzls.get(key);
+    // Try the caches of successful loads. We must try the thread-local cache before the shared, for
+    // consistency purposes (see the javadoc of #computeInline).
+    CachedBzlLoadData cachedData = inliningState.successfulLoads.get(key);
     if (cachedData == null) {
       cachedData = cachedBzlLoadDataManager.cache.getIfPresent(key);
       if (cachedData != null) {
         // Found a cache hit from another thread's computation; register the recorded deps as if our
-        // thread required them for the current key. Incorporate into visitedBzls any transitive
+        // thread required them for the current key. Incorporate into successfulLoads any transitive
         // cache hits it does not already contain.
-        cachedData.traverse(env::registerDependencies, inliningState.visitedBzls);
+        cachedData.traverse(env::registerDependencies, inliningState.successfulLoads);
       }
     }
 
-    // If that didn't work, compute it ourselves and add to the caches on success.
+    // See if we've already unsuccessfully visited the bzl.
+    if (inliningState.unsuccessfulLoads.contains(key)) {
+      return null;
+    }
+
+    // If we're here, the bzl must have never been visited before in this calling context. Compute
+    // it ourselves, updating the other data structures as appropriate.
     if (cachedData == null) {
-      cachedData = computeInlineForCacheMiss(key, env, inliningState);
-      if (cachedData != null) {
-        inliningState.visitedBzls.put(key, cachedData);
-        cachedBzlLoadDataManager.cache.put(key, cachedData);
+      try {
+        cachedData = computeInlineForCacheMiss(key, env, inliningState);
+      } finally {
+        if (cachedData != null) {
+          inliningState.successfulLoads.put(key, cachedData);
+          cachedBzlLoadDataManager.cache.put(key, cachedData);
+        } else {
+          inliningState.unsuccessfulLoads.add(key);
+          // Either propagate an exception or fall through for null return.
+        }
       }
     }
 
-    // On success, notify the parent CachedBzlLoadData of its new child.
+    // On success (from cache hit or from scratch), notify the parent CachedBzlLoadData of its new
+    // child.
     if (cachedData != null) {
       inliningState.childCachedDataHandler.accept(cachedData);
     }
@@ -302,7 +309,7 @@ public class BzlLoadFunction implements SkyFunction {
   @Nullable
   private CachedBzlLoadData computeInlineForCacheMiss(
       BzlLoadValue.Key key, Environment env, InliningState inliningState)
-      throws InconsistentFilesystemException, BzlLoadFailedException, InterruptedException {
+      throws BzlLoadFailedException, InterruptedException {
     // We use an instrumented Skyframe env to capture Skyframe deps in the CachedBzlLoadData. This
     // generally includes transitive Skyframe deps, but specifically excludes deps underneath
     // recursively loaded .bzls. We unwrap the instrumented env right before recursively calling
@@ -345,74 +352,7 @@ public class BzlLoadFunction implements SkyFunction {
   }
 
   /**
-   * Retrieves {@link StarlarkBuiltinsValue}, or uses a dummy value if either 1) the builtins
-   * mechanism is disabled or 2) the current .bzl is not being loaded for a BUILD file
-   *
-   * <p>Returns null if a Skyframe restart/error occurred.
-   */
-  @Nullable
-  private StarlarkBuiltinsValue getStarlarkBuiltinsValue(
-      BzlLoadValue.Key key,
-      Environment env,
-      StarlarkSemantics starlarkSemantics,
-      @Nullable InliningState inliningState)
-      throws BuiltinsFailedException, InconsistentFilesystemException, InterruptedException {
-    // Don't request @builtins if we're in workspace evaluation, or already in @builtins evaluation.
-    if (!(key instanceof BzlLoadValue.KeyForBuild)
-        // TODO(#11437): Remove ability to disable injection by setting flag to empty string.
-        || starlarkSemantics.experimentalBuiltinsBzlPath().equals("")) {
-      return uninjectedStarlarkBuiltins;
-    }
-    // Result may be null.
-    return inliningState == null
-        ? (StarlarkBuiltinsValue)
-            env.getValueOrThrow(StarlarkBuiltinsValue.key(), BuiltinsFailedException.class)
-        : StarlarkBuiltinsFunction.computeInline(
-            StarlarkBuiltinsValue.key(),
-            env,
-            inliningState,
-            /*bzlLoadFunction=*/ this,
-            ruleClassProvider,
-            packageFactory);
-  }
-
-  @Nullable
-  private static ContainingPackageLookupValue getContainingPackageLookupValue(
-      Environment env, Label label)
-      throws InconsistentFilesystemException, BzlLoadFailedException, InterruptedException {
-    PathFragment dir = Label.getContainingDirectory(label);
-    PackageIdentifier dirId =
-        PackageIdentifier.create(label.getPackageIdentifier().getRepository(), dir);
-    ContainingPackageLookupValue containingPackageLookupValue;
-    try {
-      containingPackageLookupValue =
-          (ContainingPackageLookupValue)
-              env.getValueOrThrow(
-                  ContainingPackageLookupValue.key(dirId),
-                  BuildFileNotFoundException.class,
-                  InconsistentFilesystemException.class);
-    } catch (BuildFileNotFoundException e) {
-      throw BzlLoadFailedException.errorReadingFile(
-          label.toPathFragment(), new ErrorReadingStarlarkExtensionException(e));
-    }
-    if (containingPackageLookupValue == null) {
-      return null;
-    }
-    // Ensure the label doesn't cross package boundaries.
-    if (!containingPackageLookupValue.hasContainingPackage()) {
-      throw BzlLoadFailedException.noBuildFile(
-          label, containingPackageLookupValue.getReasonForNoContainingPackage());
-    }
-    if (!containingPackageLookupValue
-        .getContainingPackageName()
-        .equals(label.getPackageIdentifier())) {
-      throw BzlLoadFailedException.labelCrossesPackageBoundary(label, containingPackageLookupValue);
-    }
-    return containingPackageLookupValue;
-  }
-
-  /**
-   * An opaque object that holds state for the inlining computation initiated by {@link
+   * An opaque object that holds state for the bzl inlining computation initiated by {@link
    * #computeInline}.
    *
    * <p>An original caller of {@code computeInline} (e.g., {@link PackageFunction}) should obtain
@@ -429,28 +369,50 @@ public class BzlLoadFunction implements SkyFunction {
    */
   static class InliningState {
     /**
-     * The set of .bzls we're currently in the process of loading. This is used for cycle detection
-     * since we don't have the benefit of Skyframe's internal cycle detection. The set must use
-     * insertion order for correct error reporting.
+     * The set of bzls we're currently in the process of loading but haven't fully visited yet. This
+     * is used for cycle detection since we don't have the benefit of Skyframe's internal cycle
+     * detection. The set must use insertion order for correct error reporting.
+     *
+     * <p>This is disjoint with {@link #successfulLoads} and {@link #unsuccessfulLoads}.
+     *
+     * <p>This is local to current calling context. See {@link #computeInline}.
      */
     // Keyed on the SkyKey, not the label, since label could theoretically be ambiguous, even though
     // in practice keys from BUILD / WORKSPACE / @builtins don't call each other. (Not sure if
     // WORKSPACE chunking can cause duplicate labels to appear, but we're robust regardless.)
     private final LinkedHashSet<BzlLoadValue.Key> loadStack;
 
+    /**
+     * Cache of bzls that have been fully visited and successfully loaded to a value.
+     *
+     * <p>This and {@link #unsuccessfulLoads} partition the set of fully visited bzls.
+     *
+     * <p>This is local to current calling context. See {@link #computeInline}.
+     */
+    private final Map<BzlLoadValue.Key, CachedBzlLoadData> successfulLoads;
+
+    /**
+     * Set of bzls that have been fully visited, but were not successfully loaded to a value.
+     *
+     * <p>This and {@link #successfulLoads} partition the set of fully visited bzls, and is disjoint
+     * with {@link #loadStack}.
+     *
+     * <p>This is local to current calling context. See {@link #computeInline}.
+     */
+    private final HashSet<BzlLoadValue.Key> unsuccessfulLoads;
+
     /** Called when a transitive {@code CachedBzlLoadData} is produced. */
     private final Consumer<CachedBzlLoadData> childCachedDataHandler;
 
-    /** Cache local to current calling context. See {@link #computeInline}. */
-    private final Map<BzlLoadValue.Key, CachedBzlLoadData> visitedBzls;
-
     private InliningState(
         LinkedHashSet<BzlLoadValue.Key> loadStack,
-        Consumer<CachedBzlLoadData> childCachedDataHandler,
-        Map<BzlLoadValue.Key, CachedBzlLoadData> visitedBzls) {
+        Map<BzlLoadValue.Key, CachedBzlLoadData> successfulLoads,
+        HashSet<BzlLoadValue.Key> unsuccessfulLoads,
+        Consumer<CachedBzlLoadData> childCachedDataHandler) {
       this.loadStack = loadStack;
+      this.successfulLoads = successfulLoads;
+      this.unsuccessfulLoads = unsuccessfulLoads;
       this.childCachedDataHandler = childCachedDataHandler;
-      this.visitedBzls = visitedBzls;
     }
 
     /**
@@ -460,12 +422,15 @@ public class BzlLoadFunction implements SkyFunction {
     static InliningState create() {
       return new InliningState(
           /*loadStack=*/ new LinkedHashSet<>(),
-          /*childCachedDataHandler=*/ x -> {}, // No parent value to mutate.
-          /*visitedBzls=*/ new HashMap<>());
+          /*successfulLoads=*/ new HashMap<>(),
+          /*unsuccessfulLoads=*/ new HashSet<>(),
+          // No parent value to mutate
+          /*childCachedDataHandler=*/ x -> {});
     }
 
     private InliningState createChildState(Consumer<CachedBzlLoadData> childCachedDataHandler) {
-      return new InliningState(loadStack, childCachedDataHandler, visitedBzls);
+      return new InliningState(
+          loadStack, successfulLoads, unsuccessfulLoads, childCachedDataHandler);
     }
 
     /** Records entry to a {@code load()}, throwing an exception if a cycle is detected. */
@@ -483,158 +448,204 @@ public class BzlLoadFunction implements SkyFunction {
     }
   }
 
+  /**
+   * Entry point for compute logic that's common to both (bzl) inlining and non-inlining code paths.
+   */
   // It is vital that we don't return any value if any call to env#getValue(s)OrThrow throws an
   // exception. We are allowed to wrap the thrown exception and rethrow it for any calling functions
   // to handle though.
   @Nullable
   private BzlLoadValue computeInternal(
       BzlLoadValue.Key key, Environment env, @Nullable InliningState inliningState)
-      throws InconsistentFilesystemException, BzlLoadFailedException, InterruptedException {
+      throws BzlLoadFailedException, InterruptedException {
     Label label = key.getLabel();
     PathFragment filePath = label.toPathFragment();
 
-    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
-    if (starlarkSemantics == null) {
+    ASTFileLookupValue.Key astKey = validatePackageAndGetASTKey(key, env);
+    if (astKey == null) {
       return null;
     }
-
-    StarlarkBuiltinsValue starlarkBuiltinsValue;
+    ASTFileLookupValue astLookup;
     try {
-      starlarkBuiltinsValue = getStarlarkBuiltinsValue(key, env, starlarkSemantics, inliningState);
-    } catch (BuiltinsFailedException e) {
-      throw BzlLoadFailedException.builtinsFailed(label, e);
+      astLookup = astManager.getASTFileLookupValue(astKey, env);
+    } catch (ASTLookupFailedException e) {
+      throw BzlLoadFailedException.errorReadingBzl(filePath, e);
     }
-    if (starlarkBuiltinsValue == null) {
-      return null;
-    }
-
-    if (getContainingPackageLookupValue(env, label) == null) {
-      return null;
-    }
-
-    // Load the AST corresponding to this file.
-    ASTFileLookupValue astLookupValue;
-    try {
-      astLookupValue = astManager.getASTFileLookupValue(label, env);
-    } catch (ErrorReadingStarlarkExtensionException e) {
-      throw BzlLoadFailedException.errorReadingFile(filePath, e);
-    }
-    if (astLookupValue == null) {
+    if (astLookup == null) {
       return null;
     }
 
     BzlLoadValue result = null;
+    // Release the AST iff the value gets completely evaluated (to either error or non-null result).
+    boolean completed = true;
     try {
-      result =
-          computeInternalWithAST(
-              key,
-              filePath,
-              starlarkSemantics,
-              starlarkBuiltinsValue,
-              astLookupValue,
-              env,
-              inliningState);
-    } catch (InconsistentFilesystemException | BzlLoadFailedException | InterruptedException e) {
-      astManager.doneWithASTFileLookupValue(label);
-      throw e;
-    }
-    if (result != null) {
-      // Result is final (no Skyframe restart), so no further need for the AST value.
-      astManager.doneWithASTFileLookupValue(label);
+      result = computeInternalWithAST(key, astLookup, env, inliningState);
+      completed = result != null;
+    } finally {
+      if (completed) { // only false on unexceptional null result
+        astManager.doneWithASTFileLookupValue(astKey);
+      }
     }
     return result;
   }
 
+  /**
+   * Returns the AST key for a bzl, or null for a missing Skyframe dep or unspecified exception.
+   *
+   * <p>Except for builtins bzls, a bzl is not considered loadable unless its load label matches its
+   * file target label.
+   */
+  @Nullable
+  private static ASTFileLookupValue.Key validatePackageAndGetASTKey(
+      BzlLoadValue.Key key, Environment env) throws BzlLoadFailedException, InterruptedException {
+    Label label = key.getLabel();
+
+    // Do package lookup.
+    PathFragment dir = Label.getContainingDirectory(label);
+    PackageIdentifier dirId =
+        PackageIdentifier.create(label.getPackageIdentifier().getRepository(), dir);
+    ContainingPackageLookupValue packageLookup;
+    try {
+      packageLookup =
+          (ContainingPackageLookupValue)
+              env.getValueOrThrow(
+                  ContainingPackageLookupValue.key(dirId),
+                  BuildFileNotFoundException.class,
+                  InconsistentFilesystemException.class);
+    } catch (BuildFileNotFoundException | InconsistentFilesystemException e) {
+      throw BzlLoadFailedException.errorFindingPackage(label.toPathFragment(), e);
+    }
+    if (packageLookup == null) {
+      return null;
+    }
+
+    // Resolve to AST key or error.
+    ASTFileLookupValue.Key astKey;
+    boolean packageOk =
+        packageLookup.hasContainingPackage()
+            && packageLookup.getContainingPackageName().equals(label.getPackageIdentifier());
+    if (key.isBuildPrelude() && !packageOk) {
+      // Ignore the prelude, its package doesn't exist.
+      astKey = ASTFileLookupValue.EMPTY_PRELUDE_KEY;
+    } else {
+      if (packageOk) {
+        astKey = key.getASTKey(packageLookup.getContainingPackageRoot());
+      } else {
+        if (!packageLookup.hasContainingPackage()) {
+          throw BzlLoadFailedException.noBuildFile(
+              label, packageLookup.getReasonForNoContainingPackage());
+        } else {
+          throw BzlLoadFailedException.labelCrossesPackageBoundary(label, packageLookup);
+        }
+      }
+    }
+    return astKey;
+  }
+
+  /**
+   * Compute logic for once the AST has been fetched and confirmed to exist (though it may have
+   * Starlark errors).
+   */
   @Nullable
   private BzlLoadValue computeInternalWithAST(
       BzlLoadValue.Key key,
-      PathFragment filePath,
-      StarlarkSemantics starlarkSemantics,
-      StarlarkBuiltinsValue starlarkBuiltinsValue,
-      ASTFileLookupValue astLookupValue,
+      ASTFileLookupValue astLookup,
       Environment env,
       @Nullable InliningState inliningState)
-      throws InconsistentFilesystemException, BzlLoadFailedException, InterruptedException {
+      throws BzlLoadFailedException, InterruptedException {
     Label label = key.getLabel();
+    PathFragment filePath = label.toPathFragment();
 
-    if (!astLookupValue.lookupSuccessful()) {
-      // Starlark code must exist.
-      throw new BzlLoadFailedException(astLookupValue.getError());
+    // Ensure the .bzl exists and passes static checks (parsing, resolving).
+    // (A missing prelude file still returns a valid but empty ASTFileLookupValue.)
+    if (!astLookup.lookupSuccessful()) {
+      throw new BzlLoadFailedException(astLookup.getError());
     }
-    StarlarkFile file = astLookupValue.getAST();
+    StarlarkFile file = astLookup.getAST();
     if (!file.ok()) {
       throw BzlLoadFailedException.starlarkErrors(filePath);
     }
 
-    // Process the load statements in the file,
-    // resolving labels relative to the current repo mapping.
+    // Determine dependency BzlLoadValue keys for the load statements in this bzl. Labels are
+    // resolved relative to the current repo mapping.
     ImmutableMap<RepositoryName, RepositoryName> repoMapping = getRepositoryMapping(key, env);
     if (repoMapping == null) {
       return null;
     }
-    List<Pair<String, Label>> loads =
+    List<Pair<String, Label>> loadLabels =
         getLoadLabels(env.getListener(), file, label.getPackageIdentifier(), repoMapping);
-    if (loads == null) {
+    if (loadLabels == null) {
       // malformed load statements
       throw BzlLoadFailedException.starlarkErrors(filePath);
     }
-
-    // Compute Skyframe key for each label in 'loads'.
-    List<BzlLoadValue.Key> loadKeys = Lists.newArrayListWithExpectedSize(loads.size());
-    for (Pair<String, Label> load : loads) {
-      loadKeys.add(key.getKeyForLoad(load.second));
+    List<BzlLoadValue.Key> loadKeys = Lists.newArrayListWithExpectedSize(loadLabels.size());
+    for (Pair<String, Label> entry : loadLabels) {
+      loadKeys.add(key.getKeyForLoad(entry.second));
     }
 
-    // Load .bzl modules in parallel.
+    // Evaluate the dependency bzls. When not using bzl inlining, this is done in parallel for all
+    // loads.
     // TODO(bazel-team): In case of a failed load(), we should report the location of the load()
     // statement in the requesting file, e.g. using
-    // file.getLoadStatements().get(...).getStartLocation(). We should also probably catch and
-    // rethrow InconsistentFilesystemException with location info in the non-inlining code path so
-    // the error message is the same in both code paths.
-    List<BzlLoadValue> bzlLoads =
+    // file.getLoadStatements().get(...).getStartLocation().
+    List<BzlLoadValue> loadValues =
         inliningState == null
             ? computeBzlLoadsWithSkyframe(env, loadKeys, file)
             : computeBzlLoadsWithInlining(env, loadKeys, file, inliningState);
-    if (bzlLoads == null) {
+    if (loadValues == null) {
       return null; // Skyframe deps unavailable
     }
 
-    // Process the loaded modules.
-    //
-    // Compute a digest of the file itself plus the transitive hashes of the modules it directly
-    // loads. Loop iteration order matches the source order of load statements.
+    // Accumulate a transitive digest of the bzl file, the digests of its direct loads, and the
+    // digest of the @builtins pseudo-repository (if applicable).
     Fingerprint fp = new Fingerprint();
-    fp.addBytes(astLookupValue.getDigest());
-    Map<String, Module> loadedModules = Maps.newHashMapWithExpectedSize(loads.size());
-    ImmutableList.Builder<StarlarkFileDependency> fileDependencies =
-        ImmutableList.builderWithExpectedSize(loads.size());
-    for (int i = 0; i < loads.size(); i++) {
-      String loadString = loads.get(i).first;
-      BzlLoadValue v = bzlLoads.get(i);
-      loadedModules.put(loadString, v.getModule());
-      fileDependencies.add(v.getDependency());
+    fp.addBytes(astLookup.getDigest());
+
+    // Populate the load map and add transitive digests to the fingerprint.
+    Map<String, Module> loadMap = Maps.newLinkedHashMapWithExpectedSize(loadLabels.size());
+    for (int i = 0; i < loadLabels.size(); i++) {
+      String loadString = loadLabels.get(i).first;
+      BzlLoadValue v = loadValues.get(i);
+      loadMap.put(loadString, v.getModule()); // dups ok
       fp.addBytes(v.getTransitiveDigest());
+    }
+
+    // Retrieve semantics and predeclared symbols, and complete the digest computation.
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (starlarkSemantics == null) {
+      return null;
+    }
+    ImmutableMap<String, Object> predeclared =
+        getAndDigestPredeclaredEnvironment(key, env, starlarkSemantics, fp, inliningState);
+    if (predeclared == null) {
+      return null;
     }
     byte[] transitiveDigest = fp.digestAndReset();
 
-    Module module =
-        Module.withPredeclared(
-            starlarkSemantics, getPredeclaredEnvironment(key, starlarkBuiltinsValue));
-    module.setClientData(BazelModuleContext.create(label, transitiveDigest));
+    // Construct the initial Starlark module, then execute the code and return the result.
+    // The additional information in BazelModuleContext reifies the load DAG.
+    Module module = Module.withPredeclared(starlarkSemantics, predeclared);
+    module.setClientData(
+        BazelModuleContext.create(
+            label, file.getStartLocation().file(), ImmutableMap.copyOf(loadMap), transitiveDigest));
+
+    // compile
+    //
+    // Note: file is shared: it belongs the to caller, which already resolved it
+    // (see skyframe.ASTFileLookupFunction.java:154).
+    // Can we compile it there too? Is the Module env consistent?
+    // If we move this step into caller, the runtime module must match resolver module:
+    // Validation (there) uses packageFactory.getRuleClassProvider().getEnvironment();
+    // Compilation (here) uses getAndDigestPredeclaredEnvironment, which is complex.
+    //
+    // For now, Program temporarily gives us a way to compile an already-resolved file:
+    Program prog = Program.compileResolvedFile(file);
+
     // executeBzlFile may post events to the Environment's handler, but events do not matter when
-    // caching BzlLoadValues. Note that executing the module mutates it.
+    // caching BzlLoadValues. Note that executing the code mutates the module.
     executeBzlFile(
-        file,
-        key.getLabel(),
-        module,
-        loadedModules,
-        starlarkSemantics,
-        env.getListener(),
-        repoMapping);
-    BzlLoadValue result =
-        new BzlLoadValue(
-            module, transitiveDigest, new StarlarkFileDependency(label, fileDependencies.build()));
-    return result;
+        prog, key.getLabel(), module, loadMap, starlarkSemantics, env.getListener(), repoMapping);
+    return new BzlLoadValue(module, transitiveDigest);
   }
 
   private static ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping(
@@ -757,8 +768,10 @@ public class BzlLoadFunction implements SkyFunction {
 
   /**
    * Computes the BzlLoadValue for all given keys by reusing this instance of the BzlLoadFunction,
-   * bypassing traditional Skyframe evaluation, returning {@code null} if Skyframe deps were missing
-   * and have been requested.
+   * bypassing traditional Skyframe evaluation.
+   *
+   * @return null if there was a missing Skyframe dep, an unspecified exception in a Skyframe dep
+   *     request, or if this was a duplicate unsuccessful visitation
    */
   @Nullable
   private List<BzlLoadValue> computeBzlLoadsWithInlining(
@@ -766,7 +779,7 @@ public class BzlLoadFunction implements SkyFunction {
       List<BzlLoadValue.Key> keys,
       StarlarkFile requestingFile,
       InliningState inliningState)
-      throws InterruptedException, BzlLoadFailedException, InconsistentFilesystemException {
+      throws BzlLoadFailedException, InterruptedException {
     String filePathForErrors = requestingFile.getStartLocation().file();
     Preconditions.checkState(
         env instanceof RecordingSkyFunctionEnvironment,
@@ -775,12 +788,19 @@ public class BzlLoadFunction implements SkyFunction {
     Environment strippedEnv = ((RecordingSkyFunctionEnvironment) env).getDelegate();
 
     List<BzlLoadValue> bzlLoads = Lists.newArrayListWithExpectedSize(keys.size());
-    // For determinism's sake while inlining, preserve the first exception and continue to run
-    // subsequently listed loads to completion/exception, loading all transitive deps anyway.
-    // TODO(brandjon, adgar): What's the deal with determinism w.r.t. InterruptedException, and
-    // don't null returns mean the first exception seen isn't deterministic? See also cl/263656490
-    // and discussion therein.
-    Exception deferredException = null;
+    // For the sake of ensuring the graph structure is deterministic, we need to request all of our
+    // deps, even if some of them yield errors. The first exception that is seen gets deferred, to
+    // be raised after the loop. All other exceptions are swallowed.
+    //
+    // To see how immediately returning the first error leads to non-determinism, consider the case
+    // of two dependencies A and B, where A is in error and appears in a load statement above B.
+    // If A has completed at the time we request it, and if we were to immediately propagate that
+    // error, we never request B. On the other hand, if A is missing (null return), we do request B
+    // in the meantime for the sake of parallelism.
+    //
+    // This approach assumes --keep_going; determinism is not guaranteed otherwise. It also assumes
+    // InterruptedException does not occur, since we don't catch and defer it.
+    BzlLoadFailedException deferredException = null;
     boolean valuesMissing = false;
     // NOTE: Iterating over loads in the order listed in the file.
     for (BzlLoadValue.Key key : keys) {
@@ -788,52 +808,87 @@ public class BzlLoadFunction implements SkyFunction {
       try {
         cachedData = computeInlineCachedData(key, strippedEnv, inliningState);
       } catch (BzlLoadFailedException e) {
-        e = BzlLoadFailedException.whileLoadingDep(filePathForErrors, e);
-        deferredException = MoreObjects.firstNonNull(deferredException, e);
-        continue;
-      } catch (InconsistentFilesystemException e) {
-        deferredException = MoreObjects.firstNonNull(deferredException, e);
+        if (deferredException == null) {
+          deferredException = BzlLoadFailedException.whileLoadingDep(filePathForErrors, e);
+        }
         continue;
       }
       if (cachedData == null) {
-        Preconditions.checkState(env.valuesMissing(), "no starlark load value for %s", key);
-        // We continue making inline calls even if some requested values are missing, to maximize
-        // the number of dependent (non-inlined) SkyFunctions that are requested, thus avoiding a
-        // quadratic number of restarts.
+        // A null value for `cachedData` can occur when it (or its transitive loads) has a Skyframe
+        // dep that is missing or in error. It can also occur if there's a transitive load on a bzl
+        // that was already seen by inliningState and which returned null (note: in this case, it's
+        // not necessarily true that there are missing Skyframe deps because this bzl could have
+        // already been visited unsuccessfully). In both these cases, we want to continue making our
+        // inline calls, so as to maximize the number of dependent (non-inlined) SkyFunctions that
+        // are requested and avoid a quadratic number of restarts.
         valuesMissing = true;
       } else {
         bzlLoads.add(cachedData.getValue());
       }
     }
     if (deferredException != null) {
-      Throwables.throwIfInstanceOf(deferredException, BzlLoadFailedException.class);
-      Throwables.throwIfInstanceOf(deferredException, InconsistentFilesystemException.class);
-      throw new IllegalStateException(
-          "caught a checked exception of unexpected type", deferredException);
+      throw deferredException;
     }
     return valuesMissing ? null : bzlLoads;
   }
 
   /**
-   * Obtains the predeclared environment for a .bzl file, based on the type of file and (if
+   * Obtains the predeclared environment for a .bzl file, based on the type of .bzl and (if
    * applicable) the injected builtins.
+   *
+   * <p>Returns null if there was a missing Skyframe dep or unspecified exception.
+   *
+   * <p>In the case that injected builtins are used, updates the given fingerprint with the digest
+   * of the {@code @builtins} pseudo-repository.
    */
-  private ImmutableMap<String, Object> getPredeclaredEnvironment(
-      BzlLoadValue.Key key, StarlarkBuiltinsValue starlarkBuiltinsValue) {
+  @Nullable
+  private ImmutableMap<String, Object> getAndDigestPredeclaredEnvironment(
+      BzlLoadValue.Key key,
+      Environment env,
+      StarlarkSemantics starlarkSemantics,
+      Fingerprint fp,
+      InliningState inliningState)
+      throws BzlLoadFailedException, InterruptedException {
     if (key instanceof BzlLoadValue.KeyForBuild) {
+      // TODO(#11437): Remove ability to disable injection by setting flag to empty string.
+      if (starlarkSemantics.experimentalBuiltinsBzlPath().isEmpty()) {
+        return packageFactory.getUninjectedBuildBzlEnv();
+      }
+      StarlarkBuiltinsValue starlarkBuiltinsValue;
+      try {
+        if (inliningState == null) {
+          starlarkBuiltinsValue =
+              (StarlarkBuiltinsValue)
+                  env.getValueOrThrow(StarlarkBuiltinsValue.key(), BuiltinsFailedException.class);
+        } else {
+          starlarkBuiltinsValue =
+              StarlarkBuiltinsFunction.computeInline(
+                  StarlarkBuiltinsValue.key(),
+                  env,
+                  inliningState,
+                  packageFactory,
+                  /*bzlLoadFunction=*/ this);
+        }
+      } catch (BuiltinsFailedException e) {
+        throw BzlLoadFailedException.builtinsFailed(key.getLabel(), e);
+      }
+      if (starlarkBuiltinsValue == null) {
+        return null;
+      }
+      fp.addBytes(starlarkBuiltinsValue.transitiveDigest);
       return starlarkBuiltinsValue.predeclaredForBuildBzl;
     } else if (key instanceof BzlLoadValue.KeyForWorkspace) {
-      return predeclaredForWorkspaceBzl;
+      return packageFactory.getWorkspaceBzlEnv();
     } else if (key instanceof BzlLoadValue.KeyForBuiltins) {
-      return predeclaredForBuiltinsBzl;
+      return packageFactory.getBuiltinsBzlEnv();
     } else {
       throw new AssertionError("Unknown key type: " + key.getClass());
     }
   }
 
-  /** Executes the .bzl file defining the module to be loaded. */
+  /** Executes the compiled .bzl file defining the module to be loaded. */
   private void executeBzlFile(
-      StarlarkFile file,
+      Program prog,
       Label label,
       Module module,
       Map<String, Module> loadedModules,
@@ -846,8 +901,10 @@ public class BzlLoadFunction implements SkyFunction {
       thread.setLoader(loadedModules::get);
       StoredEventHandler starlarkEventHandler = new StoredEventHandler();
       thread.setPrintHandler(Event.makeDebugPrintHandler(starlarkEventHandler));
-      ruleClassProvider.setStarlarkThreadContext(thread, label, repositoryMapping);
-      execAndExport(file, label, starlarkEventHandler, module, thread);
+      packageFactory
+          .getRuleClassProvider()
+          .setStarlarkThreadContext(thread, label, repositoryMapping);
+      execAndExport(prog, label, starlarkEventHandler, module, thread);
 
       Event.replayEventsOn(skyframeEventHandler, starlarkEventHandler.getEvents());
       for (Postable post : starlarkEventHandler.getPosts()) {
@@ -859,11 +916,10 @@ public class BzlLoadFunction implements SkyFunction {
     }
   }
 
-  // Precondition: file is validated and error-free.
   // Precondition: thread has a valid transitiveDigest.
   // TODO(adonovan): executeBzlFile would make a better public API than this function.
   public static void execAndExport(
-      StarlarkFile file, Label label, EventHandler handler, Module module, StarlarkThread thread)
+      Program prog, Label label, EventHandler handler, Module module, StarlarkThread thread)
       throws InterruptedException {
 
     // Intercept execution after every assignment at top level
@@ -877,22 +933,125 @@ public class BzlLoadFunction implements SkyFunction {
               try {
                 exp.export(label, name);
               } catch (EvalException ex) {
-                handler.handle(Event.error(ex.getLocation(), ex.getMessage()));
+                handler.handle(Event.error(null, ex.getMessageWithStack()));
               }
             }
           }
         });
 
     try {
-      EvalUtils.exec(file, module, thread);
+      Starlark.execFileProgram(prog, module, thread);
     } catch (EvalException ex) {
-      handler.handle(Event.error(ex.getLocation(), ex.getMessage()));
+      handler.handle(Event.error(null, ex.getMessageWithStack()));
     }
   }
 
   @Override
   public String extractTag(SkyKey skyKey) {
     return null;
+  }
+
+  /**
+   * A manager abstracting over the method for obtaining {@code ASTFileLookupValue}s. See comment in
+   * {@link #create}.
+   */
+  private interface ASTManager {
+    @Nullable
+    ASTFileLookupValue getASTFileLookupValue(ASTFileLookupValue.Key key, Environment env)
+        throws ASTLookupFailedException, InterruptedException;
+
+    void doneWithASTFileLookupValue(ASTFileLookupValue.Key key);
+  }
+
+  /** A manager that obtains ASTs from Skyframe calls. */
+  private static class RegularSkyframeASTManager implements ASTManager {
+    private static final RegularSkyframeASTManager INSTANCE = new RegularSkyframeASTManager();
+
+    @Nullable
+    @Override
+    public ASTFileLookupValue getASTFileLookupValue(ASTFileLookupValue.Key key, Environment env)
+        throws ASTLookupFailedException, InterruptedException {
+      return (ASTFileLookupValue) env.getValueOrThrow(key, ASTLookupFailedException.class);
+    }
+
+    @Override
+    public void doneWithASTFileLookupValue(ASTFileLookupValue.Key key) {}
+  }
+
+  /**
+   * A manager that obtains ASTs by inlining {@link ASTFileLookupFunction} (not to be confused with
+   * inlining of {@code BzlLoadFunction}). Values are cached within the manager and released
+   * explicitly by calling {@link #doneWithASTFileLookupValue}.
+   */
+  private static class InliningAndCachingASTManager implements ASTManager {
+    private final PackageFactory packageFactory;
+    private final DigestHashFunction digestHashFunction;
+    // We keep a cache of ASTFileLookupValues that have been computed but whose corresponding
+    // BzlLoadValue has not yet completed. This avoids repeating the ASTFileLookupValue work in case
+    // of Skyframe restarts. (If we weren't inlining, Skyframe would cache this for us.)
+    private final Cache<ASTFileLookupValue.Key, ASTFileLookupValue> astFileLookupValueCache;
+
+    private InliningAndCachingASTManager(
+        PackageFactory packageFactory,
+        DigestHashFunction digestHashFunction,
+        Cache<ASTFileLookupValue.Key, ASTFileLookupValue> astFileLookupValueCache) {
+      this.packageFactory = packageFactory;
+      this.digestHashFunction = digestHashFunction;
+      this.astFileLookupValueCache = astFileLookupValueCache;
+    }
+
+    @Nullable
+    @Override
+    public ASTFileLookupValue getASTFileLookupValue(ASTFileLookupValue.Key key, Environment env)
+        throws ASTLookupFailedException, InterruptedException {
+      ASTFileLookupValue value = astFileLookupValueCache.getIfPresent(key);
+      if (value == null) {
+        value = ASTFileLookupFunction.computeInline(key, env, packageFactory, digestHashFunction);
+        if (value != null) {
+          astFileLookupValueCache.put(key, value);
+        }
+      }
+      return value;
+    }
+
+    @Override
+    public void doneWithASTFileLookupValue(ASTFileLookupValue.Key key) {
+      astFileLookupValueCache.invalidate(key);
+    }
+  }
+
+  /**
+   * Per-instance manager for {@link CachedBzlLoadData}, used when {@code BzlLoadFunction} calls are
+   * inlined.
+   */
+  private static class CachedBzlLoadDataManager {
+    private final int cacheSize;
+    private Cache<BzlLoadValue.Key, CachedBzlLoadData> cache;
+    private CachedBzlLoadDataBuilderFactory cachedDataBuilderFactory =
+        new CachedBzlLoadDataBuilderFactory();
+
+    private CachedBzlLoadDataManager(int cacheSize) {
+      this.cacheSize = cacheSize;
+    }
+
+    private CachedBzlLoadData.Builder cachedDataBuilder() {
+      return cachedDataBuilderFactory.newCachedBzlLoadDataBuilder();
+    }
+
+    private void reset() {
+      if (cache != null) {
+        logger.atInfo().log("Starlark inlining cache stats from earlier build: " + cache.stats());
+      }
+      cachedDataBuilderFactory = new CachedBzlLoadDataBuilderFactory();
+      Preconditions.checkState(
+          cacheSize >= 0, "Expected positive Starlark cache size if caching. %s", cacheSize);
+      cache =
+          CacheBuilder.newBuilder()
+              .concurrencyLevel(BlazeInterners.concurrencyLevel())
+              .maximumSize(cacheSize)
+              .recordStats()
+              .build();
+    }
   }
 
   static final class BzlLoadFailedException extends Exception implements SaneAnalysisException {
@@ -924,8 +1083,16 @@ public class BzlLoadFunction implements SkyFunction {
       return new BzlLoadFailedException(String.format("Extension file '%s' has errors", file));
     }
 
-    static BzlLoadFailedException errorReadingFile(
-        PathFragment file, ErrorReadingStarlarkExtensionException cause) {
+    static BzlLoadFailedException errorFindingPackage(PathFragment file, Exception cause) {
+      return new BzlLoadFailedException(
+          String.format(
+              "Encountered error while reading extension file '%s': %s", file, cause.getMessage()),
+          cause,
+          Transience.PERSISTENT);
+    }
+
+    static BzlLoadFailedException errorReadingBzl(
+        PathFragment file, ASTLookupFailedException cause) {
       return new BzlLoadFailedException(
           String.format(
               "Encountered error while reading extension file '%s': %s", file, cause.getMessage()),
@@ -973,125 +1140,9 @@ public class BzlLoadFunction implements SkyFunction {
     }
   }
 
-  /**
-   * A manager abstracting over the method for obtaining {@code ASTFileLookupValue}s. See comment in
-   * {@link #create}.
-   */
-  private interface ASTManager {
-    @Nullable
-    ASTFileLookupValue getASTFileLookupValue(Label label, Environment env)
-        throws InconsistentFilesystemException, InterruptedException,
-            ErrorReadingStarlarkExtensionException;
-
-    void doneWithASTFileLookupValue(Label label);
-  }
-
-  /** A manager that obtains ASTs from Skyframe calls. */
-  private static class RegularSkyframeASTManager implements ASTManager {
-    private static final RegularSkyframeASTManager INSTANCE = new RegularSkyframeASTManager();
-
-    @Nullable
-    @Override
-    public ASTFileLookupValue getASTFileLookupValue(Label label, Environment env)
-        throws InconsistentFilesystemException, InterruptedException,
-            ErrorReadingStarlarkExtensionException {
-      return (ASTFileLookupValue)
-          env.getValueOrThrow(
-              ASTFileLookupValue.key(label),
-              ErrorReadingStarlarkExtensionException.class,
-              InconsistentFilesystemException.class);
-    }
-
-    @Override
-    public void doneWithASTFileLookupValue(Label label) {}
-  }
-
-  /**
-   * A manager that obtains ASTs by inlining {@link ASTFileLookupFunction} (not to be confused with
-   * inlining of {@code BzlLoadFunction}). Values are cached within the manager and released
-   * explicitly by calling {@link #doneWithASTFileLookupValue}.
-   */
-  private static class InliningAndCachingASTManager implements ASTManager {
-    private final RuleClassProvider ruleClassProvider;
-    private final DigestHashFunction digestHashFunction;
-    // We keep a cache of ASTFileLookupValues that have been computed but whose corresponding
-    // BzlLoadValue has not yet completed. This avoids repeating the ASTFileLookupValue work in case
-    // of Skyframe restarts. (If we weren't inlining, Skyframe would cache this for us.)
-    private final Cache<Label, ASTFileLookupValue> astFileLookupValueCache;
-
-    private InliningAndCachingASTManager(
-        RuleClassProvider ruleClassProvider,
-        DigestHashFunction digestHashFunction,
-        Cache<Label, ASTFileLookupValue> astFileLookupValueCache) {
-      this.ruleClassProvider = ruleClassProvider;
-      this.digestHashFunction = digestHashFunction;
-      this.astFileLookupValueCache = astFileLookupValueCache;
-    }
-
-    @Nullable
-    @Override
-    public ASTFileLookupValue getASTFileLookupValue(Label label, Environment env)
-        throws InconsistentFilesystemException, InterruptedException,
-            ErrorReadingStarlarkExtensionException {
-      ASTFileLookupValue value = astFileLookupValueCache.getIfPresent(label);
-      if (value == null) {
-        value =
-            ASTFileLookupFunction.computeInline(
-                ASTFileLookupValue.key(label), env, ruleClassProvider, digestHashFunction);
-        if (value != null) {
-          astFileLookupValueCache.put(label, value);
-        }
-      }
-      return value;
-    }
-
-    @Override
-    public void doneWithASTFileLookupValue(Label label) {
-      astFileLookupValueCache.invalidate(label);
-    }
-  }
-
-  /**
-   * Per-instance manager for {@link CachedBzlLoadData}, used when {@code BzlLoadFunction} calls are
-   * inlined.
-   */
-  private static class CachedBzlLoadDataManager {
-    private final int cacheSize;
-    private Cache<BzlLoadValue.Key, CachedBzlLoadData> cache;
-    private CachedBzlLoadDataBuilderFactory cachedDataBuilderFactory =
-        new CachedBzlLoadDataBuilderFactory();
-
-    private CachedBzlLoadDataManager(int cacheSize) {
-      this.cacheSize = cacheSize;
-    }
-
-    private CachedBzlLoadData.Builder cachedDataBuilder() {
-      return cachedDataBuilderFactory.newCachedBzlLoadDataBuilder();
-    }
-
-    private void reset() {
-      if (cache != null) {
-        logger.atInfo().log("Starlark inlining cache stats from earlier build: " + cache.stats());
-      }
-      cachedDataBuilderFactory = new CachedBzlLoadDataBuilderFactory();
-      Preconditions.checkState(
-          cacheSize >= 0, "Expected positive Starlark cache size if caching. %s", cacheSize);
-      cache =
-          CacheBuilder.newBuilder()
-              .concurrencyLevel(BlazeInterners.concurrencyLevel())
-              .maximumSize(cacheSize)
-              .recordStats()
-              .build();
-    }
-  }
-
   private static final class BzlLoadFunctionException extends SkyFunctionException {
     private BzlLoadFunctionException(BzlLoadFailedException cause) {
       super(cause, cause.transience);
-    }
-
-    private BzlLoadFunctionException(InconsistentFilesystemException e, Transience transience) {
-      super(e, transience);
     }
   }
 }

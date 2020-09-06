@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigurationTransitionApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
@@ -212,7 +212,9 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         result =
             evalFunction(impl, ImmutableList.of(previousSettings, attributeMapper), eventHandler);
       } catch (EvalException e) {
-        throw new EvalException(impl.getLocation(), e.getMessage());
+        // TODO(adonovan): this doesn't look right. Consider interposing a call to a delegating
+        // wrapper just to establish a fake frame for impl, then remove the catch.
+        throw new EvalException(impl.getLocation(), e.getMessageWithStack());
       }
 
       if (result instanceof Dict) {

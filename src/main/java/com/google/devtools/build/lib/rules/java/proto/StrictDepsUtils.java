@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.java.proto;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
@@ -44,8 +43,7 @@ public class StrictDepsUtils {
       boolean alwaysStrict) {
     JavaCompilationArgsProvider strictCompProvider =
         JavaCompilationArgsProvider.merge(
-            ruleContext.getPrerequisites(
-                "deps", TransitionMode.TARGET, JavaCompilationArgsProvider.class));
+            ruleContext.getPrerequisites("deps", JavaCompilationArgsProvider.class));
     if (alwaysStrict || StrictDepsUtils.isStrictDepsJavaProtoLibrary(ruleContext)) {
       return strictCompProvider;
     } else {
@@ -102,6 +100,6 @@ public class StrictDepsUtils {
         || !ruleContext.attributes().has("strict_deps", Type.BOOLEAN)) {
       return true;
     }
-    return (boolean) ruleContext.getRule().getAttributeContainer().getAttr("strict_deps");
+    return (boolean) ruleContext.getRule().getAttr("strict_deps");
   }
 }

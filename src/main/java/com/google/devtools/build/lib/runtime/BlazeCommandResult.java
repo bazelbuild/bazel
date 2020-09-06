@@ -91,10 +91,6 @@ public final class BlazeCommandResult {
     return new BlazeCommandResult(DetailedExitCode.success(), null, false);
   }
 
-  public static BlazeCommandResult exitCode(ExitCode exitCode) {
-    return new BlazeCommandResult(DetailedExitCode.justExitCode(exitCode), null, false);
-  }
-
   public static BlazeCommandResult failureDetail(FailureDetail failureDetail) {
     return new BlazeCommandResult(DetailedExitCode.of(failureDetail), null, false);
   }

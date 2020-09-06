@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.proto;
 
-import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoCommonApi;
+import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoCommonApi;
 
 /** Fake implementation of {@link ProtoCommonApi}. */
 public class FakeProtoCommon implements ProtoCommonApi {}

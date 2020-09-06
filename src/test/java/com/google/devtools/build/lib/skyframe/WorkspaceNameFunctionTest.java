@@ -55,7 +55,7 @@ public class WorkspaceNameFunctionTest extends BuildViewTestCase {
   @Test
   public void testErrorInExternalPkg() throws Exception {
     reporter.removeHandler(failFastHandler);
-    scratch.overwriteFile("WORKSPACE", "workspace(bad)");
+    scratch.overwriteFile("WORKSPACE", "bad");
     assertThatEvaluationResult(eval())
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()

@@ -24,16 +24,13 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction.LaunchInfo;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -45,8 +42,7 @@ public class ShBinary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    ImmutableList<Artifact> srcs =
-        ruleContext.getPrerequisiteArtifacts("srcs", TransitionMode.TARGET).list();
+    ImmutableList<Artifact> srcs = ruleContext.getPrerequisiteArtifacts("srcs").list();
     if (srcs.size() != 1) {
       ruleContext.attributeError("srcs", "you must specify exactly one file in 'srcs'");
       return null;
@@ -97,7 +93,7 @@ public class ShBinary implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(
             InstrumentedFilesCollector.collectTransitive(
                 ruleContext,
-                new InstrumentationSpec(FileTypeSet.ANY_FILE, "srcs", "deps", "data"),
+                ShCoverage.INSTRUMENTATION_SPEC,
                 /* reportedToActualSources= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER)))
         .build();
   }

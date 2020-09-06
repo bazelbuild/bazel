@@ -31,14 +31,19 @@ public interface Subprocess extends Closeable {
   /**
    * Returns the exit value of the process.
    *
-   * <p>Throws {@code IOException} if the process has not terminated yet.
+   * <p>Throws {@code IllegalThreadStateException} if the process has not terminated yet.
    */
   int exitValue();
 
   /**
    * Returns the if the process has finished.
+   *
+   * <p>This may cause the process to be destroyed as a side effect, for example due to a timeout.
    */
   boolean finished();
+
+  /** Returns true if the process is still alive. Does not block or cause any side effects. */
+  boolean isAlive();
 
   /**
    * Returns if the process timed out.

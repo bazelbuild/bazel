@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccess
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryVisibility;
+import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
@@ -109,20 +110,22 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
       String attrName,
       String errorMsgPrefix)
       throws QueryException, InterruptedException {
+    ConfiguredTarget actualConfiguredTarget = configuredTarget.getActual();
+
     Preconditions.checkArgument(
-        isRule(configuredTarget),
+        isRule(actualConfiguredTarget),
         "%s %s is not a rule configured target",
         errorMsgPrefix,
-        getLabel(configuredTarget));
+        getLabel(actualConfiguredTarget));
 
     Multimap<Label, ConfiguredTarget> depsByLabel =
         Multimaps.index(
-            queryEnvironment.getFwdDeps(ImmutableList.of(configuredTarget)),
+            queryEnvironment.getFwdDeps(ImmutableList.of(actualConfiguredTarget)),
             ConfiguredTarget::getLabel);
 
-    Rule rule = (Rule) getTargetFromConfiguredTarget(configuredTarget);
+    Rule rule = (Rule) getTargetFromConfiguredTarget(actualConfiguredTarget);
     ImmutableMap<Label, ConfigMatchingProvider> configConditions =
-        ((RuleConfiguredTarget) configuredTarget).getConfigConditions();
+        ((RuleConfiguredTarget) actualConfiguredTarget).getConfigConditions();
     ConfiguredAttributeMapper attributeMapper =
         ConfiguredAttributeMapper.of(rule, configConditions);
     if (!attributeMapper.has(attrName)) {
@@ -130,7 +133,8 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
           caller,
           String.format(
               "%s %s of type %s does not have attribute '%s'",
-              errorMsgPrefix, configuredTarget, rule.getRuleClass(), attrName));
+              errorMsgPrefix, actualConfiguredTarget, rule.getRuleClass(), attrName),
+          ConfigurableQuery.Code.ATTRIBUTE_MISSING);
     }
     ImmutableList.Builder<ConfiguredTarget> toReturn = ImmutableList.builder();
     attributeMapper.visitLabels(attributeMapper.getAttributeDefinition(attrName)).stream()
@@ -160,7 +164,9 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
   public Set<QueryVisibility<ConfiguredTarget>> getVisibility(ConfiguredTarget from)
       throws QueryException, InterruptedException {
     // TODO(bazel-team): implement this if needed.
-    throw new QueryException("visible() is not supported on configured targets");
+    throw new QueryException(
+        "visible() is not supported on configured targets",
+        ConfigurableQuery.Code.VISIBLE_FUNCTION_NOT_SUPPORTED);
   }
 
   public Target getTargetFromConfiguredTarget(ConfiguredTarget configuredTarget) {

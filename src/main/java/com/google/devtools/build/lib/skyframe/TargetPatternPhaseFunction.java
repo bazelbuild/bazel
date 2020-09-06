@@ -157,15 +157,17 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         }
       } else /*if (determineTests)*/ {
         testsToRun = testTargets.getTargets();
-        targets = ResolvedTargets.<Target>builder()
-            .merge(targets)
-            // Avoid merge() here which would remove the filteredTargets from the targets.
-            .addAll(testsToRun)
-            .mergeError(testTargets.hasError())
-            .build();
-        // filteredTargets is correct in this case - it cannot contain tests that got back in
-        // through test_suite expansion, because the test determination would also filter those out.
-        // However, that's not obvious, and it might be better to explicitly recompute it.
+        targets =
+            ResolvedTargets.<Target>builder()
+                .merge(targets)
+                // Merging in all testsToRun guarantees that targets that will be built (because
+                // they are tests) are not considered to be "filtered out", even if they were
+                // initially filtered out. We can't merge in testTargets because its set of
+                // filteredTargets could include targets that we're building but not testing.
+                .merge(ResolvedTargets.<Target>builder().addAll(testsToRun).build())
+                .mergeError(testTargets.hasError())
+                .build();
+        filteredTargets = targets.getFilteredTargets();
       }
       if (testsToRun != null) {
         // Note that testsToRun can still be null here, if buildTestsOnly && !shouldRunTests.

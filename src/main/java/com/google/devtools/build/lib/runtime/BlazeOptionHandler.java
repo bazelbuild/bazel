@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.flogger.GoogleLogger;
@@ -37,7 +38,9 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.logging.Level;
@@ -60,6 +63,11 @@ public final class BlazeOptionHandler {
           "ignore_client_env",
           "client_env",
           "client_cwd");
+
+  // Marks an event to indicate a parsing error.
+  static final String BAD_OPTION_TAG = "invalidOption";
+  // Separates the invalid tag from the full error message for easier parsing.
+  static final String ERROR_SEPARATOR = " :: ";
 
   private final BlazeRuntime runtime;
   private final OptionsParser optionsParser;
@@ -186,7 +194,7 @@ public final class BlazeOptionHandler {
   }
 
   private void parseArgsAndConfigs(List<String> args, ExtendedEventHandler eventHandler)
-      throws OptionsParsingException {
+      throws OptionsParsingException, InterruptedException {
     Path workspaceDirectory = workspace.getWorkspace();
     // TODO(ulfjack): The working directory is passed by the client as part of CommonCommandOptions,
     // and we can't know it until after we've parsed the options, so use the workspace for now.
@@ -203,8 +211,21 @@ public final class BlazeOptionHandler {
 
     // Explicit command-line options:
     List<String> cmdLineAfterCommand = args.subList(1, args.size());
+
+    // Before parsing any rcfiles we need to first parse --rc_source so the parser can reference the
+    // proper rcfiles. The --default_override options should be parsed with the --rc_source since
+    // {@link #parseRcOptions} depends on the list populated by the {@link
+    // ClientOptions#OptionOverrideConverter}.
+
+    ImmutableList.Builder<String> defaultOverridesAndRcSources = new ImmutableList.Builder<>();
+    ImmutableList.Builder<String> remainingCmdLine = new ImmutableList.Builder<>();
+    partitionCommandLineArgs(cmdLineAfterCommand, defaultOverridesAndRcSources, remainingCmdLine);
+
+    // Parses options needed to parse rcfiles properly.
     optionsParser.parseWithSourceFunction(
-        PriorityCategory.COMMAND_LINE, commandOptionSourceFunction, cmdLineAfterCommand);
+        PriorityCategory.COMMAND_LINE,
+        commandOptionSourceFunction,
+        defaultOverridesAndRcSources.build());
 
     // Command-specific options from .blazerc passed in via --default_override and --rc_source.
     ClientOptions rcFileOptions = optionsParser.getOptions(ClientOptions.class);
@@ -215,6 +236,10 @@ public final class BlazeOptionHandler {
             rcFileOptions.optionsOverrides,
             runtime.getCommandMap().keySet());
     parseRcOptions(eventHandler, commandToRcArgs);
+
+    // Parses the remaining command-line options.
+    optionsParser.parseWithSourceFunction(
+        PriorityCategory.COMMAND_LINE, commandOptionSourceFunction, remainingCmdLine.build());
 
     if (commandAnnotation.builds()) {
       // splits project files from targets in the traditional sense
@@ -247,10 +272,10 @@ public final class BlazeOptionHandler {
     try {
       StarlarkOptionsParser.newStarlarkOptionsParser(env, optionsParser).parse(eventHandler);
     } catch (OptionsParsingException e) {
-      env.getReporter().handle(Event.error(e.getMessage()));
-      logger.atInfo().withCause(e).log("Error parsing Starlark options");
-      return createDetailedExitCode(
-          "Error parsing Starlark options: " + e.getMessage(), Code.STARLARK_OPTIONS_PARSE_FAILURE);
+      String logMessage = "Error parsing Starlark options";
+      logger.atInfo().withCause(e).log(logMessage);
+      return processOptionsParsingException(
+          eventHandler, e, logMessage, Code.STARLARK_OPTIONS_PARSE_FAILURE);
     }
     return DetailedExitCode.success();
   }
@@ -311,10 +336,17 @@ public final class BlazeOptionHandler {
         eventHandler.handle(Event.warn(warning));
       }
     } catch (OptionsParsingException e) {
-      eventHandler.handle(Event.error(e.getMessage()));
-      logger.atInfo().withCause(e).log("Error parsing options");
-      return createDetailedExitCode(
-          "Error parsing options" + e.getMessage(), Code.OPTIONS_PARSE_FAILURE);
+      String logMessage = "Error parsing options";
+      logger.atInfo().withCause(e).log(logMessage);
+      return processOptionsParsingException(
+          eventHandler, e, logMessage, Code.OPTIONS_PARSE_FAILURE);
+    } catch (InterruptedException e) {
+      return DetailedExitCode.of(
+          FailureDetail.newBuilder()
+              .setInterrupted(
+                  FailureDetails.Interrupted.newBuilder()
+                      .setCode(FailureDetails.Interrupted.Code.OPTIONS_PARSING))
+              .build());
     }
     return DetailedExitCode.success();
   }
@@ -347,6 +379,25 @@ public final class BlazeOptionHandler {
       getCommandNamesToParseHelper(base.getAnnotation(Command.class), accumulator);
     }
     accumulator.add(commandAnnotation.name());
+  }
+
+  private static DetailedExitCode processOptionsParsingException(
+      ExtendedEventHandler eventHandler,
+      OptionsParsingException e,
+      String logMessage,
+      Code failureCode) {
+    Event error;
+    // Differentiates errors stemming from an invalid argument and errors from different parts of
+    // the codebase.
+    if (e.getInvalidArgument() != null) {
+      error =
+          Event.error(e.getInvalidArgument() + ERROR_SEPARATOR + e.getMessage())
+              .withTag(BAD_OPTION_TAG);
+    } else {
+      error = Event.error(e.getMessage());
+    }
+    eventHandler.handle(error);
+    return createDetailedExitCode(logMessage + ": " + e.getMessage(), failureCode);
   }
 
   private String getNotInRealWorkspaceError(Path doNotBuildFile) {
@@ -438,5 +489,29 @@ public final class BlazeOptionHandler {
             .setMessage(message)
             .setCommand(FailureDetails.Command.newBuilder().setCode(detailedCode))
             .build());
+  }
+
+  private static void partitionCommandLineArgs(
+      List<String> cmdLine,
+      ImmutableList.Builder<String> defaultOverridesAndRcSources,
+      ImmutableList.Builder<String> remainingCmdLine) {
+
+    Iterator<String> cmdLineIterator = cmdLine.iterator();
+
+    while (cmdLineIterator.hasNext()) {
+      String option = cmdLineIterator.next();
+      if (option.startsWith("--rc_source=") || option.startsWith("--default_override=")) {
+        defaultOverridesAndRcSources.add(option);
+      } else if (option.equals("--rc_source") || option.equals("--default_override")) {
+        Optional<String> possibleArgument =
+            cmdLineIterator.hasNext() ? Optional.of(cmdLineIterator.next()) : Optional.empty();
+        defaultOverridesAndRcSources.add(option);
+        if (possibleArgument.isPresent()) {
+          defaultOverridesAndRcSources.add(possibleArgument.get());
+        }
+      } else {
+        remainingCmdLine.add(option);
+      }
+    }
   }
 }

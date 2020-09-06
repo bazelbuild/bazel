@@ -45,7 +45,7 @@ import com.google.devtools.build.lib.server.FailureDetails.SyncCommand.Code;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -122,7 +122,7 @@ public final class SyncCommand implements BlazeCommand {
       EvaluationContext evaluationContext =
           EvaluationContext.newBuilder()
               .setNumThreads(threadsOption.threads)
-              .setEventHander(env.getReporter())
+              .setEventHandler(env.getReporter())
               .build();
       EvaluationResult<SkyValue> packageLookupValue =
           skyframeExecutor.prepareAndGet(ImmutableSet.of(packageLookupKey), evaluationContext);
@@ -246,13 +246,9 @@ public final class SyncCommand implements BlazeCommand {
 
   private static ResolvedEvent resolveBind(Rule rule) {
     String name = rule.getName();
-    Label actual = (Label) rule.getAttributeContainer().getAttr("actual");
+    Label actual = (Label) rule.getAttr("actual");
     String nativeCommand =
-        "bind(name = "
-            + Printer.getPrinter().repr(name)
-            + ", actual = "
-            + Printer.getPrinter().repr(actual.getCanonicalForm())
-            + ")";
+        Starlark.format("bind(name = %r, actual = %r)", name, actual.getCanonicalForm());
 
     return new ResolvedEvent() {
       @Override
@@ -282,9 +278,7 @@ public final class SyncCommand implements BlazeCommand {
     String name = "//external/" + ruleName;
     StringBuilder nativeCommandBuilder = new StringBuilder().append(ruleName).append("(");
     nativeCommandBuilder.append(
-        args.stream()
-            .map(arg -> Printer.getPrinter().repr(arg).toString())
-            .collect(Collectors.joining(", ")));
+        args.stream().map(Starlark::repr).collect(Collectors.joining(", ")));
     nativeCommandBuilder.append(")");
     String nativeCommand = nativeCommandBuilder.toString();
 

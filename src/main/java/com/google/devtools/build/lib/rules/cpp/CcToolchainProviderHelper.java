@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.rules.cpp.CcToolchain.AdditionalBuildVariablesComputer;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.EnumSet;
@@ -75,7 +75,7 @@ public class CcToolchainProviderHelper {
     CcToolchainFeatures toolchainFeatures;
     PathFragment toolsDirectory =
         getToolsDirectory(
-            ruleContext.getLabel(),
+            attributes.getCcToolchainLabel(),
             ruleContext
                 .getAnalysisEnvironment()
                 .getStarlarkSemantics()
@@ -187,6 +187,9 @@ public class CcToolchainProviderHelper {
     PackageSpecificationProvider allowlistForLayeringCheck =
         attributes.getAllowlistForLayeringCheck();
 
+    PackageSpecificationProvider allowlistForLooseHeaderCheck =
+        attributes.getAllowlistForLooseHeaderCheck();
+
     return new CcToolchainProvider(
         getToolchainForStarlark(toolPaths),
         cppConfiguration,
@@ -249,7 +252,8 @@ public class CcToolchainProviderHelper {
         toolchainConfigInfo.getTargetSystemName(),
         computeAdditionalMakeVariables(toolchainConfigInfo),
         computeLegacyCcFlagsMakeVariable(toolchainConfigInfo),
-        allowlistForLayeringCheck);
+        allowlistForLayeringCheck,
+        allowlistForLooseHeaderCheck);
   }
 
   @Nullable
@@ -496,8 +500,7 @@ public class CcToolchainProviderHelper {
               });
       for (CppConfiguration.Tool tool : neededTools) {
         if (!toolPathsCollector.containsKey(tool.getNamePart())) {
-          throw new EvalException(
-              Location.BUILTIN, "Tool path for '" + tool.getNamePart() + "' is missing");
+          throw Starlark.errorf("Tool path for '%s' is missing", tool.getNamePart());
         }
       }
     }

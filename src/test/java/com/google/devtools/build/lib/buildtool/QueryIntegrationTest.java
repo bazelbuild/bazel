@@ -24,9 +24,11 @@ import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
@@ -290,13 +292,14 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
             env,
             keepGoing,
             !QueryOutputUtils.shouldStreamResults(queryOptions, formatter),
-            /*universeScope=*/ ImmutableList.of(),
+            UniverseScope.EMPTY,
             /*loadingPhaseThreads=*/ 1,
             settings,
             /*useGraphlessQuery=*/ false);
     AggregateAllOutputFormatterCallback<Target, ?> callback =
         QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnv);
-    QueryEvalResult result = queryEnv.evaluateQuery(queryString, callback);
+    QueryEvalResult result =
+        queryEnv.evaluateQuery(QueryExpression.parse(queryString, queryEnv), callback);
 
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 

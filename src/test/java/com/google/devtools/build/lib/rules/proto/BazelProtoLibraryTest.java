@@ -358,7 +358,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     invalidatePackages();
 
     if (siblingRepoLayout) {
-      setStarlarkSemanticsOptions("--experimental_sibling_repository_layout");
+      setBuildLanguageOptions("--experimental_sibling_repository_layout");
     }
 
     scratch.file("/foo/WORKSPACE");
@@ -391,7 +391,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
   }
 
   @Test
-  public void test_siblingRepoLayout_ExternalRepoWithGeneratedProto() throws Exception {
+  public void test_siblingRepoLayout_externalRepoWithGeneratedProto() throws Exception {
     testExternalRepoWithGeneratedProto(/*siblingRepoLayout=*/ true);
   }
 
@@ -464,7 +464,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     invalidatePackages();
 
     if (siblingRepoLayout) {
-      setStarlarkSemanticsOptions("--experimental_sibling_repository_layout");
+      setBuildLanguageOptions("--experimental_sibling_repository_layout");
     }
 
     scratch.file("/yolo_repo/WORKSPACE");
@@ -518,7 +518,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     invalidatePackages();
 
     if (siblingRepoLayout) {
-      setStarlarkSemanticsOptions("--experimental_sibling_repository_layout");
+      setBuildLanguageOptions("--experimental_sibling_repository_layout");
     }
 
     scratch.file("/yolo_repo/WORKSPACE");
@@ -573,7 +573,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     invalidatePackages();
 
     if (siblingRepoLayout) {
-      setStarlarkSemanticsOptions("--experimental_sibling_repository_layout");
+      setBuildLanguageOptions("--experimental_sibling_repository_layout");
     }
 
     scratch.file("/yolo_repo/WORKSPACE");
@@ -627,7 +627,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     invalidatePackages();
 
     if (siblingRepoLayout) {
-      setStarlarkSemanticsOptions("--experimental_sibling_repository_layout");
+      setBuildLanguageOptions("--experimental_sibling_repository_layout");
     }
 
     scratch.file("/yolo_repo/WORKSPACE");

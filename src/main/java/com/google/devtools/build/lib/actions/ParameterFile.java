@@ -13,7 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.GccParamFileEscaper;
@@ -184,5 +188,28 @@ public class ParameterFile {
       hiBitSet |= ((latin1Bytes[i] & 0x80) != 0);
     }
     return !hiBitSet;
+  }
+
+  /** Criterion shared by {@link #flagsOnly} and {@link #nonFlags}. */
+  private static boolean isFlag(String arg) {
+    return arg.startsWith("--");
+  }
+
+  /**
+   * Extracts the args from the given list that are flags (i.e. start with "--"). Note, this makes
+   * sense only if flags with values have previously been joined, e.g."--foo=bar" rather than
+   * "--foo", "bar".
+   */
+  public static ImmutableList<String> flagsOnly(Iterable<String> args) {
+    return Streams.stream(args).filter(ParameterFile::isFlag).collect(toImmutableList());
+  }
+
+  /**
+   * Extracts the args from the given list that are not flags (i.e. do not start with "--"). Note,
+   * this makes sense only if flags with values have previously been joined, e.g."--foo=bar" rather
+   * than "--foo", "bar".
+   */
+  public static ImmutableList<String> nonFlags(Iterable<String> args) {
+    return Streams.stream(args).filter(arg -> !isFlag(arg)).collect(toImmutableList());
   }
 }

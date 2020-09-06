@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.concurrent.BatchCallback;
 import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
-import com.google.devtools.build.lib.concurrent.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -50,7 +50,7 @@ public interface RecursivePackageProvider extends PackageProvider {
    * @param excludedSubdirectories a set of {@link PathFragment}s specifying transitive
    */
   void streamPackagesUnderDirectory(
-      ThreadSafeBatchCallback<PackageIdentifier, UnusedException> results,
+      BatchCallback<PackageIdentifier, UnusedException> results,
       ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
@@ -116,7 +116,7 @@ public interface RecursivePackageProvider extends PackageProvider {
 
     @Override
     public void streamPackagesUnderDirectory(
-        ThreadSafeBatchCallback<PackageIdentifier, UnusedException> results,
+        BatchCallback<PackageIdentifier, UnusedException> results,
         ExtendedEventHandler eventHandler,
         RepositoryName repository,
         PathFragment directory,

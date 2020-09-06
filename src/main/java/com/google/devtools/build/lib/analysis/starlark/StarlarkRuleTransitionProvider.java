@@ -127,7 +127,8 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<Rule> {
       } catch (EvalException e) {
         eventHandler.handle(
             Event.error(
-                starlarkDefinedConfigTransition.getLocationForErrorReporting(), e.getMessage()));
+                starlarkDefinedConfigTransition.getLocationForErrorReporting(),
+                e.getMessageWithStack()));
         return buildOptions.clone();
       }
       if (result.size() != 1) {

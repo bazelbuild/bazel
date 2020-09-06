@@ -40,7 +40,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 #     BUILD
 #     macro_def.bzl
 #     external_constants.bzl
-function run_external_skylark_load_test() {
+function run_external_starlark_load_test() {
   load_target_to_test=$1
   expected_test_output=$2
 
@@ -88,31 +88,31 @@ EOF
 
 # A label with an explicit external repo reference should be resolved relative
 # to the external repo.
-function test_load_skylark_from_external_repo_with_pkg_relative_label_load() {
-  run_external_skylark_load_test \
+function test_load_starlark_from_external_repo_with_pkg_relative_label_load() {
+  run_external_starlark_load_test \
     "@external_repo//external_pkg:external_constants.bzl" "EXTERNAL!"
 }
 
 # A relative label should be resolved relative to the external package.
-function test_load_skylark_from_external_repo_with_pkg_relative_label_load() {
-  run_external_skylark_load_test ":external_constants.bzl" "EXTERNAL!"
+function test_load_starlark_from_external_repo_with_pkg_relative_label_load() {
+  run_external_starlark_load_test ":external_constants.bzl" "EXTERNAL!"
 }
 
 # An absolute label with no repo prefix should be resolved relative to the
 # current (external) repo.
-function test_load_skylark_from_external_repo_with_pkg_relative_path_load() {
-  run_external_skylark_load_test "//external_pkg:external_constants.bzl" \
+function test_load_starlark_from_external_repo_with_pkg_relative_path_load() {
+  run_external_starlark_load_test "//external_pkg:external_constants.bzl" \
     "EXTERNAL!"
 }
 
 # An absolute label with the special "@" prefix should cause be resolved
 # relative to the default repo.
-function test_load_skylark_from_external_repo_with_repo_relative_label_load() {
-  run_external_skylark_load_test "@//another_local_pkg:local_constants.bzl" \
+function test_load_starlark_from_external_repo_with_repo_relative_label_load() {
+  run_external_starlark_load_test "@//another_local_pkg:local_constants.bzl" \
     "LOCAL!"
 }
 
-function test_skylark_repository_relative_label() {
+function test_starlark_repository_relative_label() {
   repo2=$TEST_TMPDIR/repo2
   mkdir -p $repo2
   touch $repo2/WORKSPACE $repo2/BUILD
@@ -163,7 +163,7 @@ EOF
 # If //foo in local depends on //bar in r1, which is a Starlark rule
 # defined in r2/remote.bzl, then a Label in remote.bzl should either
 # resolve to @r2//whatever or @r1//whatever.
-function test_skylark_repository_nested_relative_label() {
+function test_starlark_repository_nested_relative_label() {
   repo1=$TEST_TMPDIR/repo1
   repo2=$TEST_TMPDIR/repo2
   mkdir -p $repo1 $repo2
@@ -225,7 +225,7 @@ EOF
   expect_log "@r1//foo:bar"
 }
 
-function test_aspects_and_skylark_repositories() {
+function test_aspects_and_starlark_repositories() {
 cat > WORKSPACE <<EOF
 bind(name="x1", actual="//:x1")
 load("//:repo.bzl", "repo")

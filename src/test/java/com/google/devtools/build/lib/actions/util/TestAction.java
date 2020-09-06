@@ -25,16 +25,20 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.util.CrashFailureDetails;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.io.IOException;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
+import javax.annotation.Nullable;
 
 /**
  * A dummy action for testing.  Its execution runs the specified
@@ -119,11 +123,12 @@ public class TestAction extends AbstractAction {
 
     try {
       effect.call();
-    } catch (RuntimeException | Error e) {
+    } catch (RuntimeException | Error | ActionExecutionException e) {
       throw e;
     } catch (Exception e) {
+      DetailedExitCode code = CrashFailureDetails.detailedExitCodeForThrowable(e);
       throw new ActionExecutionException(
-          "TestAction failed due to exception: " + e.getMessage(), e, this, false);
+          "TestAction failed due to exception: " + e.getMessage(), e, this, false, code);
     }
 
     try {
@@ -138,7 +143,10 @@ public class TestAction extends AbstractAction {
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable Artifact.ArtifactExpander artifactExpander,
+      Fingerprint fp) {
     fp.addPaths(Artifact.asSortedPathFragments(getOutputs()));
     fp.addPaths(Artifact.asSortedPathFragments(getMandatoryInputs().toList()));
   }

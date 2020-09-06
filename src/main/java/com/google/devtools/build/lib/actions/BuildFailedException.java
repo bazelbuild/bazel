@@ -45,19 +45,6 @@ public class BuildFailedException extends Exception {
   private final boolean errorAlreadyShown;
   private final DetailedExitCode detailedExitCode;
 
-  public BuildFailedException() {
-    this(null);
-  }
-
-  public BuildFailedException(String message) {
-    this(
-        message,
-        /*catastrophic=*/ false,
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /*errorAlreadyShown=*/ false,
-        DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE));
-  }
-
   public BuildFailedException(String message, DetailedExitCode detailedExitCode) {
     this(
         message,
@@ -65,15 +52,6 @@ public class BuildFailedException extends Exception {
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /*errorAlreadyShown=*/ false,
         detailedExitCode);
-  }
-
-  public BuildFailedException(String message, boolean catastrophic) {
-    this(
-        message,
-        catastrophic,
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /*errorAlreadyShown=*/ false,
-        DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE));
   }
 
   public BuildFailedException(

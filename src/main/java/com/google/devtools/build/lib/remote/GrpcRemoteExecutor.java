@@ -87,6 +87,15 @@ class GrpcRemoteExecutor {
     return null;
   }
 
+  interface ExecuteOperationUpdateReceiver {
+    void onNextOperation(Operation o) throws IOException;
+  }
+
+  public ExecuteResponse executeRemotely(ExecuteRequest request)
+      throws IOException, InterruptedException {
+    return executeRemotely(request, null);
+  }
+
   /* Execute has two components: the Execute call and (optionally) the WaitExecution call.
    * This is the simple flow without any errors:
    *
@@ -105,7 +114,8 @@ class GrpcRemoteExecutor {
    *   are completed and failed; however, some of these errors may be retriable. These errors should
    *   trigger a retry of the Execute call, resulting in a new Operation.
    * */
-  public ExecuteResponse executeRemotely(ExecuteRequest request)
+  public ExecuteResponse executeRemotely(
+      ExecuteRequest request, ExecuteOperationUpdateReceiver receiver)
       throws IOException, InterruptedException {
     // Execute has two components: the Execute call and (optionally) the WaitExecution call.
     // This is the simple flow without any errors:
@@ -152,6 +162,24 @@ class GrpcRemoteExecutor {
                   Operation o = replies.next();
                   operation.set(o);
                   waitExecution.set(!operation.get().getDone());
+
+                  // Update execution progress to the caller.
+                  //
+                  // After called `execute` above, the action is actually waiting for an available
+                  // gRPC connection to be sent. Once we get a reply from server, we know the
+                  // connection is up and indicate to the caller the fact by forwarding the
+                  // `operation`.
+                  //
+                  // The accurate execution status of the action relies on the server
+                  // implementation:
+                  //   1. Server can reply the accurate status in `operation.metadata.stage`;
+                  //   2. Server may send a reply without metadata. In this case, we assume the
+                  //      action is accepted by the server and will be executed ASAP;
+                  //   3. Server may execute the action silently and send a reply once it is done.
+                  if (receiver != null) {
+                    receiver.onNextOperation(o);
+                  }
+
                   ExecuteResponse r = getOperationResponse(o);
                   if (r != null) {
                     return r;

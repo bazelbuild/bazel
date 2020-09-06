@@ -21,7 +21,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.Action;
@@ -30,7 +29,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -627,7 +626,12 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
             actionExecutionContext
                 .getMetadataHandler()
-                .injectDirectory(out, ImmutableMap.of(child1, remoteFile1, child2, remoteFile2));
+                .injectTree(
+                    out,
+                    TreeArtifactValue.newBuilder(out)
+                        .putChild(child1, remoteFile1)
+                        .putChild(child2, remoteFile2)
+                        .build());
           }
         };
 
@@ -833,6 +837,28 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     assertThat(artifact2.getPath().getDirectoryEntries()).isEmpty();
   }
 
+  // This happens in the wild. See https://github.com/bazelbuild/bazel/issues/11813.
+  @Test
+  public void treeArtifactContainsSymlinkToDirectory() throws Exception {
+    SpecialArtifact treeArtifact = createTreeArtifact("tree");
+    registerAction(
+        new SimpleTestAction(/*output=*/ treeArtifact) {
+          @Override
+          void run(ActionExecutionContext context) throws IOException {
+            PathFragment subdir = PathFragment.create("subdir");
+            touchFile(treeArtifact.getPath().getRelative(subdir).getRelative("file"));
+            treeArtifact.getPath().getRelative("link").createSymbolicLink(subdir);
+          }
+        });
+
+    TreeArtifactValue tree = buildArtifact(treeArtifact);
+
+    assertThat(tree.getChildren())
+        .containsExactly(
+            TreeFileArtifact.createTreeOutput(treeArtifact, "subdir/file"),
+            TreeFileArtifact.createTreeOutput(treeArtifact, "link"));
+  }
+
   private abstract static class SimpleTestAction extends TestAction {
     private final Button button;
 
@@ -1013,7 +1039,10 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
       try {
         return new ActionTemplateExpansionValue(
             Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-                actionKeyContext, actions, (ActionLookupKey) skyKey, /*outputFiles=*/ null));
+                actionKeyContext,
+                actions,
+                (ActionLookupKey) skyKey,
+                /*outputFiles=*/ null));
       } catch (ActionConflictException e) {
         throw new IllegalStateException(e);
       }

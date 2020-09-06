@@ -18,6 +18,7 @@ import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.auth.Credentials;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
@@ -49,6 +51,7 @@ import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.downloader.GrpcRemoteDownloader;
 import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
@@ -82,6 +85,7 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import io.grpc.CallCredentials;
 import io.grpc.ClientInterceptor;
 import io.grpc.Context;
+import io.grpc.ManagedChannel;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
@@ -101,6 +105,20 @@ public final class RemoteModule extends BlazeModule {
   private RemoteActionInputFetcher actionInputFetcher;
   private RemoteOutputsMode remoteOutputsMode;
   private RemoteOutputService remoteOutputService;
+
+  private ChannelFactory channelFactory =
+      new ChannelFactory() {
+        @Override
+        public ManagedChannel newChannel(
+            String target,
+            String proxy,
+            AuthAndTLSOptions options,
+            List<ClientInterceptor> interceptors)
+            throws IOException {
+          return GoogleAuthUtils.newChannel(
+              target, proxy, options, interceptors.isEmpty() ? null : interceptors);
+        }
+      };
 
   private final BuildEventArtifactUploaderFactoryDelegate
       buildEventArtifactUploaderFactoryDelegate = new BuildEventArtifactUploaderFactoryDelegate();
@@ -134,14 +152,15 @@ public final class RemoteModule extends BlazeModule {
       CallCredentials credentials,
       RemoteRetrier retrier,
       CommandEnvironment env,
-      DigestUtil digestUtil)
+      DigestUtil digestUtil,
+      ServerCapabilitiesRequirement requirement)
       throws AbruptExitException {
     RemoteServerCapabilities rsc =
         new RemoteServerCapabilities(
             remoteOptions.remoteInstanceName,
             channel,
             credentials,
-            remoteOptions.remoteTimeout,
+            remoteOptions.remoteTimeout.getSeconds(),
             retrier);
     ServerCapabilities capabilities = null;
     try {
@@ -157,7 +176,11 @@ public final class RemoteModule extends BlazeModule {
       return;
     }
     checkClientServerCompatibility(
-        capabilities, remoteOptions, digestUtil.getDigestFunction(), env.getReporter());
+        capabilities,
+        remoteOptions,
+        digestUtil.getDigestFunction(),
+        env.getReporter(),
+        requirement);
   }
 
   @Override
@@ -180,8 +203,13 @@ public final class RemoteModule extends BlazeModule {
 
     boolean enableDiskCache = RemoteCacheClientFactory.isDiskCache(remoteOptions);
     boolean enableHttpCache = RemoteCacheClientFactory.isHttpCache(remoteOptions);
-    boolean enableGrpcCache = GrpcCacheClient.isRemoteCacheOptions(remoteOptions);
     boolean enableRemoteExecution = shouldEnableRemoteExecution(remoteOptions);
+    // If --remote_cache is empty but --remote_executor is not, endpoint for cache should be the one
+    // for execution.
+    if (enableRemoteExecution && Strings.isNullOrEmpty(remoteOptions.remoteCache)) {
+      remoteOptions.remoteCache = remoteOptions.remoteExecutor;
+    }
+    boolean enableGrpcCache = GrpcCacheClient.isRemoteCacheOptions(remoteOptions);
     boolean enableRemoteDownloader = shouldEnableRemoteDownloader(remoteOptions);
 
     if (enableRemoteDownloader && !enableGrpcCache) {
@@ -255,6 +283,21 @@ public final class RemoteModule extends BlazeModule {
     ReferenceCountedChannel execChannel = null;
     ReferenceCountedChannel cacheChannel = null;
     ReferenceCountedChannel downloaderChannel = null;
+
+    int poolSize = 1;
+    BuildRequestOptions buildRequestOptions =
+        env.getOptions().getOptions(BuildRequestOptions.class);
+    if (buildRequestOptions != null) {
+      // The following calculation is based on the suggestion from comment
+      // https://github.com/bazelbuild/bazel/issues/11801#issuecomment-672973245
+      //
+      // The number of concurrent requests for one connection to a gRPC server is limited by
+      // MAX_CONCURRENT_STREAMS which is normally being 100+. We assume 50 concurrent requests for
+      // each connection should be fairly well. The number of connections opened by one channel is
+      // based on the resolved IPs of that server. We assume servers normally have 2 IPs. So the
+      // number of required channels is calculated as: ceil(jobs / 100).
+      poolSize = (int) Math.ceil((double) buildRequestOptions.jobs / 100.0);
+    }
     if (enableRemoteExecution) {
       ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
       interceptors.add(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions));
@@ -264,7 +307,9 @@ public final class RemoteModule extends BlazeModule {
       interceptors.add(new NetworkTime.Interceptor());
       try {
         execChannel =
-            RemoteCacheClientFactory.createGrpcChannel(
+            RemoteCacheClientFactory.createGrpcChannelPool(
+                channelFactory,
+                poolSize,
                 remoteOptions.remoteExecutor,
                 remoteOptions.remoteProxy,
                 authAndTlsOptions,
@@ -275,8 +320,7 @@ public final class RemoteModule extends BlazeModule {
       }
       // Create a separate channel if --remote_executor and --remote_cache point to different
       // endpoints.
-      if (Strings.isNullOrEmpty(remoteOptions.remoteCache)
-          || remoteOptions.remoteCache.equals(remoteOptions.remoteExecutor)) {
+      if (remoteOptions.remoteCache.equals(remoteOptions.remoteExecutor)) {
         cacheChannel = execChannel.retain();
       }
     }
@@ -290,7 +334,9 @@ public final class RemoteModule extends BlazeModule {
       interceptors.add(new NetworkTime.Interceptor());
       try {
         cacheChannel =
-            RemoteCacheClientFactory.createGrpcChannel(
+            RemoteCacheClientFactory.createGrpcChannelPool(
+                channelFactory,
+                poolSize,
                 remoteOptions.remoteCache,
                 remoteOptions.remoteProxy,
                 authAndTlsOptions,
@@ -313,7 +359,9 @@ public final class RemoteModule extends BlazeModule {
         }
         try {
           downloaderChannel =
-              RemoteCacheClientFactory.createGrpcChannel(
+              RemoteCacheClientFactory.createGrpcChannelPool(
+                  channelFactory,
+                  poolSize,
                   remoteOptions.remoteDownloader,
                   remoteOptions.remoteProxy,
                   authAndTlsOptions,
@@ -339,14 +387,50 @@ public final class RemoteModule extends BlazeModule {
             retryScheduler,
             Retrier.ALLOW_ALL_CALLS);
 
-    // We always query the execution server for capabilities, if it is defined. A remote
-    // execution/cache system should have all its servers to return the capabilities pertaining
-    // to the system as a whole.
+    // We only check required capabilities for a given endpoint.
+    //
+    // If --remote_executor and --remote_cache point to the same endpoint, we require that
+    // endpoint has both execution and cache capabilities.
+    //
+    // If they point to different endpoints, we check the endpoint with execution or cache
+    // capabilities respectively.
     if (execChannel != null) {
-      verifyServerCapabilities(remoteOptions, execChannel, credentials, retrier, env, digestUtil);
-    }
-    if (cacheChannel != execChannel) {
-      verifyServerCapabilities(remoteOptions, cacheChannel, credentials, retrier, env, digestUtil);
+      if (cacheChannel != execChannel) {
+        verifyServerCapabilities(
+            remoteOptions,
+            execChannel,
+            credentials,
+            retrier,
+            env,
+            digestUtil,
+            ServerCapabilitiesRequirement.EXECUTION);
+        verifyServerCapabilities(
+            remoteOptions,
+            cacheChannel,
+            credentials,
+            retrier,
+            env,
+            digestUtil,
+            ServerCapabilitiesRequirement.CACHE);
+      } else {
+        verifyServerCapabilities(
+            remoteOptions,
+            execChannel,
+            credentials,
+            retrier,
+            env,
+            digestUtil,
+            ServerCapabilitiesRequirement.EXECUTION_AND_CACHE);
+      }
+    } else {
+      verifyServerCapabilities(
+          remoteOptions,
+          cacheChannel,
+          credentials,
+          retrier,
+          env,
+          digestUtil,
+          ServerCapabilitiesRequirement.CACHE);
     }
 
     ByteStreamUploader uploader =
@@ -354,7 +438,7 @@ public final class RemoteModule extends BlazeModule {
             remoteOptions.remoteInstanceName,
             cacheChannel.retain(),
             credentials,
-            remoteOptions.remoteTimeout,
+            remoteOptions.remoteTimeout.getSeconds(),
             retrier);
 
     cacheChannel.release();
@@ -497,8 +581,12 @@ public final class RemoteModule extends BlazeModule {
       BuildRequest request,
       BuildOptions buildOptions,
       Iterable<ConfiguredTarget> configuredTargets) {
-    if (remoteOutputsMode != null && remoteOutputsMode.downloadToplevelOutputsOnly()) {
-      Preconditions.checkState(actionContextProvider != null, "actionContextProvider was null");
+    // The actionContextProvider may be null if remote execution is disabled or if there was an
+    // error during
+    // initialization.
+    if (remoteOutputsMode != null
+        && remoteOutputsMode.downloadToplevelOutputsOnly()
+        && actionContextProvider != null) {
       boolean isTestCommand = env.getCommandName().equals("test");
       TopLevelArtifactContext artifactContext = request.getTopLevelArtifactContext();
       ImmutableSet.Builder<ActionInput> filesToDownload = ImmutableSet.builder();
@@ -533,11 +621,12 @@ public final class RemoteModule extends BlazeModule {
       ServerCapabilities capabilities,
       RemoteOptions remoteOptions,
       DigestFunction.Value digestFunction,
-      Reporter reporter)
+      Reporter reporter,
+      ServerCapabilitiesRequirement requirement)
       throws AbruptExitException {
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
-            capabilities, remoteOptions, digestFunction);
+            capabilities, remoteOptions, digestFunction, requirement);
     for (String warning : st.getWarnings()) {
       reporter.handle(Event.warn(warning));
     }
@@ -683,7 +772,7 @@ public final class RemoteModule extends BlazeModule {
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return ImmutableList.of("build", "test", "fetch").contains(command.name())
+    return ImmutableList.of("build", "fetch", "query", "sync", "test").contains(command.name())
         ? ImmutableList.of(RemoteOptions.class, AuthAndTLSOptions.class)
         : ImmutableList.of();
   }
@@ -758,5 +847,10 @@ public final class RemoteModule extends BlazeModule {
       }
       return delegate.create();
     }
+  }
+
+  @VisibleForTesting
+  void setChannelFactory(ChannelFactory channelFactory) {
+    this.channelFactory = channelFactory;
   }
 }

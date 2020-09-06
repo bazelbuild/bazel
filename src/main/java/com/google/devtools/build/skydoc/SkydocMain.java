@@ -27,48 +27,34 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
-import com.google.devtools.build.lib.skylarkbuildapi.TopLevelBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidAssetsInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBinaryDataInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidCcLinkParamsProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDex2OatInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidFeatureFlagSetProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidIdeInfoProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidIdlProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidLibraryAarInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidLibraryResourceClassJarProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidManifestInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidPreDexJarProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidProguardInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSdkProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.ProguardMappingProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.UsesDataBindingProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.java.GeneratedExtensionRegistryProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaNativeLibraryInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.javascript.JsModuleInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.python.PyBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.stubs.ProviderStub;
-import com.google.devtools.build.lib.skylarkbuildapi.stubs.StarlarkAspectStub;
-import com.google.devtools.build.lib.skylarkbuildapi.test.TestingBootstrap;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.starlarkbuildapi.TopLevelBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDex2OatInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.UsesDataBindingProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.java.GeneratedExtensionRegistryProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaNativeLibraryInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.javascript.JsModuleInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.PlatformBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.python.PyBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.stubs.ProviderStub;
+import com.google.devtools.build.lib.starlarkbuildapi.stubs.StarlarkAspectStub;
+import com.google.devtools.build.lib.starlarkbuildapi.test.TestingBootstrap;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.ExpressionStatement;
-import com.google.devtools.build.lib.syntax.LoadStatement;
+import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.Resolver;
+import com.google.devtools.build.lib.syntax.Program;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
@@ -77,6 +63,7 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.StringLiteral;
+import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeActionsInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeBuildApiGlobals;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeConfigApi;
@@ -89,12 +76,26 @@ import com.google.devtools.build.skydoc.fakebuildapi.FakeStarlarkRuleFunctionsAp
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStructApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStructApi.FakeStructProviderApi;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidApplicationResourceInfo.FakeAndroidApplicationResourceInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidAssetsInfo;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidBinaryDataInfo;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidCcLinkParamsProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidDeviceBrokerInfo.FakeAndroidDeviceBrokerInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidFeatureFlagSetProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidIdeInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidIdlProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidInstrumentationInfo.FakeAndroidInstrumentationInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidLibraryAarInfo;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidLibraryResourceClassJarProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidManifestInfo;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidNativeLibsInfo.FakeAndroidNativeLibsInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidPreDexJarProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidProguardInfo;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidResourcesInfo.FakeAndroidResourcesInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidSdkProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidStarlarkCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeApkInfo.FakeApkInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeDataBindingV2Provider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeProguardMappingProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.apple.FakeAppleCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigGlobalLibrary;
 import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigStarlarkCommon;
@@ -109,6 +110,7 @@ import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaCcLinkParamsPr
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaInfo.FakeJavaInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaProtoCommon;
+import com.google.devtools.build.skydoc.fakebuildapi.java.FakeProguardSpecProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.platform.FakePlatformCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.proto.FakeProtoCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.proto.FakeProtoInfo.FakeProtoInfoProvider;
@@ -119,6 +121,7 @@ import com.google.devtools.build.skydoc.fakebuildapi.repository.FakeRepositoryMo
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeAnalysisFailureInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeAnalysisTestResultInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeCoverageCommon;
+import com.google.devtools.build.skydoc.fakebuildapi.test.FakeInstrumentedFilesInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeTestingModule;
 import com.google.devtools.build.skydoc.rendering.AspectInfoWrapper;
 import com.google.devtools.build.skydoc.rendering.DocstringParseException;
@@ -190,11 +193,10 @@ public class SkydocMain {
           DocstringParseException {
     OptionsParser parser =
         OptionsParser.builder()
-            .optionsClasses(StarlarkSemanticsOptions.class, SkydocOptions.class)
+            .optionsClasses(BuildLanguageOptions.class, SkydocOptions.class)
             .build();
     parser.parseAndExitUponError(args);
-    StarlarkSemanticsOptions semanticsOptions = parser.getOptions(StarlarkSemanticsOptions.class);
-    semanticsOptions.incompatibleDisableDeprecatedAttrParams = false;
+    BuildLanguageOptions semanticsOptions = parser.getOptions(BuildLanguageOptions.class);
     semanticsOptions.incompatibleNewActionsApi = false;
     SkydocOptions skydocOptions = parser.getOptions(SkydocOptions.class);
 
@@ -438,40 +440,56 @@ public class SkydocMain {
     }
     pending.add(path);
 
-    ParserInput parserInputSource = getInputSource(path.toString());
-    StarlarkFile file = StarlarkFile.parse(parserInputSource);
-    Event.replayEventsOn(eventHandler, file.errors());
+    Module module =
+        Module.withPredeclared(
+            semantics, getPredeclaredEnvironment(ruleInfoList, providerInfoList, aspectInfoList));
 
-    moduleDocMap.put(label, getModuleDoc(file));
+    // parse & compile (and get doc)
+    ParserInput input = getInputSource(path.toString());
+    Program prog;
+    try {
+      StarlarkFile file = StarlarkFile.parse(input, FileOptions.DEFAULT);
+      moduleDocMap.put(label, getModuleDoc(file));
+      prog = Program.compileFile(file, module);
+    } catch (SyntaxError.Exception ex) {
+      Event.replayEventsOn(eventHandler, ex.errors());
+      throw new StarlarkEvaluationException(ex.getMessage());
+    }
 
+    // process loads
     Map<String, Module> imports = new HashMap<>();
-    for (Statement stmt : file.getStatements()) {
-      if (stmt instanceof LoadStatement) {
-        LoadStatement load = (LoadStatement) stmt;
-        String module = load.getImport().getValue();
-        Label relativeLabel = label.getRelativeWithRemapping(module, ImmutableMap.of());
-        try {
-          Module loadedModule =
-              recursiveEval(
-                  semantics,
-                  relativeLabel,
-                  ruleInfoList,
-                  providerInfoList,
-                  aspectInfoList,
-                  moduleDocMap);
-          imports.put(module, loadedModule);
-        } catch (NoSuchFileException noSuchFileException) {
-          throw new StarlarkEvaluationException(
-              String.format(
-                  "File %s imported '%s', yet %s was not found, even at roots %s.",
-                  path, module, pathOfLabel(relativeLabel, semantics), depRoots),
-              noSuchFileException);
-        }
+    for (String load : prog.getLoads()) {
+      Label relativeLabel = label.getRelativeWithRemapping(load, ImmutableMap.of());
+      try {
+        Module loadedModule =
+            recursiveEval(
+                semantics,
+                relativeLabel,
+                ruleInfoList,
+                providerInfoList,
+                aspectInfoList,
+                moduleDocMap);
+        imports.put(load, loadedModule);
+      } catch (NoSuchFileException noSuchFileException) {
+        throw new StarlarkEvaluationException(
+            String.format(
+                "File %s imported '%s', yet %s was not found, even at roots %s.",
+                path, load, pathOfLabel(relativeLabel, semantics), depRoots),
+            noSuchFileException);
       }
     }
 
-    Module module =
-        evalStarlarkBody(semantics, file, imports, ruleInfoList, providerInfoList, aspectInfoList);
+    // execute
+    try (Mutability mu = Mutability.create("Skydoc")) {
+      StarlarkThread thread = new StarlarkThread(mu, semantics);
+      // We use the default print handler, which writes to stderr.
+      thread.setLoader(imports::get);
+
+      Starlark.execFileProgram(prog, module, thread);
+    } catch (EvalException | InterruptedException ex) {
+      // This exception class seems a bit unnecessary. Replace with EvalException?
+      throw new StarlarkEvaluationException("Starlark evaluation error", ex);
+    }
 
     pending.remove(path);
     loaded.put(path, module);
@@ -497,39 +515,6 @@ public class SkydocMain {
 
     // All depRoots attempted and no valid file was found.
     throw new NoSuchFileException(bzlWorkspacePath);
-  }
-
-  /** Evaluates the AST from a single Starlark file, given the already-resolved imports. */
-  private static Module evalStarlarkBody(
-      StarlarkSemantics semantics,
-      StarlarkFile file,
-      Map<String, Module> imports,
-      List<RuleInfoWrapper> ruleInfoList,
-      List<ProviderInfoWrapper> providerInfoList,
-      List<AspectInfoWrapper> aspectInfoList)
-      throws InterruptedException, StarlarkEvaluationException {
-
-    Module module =
-        Module.withPredeclared(
-            semantics, getPredeclaredEnvironment(ruleInfoList, providerInfoList, aspectInfoList));
-
-    Resolver.resolveFile(file, module);
-    if (!file.ok()) {
-      throw new StarlarkEvaluationException(file.errors().get(0).toString());
-    }
-
-    // execute
-    try (Mutability mu = Mutability.create("Skydoc")) {
-      StarlarkThread thread = new StarlarkThread(mu, semantics);
-      // We use the default print handler, which writes to stderr.
-      thread.setLoader(imports::get);
-
-      EvalUtils.exec(file, module, thread);
-    } catch (EvalException | InterruptedException ex) {
-      // This exception class seems a bit unnecessary. Replace with EvalException?
-      throw new StarlarkEvaluationException("Starlark evaluation error", ex);
-    }
-    return module;
   }
 
   /**
@@ -563,7 +548,21 @@ public class SkydocMain {
             new FakeAndroidDeviceBrokerInfoProvider(),
             new FakeAndroidResourcesInfoProvider(),
             new FakeAndroidNativeLibsInfoProvider(),
-            new FakeAndroidApplicationResourceInfoProvider());
+            new FakeAndroidApplicationResourceInfoProvider(),
+            new FakeAndroidSdkProvider.FakeProvider(),
+            new FakeAndroidManifestInfo.FakeProvider(),
+            new FakeAndroidAssetsInfo.FakeProvider(),
+            new FakeAndroidLibraryAarInfo.FakeProvider(),
+            new FakeAndroidProguardInfo.FakeProvider(),
+            new FakeAndroidIdlProvider.FakeProvider(),
+            new FakeAndroidIdeInfoProvider.FakeProvider(),
+            new FakeAndroidPreDexJarProvider.FakeProvider(),
+            new FakeAndroidCcLinkParamsProvider.FakeProvider(),
+            new FakeDataBindingV2Provider.FakeProvider(),
+            new FakeAndroidLibraryResourceClassJarProvider.FakeProvider(),
+            new FakeAndroidFeatureFlagSetProvider.FakeProvider(),
+            new FakeProguardMappingProvider.FakeProvider(),
+            new FakeAndroidBinaryDataInfo.FakeProvider());
     AppleBootstrap appleBootstrap = new AppleBootstrap(new FakeAppleCommon());
     ConfigBootstrap configBootstrap =
         new ConfigBootstrap(
@@ -582,7 +581,8 @@ public class SkydocMain {
             new FakeJavaCommon(),
             new FakeJavaInfoProvider(),
             new FakeJavaProtoCommon(),
-            new FakeJavaCcLinkParamsProvider.Provider());
+            new FakeJavaCcLinkParamsProvider.Provider(),
+            new FakeProguardSpecProvider.FakeProvider());
     PlatformBootstrap platformBootstrap = new PlatformBootstrap(new FakePlatformCommon());
     ProtoBootstrap protoBootstrap =
         new ProtoBootstrap(
@@ -601,6 +601,7 @@ public class SkydocMain {
         new TestingBootstrap(
             new FakeTestingModule(),
             new FakeCoverageCommon(),
+            new FakeInstrumentedFilesInfoProvider(),
             new FakeAnalysisFailureInfoProvider(),
             new FakeAnalysisTestResultInfoProvider());
 
@@ -611,9 +612,6 @@ public class SkydocMain {
     // TODO(adonovan): fix properly ASAP.
     for (String name :
         new String[] {
-          "DataBindingV2Info",
-          "PintoModuleLegacyDepsMgmtProvider",
-          "ProguardSpecProvider",
           "js_common",
           "pkg_common",
         }) {
@@ -679,21 +677,8 @@ public class SkydocMain {
   private static final String[] nonBootstrapGlobals = {
     "android_data",
     AndroidDex2OatInfoApi.NAME,
-    AndroidManifestInfoApi.NAME,
-    AndroidAssetsInfoApi.NAME,
-    AndroidLibraryAarInfoApi.NAME,
-    AndroidProguardInfoApi.NAME,
-    AndroidIdlProviderApi.NAME,
-    AndroidIdeInfoProviderApi.NAME,
-    AndroidPreDexJarProviderApi.NAME,
     UsesDataBindingProviderApi.NAME,
-    AndroidCcLinkParamsProviderApi.NAME,
-    AndroidLibraryResourceClassJarProviderApi.NAME,
-    AndroidSdkProviderApi.NAME,
-    AndroidFeatureFlagSetProviderApi.NAME,
-    ProguardMappingProviderApi.NAME,
     GeneratedExtensionRegistryProviderApi.NAME,
-    AndroidBinaryDataInfoApi.NAME,
     JavaNativeLibraryInfoApi.NAME,
     JsModuleInfoApi.NAME,
     "JsInfo",

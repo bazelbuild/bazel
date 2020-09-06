@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.query.GraphlessBlazeQueryEnvironment;
@@ -37,7 +38,6 @@ import com.google.devtools.build.lib.query2.testutil.AbstractQueryTest;
 import com.google.devtools.build.lib.query2.testutil.SkyframeQueryHelper;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
-import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
 import org.junit.Test;
@@ -107,7 +107,7 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
               boolean keepGoing,
               boolean strictScope,
               boolean orderedResults,
-              List<String> universeScope,
+              UniverseScope universeScope,
               int loadingPhaseThreads,
               Predicate<Label> labelFilter,
               ExtendedEventHandler eventHandler,

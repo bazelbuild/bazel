@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.ACTION_LISTENER;
-import static com.google.devtools.build.lib.analysis.TransitionMode.TARGET;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -451,7 +450,7 @@ public class AspectTest extends AnalysisTestCase {
           AspectParameters parameters,
           String toolsRepository)
           throws InterruptedException, ActionConflictException {
-        Object lateBoundPrereq = ruleContext.getPrerequisite(":late", TARGET);
+        Object lateBoundPrereq = ruleContext.getPrerequisite(":late");
         return new ConfiguredAspect.Builder(ruleContext)
             .addProvider(
                 AspectInfo.class,
@@ -894,5 +893,31 @@ public class AspectTest extends AnalysisTestCase {
     AspectApplyingToFiles.Provider provider =
         aspect.getProvider(AspectApplyingToFiles.Provider.class);
     assertThat(provider.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//a:x_deploy.jar"));
+  }
+
+  @Test
+  public void sameConfiguredAttributeOnAspectAndRule() throws Exception {
+    scratch.file(
+        "a/a.bzl",
+        "def _a_impl(t, ctx):",
+        "  return [DefaultInfo()]",
+        "def _r_impl(ctx):",
+        "  return [DefaultInfo()]",
+        "a = aspect(",
+        "  implementation = _a_impl,",
+        "  attrs = {'_f': attr.label(",
+        "                   default = configuration_field(",
+        "                     fragment = 'cpp', name = 'cc_toolchain'))})",
+        "r = rule(",
+        "  implementation = _r_impl,",
+        "  attrs = {'_f': attr.label(",
+        "                   default = configuration_field(",
+        "                     fragment = 'cpp', name = 'cc_toolchain')),",
+        "           'dep': attr.label(aspects=[a])})");
+
+    scratch.file("a/BUILD", "load(':a.bzl', 'r')", "r(name='r')");
+
+    setRulesAndAspectsAvailableInTests(ImmutableList.of(), ImmutableList.of());
+    getConfiguredTarget("//a:r");
   }
 }

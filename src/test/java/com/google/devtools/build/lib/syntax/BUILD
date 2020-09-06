@@ -13,32 +13,63 @@ filegroup(
     ],
 )
 
+# frontend_test tests the Starlark parser/resolver.
 java_test(
-    name = "SyntaxTests",
-    srcs = glob(
-        ["*.java"],
-        exclude = ["CpuProfilerTest.java"],  # doesn't yet run under Bazel,
-    ),
+    name = "frontend_test",
+    srcs = [
+        "FileLocationsTest.java",
+        "LValueBoundNamesTest.java",
+        "LexerTest.java",
+        "LocationTest.java",
+        "NodePrinterTest.java",
+        "NodeVisitorTest.java",
+        "ParserInputTest.java",
+        "ParserTest.java",
+        "ResolverTest.java",
+        "StarlarkFileTest.java",
+    ],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         "//src/test/java/com/google/devtools/build/lib:test_runner",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:syntax",
-        "//src/main/java/com/google/devtools/build/lib/analysis:test/analysis_failure",
-        "//src/main/java/com/google/devtools/build/lib/analysis:test/analysis_failure_info",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:starlark_semantics_options",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
-        "//src/main/java/com/google/devtools/build/lib/util:string",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+# evaluator_test tests the Starlark interpreter.
+java_test(
+    name = "evaluator_test",
+    srcs = [
+        # CpuProfilerTest.java doesn't run under OSS Bazel
+        "EvalUtilsTest.java",
+        "EvaluationTest.java",
+        "EvaluationTestCase.java",
+        "Examples.java",
+        "FunctionTest.java",
+        "MethodLibraryTest.java",
+        "MutabilityTest.java",
+        "PrinterTest.java",
+        "StarlarkEvaluationTest.java",
+        "StarlarkFlagGuardingTest.java",
+        "StarlarkInterfaceUtilsTest.java",
+        "StarlarkListTest.java",
+        "StarlarkMutableTest.java",
+        "StarlarkThreadDebuggingTest.java",
+        "StarlarkThreadTest.java",
+        "StringModuleTest.java",
+    ],
+    test_class = "com.google.devtools.build.lib.AllTests",
+    runtime_deps = [
+        "//src/test/java/com/google/devtools/build/lib:test_runner",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/net/starlark/java/annot",
-        "//src/test/java/com/google/devtools/build/lib/syntax/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",

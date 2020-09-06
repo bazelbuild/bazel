@@ -18,19 +18,19 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.skylarkbuildapi.TopLevelBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.python.PyBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.stubs.ProviderStub;
-import com.google.devtools.build.lib.skylarkbuildapi.stubs.StarlarkAspectStub;
-import com.google.devtools.build.lib.skylarkbuildapi.test.TestingBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.TopLevelBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.PlatformBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.python.PyBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.stubs.ProviderStub;
+import com.google.devtools.build.lib.starlarkbuildapi.stubs.StarlarkAspectStub;
+import com.google.devtools.build.lib.starlarkbuildapi.test.TestingBootstrap;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.Classpath;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
@@ -45,12 +45,26 @@ import com.google.devtools.build.skydoc.fakebuildapi.FakeStarlarkNativeModuleApi
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStarlarkRuleFunctionsApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStructApi.FakeStructProviderApi;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidApplicationResourceInfo.FakeAndroidApplicationResourceInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidAssetsInfo;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidBinaryDataInfo;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidCcLinkParamsProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidDeviceBrokerInfo.FakeAndroidDeviceBrokerInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidFeatureFlagSetProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidIdeInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidIdlProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidInstrumentationInfo.FakeAndroidInstrumentationInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidLibraryAarInfo;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidLibraryResourceClassJarProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidManifestInfo;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidNativeLibsInfo.FakeAndroidNativeLibsInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidPreDexJarProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidProguardInfo;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidResourcesInfo.FakeAndroidResourcesInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidSdkProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidStarlarkCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeApkInfo.FakeApkInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeDataBindingV2Provider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeProguardMappingProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.apple.FakeAppleCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigGlobalLibrary;
 import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigStarlarkCommon;
@@ -65,6 +79,7 @@ import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaCcLinkParamsPr
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaInfo.FakeJavaInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaProtoCommon;
+import com.google.devtools.build.skydoc.fakebuildapi.java.FakeProguardSpecProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.platform.FakePlatformCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.proto.FakeProtoCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.proto.FakeProtoInfo.FakeProtoInfoProvider;
@@ -75,6 +90,7 @@ import com.google.devtools.build.skydoc.fakebuildapi.repository.FakeRepositoryMo
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeAnalysisFailureInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeAnalysisTestResultInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeCoverageCommon;
+import com.google.devtools.build.skydoc.fakebuildapi.test.FakeInstrumentedFilesInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeTestingModule;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -185,7 +201,21 @@ public class SymbolFamilies {
             new FakeAndroidDeviceBrokerInfoProvider(),
             new FakeAndroidResourcesInfoProvider(),
             new FakeAndroidNativeLibsInfoProvider(),
-            new FakeAndroidApplicationResourceInfoProvider());
+            new FakeAndroidApplicationResourceInfoProvider(),
+            new FakeAndroidSdkProvider.FakeProvider(),
+            new FakeAndroidManifestInfo.FakeProvider(),
+            new FakeAndroidAssetsInfo.FakeProvider(),
+            new FakeAndroidLibraryAarInfo.FakeProvider(),
+            new FakeAndroidProguardInfo.FakeProvider(),
+            new FakeAndroidIdlProvider.FakeProvider(),
+            new FakeAndroidIdeInfoProvider.FakeProvider(),
+            new FakeAndroidPreDexJarProvider.FakeProvider(),
+            new FakeAndroidCcLinkParamsProvider.FakeProvider(),
+            new FakeDataBindingV2Provider.FakeProvider(),
+            new FakeAndroidLibraryResourceClassJarProvider.FakeProvider(),
+            new FakeAndroidFeatureFlagSetProvider.FakeProvider(),
+            new FakeProguardMappingProvider.FakeProvider(),
+            new FakeAndroidBinaryDataInfo.FakeProvider());
     AppleBootstrap appleBootstrap = new AppleBootstrap(new FakeAppleCommon());
     ConfigBootstrap configBootstrap =
         new ConfigBootstrap(
@@ -204,7 +234,8 @@ public class SymbolFamilies {
             new FakeJavaCommon(),
             new FakeJavaInfoProvider(),
             new FakeJavaProtoCommon(),
-            new FakeJavaCcLinkParamsProvider.Provider());
+            new FakeJavaCcLinkParamsProvider.Provider(),
+            new FakeProguardSpecProvider.FakeProvider());
     PlatformBootstrap platformBootstrap = new PlatformBootstrap(new FakePlatformCommon());
     ProtoBootstrap protoBootstrap =
         new ProtoBootstrap(
@@ -223,6 +254,7 @@ public class SymbolFamilies {
         new TestingBootstrap(
             new FakeTestingModule(),
             new FakeCoverageCommon(),
+            new FakeInstrumentedFilesInfoProvider(),
             new FakeAnalysisFailureInfoProvider(),
             new FakeAnalysisTestResultInfoProvider());
 

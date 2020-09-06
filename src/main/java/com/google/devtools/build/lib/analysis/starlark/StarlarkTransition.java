@@ -23,7 +23,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil.OptionInfo;
@@ -35,6 +34,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.PackageValue;
+import com.google.devtools.build.lib.util.ClassName;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -81,22 +81,22 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   }
 
   @Override
-  public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments(
-      BuildOptions buildOptions) {
+  public ImmutableSet<String> requiresOptionFragments(BuildOptions buildOptions) {
     // TODO(bazel-team): complexity cleanup: merge buildOptionInfo with TransitiveOptionDetails.
     Map<String, OptionInfo> optionToFragment = FunctionTransitionUtil.buildOptionInfo(buildOptions);
-    ImmutableSet.Builder<Class<? extends FragmentOptions>> fragments = ImmutableSet.builder();
+    ImmutableSet.Builder<String> fragments = ImmutableSet.builder();
     for (String optionStarlarkName : Iterables.concat(getInputs(), getOutputs())) {
-      // TODO(bazel-team): support Starlark flags.
       if (!optionStarlarkName.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
-        continue;
-      }
-      String optionNativeName = optionStarlarkName.substring(COMMAND_LINE_OPTION_PREFIX.length());
-      OptionInfo optionInfo = optionToFragment.get(optionNativeName);
-      // A null optionInfo means the flag is invalid. Starlark transitions independently catch and
-      // report that (search the code for "do not correspond to valid settings").
-      if (optionInfo != null) {
-        fragments.add(optionInfo.getOptionClass());
+        // Starlark flags don't belong to any fragment.
+        fragments.add(optionStarlarkName);
+      } else {
+        String optionNativeName = optionStarlarkName.substring(COMMAND_LINE_OPTION_PREFIX.length());
+        OptionInfo optionInfo = optionToFragment.get(optionNativeName);
+        // A null optionInfo means the flag is invalid. Starlark transitions independently catch and
+        // report that (search the code for "do not correspond to valid settings").
+        if (optionInfo != null) {
+          fragments.add(ClassName.getSimpleNameWithOuter(optionInfo.getOptionClass()));
+        }
       }
     }
     return fragments.build();
@@ -179,7 +179,6 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
               (Label)
                   buildSettingTarget
                       .getAssociatedRule()
-                      .getAttributeContainer()
                       .getAttr(ALIAS_ACTUAL_ATTRIBUTE_NAME));
     }
     return buildSettingTarget;
@@ -334,8 +333,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
         } catch (ConversionException e) {
           throw new TransitionException(e);
         }
-        if (convertedValue.equals(
-            rule.getAttributeContainer().getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))) {
+        if (convertedValue.equals(rule.getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))) {
           if (cleanedOptions == null) {
             cleanedOptions = options.toBuilder();
           }
@@ -393,8 +391,8 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   }
 
   /**
-   * For a given transition, find all Starlark build settings that are read while applying it, then
-   * return a map of their label to their default values.
+   * For a given transition, find all Starlark build settings that are input/output while applying
+   * it, then return a map of their label to their default values.
    *
    * <p>If the build setting is referenced by an {@link com.google.devtools.build.lib.rules.Alias},
    * the returned map entry is still keyed by the alias.
@@ -404,25 +402,26 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
    *     build settings *written* by relevant transitions) so do not iterate over for input
    *     packages.
    */
-  public static ImmutableMap<Label, Object> getDefaultInputValues(
+  public static ImmutableMap<Label, Object> getDefaultValues(
       Map<PackageValue.Key, PackageValue> buildSettingPackages, ConfigurationTransition root)
       throws TransitionException {
-    ImmutableMap.Builder<Label, Object> defaultValues = new ImmutableMap.Builder<>();
+    HashMap<Label, Object> defaultValues = new HashMap<>();
     root.visit(
         (StarlarkTransitionVisitor)
             transition -> {
               ImmutableSet<Label> settings =
-                  getRelevantStarlarkSettingsFromTransition(transition, Settings.INPUTS);
+                  getRelevantStarlarkSettingsFromTransition(
+                      transition, Settings.INPUTS_AND_OUTPUTS);
               for (Label setting : settings) {
-                defaultValues.put(
+                defaultValues.computeIfAbsent(
                     setting,
-                    getActual(buildSettingPackages, setting)
-                        .getAssociatedRule()
-                        .getAttributeContainer()
-                        .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME));
+                    (Label settingLabel) ->
+                        getActual(buildSettingPackages, settingLabel)
+                            .getAssociatedRule()
+                            .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME));
               }
             });
-    return defaultValues.build();
+    return ImmutableMap.copyOf(defaultValues);
   }
 
   /**
@@ -492,7 +491,6 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
         Object actualValue =
             buildSettingTarget
                 .getAssociatedRule()
-                .getAttributeContainer()
                 .getAttr(ALIAS_ACTUAL_ATTRIBUTE_NAME);
         if (actualValue instanceof Label) {
           actualSettingBuilder.add((Label) actualValue);

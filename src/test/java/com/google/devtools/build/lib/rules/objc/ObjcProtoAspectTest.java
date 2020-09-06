@@ -105,6 +105,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
   @Test
   public void testObjcProtoAspectPropagatesProtobufProviderPreMigration() throws Exception {
     useConfiguration("--incompatible_objc_compile_info_migration=false");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=false");
     testObjcProtoAspectPropagatesProtobufProvider();
   }
 

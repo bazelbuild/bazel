@@ -31,6 +31,7 @@ import com.google.common.collect.Streams;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
@@ -451,7 +452,7 @@ public final class SkyframeBuildView {
     }
     foundActionConflict = !actionConflicts.isEmpty();
 
-    if (!result.hasError() && actionConflicts.isEmpty()) {
+    if (!result.hasError() && !foundActionConflict) {
       return new SkyframeAnalysisResult(
           /*hasLoadingError=*/ false,
           /*hasAnalysisError=*/ false,
@@ -502,10 +503,10 @@ public final class SkyframeBuildView {
       throw errors.second;
     }
 
-    if (!actionConflicts.isEmpty()) {
+    if (foundActionConflict) {
       // In order to determine the set of configured targets transitively error free from action
       // conflict issues, we run a post-processing update() that uses the bad action map.
-      Predicate<ActionLookupValue.ActionLookupKey> errorFreePredicate;
+      Predicate<ActionLookupKey> errorFreePredicate;
       enableAnalysis(true);
       try {
         errorFreePredicate =
@@ -844,7 +845,7 @@ public final class SkyframeBuildView {
   }
 
   CachingAnalysisEnvironment createAnalysisEnvironment(
-      ActionLookupValue.ActionLookupKey owner,
+      ActionLookupKey owner,
       boolean isSystemEnv,
       ExtendedEventHandler eventHandler,
       Environment env,

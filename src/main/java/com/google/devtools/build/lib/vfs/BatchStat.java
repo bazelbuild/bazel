@@ -22,7 +22,6 @@ import java.util.List;
 public interface BatchStat {
 
   /**
-   *
    * @param includeDigest whether to include a file digest in the return values.
    * @param includeLinks whether to include a symlink stat in the return values.
    * @param paths The input paths to stat(), relative to the exec root.

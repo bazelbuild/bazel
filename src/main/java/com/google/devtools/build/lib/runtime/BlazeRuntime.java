@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -49,7 +50,8 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.exec.BinTools;
-import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
+import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.PackageValidator;
@@ -72,11 +74,14 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
 import com.google.devtools.build.lib.server.FailureDetails.GrpcServer;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
+import com.google.devtools.build.lib.server.PidFileWatcher;
 import com.google.devtools.build.lib.server.RPCServer;
+import com.google.devtools.build.lib.server.ShutdownHooks;
 import com.google.devtools.build.lib.server.signal.InterruptSignalHandler;
 import com.google.devtools.build.lib.shell.JavaSubprocessFactory;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.SubprocessFactory;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
@@ -95,6 +100,7 @@ import com.google.devtools.build.lib.util.ThreadUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -285,7 +291,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     commandMap.put(name, command);
   }
 
-  final void overrideCommands(Iterable<BlazeCommand> commands) {
+  @VisibleForTesting
+  public final void overrideCommands(Iterable<BlazeCommand> commands) {
     commandMap.clear();
     for (BlazeCommand command : commands) {
       addCommand(command);
@@ -1034,6 +1041,18 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       final RPCServer[] rpcServer = new RPCServer[1];
       Runnable prepareForAbruptShutdown = () -> rpcServer[0].prepareForAbruptShutdown();
       BlazeRuntime runtime = newRuntime(modules, Arrays.asList(args), prepareForAbruptShutdown);
+
+      // server.pid was written in the C++ launcher after fork() but before exec(). The client only
+      // accesses the pid file after connecting to the socket which ensures that it gets the correct
+      // pid value.
+      Path pidFile = runtime.getServerDirectory().getRelative("server.pid.txt");
+      int serverPid = readPidFile(pidFile);
+      PidFileWatcher pidFileWatcher = new PidFileWatcher(pidFile, serverPid);
+      pidFileWatcher.start();
+
+      ShutdownHooks shutdownHooks = ShutdownHooks.createAndRegister();
+      shutdownHooks.deleteAtExit(pidFile);
+
       BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime);
       BlazeServerStartupOptions startupOptions =
           runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class);
@@ -1046,9 +1065,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         rpcServer[0] =
             factory.create(
                 dispatcher,
+                shutdownHooks,
+                pidFileWatcher,
                 runtime.getClock(),
                 startupOptions.commandPort,
                 runtime.getServerDirectory(),
+                serverPid,
                 startupOptions.maxIdleSeconds,
                 startupOptions.shutdownOnLowSysMem,
                 startupOptions.idleServerTasks);
@@ -1260,6 +1282,22 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     Thread.setDefaultUncaughtExceptionHandler(
         (thread, throwable) -> subscriberExceptionHandler.handleException(throwable, null));
     Path.setFileSystemForSerialization(fs);
+
+    // Set the hook used to display Starlark source lines in a stack trace.
+    final FileSystem finalFS = fs;
+    EvalException.setSourceReaderSupplier(
+        () ->
+            loc -> {
+              try {
+                // TODO(adonovan): opt: cache seen files, as the stack often repeats the same files.
+                Path path = finalFS.getPath(PathFragment.create(loc.file()));
+                return Iterables.get(FileSystemUtils.readLines(path, UTF_8), loc.line() - 1, null);
+              } catch (Throwable unused) {
+                // ignore any failure (e.g. ENOENT, security manager rejecting I/O)
+              }
+              return null;
+            });
+
     SubprocessBuilder.setDefaultSubprocessFactory(subprocessFactoryImplementation());
 
     Path outputUserRootPath = fs.getPath(outputUserRoot);
@@ -1419,6 +1457,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         (thread, throwable) -> BugReport.handleCrash(throwable, args));
   }
 
+  @Override
   public String getProductName() {
     return productName;
   }
@@ -1514,29 +1553,17 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
       ConfiguredRuleClassProvider ruleClassProvider = ruleClassBuilder.build();
 
-      Package.Builder.Helper packageBuilderHelper = null;
-      for (BlazeModule module : blazeModules) {
-        Package.Builder.Helper candidateHelper = module.getPackageBuilderHelper();
-        if (candidateHelper != null) {
-          Preconditions.checkState(
-              packageBuilderHelper == null,
-              "more than one module defines a package builder helper");
-          packageBuilderHelper = candidateHelper;
-        }
-      }
-      if (packageBuilderHelper == null) {
-        packageBuilderHelper = Package.Builder.DefaultHelper.INSTANCE;
-      }
-
+      PackageSettings packageSettings = getPackageSettings(blazeModules);
       PackageFactory packageFactory =
           new PackageFactory(
               ruleClassProvider,
+              PackageFactory.makeDefaultSizedForkJoinPoolForGlobbing(),
               serverBuilder.getEnvironmentExtensions(),
               BlazeVersionInfo.instance().getVersion(),
-              packageBuilderHelper,
+              packageSettings,
               getPackageValidator(blazeModules),
               getPackageLoadingListener(
-                  blazeModules, packageBuilderHelper, ruleClassProvider, fileSystem));
+                  blazeModules, packageSettings, ruleClassProvider, fileSystem));
 
       ProjectFile.Provider projectFileProvider = null;
       for (BlazeModule module : blazeModules) {
@@ -1650,6 +1677,17 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       return this;
     }
 
+    private static PackageSettings getPackageSettings(List<BlazeModule> blazeModules) {
+      List<PackageSettings> packageSettingss =
+          blazeModules.stream()
+              .map(module -> module.getPackageSettings())
+              .filter(settings -> settings != null)
+              .collect(toImmutableList());
+      Preconditions.checkState(
+          packageSettingss.size() <= 1, "more than one module defines a PackageSettings");
+      return Iterables.getFirst(packageSettingss, DefaultPackageSettings.INSTANCE);
+    }
+
     private static PackageValidator getPackageValidator(List<BlazeModule> blazeModules) {
       List<PackageValidator> packageValidators =
           blazeModules.stream()
@@ -1664,7 +1702,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   private static PackageLoadingListener getPackageLoadingListener(
       List<BlazeModule> blazeModules,
-      Package.Builder.Helper packageBuilderHelper,
+      PackageSettings packageBuilderHelper,
       ConfiguredRuleClassProvider ruleClassProvider,
       FileSystem fs) {
     ImmutableList<PackageLoadingListener> listeners =
@@ -1675,5 +1713,24 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             .filter(validator -> validator != null)
             .collect(toImmutableList());
     return PackageLoadingListener.create(listeners);
+  }
+
+  private static int readPidFile(Path pidFile) throws AbruptExitException {
+    try {
+      return Integer.parseInt(new String(FileSystemUtils.readContentAsLatin1(pidFile)));
+    } catch (IOException e) {
+      throw createFilesystemExitException(
+          "Server pid file read failed: " + e.getMessage(),
+          ExitCode.BUILD_FAILURE,
+          Filesystem.Code.SERVER_PID_TXT_FILE_READ_FAILURE,
+          e);
+    } catch (NumberFormatException e) {
+      // Invalid contents (not a number) is more likely than not a filesystem issue.
+      throw createFilesystemExitException(
+          "Server pid file corrupted: " + e.getMessage(),
+          ExitCode.BUILD_FAILURE,
+          Filesystem.Code.SERVER_PID_TXT_FILE_READ_FAILURE,
+          new IOException(e));
+    }
   }
 }

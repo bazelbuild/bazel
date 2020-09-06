@@ -94,7 +94,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "java/android/res/values/strings.xml",
         "<resources><string name = 'hello'>Hello Android!</string></resources>");
     scratch.file("java/android/A.java", "package android; public class A {};");
-    setStarlarkSemanticsOptions("--experimental_google_legacy_api");
+    setBuildLanguageOptions("--experimental_google_legacy_api");
   }
 
   @Test
@@ -302,8 +302,13 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    actions=ctx.actions, feature_configuration=feature_configuration, ",
         "    cc_toolchain = cc_toolchain, ",
         "    static_library=ctx.file.static_library)",
-        "  linking_context = cc_common.create_linking_context(libraries_to_link=[library_to_link],",
-        "    user_link_flags=ctx.attr.user_link_flags)",
+        "  linker_input = cc_common.create_linker_input(",
+        "    libraries = depset([library_to_link]),",
+        "    user_link_flags=depset(ctx.attr.user_link_flags),",
+        "    owner = ctx.label,",
+        "  )",
+        "  linking_context = cc_common.create_linking_context(",
+        "    linker_inputs=depset([linker_input]))",
         "  return [CcInfo(linking_context=linking_context)]",
         "cc_info = rule(",
         "  implementation=_impl,",
@@ -332,6 +337,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         ")");
 
     ConfiguredTarget app = getConfiguredTarget("//java/a:a");
+    assertNoEvents();
 
     Artifact copiedLib = getOnlyElement(getNativeLibrariesInApk(app));
     Artifact linkedLib = getGeneratingAction(copiedLib).getInputs().getSingleton();
@@ -359,8 +365,13 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    actions=ctx.actions, feature_configuration=feature_configuration, ",
         "    cc_toolchain = cc_toolchain, ",
         "    static_library=ctx.file.static_library)",
-        "  linking_context = cc_common.create_linking_context(libraries_to_link=[library_to_link],",
-        "    user_link_flags=ctx.attr.user_link_flags)",
+        "  linker_input = cc_common.create_linker_input(",
+        "    libraries = depset([library_to_link]),",
+        "    user_link_flags=depset(ctx.attr.user_link_flags),",
+        "    owner = ctx.label,",
+        "  )",
+        "  linking_context = cc_common.create_linking_context(",
+        "    linker_inputs=depset([linker_input]))",
         "  return [CcInfo(linking_context=linking_context)]",
         "cc_info = rule(",
         "  implementation=_impl,",
@@ -590,7 +601,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   // regression test for #3169095
   @Test
-  public void testXmbInSrcs_NotPermittedButDoesNotThrow() throws Exception {
+  public void testXmbInSrcs_notPermittedButDoesNotThrow() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratchConfiguredTarget(
         "java/xmb",
@@ -663,7 +674,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testNativeLibrary_LinksLibrariesWhenCodeIsPresent() throws Exception {
+  public void testNativeLibrary_linksLibrariesWhenCodeIsPresent() throws Exception {
     setupNativeLibrariesForLinking();
     assertNativeLibraryLinked(
         getConfiguredTarget("//java/android/app:auto"),
@@ -676,7 +687,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testNativeLibrary_CopiesLibrariesDespiteExtraLayersOfIndirection() throws Exception {
+  public void testNativeLibrary_copiesLibrariesDespiteExtraLayersOfIndirection() throws Exception {
     scratch.file(
         "java/android/app/BUILD",
         "cc_library(name = 'native_dep',",
@@ -698,7 +709,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testNativeLibrary_CopiesLibrariesWrappedInCcLibraryWithSameName() throws Exception {
+  public void testNativeLibrary_copiesLibrariesWrappedInCcLibraryWithSameName() throws Exception {
     scratch.file(
         "java/android/app/BUILD",
         "cc_library(name = 'native',",
@@ -713,7 +724,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testNativeLibrary_LinksWhenPrebuiltArchiveIsSupplied() throws Exception {
+  public void testNativeLibrary_linksWhenPrebuiltArchiveIsSupplied() throws Exception {
     scratch.file(
         "java/android/app/BUILD",
         "cc_library(name = 'native_dep',",
@@ -733,7 +744,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testNativeLibrary_CopiesFullLibrariesInIfsoMode() throws Exception {
+  public void testNativeLibrary_copiesFullLibrariesInIfsoMode() throws Exception {
     useConfiguration("--interface_shared_objects");
     scratch.file(
         "java/android/app/BUILD",
@@ -755,7 +766,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testNativeLibrary_ProvidesLinkerScriptToLinkAction() throws Exception {
+  public void testNativeLibrary_providesLinkerScriptToLinkAction() throws Exception {
     scratch.file(
         "java/android/app/BUILD",
         "cc_library(name = 'native',",
@@ -833,7 +844,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testIncrementalDexingDisabledWithBlacklistedDexopts() throws Exception {
-    // Even if we mark a dx flag as supported, incremental dexing isn't used with blacklisted
+    // Even if we mark a dx flag as supported, incremental dexing isn't used with disallowlisted
     // dexopts (unless incremental_dexing attribute is set, which a different test covers)
     useConfiguration(
         "--incremental_dexing",
@@ -1305,7 +1316,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testResourceShrinking_RequiresProguard() throws Exception {
+  public void testResourceShrinking_requiresProguard() throws Exception {
     scratch.file(
         "java/com/google/android/hello/BUILD",
         "android_binary(name = 'hello',",
@@ -2571,7 +2582,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testResourcesWithConfigurationQualifier_LocalResources() throws Exception {
+  public void testResourcesWithConfigurationQualifier_localResources() throws Exception {
     scratch.file(
         "java/android/resources/BUILD",
         "android_binary(name = 'r',",
@@ -2592,7 +2603,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testResourcesInOtherPackage_exported_LocalResources() throws Exception {
+  public void testResourcesInOtherPackage_exported_localResources() throws Exception {
     scratch.file(
         "java/android/resources/BUILD",
         "android_binary(name = 'r',",
@@ -2608,7 +2619,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testResourcesInOtherPackage_filegroup_LocalResources() throws Exception {
+  public void testResourcesInOtherPackage_filegroup_localResources() throws Exception {
     scratch.file(
         "java/android/resources/BUILD",
         "android_binary(name = 'r',",
@@ -2628,7 +2639,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testResourcesInOtherPackage_filegroupWithExternalSources_LocalResources()
+  public void testResourcesInOtherPackage_filegroupWithExternalSources_localResources()
       throws Exception {
     scratch.file(
         "java/android/resources/BUILD",
@@ -2647,7 +2658,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testMultipleDependentResourceDirectories_LocalResources() throws Exception {
+  public void testMultipleDependentResourceDirectories_localResources() throws Exception {
     scratch.file(
         "java/android/resources/d1/BUILD",
         "android_library(name = 'd1',",
@@ -2679,7 +2690,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   // Regression test for b/11924769
   @Test
-  public void testResourcesInOtherPackage_doubleFilegroup_LocalResources() throws Exception {
+  public void testResourcesInOtherPackage_doubleFilegroup_localResources() throws Exception {
     scratch.file(
         "java/android/resources/BUILD",
         "android_binary(name = 'r',",
@@ -2701,7 +2712,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testManifestMissingFails_LocalResources() throws Exception {
+  public void testManifestMissingFails_localResources() throws Exception {
     checkError(
         "java/android/resources",
         "r",
@@ -2714,7 +2725,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testResourcesDoesNotMatchDirectoryLayout_BadFile_LocalResources() throws Exception {
+  public void testResourcesDoesNotMatchDirectoryLayout_badFile_localResources() throws Exception {
     checkError(
         "java/android/resources",
         "r",
@@ -2729,7 +2740,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testResourcesDoesNotMatchDirectoryLayout_BadDirectory_LocalResources()
+  public void testResourcesDoesNotMatchDirectoryLayout_badDirectory_localResources()
       throws Exception {
     checkError(
         "java/android/resources",
@@ -2745,7 +2756,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testResourcesNotUnderCommonDirectoryFails_LocalResources() throws Exception {
+  public void testResourcesNotUnderCommonDirectoryFails_localResources() throws Exception {
     checkError(
         "java/android/resources",
         "r",
@@ -2760,7 +2771,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testAssetsAndNoAssetsDirFails_LocalResources() throws Exception {
+  public void testAssetsAndNoAssetsDirFails_localResources() throws Exception {
     scratch.file(
         "java/android/resources/assets/values/strings.xml",
         "<resources><string name = 'hello'>Hello Android!</string></resources>");
@@ -2775,7 +2786,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testAssetsDirAndNoAssetsFails_LocalResources() throws Exception {
+  public void testAssetsDirAndNoAssetsFails_localResources() throws Exception {
     checkError(
         "java/cpp/android",
         "r",
@@ -2787,7 +2798,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testAssetsNotUnderAssetsDirFails_LocalResources() throws Exception {
+  public void testAssetsNotUnderAssetsDirFails_localResources() throws Exception {
     checkError(
         "java/android/resources",
         "r",
@@ -2801,7 +2812,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testFileLocation_LocalResources() throws Exception {
+  public void testFileLocation_localResources() throws Exception {
     scratch.file(
         "java/android/resources/BUILD",
         "android_binary(name = 'r',",
@@ -2815,7 +2826,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testCustomPackage_LocalResources() throws Exception {
+  public void testCustomPackage_localResources() throws Exception {
     scratch.file(
         "a/r/BUILD",
         "android_binary(name = 'r',",
@@ -2916,7 +2927,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testNoApplicationId_LocalResources() throws Exception {
+  public void testNoApplicationId_localResources() throws Exception {
     scratch.file(
         "java/a/r/BUILD",
         "android_binary(name = 'r',",
@@ -3460,7 +3471,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     reporter.removeHandler(failFastHandler); // expecting an error
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     scratch.overwriteFile(
-        "tools/whitelists/config_feature_flag/BUILD",
+        "tools/allowlists/config_feature_flag/BUILD",
         "package_group(",
         "    name = 'config_feature_flag',",
         "    packages = ['//flag'])");
@@ -3494,7 +3505,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   public void testFeatureFlagPolicyDoesNotBlockRuleIfInPolicy() throws Exception {
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     scratch.overwriteFile(
-        "tools/whitelists/config_feature_flag/BUILD",
+        "tools/allowlists/config_feature_flag/BUILD",
         "package_group(",
         "    name = 'config_feature_flag',",
         "    packages = ['//flag', '//java/com/google/android/foo'])");
@@ -3524,7 +3535,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   @Test
   public void testFeatureFlagPolicyIsNotUsedIfFlagValuesNotUsed() throws Exception {
     scratch.overwriteFile(
-        "tools/whitelists/config_feature_flag/BUILD",
+        "tools/allowlists/config_feature_flag/BUILD",
         "package_group(",
         "    name = 'config_feature_flag',",
         "    packages = ['*super* busted package group'])");
@@ -3540,7 +3551,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertNoEvents();
     // sanity check time: does this test actually test what we're testing for?
     reporter.removeHandler(failFastHandler);
-    assertThat(getConfiguredTarget("//tools/whitelists/config_feature_flag:config_feature_flag"))
+    assertThat(getConfiguredTarget("//tools/allowlists/config_feature_flag:config_feature_flag"))
         .isNull();
     assertContainsEvent("*super* busted package group");
   }
@@ -3742,30 +3753,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testDebugKeyExistsBinary() throws Exception {
-    String debugKeyTarget = "//java/com/google/android/hello:debug_keystore";
-    scratch.file("java/com/google/android/hello/debug_keystore", "A debug key");
-    scratch.file(
-        "java/com/google/android/hello/BUILD",
-        "android_binary(name = 'b',",
-        "               srcs = ['HelloApp.java'],",
-        "               manifest = 'AndroidManifest.xml',",
-        "               debug_key = '" + debugKeyTarget + "')");
-    checkDebugKey(debugKeyTarget, true);
-  }
-
-  @Test
-  public void testDebugKeyNotExistsBinary() throws Exception {
-    String debugKeyTarget = "//java/com/google/android/hello:debug_keystore";
-    scratch.file(
-        "java/com/google/android/hello/BUILD",
-        "android_binary(name = 'b',",
-        "               srcs = ['HelloApp.java'],",
-        "               manifest = 'AndroidManifest.xml')");
-    checkDebugKey(debugKeyTarget, false);
-  }
-
-  @Test
   public void testOnlyProguardSpecs() throws Exception {
     scratch.file(
         "java/com/google/android/hello/BUILD",
@@ -3789,6 +3776,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "b_proguard.jar",
         false,
         null,
+        /*splitOptimizationPass=*/ false,
         targetConfig.getBinFragment()
             + "/java/com/google/android/hello/proguard/b/legacy_b_combined_library_jars.jar");
   }
@@ -3928,7 +3916,12 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               proguard_specs = ['proguard-spec.pro'],",
         "               proguard_generate_mapping = 1)");
     checkProguardUse(
-        "//java/com/google/android/hello:b", "b_proguard.jar", true, null, getAndroidJarPath());
+        "//java/com/google/android/hello:b",
+        "b_proguard.jar",
+        true,
+        null,
+        /*splitOptimizationPass=*/ false,
+        getAndroidJarPath());
   }
 
   @Test
@@ -3980,7 +3973,12 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               manifest = 'AndroidManifest.xml',",
         "               proguard_specs = ['proguard-spec.pro'])");
     checkProguardUse(
-        "//java/com/google/android/hello:b", "b_proguard.jar", false, null, getAndroidJarPath());
+        "//java/com/google/android/hello:b",
+        "b_proguard.jar",
+        false,
+        null,
+        /*splitOptimizationPass=*/ false,
+        getAndroidJarPath());
 
     SpawnAction action =
         (SpawnAction)
@@ -4006,7 +4004,12 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               manifest = 'AndroidManifest.xml',",
         "               proguard_specs = ['proguard-spec.pro'])");
     checkProguardUse(
-        "//java/com/google/android/hello:b", "b_proguard.jar", false, null, getAndroidJarPath());
+        "//java/com/google/android/hello:b",
+        "b_proguard.jar",
+        false,
+        null,
+        /*splitOptimizationPass=*/ false,
+        getAndroidJarPath());
 
     SpawnAction action =
         (SpawnAction)
@@ -4327,6 +4330,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "abin_proguard.jar",
         /*expectMapping=*/ false,
         /*passes=*/ null,
+        /*splitOptimizationPass=*/ false,
         getAndroidJarPath());
   }
 
@@ -4600,6 +4604,12 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "        ctx.label.name + '/resources.jar')",
         "    ctx.actions.write(resource_java_class_jar, 'empty manifest')",
         "",
+        "    r_txt = ctx.actions.declare_file(ctx.label.name + '/r.txt')",
+        "    ctx.actions.write(r_txt, 'empty r_txt')",
+        "",
+        "    resources_zip = ctx.actions.declare_file(ctx.label.name + '/resource_files.zip')",
+        "    ctx.actions.write(resources_zip, 'empty resources zip')",
+        "",
         "    return [",
         "        DefaultInfo(files = depset([resource_apk, resource_proguard_config])),",
         "        AndroidApplicationResourceInfo(",
@@ -4609,6 +4619,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "            manifest = manifest,",
         "            resource_proguard_config = resource_proguard_config,",
         "            main_dex_proguard_config = None,",
+        "            r_txt = r_txt,",
+        "            resources_zip = resources_zip,",
         "        ),",
         "    ]",
         "",

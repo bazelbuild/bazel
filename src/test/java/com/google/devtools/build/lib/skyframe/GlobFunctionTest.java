@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Functions;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -68,6 +67,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
@@ -84,7 +84,7 @@ public abstract class GlobFunctionTest {
       EvaluationContext.newBuilder()
           .setKeepGoing(false)
           .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
-          .setEventHander(NullEventHandler.INSTANCE)
+          .setEventHandler(NullEventHandler.INSTANCE)
           .build();
 
   @RunWith(JUnit4.class)
@@ -137,7 +137,7 @@ public abstract class GlobFunctionTest {
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
-        differencer, Optional.<RootedPath>absent());
+        differencer, Optional.empty());
 
     createTestFiles();
   }
@@ -172,8 +172,8 @@ public abstract class GlobFunctionTest {
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
     skyFunctions.put(
-        SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
-        BazelSkyframeExecutorConstants.BLACKLISTED_PACKAGE_PREFIXES_FUNCTION);
+        SkyFunctions.IGNORED_PACKAGE_PREFIXES,
+        BazelSkyframeExecutorConstants.IGNORED_PACKAGE_PREFIXES_FUNCTION);
     skyFunctions.put(
         FileStateValue.FILE_STATE,
         new FileStateFunction(
@@ -233,7 +233,7 @@ public abstract class GlobFunctionTest {
   }
 
   @Test
-  public void testBlacklist() throws Exception {
+  public void testIgnoreList() throws Exception {
     FileSystemUtils.writeContentAsLatin1(root.getRelative(".bazelignore"), "pkg/foo/bar");
     assertGlobMatches("foo/**", "foo/barnacle/wiz", "foo/barnacle", "foo");
     differencer.invalidate(
@@ -676,7 +676,7 @@ public abstract class GlobFunctionTest {
 
   /** Regression test for b/13319874: Directory listing crash. */
   @Test
-  public void testResilienceToFilesystemInconsistencies_DirectoryExistence() throws Exception {
+  public void testResilienceToFilesystemInconsistencies_directoryExistence() throws Exception {
     // Our custom filesystem says "pkgPath/BUILD" exists but "pkgPath" does not exist.
     fs.stubStat(pkgPath, null);
     RootedPath pkgRootedPath = RootedPath.toRootedPath(Root.fromPath(root), pkgPath);
@@ -701,7 +701,7 @@ public abstract class GlobFunctionTest {
   }
 
   @Test
-  public void testResilienceToFilesystemInconsistencies_SubdirectoryExistence() throws Exception {
+  public void testResilienceToFilesystemInconsistencies_subdirectoryExistence() throws Exception {
     // Our custom filesystem says directory "pkgPath/foo/bar" contains a subdirectory "wiz" but a
     // direct stat on "pkgPath/foo/bar/wiz" says it does not exist.
     Path fooBarDir = pkgPath.getRelative("foo/bar");
@@ -725,7 +725,7 @@ public abstract class GlobFunctionTest {
   }
 
   @Test
-  public void testResilienceToFilesystemInconsistencies_SymlinkType() throws Exception {
+  public void testResilienceToFilesystemInconsistencies_symlinkType() throws Exception {
     RootedPath wizRootedPath =
         RootedPath.toRootedPath(Root.fromPath(root), pkgPath.getRelative("foo/bar/wiz"));
     RootedPath fileRootedPath =

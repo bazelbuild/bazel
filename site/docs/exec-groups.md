@@ -11,9 +11,12 @@ Each execution group has its own [toolchain](toolchains.md) dependencies and
 performs its own [toolchain resolution](toolchains.md#toolchain-resolution).
 
 ## Current status
+To use Starlark rules that create execution groups, set
+`--experimental_exec_groups=true` on your command line or in a .bazelrc:
 
-This feature is implemented but experimental. In order to use, you must set the
-flag `--experimental_exec_group=true`.
+```
+$ bazel build //target/with/exec/group --experimental_exec_groups
+```
 
 ## Background
 
@@ -30,16 +33,15 @@ like linking in c++ builds without over-allocating to less demanding tasks.
 
 ## Defining execution groups
 
-During rule definition, rule authors can declare a set of execution groups. On
-each execution group, the rule author can specify everything needed to select
-an execution platform for that execution group, namely any constraints via
-`exec_compatible_with` and toolchain types via `toolchain`. If an execution group
-is created as empty (no specified toolchains or constraints) it will
-automatically inherit these
+During rule definition, rule authors can
+[declare](https://docs.bazel.build/versions/master/skylark/lib/globals.html#exec_group)
+a set of execution groups. On each execution group, the rule author can specify
+everything needed to select an execution platform for that execution group,
+namely any constraints via `exec_compatible_with` and toolchain types via
+`toolchain`. If an execution group is created as empty (no specified toolchains
+or constraints) it will automatically inherit these
 [parameters](https://docs.bazel.build/versions/master/skylark/lib/globals.html#rule)
 from the rule to which the group is attached.
-
-TODO(juliexxia): link to exec_group method docs when they get released in bazel.
 
 ```python
 # foo.bzl
@@ -56,7 +58,7 @@ my_rule = rule(
         ),
     },
     attrs = {
-        "_compiler": attr.label(cfg = config.exec(“link”))
+        "_compiler": attr.label(cfg = config.exec("link"))
     },
 )
 ```
@@ -83,7 +85,7 @@ param of action generating methods, specifically [`ctx.actions.run`]
 def _impl(ctx):
   ctx.actions.run(
      inputs = [ctx.attr._some_tool, ctx.srcs[0]]
-     exec_group = "compile”,
+     exec_group = "compile",
      # ...
   )
 ```
@@ -95,10 +97,10 @@ can access the resolved toolchain of a target:
 ```python
 # foo.bzl
 def _impl(ctx):
-  foo_info = ctx.exec_groups[‘link’].toolchains[‘//foo:toolchain_type”].fooinfo
+  foo_info = ctx.exec_groups["link"].toolchains["//foo:toolchain_type"].fooinfo
   ctx.actions.run(
      inputs = [foo_info, ctx.srcs[0]]
-     exec_group = "link”,
+     exec_group = "link",
      # ...
   )
 ```
@@ -123,14 +125,14 @@ entry with an execution-group-augmented key, e.g.:
 my_rule(
     name = 'my_target',
     exec_properties = {
-        'mem': '12G',
-        'link.mem': '16G'
+        'mem': '12g',
+        'link.mem': '16g'
     }
     …
 )
 ```
 
 All actions with `exec_group = "link"` would see the exec properties
-dictionary as `{"memory": "16G"}`. As you see here, execution-group-level
+dictionary as `{"mem": "16g"}`. As you see here, execution-group-level
 settings override target-level settings.
 

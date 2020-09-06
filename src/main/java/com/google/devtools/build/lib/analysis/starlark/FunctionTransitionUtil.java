@@ -55,6 +55,11 @@ import java.util.TreeSet;
 public class FunctionTransitionUtil {
 
   public static final String COMMAND_LINE_OPTION_PREFIX = "//command_line_option:";
+
+  // The length of the hash of the config tacked onto the end of the output path.
+  // Limited for ergonomics and MAX_PATH reasons.
+  private static final int HASH_LENGTH = 12;
+
   /**
    * Figure out what build settings the given transition changes and apply those changes to the
    * incoming {@link BuildOptions}. For native options, this involves a preprocess step of
@@ -97,8 +102,7 @@ public class FunctionTransitionUtil {
   private static void checkForBlacklistedOptions(StarlarkDefinedConfigTransition transition)
       throws EvalException {
     if (transition.getOutputs().contains("//command_line_option:define")) {
-      throw new EvalException(
-          transition.getLocationForErrorReporting(),
+      throw Starlark.errorf(
           "Starlark transition on --define not supported - try using build settings"
               + " (https://docs.bazel.build/skylark/config.html#user-defined-build-settings).");
     }
@@ -118,18 +122,14 @@ public class FunctionTransitionUtil {
           Sets.newLinkedHashSet(starlarkTransition.getOutputs());
       for (String outputKey : transition.keySet()) {
         if (!remainingOutputs.remove(outputKey)) {
-          throw new EvalException(
-              starlarkTransition.getLocationForErrorReporting(),
-              String.format("transition function returned undeclared output '%s'", outputKey));
+          throw Starlark.errorf("transition function returned undeclared output '%s'", outputKey);
         }
       }
 
       if (!remainingOutputs.isEmpty()) {
-        throw new EvalException(
-            starlarkTransition.getLocationForErrorReporting(),
-            String.format(
-                "transition outputs [%s] were not defined by transition function",
-                Joiner.on(", ").join(remainingOutputs)));
+        throw Starlark.errorf(
+            "transition outputs [%s] were not defined by transition function",
+            Joiner.on(", ").join(remainingOutputs));
       }
     }
   }
@@ -208,11 +208,9 @@ public class FunctionTransitionUtil {
       }
 
       if (!remainingInputs.isEmpty()) {
-        throw new EvalException(
-            starlarkTransition.getLocationForErrorReporting(),
-            String.format(
-                "transition inputs [%s] do not correspond to valid settings",
-                Joiner.on(", ").join(remainingInputs)));
+        throw Starlark.errorf(
+            "transition inputs [%s] do not correspond to valid settings",
+            Joiner.on(", ").join(remainingInputs));
       }
 
       return dict;
@@ -240,18 +238,28 @@ public class FunctionTransitionUtil {
       StarlarkDefinedConfigTransition starlarkTransition)
       throws EvalException {
     BuildOptions buildOptions = buildOptionsToTransition.clone();
+    // The names and values of options that are different after this transition.
     HashMap<String, Object> convertedNewValues = new HashMap<>();
     for (Map.Entry<String, Object> entry : newValues.entrySet()) {
       String optionName = entry.getKey();
       Object optionValue = entry.getValue();
 
       if (!optionName.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
-        buildOptions =
-            BuildOptions.builder()
-                .merge(buildOptions)
-                .addStarlarkOption(Label.parseAbsoluteUnchecked(optionName), optionValue)
-                .build();
-        convertedNewValues.put(optionName, optionValue);
+        Object oldValue =
+            buildOptions.getStarlarkOptions().get(Label.parseAbsoluteUnchecked(optionName));
+        if ((oldValue == null && optionValue != null)
+            || (oldValue != null && optionValue == null)
+            || (oldValue != null && !oldValue.equals(optionValue))) {
+          // TODO(bazel-team): Figure out if we need to create a whole new build options every
+          // time. Can we just keep track of the running changes and actually build a new build
+          // options after this loop?
+          buildOptions =
+              BuildOptions.builder()
+                  .merge(buildOptions)
+                  .addStarlarkOption(Label.parseAbsoluteUnchecked(optionName), optionValue)
+                  .build();
+          convertedNewValues.put(optionName, optionValue);
+        }
       } else {
         optionName = optionName.substring(COMMAND_LINE_OPTION_PREFIX.length());
 
@@ -261,11 +269,8 @@ public class FunctionTransitionUtil {
         }
         try {
           if (!optionInfoMap.containsKey(optionName)) {
-            throw new EvalException(
-                starlarkTransition.getLocationForErrorReporting(),
-                String.format(
-                    "transition output '%s' does not correspond to a valid setting",
-                    entry.getKey()));
+            throw Starlark.errorf(
+                "transition output '%s' does not correspond to a valid setting", entry.getKey());
           }
 
           OptionInfo optionInfo = optionInfoMap.get(optionName);
@@ -301,23 +306,26 @@ public class FunctionTransitionUtil {
           } else if (optionValue instanceof String) {
             convertedValue = def.getConverter().convert((String) optionValue);
           } else {
-            throw new EvalException(
-                starlarkTransition.getLocationForErrorReporting(),
-                "Invalid value type for option '" + optionName + "'");
+            throw Starlark.errorf("Invalid value type for option '%s'", optionName);
           }
-          field.set(options, convertedValue);
-          convertedNewValues.put(entry.getKey(), convertedValue);
+
+          Object oldValue = field.get(options);
+          if ((oldValue == null && convertedValue != null)
+              || (oldValue != null && convertedValue == null)
+              || (oldValue != null && !oldValue.equals(convertedValue))) {
+            field.set(options, convertedValue);
+            convertedNewValues.put(entry.getKey(), convertedValue);
+          }
+
         } catch (IllegalArgumentException e) {
-          throw new EvalException(
-              starlarkTransition.getLocationForErrorReporting(),
-              "IllegalArgumentError for option '" + optionName + "': " + e.getMessage());
+          throw Starlark.errorf(
+              "IllegalArgumentError for option '%s': %s", optionName, e.getMessage());
         } catch (IllegalAccessException e) {
           throw new RuntimeException(
               "IllegalAccess for option " + optionName + ": " + e.getMessage());
         } catch (OptionsParsingException e) {
-          throw new EvalException(
-              starlarkTransition.getLocationForErrorReporting(),
-              "OptionsParsingError for option '" + optionName + "': " + e.getMessage());
+          throw Starlark.errorf(
+              "OptionsParsingError for option '%s': %s", optionName, e.getMessage());
         }
       }
     }
@@ -351,6 +359,11 @@ public class FunctionTransitionUtil {
   // makes it so that two configurations that are the same in value may hash differently.
   private static void updateOutputDirectoryNameFragment(
       Set<String> changedOptions, Map<String, OptionInfo> optionInfoMap, BuildOptions toOptions) {
+    // Return without doing anything if this transition hasn't changed any option values.
+    if (changedOptions.isEmpty()) {
+      return;
+    }
+
     CoreOptions buildConfigOptions = toOptions.get(CoreOptions.class);
     Set<String> updatedAffectedByStarlarkTransition =
         new TreeSet<>(buildConfigOptions.affectedByStarlarkTransition);
@@ -384,14 +397,25 @@ public class FunctionTransitionUtil {
 
     // hash all starlark options in map.
     toOptions.getStarlarkOptions().forEach((opt, value) -> toHash.put(opt.toString(), value));
-
-    Fingerprint fp = new Fingerprint();
+    ImmutableList.Builder<String> hashStrs = ImmutableList.builderWithExpectedSize(toHash.size());
     for (Map.Entry<String, Object> singleOptionAndValue : toHash.entrySet()) {
       String toAdd = singleOptionAndValue.getKey() + "=" + singleOptionAndValue.getValue();
-      fp.addString(toAdd);
+      hashStrs.add(toAdd);
     }
-    // Make this hash somewhat recognizable
-    buildConfigOptions.transitionDirectoryNameFragment = "ST-" + fp.hexDigestAndReset();
+    buildConfigOptions.transitionDirectoryNameFragment =
+        transitionDirectoryNameFragment(hashStrs.build());
+  }
+
+  public static String transitionDirectoryNameFragment(Iterable<String> opts) {
+    Fingerprint fp = new Fingerprint();
+    for (String opt : opts) {
+      fp.addString(opt);
+    }
+    // Shorten the hash to 48 bits. This should provide sufficient collision avoidance
+    // (that is, we don't expect anyone to experience a collision ever).
+    // Shortening the hash is important for Windows paths that tend to be short.
+    String suffix = fp.hexDigestAndReset().substring(0, HASH_LENGTH);
+    return "ST-" + suffix;
   }
 
   /** Stores option info useful to a FunctionSplitTransition. */

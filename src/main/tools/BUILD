@@ -58,6 +58,12 @@ cc_binary(
         "//src/conditions:windows": ["build-runfiles-windows.cc"],
         "//conditions:default": ["build-runfiles.cc"],
     }),
+    linkopts = select({
+        "//src/conditions:windows": [
+            "-DEFAULTLIB:advapi32.lib",  # RegGetValueW
+        ],
+        "//conditions:default": [],
+    }),
     deps = ["//src/main/cpp/util:filesystem"] + select({
         "//src/conditions:windows": ["//src/main/native/windows:lib-file"],
         "//conditions:default": [],
@@ -69,6 +75,8 @@ cc_binary(
     srcs = select({
         "//src/conditions:darwin": ["dummy-sandbox.c"],
         "//src/conditions:darwin_x86_64": ["dummy-sandbox.c"],
+        "//src/conditions:darwin_arm64": ["dummy-sandbox.c"],
+        "//src/conditions:darwin_arm64e": ["dummy-sandbox.c"],
         "//src/conditions:freebsd": ["dummy-sandbox.c"],
         "//src/conditions:openbsd": ["dummy-sandbox.c"],
         "//src/conditions:windows": ["dummy-sandbox.c"],
@@ -85,6 +93,8 @@ cc_binary(
     deps = select({
         "//src/conditions:darwin": [],
         "//src/conditions:darwin_x86_64": [],
+        "//src/conditions:darwin_arm64": [],
+        "//src/conditions:darwin_arm64e": [],
         "//src/conditions:freebsd": [],
         "//src/conditions:openbsd": [],
         "//src/conditions:windows": [],

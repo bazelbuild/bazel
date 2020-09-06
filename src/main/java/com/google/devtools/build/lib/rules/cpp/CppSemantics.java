@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
@@ -34,10 +35,15 @@ public interface CppSemantics {
   void finalizeCompileActionBuilder(
       BuildConfiguration configuration,
       FeatureConfiguration featureConfiguration,
-      CppCompileActionBuilder actionBuilder);
+      CppCompileActionBuilder actionBuilder,
+      RuleErrorConsumer ruleErrorConsumer);
 
   /** Determines the applicable mode of headers checking for the passed in ruleContext. */
   HeadersCheckingMode determineHeadersCheckingMode(RuleContext ruleContext);
+
+  /** Determines the applicable mode of headers checking in Starlark. */
+  HeadersCheckingMode determineStarlarkHeadersCheckingMode(
+      RuleContext ruleContex, CppConfiguration cppConfiguration, CcToolchainProvider toolchain);
 
   /** Returns the include processing closure, which handles include processing for this build */
   IncludeProcessing getIncludeProcessing();

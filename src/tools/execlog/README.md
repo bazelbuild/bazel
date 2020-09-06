@@ -4,7 +4,7 @@ This tool is used to inspect and parse the Bazel execution logs.
 To generate the execution log, run e.g.:
 
         bazel build \
-            --experimental_execution_log_file=/tmp/exec.log :hello_world
+            --execution_log_binary_file=/tmp/exec.log :hello_world
 
 Then build the parser and run it.
 

@@ -16,11 +16,11 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.skyframe.WorkspaceFileFunctionTest.FakeFileValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceFileFunctionTest.SkyKeyMatchers;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -32,6 +32,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -73,7 +74,7 @@ public class WorkspaceASTFunctionTest extends BuildViewTestCase {
         .thenReturn(fakeWorkspaceFileValue);
     Mockito.when(
             env.getValue(MockitoHamcrest.argThat(new SkyKeyMatchers(SkyFunctions.PRECOMPUTED))))
-        .thenReturn(new PrecomputedValue(Optional.<RootedPath>absent()));
+        .thenReturn(new PrecomputedValue(Optional.empty()));
     Mockito.when(
             env.getValue(
                 MockitoHamcrest.argThat(
@@ -175,5 +176,48 @@ public class WorkspaceASTFunctionTest extends BuildViewTestCase {
     assertThat(asts.get(0).getStatements()).hasSize(1);
     assertThat(asts.get(1).getStatements()).hasSize(3);
     assertThat(asts.get(2).getStatements()).hasSize(2);
+  }
+
+  private static class FakeFileValue extends FileValue {
+    private long size;
+
+    FakeFileValue() {
+      super();
+      size = 0L;
+    }
+
+    @Override
+    public RootedPath realRootedPath() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public FileStateValue realFileStateValue() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean exists() {
+      return true;
+    }
+
+    @Override
+    public boolean isFile() {
+      return true;
+    }
+
+    @Override
+    public ImmutableList<RootedPath> logicalChainDuringResolution() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public long getSize() {
+      return size;
+    }
+
+    void setSize(long size) {
+      this.size = size;
+    }
   }
 }

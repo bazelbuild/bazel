@@ -20,7 +20,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -76,6 +75,9 @@ import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
 import com.google.devtools.build.lib.runtime.BlazeWorkspace;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
@@ -93,6 +95,7 @@ import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.CommandUtils;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -105,10 +108,10 @@ import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.junit.After;
 import org.junit.Before;
@@ -142,7 +145,13 @@ public abstract class BuildIntegrationTestCase {
       if (getCause() != null && !getMessage().equals(getCause().getMessage())) {
         message += ": " + getCause().getMessage();
       }
-      return new ActionExecutionException(message, getCause(), action, true);
+      // The detailed code doesn't matter, but it should be well-formed.
+      DetailedExitCode code =
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setSpawn(Spawn.newBuilder().setCode(Code.NON_ZERO_EXIT))
+                  .build());
+      return new ActionExecutionException(message, getCause(), action, true, code);
     }
   }
 
@@ -294,6 +303,10 @@ public abstract class BuildIntegrationTestCase {
     AnalysisMock.get().setupMockClient(mockToolsConfig);
   }
 
+  protected FileSystem getFileSystem() {
+    return fileSystem;
+  }
+
   protected BlazeModule getBuildInfoModule() {
     return new BlazeModule() {
       @Override
@@ -336,7 +349,7 @@ public abstract class BuildIntegrationTestCase {
       public ImmutableList<Injected> getPrecomputedValues() {
         return ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.absent()));
+                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()));
       }
     };
   }
@@ -669,24 +682,15 @@ public abstract class BuildIntegrationTestCase {
   }
 
   /**
-   * Fork/exec/wait the specified command.  A utility method for subclasses.
-   */
-  protected String exec(String... argv) throws CommandException {
-    return new String(new Command(argv).execute().getStdout(), StandardCharsets.UTF_8);
-  }
-
-  /**
-   * Performs a local direct spawn execution given spawn information broken out
-   * into individual arguments. Directs standard out/err to {@code outErr}.
+   * Performs a local direct spawn execution given spawn information broken out into individual
+   * arguments. Directs standard out/err to {@code outErr}.
    *
    * @param workingDirectory the directory from which to execute the subprocess
-   * @param environment the environment map to provide to the subprocess. If
-   *        null, the environment is inherited from the parent process.
+   * @param environment the environment map to provide to the subprocess. If null, the environment
+   *     is inherited from the parent process.
    * @param argv the argument vector including the command itself
-   * @param outErr the out+err stream pair to receive stdout and stderr from the
-   *        subprocess
-   * @throws ExecException if any kind of abnormal termination or command
-   *         exception occurs
+   * @param outErr the out+err stream pair to receive stdout and stderr from the subprocess
+   * @throws ExecException if any kind of abnormal termination or command exception occurs
    */
   public static void execute(
       Path workingDirectory,
@@ -694,7 +698,7 @@ public abstract class BuildIntegrationTestCase {
       List<String> argv,
       FileOutErr outErr,
       boolean verboseFailures)
-      throws ExecException {
+      throws ExecException, InterruptedException {
     Command command =
         new CommandBuilder()
             .addArgs(argv)

@@ -40,8 +40,8 @@ import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
 import com.google.devtools.build.lib.rules.objc.AppleBinary.AppleBinaryOutput;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
-import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleCommonApi;
+import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleCommonApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
@@ -213,11 +213,11 @@ public class AppleStarlarkCommon
         resultBuilder.addProvidersFromStarlark(entry.getValue());
       } else if (entry.getKey().equals("direct_dep_providers")) {
         if (semantics.incompatibleObjcProviderRemoveCompileInfo()) {
-          throw new EvalException(null, BAD_DIRECT_DEP_PROVIDERS_ERROR);
+          throw new EvalException(BAD_DIRECT_DEP_PROVIDERS_ERROR);
         }
         resultBuilder.addDirectDepProvidersFromStarlark(entry.getValue());
       } else {
-        throw new EvalException(null, String.format(BAD_KEY_ERROR, entry.getKey()));
+        throw Starlark.errorf(BAD_KEY_ERROR, entry.getKey());
       }
     }
     return resultBuilder.build();
@@ -256,7 +256,7 @@ public class AppleStarlarkCommon
               Sequence.cast(extraLinkInputs, Artifact.class, "extra_link_inputs"));
       return createAppleBinaryOutputStarlarkStruct(appleBinaryOutput, thread);
     } catch (RuleErrorException | ActionConflictException exception) {
-      throw new EvalException(null, exception);
+      throw new EvalException(exception);
     }
   }
 
@@ -265,7 +265,7 @@ public class AppleStarlarkCommon
     try {
       return DottedVersion.fromString(version);
     } catch (DottedVersion.InvalidDottedVersionException e) {
-      throw new EvalException(null, e.getMessage());
+      throw new EvalException(e.getMessage());
     }
   }
 

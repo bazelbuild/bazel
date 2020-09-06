@@ -34,8 +34,8 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkbuildapi.RunfilesApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SymlinkEntryApi;
+import com.google.devtools.build.lib.starlarkbuildapi.RunfilesApi;
+import com.google.devtools.build.lib.starlarkbuildapi.SymlinkEntryApi;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -895,9 +895,7 @@ public final class Runfiles implements RunfilesApi {
      * Collects runfiles from data dependencies of a target.
      */
     public Builder addDataDeps(RuleContext ruleContext) {
-      addTargets(
-          getPrerequisites(ruleContext, "data", TransitionMode.DONT_CHECK),
-          RunfilesProvider.DATA_RUNFILES);
+      addTargets(getPrerequisites(ruleContext, "data"), RunfilesProvider.DATA_RUNFILES);
       return this;
     }
 
@@ -1022,8 +1020,7 @@ public final class Runfiles implements RunfilesApi {
           // dependent rules in srcs (except for filegroups and such), but always in deps.
           // TODO(bazel-team): DONT_CHECK is not optimal here. Rules that use split configs need to
           // be changed not to call into here.
-          getPrerequisites(ruleContext, "srcs", TransitionMode.DONT_CHECK),
-          getPrerequisites(ruleContext, "deps", TransitionMode.DONT_CHECK));
+          getPrerequisites(ruleContext, "srcs"), getPrerequisites(ruleContext, "deps"));
     }
 
     /**
@@ -1034,9 +1031,9 @@ public final class Runfiles implements RunfilesApi {
      * <p>If the rule does not have the specified attribute, returns the empty list.
      */
     private static Iterable<? extends TransitiveInfoCollection> getPrerequisites(
-        RuleContext ruleContext, String attributeName, TransitionMode mode) {
+        RuleContext ruleContext, String attributeName) {
       if (ruleContext.getRule().isAttrDefined(attributeName, BuildType.LABEL_LIST)) {
-        return ruleContext.getPrerequisites(attributeName, mode);
+        return ruleContext.getPrerequisites(attributeName);
       } else {
         return Collections.emptyList();
       }

@@ -47,7 +47,8 @@ public final class Resolver extends NodeVisitor {
   // TODO(adonovan): use "keyword" (not "named") and "required" (not "mandatory") terminology
   // everywhere, including the spec.
 
-  enum Scope {
+  /** Scope discriminates the scope of a binding: global, local, etc. */
+  public enum Scope {
     // TODO(adonovan): Add UNIVERSAL, FREE, CELL.
     // (PREDECLARED vs UNIVERSAL allows us to represent the app-dependent and fixed parts of the
     // predeclared environment separately, reducing the amount of copying.)
@@ -65,18 +66,25 @@ public final class Resolver extends NodeVisitor {
     }
   }
 
-  // A Binding is a static abstraction of a variable.
-  // The Resolver maps each Identifier to a Binding.
-  static final class Binding {
+  /**
+   * A Binding is a static abstraction of a variable. The Resolver maps each Identifier to a
+   * Binding.
+   */
+  public static final class Binding {
 
-    final Scope scope;
-    @Nullable final Identifier first; // first binding use, if syntactic
-    final int index; // within its block (currently unused)
+    private final Scope scope;
+    @Nullable private final Identifier first; // first binding use, if syntactic
+    private final int index; // within its block (currently unused)
 
     private Binding(Scope scope, @Nullable Identifier first, int index) {
       this.scope = scope;
       this.first = first;
       this.index = index;
+    }
+
+    /** Returns the scope of the binding. */
+    public Scope getScope() {
+      return scope;
     }
 
     @Override
@@ -88,31 +96,18 @@ public final class Resolver extends NodeVisitor {
     }
   }
 
-  /** A Function records information about a resolved function. */
-  static final class Function {
+  /** A Resolver.Function records information about a resolved function. */
+  public static final class Function {
 
-    // This class is exposed to Eval in the evaluator build target
-    // (which is the same Java package, at least for now).
-    // Once we switch to bytecode, it will be exposed only to the compiler.
-
-    // The params and parameterNames fields use "run-time order":
-    // non-kwonly, keyword-only, *args, **kwargs.
-    // A bare * parameter is dropped.
-
-    final String name;
-    final Location location; // of identifier
-    final ImmutableList<Parameter> params; // order defined above
-    final ImmutableList<Statement> body;
-    final boolean hasVarargs;
-    final boolean hasKwargs;
-    final int numKeywordOnlyParams;
-    final ImmutableList<String> parameterNames; // order defined above
-
-    // isToplevel indicates that this is the <toplevel> function containing
-    // top-level statements of a file. It causes assignments to unresolved
-    // identifiers to update the module, not the lexical frame.
-    // TODO(adonovan): remove this hack when identifier resolution is accurate.
-    final boolean isToplevel;
+    private final String name;
+    private final Location location;
+    private final ImmutableList<Parameter> params;
+    private final ImmutableList<Statement> body;
+    private final boolean hasVarargs;
+    private final boolean hasKwargs;
+    private final int numKeywordOnlyParams;
+    private final ImmutableList<String> parameterNames;
+    private final boolean isToplevel;
 
     private Function(
         String name,
@@ -137,6 +132,71 @@ public final class Resolver extends NodeVisitor {
       this.parameterNames = names.build();
 
       this.isToplevel = name.equals("<toplevel>");
+    }
+
+    /**
+     * Returns the name of the function. It may be "<toplevel>" for the implicit function that holds
+     * the top-level statements of a file, or "<expr>" for the implicit function that evaluates a
+     * single expression.
+     */
+    public String getName() {
+      return name;
+    }
+
+    /** Returns the location of the function's identifier. */
+    public Location getLocation() {
+      return location;
+    }
+
+    /**
+     * Returns the function's parameters, in "run-time order": non-keyword-only parameters,
+     * keyword-only parameters, {@code *args}, and finally {@code **kwargs}. A bare {@code *}
+     * parameter is dropped.
+     */
+    public ImmutableList<Parameter> getParameters() {
+      return params;
+    }
+
+    /**
+     * Returns the effective statements of the function's body. (For the implicit function created
+     * to evaluate a single standalone expression, this may contain a synthesized Return statement.)
+     */
+    // TODO(adonovan): eliminate when we switch to compiler.
+    public ImmutableList<Statement> getBody() {
+      return body;
+    }
+
+    /** Reports whether the function has an {@code *args} parameter. */
+    public boolean hasVarargs() {
+      return hasVarargs;
+    }
+
+    /** Reports whether the function has a {@code **kwargs} parameter. */
+    public boolean hasKwargs() {
+      return hasKwargs;
+    }
+
+    /**
+     * Returns the number of the function's keyword-only parameters, such as {@code c} in {@code def
+     * f(a, *b, c, **d)} or {@code def f(a, *, c, **d)}.
+     */
+    public int numKeywordOnlyParams() {
+      return numKeywordOnlyParams;
+    }
+
+    /** Returns the names of the parameters. Order is as for {@link #getParameters}. */
+    public ImmutableList<String> getParameterNames() {
+      return parameterNames;
+    }
+
+    /**
+     * isToplevel indicates that this is the <toplevel> function containing top-level statements of
+     * a file. It causes assignments to unresolved identifiers to update the module, not the lexical
+     * frame.
+     */
+    // TODO(adonovan): remove this hack when identifier resolution is accurate.
+    public boolean isToplevel() {
+      return isToplevel;
     }
   }
 
@@ -163,7 +223,9 @@ public final class Resolver extends NodeVisitor {
      * file.
      */
     @Nullable
-    String getUndeclaredNameError(String name);
+    default String getUndeclaredNameError(String name) {
+      return null;
+    }
   }
 
   private static class Block {
@@ -298,6 +360,7 @@ public final class Resolver extends NodeVisitor {
         assign(elem);
       }
     } else {
+      // TODO(adonovan): support x.f = y.
       errorf(lhs, "cannot assign to '%s'", lhs);
     }
   }
@@ -431,18 +494,29 @@ public final class Resolver extends NodeVisitor {
 
   @Override
   public void visit(Comprehension node) {
+    ImmutableList<Comprehension.Clause> clauses = node.getClauses();
+
+    // Following Python3, the first for clause is resolved
+    // outside the comprehension block. All the other loops
+    // are resolved in the scope of their own bindings,
+    // permitting forward references.
+    Comprehension.For for0 = (Comprehension.For) clauses.get(0);
+    visit(for0.getIterable());
+
     openBlock(Scope.LOCAL);
-    for (Comprehension.Clause clause : node.getClauses()) {
+    for (Comprehension.Clause clause : clauses) {
       if (clause instanceof Comprehension.For) {
         Comprehension.For forClause = (Comprehension.For) clause;
         createBindings(forClause.getVars());
       }
     }
-    // TODO(adonovan): opt: combine loops
-    for (Comprehension.Clause clause : node.getClauses()) {
+    for (int i = 0; i < clauses.size(); i++) {
+      Comprehension.Clause clause = clauses.get(i);
       if (clause instanceof Comprehension.For) {
         Comprehension.For forClause = (Comprehension.For) clause;
-        visit(forClause.getIterable());
+        if (i > 0) {
+          visit(forClause.getIterable());
+        }
         assign(forClause.getVars());
       } else {
         Comprehension.If ifClause = (Comprehension.If) clause;
@@ -458,12 +532,12 @@ public final class Resolver extends NodeVisitor {
     if (block.scope == Scope.LOCAL) {
       errorf(node, "nested functions are not allowed. Move the function to the top level.");
     }
-    node.resolved =
+    node.setResolvedFunction(
         resolveFunction(
             node.getIdentifier().getName(),
             node.getIdentifier().getStartLocation(),
             node.getParameters(),
-            node.getBody());
+            node.getBody()));
   }
 
   private Function resolveFunction(
@@ -714,7 +788,7 @@ public final class Resolver extends NodeVisitor {
     }
 
     // Annotate with resolved information about the toplevel function.
-    file.resolved =
+    file.setResolvedFunction(
         new Function(
             "<toplevel>",
             file.getStartLocation(),
@@ -722,14 +796,15 @@ public final class Resolver extends NodeVisitor {
             /*body=*/ stmts,
             /*hasVarargs=*/ false,
             /*hasKwargs=*/ false,
-            /*numKeywordOnlyParams=*/ 0);
+            /*numKeywordOnlyParams=*/ 0));
   }
 
   /**
    * Performs static checks, including resolution of identifiers in {@code expr} in the environment
-   * defined by {@code module}. This operation mutates the Expression.
+   * defined by {@code module}. This operation mutates the Expression. Syntax must be resolved
+   * before it is evaluated.
    */
-  static Function resolveExpr(Expression expr, Module module, FileOptions options)
+  public static Function resolveExpr(Expression expr, Module module, FileOptions options)
       throws SyntaxError.Exception {
     List<SyntaxError> errors = new ArrayList<>();
     Resolver r = new Resolver(errors, module, options);

@@ -33,14 +33,14 @@ import org.junit.runners.JUnit4;
 
 /**
  * Test for exec groups. Functionality related to rule context tested in {@link
- * com.google.devtools.build.lib.skylark.StarlarkRuleContextTest}.
+ * com.google.devtools.build.lib.starlark.StarlarkRuleContextTest}.
  */
 @RunWith(JUnit4.class)
 public class StarlarkExecGroupTest extends BuildViewTestCase {
 
   @Before
   public final void setUp() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_exec_groups");
+    setBuildLanguageOptions("--experimental_exec_groups");
   }
 
   /**

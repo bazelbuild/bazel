@@ -844,7 +844,7 @@ public final class Digraph<T> implements Cloneable {
    * connected component with this one, then send a passed-in {@link Digraph.NodeSetReceiver} this
    * component.
    */
-  private class SccVisitor<T2> {
+  private static class SccVisitor<T2> {
     // Nodes already assigned to a strongly connected component.
     private final Set<Node<T2>> assigned = new HashSet<>();
 

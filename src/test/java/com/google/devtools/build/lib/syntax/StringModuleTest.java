@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -23,10 +22,12 @@ import org.junit.runners.JUnit4;
 // 1) --incompatible_string_replace_count has been flipped (#11244) and deleted, or 2) the
 // standalone Starlark interpreter and tests gain the ability to run with semantics flags.
 @RunWith(JUnit4.class)
-public class StringModuleTest extends EvaluationTestCase {
+public class StringModuleTest {
 
-  private void runReplaceTest(String flag) throws Exception {
-    new Scenario(flag)
+  private final EvaluationTestCase ev = new EvaluationTestCase();
+
+  private void runReplaceTest(StarlarkSemantics semantics) throws Exception {
+    ev.new Scenario(semantics)
         .testEval("'banana'.replace('a', 'o')", "'bonono'")
         .testEval("'banana'.replace('a', 'o', 2)", "'bonona'")
         .testEval("'banana'.replace('a', 'o', 0)", "'banana'")
@@ -46,20 +47,20 @@ public class StringModuleTest extends EvaluationTestCase {
 
   @Test
   public void testReplaceWithAndWithoutFlag() throws Exception {
-    runReplaceTest("--incompatible_string_replace_count=false");
-    runReplaceTest("--incompatible_string_replace_count=true");
+    runReplaceTest(replaceCount(false));
+    runReplaceTest(replaceCount(true));
   }
 
   @Test
   public void testReplaceIncompatibleFlag() throws Exception {
     // Test the scenario that changes with the incompatible flag
-    new Scenario("--incompatible_string_replace_count=false")
+    ev.new Scenario(replaceCount(false))
         .testEval("'banana'.replace('a', 'o', -2)", "'banana'")
         .testEval("'banana'.replace('a', 'e', -1)", "'banana'")
         .testEval("'banana'.replace('a', 'e', -10)", "'banana'")
         .testEval("'banana'.replace('', '-', -2)", "'banana'");
 
-    new Scenario("--incompatible_string_replace_count=true")
+    ev.new Scenario(replaceCount(true))
         .testEval("'banana'.replace('a', 'o', -2)", "'bonono'")
         .testEval("'banana'.replace('a', 'e', -1)", "'benene'")
         .testEval("'banana'.replace('a', 'e', -10)", "'benene'")
@@ -69,9 +70,13 @@ public class StringModuleTest extends EvaluationTestCase {
   @Test
   public void testReplaceNoneCount() throws Exception {
     // Passing None as the max number of replacements is disallowed with the incompatible flag.
-    new Scenario("--incompatible_string_replace_count=false")
-        .testEval("'banana'.replace('a', 'e', None)", "'benene'");
-    new Scenario("--incompatible_string_replace_count=true")
+    ev.new Scenario(replaceCount(false)).testEval("'banana'.replace('a', 'e', None)", "'benene'");
+    ev.new Scenario(replaceCount(true))
         .testIfErrorContains("Cannot pass a None count", "'banana'.replace('a', 'e', None)");
+  }
+
+  // Returns semantics for --incompatible_string_replace_count=x.
+  private static final StarlarkSemantics replaceCount(boolean x) {
+    return StarlarkSemantics.DEFAULT.toBuilder().incompatibleStringReplaceCount(x).build();
   }
 }

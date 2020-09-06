@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
-import com.google.devtools.build.lib.skylarkbuildapi.StarlarkBuildApiGlobals;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkBuildApiGlobals;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -38,7 +38,7 @@ public class BazelBuildApiGlobals implements StarlarkBuildApiGlobals {
       return StarlarkLateBoundDefault.forConfigurationField(
           fragmentClass, name, bazelContext.getToolsRepository());
     } catch (StarlarkLateBoundDefault.InvalidConfigurationFieldException exception) {
-      throw new EvalException(null, exception);
+      throw new EvalException(exception);
     }
   }
 }

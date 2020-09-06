@@ -28,7 +28,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
-/** Options shared between blaze query and blaze cquery. */
+/** Options shared between blaze query implementations. */
 public class CommonQueryOptions extends OptionsBase {
 
   @Option(
@@ -48,6 +48,22 @@ public class CommonQueryOptions extends OptionsBase {
               + " build to break if targets parsed from the query expression are not buildable"
               + " with top-level options.")
   public List<String> universeScope;
+
+  @Option(
+      name = "infer_universe_scope",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "If set and --universe_scope is unset, then a value of --universe_scope will be inferred"
+              + " as the list of unique target patterns in the query expression. Note that the"
+              + " --universe_scope value inferred for a query expression that uses universe-scoped"
+              + " functions (e.g.`allrdeps`) may not be what you want, so you should use this"
+              + " option only if you know what you are doing. See"
+              + " https://docs.bazel.build/versions/master/query.html#sky-query for details and"
+              + " examples. If --universe_scope is set, then this option's value is ignored. Note:"
+              + " this option applies only to `query` (i.e. not `cquery`).")
+  public boolean inferUniverseScope;
 
   @Option(
       name = "tool_deps",
@@ -92,6 +108,16 @@ public class CommonQueryOptions extends OptionsBase {
               + "all the \"nodep\" attributes in the build language.")
   public boolean includeNoDepDeps;
 
+  @Option(
+      name = "include_aspects",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "aquery, cquery: whether to include aspect-generated actions in the output. "
+              + "query: no-op (aspects are always followed).")
+  public boolean useAspects;
+
   /** Return the current options as a set of QueryEnvironment settings. */
   public Set<Setting> toSettings() {
     Set<Setting> settings = EnumSet.noneOf(Setting.class);
@@ -103,6 +129,9 @@ public class CommonQueryOptions extends OptionsBase {
     }
     if (!includeNoDepDeps) {
       settings.add(Setting.NO_NODEP_DEPS);
+    }
+    if (useAspects) {
+      settings.add(Setting.INCLUDE_ASPECTS);
     }
     return settings;
   }
@@ -179,6 +208,16 @@ public class CommonQueryOptions extends OptionsBase {
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help = "Whether or not to calculate and populate the $internal_attr_hash attribute.")
   public boolean protoIncludeSyntheticAttributeHash;
+
+  @Option(
+      name = "proto:instantiation_stack",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Populate the instantiation call stack of each rule. "
+              + "Note that this requires the stack to be present")
+  public boolean protoIncludeInstantiationStack;
 
   /** An enum converter for {@code AspectResolver.Mode} . Should be used internally only. */
   public static class AspectResolutionModeConverter extends EnumConverter<Mode> {

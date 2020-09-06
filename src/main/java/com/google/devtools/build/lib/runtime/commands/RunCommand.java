@@ -379,6 +379,12 @@ public class RunCommand implements BlazeCommand  {
       } catch (RunfilesException e) {
         env.getReporter().handle(Event.error(e.getMessage()));
         return BlazeCommandResult.failureDetail(e.createFailureDetail());
+      } catch (InterruptedException e) {
+        env.getReporter().handle(Event.error("Interrupted"));
+        return BlazeCommandResult.failureDetail(
+            FailureDetail.newBuilder()
+                .setInterrupted(Interrupted.newBuilder().setCode(Interrupted.Code.RUN_COMMAND))
+                .build());
       }
     }
 
@@ -430,12 +436,17 @@ public class RunCommand implements BlazeCommand  {
       workingDir = env.getExecRoot();
 
       try {
-        testAction.prepare(env.getExecRoot());
+        testAction.prepare(env.getExecRoot(), /* bulkDeleter= */ null);
       } catch (IOException e) {
         return reportAndCreateFailureResult(
             env,
             "Error while setting up test: " + e.getMessage(),
             Code.TEST_ENVIRONMENT_SETUP_FAILURE);
+      } catch (InterruptedException e) {
+        return reportAndCreateFailureResult(
+            env,
+            "Error while setting up test: " + e.getMessage(),
+            Code.TEST_ENVIRONMENT_SETUP_INTERRUPTED);
       }
 
       try {
@@ -573,7 +584,7 @@ public class RunCommand implements BlazeCommand  {
    */
   private static Path ensureRunfilesBuilt(
       CommandEnvironment env, RunfilesSupport runfilesSupport, BuildConfiguration configuration)
-      throws RunfilesException {
+      throws RunfilesException, InterruptedException {
     Artifact manifest = Preconditions.checkNotNull(runfilesSupport.getRunfilesManifest());
     PathFragment runfilesDir = runfilesSupport.getRunfilesDirectoryExecPath();
     Path workingDir = env.getExecRoot().getRelative(runfilesDir);

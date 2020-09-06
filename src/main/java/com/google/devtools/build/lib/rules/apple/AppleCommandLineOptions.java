@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleBitcodeModeApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleBitcodeModeApi;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.EnumConverter;
@@ -38,6 +38,7 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 /** Command-line options for building for Apple platforms. */
 public class AppleCommandLineOptions extends FragmentOptions {
@@ -188,6 +189,9 @@ public class AppleCommandLineOptions extends FragmentOptions {
   /** The default macOS CPU value. */
   public static final String DEFAULT_MACOS_CPU = "x86_64";
 
+  /** The default Catalyst CPU value. */
+  public static final String DEFAULT_CATALYST_CPU = "x86_64";
+
   @Option(
     name = "ios_cpu",
     defaultValue = DEFAULT_IOS_CPU,
@@ -319,6 +323,16 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public List<String> macosCpus;
 
   @Option(
+      name = "catalyst_cpus",
+      allowMultiple = true,
+      converter = CommaSeparatedOptionListConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
+      help = "Comma-separated list of architectures for which to build Apple Catalyst binaries.")
+  public List<String> catalystCpus;
+
+  @Option(
     name = "default_ios_provisioning_profile",
     defaultValue = "",
     documentationCategory = OptionDocumentationCategory.SIGNING,
@@ -355,23 +369,27 @@ public class AppleCommandLineOptions extends FragmentOptions {
   }
 
   @Option(
-    name = "apple_bitcode",
-    converter = AppleBitcodeMode.Converter.class,
-    // TODO(blaze-team): Default to embedded_markers when fully implemented.
-    defaultValue = "none",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-    help =
-        "Specify the Apple bitcode mode for compile steps. "
-            + "Values: 'none', 'embedded_markers', 'embedded'."
-  )
-  public AppleBitcodeMode appleBitcodeMode;
-  
+      name = "apple_bitcode",
+      allowMultiple = true,
+      converter = AppleBitcodeConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "Specify the Apple bitcode mode for compile steps targeting device architectures. Values"
+              + " are of the form '[platform=]mode', where the platform (which must be 'ios',"
+              + " 'macos', 'tvos', or 'watchos') is optional. If provided, the bitcode mode is"
+              + " applied for that platform specifically; if omitted, it is applied for all"
+              + " platforms. The mode must be 'none', 'embedded_markers', or 'embedded'. This"
+              + " option may be provided multiple times.")
+  public List<Map.Entry<ApplePlatform.PlatformType, AppleBitcodeMode>> appleBitcodeMode;
+
   /** Returns whether the minimum OS version is explicitly set for the current platform. */
   public DottedVersion getMinimumOsVersion() {
     DottedVersion.Option option;
     switch (applePlatformType) {
       case IOS:
+      case CATALYST:
         option = iosMinimumOs;
         break;
       case MACOS:

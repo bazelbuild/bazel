@@ -19,16 +19,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringSequenceBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
@@ -140,7 +138,6 @@ public enum CompileBuildVariables {
       Iterable<String> userCompileFlags,
       CppModuleMap cppModuleMap,
       boolean usePic,
-      PathFragment fakeOutputFile,
       String fdoStamp,
       String dotdFileExecPath,
       ImmutableList<VariablesExtension> variablesExtensions,
@@ -156,7 +153,7 @@ public enum CompileBuildVariables {
       if (usePic
           && !featureConfiguration.isEnabled(CppRuleClasses.PIC)
           && !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC)) {
-        throw new EvalException(Location.BUILTIN, CcCommon.PIC_CONFIGURATION_ERROR);
+        throw new EvalException(CcCommon.PIC_CONFIGURATION_ERROR);
       }
       return setupVariables(
           featureConfiguration,
@@ -174,7 +171,6 @@ public enum CompileBuildVariables {
           userCompileFlags,
           cppModuleMap,
           usePic,
-          toPathString(fakeOutputFile),
           fdoStamp,
           dotdFileExecPath,
           variablesExtensions,
@@ -210,7 +206,6 @@ public enum CompileBuildVariables {
       Iterable<String> userCompileFlags,
       CppModuleMap cppModuleMap,
       boolean usePic,
-      String fakeOutputFile,
       String fdoStamp,
       String dotdFileExecPath,
       ImmutableList<VariablesExtension> variablesExtensions,
@@ -226,7 +221,7 @@ public enum CompileBuildVariables {
     if (usePic
         && !featureConfiguration.isEnabled(CppRuleClasses.PIC)
         && !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC)) {
-      throw new EvalException(Location.BUILTIN, CcCommon.PIC_CONFIGURATION_ERROR);
+      throw new EvalException(CcCommon.PIC_CONFIGURATION_ERROR);
     }
     return setupVariables(
         featureConfiguration,
@@ -244,7 +239,6 @@ public enum CompileBuildVariables {
         userCompileFlags,
         cppModuleMap,
         usePic,
-        fakeOutputFile,
         fdoStamp,
         dotdFileExecPath,
         variablesExtensions,
@@ -274,7 +268,6 @@ public enum CompileBuildVariables {
       Iterable<String> userCompileFlags,
       CppModuleMap cppModuleMap,
       boolean usePic,
-      String fakeOutputFile,
       String fdoStamp,
       String dotdFileExecPath,
       ImmutableList<VariablesExtension> variablesExtensions,
@@ -314,7 +307,6 @@ public enum CompileBuildVariables {
         thinLtoInputBitcodeFile,
         thinLtoOutputObjectFile,
         userCompileFlags,
-        fakeOutputFile,
         dotdFileExecPath,
         usePic,
         ImmutableMap.of());
@@ -333,7 +325,6 @@ public enum CompileBuildVariables {
       String thinLtoInputBitcodeFile,
       String thinLtoOutputObjectFile,
       Iterable<String> userCompileFlags,
-      String fakeOutputFile,
       String dotdFileExecPath,
       boolean usePic,
       Map<String, String> additionalBuildVariables) {
@@ -344,11 +335,8 @@ public enum CompileBuildVariables {
       buildVariables.addStringVariable(SOURCE_FILE.getVariableName(), sourceFile);
     }
 
-    String fakeOutputFileOrRealOutputFile = fakeOutputFile != null ? fakeOutputFile : outputFile;
-
     if (outputFile != null) {
-      buildVariables.addStringVariable(
-          OUTPUT_FILE.getVariableName(), fakeOutputFileOrRealOutputFile);
+      buildVariables.addStringVariable(OUTPUT_FILE.getVariableName(), outputFile);
     }
 
     // Set dependency_file to enable <object>.d file generation.
@@ -452,11 +440,9 @@ public enum CompileBuildVariables {
       buildVariables.addStringVariable(MODULE_NAME.getVariableName(), cppModuleMap.getName());
       buildVariables.addStringVariable(
           MODULE_MAP_FILE.getVariableName(), cppModuleMap.getArtifact().getExecPathString());
-      StringSequenceBuilder sequence = new StringSequenceBuilder();
-      for (Artifact artifact : directModuleMaps) {
-        sequence.addValue(artifact.getExecPathString());
-      }
-      buildVariables.addCustomBuiltVariable(DEPENDENT_MODULE_MAP_FILES.getVariableName(), sequence);
+      buildVariables.addStringSequenceVariable(
+          DEPENDENT_MODULE_MAP_FILES.getVariableName(),
+          Iterables.transform(directModuleMaps, Artifact::getExecPathString));
     }
     if (featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)) {
       // Module inputs will be set later when the action is executed.
@@ -511,10 +497,6 @@ public enum CompileBuildVariables {
     return NestedSetBuilder.wrap(
         Order.STABLE_ORDER,
         Iterables.transform(ImmutableSet.copyOf(paths), PathFragment::getSafePathString));
-  }
-
-  private static String toPathString(PathFragment a) {
-    return a == null ? null : a.getSafePathString();
   }
 
   public String getVariableName() {

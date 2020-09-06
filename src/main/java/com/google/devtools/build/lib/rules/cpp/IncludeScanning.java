@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -143,12 +144,16 @@ public class IncludeScanning implements IncludeProcessing {
           continue;
         }
         throw new UserExecException(
-            "illegal absolute path to include file: "
-                + actionExecutionContext.getInputPath(included));
+            createFailureDetail(
+                "illegal absolute path to include file: "
+                    + actionExecutionContext.getInputPath(included),
+                Code.ILLEGAL_ABSOLUTE_PATH));
       }
       if (included.hasParent() && included.getParent().isTreeArtifact()) {
         // Note that this means every file in the TreeArtifact becomes an input to the action, and
         // we have spurious rebuilds if non-included files change.
+        Preconditions.checkArgument(
+            included instanceof TreeFileArtifact, "Not a TreeFileArtifact: %s", included);
         inputs.add(included.getParent());
       } else {
         inputs.add(included);

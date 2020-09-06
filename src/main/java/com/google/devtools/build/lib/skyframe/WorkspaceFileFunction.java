@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
@@ -26,7 +28,6 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.WorkspaceFactory;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
-import com.google.devtools.build.lib.skyframe.PackageFunction.BzlLoadResult;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
@@ -80,20 +81,16 @@ public class WorkspaceFileFunction implements SkyFunction {
             workspaceFile, ruleClassProvider.getRunfilesPrefix(), starlarkSemantics);
 
     if (workspaceASTValue.getASTs().isEmpty()) {
-      try {
-        return new WorkspaceFileValue(
-            /* pkg = */ builder.build(),
-            /* loadedModules = */ ImmutableMap.<String, Module>of(),
-            /* loadToChunkMap = */ ImmutableMap.<String, Integer>of(),
-            /* bindings = */ ImmutableMap.<String, Object>of(),
-            workspaceFile,
-            /* idx = */ 0, // first fragment
-            /* hasNext = */ false,
-            ImmutableMap.of(),
-            ImmutableSortedSet.of());
-      } catch (NoSuchPackageException e) {
-        throw new WorkspaceFileFunctionException(e, Transience.TRANSIENT);
-      }
+      return new WorkspaceFileValue(
+          buildAndReportEvents(builder, env),
+          /* loadedModules = */ ImmutableMap.<String, Module>of(),
+          /* loadToChunkMap = */ ImmutableMap.<String, Integer>of(),
+          /* bindings = */ ImmutableMap.<String, Object>of(),
+          workspaceFile,
+          /* idx = */ 0, // first fragment
+          /* hasNext = */ false,
+          ImmutableMap.of(),
+          ImmutableSortedSet.of());
     }
     WorkspaceFactory parser;
     WorkspaceFileValue prevValue = null;
@@ -123,39 +120,53 @@ public class WorkspaceFileFunction implements SkyFunction {
             prevValue.getPackage(), prevValue.getLoadedModules(), prevValue.getBindings());
       }
       StarlarkFile ast = workspaceASTValue.getASTs().get(key.getIndex());
-      BzlLoadResult loadResult =
+      PackageFunction.BzlLoadResult bzlLoadResult =
           PackageFunction.fetchLoadsFromBuildFile(
               workspaceFile,
               rootPackage,
               /*repoMapping=*/ ImmutableMap.of(),
               ast,
+              /*preludeLabel=*/ null,
               key.getIndex(),
               env,
               bzlLoadFunctionForInlining);
-      if (loadResult == null) {
+      if (bzlLoadResult == null) {
         return null;
       }
-      parser.execute(ast, loadResult.loadedModules, key);
+      parser.execute(ast, bzlLoadResult.loadedModules, key);
     } catch (NoSuchPackageException e) {
       throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
     } catch (NameConflictException e) {
       throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
     }
 
+    return new WorkspaceFileValue(
+        buildAndReportEvents(builder, env),
+        parser.getLoadedModules(),
+        createLoadToChunkMap(prevValue, parser, key),
+        parser.getVariableBindings(),
+        workspaceFile,
+        key.getIndex(),
+        key.getIndex() < workspaceASTValue.getASTs().size() - 1,
+        ImmutableMap.copyOf(parser.getManagedDirectories()),
+        parser.getDoNotSymlinkInExecrootPaths());
+  }
+
+  private static Package buildAndReportEvents(Package.Builder pkgBuilder, Environment env)
+      throws WorkspaceFileFunctionException {
+    Package result;
     try {
-      return new WorkspaceFileValue(
-          builder.build(),
-          parser.getLoadedModules(),
-          createLoadToChunkMap(prevValue, parser, key),
-          parser.getVariableBindings(),
-          workspaceFile,
-          key.getIndex(),
-          key.getIndex() < workspaceASTValue.getASTs().size() - 1,
-          ImmutableMap.copyOf(parser.getManagedDirectories()),
-          parser.getDoNotSymlinkInExecrootPaths());
+      result = pkgBuilder.build();
     } catch (NoSuchPackageException e) {
       throw new WorkspaceFileFunctionException(e, Transience.TRANSIENT);
     }
+
+    Event.replayEventsOn(env.getListener(), pkgBuilder.getEvents());
+    for (Postable postable : pkgBuilder.getPosts()) {
+      env.getListener().post(postable);
+    }
+
+    return result;
   }
 
   /**

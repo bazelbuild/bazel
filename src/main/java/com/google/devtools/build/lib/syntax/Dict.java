@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import static java.lang.Math.max;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import java.util.Collection;
@@ -48,7 +50,7 @@ import net.starlark.java.annot.StarlarkMethod;
             + " by calling certain methods. Dictionaries are iterable; iteration yields the"
             + " sequence of keys in insertion order. Iteration order is unaffected by updating the"
             + " value associated with an existing key, but is affected by removing then"
-            + " reinserting a key.</p>\n"
+            + " reinserting a key.\n"
             + "<pre>d = {0: 0, 2: 2, 1: 1}\n"
             + "[k for k in d]  # [0, 2, 1]\n"
             + "d.pop(2)\n"
@@ -56,16 +58,16 @@ import net.starlark.java.annot.StarlarkMethod;
             + "0 in d, \"a\" in d  # (True, False)\n"
             + "[(k, v) for k, v in d.items()]  # [(0, \"a\"), (1, 1), (2, \"b\")]\n"
             + "</pre>\n"
-            + "<p>There are three ways to construct a dictionary:</p>\n"
+            + "<p>There are three ways to construct a dictionary:\n"
             + "<ol>\n"
             + "<li>A dictionary expression <code>{k: v, ...}</code> yields a new dictionary with"
             + " the specified key/value entries, inserted in the order they appear in the"
             + " expression. Evaluation fails if any two key expressions yield the same"
-            + " value.</p>\n"
+            + " value.\n"
             + "<li>A dictionary comprehension <code>{k: v for vars in seq}</code> yields a new"
             + " dictionary into which each key/value pair is inserted in loop iteration order."
             + " Duplicates are permitted: the first insertion of a given key determines its"
-            + " position in the sequence, and the last determines its associated value.</p>\n"
+            + " position in the sequence, and the last determines its associated value.\n"
             + "<pre class=\"language-python\">\n"
             + "{k: v for k, v in ((\"a\", 0), (\"b\", 1), (\"a\", 2))}  # {\"a\": 2, \"b\": 1}\n"
             + "{i: 2*i for i in range(3)}  # {0: 0, 1: 2, 2: 4}\n"
@@ -102,6 +104,10 @@ public final class Dict<K, V>
 
   private Dict(@Nullable Mutability mutability) {
     this(mutability, new LinkedHashMap<>());
+  }
+
+  private Dict(@Nullable Mutability mutability, int initialCapacity) {
+    this(mutability, new LinkedHashMap<>(initialCapacity));
   }
 
   /**
@@ -375,23 +381,20 @@ public final class Dict<K, V>
   }
 
   /** Returns a new dict with the specified mutability containing the entries of {@code m}. */
+  @SuppressWarnings("unchecked")
   public static <K, V> Dict<K, V> copyOf(@Nullable Mutability mu, Map<? extends K, ? extends V> m) {
-    return new Dict<K, V>(mu).putAllUnsafe(m);
+    // TODO(laurentlb): Move this method out of this file and rename it. It should go with
+    // Starlark.fromJava; its main purpose is to convert a Java value to Starlark.
+    Dict<K, V> dict = new Dict<>(mu);
+    for (Map.Entry<?, ?> e : m.entrySet()) {
+      dict.contents.put((K) e.getKey(), (V) Starlark.fromJava(e.getValue(), mu));
+    }
+    return dict;
   }
 
   /** Puts the given entry into the dict, without calling {@link #checkMutable}. */
   private Dict<K, V> putUnsafe(K k, V v) {
     contents.put(k, v);
-    return this;
-  }
-
-  /** Puts all entries of the given map into the dict, without calling {@link #checkMutable}. */
-  @SuppressWarnings("unchecked")
-  private <KK extends K, VV extends V> Dict<K, V> putAllUnsafe(Map<KK, VV> m) {
-    for (Map.Entry<KK, VV> e : m.entrySet()) {
-      // TODO(adonovan): the fromJava call here is suspicious and inconsistent.
-      contents.put(e.getKey(), (VV) Starlark.fromJava(e.getValue(), mutability));
-    }
     return this;
   }
 
@@ -469,7 +472,7 @@ public final class Dict<K, V>
 
   @Override
   public void repr(Printer printer) {
-    printer.printList(entrySet(), "{", ", ", "}", null);
+    printer.printList(entrySet(), "{", ", ", "}");
   }
 
   @Override
@@ -535,9 +538,10 @@ public final class Dict<K, V>
       Dict<? extends K, ? extends V> left,
       Dict<? extends K, ? extends V> right,
       @Nullable Mutability mu) {
-    Dict<K, V> result = Dict.of(mu);
-    result.putAllUnsafe(left);
-    result.putAllUnsafe(right);
+    Dict<K, V> result = new Dict<>(mu, max(left.size(), right.size()));
+    // Update underlying map contents directly, input dicts already contain valid objects
+    result.contents.putAll(left.contents);
+    result.contents.putAll(right.contents);
     return result;
   }
 

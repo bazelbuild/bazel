@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkCustomCommandLine
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
+import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -235,15 +235,31 @@ public abstract class Args implements CommandLineArgsApi {
   private static class MutableArgs extends Args implements StarlarkValue, Mutability.Freezable {
     private final Mutability mutability;
     private final StarlarkCustomCommandLine.Builder commandLine;
+
     private final List<NestedSet<?>> potentialDirectoryArtifacts = new ArrayList<>();
     private final Set<Artifact> directoryArtifacts = new HashSet<>();
-    private ParameterFileType parameterFileType = ParameterFileType.SHELL_QUOTED;
+    /**
+     * If true, flag names and values will be grouped with '=', e.g.
+     *
+     * <pre>
+     *  --a=b
+     *  --noc
+     *  --d=e
+     * </pre>
+     *
+     * Further, if this is true, the ParamFileInfo will be marked 'flagsOnly', so that positional
+     * parameters stay on the command line and the param file contains only flags.
+     */
+    private boolean flagPerLine = false;
+
+    // May be set explicitly once -- if unset defaults to ParameterFileType.SHELL_QUOTED.
+    private ParameterFileType parameterFileType = null;
     private String flagFormatString;
     private boolean alwaysUseParamFile;
 
     @Override
     public ParameterFileType getParameterFileType() {
-      return parameterFileType;
+      return parameterFileType == null ? ParameterFileType.SHELL_QUOTED : parameterFileType;
     }
 
     @Override
@@ -252,10 +268,11 @@ public abstract class Args implements CommandLineArgsApi {
       if (flagFormatString == null) {
         return null;
       } else {
-        return ParamFileInfo.builder(parameterFileType)
+        return ParamFileInfo.builder(getParameterFileType())
             .setFlagFormatString(flagFormatString)
             .setUseAlways(alwaysUseParamFile)
             .setCharset(StandardCharsets.UTF_8)
+            .setFlagsOnly(flagPerLine)
             .build();
       }
     }
@@ -276,6 +293,7 @@ public abstract class Args implements CommandLineArgsApi {
         validateArgName(argNameOrValue);
         argName = (String) argNameOrValue;
       }
+      commandLine.recordArgStart();
       if (argName != null) {
         commandLine.add(argName);
       }
@@ -303,6 +321,7 @@ public abstract class Args implements CommandLineArgsApi {
         throws EvalException {
       Starlark.checkMutable(this);
       final String argName;
+      commandLine.recordArgStart();
       if (values == Starlark.UNBOUND) {
         values = argNameOrValue;
         validateValues(values);
@@ -342,6 +361,7 @@ public abstract class Args implements CommandLineArgsApi {
         throws EvalException {
       Starlark.checkMutable(this);
       final String argName;
+      commandLine.recordArgStart();
       if (values == Starlark.UNBOUND) {
         values = argNameOrValue;
         validateValues(values);
@@ -466,12 +486,9 @@ public abstract class Args implements CommandLineArgsApi {
         throws EvalException {
       Starlark.checkMutable(this);
       if (!SingleStringArgFormatter.isValid(paramFileArg)) {
-        throw new EvalException(
-            null,
-            String.format(
-                "Invalid value for parameter \"param_file_arg\": "
-                    + "Expected string with a single \"%s\"",
-                paramFileArg));
+        throw Starlark.errorf(
+            "Invalid value for parameter \"param_file_arg\": Expected string with a single \"%s\"",
+            paramFileArg);
       }
       this.flagFormatString = paramFileArg;
       this.alwaysUseParamFile = useAlways;
@@ -481,20 +498,31 @@ public abstract class Args implements CommandLineArgsApi {
     @Override
     public CommandLineArgsApi setParamFileFormat(String format) throws EvalException {
       Starlark.checkMutable(this);
+      if (this.parameterFileType != null) {
+        throw Starlark.errorf("set_param_file_format() may only be called once");
+      }
       final ParameterFileType parameterFileType;
+      final boolean flagPerLine;
       switch (format) {
         case "shell":
           parameterFileType = ParameterFileType.SHELL_QUOTED;
+          flagPerLine = false;
           break;
         case "multiline":
           parameterFileType = ParameterFileType.UNQUOTED;
+          flagPerLine = false;
+          break;
+        case "flag_per_line":
+          parameterFileType = ParameterFileType.UNQUOTED;
+          flagPerLine = true;
           break;
         default:
-          throw new EvalException(
-              null,
-              "Invalid value for parameter \"format\": Expected one of \"shell\", \"multiline\"");
+          throw Starlark.errorf(
+              "Invalid value for parameter \"format\": Expected one of \"shell\", \"multiline\","
+                  + " \"flag_per_line\"");
       }
       this.parameterFileType = parameterFileType;
+      this.flagPerLine = flagPerLine;
       return this;
     }
 
@@ -505,7 +533,7 @@ public abstract class Args implements CommandLineArgsApi {
 
     @Override
     public CommandLine build() {
-      return commandLine.build();
+      return commandLine.build(flagPerLine);
     }
 
     @Override

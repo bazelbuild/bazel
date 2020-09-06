@@ -13,63 +13,71 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages.metrics;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.google.devtools.build.lib.packages.metrics.ExtremaPackageLoadingListener.TopPackages;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.common.options.OptionsParser;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnit;
-import org.mockito.junit.MockitoRule;
 
 /** Tests for {@link PackageMetricsModule}. */
 @RunWith(JUnit4.class)
 public class PackageMetricsModuleTest {
 
-  @Rule public MockitoRule mockito = MockitoJUnit.rule();
-
-  @Mock private ExtremaPackageLoadingListener mockPackageLoadingListener;
+  private final PackageMetricsPackageLoadingListener listener =
+      PackageMetricsPackageLoadingListener.getInstance();
 
   private PackageMetricsModule underTest;
 
   @Before
   public void setUp() {
-    underTest = new PackageMetricsModule(mockPackageLoadingListener);
+    underTest = new PackageMetricsModule();
+    listener.setPackageMetricsRecorder(null);
   }
 
   @Test
   public void testBeforeCommandConfiguresNumberOfPackagesToTrack() throws Exception {
     underTest.beforeCommand(commandEnv("--log_top_n_packages=100"));
-    verify(mockPackageLoadingListener).setNumPackagesToTrack(100);
+    assertThat(listener.getPackageMetricsRecorder())
+        .isInstanceOf(ExtremaPackageMetricsRecorder.class);
+    ExtremaPackageMetricsRecorder ext =
+        (ExtremaPackageMetricsRecorder) listener.getPackageMetricsRecorder();
+    assertThat(ext.getNumPackageToTrack()).isEqualTo(100);
   }
 
   @Test
   public void testBeforeCommandConfiguresNumberOfPackagesToTrackTreatsNegativeAsZero()
       throws Exception {
     underTest.beforeCommand(commandEnv("--log_top_n_packages=-100"));
-    verify(mockPackageLoadingListener).setNumPackagesToTrack(0);
+    assertThat(listener.getPackageMetricsRecorder())
+        .isInstanceOf(ExtremaPackageMetricsRecorder.class);
+    ExtremaPackageMetricsRecorder ext =
+        (ExtremaPackageMetricsRecorder) listener.getPackageMetricsRecorder();
+    assertThat(ext.getNumPackageToTrack()).isEqualTo(0);
+  }
+
+  @Test
+  public void testBeforeCommandConfiguresNumberOfPackagesToTrackButRequestsComplete()
+      throws Exception {
+    underTest.beforeCommand(
+        commandEnv("--log_top_n_packages=100", "--record_metrics_for_all_packages=1"));
+    assertThat(listener.getPackageMetricsRecorder())
+        .isInstanceOf(CompletePackageMetricsRecorder.class);
   }
 
   @Test
   public void testAfterCommandGetsAndResetsMetrics() {
     // Mocking here is lazy, but it helps verify we actually did something with all of the results.
-    TopPackages mockTopPackages = mock(TopPackages.class);
-    when(mockPackageLoadingListener.getAndResetTopPackages()).thenReturn(mockTopPackages);
+    PackageMetricsRecorder mockRecorder = mock(PackageMetricsRecorder.class);
+    listener.setPackageMetricsRecorder(mockRecorder);
 
     underTest.afterCommand();
-
-    verify(mockPackageLoadingListener).getAndResetTopPackages();
-    verify(mockTopPackages).getSlowestPackages();
-    verify(mockTopPackages).getLargestPackages();
-    verify(mockTopPackages).getPackagesWithMostComputationSteps();
-    verify(mockTopPackages).getPackagesWithMostTransitiveLoads();
+    verify(mockRecorder).loadingFinished();
   }
 
   private static CommandEnvironment commandEnv(String... options) throws Exception {

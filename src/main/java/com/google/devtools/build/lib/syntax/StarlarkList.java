@@ -205,7 +205,7 @@ public final class StarlarkList<E> extends AbstractList<E>
 
   @Override
   public void repr(Printer printer) {
-    printer.printList(this, /*isTuple=*/ false);
+    printer.printList(this, "[", ", ", "]");
   }
 
   // TODO(adonovan): StarlarkValue has 3 String methods yet still we need this fourth. Why?
@@ -467,5 +467,10 @@ public final class StarlarkList<E> extends AbstractList<E>
     Object result = elems[index];
     remove(index, (Location) null);
     return result;
+  }
+
+  @Override
+  public Object[] toArray() {
+    return size != 0 ? Arrays.copyOf(elems, size) : EMPTY_ARRAY;
   }
 }

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.dynamic;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -31,7 +32,6 @@ import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
-import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionPolicy;
@@ -112,7 +112,7 @@ public class LegacyDynamicSpawnStrategy implements SpawnStrategy {
     abstract ImmutableList<SpawnResult> spawnResults();
   }
 
-  private static final ImmutableSet<String> WORKER_BLACKLISTED_MNEMONICS =
+  private static final ImmutableSet<String> DISABLED_MNEMONICS_FOR_WORKERS =
       ImmutableSet.of("JavaDeployJar");
 
   private final ExecutorService executorService;
@@ -243,9 +243,13 @@ public class LegacyDynamicSpawnStrategy implements SpawnStrategy {
                   }));
     } catch (ExecutionException e) {
       Throwables.propagateIfPossible(e.getCause(), InterruptedException.class);
-      // DynamicExecutionCallable.callImpl only declares InterruptedException, so this should never
+      // DynamicExecutionCallable.call only declares InterruptedException, so this should never
       // happen.
-      exceptionDuringExecution = new UserExecException(e.getCause());
+      exceptionDuringExecution =
+          new UserExecException(
+              e.getCause(),
+              createFailureDetail(
+                  Strings.nullToEmpty(e.getCause().getMessage()), Code.RUN_FAILURE));
     } finally {
       bothTasksFinished.arriveAndAwaitAdvance();
       if (dynamicExecutionResult.execException() != null) {
@@ -273,7 +277,10 @@ public class LegacyDynamicSpawnStrategy implements SpawnStrategy {
       String strategyName = winningStrategy.name().toLowerCase();
       if (exceptionDuringExecution == null) {
         throw new UserExecException(
-            String.format("Could not move action logs from %s execution", strategyName), e);
+            e,
+            createFailureDetail(
+                String.format("Could not move action logs from %s execution", strategyName),
+                Code.ACTION_LOG_MOVE_FAILURE));
       } else {
         actionExecutionContext
             .getEventHandler()
@@ -351,11 +358,6 @@ public class LegacyDynamicSpawnStrategy implements SpawnStrategy {
         outDir.getChild(outBaseName + suffix), errDir.getChild(errBaseName + suffix));
   }
 
-  private static boolean supportsWorkers(Spawn spawn) {
-    return (!WORKER_BLACKLISTED_MNEMONICS.contains(spawn.getMnemonic())
-        && Spawns.supportsWorkers(spawn));
-  }
-
   private static SandboxedSpawnStrategy.StopConcurrentSpawns lockOutputFiles(
       SandboxedSpawnStrategy token, @Nullable AtomicReference<SpawnStrategy> outputWriteBarrier) {
     if (outputWriteBarrier == null) {
@@ -381,7 +383,12 @@ public class LegacyDynamicSpawnStrategy implements SpawnStrategy {
     for (SandboxedSpawnStrategy strategy :
         dynamicStrategyRegistry.getDynamicSpawnActionContexts(
             spawn, DynamicStrategyRegistry.DynamicMode.LOCAL)) {
-      if (!strategy.toString().contains("worker") || supportsWorkers(spawn)) {
+
+      if (strategy.toString().contains("worker")
+          && DISABLED_MNEMONICS_FOR_WORKERS.contains(spawn.getMnemonic())) {
+        continue;
+      }
+      if (strategy.canExec(spawn, actionExecutionContext)) {
         return strategy.exec(
             spawn, actionExecutionContext, lockOutputFiles(strategy, outputWriteBarrier));
       }
@@ -401,8 +408,10 @@ public class LegacyDynamicSpawnStrategy implements SpawnStrategy {
     for (SandboxedSpawnStrategy strategy :
         dynamicStrategyRegistry.getDynamicSpawnActionContexts(
             spawn, DynamicStrategyRegistry.DynamicMode.REMOTE)) {
-      return strategy.exec(
-          spawn, actionExecutionContext, lockOutputFiles(strategy, outputWriteBarrier));
+      if (strategy.canExec(spawn, actionExecutionContext)) {
+        return strategy.exec(
+            spawn, actionExecutionContext, lockOutputFiles(strategy, outputWriteBarrier));
+      }
     }
     throw new RuntimeException(
         "executorCreated not yet called or no default dynamic_remote_strategy set");
@@ -442,7 +451,11 @@ public class LegacyDynamicSpawnStrategy implements SpawnStrategy {
         Throwables.throwIfInstanceOf(e, InterruptedException.class);
         return DynamicExecutionResult.create(
             strategyIdentifier,
-            fileOutErr, e instanceof ExecException ? (ExecException) e : new UserExecException(e),
+            fileOutErr,
+            e instanceof ExecException
+                ? (ExecException) e
+                : new UserExecException(
+                    e, createFailureDetail(Strings.nullToEmpty(e.getMessage()), Code.RUN_FAILURE)),
             /*spawnResults=*/ ImmutableList.of());
       } finally {
         try {

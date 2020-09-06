@@ -156,7 +156,7 @@ public abstract class FoundationTestCase {
         "        'android': ['-XDandroidCompatible'],",
         "    },",
         "    javac = [':javac_canary.jar'],",
-        "    javabuilder = [':JavaBuilderCanary_deploy.jar'],",
+        "    javabuilder = [':JavaBuilder_deploy.jar'],",
         "    header_compiler = [':turbine_canary_deploy.jar'],",
         "    header_compiler_direct = [':turbine_graal'],",
         "    singlejar = ['SingleJar_deploy.jar'],",

@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Options;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -66,6 +67,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /**
  * Utilities for analysis phase tests.
@@ -201,7 +203,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public ActionLookupValue.ActionLookupKey getOwner() {
+    public ActionLookupKey getOwner() {
       return original.getOwner();
     }
 
@@ -257,7 +259,10 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {}
+    public void computeKey(
+        ActionKeyContext actionKeyContext,
+        @Nullable Artifact.ArtifactExpander artifactExpander,
+        Fingerprint fp) {}
 
     @Override
     public Artifact getVolatileStatus() {
@@ -321,8 +326,14 @@ public final class AnalysisTestUtil {
 
   /** An AnalysisEnvironment with stubbed-out methods. */
   public static class StubAnalysisEnvironment implements AnalysisEnvironment {
-    private static final ActionLookupValue.ActionLookupKey DUMMY_KEY =
-        new ActionLookupValue.ActionLookupKey() {
+    private static final ActionLookupKey DUMMY_KEY =
+        new ActionLookupKey() {
+          @Nullable
+          @Override
+          public Label getLabel() {
+            return null;
+          }
+
           @Override
           public SkyFunctionName functionName() {
             return null;
@@ -384,7 +395,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public StarlarkSemantics getStarlarkSemantics() throws InterruptedException {
+    public StarlarkSemantics getStarlarkSemantics() {
       return null;
     }
 
@@ -422,7 +433,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public ActionLookupValue.ActionLookupKey getOwner() {
+    public ActionLookupKey getOwner() {
       return DUMMY_KEY;
     }
 
@@ -440,7 +451,7 @@ public final class AnalysisTestUtil {
     public ActionKeyContext getActionKeyContext() {
       return null;
     }
-  };
+  }
 
   /**
    * Matches the output path prefix contributed by a C++ configuration fragment.

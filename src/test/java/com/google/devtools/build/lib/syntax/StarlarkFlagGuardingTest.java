@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
-import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -111,14 +110,14 @@ public final class StarlarkFlagGuardingTest {
               positional = false,
               named = true,
               type = Boolean.class,
-              disableWithFlag = FlagIdentifier.INCOMPATIBLE_NO_ATTR_LICENSE,
+              disableWithFlag = FLAG2,
               valueWhenDisabled = "False"),
           @Param(
               name = "c",
               positional = false,
               named = true,
               type = Integer.class,
-              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT,
+              enableOnlyWithFlag = FLAG1,
               valueWhenDisabled = "3"),
         },
         useStarlarkThread = true)
@@ -127,25 +126,38 @@ public final class StarlarkFlagGuardingTest {
     }
   }
 
+  // We pick two arbitrary flags (one experimental, one incompatible) for our testing.
+  private static final String FLAG1 = FlagIdentifier.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT;
+  private static final StarlarkSemantics FLAG1_TRUE =
+      StarlarkSemantics.DEFAULT.toBuilder().experimentalSiblingRepositoryLayout(true).build();
+  private static final StarlarkSemantics FLAG1_FALSE =
+      StarlarkSemantics.DEFAULT.toBuilder().experimentalSiblingRepositoryLayout(false).build();
+
+  private static final String FLAG2 = FlagIdentifier.INCOMPATIBLE_NO_ATTR_LICENSE;
+  private static final StarlarkSemantics FLAG2_TRUE =
+      StarlarkSemantics.DEFAULT.toBuilder().incompatibleNoAttrLicense(true).build();
+  private static final StarlarkSemantics FLAG2_FALSE =
+      StarlarkSemantics.DEFAULT.toBuilder().incompatibleNoAttrLicense(false).build();
+
   @Test
   public void testPositionalsOnlyGuardedMethod() throws Exception {
-    ev.new Scenario("--experimental_sibling_repository_layout=true")
+    ev.new Scenario(FLAG1_TRUE)
         .update("mock", new Mock())
         .testEval(
             "mock.positionals_only_method(1, True, 3)", "'positionals_only_method(1, true, 3)'");
 
-    ev.new Scenario("--experimental_sibling_repository_layout=true")
+    ev.new Scenario(FLAG1_TRUE)
         .update("mock", new Mock())
         .testIfErrorContains(
             "in call to positionals_only_method(), parameter 'b' got value of type 'int', want"
                 + " 'bool'",
             "mock.positionals_only_method(1, 3)");
 
-    ev.new Scenario("--experimental_sibling_repository_layout=false")
+    ev.new Scenario(FLAG1_FALSE)
         .update("mock", new Mock())
         .testEval("mock.positionals_only_method(1, 3)", "'positionals_only_method(1, false, 3)'");
 
-    ev.new Scenario("--experimental_sibling_repository_layout=false")
+    ev.new Scenario(FLAG1_FALSE)
         .update("mock", new Mock())
         .testIfErrorContains(
             "in call to positionals_only_method(), parameter 'c' got value of type 'bool', want"
@@ -155,22 +167,22 @@ public final class StarlarkFlagGuardingTest {
 
   @Test
   public void testKeywordOnlyGuardedMethod() throws Exception {
-    ev.new Scenario("--experimental_sibling_repository_layout=true")
+    ev.new Scenario(FLAG1_TRUE)
         .update("mock", new Mock())
         .testEval(
             "mock.keywords_only_method(a=1, b=True, c=3)", "'keywords_only_method(1, true, 3)'");
 
-    ev.new Scenario("--experimental_sibling_repository_layout=true")
+    ev.new Scenario(FLAG1_TRUE)
         .update("mock", new Mock())
         .testIfErrorContains(
             "keywords_only_method() missing 1 required named argument: b",
             "mock.keywords_only_method(a=1, c=3)");
 
-    ev.new Scenario("--experimental_sibling_repository_layout=false")
+    ev.new Scenario(FLAG1_FALSE)
         .update("mock", new Mock())
         .testEval("mock.keywords_only_method(a=1, c=3)", "'keywords_only_method(1, false, 3)'");
 
-    ev.new Scenario("--experimental_sibling_repository_layout=false")
+    ev.new Scenario(FLAG1_FALSE)
         .update("mock", new Mock())
         .testIfErrorContains(
             "parameter 'b' is experimental and thus unavailable with the current "
@@ -182,13 +194,13 @@ public final class StarlarkFlagGuardingTest {
   @Test
   public void testMixedParamsMethod() throws Exception {
     // def mixed_params_method(a, b, c = ?, d = ?)
-    ev.new Scenario("--experimental_sibling_repository_layout=true")
+    ev.new Scenario(FLAG1_TRUE)
         .update("mock", new Mock())
         .testEval(
             "mock.mixed_params_method(1, True, c=3, d=True)",
             "'mixed_params_method(1, true, 3, true)'");
 
-    ev.new Scenario("--experimental_sibling_repository_layout=true")
+    ev.new Scenario(FLAG1_TRUE)
         .update("mock", new Mock())
         .testIfErrorContains(
             // Missing named arguments (d) are not reported
@@ -197,18 +209,18 @@ public final class StarlarkFlagGuardingTest {
             "mock.mixed_params_method(1, c=3)");
 
     // def mixed_params_method(a, b disabled = False, c disabled = 3, d = ?)
-    ev.new Scenario("--experimental_sibling_repository_layout=false")
+    ev.new Scenario(FLAG1_FALSE)
         .update("mock", new Mock())
         .testEval(
             "mock.mixed_params_method(1, d=True)", "'mixed_params_method(1, false, 3, true)'");
 
-    ev.new Scenario("--experimental_sibling_repository_layout=false")
+    ev.new Scenario(FLAG1_FALSE)
         .update("mock", new Mock())
         .testIfErrorContains(
             "mixed_params_method() accepts no more than 1 positional argument but got 2",
             "mock.mixed_params_method(1, True, d=True)");
 
-    ev.new Scenario("--experimental_sibling_repository_layout=false")
+    ev.new Scenario(FLAG1_FALSE)
         .update("mock", new Mock())
         .testIfErrorContains(
             "mixed_params_method() accepts no more than 1 positional argument but got 2",
@@ -217,32 +229,20 @@ public final class StarlarkFlagGuardingTest {
 
   @Test
   public void testKeywordsMultipleFlags() throws Exception {
-    ev
-        .new Scenario(
-            "--experimental_sibling_repository_layout=true", "--incompatible_no_attr_license=false")
+    StarlarkSemantics tf = FLAG1_TRUE.toBuilder().incompatibleNoAttrLicense(false).build();
+    ev.new Scenario(tf)
         .update("mock", new Mock())
         .testEval(
             "mock.keywords_multiple_flags(a=42, b=True, c=0)",
-            "'keywords_multiple_flags(42, true, 0)'");
-
-    ev
-        .new Scenario(
-            "--experimental_sibling_repository_layout=true", "--incompatible_no_attr_license=false")
-        .update("mock", new Mock())
+            "'keywords_multiple_flags(42, true, 0)'")
         .testIfErrorContains(
             "keywords_multiple_flags() missing 2 required named arguments: b, c",
             "mock.keywords_multiple_flags(a=42)");
 
-    ev
-        .new Scenario(
-            "--experimental_sibling_repository_layout=false", "--incompatible_no_attr_license=true")
+    StarlarkSemantics ft = FLAG1_FALSE.toBuilder().incompatibleNoAttrLicense(true).build();
+    ev.new Scenario(ft)
         .update("mock", new Mock())
-        .testEval("mock.keywords_multiple_flags(a=42)", "'keywords_multiple_flags(42, false, 3)'");
-
-    ev
-        .new Scenario(
-            "--experimental_sibling_repository_layout=false", "--incompatible_no_attr_license=true")
-        .update("mock", new Mock())
+        .testEval("mock.keywords_multiple_flags(a=42)", "'keywords_multiple_flags(42, false, 3)'")
         .testIfErrorContains(
             "parameter 'b' is deprecated and will be removed soon. It may be "
                 + "temporarily re-enabled by setting --incompatible_no_attr_license=false",
@@ -272,17 +272,14 @@ public final class StarlarkFlagGuardingTest {
         "GlobalSymbol is experimental and thus unavailable with the current "
             + "flags. It may be enabled by setting --experimental_sibling_repository_layout";
 
-    ev.new Scenario("--experimental_sibling_repository_layout=true")
-        .setUp("var = GlobalSymbol")
-        .testLookup("var", "foo");
+    ev.new Scenario(FLAG1_TRUE).setUp("var = GlobalSymbol").testLookup("var", "foo");
 
-    ev.new Scenario("--experimental_sibling_repository_layout=false")
-        .testIfErrorContains(errorMessage, "var = GlobalSymbol");
+    ev.new Scenario(FLAG1_FALSE).testIfErrorContains(errorMessage, "var = GlobalSymbol");
 
-    ev.new Scenario("--experimental_sibling_repository_layout=false")
+    ev.new Scenario(FLAG1_FALSE)
         .testIfErrorContains(errorMessage, "def my_function():", "  var = GlobalSymbol");
 
-    ev.new Scenario("--experimental_sibling_repository_layout=false")
+    ev.new Scenario(FLAG1_FALSE)
         .setUp("GlobalSymbol = 'other'", "var = GlobalSymbol")
         .testLookup("var", "other");
   }
@@ -298,28 +295,25 @@ public final class StarlarkFlagGuardingTest {
           @Override
           protected Object newModuleHook(ImmutableMap.Builder<String, Object> predeclared) {
             predeclared.put(
-                "GlobalSymbol",
-                FlagGuardedValue.onlyWhenIncompatibleFlagIsFalse(
-                    FlagIdentifier.INCOMPATIBLE_LINKOPTS_TO_LINKLIBS, "foo"));
+                "GlobalSymbol", FlagGuardedValue.onlyWhenIncompatibleFlagIsFalse(FLAG2, "foo"));
             return null; // no client data
           }
         };
 
     String errorMessage =
         "GlobalSymbol is deprecated and will be removed soon. It may be "
-            + "temporarily re-enabled by setting --incompatible_linkopts_to_linklibs=false";
+            + "temporarily re-enabled by setting --"
+            + FLAG2
+            + "=false";
 
-    ev.new Scenario("--incompatible_linkopts_to_linklibs=false")
-        .setUp("var = GlobalSymbol")
-        .testLookup("var", "foo");
+    ev.new Scenario(FLAG2_FALSE).setUp("var = GlobalSymbol").testLookup("var", "foo");
 
-    ev.new Scenario("--incompatible_linkopts_to_linklibs=true")
-        .testIfErrorContains(errorMessage, "var = GlobalSymbol");
+    ev.new Scenario(FLAG2_TRUE).testIfErrorContains(errorMessage, "var = GlobalSymbol");
 
-    ev.new Scenario("--incompatible_linkopts_to_linklibs=true")
+    ev.new Scenario(FLAG2_TRUE)
         .testIfErrorContains(errorMessage, "def my_function():", "  var = GlobalSymbol");
 
-    ev.new Scenario("--incompatible_linkopts_to_linklibs=true")
+    ev.new Scenario(FLAG2_TRUE)
         .setUp("GlobalSymbol = 'other'", "var = GlobalSymbol")
         .testLookup("var", "other");
   }

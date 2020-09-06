@@ -52,10 +52,17 @@ public class SpawnStats {
    * Returns a human-readable summary of spawns counted.
    */
   public String getSummary() {
+    return getSummary(REPORT_FIRST);
+  }
+
+  /*
+   * Returns a human-readable summary of spawns counted.
+   */
+  public String getSummary(ImmutableList<String> reportFirst) {
     ResultString result = new ResultString();
 
     // First report cache results.
-    for (String s : REPORT_FIRST) {
+    for (String s : reportFirst) {
       int count = runners.setCount(s, 0);
       if (count > 0) {
         result.add(s, count);

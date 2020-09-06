@@ -51,7 +51,7 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
 
   /** The label of the policy that is used to restrict access to the config_feature_flag rule. */
   private static final String ALLOWLIST_LABEL =
-      "//tools/whitelists/config_feature_flag:config_feature_flag";
+      "//tools/allowlists/config_feature_flag:config_feature_flag";
 
   /** Constructs a definition for the attribute used to restrict access to config_feature_flag. */
   public static Attribute.Builder<Label> getAllowlistAttribute(RuleDefinitionEnvironment env) {

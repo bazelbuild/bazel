@@ -187,6 +187,12 @@ config_setting(
 
 <h2 id="implicit-outputs">Implicit output targets</h2>
 
+<p>
+  <i>Implicit outputs in C++ are deprecated. Please refrain from using it
+  in other languages where possible. We don't have a deprecation path yet
+  but they will eventually be deprecated too.</i>
+</p>
+
 <p>When you define a build rule in a BUILD file, you are explicitly
   declaring a new, named rule target in a package.  Many build rule
   functions also <i>implicitly</i> entail one or more output file

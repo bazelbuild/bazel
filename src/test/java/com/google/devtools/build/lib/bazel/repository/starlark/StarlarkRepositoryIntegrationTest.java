@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -142,7 +142,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
             .build());
     invalidatePackages();
     ConfiguredTargetAndData target = getConfiguredTargetAndData("@foo//:bar");
-    Object path = target.getTarget().getAssociatedRule().getAttributeContainer().getAttr("path");
+    Object path = target.getTarget().getAssociatedRule().getAttr("path");
     assertThat(path).isEqualTo("foo");
   }
 
@@ -202,7 +202,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
             .build());
     invalidatePackages();
     ConfiguredTargetAndData target = getConfiguredTargetAndData("@foo//:bar");
-    Object path = target.getTarget().getAssociatedRule().getAttributeContainer().getAttr("path");
+    Object path = target.getTarget().getAssociatedRule().getAttr("path");
     assertThat(path).isEqualTo("foo");
   }
 
@@ -230,7 +230,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
             .build());
     invalidatePackages();
     ConfiguredTargetAndData target = getConfiguredTargetAndData("@foo//:bar");
-    Object path = target.getTarget().getAssociatedRule().getAttributeContainer().getAttr("path");
+    Object path = target.getTarget().getAssociatedRule().getAttr("path");
     assertThat(path).isEqualTo("foo");
   }
 
@@ -259,7 +259,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
             .build());
     invalidatePackages();
     ConfiguredTargetAndData target = getConfiguredTargetAndData("@foo//:bar");
-    Object path = target.getTarget().getAssociatedRule().getAttributeContainer().getAttr("path");
+    Object path = target.getTarget().getAssociatedRule().getAttr("path");
     assertThat(path).isEqualTo("foo");
   }
 
@@ -289,7 +289,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
             .build());
     invalidatePackages();
     ConfiguredTargetAndData target = getConfiguredTargetAndData("@foobar//:bar");
-    Object path = target.getTarget().getAssociatedRule().getAttributeContainer().getAttr("path");
+    Object path = target.getTarget().getAssociatedRule().getAttr("path");
     assertThat(path).isEqualTo("foobar");
   }
 
@@ -495,5 +495,23 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
         "target '//external:zlib' is not visible from target '//:x'. "
             + "Check the visibility declaration of the former target if you think the "
             + "dependency is legitimate");
+  }
+
+  @Test
+  public void testCallRepositoryRuleFromBuildFile() throws Exception {
+    // Check that we get a proper error when calling a repository rule from a BUILD file.
+
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "repo.bzl",
+        "def _impl(ctx):",
+        "    pass",
+        "",
+        "repo = repository_rule(implementation = _impl)");
+    scratch.file("BUILD", "load('repo.bzl', 'repo')", "repo(name = 'repository_rule')");
+
+    invalidatePackages();
+    getConfiguredTarget("//:x");
+    assertContainsEvent("'repository rule repo' can only be called during workspace loading");
   }
 }

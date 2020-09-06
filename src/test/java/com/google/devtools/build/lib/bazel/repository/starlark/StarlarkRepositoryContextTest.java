@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -41,12 +42,12 @@ import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionR
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -100,13 +101,13 @@ public final class StarlarkRepositoryContextTest {
     }
     ruleClassBuilder.setWorkspaceOnly();
     ruleClassBuilder.setConfiguredTargetFunction(
-        (StarlarkFunction) execAndEval("def test(ctx): pass", "test"));
+        (StarlarkFunction) exec("def test(ctx): pass", "test"));
     return ruleClassBuilder.build();
   }
 
-  private static Object execAndEval(String... lines) {
+  private static Object exec(String... lines) {
     try {
-      return EvalUtils.exec(
+      return Starlark.execFile(
           ParserInput.fromLines(lines), FileOptions.DEFAULT, Module.create(), thread);
     } catch (Exception ex) { // SyntaxError | EvalException | InterruptedException
       throw new AssertionError("exec failed", ex);
@@ -131,7 +132,7 @@ public final class StarlarkRepositoryContextTest {
       throws Exception {
     Package.Builder packageBuilder =
         Package.newExternalPackageBuilder(
-            Package.Builder.DefaultHelper.INSTANCE,
+            DefaultPackageSettings.INSTANCE,
             RootedPath.toRootedPath(root, workspaceFile),
             "runfiles",
             starlarkSemantics);

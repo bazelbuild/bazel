@@ -91,7 +91,8 @@ public final class BlazeTargetAccessor implements TargetAccessor<Target> {
           try {
             queryEnvironment.getTarget(label);
           } catch (TargetNotFoundException e) {
-            queryEnvironment.reportBuildFileError(caller, errorMsgPrefix + e.getMessage());
+            queryEnvironment.handleError(
+                caller, errorMsgPrefix + e.getMessage(), e.getDetailedExitCode());
           }
         }
       }
@@ -156,7 +157,7 @@ public final class BlazeTargetAccessor implements TargetAccessor<Target> {
        try {
           maybeConvertGroupVisibility(groupLabel, packageSpecifications);
        } catch (TargetNotFoundException e) {
-         throw new QueryException(e.getMessage());
+          throw new QueryException(e.getMessage(), e, e.getDetailedExitCode().getFailureDetail());
        }
      }
       packageSpecifications.add(

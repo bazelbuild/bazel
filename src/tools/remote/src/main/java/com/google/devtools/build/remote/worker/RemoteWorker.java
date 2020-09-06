@@ -300,7 +300,8 @@ public final class RemoteWorker {
     }
   }
 
-  private static Path prepareSandboxRunner(FileSystem fs, RemoteWorkerOptions remoteWorkerOptions) {
+  private static Path prepareSandboxRunner(FileSystem fs, RemoteWorkerOptions remoteWorkerOptions)
+      throws InterruptedException {
     if (OS.getCurrent() != OS.LINUX) {
       logger.atSevere().log("Sandboxing requested, but it is currently only available on Linux");
       System.exit(1);

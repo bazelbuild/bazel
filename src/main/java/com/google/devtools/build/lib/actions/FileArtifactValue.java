@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.BigIntegerFingerprint;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -120,11 +121,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     return "";
   }
 
-  /** Returns {@code true} if this is a special marker as opposed to a representing a real file. */
-  public boolean isMarkerValue() {
-    return this instanceof Singleton;
-  }
-
   /** Returns {@code true} if the file only exists remotely. */
   public boolean isRemote() {
     return false;
@@ -161,6 +157,18 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       // If not, we assume by default that the file has changed, but individual implementations
       // might know better. For example, regular local files can be compared by ctime or mtime.
       return couldBeModifiedByMetadata(lastKnown);
+    }
+  }
+
+  /** Adds this file metadata to the given {@link Fingerprint}. */
+  public final void addTo(Fingerprint fp) {
+    byte[] digest = getDigest();
+    if (digest != null) {
+      fp.addBytes(digest);
+    } else {
+      // Use the timestamp if the digest is not present, but not both. Modifying a timestamp while
+      // keeping the contents of a file the same should not cause rebuilds.
+      fp.addLong(getModifiedTime());
     }
   }
 
@@ -246,7 +254,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       return new DirectoryArtifactValue(path.getLastModifiedTime());
     }
     if (digest == null) {
-      digest = DigestUtils.getDigestOrFail(path, size);
+      digest = DigestUtils.getDigestWithManualFallback(path, size);
     }
     Preconditions.checkState(digest != null, path);
     return createForNormalFile(digest, proxy, size, isShareable);

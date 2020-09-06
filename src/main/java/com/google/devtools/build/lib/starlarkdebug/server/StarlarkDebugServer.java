@@ -19,7 +19,7 @@ import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos;
-import com.google.devtools.build.lib.syntax.Debugger;
+import com.google.devtools.build.lib.syntax.Debug;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.io.IOException;
@@ -28,7 +28,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 /** Manages the network socket and debugging state for threads running Starlark code. */
-public final class StarlarkDebugServer implements Debugger {
+public final class StarlarkDebugServer implements Debug.Debugger {
 
   /**
    * Initializes debugging support, setting up any debugging-specific overrides, then opens the

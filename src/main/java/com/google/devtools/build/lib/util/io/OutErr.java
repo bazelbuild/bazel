@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.util.io;
 
+import com.google.common.base.Preconditions;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -38,15 +39,19 @@ public class OutErr implements Closeable {
   }
 
   protected OutErr(OutputStream out, OutputStream err) {
-    this.out = out;
-    this.err = err;
+    this.out = Preconditions.checkNotNull(out);
+    this.err = Preconditions.checkNotNull(err);
   }
 
   @Override
   public void close() throws IOException {
-    out.close();
-    if (out != err) {
-      err.close();
+    // Ensure that we close both out and err even if one throws.
+    try {
+      out.close();
+    } finally {
+      if (out != err) {
+        err.close();
+      }
     }
   }
 

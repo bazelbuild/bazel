@@ -17,6 +17,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -162,12 +163,15 @@ public interface QueryEnvironment<T> {
    * whatever exception is internally thrown.
    */
   final class TargetNotFoundException extends Exception {
-    public TargetNotFoundException(String msg) {
-      super(msg);
+    private final DetailedExitCode detailedExitCode;
+
+    public TargetNotFoundException(Throwable cause, DetailedExitCode detailedExitCode) {
+      super(cause.getMessage(), cause);
+      this.detailedExitCode = Preconditions.checkNotNull(detailedExitCode);
     }
 
-    public TargetNotFoundException(Throwable cause) {
-      super(cause.getMessage(), cause);
+    public DetailedExitCode getDetailedExitCode() {
+      return detailedExitCode;
     }
   }
 
@@ -468,7 +472,15 @@ public interface QueryEnvironment<T> {
    */
   MinDepthUniquifier<T> createMinDepthUniquifier();
 
-  void reportBuildFileError(QueryExpression expression, String msg) throws QueryException;
+  /**
+   * Handle an error during evaluation of {@code expression} by either throwing {@link
+   * QueryException} or emitting an event, depending on whether the evaluation is running in a "keep
+   * going" mode.
+   */
+  // TODO(b/138456686): make detailedExitCode non-nullable
+  void handleError(
+      QueryExpression expression, String message, @Nullable DetailedExitCode detailedExitCode)
+      throws QueryException;
 
   /**
    * Returns the set of BUILD, and optionally Starlark files that define the given set of targets.
@@ -522,7 +534,10 @@ public interface QueryEnvironment<T> {
     ONLY_TARGET_DEPS,
 
     /** Do not consider nodep attributes when traversing dependency edges. */
-    NO_NODEP_DEPS;
+    NO_NODEP_DEPS,
+
+    /** Include aspect-generated output. No-op for query, which always follows aspects. */
+    INCLUDE_ASPECTS;
   }
 
   /**

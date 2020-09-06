@@ -48,21 +48,6 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
     return builder.build();
   }
 
-  @Test
-  public void getNativeRuleLogicBindings_inPackageFactory() throws Exception {
-    assertThat(getPackageFactory().getNativeRules()).containsKey("cc_library");
-    assertThat(getPackageFactory().getNativeRules()).doesNotContainKey("glob");
-    assertThat(getPackageFactory().getNativeRules()).containsKey("overridable_rule");
-  }
-
-  @Test
-  public void getNativeRuleLogicBindings_inRuleClassProvider() throws Exception {
-    assertThat(getRuleClassProvider().getNativeRuleSpecificBindings()).containsKey("CcInfo");
-    assertThat(getRuleClassProvider().getNativeRuleSpecificBindings()).doesNotContainKey("rule");
-    assertThat(getRuleClassProvider().getNativeRuleSpecificBindings())
-        .containsKey("overridable_symbol");
-  }
-
   // TODO(#11437): Add tests for predeclared env of BUILD (and WORKSPACE?) files, once
   // StarlarkBuiltinsFunction manages that functionality.
 
@@ -181,6 +166,21 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
         .contains(
             "Failed to apply declared builtins: got dict<int, string> for 'exported_rules dict', "
                 + "want dict<string, unknown>");
+  }
+
+  @Test
+  public void evalExportsFails_overrideNotAllowed() throws Exception {
+    Exception ex =
+        evalBuiltinsToException(
+            "exported_toplevels = {}", //
+            "exported_rules = {'glob': 'new_builtin'}",
+            "exported_to_java = {}");
+    assertThat(ex).isInstanceOf(BuiltinsFailedException.class);
+    assertThat(ex)
+        .hasMessageThat()
+        .contains(
+            "Failed to apply declared builtins: Cannot override native module field 'glob' with an"
+                + " injected value");
   }
 
   @Test

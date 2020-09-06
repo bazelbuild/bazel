@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.ErrorDeterminingRepositoryException;
 import com.google.devtools.build.lib.packages.Package;
@@ -171,10 +170,6 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
       }
 
       Package externalPackage = value.getPackage();
-      if (externalPackage.containsErrors()) {
-        Event.replayEventsOn(env.getListener(), externalPackage.getEvents());
-      }
-
       // Find all local_repository rules in the WORKSPACE, and check if any have a "path" attribute
       // the same as the requested directory.
       Iterable<Rule> localRepositories =
@@ -197,7 +192,7 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
               null);
       if (rule != null) {
         try {
-          String path = (String) rule.getAttributeContainer().getAttr("path");
+          String path = (String) rule.getAttr("path");
           return Optional.of(
               LocalRepositoryLookupValue.success(
                   RepositoryName.create("@" + rule.getName()), PathFragment.create(path)));

@@ -1,0 +1,2 @@
+This directory is used as the target of @local_jdk workspace if no system JDK is
+detected.

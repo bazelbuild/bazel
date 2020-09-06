@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
-import com.google.devtools.build.lib.skylarkbuildapi.LateBoundDefaultApi;
-import com.google.devtools.build.lib.skylarkbuildapi.StarlarkBuildApiGlobals;
+import com.google.devtools.build.lib.starlarkbuildapi.LateBoundDefaultApi;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkBuildApiGlobals;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 

@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skylarkbuildapi.ExecGroupApi;
+import com.google.devtools.build.lib.starlarkbuildapi.ExecGroupApi;
 import java.util.Set;
 
 /** Resolves the appropriate toolchains for the given parameters. */

@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.S
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Value;
 import com.google.devtools.build.lib.syntax.Debug;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -762,7 +761,7 @@ public class StarlarkDebugServerTest {
   }
 
   private static ParserInput createInput(String filename, String... lines) {
-    return ParserInput.create(Joiner.on("\n").join(lines), filename);
+    return ParserInput.fromString(Joiner.on("\n").join(lines), filename);
   }
 
   /**
@@ -776,7 +775,7 @@ public class StarlarkDebugServerTest {
             () -> {
               try (Mutability mu = Mutability.create("test")) {
                 StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
-                EvalUtils.exec(
+                Starlark.execFile(
                     input, FileOptions.DEFAULT, module != null ? module : Module.create(), thread);
               } catch (SyntaxError.Exception | EvalException | InterruptedException ex) {
                 throw new AssertionError(ex);

@@ -14,9 +14,10 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -31,16 +32,28 @@ import javax.annotation.Nullable;
  * action of an artifact.
  */
 @AutoCodec
-public class ConfiguredTargetKey extends ActionLookupKey {
+public class ConfiguredTargetKey implements ActionLookupKey {
+  /**
+   * Cache so that the number of ConfiguredTargetKey instances is {@code O(configured targets)} and
+   * not {@code O(edges between configured targets)}.
+   */
+  private static final Interner<ConfiguredTargetKey> interner = BlazeInterners.newWeakInterner();
+
   private final Label label;
   @Nullable private final BuildConfigurationValue.Key configurationKey;
 
   private transient int hashCode;
 
-  @AutoCodec.VisibleForSerialization
   ConfiguredTargetKey(Label label, @Nullable BuildConfigurationValue.Key configurationKey) {
     this.label = Preconditions.checkNotNull(label);
     this.configurationKey = configurationKey;
+  }
+
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec.Instantiator
+  static ConfiguredTargetKey create(
+      Label label, @Nullable BuildConfigurationValue.Key configurationKey) {
+    return interner.intern(new ConfiguredTargetKey(label, configurationKey));
   }
 
   @Override
@@ -89,7 +102,7 @@ public class ConfiguredTargetKey extends ActionLookupKey {
     return h;
   }
 
-  private final int computeHashCode() {
+  private int computeHashCode() {
     int configVal = configurationKey == null ? 79 : configurationKey.hashCode();
     int toolchainContextVal =
         getToolchainContextKey() == null ? 47 : getToolchainContextKey().hashCode();
@@ -122,13 +135,21 @@ public class ConfiguredTargetKey extends ActionLookupKey {
 
   @Override
   public final String toString() {
+    // TODO(b/162809183): consider reverting to less verbose toString when bug is resolved.
+    MoreObjects.ToStringHelper helper =
+        MoreObjects.toStringHelper(this).add("label", label).add("config", configurationKey);
     if (getToolchainContextKey() != null) {
-      return String.format("%s %s %s", label, configurationKey, getToolchainContextKey());
+      helper.add("toolchainContextKey", getToolchainContextKey());
     }
-    return String.format("%s %s", label, configurationKey);
+    return helper.toString();
   }
 
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
   static class ConfiguredTargetKeyWithToolchainContext extends ConfiguredTargetKey {
+    private static final Interner<ConfiguredTargetKeyWithToolchainContext>
+        withToolchainContextInterner = BlazeInterners.newWeakInterner();
+
     private final ToolchainContextKey toolchainContextKey;
 
     private ConfiguredTargetKeyWithToolchainContext(
@@ -137,6 +158,17 @@ public class ConfiguredTargetKey extends ActionLookupKey {
         ToolchainContextKey toolchainContextKey) {
       super(label, configurationKey);
       this.toolchainContextKey = toolchainContextKey;
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static ConfiguredTargetKeyWithToolchainContext create(
+        Label label,
+        @Nullable BuildConfigurationValue.Key configurationKey,
+        ToolchainContextKey toolchainContextKey) {
+      return withToolchainContextInterner.intern(
+          new ConfiguredTargetKeyWithToolchainContext(
+              label, configurationKey, toolchainContextKey));
     }
 
     @Override
@@ -150,15 +182,6 @@ public class ConfiguredTargetKey extends ActionLookupKey {
   public static Builder builder() {
     return new Builder();
   }
-
-  /**
-   * Caches so that the number of ConfiguredTargetKey instances is {@code O(configured targets)} and
-   * not {@code O(edges between configured targets)}.
-   */
-  private static final Interner<ConfiguredTargetKey> interner = BlazeInterners.newWeakInterner();
-
-  private static final Interner<ConfiguredTargetKeyWithToolchainContext>
-      withToolchainContextInterner = BlazeInterners.newWeakInterner();
 
   /** A helper class to create instances of {@link ConfiguredTargetKey}. */
   public static class Builder {
@@ -212,11 +235,10 @@ public class ConfiguredTargetKey extends ActionLookupKey {
     /** Builds a new {@link ConfiguredTargetKey} based on the supplied data. */
     public ConfiguredTargetKey build() {
       if (this.toolchainContextKey != null) {
-        return withToolchainContextInterner.intern(
-            new ConfiguredTargetKeyWithToolchainContext(
-                label, configurationKey, toolchainContextKey));
+        return ConfiguredTargetKeyWithToolchainContext.create(
+            label, configurationKey, toolchainContextKey);
       }
-      return interner.intern(new ConfiguredTargetKey(label, configurationKey));
+      return create(label, configurationKey);
     }
   }
 }

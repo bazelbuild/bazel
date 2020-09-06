@@ -327,6 +327,12 @@ public class TestConfiguration extends Fragment {
     return options.testShardingStrategy;
   }
 
+  /**
+   * Whether the persistent test runner is enabled. Note that not all test rules support this
+   * feature, in which case Bazel should fall back to the normal test runner. Therefore, this method
+   * must only be called by test rules, and never for test actions. For actions, use {@code
+   * TestTargetProperties.isPersistentTestRunner} instead.
+   */
   public boolean isPersistentTestRunner() {
     return options.persistentTestRunner;
   }

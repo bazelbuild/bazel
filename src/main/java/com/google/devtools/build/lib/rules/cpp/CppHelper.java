@@ -41,9 +41,9 @@ import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -58,7 +58,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
@@ -106,9 +105,9 @@ public class CppHelper {
   public static TransitiveInfoCollection mallocForTarget(
       RuleContext ruleContext, String mallocAttrName) {
     if (ruleContext.getFragment(CppConfiguration.class).customMalloc() != null) {
-      return ruleContext.getPrerequisite(":default_malloc", TransitionMode.TARGET);
+      return ruleContext.getPrerequisite(":default_malloc");
     } else {
-      return ruleContext.getPrerequisite(mallocAttrName, TransitionMode.TARGET);
+      return ruleContext.getPrerequisite(mallocAttrName);
     }
   }
 
@@ -174,7 +173,7 @@ public class CppHelper {
 
     if (ruleContext.attributes().has("additional_linker_inputs", LABEL_LIST)) {
       for (TransitiveInfoCollection current :
-          ruleContext.getPrerequisites("additional_linker_inputs", TransitionMode.TARGET)) {
+          ruleContext.getPrerequisites("additional_linker_inputs")) {
         builder.put(
             AliasProvider.getDependencyLabel(current),
             current.getProvider(FileProvider.class).getFilesToBuild().toList());
@@ -304,8 +303,7 @@ public class CppHelper {
       // TODO(bazel-team): Report an error or throw an exception in this case.
       return null;
     }
-    TransitiveInfoCollection dep =
-        ruleContext.getPrerequisite(toolchainAttribute, TransitionMode.TARGET);
+    TransitiveInfoCollection dep = ruleContext.getPrerequisite(toolchainAttribute);
     return getToolchain(ruleContext, dep);
   }
 
@@ -846,7 +844,7 @@ public class CppHelper {
       RuleContext ruleContext, FeatureConfiguration featureConfiguration) {
     return featureConfiguration.isEnabled(CppRuleClasses.WINDOWS_EXPORT_ALL_SYMBOLS)
         && !featureConfiguration.isEnabled(CppRuleClasses.NO_WINDOWS_EXPORT_ALL_SYMBOLS)
-        && ruleContext.getPrerequisiteArtifact("win_def_file", TransitionMode.TARGET) == null;
+        && ruleContext.getPrerequisiteArtifact("win_def_file") == null;
   }
 
   /**
@@ -1036,7 +1034,7 @@ public class CppHelper {
 
   public static Artifact getGrepIncludes(RuleContext ruleContext) {
     return ruleContext.attributes().has("$grep_includes")
-        ? ruleContext.getPrerequisiteArtifact("$grep_includes", TransitionMode.HOST)
+        ? ruleContext.getPrerequisiteArtifact("$grep_includes")
         : null;
   }
 

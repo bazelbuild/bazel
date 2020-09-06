@@ -108,10 +108,10 @@ public final class StarlarkLibrary {
               doc =
                   "A positional parameter distinct from other parameters for legacy support. "
                       + "\n" //
-                      + "<p>If <code>--incompatible_disable_depset_inputs</code> is false, this "
+                      + "<p>If <code>--incompatible_disable_depset_items</code> is false, this "
                       + "parameter serves as the value of <code>items</code>.</p> "
                       + "\n" //
-                      + "<p>If <code>--incompatible_disable_depset_inputs</code> is true, this "
+                      + "<p>If <code>--incompatible_disable_depset_items</code> is true, this "
                       + "parameter serves as the value of <code>direct</code>.</p> "
                       + "\n" //
                       + "<p>See the documentation for these parameters for more details."),
@@ -151,7 +151,7 @@ public final class StarlarkLibrary {
                       + "the new depset, in left-to-right order, or else a depset that becomes "
                       + "a transitive element of the new depset. In the latter case, "
                       + "<code>transitive</code> cannot be specified.",
-              disableWithFlag = StarlarkSemantics.FlagIdentifier.INCOMPATIBLE_DISABLE_DEPSET_INPUTS,
+              disableWithFlag = StarlarkSemantics.FlagIdentifier.INCOMPATIBLE_DISABLE_DEPSET_ITEMS,
               valueWhenDisabled = "[]",
               named = true),
         },
@@ -192,8 +192,6 @@ public final class StarlarkLibrary {
     public Object select(Dict<?, ?> dict, String noMatchError) throws EvalException {
       return SelectorList.select(dict, noMatchError);
     }
-
-    // TODO(adonovan): move depset here.
   }
 
   /**

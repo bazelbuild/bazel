@@ -45,7 +45,7 @@ public class AndroidDataConverterTest {
   }
 
   @Test
-  public void testWithLabel_EscapingNotNeeded() throws LabelSyntaxException {
+  public void testWithLabel_escapingNotNeeded() throws LabelSyntaxException {
     assertMap(
             AndroidDataConverter.<String>builder(JoinerType.SEMICOLON_AMPERSAND)
                 .withLabel(getFunction(Label.create("foo/bar", "baz")))

@@ -17,10 +17,7 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
-import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import org.junit.Test;
@@ -32,7 +29,7 @@ import org.junit.runners.JUnit4;
  * parse trees.
  */
 @RunWith(JUnit4.class)
-public final class EvalUtilsTest extends EvaluationTestCase {
+public final class EvalUtilsTest {
 
   private static StarlarkList<Object> makeList(@Nullable Mutability mu) {
     return StarlarkList.of(mu, 1, 2, 3);
@@ -64,32 +61,35 @@ public final class EvalUtilsTest extends EvaluationTestCase {
 
   @Test
   public void testDatatypeMutabilityPrimitive() throws Exception {
-    assertThat(EvalUtils.isImmutable("foo")).isTrue();
-    assertThat(EvalUtils.isImmutable(3)).isTrue();
+    assertThat(Starlark.isImmutable("foo")).isTrue();
+    assertThat(Starlark.isImmutable(3)).isTrue();
   }
 
   @Test
   public void testDatatypeMutabilityShallow() throws Exception {
-    assertThat(EvalUtils.isImmutable(Tuple.of(1, 2, 3))).isTrue();
+    assertThat(Starlark.isImmutable(Tuple.of(1, 2, 3))).isTrue();
 
-    assertThat(EvalUtils.isImmutable(makeList(null))).isTrue();
-    assertThat(EvalUtils.isImmutable(makeDict(null))).isTrue();
+    assertThat(Starlark.isImmutable(makeList(null))).isTrue();
+    assertThat(Starlark.isImmutable(makeDict(null))).isTrue();
 
     Mutability mu = Mutability.create("test");
-    assertThat(EvalUtils.isImmutable(makeList(mu))).isFalse();
-    assertThat(EvalUtils.isImmutable(makeDict(mu))).isFalse();
+    assertThat(Starlark.isImmutable(makeList(mu))).isFalse();
+    assertThat(Starlark.isImmutable(makeDict(mu))).isFalse();
   }
 
   @Test
   public void testDatatypeMutabilityDeep() throws Exception {
     Mutability mu = Mutability.create("test");
-    assertThat(EvalUtils.isImmutable(Tuple.of(makeList(null)))).isTrue();
-    assertThat(EvalUtils.isImmutable(Tuple.of(makeList(mu)))).isFalse();
+    assertThat(Starlark.isImmutable(Tuple.of(makeList(null)))).isTrue();
+    assertThat(Starlark.isImmutable(Tuple.of(makeList(mu)))).isFalse();
   }
 
   @Test
   public void testComparatorWithDifferentTypes() throws Exception {
     Mutability mu = Mutability.create("test");
+
+    StarlarkValue myValue = new StarlarkValue() {};
+
     Object[] objects = {
       "1",
       2,
@@ -101,7 +101,7 @@ public final class EvalUtilsTest extends EvaluationTestCase {
       StarlarkList.of(mu, "1", "2", "3"),
       Dict.of(mu, "key", 123),
       Dict.of(mu, 123, "value"),
-      StructProvider.STRUCT.create(ImmutableMap.of("key", (Object) "value"), "no field %s"),
+      myValue,
     };
 
     for (int i = 0; i < objects.length; ++i) {

@@ -18,21 +18,22 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Optional;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.pool2.BaseKeyedPooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 
-/**
- * Factory used by the pool to create / destroy / validate worker processes.
- */
-final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
+/** Factory used by the pool to create / destroy / validate worker processes. */
+class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
 
   // It's fine to use an AtomicInteger here (which is 32-bit), because it is only incremented when
   // spawning a new worker, thus even under worst-case circumstances and buggy workers quitting
   // after each action, this should never overflow.
-  private static final AtomicInteger pidCounter = new AtomicInteger();
+  // This starts at 1 to avoid hiding latent problems of multiplex workers not returning a
+  // request_id (which is indistinguishable from 0 in proto3).
+  private static final AtomicInteger pidCounter = new AtomicInteger(1);
 
   private WorkerOptions workerOptions;
   private final Path workerBaseDir;
@@ -64,13 +65,10 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
       Path workDir = getSandboxedWorkerPath(key, workerId);
       worker = new SandboxedWorker(key, workerId, workDir, logFile);
     } else if (key.getProxied()) {
+      WorkerMultiplexer workerMultiplexer = WorkerMultiplexerManager.getInstance(key, logFile);
       worker =
           new WorkerProxy(
-              key,
-              workerId,
-              key.getExecRoot(),
-              logFile,
-              WorkerMultiplexerManager.getInstance(key.hashCode()));
+              key, workerId, key.getExecRoot(), workerMultiplexer.getLogFile(), workerMultiplexer);
     } else {
       worker = new Worker(key, workerId, key.getExecRoot(), logFile);
     }
@@ -125,10 +123,44 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
     p.getObject().destroy();
   }
 
-  /** The worker is considered to be valid when its files have not changed on disk. */
+  /**
+   * Returns true if this worker is still valid. The worker is considered to be valid as long as its
+   * process has not exited and its files have not changed on disk.
+   */
   @Override
   public boolean validateObject(WorkerKey key, PooledObject<Worker> p) {
     Worker worker = p.getObject();
+    Optional<Integer> exitValue = worker.getExitValue();
+    if (exitValue.isPresent()) {
+      if (workerOptions.workerVerbose) {
+        if (worker.diedUnexpectedly()) {
+          String msg =
+              String.format(
+                  "%s %s (id %d) has unexpectedly died with exit code %d.",
+                  key.getMnemonic(),
+                  WorkerKey.makeWorkerTypeName(key.getProxied()),
+                  worker.getWorkerId(),
+                  exitValue.get());
+          ErrorMessage errorMessage =
+              ErrorMessage.builder()
+                  .message(msg)
+                  .logFile(worker.getLogFile())
+                  .logSizeLimit(4096)
+                  .build();
+          reporter.handle(Event.warn(errorMessage.toString()));
+        } else {
+          // Can't rule this out entirely, but it's not an unexpected death.
+          String msg =
+              String.format(
+                  "%s %s (id %d) was destroyed, but is still in the worker pool.",
+                  key.getMnemonic(),
+                  WorkerKey.makeWorkerTypeName(key.getProxied()),
+                  worker.getWorkerId());
+          reporter.handle(Event.info(msg));
+        }
+      }
+      return false;
+    }
     boolean hashMatches =
         key.getWorkerFilesCombinedHash().equals(worker.getWorkerFilesCombinedHash());
 

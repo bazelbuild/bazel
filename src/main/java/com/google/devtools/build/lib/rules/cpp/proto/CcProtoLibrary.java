@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp.proto;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.analysis.TransitionMode.TARGET;
 
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -33,7 +32,7 @@ public class CcProtoLibrary implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     CcCommon.checkRuleLoadedThroughMacro(ruleContext);
-    if (ruleContext.getPrerequisites("deps", TARGET).size() != 1) {
+    if (ruleContext.getPrerequisites("deps").size() != 1) {
       ruleContext.throwWithAttributeError(
           "deps",
           "'deps' attribute must contain exactly one label "
@@ -44,7 +43,7 @@ public class CcProtoLibrary implements RuleConfiguredTargetFactory {
     }
 
     CcProtoLibraryProviders depProviders =
-        checkNotNull(ruleContext.getPrerequisite("deps", TARGET))
+        checkNotNull(ruleContext.getPrerequisite("deps"))
             .getProvider(CcProtoLibraryProviders.class);
 
     RuleConfiguredTargetBuilder ruleConfiguredTargetBuilder = new RuleConfiguredTargetBuilder(

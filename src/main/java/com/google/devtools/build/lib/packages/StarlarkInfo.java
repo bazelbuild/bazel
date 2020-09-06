@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.HasBinary;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -258,7 +257,7 @@ public final class StarlarkInfo extends StructImpl implements HasBinary, ClassOb
     // end of every top-level statement, then we can assume that exported implies frozen, and just
     // return true here without a traversal.
     for (int i = table.length / 2; i < table.length; i++) {
-      if (!EvalUtils.isImmutable(table[i])) {
+      if (!Starlark.isImmutable(table[i])) {
         return false;
       }
     }

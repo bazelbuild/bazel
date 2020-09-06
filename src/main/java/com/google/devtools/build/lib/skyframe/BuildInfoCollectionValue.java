@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
@@ -56,7 +57,7 @@ public class BuildInfoCollectionValue extends BasicActionLookupValue {
 
   /** Key for BuildInfoCollectionValues. */
   @AutoCodec
-  public static class BuildInfoKeyAndConfig extends ActionLookupKey {
+  public static final class BuildInfoKeyAndConfig implements ActionLookupKey {
     private static final Interner<BuildInfoKeyAndConfig> keyInterner =
         BlazeInterners.newWeakInterner();
 

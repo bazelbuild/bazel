@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentCollection;
@@ -264,17 +263,13 @@ public final class RuleConfiguredTargetBuilder {
    * CoreOptions#includeRequiredConfigFragmentsProvider} isn't {@link
    * CoreOptions.IncludeConfigFragmentsEnum#OFF}.
    *
-   * <p>See {@link ConfiguredTargetFactory#getRequiredConfigFragments} for a description of the
-   * meaning of this provider's content. That method populates the results of {@link
-   * RuleContext#getRequiredConfigFragments} and {@link #ruleImplSpecificRequiredConfigFragments}.
+   * <p>See {@link com.google.devtools.build.lib.analysis.config.RequiredFragmentsUtil} for a
+   * description of the meaning of this provider's content. That class contains methods that
+   * populate the results of {@link RuleContext#getRequiredConfigFragments} and {@link
+   * #ruleImplSpecificRequiredConfigFragments}.
    */
   private void maybeAddRequiredConfigFragmentsProvider() {
-    if (ruleContext
-            .getConfiguration()
-            .getOptions()
-            .get(CoreOptions.class)
-            .includeRequiredConfigFragmentsProvider
-        != IncludeConfigFragmentsEnum.OFF) {
+    if (ruleContext.shouldIncludeRequiredConfigFragmentsProvider()) {
       addProvider(
           new RequiredConfigFragmentsProvider(
               ImmutableSet.<String>builder()
@@ -292,8 +287,7 @@ public final class RuleConfiguredTargetBuilder {
           ruleContext.attributes().getAttributeDefinition(attributeName).getType();
       if (attributeType.getLabelClass() == LabelClass.DEPENDENCY) {
         for (TransitiveLabelsInfo labelsInfo :
-            ruleContext.getPrerequisites(
-                attributeName, TransitionMode.DONT_CHECK, TransitiveLabelsInfo.class)) {
+            ruleContext.getPrerequisites(attributeName, TransitiveLabelsInfo.class)) {
           nestedSetBuilder.addTransitive(labelsInfo.getLabels());
         }
       }
@@ -325,8 +319,7 @@ public final class RuleConfiguredTargetBuilder {
           && attribute.getType().getLabelClass() == LabelClass.DEPENDENCY) {
 
         for (OutputGroupInfo outputGroup :
-            ruleContext.getPrerequisites(
-                attributeName, TransitionMode.DONT_CHECK, OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
+            ruleContext.getPrerequisites(attributeName, OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
 
           NestedSet<Artifact> validationArtifacts =
               outputGroup.getOutputGroup(OutputGroupInfo.VALIDATION);

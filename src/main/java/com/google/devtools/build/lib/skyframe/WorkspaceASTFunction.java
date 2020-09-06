@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunct
 import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.REPOSITORIES;
 import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.RULE_CLASS;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -31,7 +30,7 @@ import com.google.devtools.build.lib.rules.repository.ResolvedFileValue;
 import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.Statement;
@@ -46,6 +45,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** A SkyFunction to parse WORKSPACE files into a StarlarkFile. */
@@ -89,7 +89,7 @@ public class WorkspaceASTFunction implements SkyFunction {
             // These three options follow BUILD norms, but should probably be flipped.
             .allowToplevelRebinding(true)
             .requireLoadStatementsFirst(false)
-            .recordScope(false)
+            .recordScope(false) // mustn't mutate (resolve) syntax in a downstream skyframe function
             .restrictStringEscapes(
                 semantics != null && semantics.incompatibleRestrictStringEscapes())
             .build();
@@ -98,7 +98,7 @@ public class WorkspaceASTFunction implements SkyFunction {
     try {
       StarlarkFile file =
           StarlarkFile.parse(
-              ParserInput.create(
+              ParserInput.fromString(
                   ruleClassProvider.getDefaultWorkspacePrefix(), "/DEFAULT.WORKSPACE"),
               options);
       if (!file.ok()) {
@@ -108,7 +108,7 @@ public class WorkspaceASTFunction implements SkyFunction {
       if (newWorkspaceFileContents != null) {
         file =
             StarlarkFile.parseWithPrelude(
-                ParserInput.create(
+                ParserInput.fromString(
                     newWorkspaceFileContents, resolvedFile.get().asPath().toString()),
                 file.getStatements(),
                 // The WORKSPACE.resolved file breaks through the usual privacy mechanism.
@@ -118,7 +118,9 @@ public class WorkspaceASTFunction implements SkyFunction {
             FileSystemUtils.readWithKnownFileSize(repoWorkspace, repoWorkspace.getFileSize());
         file =
             StarlarkFile.parseWithPrelude(
-                ParserInput.create(bytes, repoWorkspace.toString()), file.getStatements(), options);
+                ParserInput.fromLatin1(bytes, repoWorkspace.toString()),
+                file.getStatements(),
+                options);
         if (!file.ok()) {
           Event.replayEventsOn(env.getListener(), file.errors());
           throw resolvedValueError("Failed to parse WORKSPACE file");
@@ -150,7 +152,7 @@ public class WorkspaceASTFunction implements SkyFunction {
 
       file =
           StarlarkFile.parseWithPrelude(
-              ParserInput.create(suffix, "/DEFAULT.WORKSPACE.SUFFIX"),
+              ParserInput.fromString(suffix, "/DEFAULT.WORKSPACE.SUFFIX"),
               file.getStatements(),
               // The DEFAULT.WORKSPACE.SUFFIX file breaks through the usual privacy mechanism.
               options.toBuilder().allowLoadPrivateSymbols(true).build());
@@ -228,7 +230,7 @@ public class WorkspaceASTFunction implements SkyFunction {
                   "In arguments to " + ((String) rule) + " found a non-string key.");
             }
             builder.append("    ").append((String) key).append(" = ");
-            builder.append(Printer.getPrinter().repr(arg.getValue()).toString());
+            builder.append(Starlark.repr(arg.getValue()));
             builder.append(",\n");
           }
           builder.append(")\n\n");

@@ -57,15 +57,20 @@ public class CrashFailureDetails {
                     : Crash.Code.CRASH_UNKNOWN);
     addCause(crashBuilder, throwable, Sets.newIdentityHashSet());
     return FailureDetail.newBuilder()
-        .setMessage("Crashed: " + joinCauseMessages(crashBuilder))
+        .setMessage("Crashed: " + joinSummarizedCauses(crashBuilder))
         .setCrash(crashBuilder)
         .build();
   }
 
-  private static String joinCauseMessages(Crash.Builder crashBuilder) {
+  private static String joinSummarizedCauses(Crash.Builder crashBuilder) {
     return crashBuilder.getCausesOrBuilderList().stream()
-        .map(ThrowableOrBuilder::getMessage)
+        .map(CrashFailureDetails::summarizeCause)
         .collect(Collectors.joining(", "));
+  }
+
+  private static String summarizeCause(ThrowableOrBuilder throwableOrBuilder) {
+    return String.format(
+        "(%s) %s", throwableOrBuilder.getThrowableClass(), throwableOrBuilder.getMessage());
   }
 
   private static void addCause(

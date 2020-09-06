@@ -58,7 +58,8 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
 
   @Before
   public final void init() throws Exception {
-    dispatcher = new BlazeCommandDispatcher(getRuntime(), new BuildCommand(), new ConfigCommand());
+    getRuntime().overrideCommands(ImmutableList.of(new BuildCommand(), new ConfigCommand()));
+    dispatcher = new BlazeCommandDispatcher(getRuntime());
     write(
         "test/defs.bzl",
         "def _simple_rule_impl(ctx):",

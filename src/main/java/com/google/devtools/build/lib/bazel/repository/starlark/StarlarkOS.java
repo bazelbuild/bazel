@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.bazel.repository.starlark;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skylarkbuildapi.repository.StarlarkOSApi;
+import com.google.devtools.build.lib.starlarkbuildapi.repository.StarlarkOSApi;
 import java.util.Map;
 
 /** A Starlark structure to deliver information about the system we are running on. */

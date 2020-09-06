@@ -91,6 +91,6 @@ public final class SelectorValue implements StarlarkValue, HasBinary {
 
   @Override
   public void repr(Printer printer) {
-    printer.format("select(%r)", dictionary);
+    printer.append("select(").repr(dictionary).append(")");
   }
 }

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 
 /** Provides loaded-package validation functionality. */
 public interface PackageValidator {
@@ -26,6 +27,11 @@ public interface PackageValidator {
   class InvalidPackageException extends NoSuchPackageException {
     public InvalidPackageException(PackageIdentifier pkgId, String message) {
       super(pkgId, message);
+    }
+
+    public InvalidPackageException(
+        PackageIdentifier pkgId, String message, DetailedExitCode detailedExitCode) {
+      super(pkgId, message, detailedExitCode);
     }
   }
 

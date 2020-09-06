@@ -14,9 +14,20 @@
 
 package com.google.devtools.build.lib.syntax;
 
-/** A Starlark value that support indexed access, {@code object[key]}. */
-public interface StarlarkIndexable extends StarlarkQueryable {
+/**
+ * A Starlark value that support indexed access ({@code object[key]}) and membership tests ({@code
+ * key in object}).
+ */
+public interface StarlarkIndexable extends StarlarkValue {
 
   /** Returns the value associated with the given key. */
   Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException;
+
+  /**
+   * Returns whether the key is in the object. New types should try to follow the semantics of dict:
+   * 'x in y' should return True when 'y[x]' is valid; otherwise, it should either be False or a
+   * failure. Note however that the builtin types string, list, and tuple do not follow this
+   * convention.
+   */
+  boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException;
 }

@@ -6,8 +6,8 @@ load("@rules_java//java:defs.bzl", "java_binary")
 package(default_visibility = ["//src:__subpackages__"])
 
 java_binary(
-    name = "Starlark",
-    srcs = ["Starlark.java"],
+    name = "starlark",
+    srcs = ["Main.java"],
     jvm_flags = [
         # quiet warnings from com.google.protobuf.UnsafeUtil,
         # see: https://github.com/google/protobuf/issues/3781
@@ -17,6 +17,7 @@ java_binary(
         # ... but only on JDK >= 9
         "-XX:+IgnoreUnrecognizedVMOptions",
     ],
+    main_class = "net.starlark.java.cmd.Main",
     visibility = ["//visibility:public"],
     deps = ["//src/main/java/com/google/devtools/build/lib:syntax"],
 )

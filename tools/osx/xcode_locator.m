@@ -65,8 +65,7 @@
 static void AddEntryToDictionary(
   XcodeVersionEntry *entry,
   NSMutableDictionary<NSString *, XcodeVersionEntry *> *dict) {
-  BOOL inApplications =
-      [entry.url.path rangeOfString:@"/Applications/"].location != NSNotFound;
+  BOOL inApplications = [entry.url.path hasPrefix:@"/Applications/"];
   NSString *entryVersion = entry.version;
   NSString *subversion = entryVersion;
   if (dict[entryVersion] && !inApplications) {

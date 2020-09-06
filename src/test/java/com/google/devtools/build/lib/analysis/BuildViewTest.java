@@ -549,7 +549,7 @@ public class BuildViewTest extends BuildViewTestBase {
     Iterable<DependencyKey> targets =
         getView()
             .getDirectPrerequisiteDependenciesForTesting(
-                reporter, top, getBuildConfigurationCollection(), /*toolchainContext=*/ null)
+                reporter, top, getBuildConfigurationCollection(), /* toolchainContexts= */ null)
             .values();
 
     DependencyKey innerDependency =
@@ -840,19 +840,18 @@ public class BuildViewTest extends BuildViewTestBase {
     Path badpkg2BuildFile =
         scratch.file("badpkg2/BUILD", "sh_library(name = 'bad-target')", "fail()");
     update(defaultFlags().with(Flag.KEEP_GOING), "//parent:foo");
-    assertThat(getFrequencyOfErrorsWithLocation(badpkg1BuildFile.asFragment(), eventCollector))
-        .isEqualTo(1);
-    assertThat(getFrequencyOfErrorsWithLocation(badpkg2BuildFile.asFragment(), eventCollector))
-        .isEqualTo(1);
+    // Each event string may contain stack traces and error messages with multiple file names.
+    assertContainsEventWithFrequency(badpkg1BuildFile.asFragment().getPathString(), 1);
+    assertContainsEventWithFrequency(badpkg2BuildFile.asFragment().getPathString(), 1);
   }
 
   @Test
-  public void testDepOnGoodTargetInBadPkgAndTransitiveCycle_NotIncremental() throws Exception {
+  public void testDepOnGoodTargetInBadPkgAndTransitiveCycle_notIncremental() throws Exception {
     runTestDepOnGoodTargetInBadPkgAndTransitiveCycle(/*incremental=*/false);
   }
 
   @Test
-  public void testDepOnGoodTargetInBadPkgAndTransitiveCycle_Incremental() throws Exception {
+  public void testDepOnGoodTargetInBadPkgAndTransitiveCycle_incremental() throws Exception {
     if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
       // TODO(b/67412276): handle cycles properly.
       return;
@@ -865,7 +864,7 @@ public class BuildViewTest extends BuildViewTestBase {
    * in error.
    */
   @Test
-  public void testCycleReporting_TargetCycleWhenPackageInError() throws Exception {
+  public void testCycleReporting_targetCycleWhenPackageInError() throws Exception {
     if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
       // TODO(b/67412276): handle cycles properly.
       return;
@@ -1208,7 +1207,8 @@ public class BuildViewTest extends BuildViewTestBase {
     reporter.removeHandler(failFastHandler);
     AnalysisResult result = update(defaultFlags().with(Flag.KEEP_GOING), "//a", "//b");
     assertThat(result.hasError()).isTrue();
-    assertThat(result.getError()).contains("command succeeded, but not all targets were analyzed");
+    assertThat(result.getFailureDetail().getMessage())
+        .contains("command succeeded, but not all targets were analyzed");
   }
 
   @Test
@@ -1253,7 +1253,7 @@ public class BuildViewTest extends BuildViewTestBase {
   }
 
   @Test
-  public void testNonTopLevelErrorsPrintedExactlyOnce_KeepGoing() throws Exception {
+  public void testNonTopLevelErrorsPrintedExactlyOnce_keepGoing() throws Exception {
     if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
       // TODO(b/67651960): fix or justify disabling.
       return;
@@ -1270,7 +1270,7 @@ public class BuildViewTest extends BuildViewTestBase {
   }
 
   @Test
-  public void testNonTopLevelErrorsPrintedExactlyOnce_ActionListener() throws Exception {
+  public void testNonTopLevelErrorsPrintedExactlyOnce_actionListener() throws Exception {
     if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
       // TODO(b/67651960): fix or justify disabling.
       return;
@@ -1290,7 +1290,7 @@ public class BuildViewTest extends BuildViewTestBase {
   }
 
   @Test
-  public void testNonTopLevelErrorsPrintedExactlyOnce_ActionListener_KeepGoing() throws Exception {
+  public void testNonTopLevelErrorsPrintedExactlyOnce_actionListener_keepGoing() throws Exception {
     if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
       // TODO(b/67651960): fix or justify disabling.
       return;
@@ -1550,8 +1550,7 @@ public class BuildViewTest extends BuildViewTestBase {
 
     @Override
     @Test
-    public void testCycleReporting_TargetCycleWhenPackageInError() {
-    }
+    public void testCycleReporting_targetCycleWhenPackageInError() {}
 
     @Override
     @Test

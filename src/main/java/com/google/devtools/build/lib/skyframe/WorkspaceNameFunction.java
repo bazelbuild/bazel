@@ -51,7 +51,7 @@ public class WorkspaceNameFunction implements SkyFunction {
     return null;
   }
 
-  private class WorkspaceNameFunctionException extends SkyFunctionException {
+  private static class WorkspaceNameFunctionException extends SkyFunctionException {
     WorkspaceNameFunctionException() {
       super(
           new BuildFileContainsErrorsException(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER),

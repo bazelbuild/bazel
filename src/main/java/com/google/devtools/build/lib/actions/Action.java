@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadCompatible;
+import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import javax.annotation.Nullable;
@@ -82,8 +83,10 @@ public interface Action extends ActionExecutionMetadata {
    * or the permissions should be changed, so that they can be safely overwritten by the action.
    *
    * @throws IOException if there is an error deleting the outputs.
+   * @throws InterruptedException if the execution is interrupted
    */
-  void prepare(Path execRoot) throws IOException;
+  void prepare(Path execRoot, @Nullable BulkDeleter bulkDeleter)
+      throws IOException, InterruptedException;
 
   /**
    * Executes this action. This method <i>unconditionally does the work of the Action</i>, although

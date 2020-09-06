@@ -453,14 +453,16 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
             "/x/BUILD",
             "java_test(name='j')",
             "test_suite(name='t1')",
-            "test_suite(name='t2', tests=['//foo'])",
+            "test_suite(name='t2', tests=[])",
             "test_suite(name='t3', tests=['//foo'])",
+            "test_suite(name='t4', tests=['//foo'])",
             "cc_test(name='c')");
     Package pkg = packages.createPackage("x", RootedPath.toRootedPath(root, path));
 
     // Things to note:
-    // - the t1 refers to both :j and :c, even though :c is a forward reference.
-    // - $implicit_tests is empty unless tests=[]
+    // - The '$implicit_tests' attribute is unset unless the 'tests' attribute is unset or empty.
+    // - The '$implicit_tests' attribute's value for t1 and t2 is magically able to contain both j
+    //    and c, even though c is instantiated after t1 and t2 are.
 
     assertThat(attributes(pkg.getRule("t1")).get("$implicit_tests", BuildType.LABEL_LIST))
         .containsExactlyElementsIn(
@@ -468,8 +470,13 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
                 Label.parseAbsolute("//x:c", ImmutableMap.of()),
                 Label.parseAbsolute("//x:j", ImmutableMap.of())));
     assertThat(attributes(pkg.getRule("t2")).get("$implicit_tests", BuildType.LABEL_LIST))
-        .isEmpty();
+        .containsExactlyElementsIn(
+            Sets.newHashSet(
+                Label.parseAbsolute("//x:c", ImmutableMap.of()),
+                Label.parseAbsolute("//x:j", ImmutableMap.of())));
     assertThat(attributes(pkg.getRule("t3")).get("$implicit_tests", BuildType.LABEL_LIST))
+        .isEmpty();
+    assertThat(attributes(pkg.getRule("t4")).get("$implicit_tests", BuildType.LABEL_LIST))
         .isEmpty();
   }
 
@@ -654,7 +661,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
                     /*includes=*/ ImmutableList.of("W*", "subdir"),
                     /*excludes=*/ ImmutableList.<String>of(),
                     /* excludeDirs= */ true));
-    assertThat(e).hasMessageThat().isEqualTo("ERROR /globs/BUILD:2:77: incorrect glob result");
+    assertThat(e).hasMessageThat().contains("incorrect glob result");
   }
 
   @Test
@@ -953,7 +960,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     Package pkg = packages.createPackage("e", RootedPath.toRootedPath(root, buildFile));
     assertThat(pkg.containsErrors()).isFalse();
     assertThat(pkg.getRule("e")).isNotNull();
-    List<?> globList = (List) pkg.getRule("e").getAttributeContainer().getAttr("data");
+    List<?> globList = (List) pkg.getRule("e").getAttr("data");
     assertThat(globList).containsExactly(Label.parseAbsolute("//e:data.txt", ImmutableMap.of()));
   }
 

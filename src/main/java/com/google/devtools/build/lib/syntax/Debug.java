@@ -17,10 +17,72 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
+import javax.annotation.Nullable;
 
 /** Debugger API. */
 // TODO(adonovan): move Debugger to Debug.Debugger.
 public final class Debug {
+
+  /**
+   * A simple interface for the Starlark interpreter to notify a debugger of events during
+   * execution.
+   */
+  public interface Debugger {
+    /** Notify the debugger that execution is at the point immediately before {@code loc}. */
+    void before(StarlarkThread thread, Location loc);
+
+    /** Notify the debugger that it will no longer receive events from the interpreter. */
+    void close();
+  }
+
+  /** A Starlark value that can expose additional information to a debugger. */
+  public interface ValueWithDebugAttributes extends StarlarkValue {
+    /**
+     * Returns a list of DebugAttribute of this value. For example, it can be the internal fields of
+     * a value that are not accessible from Starlark, or the values inside a collection.
+     */
+    ImmutableList<DebugAttribute> getDebugAttributes();
+  }
+
+  /** A name/value pair used in the return value of getDebugAttributes. */
+  public static final class DebugAttribute {
+    public final String name;
+    public final Object value; // a legal Starlark value
+
+    public DebugAttribute(String name, Object value) {
+      this.name = name;
+      this.value = value;
+    }
+  }
+
+  /** See stepControl */
+  public interface ReadyToPause extends Predicate<StarlarkThread> {}
+
+  /**
+   * Describes the stepping behavior that should occur when execution of a thread is continued.
+   * (Debugger API)
+   */
+  public enum Stepping {
+    /** Continue execution without stepping. */
+    NONE,
+    /**
+     * If the thread is paused on a statement that contains a function call, step into that
+     * function. Otherwise, this is the same as OVER.
+     */
+    INTO,
+    /**
+     * Step over the current statement and any functions that it may call, stopping at the next
+     * statement in the same frame. If no more statements are available in the current frame, same
+     * as OUT.
+     */
+    OVER,
+    /**
+     * Continue execution until the current frame has been exited and then pause. If we are
+     * currently in the outer-most frame, same as NONE.
+     */
+    OUT,
+  }
 
   private Debug() {} // uninstantiable
 
@@ -47,6 +109,34 @@ public final class Debug {
    */
   public static ImmutableList<Frame> getCallStack(StarlarkThread thread) {
     return thread.getDebugCallStack();
+  }
+
+  /**
+   * Given a requested stepping behavior, returns a predicate over the context that tells the
+   * debugger when to pause. (Debugger API)
+   *
+   * <p>The predicate will return true if we are at the next statement where execution should pause,
+   * and it will return false if we are not yet at that statement. No guarantee is made about the
+   * predicate's return value after we have reached the desired statement.
+   *
+   * <p>A null return value indicates that no further pausing should occur.
+   */
+  @Nullable
+  public static Debug.ReadyToPause stepControl(StarlarkThread th, Debug.Stepping stepping) {
+    final int depth = th.getCallStackSize();
+    switch (stepping) {
+      case NONE:
+        return null;
+      case INTO:
+        // pause at the very next statement
+        return thread -> true;
+      case OVER:
+        return thread -> thread.getCallStackSize() <= depth;
+      case OUT:
+        // if we're at the outermost frame, same as NONE
+        return depth == 0 ? null : thread -> thread.getCallStackSize() < depth;
+    }
+    throw new IllegalArgumentException("Unsupported stepping type: " + stepping);
   }
 
   /** Debugger interface to the interpreter's internal call frame representation. */

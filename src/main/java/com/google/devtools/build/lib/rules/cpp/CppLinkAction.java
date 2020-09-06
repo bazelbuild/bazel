@@ -14,10 +14,8 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -49,9 +47,7 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.starlark.Args;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
@@ -62,18 +58,14 @@ import com.google.devtools.build.lib.server.FailureDetails.CppLink;
 import com.google.devtools.build.lib.server.FailureDetails.CppLink.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
+import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ShellEscaper;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -119,7 +111,6 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
       };
 
   private static final String LINK_GUID = "58ec78bd-1176-4e36-8143-439f656b181d";
-  private static final String FAKE_LINK_GUID = "da36f819-5a15-43a9-8a45-e01b60e10c8b";
   
   @Nullable private final String mnemonic;
   private final LibraryToLink outputLibrary;
@@ -131,10 +122,6 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
 
   private final LinkCommandLine linkCommandLine;
 
-  /** True for cc_fake_binary targets. */
-  private final boolean fake;
-
-  private final Iterable<Artifact> fakeLinkerInputArtifacts;
   private final boolean isLtoIndexing;
 
   private final PathFragment ldExecutable;
@@ -171,8 +158,6 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
       LibraryToLink outputLibrary,
       Artifact linkOutput,
       LibraryToLink interfaceOutputLibrary,
-      boolean fake,
-      Iterable<Artifact> fakeLinkerInputArtifacts,
       boolean isLtoIndexing,
       ImmutableMap<Linkstamp, Artifact> linkstamps,
       LinkCommandLine linkCommandLine,
@@ -187,8 +172,6 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
     this.outputLibrary = outputLibrary;
     this.linkOutput = linkOutput;
     this.interfaceOutputLibrary = interfaceOutputLibrary;
-    this.fake = fake;
-    this.fakeLinkerInputArtifacts = CollectionUtils.makeImmutable(fakeLinkerInputArtifacts);
     this.isLtoIndexing = isLtoIndexing;
     this.linkstamps = linkstamps;
     this.linkCommandLine = linkCommandLine;
@@ -257,11 +240,6 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
     return interfaceOutputLibrary;
   }
 
-  /** Returns the path to the output artifact produced by the linker. */
-  private Path getOutputFile(ActionExecutionContext actionExecutionContext) {
-    return actionExecutionContext.getInputPath(linkOutput);
-  }
-
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
     return executionRequirements;
@@ -321,10 +299,6 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
   @ThreadCompatible
   public ActionContinuationOrResult beginExecution(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    if (fake) {
-      executeFake(actionExecutionContext);
-      return ActionContinuationOrResult.of(ActionResult.EMPTY);
-    }
     Spawn spawn = createSpawn(actionExecutionContext);
     SpawnContinuation spawnContinuation =
         actionExecutionContext
@@ -352,92 +326,6 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
       DetailedExitCode code = createDetailedExitCode(message, Code.COMMAND_GENERATION_FAILURE);
       throw new ActionExecutionException(message, this, /*catastrophe=*/ false, code);
     }
-  }
-
-  // Don't forget to update FAKE_LINK_GUID if you modify this method.
-  @ThreadCompatible
-  private void executeFake(ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException {
-    try {
-      // Prefix all fake output files in the command line with $TEST_TMPDIR/.
-      final String outputPrefix = "$TEST_TMPDIR/";
-      List<String> escapedLinkArgv =
-          escapeLinkArgv(
-              linkCommandLine.getRawLinkArgv(actionExecutionContext.getArtifactExpander()),
-              outputPrefix);
-      // Write the commands needed to build the real target to the fake target
-      // file.
-      StringBuilder s = new StringBuilder();
-      Joiner.on('\n')
-          .appendTo(
-              s,
-              "# This is a fake target file, automatically generated.",
-              "# Do not edit by hand!",
-              "echo $0 is a fake target file and not meant to be executed.",
-              "exit 0",
-              "EOS",
-              "",
-              "makefile_dir=.",
-              "");
-
-      // Concatenate all the (fake) .o files into the result.
-      for (Artifact objectFile : fakeLinkerInputArtifacts) {
-        if (CppFileTypes.OBJECT_FILE.matches(objectFile.getFilename())
-            || CppFileTypes.PIC_OBJECT_FILE.matches(objectFile.getFilename())) {
-          s.append(
-              FileSystemUtils.readContentAsLatin1(
-                  actionExecutionContext.getInputPath(objectFile))); // (IOException)
-        }
-      }
-      Path outputFile = getOutputFile(actionExecutionContext);
-
-      s.append(outputFile.getBaseName()).append(": ");
-      Joiner.on(' ').appendTo(s, escapedLinkArgv);
-      s.append('\n');
-      if (outputFile.exists()) {
-        outputFile.setWritable(true); // (IOException)
-      }
-      FileSystemUtils.writeContent(outputFile, ISO_8859_1, s.toString());
-      outputFile.setExecutable(true); // (IOException)
-      for (Artifact output : getOutputs()) {
-        // Make ThinLTO link actions (that also have ThinLTO-specific outputs) kind of work; It does
-        // not actually work because this makes cc_fake_binary see the indexing action and not the
-        // actual linking action, but it's good enough for now.
-        FileSystemUtils.touchFile(actionExecutionContext.getInputPath(output));
-      }
-    } catch (IOException | CommandLineExpansionException e) {
-      String message =
-          String.format(
-              "failed to create fake link command for rule '%s: %s",
-              getOwner().getLabel(), e.getMessage());
-      DetailedExitCode code = createDetailedExitCode(message, Code.FAKE_COMMAND_GENERATION_FAILURE);
-      throw new ActionExecutionException(message, this, false, code);
-    }
-  }
-
-  /**
-   * Shell-escapes the raw link command line.
-   *
-   * @param rawLinkArgv raw link command line
-   * @param outputPrefix to be prepended to any outputs
-   * @return escaped link command line
-   */
-  private List<String> escapeLinkArgv(List<String> rawLinkArgv, String outputPrefix) {
-    ImmutableList.Builder<String> escapedArgs = ImmutableList.builder();
-    for (String rawArg : rawLinkArgv) {
-      String escapedArg;
-      if (rawArg.equals(getPrimaryOutput().getExecPathString())) {
-        escapedArg = outputPrefix + ShellEscaper.escapeString(rawArg);
-      } else if (rawArg.startsWith(Link.FAKE_OBJECT_PREFIX)) {
-        escapedArg =
-            outputPrefix
-                + ShellEscaper.escapeString(rawArg.substring(Link.FAKE_OBJECT_PREFIX.length()));
-      } else {
-        escapedArg = ShellEscaper.escapeString(rawArg);
-      }
-      escapedArgs.add(escapedArg);
-    }
-    return escapedArgs.build();
   }
 
   @Override
@@ -472,9 +360,12 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp)
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable Artifact.ArtifactExpander artifactExpander,
+      Fingerprint fp)
       throws CommandLineExpansionException {
-    fp.addString(fake ? FAKE_LINK_GUID : LINK_GUID);
+    fp.addString(LINK_GUID);
     fp.addString(ldExecutable.getPathString());
     fp.addStrings(linkCommandLine.arguments());
     fp.addStringMap(toolchainEnv);
@@ -482,8 +373,9 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
 
     // TODO(bazel-team): For correctness, we need to ensure the invariant that all values accessed
     // during the execution phase are also covered by the key. Above, we add the argv to the key,
-    // which covers most cases. Unfortunately, the extra action and fake support methods above also
-    // sometimes directly access settings from the link configuration that may or may not affect the
+    // which covers most cases. Unfortunately, the extra action method above also
+    // sometimes directly accesses settings from the link configuration that may or may not affect
+    // the
     // key. We either need to change the code to cover them in the key computation, or change the
     // LinkConfiguration to disallow the combinations where the value of a setting does not affect
     // the argv.
@@ -498,9 +390,6 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
   @Override
   public String describeKey() {
     StringBuilder message = new StringBuilder();
-    if (fake) {
-      message.append("Fake ");
-    }
     message.append(getProgressMessage());
     message.append('\n');
     message.append("  Command: ");
@@ -582,10 +471,9 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
         }
         return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
       } catch (ExecException e) {
-        Label label = getOwner().getLabel();
         throw e.toActionExecutionException(
-            "Linking of rule '" + label + "'",
-            actionExecutionContext.showVerboseFailures(label),
+            "Linking of rule '" + getOwner().getLabel() + "'",
+            actionExecutionContext.getVerboseFailures(),
             CppLinkAction.this);
       }
     }
@@ -595,8 +483,8 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
   public Sequence<String> getStarlarkArgv() throws EvalException {
     try {
       return StarlarkList.immutableCopyOf(getArguments());
-    } catch (CommandLineExpansionException exception) {
-      throw new EvalException(Location.BUILTIN, exception);
+    } catch (CommandLineExpansionException ex) {
+      throw new EvalException(ex);
     }
   }
 

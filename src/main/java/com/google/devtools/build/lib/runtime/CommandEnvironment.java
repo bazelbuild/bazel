@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -318,6 +318,7 @@ public class CommandEnvironment {
     return directories;
   }
 
+  @Nullable
   public PathPackageLocator getPackageLocator() {
     return packageLocator;
   }
@@ -668,7 +669,7 @@ public class CommandEnvironment {
             reporter,
             options.getOptions(PackageOptions.class),
             packageLocator,
-            options.getOptions(StarlarkSemanticsOptions.class),
+            options.getOptions(BuildLanguageOptions.class),
             getCommandId(),
             clientEnv,
             timestampGranularityMonitor,
@@ -688,7 +689,8 @@ public class CommandEnvironment {
    *
    * @throws AbruptExitException if this command is unsuitable to be run as specified
    */
-  void beforeCommand(InvocationPolicy invocationPolicy) throws AbruptExitException {
+  @VisibleForTesting
+  public void beforeCommand(InvocationPolicy invocationPolicy) throws AbruptExitException {
     CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
     eventBus.post(new BuildMetadataEvent(makeMapFromMapEntries(commonOptions.buildMetadata)));
     eventBus.post(

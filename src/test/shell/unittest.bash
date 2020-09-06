@@ -540,7 +540,7 @@ function __test_terminated_err() {
     fi
     __show_log >&2
     if [[ ! -z "$TEST_name" ]]; then
-      echo -n "$TEST_name "
+      echo -n "$TEST_name " >&2
     fi
     echo "FAILED: terminated because this command returned a non-zero status:" >&2
     touch $TEST_TMPDIR/__err_handled

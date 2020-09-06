@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.ObjcProviderApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -1062,10 +1062,8 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
     /** Return an EvalException for having a bad key in the direct dependency provider. */
     private static <E> EvalException badDirectDependencyKeyError(Key<E> key) {
-      return new EvalException(
-          null,
-          String.format(
-              AppleStarlarkCommon.BAD_DIRECT_DEPENDENCY_KEY_ERROR, key.getStarlarkKeyName()));
+      return Starlark.errorf(
+          AppleStarlarkCommon.BAD_DIRECT_DEPENDENCY_KEY_ERROR, key.getStarlarkKeyName());
     }
 
     /**
@@ -1195,9 +1193,8 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       if (DEPRECATED_KEYS.contains(key)) {
         if (getStarlarkSemantics().incompatibleObjcProviderRemoveCompileInfo()) {
           if (!KEYS_FOR_DIRECT.contains(key)) {
-            throw new EvalException(
-                null,
-                String.format(AppleStarlarkCommon.DEPRECATED_KEY_ERROR, key.getStarlarkKeyName()));
+            throw Starlark.errorf(
+                AppleStarlarkCommon.DEPRECATED_KEY_ERROR, key.getStarlarkKeyName());
           }
         } else {
           if (!addCompileElementsFromStarlark(key, starlarkToAdd)) {
@@ -1236,8 +1233,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
         ImmutableList.Builder<PathFragment> frameworkSearchPaths = ImmutableList.builder();
         for (PathFragment framework : frameworks) {
           if (!framework.getSafePathString().endsWith(FRAMEWORK_SUFFIX)) {
-            throw new EvalException(
-                null, String.format(AppleStarlarkCommon.BAD_FRAMEWORK_PATH_ERROR, framework));
+            throw Starlark.errorf(AppleStarlarkCommon.BAD_FRAMEWORK_PATH_ERROR, framework);
           }
           frameworkSearchPaths.add(framework.getParentDirectory());
         }
@@ -1278,17 +1274,13 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     @SuppressWarnings("unchecked")
     void addProvidersFromStarlark(Object toAdd) throws EvalException {
       if (!(toAdd instanceof Iterable)) {
-        throw new EvalException(
-            null,
-            String.format(AppleStarlarkCommon.BAD_PROVIDERS_ITER_ERROR, Starlark.type(toAdd)));
+        throw Starlark.errorf(AppleStarlarkCommon.BAD_PROVIDERS_ITER_ERROR, Starlark.type(toAdd));
       } else {
         Iterable<Object> toAddIterable = (Iterable<Object>) toAdd;
         for (Object toAddObject : toAddIterable) {
           if (!(toAddObject instanceof ObjcProvider)) {
-            throw new EvalException(
-                null,
-                String.format(
-                    AppleStarlarkCommon.BAD_PROVIDERS_ELEM_ERROR, Starlark.type(toAddObject)));
+            throw Starlark.errorf(
+                AppleStarlarkCommon.BAD_PROVIDERS_ELEM_ERROR, Starlark.type(toAddObject));
           } else {
             ObjcProvider objcProvider = (ObjcProvider) toAddObject;
             this.addTransitiveAndPropagate(objcProvider);
@@ -1306,17 +1298,13 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     @SuppressWarnings("unchecked")
     void addDirectDepProvidersFromStarlark(Object toAdd) throws EvalException {
       if (!(toAdd instanceof Iterable)) {
-        throw new EvalException(
-            null,
-            String.format(AppleStarlarkCommon.BAD_PROVIDERS_ITER_ERROR, Starlark.type(toAdd)));
+        throw Starlark.errorf(AppleStarlarkCommon.BAD_PROVIDERS_ITER_ERROR, Starlark.type(toAdd));
       } else {
         Iterable<Object> toAddIterable = (Iterable<Object>) toAdd;
         for (Object toAddObject : toAddIterable) {
           if (!(toAddObject instanceof ObjcProvider)) {
-            throw new EvalException(
-                null,
-                String.format(
-                    AppleStarlarkCommon.BAD_PROVIDERS_ELEM_ERROR, Starlark.type(toAddObject)));
+            throw Starlark.errorf(
+                AppleStarlarkCommon.BAD_PROVIDERS_ELEM_ERROR, Starlark.type(toAddObject));
           } else {
             this.addAsDirectDeps((ObjcProvider) toAddObject);
           }

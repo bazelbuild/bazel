@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
 import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -100,6 +99,7 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
   private final TransitiveInfoCollection staticRuntimeLib;
   private final TransitiveInfoCollection dynamicRuntimeLib;
   private final PackageSpecificationProvider allowlistForLayeringCheck;
+  private final PackageSpecificationProvider allowlistForLooseHeaderCheck;
 
   public CcToolchainAttributesProvider(
       RuleContext ruleContext,
@@ -121,10 +121,7 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     this.supportsParamFiles = ruleContext.attributes().get("supports_param_files", BOOLEAN);
     this.supportsHeaderParsing = ruleContext.attributes().get("supports_header_parsing", BOOLEAN);
     this.allFiles =
-        ruleContext
-            .getPrerequisite("all_files", TransitionMode.HOST)
-            .getProvider(FileProvider.class)
-            .getFilesToBuild();
+        ruleContext.getPrerequisite("all_files").getProvider(FileProvider.class).getFilesToBuild();
     this.allFilesMiddleman = getMiddlemanOrFiles(ruleContext, "all_files");
     this.compilerFiles = getMiddlemanOrFiles(ruleContext, "compiler_files");
     this.compilerFilesWithoutIncludes =
@@ -136,20 +133,14 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     this.linkerFiles = getMiddlemanOrFiles(ruleContext, "linker_files");
     this.dwpFiles = getMiddlemanOrFiles(ruleContext, "dwp_files");
 
-    this.libcMiddleman =
-        getOptionalMiddlemanOrFiles(
-            ruleContext, CcToolchainRule.LIBC_TOP_ATTR, TransitionMode.TARGET);
-    this.libc = getOptionalFiles(ruleContext, CcToolchainRule.LIBC_TOP_ATTR, TransitionMode.TARGET);
-    this.libcTop =
-        ruleContext.getPrerequisite(CcToolchainRule.LIBC_TOP_ATTR, TransitionMode.TARGET);
+    this.libcMiddleman = getOptionalMiddlemanOrFiles(ruleContext, CcToolchainRule.LIBC_TOP_ATTR);
+    this.libc = getOptionalFiles(ruleContext, CcToolchainRule.LIBC_TOP_ATTR);
+    this.libcTop = ruleContext.getPrerequisite(CcToolchainRule.LIBC_TOP_ATTR);
 
     this.targetLibcMiddleman =
-        getOptionalMiddlemanOrFiles(
-            ruleContext, CcToolchainRule.TARGET_LIBC_TOP_ATTR, TransitionMode.TARGET);
-    this.targetLibc =
-        getOptionalFiles(ruleContext, CcToolchainRule.TARGET_LIBC_TOP_ATTR, TransitionMode.TARGET);
-    this.targetLibcTop =
-        ruleContext.getPrerequisite(CcToolchainRule.TARGET_LIBC_TOP_ATTR, TransitionMode.TARGET);
+        getOptionalMiddlemanOrFiles(ruleContext, CcToolchainRule.TARGET_LIBC_TOP_ATTR);
+    this.targetLibc = getOptionalFiles(ruleContext, CcToolchainRule.TARGET_LIBC_TOP_ATTR);
+    this.targetLibcTop = ruleContext.getPrerequisite(CcToolchainRule.TARGET_LIBC_TOP_ATTR);
 
     this.libcTopAttribute = ruleContext.attributes().get("libc_top", BuildType.LABEL);
 
@@ -166,44 +157,32 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     } else {
       this.coverage = coverageFiles;
     }
-    this.ifsoBuilder =
-        ruleContext.getPrerequisiteArtifact("$interface_library_builder", TransitionMode.HOST);
-    this.linkDynamicLibraryTool =
-        ruleContext.getPrerequisiteArtifact("$link_dynamic_library_tool", TransitionMode.HOST);
+    this.ifsoBuilder = ruleContext.getPrerequisiteArtifact("$interface_library_builder");
+    this.linkDynamicLibraryTool = ruleContext.getPrerequisiteArtifact("$link_dynamic_library_tool");
     this.fdoProfileProvider =
-        ruleContext.getPrerequisite(
-            CcToolchainRule.FDO_PROFILE_ATTR, TransitionMode.TARGET, FdoProfileProvider.PROVIDER);
+        ruleContext.getPrerequisite(CcToolchainRule.FDO_PROFILE_ATTR, FdoProfileProvider.PROVIDER);
     this.csFdoProfileProvider =
         ruleContext.getPrerequisite(
-            CcToolchainRule.CSFDO_PROFILE_ATTR, TransitionMode.TARGET, FdoProfileProvider.PROVIDER);
+            CcToolchainRule.CSFDO_PROFILE_ATTR, FdoProfileProvider.PROVIDER);
     this.xfdoProfileProvider =
-        ruleContext.getPrerequisite(
-            CcToolchainRule.XFDO_PROFILE_ATTR, TransitionMode.TARGET, FdoProfileProvider.PROVIDER);
+        ruleContext.getPrerequisite(CcToolchainRule.XFDO_PROFILE_ATTR, FdoProfileProvider.PROVIDER);
     this.fdoOptimizeProvider =
-        ruleContext.getPrerequisite(
-            CcToolchainRule.FDO_OPTIMIZE_ATTR, TransitionMode.TARGET, FdoProfileProvider.PROVIDER);
-    this.fdoOptimize =
-        ruleContext.getPrerequisite(CcToolchainRule.FDO_OPTIMIZE_ATTR, TransitionMode.TARGET);
+        ruleContext.getPrerequisite(CcToolchainRule.FDO_OPTIMIZE_ATTR, FdoProfileProvider.PROVIDER);
+    this.fdoOptimize = ruleContext.getPrerequisite(CcToolchainRule.FDO_OPTIMIZE_ATTR);
     this.fdoOptimizeArtifacts =
-        ruleContext
-            .getPrerequisiteArtifacts(CcToolchainRule.FDO_OPTIMIZE_ATTR, TransitionMode.TARGET)
-            .list();
+        ruleContext.getPrerequisiteArtifacts(CcToolchainRule.FDO_OPTIMIZE_ATTR).list();
     this.fdoPrefetch =
-        ruleContext.getPrerequisite(
-            ":fdo_prefetch_hints", TransitionMode.TARGET, FdoPrefetchHintsProvider.PROVIDER);
-    this.moduleMap = ruleContext.getPrerequisite("module_map", TransitionMode.HOST);
-    this.moduleMapArtifact = ruleContext.getPrerequisiteArtifact("module_map", TransitionMode.HOST);
-    this.zipper = ruleContext.getPrerequisiteArtifact(":zipper", TransitionMode.HOST);
+        ruleContext.getPrerequisite(":fdo_prefetch_hints", FdoPrefetchHintsProvider.PROVIDER);
+    this.moduleMap = ruleContext.getPrerequisite("module_map");
+    this.moduleMapArtifact = ruleContext.getPrerequisiteArtifact("module_map");
+    this.zipper = ruleContext.getPrerequisiteArtifact(":zipper");
     this.purposePrefix = Actions.escapeLabel(ruleContext.getLabel()) + "_";
     this.runtimeSolibDirBase = "_solib_" + "_" + Actions.escapeLabel(ruleContext.getLabel());
-    this.staticRuntimeLib =
-        ruleContext.getPrerequisite("static_runtime_lib", TransitionMode.TARGET);
-    this.dynamicRuntimeLib =
-        ruleContext.getPrerequisite("dynamic_runtime_lib", TransitionMode.TARGET);
+    this.staticRuntimeLib = ruleContext.getPrerequisite("static_runtime_lib");
+    this.dynamicRuntimeLib = ruleContext.getPrerequisite("dynamic_runtime_lib");
     this.ccToolchainConfigInfo =
         ruleContext.getPrerequisite(
             CcToolchainRule.TOOLCHAIN_CONFIG_ATTR,
-            TransitionMode.TARGET,
             CcToolchainConfigInfo.PROVIDER);
 
     // If output_license is specified on the cc_toolchain rule, override the transitive licenses
@@ -236,6 +215,9 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     this.allowlistForLayeringCheck =
         Allowlist.fetchPackageSpecificationProvider(
             ruleContext, CcToolchain.ALLOWED_LAYERING_CHECK_FEATURES_ALLOWLIST);
+    this.allowlistForLooseHeaderCheck =
+        Allowlist.fetchPackageSpecificationProvider(
+            ruleContext, CcToolchain.LOOSE_HEADER_CHECK_ALLOWLIST);
   }
 
   public String getCpu() {
@@ -427,13 +409,12 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     return allowlistForLayeringCheck;
   }
 
-  private static NestedSet<Artifact> getMiddlemanOrFiles(RuleContext context, String attribute) {
-    return getMiddlemanOrFiles(context, attribute, TransitionMode.HOST);
+  public PackageSpecificationProvider getAllowlistForLooseHeaderCheck() {
+    return allowlistForLooseHeaderCheck;
   }
 
-  private static NestedSet<Artifact> getMiddlemanOrFiles(
-      RuleContext context, String attribute, TransitionMode mode) {
-    TransitiveInfoCollection dep = context.getPrerequisite(attribute, mode);
+  private static NestedSet<Artifact> getMiddlemanOrFiles(RuleContext context, String attribute) {
+    TransitiveInfoCollection dep = context.getPrerequisite(attribute);
     MiddlemanProvider middlemanProvider = dep.getProvider(MiddlemanProvider.class);
     // We use the middleman if we can (if the dep is a filegroup), otherwise, just the regular
     // filesToBuild (e.g. if it is a simple input file)
@@ -444,20 +425,14 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
 
   private static NestedSet<Artifact> getOptionalMiddlemanOrFiles(
       RuleContext context, String attribute) {
-    return getOptionalMiddlemanOrFiles(context, attribute, TransitionMode.HOST);
-  }
-
-  private static NestedSet<Artifact> getOptionalMiddlemanOrFiles(
-      RuleContext context, String attribute, TransitionMode mode) {
-    TransitiveInfoCollection dep = context.getPrerequisite(attribute, mode);
+    TransitiveInfoCollection dep = context.getPrerequisite(attribute);
     return dep != null
-        ? getMiddlemanOrFiles(context, attribute, mode)
+        ? getMiddlemanOrFiles(context, attribute)
         : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
-  private static NestedSet<Artifact> getOptionalFiles(
-      RuleContext ruleContext, String attribute, TransitionMode mode) {
-    TransitiveInfoCollection dep = ruleContext.getPrerequisite(attribute, mode);
+  private static NestedSet<Artifact> getOptionalFiles(RuleContext ruleContext, String attribute) {
+    TransitiveInfoCollection dep = ruleContext.getPrerequisite(attribute);
     return dep != null
         ? dep.getProvider(FileProvider.class).getFilesToBuild()
         : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -476,12 +451,8 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
         NestedSetBuilder.<Artifact>stableOrder().addTransitive(link).addTransitive(libcMiddleman);
     if (!isAppleToolchain) {
       builder
-          .add(
-              ruleContext.getPrerequisiteArtifact(
-                  "$interface_library_builder", TransitionMode.HOST))
-          .add(
-              ruleContext.getPrerequisiteArtifact(
-                  "$link_dynamic_library_tool", TransitionMode.HOST));
+          .add(ruleContext.getPrerequisiteArtifact("$interface_library_builder"))
+          .add(ruleContext.getPrerequisiteArtifact("$link_dynamic_library_tool"));
     }
     return builder.build();
   }

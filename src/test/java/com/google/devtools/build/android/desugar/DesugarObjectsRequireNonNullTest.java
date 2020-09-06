@@ -46,7 +46,7 @@ public class DesugarObjectsRequireNonNullTest {
       AtomicInteger counterForSupplier = new AtomicInteger(0);
 
       reader.accept(
-          new ClassVisitor(Opcodes.ASM5) {
+          new ClassVisitor(Opcodes.ASM8) {
             @Override
             public MethodVisitor visitMethod(
                 int access, String name, String desc, String signature, String[] exceptions) {

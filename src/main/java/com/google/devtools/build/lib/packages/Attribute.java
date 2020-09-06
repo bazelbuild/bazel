@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.util.FileType;
@@ -1463,7 +1462,7 @@ public final class Attribute implements Comparable<Attribute> {
         Attribute attr = rule.getAttributeDefinition(attrName);
         if (!attr.hasComputedDefault()) {
           Object value = rule.get(attrName, attr.getType());
-          if (!EvalUtils.isNullOrNone(value)) {
+          if (!Starlark.isNullOrNone(value)) {
             // Some attribute values are not valid Starlark values:
             // visibility is an ImmutableList, for example.
             attrValues.put(attr.getName(), Starlark.fromJava(value, /*mutability=*/ null));

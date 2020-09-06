@@ -853,7 +853,7 @@ class IncludeParser {
       Artifact file,
       ActionExecutionMetadata actionExecutionMetadata,
       ActionExecutionContext actionExecutionContext,
-      @Nullable Artifact grepIncludes,
+      Artifact grepIncludes,
       @Nullable SpawnIncludeScanner remoteIncludeScanner,
       boolean isOutputFile)
       throws IOException, ExecException, InterruptedException {

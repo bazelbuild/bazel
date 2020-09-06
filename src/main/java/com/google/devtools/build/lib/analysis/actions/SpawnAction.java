@@ -65,16 +65,14 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.starlark.Args;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
-import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
+import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -263,8 +261,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   public Sequence<String> getStarlarkArgv() throws EvalException {
     try {
       return StarlarkList.immutableCopyOf(getArguments());
-    } catch (CommandLineExpansionException exception) {
-      throw new EvalException(Location.BUILTIN, exception);
+    } catch (CommandLineExpansionException ex) {
+      throw new EvalException(ex);
     }
   }
 
@@ -318,13 +316,12 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   public final ActionContinuationOrResult beginExecution(
       ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    Label label = getOwner().getLabel();
     Spawn spawn;
     try {
       beforeExecute(actionExecutionContext);
       spawn = getSpawn(actionExecutionContext);
     } catch (ExecException e) {
-      throw toActionExecutionException(e, actionExecutionContext.showVerboseFailures(label));
+      throw toActionExecutionException(e, actionExecutionContext.getVerboseFailures());
     } catch (CommandLineExpansionException e) {
       throw createDetailedException(e, Code.COMMAND_LINE_EXPANSION_FAILURE);
     }
@@ -332,7 +329,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         actionExecutionContext
             .getContext(SpawnStrategyResolver.class)
             .beginExecution(spawn, actionExecutionContext);
-    return new SpawnActionContinuation(actionExecutionContext, spawnContinuation, label);
+    return new SpawnActionContinuation(actionExecutionContext, spawnContinuation);
   }
 
   private ActionExecutionException createDetailedException(Exception e, Code detailedCode) {
@@ -437,10 +434,13 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp)
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable ArtifactExpander artifactExpander,
+      Fingerprint fp)
       throws CommandLineExpansionException {
     fp.addString(GUID);
-    commandLines.addToFingerprint(actionKeyContext, fp);
+    commandLines.addToFingerprint(actionKeyContext, artifactExpander, fp);
     fp.addString(getMnemonic());
     // We don't need the toolManifests here, because they are a subset of the inputManifests by
     // definition and the output of an action shouldn't change whether something is considered a
@@ -1290,6 +1290,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       return this;
     }
 
+    /** @throws IllegalArgumentException if the mnemonic is invalid. */
     public Builder setMnemonic(String mnemonic) {
       Preconditions.checkArgument(
           !mnemonic.isEmpty() && CharMatcher.javaLetterOrDigit().matchesAllOf(mnemonic),
@@ -1377,15 +1378,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   private final class SpawnActionContinuation extends ActionContinuationOrResult {
     private final ActionExecutionContext actionExecutionContext;
     private final SpawnContinuation spawnContinuation;
-    private final Label label;
 
-    SpawnActionContinuation(
-        ActionExecutionContext actionExecutionContext,
-        SpawnContinuation spawnContinuation,
-        Label label) {
+    public SpawnActionContinuation(
+        ActionExecutionContext actionExecutionContext, SpawnContinuation spawnContinuation) {
       this.actionExecutionContext = actionExecutionContext;
       this.spawnContinuation = spawnContinuation;
-      this.label = label;
     }
 
     @Override
@@ -1406,9 +1403,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           afterExecute(actionExecutionContext, spawnResults);
           return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
         }
-        return new SpawnActionContinuation(actionExecutionContext, nextContinuation, label);
+        return new SpawnActionContinuation(actionExecutionContext, nextContinuation);
       } catch (ExecException e) {
-        throw toActionExecutionException(e, actionExecutionContext.showVerboseFailures(label));
+        throw toActionExecutionException(e, actionExecutionContext.getVerboseFailures());
       }
     }
   }

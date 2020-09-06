@@ -13,17 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.Ordering;
 import java.util.IllegalFormatException;
-import net.starlark.java.spelling.SpellChecker;
 
-/** Utilities used by the evaluator. */
-// TODO(adonovan): move all fundamental values and operators of the language to Starlark
-// class---equal, compare, getattr, index, slice, parse, exec, eval, and so on---and make this
-// private.
-public final class EvalUtils {
+/** Internal declarations used by the evaluator. */
+final class EvalUtils {
 
   private EvalUtils() {}
 
@@ -130,28 +125,7 @@ public final class EvalUtils {
     if (o instanceof StarlarkValue) {
       return ((StarlarkValue) o).isHashable();
     }
-    return isImmutable(o);
-  }
-
-  /** Reports whether a Starlark value is assumed to be deeply immutable. */
-  // TODO(adonovan): eliminate the concept of querying for immutability. It is currently used for
-  // only one purpose, the precondition for adding an element to a Depset, but Depsets should check
-  // hashability, like Dicts. (Similarly, querying for hashability should go: just attempt to hash a
-  // value, and be prepared for it to fail.) In practice, a value may be immutable, either
-  // inherently (e.g. string) or because it has become frozen, but we don't need to query for it.
-  // Just attempt a mutation and be prepared for it to fail.
-  // It is inefficient and potentially inconsistent to ask before doing.
-  public static boolean isImmutable(Object x) {
-    // NB: This is used as the basis for accepting objects in Depsets,
-    // as well as for accepting objects as keys for Starlark dicts.
-
-    if (x instanceof String || x instanceof Integer || x instanceof Boolean) {
-      return true;
-    } else if (x instanceof StarlarkValue) {
-      return ((StarlarkValue) x).isImmutable();
-    } else {
-      throw new IllegalArgumentException("invalid Starlark value: " + x.getClass());
-    }
+    return Starlark.isImmutable(o);
   }
 
   static void addIterator(Object x) {
@@ -202,55 +176,6 @@ public final class EvalUtils {
     } else {
       return index;
     }
-  }
-
-  /** @return true if x is Java null or Starlark None */
-  public static boolean isNullOrNone(Object x) {
-    return x == null || x == Starlark.NONE;
-  }
-
-  /** Returns the named field or method of value {@code x}, or null if not found. */
-  // TODO(adonovan): publish this method as Starlark.getattr(Semantics, Mutability, Object, String).
-  static Object getAttr(StarlarkThread thread, Object x, String name)
-      throws EvalException, InterruptedException {
-    StarlarkSemantics semantics = thread.getSemantics();
-    Mutability mu = thread.mutability();
-
-    // @StarlarkMethod-annotated field or method?
-    MethodDescriptor method = CallUtils.getMethod(semantics, x.getClass(), name);
-    if (method != null) {
-      if (method.isStructField()) {
-        return method.callField(x, semantics, mu);
-      } else {
-        return new BuiltinCallable(x, name, method);
-      }
-    }
-
-    // user-defined field?
-    if (x instanceof ClassObject) {
-      Object field = ((ClassObject) x).getValue(semantics, name);
-      if (field != null) {
-        return Starlark.checkValid(field);
-      }
-    }
-
-    return null;
-  }
-
-  static EvalException getMissingAttrException(
-      Object object, String name, StarlarkSemantics semantics) {
-    String suffix = "";
-    if (object instanceof ClassObject) {
-      String customErrorMessage = ((ClassObject) object).getErrorMessageForUnknownField(name);
-      if (customErrorMessage != null) {
-        return Starlark.errorf("%s", customErrorMessage);
-      }
-      suffix = SpellChecker.didYouMean(name, ((ClassObject) object).getFieldNames());
-    } else {
-      suffix = SpellChecker.didYouMean(name, CallUtils.getFieldNames(semantics, object));
-    }
-    return Starlark.errorf(
-        "'%s' value has no field or method '%s'%s", Starlark.type(object), name, suffix);
   }
 
   /** Evaluates an eager binary operation, {@code x op y}. (Excludes AND and OR.) */
@@ -340,9 +265,9 @@ public final class EvalUtils {
           if (yi < 0) {
             throw Starlark.errorf("negative shift count: %d", yi);
           }
-          int z = xi << yi;
-          if (z >> yi != xi) {
-            throw Starlark.errorf("integer overflow");
+          int z = xi << yi; // only uses low 5 bits of yi
+          if ((z >> yi) != xi || yi >= 32) {
+            throw Starlark.errorf("integer overflow in left shift");
           }
           return z;
         }
@@ -419,6 +344,9 @@ public final class EvalUtils {
           if ((xi < 0) != (yi < 0) && rem != 0) {
             quo--;
           }
+          if (xi == Integer.MIN_VALUE && yi == -1) { // HD 2-13
+            throw Starlark.errorf("integer overflow in division");
+          }
           return quo;
         }
         break;
@@ -450,7 +378,7 @@ public final class EvalUtils {
               return Starlark.format(xs, y);
             }
           } catch (IllegalFormatException ex) {
-            throw new EvalException(null, ex.getMessage());
+            throw new EvalException(ex);
           }
         }
         break;
@@ -474,8 +402,8 @@ public final class EvalUtils {
         return compare(x, y) >= 0;
 
       case IN:
-        if (y instanceof StarlarkQueryable) {
-          return ((StarlarkQueryable) y).containsKey(semantics, x);
+        if (y instanceof StarlarkIndexable) {
+          return ((StarlarkIndexable) y).containsKey(semantics, x);
         } else if (y instanceof String) {
           if (!(x instanceof String)) {
             throw Starlark.errorf(
@@ -519,7 +447,7 @@ public final class EvalUtils {
     try {
       return STARLARK_COMPARATOR.compare(x, y);
     } catch (ComparisonException e) {
-      throw new EvalException(null, e.getMessage());
+      throw new EvalException(e);
     }
   }
 
@@ -609,64 +537,4 @@ public final class EvalUtils {
           Starlark.type(object));
     }
   }
-
-  /**
-   * Parses the input as a file, resolves it in the module environment using the specified options
-   * and returns the syntax tree. Scan/parse/resolve errors are recorded in the StarlarkFile. It is
-   * the caller's responsibility to inspect them.
-   */
-  public static StarlarkFile parseAndValidate(
-      ParserInput input, FileOptions options, Module module) {
-    StarlarkFile file = StarlarkFile.parse(input, options);
-    Resolver.resolveFile(file, module);
-    return file;
-  }
-
-  /**
-   * Parses the input as a file, resolves it in the module environment using the specified options
-   * and executes it. It returns None, unless the final statement is an expression, in which case it
-   * returns the expression's value.
-   */
-  public static Object exec(
-      ParserInput input, FileOptions options, Module module, StarlarkThread thread)
-      throws SyntaxError.Exception, EvalException, InterruptedException {
-    StarlarkFile file = parseAndValidate(input, options, module);
-    if (!file.ok()) {
-      throw new SyntaxError.Exception(file.errors());
-    }
-    return exec(file, module, thread);
-  }
-
-  /** Executes a parsed, resolved Starlark file in the given StarlarkThread. */
-  public static Object exec(StarlarkFile file, Module module, StarlarkThread thread)
-      throws EvalException, InterruptedException {
-    Preconditions.checkNotNull(
-        file.resolved,
-        "cannot evaluate unresolved syntax (use other exec method, or parseAndValidate)");
-
-    Tuple<Object> defaultValues = Tuple.empty();
-    StarlarkFunction toplevel = new StarlarkFunction(file.resolved, defaultValues, module);
-
-    return Starlark.fastcall(thread, toplevel, NOARGS, NOARGS);
-  }
-
-  /**
-   * Parses the input as an expression, resolves it in the module environment using the specified
-   * options, and evaluates it.
-   */
-  public static Object eval(
-      ParserInput input, FileOptions options, Module module, StarlarkThread thread)
-      throws SyntaxError.Exception, EvalException, InterruptedException {
-    Expression expr = Expression.parse(input, options);
-
-    Resolver.Function rfn = Resolver.resolveExpr(expr, module, options);
-
-    // Turn expression into a no-arg StarlarkFunction.
-    Tuple<Object> defaultValues = Tuple.empty();
-    StarlarkFunction exprFunc = new StarlarkFunction(rfn, defaultValues, module);
-
-    return Starlark.fastcall(thread, exprFunc, NOARGS, NOARGS);
-  }
-
-  private static final Object[] NOARGS = {};
 }

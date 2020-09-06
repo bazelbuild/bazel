@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -122,11 +121,44 @@ public final class EvaluationTest {
     try (Mutability mu = Mutability.create("test")) {
       StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
       thread.setPrintHandler((_thread, msg) -> printEvents.add(msg));
-      EvalUtils.exec(input, FileOptions.DEFAULT, module, thread);
+      Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
     } finally {
       // Reset interrupt bit in case the test failed to do so.
       Thread.interrupted();
     }
+  }
+
+  @Test
+  public void testExecutionSteps() throws Exception {
+    Mutability mu = Mutability.create("test");
+    StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+    ParserInput input = ParserInput.fromLines("squares = [x*x for x in range(n)]");
+
+    class C {
+      long run(int n) throws SyntaxError.Exception, EvalException, InterruptedException {
+        Module module = Module.withPredeclared(StarlarkSemantics.DEFAULT, ImmutableMap.of("n", n));
+        long steps0 = thread.getExecutedSteps();
+        Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
+        return thread.getExecutedSteps() - steps0;
+      }
+    }
+
+    // A thread records the number of computation steps.
+    long steps1000 = new C().run(1000);
+    long steps10000 = new C().run(10000);
+    double ratio = (double) steps10000 / (double) steps1000;
+    if (ratio < 9.9 || ratio > 10.1) {
+      throw new AssertionError(
+          String.format(
+              "computation steps did not increase linearly: f(1000)=%d, f(10000)=%d, ratio=%g, want"
+                  + " ~10",
+              steps1000, steps10000, ratio));
+    }
+
+    // Exceeding the limit causes cancellation.
+    thread.setMaxExecutionSteps(1000);
+    EvalException ex = assertThrows(EvalException.class, () -> new C().run(1000));
+    assertThat(ex).hasMessageThat().contains("Starlark computation cancelled: too many steps");
   }
 
   @Test
@@ -331,14 +363,14 @@ public final class EvaluationTest {
     Object x = ev.eval("[1,2] + [3,4]");
     assertThat((Iterable<?>) x).containsExactly(1, 2, 3, 4).inOrder();
     assertThat(x).isInstanceOf(StarlarkList.class);
-    assertThat(EvalUtils.isImmutable(x)).isFalse();
+    assertThat(Starlark.isImmutable(x)).isFalse();
 
     // tuple
     x = ev.eval("(1,2) + (3,4)");
     assertThat((Iterable<?>) x).containsExactly(1, 2, 3, 4).inOrder();
     assertThat(x).isInstanceOf(Tuple.class);
     assertThat(x).isEqualTo(Tuple.of(1, 2, 3, 4));
-    assertThat(EvalUtils.isImmutable(x)).isTrue();
+    assertThat(Starlark.isImmutable(x)).isTrue();
 
     ev.checkEvalError("unsupported binary operation: tuple + list", "(1,2) + [3,4]");
   }
@@ -406,17 +438,10 @@ public final class EvaluationTest {
 
   @Test
   public void testSequenceAssignment() throws Exception {
-    // assignment to empty list/tuple
-    // See https://github.com/bazelbuild/starlark/issues/93 for discussion
-    ev.checkEvalError(
-        "can't assign to ()", //
-        "() = ()");
-    ev.checkEvalError(
-        "can't assign to ()", //
-        "() = 1");
-    ev.checkEvalError(
-        "can't assign to []", //
-        "[] = ()");
+    // Assignment to empty list/tuple is permitted.
+    // See https://github.com/bazelbuild/starlark/issues/93 for discussion.
+    ev.exec("() = ()");
+    ev.exec("[] = ()");
 
     // RHS not iterable
     ev.checkEvalError(
@@ -443,6 +468,12 @@ public final class EvaluationTest {
     ev.exec("(x,) = [1]");
 
     // too many
+    ev.checkEvalError(
+        "got 'int' in sequence assignment", //
+        "() = 1");
+    ev.checkEvalError(
+        "too many values to unpack (got 1, want 0)", //
+        "() = (1,)");
     ev.checkEvalError(
         "too many values to unpack (got 3, want 2)", //
         "x, y = 1, 2, 3");
@@ -483,12 +514,9 @@ public final class EvaluationTest {
             "got 'int' in sequence assignment", //
             "[x2 + y2 for x2, y2 in (1, 2)]");
 
-    ev.new Scenario()
-        // Behavior varies across Python2 and 3 and Starlark in {Go,Java}.
-        // See https://github.com/bazelbuild/starlark/issues/93 for discussion.
-        .testIfErrorContains(
-            "can't assign to []", //
-            "[2 for [] in [()]]");
+    // Assignment to empty tuple is permitted.
+    // See https://github.com/bazelbuild/starlark/issues/93 for discussion.
+    ev.new Scenario().testEval("[1 for [] in [(), []]]", "[1, 1]");
   }
 
   @Test
@@ -527,7 +555,7 @@ public final class EvaluationTest {
     FileOptions options = FileOptions.builder().recordScope(false).build();
     try (Mutability mu = Mutability.create("test")) {
       StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
-      EvalUtils.exec(input, options, Module.create(), thread);
+      Starlark.execFile(input, options, Module.create(), thread);
     }
   }
 
@@ -607,7 +635,7 @@ public final class EvaluationTest {
   }
 
   @Test
-  public void testDictComprehension_ManyClauses() throws Exception {
+  public void testDictComprehension_manyClauses() throws Exception {
     ev.new Scenario()
         .testExpression(
             "{x : x * y for x in range(1, 10) if x % 2 == 0 for y in range(1, 10) if y == x}",
@@ -615,7 +643,7 @@ public final class EvaluationTest {
   }
 
   @Test
-  public void testDictComprehensions_MultipleKey() throws Exception {
+  public void testDictComprehensions_multipleKey() throws Exception {
     ev.new Scenario()
         .testExpression("{x : x for x in [1, 2, 1]}", ImmutableMap.of(1, 1, 2, 2))
         .testExpression(
@@ -879,7 +907,7 @@ public final class EvaluationTest {
     Module module = Module.create();
     try (Mutability mu = Mutability.create("test")) {
       StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
-      EvalUtils.exec(input, FileOptions.DEFAULT, module, thread);
+      Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
     }
     assertThat(module.getGlobal("x"))
         .isEqualTo(StarlarkList.of(/*mutability=*/ null, 1, 2, "foo", 4, 1, 2, "foo1"));

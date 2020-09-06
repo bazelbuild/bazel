@@ -109,6 +109,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   private boolean includeLocations = true;
   private boolean includeRuleInputsAndOutputs = true;
   private boolean includeSyntheticAttributeHash = false;
+  private boolean includeInstantiationStack = false;
 
   @Nullable private EventHandler eventHandler;
 
@@ -129,6 +130,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     this.includeLocations = options.protoIncludeLocations;
     this.includeRuleInputsAndOutputs = options.protoIncludeRuleInputsAndOutputs;
     this.includeSyntheticAttributeHash = options.protoIncludeSyntheticAttributeHash;
+    this.includeInstantiationStack = options.protoIncludeInstantiationStack;
   }
 
   @Override
@@ -181,7 +183,6 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   /** Converts a logical {@link Target} object into a {@link Build.Target} protobuffer. */
-  @VisibleForTesting
   public Build.Target toTargetProtoBuffer(Target target, Object extraDataForAttrHash)
       throws InterruptedException {
     Build.Target.Builder targetPb = Build.Target.newBuilder();
@@ -253,11 +254,13 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
         rulePb.addDefaultSetting(feature);
       }
 
-      for (StarlarkThread.CallStackEntry fr : rule.getCallStack().toArray()) {
-        // Always report relative locations.
-        // (New fields needn't honor relativeLocations.)
-        rulePb.addInstantiationStack(
-            FormatUtils.getRootRelativeLocation(fr.location, rule.getPackage()) + ": " + fr.name);
+      if (includeInstantiationStack) {
+        for (StarlarkThread.CallStackEntry fr : rule.getCallStack().toArray()) {
+          // Always report relative locations.
+          // (New fields needn't honor relativeLocations.)
+          rulePb.addInstantiationStack(
+              FormatUtils.getRootRelativeLocation(fr.location, rule.getPackage()) + ": " + fr.name);
+        }
       }
 
       targetPb.setType(RULE);

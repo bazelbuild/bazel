@@ -65,7 +65,7 @@ import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSplitTransititionApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidSplitTransititionApi;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -293,6 +293,21 @@ public final class AndroidRuleClasses {
           splitOptions.get(CoreOptions.class).cpu = cpu;
           setCommonAndroidOptions(androidOptions, splitOptions);
           result.put(cpu, splitOptions.underlying());
+
+          if (cpu.equals("arm64-v8a") && androidOptions.fatApkHwasan) {
+            BuildOptionsView hwasanSplitOptions = splitOptions.clone();
+
+            // Setting the fatApkSplitSanitizer has these consequences:
+            // - changes the native library install directory to lib/arm64-v8a-hwasan
+            // - adds "hwasan" to the default feature set such that it gets removed when
+            //   transitioning to host or exec configurations as a consequence of
+            //   CoreOptions.getHost() not copying the fatApkSplitSanitizer field (which rules out
+            //   adding it to defaultFeatures, which gets copied).
+            hwasanSplitOptions.get(CoreOptions.class).fatApkSplitSanitizer =
+                CoreOptions.FatApkSplitSanitizer.HWASAN;
+
+            result.put(cpu + "-hwasan", hwasanSplitOptions.underlying());
+          }
         }
         return result.build();
       }
@@ -626,6 +641,26 @@ public final class AndroidRuleClasses {
                   .cfg(HostTransition.createFactory())
                   .legacyAllowAnyFileType()
                   .value(env.getToolsLabel("//tools/android:debug_keystore")))
+          /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(debug_signing_keys) -->
+          List of files, debug keystores to be used to sign the debug apk. Usually you do not
+          want to use keys other than the default key, so this attribute should be omitted.
+          <p><em class="harmful">WARNING: Do not use your production keys, they should be
+          strictly safeguarded and not kept in your source tree</em>.</p>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(
+              attr("debug_signing_keys", LABEL_LIST)
+                  .cfg(HostTransition.createFactory())
+                  .legacyAllowAnyFileType())
+          /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(debug_signing_lineage_file) -->
+          File containing the signing lineage for the debug_signing_keys. Usually you do not
+          want to use keys other than the default key, so this attribute should be omitted.
+          <p><em class="harmful">WARNING: Do not use your production keys, they should be
+          strictly safeguarded and not kept in your source tree</em>.</p>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(
+              attr("debug_signing_lineage_file", LABEL)
+                  .cfg(HostTransition.createFactory())
+                  .legacyAllowAnyFileType())
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(nocompress_extensions) -->
           A list of file extension to leave uncompressed in apk.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

@@ -274,12 +274,12 @@ public class SandboxfsSandboxedSpawnTest {
   }
 
   @Test
-  public void testSymlinks_TargetsMappedIfRequested() throws Exception {
+  public void testSymlinks_targetsMappedIfRequested() throws Exception {
     testSymlinks(true);
   }
 
   @Test
-  public void testSymlinks_TargetsNotMappedIfNotRequested() throws Exception {
+  public void testSymlinks_targetsNotMappedIfNotRequested() throws Exception {
     testSymlinks(false);
   }
 }

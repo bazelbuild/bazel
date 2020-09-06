@@ -41,6 +41,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 /** Utility methods for using {@link AuthAndTLSOptions} with Google Cloud. */
@@ -72,6 +73,10 @@ public final class GoogleAuthUtils {
           newNettyChannelBuilder(targetUrl, proxy)
               .negotiationType(
                   isTlsEnabled(target) ? NegotiationType.TLS : NegotiationType.PLAINTEXT);
+      if (options.grpcKeepaliveTime != null) {
+        builder.keepAliveTime(options.grpcKeepaliveTime.getSeconds(), TimeUnit.SECONDS);
+        builder.keepAliveTimeout(options.grpcKeepaliveTimeout.getSeconds(), TimeUnit.SECONDS);
+      }
       if (interceptors != null) {
         builder.intercept(interceptors);
       }
@@ -104,7 +109,7 @@ public final class GoogleAuthUtils {
     // 'grpcs://' or empty prefix => TLS-enabled
     // when no schema prefix is provided in URL, bazel will treat it as a gRPC request with TLS
     // enabled
-    return !target.startsWith("grpc://");
+    return !target.startsWith("grpc://") && !target.startsWith("unix:");
   }
 
   private static SslContext createSSlContext(
@@ -143,19 +148,9 @@ public final class GoogleAuthUtils {
     }
   }
 
-  private static NettyChannelBuilder newNettyChannelBuilder(String targetUrl, String proxy)
-      throws IOException {
-    if (Strings.isNullOrEmpty(proxy)) {
-      return NettyChannelBuilder.forTarget(targetUrl).defaultLoadBalancingPolicy("round_robin");
-    }
-
-    if (!proxy.startsWith("unix:")) {
-      throw new IOException("Remote proxy unsupported: " + proxy);
-    }
-
-    DomainSocketAddress address = new DomainSocketAddress(proxy.replaceFirst("^unix:", ""));
-    NettyChannelBuilder builder =
-        NettyChannelBuilder.forAddress(address).overrideAuthority(targetUrl);
+  private static NettyChannelBuilder newUnixNettyChannelBuilder(String target) throws IOException {
+    DomainSocketAddress address = new DomainSocketAddress(target.replaceFirst("^unix:", ""));
+    NettyChannelBuilder builder = NettyChannelBuilder.forAddress(address);
     if (KQueue.isAvailable()) {
       return builder
           .channelType(KQueueDomainSocketChannel.class)
@@ -168,6 +163,23 @@ public final class GoogleAuthUtils {
     }
 
     throw new IOException("Unix domain sockets are unsupported on this platform");
+  }
+
+  private static NettyChannelBuilder newNettyChannelBuilder(String targetUrl, String proxy)
+      throws IOException {
+    if (targetUrl.startsWith("unix:")) {
+      return newUnixNettyChannelBuilder(targetUrl);
+    }
+
+    if (Strings.isNullOrEmpty(proxy)) {
+      return NettyChannelBuilder.forTarget(targetUrl).defaultLoadBalancingPolicy("round_robin");
+    }
+
+    if (!proxy.startsWith("unix:")) {
+      throw new IOException("Remote proxy unsupported: " + proxy);
+    }
+
+    return newUnixNettyChannelBuilder(proxy).overrideAuthority(targetUrl);
   }
 
   /**

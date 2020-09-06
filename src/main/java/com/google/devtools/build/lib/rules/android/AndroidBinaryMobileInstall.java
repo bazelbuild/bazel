@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -39,6 +38,7 @@ import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Encapsulates the logic for creating actions for mobile-install. */
 public final class AndroidBinaryMobileInstall {
@@ -106,7 +106,8 @@ public final class AndroidBinaryMobileInstall {
       MobileInstallResourceApks mobileInstallResourceApks,
       FilesToRunProvider resourceExtractor,
       NestedSet<Artifact> nativeLibsAar,
-      Artifact signingKey,
+      ImmutableList<Artifact> signingKeys,
+      @Nullable Artifact signingLineage,
       ImmutableList<Artifact> additionalMergedManifests)
       throws InterruptedException, RuleErrorException {
 
@@ -128,9 +129,7 @@ public final class AndroidBinaryMobileInstall {
             .setMnemonic("AndroidDexManifest")
             .setProgressMessage(
                 "Generating incremental installation manifest for %s", ruleContext.getLabel())
-            .setExecutable(
-                ruleContext.getExecutablePrerequisite(
-                    "$build_incremental_dexmanifest", TransitionMode.HOST))
+            .setExecutable(ruleContext.getExecutablePrerequisite("$build_incremental_dexmanifest"))
             .addOutput(incrementalDexManifest)
             .addInputs(shardDexZips)
             .addCommandLine(
@@ -155,7 +154,8 @@ public final class AndroidBinaryMobileInstall {
             .addInputZips(nativeLibsAar.toList())
             .setJavaResourceFile(stubData)
             .setSignedApk(incrementalApk)
-            .setSigningKey(signingKey);
+            .setSigningKeys(signingKeys)
+            .setSigningLineageFile(signingLineage);
 
     incrementalActionsBuilder.registerActions(ruleContext);
 
@@ -197,7 +197,8 @@ public final class AndroidBinaryMobileInstall {
     ApkActionsBuilder.create("split Android resource apk")
         .addInputZip(mobileInstallResourceApks.splitResourceApk.getArtifact())
         .setSignedApk(resourceSplitApk)
-        .setSigningKey(signingKey)
+        .setSigningKeys(signingKeys)
+        .setSigningLineageFile(signingLineage)
         .registerActions(ruleContext);
     splitApkSetBuilder.add(resourceSplitApk);
 
@@ -210,7 +211,8 @@ public final class AndroidBinaryMobileInstall {
           .setClassesDex(shardDexZips.get(i))
           .addInputZip(splitApkResources)
           .setSignedApk(splitApk)
-          .setSigningKey(signingKey)
+          .setSigningKeys(signingKeys)
+          .setSigningLineageFile(signingLineage)
           .registerActions(ruleContext);
       splitApkSetBuilder.add(splitApk);
     }
@@ -222,7 +224,8 @@ public final class AndroidBinaryMobileInstall {
         .addInputZip(nativeSplitApkResources)
         .setNativeLibs(nativeLibs)
         .setSignedApk(nativeSplitApk)
-        .setSigningKey(signingKey)
+        .setSigningKeys(signingKeys)
+        .setSigningLineageFile(signingLineage)
         .registerActions(ruleContext);
     splitApkSetBuilder.add(nativeSplitApk);
 
@@ -234,7 +237,8 @@ public final class AndroidBinaryMobileInstall {
         .addInputZip(javaSplitApkResources)
         .setJavaResourceZip(javaResourceJar, resourceExtractor)
         .setSignedApk(javaSplitApk)
-        .setSigningKey(signingKey)
+        .setSigningKeys(signingKeys)
+        .setSigningLineageFile(signingLineage)
         .registerActions(ruleContext);
     splitApkSetBuilder.add(javaSplitApk);
 
@@ -244,8 +248,7 @@ public final class AndroidBinaryMobileInstall {
             .useDefaultShellEnvironment()
             .setMnemonic("AndroidStripResources")
             .setProgressMessage("Stripping resources from split main apk")
-            .setExecutable(
-                ruleContext.getExecutablePrerequisite("$strip_resources", TransitionMode.HOST))
+            .setExecutable(ruleContext.getExecutablePrerequisite("$strip_resources"))
             .addInput(resourceApk.getArtifact())
             .addOutput(splitMainApkResources)
             .addCommandLine(
@@ -264,7 +267,8 @@ public final class AndroidBinaryMobileInstall {
         .addInputZip(splitMainApkResources)
         .addInputZips(nativeLibsAar.toList())
         .setSignedApk(splitMainApk)
-        .setSigningKey(signingKey)
+        .setSigningKeys(signingKeys)
+        .setSigningLineageFile(signingLineage)
         .registerActions(ruleContext);
     splitApkSetBuilder.add(splitMainApk);
     NestedSet<Artifact> allSplitApks = splitApkSetBuilder.build();
@@ -323,7 +327,7 @@ public final class AndroidBinaryMobileInstall {
     String attribute =
         split ? "$incremental_split_stub_application" : "$incremental_stub_application";
 
-    TransitiveInfoCollection dep = ruleContext.getPrerequisite(attribute, TransitionMode.TARGET);
+    TransitiveInfoCollection dep = ruleContext.getPrerequisite(attribute);
     if (dep == null) {
       ruleContext.attributeError(attribute, "Stub application cannot be found");
       return null;
@@ -382,8 +386,7 @@ public final class AndroidBinaryMobileInstall {
     SpawnAction.Builder builder =
         new SpawnAction.Builder()
             .useDefaultShellEnvironment()
-            .setExecutable(
-                ruleContext.getExecutablePrerequisite("$incremental_install", TransitionMode.HOST))
+            .setExecutable(ruleContext.getExecutablePrerequisite("$incremental_install"))
             // We cannot know if the user connected a new device, uninstalled the app from the
             // device
             // or did anything strange to it, so we always run this action.
@@ -435,8 +438,7 @@ public final class AndroidBinaryMobileInstall {
     SpawnAction.Builder builder =
         new SpawnAction.Builder()
             .useDefaultShellEnvironment()
-            .setExecutable(
-                ruleContext.getExecutablePrerequisite("$incremental_install", TransitionMode.HOST))
+            .setExecutable(ruleContext.getExecutablePrerequisite("$incremental_install"))
             .addTool(adb)
             .executeUnconditionally()
             .setMnemonic("AndroidInstall")
