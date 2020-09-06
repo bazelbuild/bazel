@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.windows.jni.WindowsFileOperations;
 import com.google.devtools.common.options.OptionsProvider;
 import com.sun.nio.file.ExtendedWatchEventModifier;
 import java.io.IOException;
@@ -278,16 +277,13 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
   private class WatcherFileVisitor extends SimpleFileVisitor<Path> {
 
     private final Set<Path> visitedAbsolutePaths;
-    private final boolean visitedPathsUsed;
 
     private WatcherFileVisitor(Set<Path> visitedPaths) {
       this.visitedAbsolutePaths = visitedPaths;
-      this.visitedPathsUsed = true;
     }
 
     private WatcherFileVisitor() {
       this.visitedAbsolutePaths = new HashSet<>();
-      this.visitedPathsUsed = false;
     }
 
     @Override
@@ -300,50 +296,23 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
     @Override
     public FileVisitResult preVisitDirectory(Path path, BasicFileAttributes attrs)
         throws IOException {
+      // Do not traverse the bazel-* convenience symlinks. On windows these are created as junctions.
+      if (isWindows && attrs.isOther()) {
+        return FileVisitResult.SKIP_SUBTREE;
+      }
+
       // It's important that we register the directory before we visit its children. This way we
       // are guaranteed to see new files/directories either on this #getDiff or the next one.
       // Otherwise, e.g., an intra-build creation of a child directory will be forever missed if it
       // happens before the directory is listed as part of the visitation.
       Preconditions.checkState(path.isAbsolute(), path);
-      
-      if (!isWindows || path.equals(watchRootPath)) {
-        WatchKey key =
-            path.register(
-                watchService,
-                StandardWatchEventKinds.ENTRY_CREATE,
-                StandardWatchEventKinds.ENTRY_MODIFY,
-                StandardWatchEventKinds.ENTRY_DELETE);
-        watchKeyToDirBiMap.put(key, path);
-      } else if (path.getParent().equals(watchRootPath)) {
-        // Due to a known issue nested watches may result in errors on windows:
-        // https://bugs.openjdk.java.net/browse/JDK-6972833
-        // Therefore on windows we register using the special ExtendedWatchEventModifier.FILE_TREE
-        
-        // We should not register the recursive watcher on the root folder because this results
-        // in watching the bazel-* convenience symlinks as well. Therefore we register a non-recursive 
-        // watch on the root, and register recursive watches for all direct subdirectories.
-
-        // Do not watch the bazel-* convencience symlinks
-        if (WindowsFileOperations.isSymlinkOrJunction(path.toString())) {
-          return FileVisitResult.SKIP_SUBTREE;
-        }
-
-        WatchKey key =
-            path.register(
-                watchService,
-                new Kind<?>[] {
-                  StandardWatchEventKinds.ENTRY_CREATE,
-                  StandardWatchEventKinds.ENTRY_MODIFY,
-                  StandardWatchEventKinds.ENTRY_DELETE,
-                },
-                ExtendedWatchEventModifier.FILE_TREE);
-        watchKeyToDirBiMap.put(key, path);
-
-        // Our watcher will handle the subtree. Only continue when collecting visitedAbsolutePaths
-        if (!visitedPathsUsed) {
-          return FileVisitResult.SKIP_SUBTREE;
-        }
-      }
+      WatchKey key =
+          path.register(
+              watchService,
+              StandardWatchEventKinds.ENTRY_CREATE,
+              StandardWatchEventKinds.ENTRY_MODIFY,
+              StandardWatchEventKinds.ENTRY_DELETE);
+      watchKeyToDirBiMap.put(key, path);
       visitedAbsolutePaths.add(path);
       return FileVisitResult.CONTINUE;
     }
