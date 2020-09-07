@@ -148,11 +148,25 @@ public final class StarlarkMethodProcessor extends AbstractProcessor {
       if (annot.selfCall() && !classesWithSelfcall.add(cls)) {
         errorf(method, "Containing class has more than one selfCall method defined.");
       }
-      if (!annot.enableOnlyWithFlag().isEmpty() && !annot.disableWithFlag().isEmpty()) {
-        errorf(
-            method,
-            "Only one of StarlarkMethod.enablingFlag and StarlarkMethod.disablingFlag may be"
-                + " specified.");
+
+      boolean hasFlag = false;
+      if (!annot.enableOnlyWithFlag().isEmpty()) {
+        if (!hasPlusMinusPrefix(annot.enableOnlyWithFlag())) {
+          errorf(method, "enableOnlyWithFlag name must have a + or - prefix");
+        }
+        hasFlag = true;
+      }
+      if (!annot.disableWithFlag().isEmpty()) {
+        if (!hasPlusMinusPrefix(annot.disableWithFlag())) {
+          errorf(method, "disableWithFlag name must have a + or - prefix");
+        }
+        if (hasFlag) {
+          errorf(
+              method,
+              "Only one of StarlarkMethod.enableOnlyWithFlag and StarlarkMethod.disableWithFlag"
+                  + " may be specified.");
+        }
+        hasFlag = true;
       }
 
       checkParameters(method, annot);
@@ -388,25 +402,38 @@ public final class StarlarkMethodProcessor extends AbstractProcessor {
     }
 
     // Check sense of flag-controlled parameters.
-    if (!paramAnnot.enableOnlyWithFlag().isEmpty() && !paramAnnot.disableWithFlag().isEmpty()) {
+    boolean hasFlag = false;
+    if (!paramAnnot.enableOnlyWithFlag().isEmpty()) {
+      if (!hasPlusMinusPrefix(paramAnnot.enableOnlyWithFlag())) {
+        errorf(param, "enableOnlyWithFlag name must have a + or - prefix");
+      }
+      hasFlag = true;
+    }
+    if (!paramAnnot.disableWithFlag().isEmpty()) {
+      if (!hasPlusMinusPrefix(paramAnnot.disableWithFlag())) {
+        errorf(param, "disableWithFlag name must have a + or - prefix");
+      }
+      if (hasFlag) {
+        errorf(
+            param,
+            "Parameter '%s' has enableOnlyWithFlag and disableWithFlag set. At most one may be set",
+            paramAnnot.name());
+      }
+      hasFlag = true;
+    }
+    if (hasFlag == paramAnnot.valueWhenDisabled().isEmpty()) {
       errorf(
           param,
-          "Parameter '%s' has enableOnlyWithFlag and disableWithFlag set. At most one may be set",
+          hasFlag
+              ? "Parameter '%s' may be disabled by semantic flag, thus valueWhenDisabled must be"
+                  + " set"
+              : "Parameter '%s' has valueWhenDisabled set, but is always enabled",
           paramAnnot.name());
     }
-    boolean isParamControlledByFlag =
-        !paramAnnot.enableOnlyWithFlag().isEmpty() || !paramAnnot.disableWithFlag().isEmpty();
-    if (!isParamControlledByFlag && !paramAnnot.valueWhenDisabled().isEmpty()) {
-      errorf(
-          param,
-          "Parameter '%s' has valueWhenDisabled set, but is always enabled",
-          paramAnnot.name());
-    } else if (isParamControlledByFlag && paramAnnot.valueWhenDisabled().isEmpty()) {
-      errorf(
-          param,
-          "Parameter '%s' may be disabled by semantic flag, thus valueWhenDisabled must be set",
-          paramAnnot.name());
-    }
+  }
+
+  private static boolean hasPlusMinusPrefix(String s) {
+    return s.charAt(0) == '-' || s.charAt(0) == '+';
   }
 
   // Returns the logical type of Param.type.

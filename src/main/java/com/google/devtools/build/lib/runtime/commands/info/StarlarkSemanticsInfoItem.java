@@ -46,6 +46,6 @@ public final class StarlarkSemanticsInfoItem extends InfoItem {
     SkyframeExecutor skyframeExecutor = env.getBlazeWorkspace().getSkyframeExecutor();
     StarlarkSemantics effectiveStarlarkSemantics =
         skyframeExecutor.getEffectiveStarlarkSemantics(starlarkSemanticsOptions);
-    return print(effectiveStarlarkSemantics.toDeterministicString());
+    return print(effectiveStarlarkSemantics);
   }
 }

@@ -12,7 +12,9 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
-# This package defines the StarlarkSemantics used by Bazel, and its command-line flag parser.
+# This package defines the StarlarkSemantics keys used by Bazel, and their command-line flags.
+# Logically it is lower-level than lib.packages, lib.starlarkbuildapi, and even lib.cmdline,
+# so it may not depend on (say) Label.
 java_library(
     name = "semantics",
     srcs = ["BuildLanguageOptions.java"],

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -28,6 +27,22 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public final class StarlarkFlagGuardingTest {
+
+  // We define two arbitrary flags (one experimental, one incompatible) for our testing.
+  private static final String EXPERIMENTAL_FLAG = "-experimental_flag";
+  private static final String INCOMPATIBLE_FLAG = "+incompatible_flag";
+
+  private static final String FLAG1 = EXPERIMENTAL_FLAG;
+  private static final StarlarkSemantics FLAG1_TRUE =
+      StarlarkSemantics.builder().setBool(EXPERIMENTAL_FLAG, true).build();
+  private static final StarlarkSemantics FLAG1_FALSE =
+      StarlarkSemantics.builder().setBool(EXPERIMENTAL_FLAG, false).build();
+
+  private static final String FLAG2 = INCOMPATIBLE_FLAG;
+  private static final StarlarkSemantics FLAG2_TRUE =
+      StarlarkSemantics.builder().setBool(INCOMPATIBLE_FLAG, true).build();
+  private static final StarlarkSemantics FLAG2_FALSE =
+      StarlarkSemantics.builder().setBool(INCOMPATIBLE_FLAG, false).build();
 
   private EvaluationTestCase ev = new EvaluationTestCase();
 
@@ -45,7 +60,7 @@ public final class StarlarkFlagGuardingTest {
               positional = true,
               named = false,
               type = Boolean.class,
-              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT,
+              enableOnlyWithFlag = EXPERIMENTAL_FLAG,
               valueWhenDisabled = "False"),
           @Param(name = "c", positional = true, named = false, type = Integer.class),
         },
@@ -64,7 +79,7 @@ public final class StarlarkFlagGuardingTest {
               positional = false,
               named = true,
               type = Boolean.class,
-              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT,
+              enableOnlyWithFlag = EXPERIMENTAL_FLAG,
               valueWhenDisabled = "False"),
           @Param(name = "c", positional = false, named = true, type = Integer.class),
         },
@@ -83,14 +98,14 @@ public final class StarlarkFlagGuardingTest {
               positional = true,
               named = false,
               type = Boolean.class,
-              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT,
+              enableOnlyWithFlag = EXPERIMENTAL_FLAG,
               valueWhenDisabled = "False"),
           @Param(
               name = "c",
               positional = false,
               named = true,
               type = Integer.class,
-              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT,
+              enableOnlyWithFlag = EXPERIMENTAL_FLAG,
               valueWhenDisabled = "3"),
           @Param(name = "d", positional = false, named = true, type = Boolean.class),
         },
@@ -125,19 +140,6 @@ public final class StarlarkFlagGuardingTest {
       return "keywords_multiple_flags(" + a + ", " + b + ", " + c + ")";
     }
   }
-
-  // We pick two arbitrary flags (one experimental, one incompatible) for our testing.
-  private static final String FLAG1 = FlagIdentifier.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT;
-  private static final StarlarkSemantics FLAG1_TRUE =
-      StarlarkSemantics.DEFAULT.toBuilder().experimentalSiblingRepositoryLayout(true).build();
-  private static final StarlarkSemantics FLAG1_FALSE =
-      StarlarkSemantics.DEFAULT.toBuilder().experimentalSiblingRepositoryLayout(false).build();
-
-  private static final String FLAG2 = FlagIdentifier.INCOMPATIBLE_NO_ATTR_LICENSE;
-  private static final StarlarkSemantics FLAG2_TRUE =
-      StarlarkSemantics.DEFAULT.toBuilder().incompatibleNoAttrLicense(true).build();
-  private static final StarlarkSemantics FLAG2_FALSE =
-      StarlarkSemantics.DEFAULT.toBuilder().incompatibleNoAttrLicense(false).build();
 
   @Test
   public void testPositionalsOnlyGuardedMethod() throws Exception {
@@ -186,8 +188,7 @@ public final class StarlarkFlagGuardingTest {
         .update("mock", new Mock())
         .testIfErrorContains(
             "parameter 'b' is experimental and thus unavailable with the current "
-                + "flags. It may be enabled by setting "
-                + "--experimental_sibling_repository_layout",
+                + "flags. It may be enabled by setting --experimental_flag",
             "mock.keywords_only_method(a=1, b=True, c=3)");
   }
 
@@ -229,7 +230,7 @@ public final class StarlarkFlagGuardingTest {
 
   @Test
   public void testKeywordsMultipleFlags() throws Exception {
-    StarlarkSemantics tf = FLAG1_TRUE.toBuilder().incompatibleNoAttrLicense(false).build();
+    StarlarkSemantics tf = FLAG1_TRUE.toBuilder().setBool(FLAG2, false).build();
     ev.new Scenario(tf)
         .update("mock", new Mock())
         .testEval(
@@ -239,13 +240,13 @@ public final class StarlarkFlagGuardingTest {
             "keywords_multiple_flags() missing 2 required named arguments: b, c",
             "mock.keywords_multiple_flags(a=42)");
 
-    StarlarkSemantics ft = FLAG1_FALSE.toBuilder().incompatibleNoAttrLicense(true).build();
+    StarlarkSemantics ft = FLAG1_FALSE.toBuilder().setBool(FLAG2, true).build();
     ev.new Scenario(ft)
         .update("mock", new Mock())
         .testEval("mock.keywords_multiple_flags(a=42)", "'keywords_multiple_flags(42, false, 3)'")
         .testIfErrorContains(
             "parameter 'b' is deprecated and will be removed soon. It may be "
-                + "temporarily re-enabled by setting --incompatible_no_attr_license=false",
+                + "temporarily re-enabled by setting --incompatible_flag=false",
             "mock.keywords_multiple_flags(a=42, b=True, c=0)");
   }
 
@@ -262,15 +263,14 @@ public final class StarlarkFlagGuardingTest {
           protected Object newModuleHook(ImmutableMap.Builder<String, Object> predeclared) {
             predeclared.put(
                 "GlobalSymbol",
-                FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-                    FlagIdentifier.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT, "foo"));
+                FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(EXPERIMENTAL_FLAG, "foo"));
             return null; // no client data
           }
         };
 
     String errorMessage =
         "GlobalSymbol is experimental and thus unavailable with the current "
-            + "flags. It may be enabled by setting --experimental_sibling_repository_layout";
+            + "flags. It may be enabled by setting --experimental_flag";
 
     ev.new Scenario(FLAG1_TRUE).setUp("var = GlobalSymbol").testLookup("var", "foo");
 
@@ -303,7 +303,7 @@ public final class StarlarkFlagGuardingTest {
     String errorMessage =
         "GlobalSymbol is deprecated and will be removed soon. It may be "
             + "temporarily re-enabled by setting --"
-            + FLAG2
+            + FLAG2.substring(1)
             + "=false";
 
     ev.new Scenario(FLAG2_FALSE).setUp("var = GlobalSymbol").testLookup("var", "foo");

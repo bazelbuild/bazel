@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -417,7 +418,8 @@ public class StarlarkRepositoryContext
   }
 
   private boolean canExecuteRemote() {
-    boolean featureEnabled = starlarkSemantics.experimentalRepoRemoteExec();
+    boolean featureEnabled =
+        starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_REPO_REMOTE_EXEC);
     boolean remoteExecEnabled = remoteExecutor != null;
     return featureEnabled && isRemotable() && remoteExecEnabled;
   }
@@ -926,16 +928,28 @@ public class StarlarkRepositoryContext
 
   @Override
   public boolean flagEnabled(String flag, StarlarkThread starlarkThread) throws EvalException {
-    try {
-      if (WHITELISTED_PATHS_FOR_FLAG_ENABLED.stream()
-          .noneMatch(x -> !starlarkThread.getCallerLocation().toString().endsWith(x))) {
-        throw Starlark.errorf(
-            "flag_enabled() is restricted to: '%s'.",
-            Joiner.on(", ").join(WHITELISTED_REPOS_FOR_FLAG_ENABLED));
-      }
-      return starlarkSemantics.flagValue(flag);
-    } catch (IllegalArgumentException e) {
-      throw Starlark.errorf("Can't query value of '%s'.\n%s", flag, e.getMessage());
+    if (WHITELISTED_PATHS_FOR_FLAG_ENABLED.stream()
+        .noneMatch(x -> !starlarkThread.getCallerLocation().toString().endsWith(x))) {
+      throw Starlark.errorf(
+          "flag_enabled() is restricted to: '%s'.",
+          Joiner.on(", ").join(WHITELISTED_REPOS_FOR_FLAG_ENABLED));
+    }
+
+    // This function previously exposed the names of the StarlarkSemantics
+    // options, which have historically been *almost* the same as the corresponding
+    // flag names, but for minor accidental differences (e.g. case, plurals, underscores).
+    // But now that we have decoupled Bazel's Starlarksemantics features from the core
+    // interpreter, there is no reliable way to look up a semantics key by flag name.
+    // (For booleans, the key must encode its default value).
+    // So, for now, we'll special-case this to a single flag.
+    // Thank goodness (and laurentlb) it is access-restricted to a single .bzl file that we control.
+    // If this hack is really necessary, we could add logic to BuildLanguageOptions to extract
+    // values from StarlarkSemantics based on flag name.
+    switch (flag) {
+      case "incompatible_linkopts_to_linklibs":
+        return starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_LINKOPTS_TO_LINKLIBS);
+      default:
+        throw Starlark.errorf("flag_enabled: unsupported key: %s", flag);
     }
   }
 

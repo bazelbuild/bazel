@@ -36,17 +36,15 @@ import org.junit.runners.JUnit4;
  * Tests for the flow of flags from {@link BuildLanguageOptions} to {@link StarlarkSemantics}, and
  * to and from {@code StarlarkSemantics}' serialized representation.
  *
- * <p>When adding a new option, it is trivial to make a transposition error or a copy/paste error.
+ * <p>When adding a new option, it is easy to make a transposition error or a copy/paste error.
  * These tests guard against such errors. The following possible bugs are considered:
  *
  * <ul>
- *   <li>If a new option is added to {@code StarlarkSemantics} but not to {@code
- *       BuildLanguageOptions}, or vice versa, then the programmer will either be unable to
- *       implement its behavior, or unable to test it from the command line and add user
- *       documentation. We hope that the programmer notices this on their own.
- *   <li>If {@link BuildLanguageOptions#toStarlarkSemantics} is not updated to set all fields of
- *       {@code StarlarkSemantics}, then it will fail immediately because all fields of {@link
- *       StarlarkSemantics.Builder} are mandatory.
+ *   <li>If a new semantics option is stored in {@code StarlarkSemantics} by {@link
+ *       BuildLanguageOptions#toStarlarkSemantics} but has no associated command-line flag in
+ *       BuildLanguageOptions, or vice versa, then the programmer will either be unable to implement
+ *       its behavior, or unable to test it from the command line and add user documentation. We
+ *       hope that the programmer notices this on their own.
  *   <li>To catch a copy/paste error where the wrong field's data is threaded through {@code
  *       toStarlarkSemantics()} or {@code deserialize(...)}, we repeatedly generate matching random
  *       instances of the input and expected output objects.
@@ -106,9 +104,10 @@ public class ConsistencyTest {
   @Test
   public void canGetBuilderFromInstance() {
     StarlarkSemantics original = StarlarkSemantics.DEFAULT;
-    assertThat(original.internalStarlarkFlagTestCanary()).isFalse();
-    StarlarkSemantics modified = original.toBuilder().internalStarlarkFlagTestCanary(true).build();
-    assertThat(modified.internalStarlarkFlagTestCanary()).isTrue();
+    String flag = "-test";
+    assertThat(original.getBool(flag)).isFalse();
+    StarlarkSemantics modified = original.toBuilder().setBool(flag, true).build();
+    assertThat(modified.getBool(flag)).isTrue();
   }
 
   /**
@@ -168,45 +167,57 @@ public class ConsistencyTest {
   private static StarlarkSemantics buildRandomSemantics(Random rand) {
     return StarlarkSemantics.builder()
         // <== Add new options here in alphabetic order ==>
-        .experimentalDisableExternalPackage(rand.nextBoolean())
-        .experimentalSiblingRepositoryLayout(rand.nextBoolean())
-        .experimentalBuiltinsBzlPath(String.valueOf(rand.nextDouble()))
-        .experimentalCcStarlarkApiEnabledPackages(
+        .setBool(BuildLanguageOptions.EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT, rand.nextBoolean())
+        .set(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH, String.valueOf(rand.nextDouble()))
+        .set(
+            BuildLanguageOptions.EXPERIMENTAL_CC_STARLARK_API_ENABLED_PACKAGES,
             ImmutableList.of(String.valueOf(rand.nextDouble()), String.valueOf(rand.nextDouble())))
-        .experimentalEnableAndroidMigrationApis(rand.nextBoolean())
-        .experimentalGoogleLegacyApi(rand.nextBoolean())
-        .experimentalNinjaActions(rand.nextBoolean())
-        .experimentalPlatformsApi(rand.nextBoolean())
-        .experimentalStarlarkConfigTransitions(rand.nextBoolean())
-        .experimentalAllowTagsPropagation(rand.nextBoolean())
-        .experimentalCcSharedLibrary(rand.nextBoolean())
-        .experimentalRepoRemoteExec(rand.nextBoolean())
-        .experimentalExecGroups(rand.nextBoolean())
-        .incompatibleAlwaysCheckDepsetElements(rand.nextBoolean())
-        .incompatibleApplicableLicenses(rand.nextBoolean())
-        .incompatibleDepsetForLibrariesToLinkGetter(rand.nextBoolean())
-        .incompatibleDisableTargetProviderFields(rand.nextBoolean())
-        .incompatibleDisableDepsetItems(rand.nextBoolean())
-        .incompatibleDisableThirdPartyLicenseChecking(rand.nextBoolean())
-        .incompatibleDisallowEmptyGlob(rand.nextBoolean())
-        .incompatibleDisallowStructProviderSyntax(rand.nextBoolean())
-        .incompatibleDoNotSplitLinkingCmdline(rand.nextBoolean())
-        .incompatibleJavaCommonParameters(rand.nextBoolean())
-        .incompatibleLinkoptsToLinkLibs(rand.nextBoolean())
-        .incompatibleNewActionsApi(rand.nextBoolean())
-        .incompatibleNoAttrLicense(rand.nextBoolean())
-        .incompatibleNoImplicitFileExport(rand.nextBoolean())
-        .incompatibleNoRuleOutputsParam(rand.nextBoolean())
-        .incompatibleObjcProviderRemoveCompileInfo(rand.nextBoolean())
-        .incompatibleRunShellCommandString(rand.nextBoolean())
-        .incompatibleStringReplaceCount(rand.nextBoolean())
-        .incompatibleVisibilityPrivateAttributesAtDefinition(rand.nextBoolean())
-        .incompatibleRequireLinkerInputCcApi(rand.nextBoolean())
-        .incompatibleRestrictStringEscapes(rand.nextBoolean())
-        .incompatibleUseCcConfigureFromRulesCc(rand.nextBoolean())
-        .internalStarlarkFlagTestCanary(rand.nextBoolean())
-        .maxComputationSteps(rand.nextLong())
-        .recordRuleInstantiationCallstack(rand.nextBoolean())
+        .setBool(
+            BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.EXPERIMENTAL_NINJA_ACTIONS, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.EXPERIMENTAL_STARLARK_CONFIG_TRANSITIONS, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.EXPERIMENTAL_ALLOW_TAGS_PROPAGATION, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.EXPERIMENTAL_CC_SHARED_LIBRARY, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.EXPERIMENTAL_REPO_REMOTE_EXEC, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.EXPERIMENTAL_EXEC_GROUPS, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.INCOMPATIBLE_APPLICABLE_LICENSES, rand.nextBoolean())
+        .setBool(
+            BuildLanguageOptions.INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER,
+            rand.nextBoolean())
+        .setBool(
+            BuildLanguageOptions.INCOMPATIBLE_DISABLE_TARGET_PROVIDER_FIELDS, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_DEPSET_ITEMS, rand.nextBoolean())
+        .setBool(
+            BuildLanguageOptions.INCOMPATIBLE_DISABLE_THIRD_PARTY_LICENSE_CHECKING,
+            rand.nextBoolean())
+        .setBool(BuildLanguageOptions.INCOMPATIBLE_DISALLOW_EMPTY_GLOB, rand.nextBoolean())
+        .setBool(
+            BuildLanguageOptions.INCOMPATIBLE_DISALLOW_STRUCT_PROVIDER_SYNTAX, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.INCOMPATIBLE_JAVA_COMMON_PARAMETERS, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.INCOMPATIBLE_LINKOPTS_TO_LINKLIBS, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.INCOMPATIBLE_NEW_ACTIONS_API, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_ATTR_LICENSE, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM, rand.nextBoolean())
+        .setBool(
+            BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.INCOMPATIBLE_RUN_SHELL_COMMAND_STRING, rand.nextBoolean())
+        .setBool(StarlarkSemantics.INCOMPATIBLE_STRING_REPLACE_COUNT, rand.nextBoolean())
+        .setBool(
+            BuildLanguageOptions.INCOMPATIBLE_VISIBILITY_PRIVATE_ATTRIBUTES_AT_DEFINITION,
+            rand.nextBoolean())
+        .setBool(BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.INCOMPATIBLE_RESTRICT_STRING_ESCAPES, rand.nextBoolean())
+        .setBool(
+            BuildLanguageOptions.INCOMPATIBLE_USE_CC_CONFIGURE_FROM_RULES_CC, rand.nextBoolean())
+        .setBool(StarlarkSemantics.PRINT_TEST_MARKER, rand.nextBoolean())
+        .set(BuildLanguageOptions.MAX_COMPUTATION_STEPS, rand.nextLong())
+        .setBool(BuildLanguageOptions.RECORD_RULE_INSTANTIATION_CALLSTACK, rand.nextBoolean())
         .build();
   }
 

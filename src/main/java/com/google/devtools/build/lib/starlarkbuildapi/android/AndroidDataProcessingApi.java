@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
@@ -21,7 +22,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollect
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.Param;
@@ -314,7 +314,7 @@ public interface AndroidDataProcessingApi<
               + " this manifest, so in the future, you may want to use the manifest contained in"
               + " this method's output instead of this one.",
       documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   ValidatedAndroidDataT mergeRes(
       AndroidDataContextT ctx,
       AndroidManifestInfoT manifest,

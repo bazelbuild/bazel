@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.ASTFileLookupFunction.ASTLookupFailedException;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction.BuiltinsFailedException;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -851,7 +852,7 @@ public class BzlLoadFunction implements SkyFunction {
       throws BzlLoadFailedException, InterruptedException {
     if (key instanceof BzlLoadValue.KeyForBuild) {
       // TODO(#11437): Remove ability to disable injection by setting flag to empty string.
-      if (starlarkSemantics.experimentalBuiltinsBzlPath().isEmpty()) {
+      if (starlarkSemantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH).isEmpty()) {
         return packageFactory.getUninjectedBuildBzlEnv();
       }
       StarlarkBuiltinsValue starlarkBuiltinsValue;

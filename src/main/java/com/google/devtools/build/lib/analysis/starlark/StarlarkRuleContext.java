@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
@@ -1039,7 +1040,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
 
   private static void checkDeprecated(String newApi, String oldApi, StarlarkSemantics semantics)
       throws EvalException {
-    if (semantics.incompatibleNewActionsApi()) {
+    if (semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NEW_ACTIONS_API)) {
       throw Starlark.errorf(
           "Use %s instead of %s. \n"
               + "Use --incompatible_new_actions_api=false to temporarily disable this check.",

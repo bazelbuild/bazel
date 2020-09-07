@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.Pair;
@@ -269,7 +270,8 @@ public class ProtoCommon {
 
     StarlarkSemantics starlarkSemantics =
         ruleContext.getAnalysisEnvironment().getStarlarkSemantics();
-    boolean siblingRepositoryLayout = starlarkSemantics.experimentalSiblingRepositoryLayout();
+    boolean siblingRepositoryLayout =
+        starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT);
     if (stripImportPrefixAttribute != null || importPrefixAttribute != null) {
       if (stripImportPrefixAttribute == null) {
         stripImportPrefix =
@@ -335,7 +337,8 @@ public class ProtoCommon {
               sourceRootPath,
               importPrefix,
               stripImportPrefix,
-              starlarkSemantics.experimentalSiblingRepositoryLayout());
+              starlarkSemantics.getBool(
+                  BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
       protoSourceImportPair.add(new Pair<>(realProtoSource, importsPair.first.toString()));
       symlinks.add(importsPair.second);
     }
@@ -498,7 +501,7 @@ public class ProtoCommon {
                   ruleContext
                       .getAnalysisEnvironment()
                       .getStarlarkSemantics()
-                      .experimentalSiblingRepositoryLayout())
+                      .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT))
               .getPathString();
       library =
           createLibraryWithoutVirtualSourceRoot(contextProtoSourceRoot, originalDirectProtoSources);
@@ -660,7 +663,7 @@ public class ProtoCommon {
    */
   @VisibleForTesting
   public static boolean areDepsStrict(RuleContext ruleContext) {
-    StrictDepsMode flagValue = ruleContext.getFragment(ProtoConfiguration.class).strictProtoDeps();
-    return flagValue != StrictDepsMode.OFF && flagValue != StrictDepsMode.DEFAULT;
+    StrictDepsMode getBool = ruleContext.getFragment(ProtoConfiguration.class).strictProtoDeps();
+    return getBool != StrictDepsMode.OFF && getBool != StrictDepsMode.DEFAULT;
   }
 }

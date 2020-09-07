@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.ParserInput;
@@ -162,7 +163,8 @@ public class ASTFileLookupFunction implements SkyFunction {
         FileOptions.builder()
             // TODO(adonovan): add this, so that loads can normally be truly local.
             // .loadBindsGlobally(key.isPrelude())
-            .restrictStringEscapes(semantics.incompatibleRestrictStringEscapes())
+            .restrictStringEscapes(
+                semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_RESTRICT_STRING_ESCAPES))
             .build();
     StarlarkFile file = StarlarkFile.parse(input, options);
     Module module = Module.withPredeclared(semantics, predeclared);

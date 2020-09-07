@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -107,19 +108,17 @@ public class RuleFactory {
           ruleClass + " cannot be in the WORKSPACE file " + "(used by " + label + ")");
     }
 
+    boolean recordRuleInstantiationCallstack =
+        semantics.getBool(BuildLanguageOptions.RECORD_RULE_INSTANTIATION_CALLSTACK);
     AttributesAndLocation generator =
         generatorAttributesForMacros(
-            pkgBuilder,
-            attributeValues,
-            callstack,
-            label,
-            semantics.recordRuleInstantiationCallstack());
+            pkgBuilder, attributeValues, callstack, label, recordRuleInstantiationCallstack);
 
     // The raw stack is of the form [<toplevel>@BUILD:1, macro@lib.bzl:1, cc_library@<builtin>].
     // If we're recording it (--record_rule_instantiation_callstack),
     // pop the innermost frame for the rule, since it's obvious.
     callstack =
-        semantics.recordRuleInstantiationCallstack()
+        recordRuleInstantiationCallstack
             ? callstack.subList(0, callstack.size() - 1) // pop
             : ImmutableList.of(); // save space
 
@@ -130,7 +129,9 @@ public class RuleFactory {
       // This flag is overridable by RuleClass.ThirdPartyLicenseEnforcementPolicy (which is checked
       // in RuleClass). This lets Bazel and Blaze migrate away from license logic on independent
       // timelines. See --incompatible_disable_third_party_license_checking comments for details.
-      boolean checkThirdPartyLicenses = !semantics.incompatibleDisableThirdPartyLicenseChecking();
+      boolean checkThirdPartyLicenses =
+          !semantics.getBool(
+              BuildLanguageOptions.INCOMPATIBLE_DISABLE_THIRD_PARTY_LICENSE_CHECKING);
       return ruleClass.createRule(
           pkgBuilder,
           label,

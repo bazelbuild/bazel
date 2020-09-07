@@ -357,16 +357,16 @@ public final class BuiltinCallable implements StarlarkCallable {
   private static String disabled(String flag, StarlarkSemantics semantics) {
     // If the flag is True, it must be a deprecation flag. Otherwise it's an experimental flag.
     // TODO(adonovan): is that assumption sound?
-    if (semantics.flagValue(flag)) {
+    if (semantics.getBool(flag)) {
       return String.format(
           "deprecated and will be removed soon. It may be temporarily re-enabled by setting"
               + " --%s=false",
-          flag);
+          flag.substring(1)); // remove [+-] prefix
     } else {
       return String.format(
           "experimental and thus unavailable with the current flags. It may be enabled by setting"
               + " --%s",
-          flag);
+          flag.substring(1)); // remove [+-] prefix
     }
   }
 }

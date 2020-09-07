@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -1040,7 +1041,7 @@ public class CppHelper {
 
   public static boolean doNotSplitLinkingCmdLine(
       StarlarkSemantics starlarkSemantics, CcToolchainProvider ccToolchain) {
-    return starlarkSemantics.incompatibleDoNotSplitLinkingCmdline()
+    return starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE)
         || ccToolchain.doNotSplitLinkingCmdline();
   }
 }

@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider.WithLegacyStarlarkName;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
@@ -1191,7 +1192,8 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     void addElementsFromStarlark(Key<?> key, Object starlarkToAdd) throws EvalException {
       NestedSet<?> toAdd = ObjcProviderStarlarkConverters.convertToJava(key, starlarkToAdd);
       if (DEPRECATED_KEYS.contains(key)) {
-        if (getStarlarkSemantics().incompatibleObjcProviderRemoveCompileInfo()) {
+        if (getStarlarkSemantics()
+            .getBool(BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO)) {
           if (!KEYS_FOR_DIRECT.contains(key)) {
             throw Starlark.errorf(
                 AppleStarlarkCommon.DEPRECATED_KEY_ERROR, key.getStarlarkKeyName());

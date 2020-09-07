@@ -77,6 +77,8 @@ public class StringModuleTest {
 
   // Returns semantics for --incompatible_string_replace_count=x.
   private static final StarlarkSemantics replaceCount(boolean x) {
-    return StarlarkSemantics.DEFAULT.toBuilder().incompatibleStringReplaceCount(x).build();
+    return StarlarkSemantics.builder()
+        .setBool(StarlarkSemantics.INCOMPATIBLE_STRING_REPLACE_COUNT, x)
+        .build();
   }
 }

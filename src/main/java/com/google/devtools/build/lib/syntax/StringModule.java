@@ -282,7 +282,7 @@ final class StringModule implements StarlarkValue {
     int count = Integer.MAX_VALUE;
 
     StarlarkSemantics semantics = thread.getSemantics();
-    if (semantics.incompatibleStringReplaceCount()) {
+    if (semantics.getBool(StarlarkSemantics.INCOMPATIBLE_STRING_REPLACE_COUNT)) {
       if (countUnchecked == Starlark.NONE) {
         throw Starlark.errorf(
             "Cannot pass a None count to string.replace(); omit the count argument instead. (You "

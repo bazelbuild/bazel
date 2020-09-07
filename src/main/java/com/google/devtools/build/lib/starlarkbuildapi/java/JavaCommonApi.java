@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
@@ -24,8 +25,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.Param;
@@ -122,7 +121,7 @@ public interface JavaCommonApi<
             doc =
                 "Compile-time dependencies of the compilation that should be omitted from the"
                     + " returned JavaInfo.",
-            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API,
+            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API,
             valueWhenDisabled = "[]"),
         @Param(
             name = "exports",
@@ -349,7 +348,7 @@ public interface JavaCommonApi<
                 "Deprecated: The output jar of the rule. Used to name the resulting source jar. "
                     + "The parameter sets output_source_jar parameter to `{output_jar}-src.jar`."
                     + "Use output_source_jar parameter directly instead.",
-            disableWithFlag = StarlarkSemantics.FlagIdentifier.INCOMPATIBLE_JAVA_COMMON_PARAMETERS,
+            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_JAVA_COMMON_PARAMETERS,
             valueWhenDisabled = "None"),
         @Param(
             name = "output_source_jar",
@@ -484,7 +483,7 @@ public interface JavaCommonApi<
       name = "MessageBundleInfo",
       doc = "The provider used to supply message bundles for translation",
       structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
   ProviderApi getMessageBundleInfo();
 
   @StarlarkMethod(
@@ -506,7 +505,7 @@ public interface JavaCommonApi<
             defaultValue = "[]",
             doc = "Constraints to add")
       },
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
   JavaInfoT addConstraints(JavaInfoT javaInfo, Sequence<?> constraints /* <String> expected. */)
       throws EvalException;
 
@@ -525,7 +524,7 @@ public interface JavaCommonApi<
             type = JavaInfoApi.class,
             doc = "The JavaInfo to process.")
       },
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
   JavaInfoT removeAnnotationProcessors(JavaInfoT javaInfo);
 
   @StarlarkMethod(
@@ -578,7 +577,7 @@ public interface JavaCommonApi<
             defaultValue = "None",
             doc = "Source archive resulting from annotation processing of this rule, or None."),
       },
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
   JavaInfoT setAnnotationProcessing(
       JavaInfoT javaInfo,
       boolean enabled,
@@ -599,7 +598,7 @@ public interface JavaCommonApi<
             type = JavaInfoApi.class,
             doc = "The JavaInfo to query."),
       },
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
   Depset /*<FileT>*/ getCompileTimeJavaDependencyArtifacts(JavaInfoT javaInfo);
 
   @StarlarkMethod(
@@ -621,7 +620,7 @@ public interface JavaCommonApi<
             defaultValue = "[]",
             doc = "Compile-time jdeps files to add.")
       },
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
   JavaInfoT addCompileTimeJavaDependencyArtifacts(
       JavaInfoT javaInfo, Sequence<?> compileTimeJavaDependencyArtifacts /* <FileT> expected. */)
       throws EvalException;
@@ -637,13 +636,13 @@ public interface JavaCommonApi<
             type = JavaToolchainStarlarkApiProviderApi.class,
             doc = "The toolchain."),
       },
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
   Label getJavaToolchainLabel(JavaToolchainStarlarkApiProviderApi toolchain) throws EvalException;
 
   @StarlarkMethod(
       name = "BootClassPathInfo",
       doc = "The provider used to supply bootclasspath information",
       structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
   ProviderApi getBootClassPathInfo();
 }

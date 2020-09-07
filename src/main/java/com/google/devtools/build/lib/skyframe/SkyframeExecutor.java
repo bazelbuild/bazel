@@ -1369,7 +1369,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     StarlarkSemantics starlarkSemantics = getEffectiveStarlarkSemantics(starlarkSemanticsOptions);
     setStarlarkSemantics(starlarkSemantics);
-    setSiblingDirectoryLayout(starlarkSemantics.experimentalSiblingRepositoryLayout());
+    setSiblingDirectoryLayout(
+        starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
     setPackageLocator(pkgLocator);
 
     syscalls.set(getPerBuildSyscallCache(packageOptions.globbingThreads));

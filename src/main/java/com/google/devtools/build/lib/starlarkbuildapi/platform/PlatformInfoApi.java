@@ -15,12 +15,12 @@
 package com.google.devtools.build.lib.starlarkbuildapi.platform;
 
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
 import net.starlark.java.annot.Param;
@@ -51,7 +51,7 @@ public interface PlatformInfoApi<
       name = "label",
       doc = "The label of the target that created this platform.",
       structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API)
   Label label();
 
   @StarlarkMethod(
@@ -60,21 +60,21 @@ public interface PlatformInfoApi<
           "The <a href=\"ConstraintValueInfo.html\">ConstraintValueInfo</a> instances that define "
               + "this platform.",
       structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API)
   ConstraintCollectionApi<ConstraintSettingInfoT, ConstraintValueInfoT> constraints();
 
   @StarlarkMethod(
       name = "remoteExecutionProperties",
       doc = "Properties that are available for the use of remote execution.",
       structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API)
   String remoteExecutionProperties();
 
   @StarlarkMethod(
       name = "exec_properties",
       doc = "Properties to configure a remote execution platform.",
       structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API)
   Map<String, String> execProperties();
 
   /** Provider for {@link PlatformInfoApi} objects. */
@@ -123,7 +123,7 @@ public interface PlatformInfoApi<
         },
         selfCall = true,
         useStarlarkThread = true,
-        enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
+        enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API)
     @StarlarkConstructor(objectType = PlatformInfoApi.class, receiverNameForDoc = "PlatformInfo")
     PlatformInfoT platformInfo(
         Label label,
