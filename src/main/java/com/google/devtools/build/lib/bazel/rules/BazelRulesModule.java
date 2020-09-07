@@ -43,9 +43,7 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
 
-/**
- * Module implementing the rule set of Bazel.
- */
+/** Module implementing the rule set of Bazel. */
 public class BazelRulesModule extends BlazeModule {
   /** This is where deprecated options go to die. */
   public static class GraveyardOptions extends OptionsBase {
@@ -357,7 +355,7 @@ public class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated no-op.")
     public String glibc;
-    
+
     @Deprecated
     @Option(
         name = "experimental_shortened_obj_file_path",
@@ -438,6 +436,18 @@ public class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "No-op.")
     public boolean postProfileStartedEvent;
+
+    @Option(
+        name = "incompatible_enable_profile_by_default",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "No-op.")
+    public boolean enableProfileByDefault;
   }
 
   @Override
@@ -478,7 +488,8 @@ public class BazelRulesModule extends BlazeModule {
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return "build".equals(command.name())
-        ? ImmutableList.of(GraveyardOptions.class) : ImmutableList.of();
+        ? ImmutableList.of(GraveyardOptions.class)
+        : ImmutableList.of();
   }
 
   private static void validateRemoteOutputsMode(CommandEnvironment env) throws AbruptExitException {

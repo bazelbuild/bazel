@@ -312,7 +312,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         options.containsExplicitOption("experimental_generate_json_trace_profile")
             && !commonOptions.enableTracer;
     if (commandSupportsProfile
-        && commonOptions.enableProfileByDefault
         && !profileExplicitlyDisabled) {
       commonOptions.enableTracer = true;
       if (!options.containsExplicitOption("experimental_profile_cpu_usage")) {
