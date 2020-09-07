@@ -10,29 +10,15 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
-TYPE_SRCS = ["Type.java"]
-
-BUILD_TYPE_SRCS = [
-    "BuildType.java",
-    "FilesetEntry.java",
-    "License.java",
-    "SelectorList.java",
-    "SelectorValue.java",
-    "TriState.java",
-]
-
 java_library(
     name = "packages",
     srcs = glob(
         ["*.java"],
-        exclude = TYPE_SRCS + BUILD_TYPE_SRCS + [
-            "BuilderFactoryForTesting.java",
-            "BuildLanguageOptions.java",
+        exclude = [
+            "BuilderFactoryForTesting.java",  # see builder_factory_for_testing
         ],
     ),
     deps = [
-        ":build_type",
-        ":type",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/config_matching_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/configuration_transition",
@@ -87,39 +73,5 @@ java_library(
         ":packages",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "type",
-    srcs = TYPE_SRCS,
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
-        "//src/main/java/com/google/devtools/build/lib/util:logging",
-        "//src/main/java/com/google/devtools/build/lib/util:string",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "build_type",
-    srcs = BUILD_TYPE_SRCS,
-    deps = [
-        ":type",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
-        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/net/starlark/java/annot",
-        "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )

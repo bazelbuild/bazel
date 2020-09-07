@@ -67,8 +67,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/android",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:build_type",
-        "//src/main/java/com/google/devtools/build/lib/packages:type",
         "//src/main/java/com/google/devtools/build/lib/rules/android",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
         "//src/main/java/com/google/devtools/build/lib/vfs",

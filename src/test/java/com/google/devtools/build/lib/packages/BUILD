@@ -67,8 +67,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:build_type",
-        "//src/main/java/com/google/devtools/build/lib/packages:type",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tests_for_target_pattern_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
