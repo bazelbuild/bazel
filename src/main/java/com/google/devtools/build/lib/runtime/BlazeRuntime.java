@@ -964,7 +964,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       startupOptionsFromCommandLine.add(new Pair<>("", option));
     }
 
-    BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime);
+    BlazeCommandDispatcher dispatcher =
+        new BlazeCommandDispatcher(runtime, BlazeCommandDispatcher.UNKNOWN_SERVER_PID);
     boolean shutdownDone = false;
 
     try {
@@ -1053,7 +1054,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       ShutdownHooks shutdownHooks = ShutdownHooks.createAndRegister();
       shutdownHooks.deleteAtExit(pidFile);
 
-      BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime);
+      BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime, serverPid);
       BlazeServerStartupOptions startupOptions =
           runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class);
       try {

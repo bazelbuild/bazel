@@ -31,6 +31,8 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.runtime.CommandDispatcher.LockingMode;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.BuildProgress;
 import com.google.devtools.build.lib.server.FailureDetails.BuildProgress.Code;
@@ -40,6 +42,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Spawn;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -59,6 +62,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.junit.Before;
@@ -330,6 +335,74 @@ public class BlazeCommandDispatcherTest {
     outErr.reset();
     dispatch.exec(asList("bar"), "test", outErr);
     assertThat(outErr.outAsLatin1()).isEqualTo("Hello, bar.\n");
+  }
+
+  @Command(name = "block", help = "", shortDescription = "")
+  private static class BlockCommand implements BlazeCommand {
+    private final CountDownLatch waitLatch = new CountDownLatch(1);
+    private final CountDownLatch started = new CountDownLatch(1);
+
+    void unblock() {
+      waitLatch.countDown();
+    }
+
+    void awaitRunning() throws InterruptedException {
+      started.await();
+    }
+
+    @Override
+    public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
+      started.countDown();
+      try {
+        waitLatch.await();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new IllegalStateException("Should not have been interrupted");
+      }
+      return BlazeCommandResult.success();
+    }
+  }
+
+  @Test
+  public void testConcurrentCommandsWaitForLock() throws Exception {
+    BlockCommand blockCommand = new BlockCommand();
+    runtime.overrideCommands(ImmutableList.of(bar, blockCommand));
+    BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime, /*serverPid=*/ 42);
+
+    Thread blockCommandThread =
+        new TestThread(
+            () ->
+                dispatch.exec(ImmutableList.of("block"), "blocking client", new RecordingOutErr()));
+    TestThread blockedCommandThread =
+        new TestThread(
+            () ->
+                dispatch.exec(
+                    InvocationPolicy.getDefaultInstance(),
+                    ImmutableList.of("bar"),
+                    outErr,
+                    LockingMode.WAIT,
+                    "test client",
+                    runtime.getClock().currentTimeMillis(),
+                    /*startupOptionsTaggedWithBazelRc=*/ Optional.empty()));
+
+    try {
+      blockCommandThread.start();
+      blockCommand.awaitRunning();
+      blockedCommandThread.start();
+
+      while (!outErr.errAsLatin1().contains("Another command")) {
+        Thread.sleep(100);
+      }
+      assertThat(outErr.errAsLatin1())
+          .contains(
+              "Another command (blocking client) is running. Waiting for it to complete on the"
+                  + " server (server_pid=42)...");
+    } finally {
+      blockCommand.unblock();
+      // We don't care what happened on the threads, don't assert state to make sure we join both.
+      blockCommandThread.join();
+      blockedCommandThread.join();
+    }
   }
 
   @Test
