@@ -87,6 +87,8 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/server:srcs",
         "//src/main/java/net/starlark/java/annot/processor:srcs",
         "//src/main/java/net/starlark/java/annot:srcs",
+        "//src/main/java/net/starlark/java/eval:srcs",
+        "//src/main/java/net/starlark/java/syntax:srcs",
         "//src/main/java/com/google/devtools/build/lib/ssd:srcs",
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
         "//src/main/java/com/google/devtools/build/lib/supplier:srcs",

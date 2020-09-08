@@ -15,20 +15,20 @@ package net.starlark.java.cmd;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FileOptions;
-import com.google.devtools.build.lib.syntax.Module;
-import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.SyntaxError;
 import java.io.BufferedReader;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.time.Duration;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.FileOptions;
+import net.starlark.java.syntax.ParserInput;
+import net.starlark.java.syntax.SyntaxError;
 
 /**
  * Main is a standalone interpreter for the core Starlark language. It does not yet support load
@@ -36,7 +36,7 @@ import java.time.Duration;
  *
  * <p>The sad class name is due to the linting tool, which forbids lowercase "starlark", and Java's
  * lack of renaming imports, which makes the name "Starlark" impractical due to conflicts with
- * lib.syntax.Starlark.
+ * eval.Starlark.
  */
 class Main {
   private static final String START_PROMPT = ">> ";
