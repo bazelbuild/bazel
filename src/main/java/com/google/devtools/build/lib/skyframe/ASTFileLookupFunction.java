@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
@@ -25,7 +26,6 @@ import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Resolver;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -50,12 +50,11 @@ import javax.annotation.Nullable;
 public class ASTFileLookupFunction implements SkyFunction {
 
   private final PackageFactory packageFactory;
-  private final DigestHashFunction digestHashFunction;
+  private final HashFunction hashFunction;
 
-  public ASTFileLookupFunction(
-      PackageFactory packageFactory, DigestHashFunction digestHashFunction) {
+  public ASTFileLookupFunction(PackageFactory packageFactory, HashFunction hashFunction) {
     this.packageFactory = packageFactory;
-    this.digestHashFunction = digestHashFunction;
+    this.hashFunction = hashFunction;
   }
 
   @Override
@@ -63,7 +62,7 @@ public class ASTFileLookupFunction implements SkyFunction {
       throws SkyFunctionException, InterruptedException {
     try {
       return computeInline(
-          (ASTFileLookupValue.Key) skyKey.argument(), env, packageFactory, digestHashFunction);
+          (ASTFileLookupValue.Key) skyKey.argument(), env, packageFactory, hashFunction);
     } catch (ASTLookupFailedException e) {
       throw new ASTLookupFunctionException(e);
     }
@@ -73,7 +72,7 @@ public class ASTFileLookupFunction implements SkyFunction {
       ASTFileLookupValue.Key key,
       Environment env,
       PackageFactory packageFactory,
-      DigestHashFunction digestHashFunction)
+      HashFunction digestHashFunction)
       throws ASTLookupFailedException, InterruptedException {
     byte[] bytes;
     byte[] digest;
@@ -133,7 +132,7 @@ public class ASTFileLookupFunction implements SkyFunction {
 
     // Compute digest if we didn't already get it from a fileValue.
     if (digest == null) {
-      digest = digestHashFunction.getHashFunction().hashBytes(bytes).asBytes();
+      digest = digestHashFunction.hashBytes(bytes).asBytes();
     }
 
     StarlarkSemantics semantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);

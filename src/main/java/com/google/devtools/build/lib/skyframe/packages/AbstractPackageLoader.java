@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
+import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -81,7 +82,6 @@ import com.google.devtools.build.lib.skyframe.WorkspaceNameFunction;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -142,7 +142,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   private final AtomicReference<PathPackageLocator> pkgLocatorRef;
   protected final ExternalFilesHelper externalFilesHelper;
   protected final BlazeDirectories directories;
-  private final DigestHashFunction digestHashFunction;
+  private final HashFunction hashFunction;
   private final int legacyGlobbingThreads;
   @VisibleForTesting final ForkJoinPool forkJoinPoolForLegacyGlobbing;
   private final int skyframeThreads;
@@ -277,7 +277,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             "package-loader-globbing-pool", builder.legacyGlobbingThreads);
     this.skyframeThreads = builder.skyframeThreads;
     this.directories = builder.directories;
-    this.digestHashFunction = builder.workspaceDir.getFileSystem().getDigestFunction();
+    this.hashFunction = builder.workspaceDir.getFileSystem().getDigestFunction().getHashFunction();
 
     this.externalFilesHelper = builder.externalFilesHelper;
 
@@ -485,13 +485,11 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             new IgnoredPackagePrefixesFunction(
                 /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
         .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
-        .put(
-            SkyFunctions.AST_FILE_LOOKUP, new ASTFileLookupFunction(pkgFactory, digestHashFunction))
+        .put(SkyFunctions.AST_FILE_LOOKUP, new ASTFileLookupFunction(pkgFactory, hashFunction))
         .put(SkyFunctions.STARLARK_BUILTINS, new StarlarkBuiltinsFunction(pkgFactory))
         .put(
             SkyFunctions.BZL_LOAD,
-            BzlLoadFunction.create(
-                pkgFactory, digestHashFunction, CacheBuilder.newBuilder().build()))
+            BzlLoadFunction.create(pkgFactory, hashFunction, CacheBuilder.newBuilder().build()))
         .put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction())
         .put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider))
         .put(
