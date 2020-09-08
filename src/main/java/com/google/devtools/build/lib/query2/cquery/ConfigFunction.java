@@ -82,7 +82,7 @@ public final class ConfigFunction implements QueryFunction {
     return env.whenSucceedsCall(
         targets,
         ((ConfiguredTargetQueryEnvironment) env)
-            .getConfiguredTargets(
+            .getConfiguredTargetsForConfigFunction(
                 targetExpression.toString(),
                 (ThreadSafeMutableSet<ConfiguredTarget>) targets.getIfSuccessful(),
                 configuration,
