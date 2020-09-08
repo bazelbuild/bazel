@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -115,12 +116,15 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
     }
 
     ThreadSafeOutputFormatterCallback<Target> callback;
+    HashFunction hashFunction =
+        env.getRuntime().getFileSystem().getDigestFunction().getHashFunction();
     if (streamResults) {
       disableAnsiCharactersFiltering(env);
       StreamedFormatter streamedFormatter = ((StreamedFormatter) formatter);
       streamedFormatter.setOptions(
           queryOptions,
-          queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()));
+          queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()),
+          hashFunction);
       streamedFormatter.setEventHandler(env.getReporter());
       callback = streamedFormatter.createStreamCallback(out, queryOptions, queryEnv);
     } else {
@@ -168,7 +172,8 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
               formatter,
               out,
               queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()),
-              env.getReporter());
+              env.getReporter(),
+              hashFunction);
         } catch (ClosedByInterruptException | InterruptedException e) {
           return reportAndCreateInterruptedResult(env);
         } catch (IOException e) {

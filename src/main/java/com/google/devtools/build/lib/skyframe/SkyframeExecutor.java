@@ -37,6 +37,7 @@ import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
@@ -2541,6 +2542,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return actionKeyContext;
   }
 
+  // TODO(janakr): Is there a better place for this?
+  public HashFunction getHashFunction() {
+    return fileSystem.getDigestFunction().getHashFunction();
+  }
+
   class SkyframePackageLoader {
     /**
      * Looks up a particular package (mostly used after the loading phase, so packages should
@@ -2600,11 +2606,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   @VisibleForTesting
   public MemoizingEvaluator getEvaluatorForTesting() {
     return memoizingEvaluator;
-  }
-
-  @VisibleForTesting
-  public FileSystem getFileSystemForTesting() {
-    return fileSystem;
   }
 
   @VisibleForTesting

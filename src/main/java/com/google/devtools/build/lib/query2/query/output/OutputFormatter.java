@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.query.output;
 
+import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.packages.Target;
@@ -60,6 +61,7 @@ public abstract class OutputFormatter implements Serializable {
       Digraph<Target> result,
       OutputStream out,
       AspectResolver aspectProvider,
-      @Nullable EventHandler eventHandler)
+      @Nullable EventHandler eventHandler,
+      HashFunction hashFunction)
       throws IOException, InterruptedException;
 }

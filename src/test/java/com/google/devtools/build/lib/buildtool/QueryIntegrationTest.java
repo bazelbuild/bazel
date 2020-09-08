@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.runtime.GotOptionsEvent;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.commands.QueryCommand;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.ByteArrayInputStream;
@@ -77,7 +78,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   private boolean keepGoing;
 
   @Before
-  public final void setQueryOptions() throws Exception  {
+  public final void setQueryOptions() {
     queryOptions = Options.getDefaults(QueryOptions.class);
     keepGoing = Options.getDefaults(KeepGoingOption.class).keepGoing;
     queryOptions.universeScope = ImmutableList.of("//...:*");
@@ -311,7 +312,8 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         formatter,
         outputStream,
         queryOptions.aspectDeps.createResolver(env.getPackageManager(), reporter),
-        reporter);
+        reporter,
+        DigestHashFunction.SHA256.getHashFunction());
     return outputStream.toByteArray();
   }
 
