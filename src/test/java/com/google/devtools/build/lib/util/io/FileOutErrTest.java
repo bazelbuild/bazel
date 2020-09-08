@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.util.io.FileOutErr.FileRecordingOutputStream;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -37,7 +38,7 @@ public class FileOutErrTest {
 
   @Before
   public void setUp() {
-    fs = new InMemoryFileSystem();
+    fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
   }
 
   private FileRecordingOutputStream newFileRecordingOutputStream(String path) {
