@@ -455,6 +455,9 @@ public class FileOutErr extends OutErr {
         return outputFile.getFileSize();
       } catch (FileNotFoundException e) {
         return 0;
+      } catch (IOException e) {
+        recordError(e);
+        throw e;
       }
     }
 
