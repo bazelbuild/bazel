@@ -43,6 +43,6 @@ public final class FileSystems {
 
   /** Constructs a java.io.File file system. */
   public static FileSystem getJavaIoFileSystem() {
-    return new JavaIoFileSystem(DigestHashFunction.getDefaultUnchecked());
+    return new JavaIoFileSystem(DigestHashFunction.SHA256);
   }
 }

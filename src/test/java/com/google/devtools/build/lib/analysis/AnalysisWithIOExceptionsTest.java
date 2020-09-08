@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.analysis;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
-import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -37,7 +37,7 @@ public class AnalysisWithIOExceptionsTest extends AnalysisTestCase {
 
   @Override
   protected FileSystem createFileSystem() {
-    return new InMemoryFileSystem(BlazeClock.instance()) {
+    return new InMemoryFileSystem(DigestHashFunction.SHA256) {
       @Override
       public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
         String crash = crashMessage.apply(path);

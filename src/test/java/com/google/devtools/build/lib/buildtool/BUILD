@@ -572,6 +572,7 @@ java_library(
     name = "IoHookTestCase",
     srcs = ["IoHookTestCase.java"],
     deps = [
+        "//java/com/google/devtools/build/lib/google/vfs:google-hash-functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:mutable_supplier",
         "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/vfs",

@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -38,7 +39,7 @@ public final class ProcessWrapperTest {
 
   @Before
   public void setUp() {
-    testFS = new InMemoryFileSystem();
+    testFS = new InMemoryFileSystem(DigestHashFunction.SHA256);
   }
 
   private Path makeProcessWrapperBin(String path) throws IOException {

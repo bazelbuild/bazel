@@ -65,7 +65,7 @@ public abstract class BaseRealSandboxfsProcessTest {
 
   @Before
   public void setUp() throws Exception {
-    fileSystem = new JavaIoFileSystem(DigestHashFunction.getDefaultUnchecked());
+    fileSystem = new JavaIoFileSystem(DigestHashFunction.SHA256);
     tmpDir = fileSystem.getPath(System.getenv("TEST_TMPDIR")).getRelative("test");
     tmpDir.createDirectory();
   }

@@ -44,6 +44,8 @@ import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -82,7 +84,7 @@ public class RemoteModuleTest {
     when(options.getOptions(AuthAndTLSOptions.class)).thenReturn(authAndTLSOptions);
 
     String productName = "bazel";
-    Scratch scratch = new Scratch();
+    Scratch scratch = new Scratch(new InMemoryFileSystem(DigestHashFunction.SHA256));
     ServerDirectories serverDirectories =
         new ServerDirectories(
             scratch.dir("install"), scratch.dir("output"), scratch.dir("user_root"));

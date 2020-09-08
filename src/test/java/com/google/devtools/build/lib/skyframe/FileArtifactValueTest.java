@@ -22,6 +22,7 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -35,7 +36,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class FileArtifactValueTest {
   private final ManualClock clock = new ManualClock();
-  private final FileSystem fs = new InMemoryFileSystem(clock);
+  private final FileSystem fs = new InMemoryFileSystem(clock, DigestHashFunction.SHA256);
 
   private Path scratchFile(String name, long mtime, String content) throws IOException {
     Path path = fs.getPath(name);
@@ -179,7 +180,7 @@ public final class FileArtifactValueTest {
   public void testIOException() throws Exception {
     final IOException exception = new IOException("beep");
     FileSystem fs =
-        new InMemoryFileSystem() {
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
           @Override
           public byte[] getDigest(Path path) throws IOException {
             throw exception;

@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static org.junit.Assert.assertThrows;
 
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -40,7 +41,7 @@ public class PidFileWatcherTest {
 
   @Before
   public void setUp() {
-    FileSystem fileSystem = new InMemoryFileSystem();
+    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
     pidFile = fileSystem.getPath("/pid");
     underTest =
         new PidFileWatcher(

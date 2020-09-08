@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -81,7 +82,8 @@ import java.util.UUID;
 /** An implementation of AbstractQueryHelper to support testing bazel query. */
 public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   protected SkyframeExecutor skyframeExecutor;
-  protected FileSystem fileSystem = new InMemoryFileSystem(BlazeClock.instance());
+  protected FileSystem fileSystem =
+      new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
   protected Path rootDirectory;
   protected BlazeDirectories directories;
   private String toolsRepository;

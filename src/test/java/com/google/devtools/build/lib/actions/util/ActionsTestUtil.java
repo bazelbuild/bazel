@@ -81,6 +81,7 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -345,7 +346,8 @@ public final class ActionsTestUtil {
 
   public static final Artifact DUMMY_ARTIFACT =
       new Artifact.SourceArtifact(
-          ArtifactRoot.asSourceRoot(Root.absoluteRoot(new InMemoryFileSystem())),
+          ArtifactRoot.asSourceRoot(
+              Root.absoluteRoot(new InMemoryFileSystem(DigestHashFunction.SHA256))),
           PathFragment.create("/dummy"),
           NULL_ARTIFACT_OWNER);
 

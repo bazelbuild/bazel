@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -447,6 +448,10 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   private static class CustomInMemoryFs extends InMemoryFileSystem {
     @Nullable private Path badPathForStat;
     @Nullable private Path badPathForRead;
+
+    CustomInMemoryFs() {
+      super(DigestHashFunction.SHA256);
+    }
 
     @Override
     public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {

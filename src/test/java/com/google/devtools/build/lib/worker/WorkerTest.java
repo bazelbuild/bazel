@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtoco
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.shell.Subprocess;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -50,7 +51,7 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link Worker}. */
 @RunWith(JUnit4.class)
 public final class WorkerTest {
-  final FileSystem fs = new InMemoryFileSystem();
+  final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
 
   /** A worker that uses a fake subprocess for I/O. */
   private static class TestWorker extends Worker {

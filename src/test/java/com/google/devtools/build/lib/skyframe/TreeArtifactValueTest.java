@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -342,7 +343,7 @@ public final class TreeArtifactValueTest {
   @Test
   public void visitTree_throwsOnUnknownDirentType() {
     FileSystem fs =
-        new InMemoryFileSystem() {
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
           @Override
           public ImmutableList<Dirent> readdir(Path path, boolean followSymlinks) {
             return ImmutableList.of(new Dirent("?", Dirent.Type.UNKNOWN));
@@ -447,7 +448,8 @@ public final class TreeArtifactValueTest {
   public static final class MultiBuilderTest {
 
     private static final ArtifactRoot ROOT =
-        ArtifactRoot.asDerivedRoot(new InMemoryFileSystem().getPath("/root"), BIN_PATH);
+        ArtifactRoot.asDerivedRoot(
+            new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/root"), BIN_PATH);
 
     private enum MultiBuilderType {
       BASIC {

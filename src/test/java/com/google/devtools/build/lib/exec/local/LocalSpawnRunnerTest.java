@@ -313,7 +313,7 @@ public class LocalSpawnRunnerTest {
     SubprocessBuilder.setDefaultSubprocessFactory(new SubprocessInterceptor());
     resourceManager.setAvailableResources(
         ResourceSet.create(/*memoryMb=*/1, /*cpuUsage=*/1, /*localTestCount=*/1));
-    return new InMemoryFileSystem();
+    return new InMemoryFileSystem(DigestHashFunction.SHA256);
   }
 
   private static ProcessWrapper makeProcessWrapper(FileSystem fs, LocalExecutionOptions options) {
@@ -642,7 +642,7 @@ public class LocalSpawnRunnerTest {
 
     File tempDirFile = TestUtils.makeTempDir();
     tempDirFile.deleteOnExit();
-    FileSystem fs = new JavaIoFileSystem(DigestHashFunction.getDefaultUnchecked());
+    FileSystem fs = new JavaIoFileSystem(DigestHashFunction.SHA256);
     Path tempDir = fs.getPath(tempDirFile.getPath());
 
     LocalSpawnRunner runner =
@@ -884,7 +884,7 @@ public class LocalSpawnRunnerTest {
     // TODO(b/62588075) Currently no process-wrapper or execution statistics support in Windows.
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
 
-    FileSystem fs = new UnixFileSystem(DigestHashFunction.getDefaultUnchecked());
+    FileSystem fs = new UnixFileSystem(DigestHashFunction.SHA256);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.collectLocalExecutionStatistics = true;
@@ -956,7 +956,7 @@ public class LocalSpawnRunnerTest {
     // TODO(b/62588075) Currently no process-wrapper or execution statistics support in Windows.
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
 
-    FileSystem fs = new UnixFileSystem(DigestHashFunction.getDefaultUnchecked());
+    FileSystem fs = new UnixFileSystem(DigestHashFunction.SHA256);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.collectLocalExecutionStatistics = false;
