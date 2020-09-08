@@ -14,7 +14,7 @@ filegroup(
 
 # The Starlark evaluator
 java_library(
-    name = "evaluator",
+    name = "eval",
     srcs = [
         "BuiltinCallable.java",
         "CallUtils.java",
@@ -52,7 +52,7 @@ java_library(
     ],
     deps = [
         # Do not add Bazel or Google dependencies here!
-        "//src/main/java/net/starlark/java/annot",
+        "//src/main/java/net/starlark/java/annot:annot_new",
         "//src/main/java/net/starlark/java/spelling",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:auto_value",

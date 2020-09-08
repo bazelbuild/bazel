@@ -2,6 +2,10 @@
 
 load("@rules_java//java:defs.bzl", "java_library")
 
+# TODO(adonovan): move list of visibility-permitted clients to
+# third_party/bazel/src/main/java/net/starlark/java/BUILD.
+package(default_visibility = ["//src:__subpackages__"])
+
 licenses(["notice"])
 
 filegroup(
