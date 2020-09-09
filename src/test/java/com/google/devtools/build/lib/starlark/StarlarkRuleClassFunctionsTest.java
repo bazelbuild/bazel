@@ -85,8 +85,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Override
-  protected void setStarlarkSemanticsOptions(String... options) throws Exception {
-    super.setStarlarkSemanticsOptions(options); // for BuildViewTestCase
+  protected void setBuildLanguageOptions(String... options) throws Exception {
+    super.setBuildLanguageOptions(options); // for BuildViewTestCase
     ev.setSemantics(options); // for StarlarkThread
   }
 
@@ -1769,7 +1769,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testRuleAddExecGroup() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_exec_groups=true");
+    setBuildLanguageOptions("--experimental_exec_groups=true");
 
     registerDummyStarlarkFunction();
     scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
@@ -1829,7 +1829,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testCreateExecGroup() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_exec_groups=true");
+    setBuildLanguageOptions("--experimental_exec_groups=true");
 
     scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(

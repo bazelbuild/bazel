@@ -11,13 +11,17 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.analysis;
+package com.google.devtools.build.lib.remote;
 
-/** The configuration transition for an attribute through which a prerequisite is requested. */
-public enum TransitionMode {
-  TARGET,
-  HOST,
-  DATA,
-  SPLIT,
-  DONT_CHECK
+import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import io.grpc.ClientInterceptor;
+import io.grpc.ManagedChannel;
+import java.io.IOException;
+import java.util.List;
+
+/** A factory interface for creating a {@link ManagedChannel}. */
+public interface ChannelFactory {
+  ManagedChannel newChannel(
+      String target, String proxy, AuthAndTLSOptions options, List<ClientInterceptor> interceptors)
+      throws IOException;
 }

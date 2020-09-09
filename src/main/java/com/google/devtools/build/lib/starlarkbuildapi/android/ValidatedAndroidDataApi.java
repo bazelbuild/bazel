@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -45,7 +45,7 @@ public interface ValidatedAndroidDataApi<
       structField = true,
       doc = "",
       documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   AndroidResourcesInfoT toProvider();
 
   @StarlarkMethod(
@@ -53,7 +53,7 @@ public interface ValidatedAndroidDataApi<
       structField = true,
       doc = "",
       documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FileT getRTxt();
 
   @StarlarkMethod(
@@ -61,7 +61,7 @@ public interface ValidatedAndroidDataApi<
       structField = true,
       doc = "",
       documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FileT getJavaClassJar();
 
   @StarlarkMethod(
@@ -69,7 +69,7 @@ public interface ValidatedAndroidDataApi<
       structField = true,
       doc = "",
       documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FileT getJavaSourceJar();
 
   @StarlarkMethod(
@@ -77,7 +77,7 @@ public interface ValidatedAndroidDataApi<
       structField = true,
       doc = "",
       documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FileT getApk();
 
   @StarlarkMethod(
@@ -86,7 +86,7 @@ public interface ValidatedAndroidDataApi<
       doc = "",
       documented = false,
       allowReturnNones = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   @Nullable
   FileT getAapt2RTxt();
 
@@ -96,7 +96,7 @@ public interface ValidatedAndroidDataApi<
       doc = "",
       documented = false,
       allowReturnNones = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   @Nullable
   FileT getAapt2SourceJar();
 
@@ -106,7 +106,7 @@ public interface ValidatedAndroidDataApi<
       doc = "",
       documented = false,
       allowReturnNones = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   @Nullable
   FileT getStaticLibrary();
 
@@ -115,6 +115,6 @@ public interface ValidatedAndroidDataApi<
       structField = true,
       doc = "",
       documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   Sequence<FileT> getResourcesList();
 }

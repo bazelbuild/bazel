@@ -280,8 +280,8 @@ public final class StarlarkMethodProcessorTest {
         .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "Only one of StarlarkMethod.enablingFlag and StarlarkMethod.disablingFlag may be "
-                + "specified.");
+            "Only one of StarlarkMethod.enableOnlyWithFlag and StarlarkMethod.disableWithFlag may"
+                + " be specified.");
   }
 
   @Test

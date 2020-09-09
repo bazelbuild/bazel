@@ -699,19 +699,18 @@ public class RuleClass {
     public enum ThirdPartyLicenseExistencePolicy {
       /**
        * Always do this check, overriding whatever {@link
-       * StarlarkSemanticsOptions#incompatibleDisableThirdPartyLicenseChecking} says.
+       * BuildLanguageOptions#incompatibleDisableThirdPartyLicenseChecking} says.
        */
       ALWAYS_CHECK,
 
       /**
        * Never do this check, overriding whatever {@link
-       * StarlarkSemanticsOptions#incompatibleDisableThirdPartyLicenseChecking} says.
+       * BuildLanguageOptions#incompatibleDisableThirdPartyLicenseChecking} says.
        */
       NEVER_CHECK,
 
       /**
-       * Do whatever {@link StarlarkSemanticsOptions#incompatibleDisableThirdPartyLicenseChecking}
-       * says.
+       * Do whatever {@link BuildLanguageOptions#incompatibleDisableThirdPartyLicenseChecking} says.
        */
       USER_CONTROLLABLE
     }

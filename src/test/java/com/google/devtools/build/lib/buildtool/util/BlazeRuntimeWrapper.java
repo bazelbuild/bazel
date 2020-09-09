@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -150,7 +150,7 @@ public class BlazeRuntimeWrapper {
                 KeepGoingOption.class,
                 LoadingPhaseThreadsOption.class,
                 PackageOptions.class,
-                StarlarkSemanticsOptions.class,
+                BuildLanguageOptions.class,
                 UiOptions.class,
                 SandboxOptions.class,
                 AqueryOptions.class));

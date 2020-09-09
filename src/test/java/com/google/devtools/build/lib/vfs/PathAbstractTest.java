@@ -37,7 +37,7 @@ public abstract class PathAbstractTest {
 
   @Before
   public void setup() {
-    fileSystem = new InMemoryFileSystem(BlazeClock.instance());
+    fileSystem = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
     isCaseSensitive = OsPathPolicy.getFilePathOs().isCaseSensitive();
   }
 

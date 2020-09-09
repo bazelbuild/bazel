@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
@@ -728,7 +729,7 @@ public abstract class CcModule
 
   @Override
   public void checkExperimentalCcSharedLibrary(StarlarkThread thread) throws EvalException {
-    if (!thread.getSemantics().experimentalCcSharedLibrary()) {
+    if (!thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_CC_SHARED_LIBRARY)) {
       throw Starlark.errorf("Pass --experimental_cc_shared_library to use cc_shared_library");
     }
   }
@@ -754,7 +755,9 @@ public abstract class CcModule
       StarlarkThread thread)
       throws EvalException {
     if (Starlark.isNullOrNone(linkerInputs)) {
-      if (thread.getSemantics().incompatibleRequireLinkerInputCcApi()) {
+      if (thread
+          .getSemantics()
+          .getBool(BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API)) {
         throw Starlark.errorf("linker_inputs cannot be None");
       }
       @SuppressWarnings("unchecked")
@@ -909,7 +912,7 @@ public abstract class CcModule
                   .getExecPath(
                       starlarkRuleContext
                           .getStarlarkSemantics()
-                          .experimentalSiblingRepositoryLayout())
+                          .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT))
                   .getRelative(PathFragment.create(tool.second))
                   .getPathString();
         }
@@ -959,7 +962,9 @@ public abstract class CcModule
               linkerToolPath,
               /* supportsEmbeddedRuntimes= */ false,
               /* supportsInterfaceSharedLibraries= */ false,
-              starlarkRuleContext.getStarlarkSemantics().incompatibleDoNotSplitLinkingCmdline())) {
+              starlarkRuleContext
+                  .getStarlarkSemantics()
+                  .getBool(BuildLanguageOptions.INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE))) {
         legacyFeaturesBuilder.add(new Feature(feature));
       }
       legacyFeaturesBuilder.addAll(
@@ -970,7 +975,9 @@ public abstract class CcModule
       for (CToolchain.Feature feature :
           CppActionConfigs.getFeaturesToAppearLastInFeaturesList(
               featureNames,
-              starlarkRuleContext.getStarlarkSemantics().incompatibleDoNotSplitLinkingCmdline())) {
+              starlarkRuleContext
+                  .getStarlarkSemantics()
+                  .getBool(BuildLanguageOptions.INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE))) {
         legacyFeaturesBuilder.add(new Feature(feature));
       }
 

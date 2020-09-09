@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Strings;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -33,7 +34,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class StreamedTestOutputTest {
 
-  private final InMemoryFileSystem fileSystem = new InMemoryFileSystem();
+  private final InMemoryFileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
 
   @Test
   public void testEmptyFile() throws IOException {

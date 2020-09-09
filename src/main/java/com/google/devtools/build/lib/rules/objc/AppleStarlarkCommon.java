@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
@@ -212,7 +213,8 @@ public class AppleStarlarkCommon
       } else if (entry.getKey().equals("providers")) {
         resultBuilder.addProvidersFromStarlark(entry.getValue());
       } else if (entry.getKey().equals("direct_dep_providers")) {
-        if (semantics.incompatibleObjcProviderRemoveCompileInfo()) {
+        if (semantics.getBool(
+            BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO)) {
           throw new EvalException(BAD_DIRECT_DEP_PROVIDERS_ERROR);
         }
         resultBuilder.addDirectDepProvidersFromStarlark(entry.getValue());

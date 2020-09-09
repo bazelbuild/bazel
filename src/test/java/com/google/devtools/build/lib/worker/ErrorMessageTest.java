@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.worker;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -84,7 +85,7 @@ public class ErrorMessageTest {
 
   @Test
   public void testErrorMessageWithLogFile() throws Exception {
-    InMemoryFileSystem fs = new InMemoryFileSystem();
+    InMemoryFileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     Path logFile = fs.getPath("/log.txt");
     FileSystemUtils.writeContent(logFile, UTF_8, logText);
     ErrorMessage errorMessage =
@@ -99,7 +100,7 @@ public class ErrorMessageTest {
 
   @Test
   public void testErrorMessageWithUnreadableLogFile() {
-    InMemoryFileSystem fs = new InMemoryFileSystem();
+    InMemoryFileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     // This file does not exist.
     Path logFile = fs.getPath("/nope.txt");
     ErrorMessage errorMessage =

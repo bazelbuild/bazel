@@ -109,7 +109,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     useConfiguration(
         "--proto_toolchain_for_java=//tools/proto/toolchains:java",
         "--incompatible_objc_compile_info_migration=false");
-    setStarlarkSemanticsOptions("--incompatible_objc_provider_remove_compile_info=false");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=false");
     testJ2ObjCInformationExportedFromJ2ObjcLibrary();
   }
 

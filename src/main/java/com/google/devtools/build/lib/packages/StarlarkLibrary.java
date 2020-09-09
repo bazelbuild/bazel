@@ -23,13 +23,13 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.List;
 import java.util.Set;
@@ -151,7 +151,7 @@ public final class StarlarkLibrary {
                       + "the new depset, in left-to-right order, or else a depset that becomes "
                       + "a transitive element of the new depset. In the latter case, "
                       + "<code>transitive</code> cannot be specified.",
-              disableWithFlag = StarlarkSemantics.FlagIdentifier.INCOMPATIBLE_DISABLE_DEPSET_ITEMS,
+              disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_DISABLE_DEPSET_ITEMS,
               valueWhenDisabled = "[]",
               named = true),
         },

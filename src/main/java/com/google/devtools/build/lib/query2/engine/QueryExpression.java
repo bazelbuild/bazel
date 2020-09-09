@@ -47,11 +47,9 @@ import java.util.Collection;
 @ThreadSafe
 public abstract class QueryExpression {
 
-  /**
-   * Scan and parse the specified query expression.
-   */
+  /** Scan and parse the specified query expression. */
   public static QueryExpression parse(String query, QueryEnvironment<?> env)
-      throws QueryException {
+      throws QuerySyntaxException {
     return QueryParser.parse(query, env);
   }
 

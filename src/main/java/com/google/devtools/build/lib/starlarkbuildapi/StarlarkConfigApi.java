@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -118,7 +118,7 @@ public interface StarlarkConfigApi extends StarlarkValue {
   @StarlarkMethod(
       name = "exec",
       doc = "<i>experimental</i> Creates an execution transition.",
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_EXEC_GROUPS,
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_EXEC_GROUPS,
       parameters = {
         @Param(
             name = "exec_group",

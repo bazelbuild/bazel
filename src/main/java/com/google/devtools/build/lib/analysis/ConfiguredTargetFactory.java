@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.rules.cpp.DeniedImplicitOutputMarkerProvider;
 import com.google.devtools.build.lib.skyframe.AspectValueKey;
@@ -248,7 +249,9 @@ public final class ConfiguredTargetFactory {
       SourceArtifact artifact =
           artifactFactory.getSourceArtifact(
               inputFile.getExecPath(
-                  analysisEnvironment.getStarlarkSemantics().experimentalSiblingRepositoryLayout()),
+                  analysisEnvironment
+                      .getStarlarkSemantics()
+                      .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT)),
               inputFile.getPackage().getSourceRoot().get(),
               ConfiguredTargetKey.builder()
                   .setLabel(target.getLabel())

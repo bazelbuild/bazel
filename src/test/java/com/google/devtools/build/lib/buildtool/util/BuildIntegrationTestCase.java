@@ -100,6 +100,7 @@ import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -107,6 +108,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -288,7 +290,12 @@ public abstract class BuildIntegrationTestCase {
   }
 
   protected FileSystem createFileSystem() throws Exception {
-    return FileSystems.getNativeFileSystem();
+    return FileSystems.getNativeFileSystem(getDigestHashFunction());
+  }
+
+  @ForOverride
+  protected DigestHashFunction getDigestHashFunction() {
+    return DigestHashFunction.SHA256;
   }
 
   protected Path createTestRoot(FileSystem fileSystem) {

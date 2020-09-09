@@ -512,7 +512,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     useConfiguration(
         "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
         "--incompatible_objc_compile_info_migration=false");
-    setStarlarkSemanticsOptions("--incompatible_objc_provider_remove_compile_info=false");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=false");
     addBinWithTransitiveDepOnFrameworkImport(false);
     CommandAction compileAction = compileAction("//lib:lib", "a.o");
 

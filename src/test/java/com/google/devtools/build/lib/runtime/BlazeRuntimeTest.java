@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.OptionsBase;
@@ -100,7 +101,7 @@ public class BlazeRuntimeTest {
 
   @Test
   public void crashTest() throws Exception {
-    FileSystem fs = new InMemoryFileSystem();
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     ServerDirectories serverDirectories =
         new ServerDirectories(
             fs.getPath("/install"), fs.getPath("/output"), fs.getPath("/output_user"));
@@ -153,7 +154,7 @@ public class BlazeRuntimeTest {
 
   @Test
   public void addsCommandsFromModules() throws Exception {
-    FileSystem fs = new InMemoryFileSystem();
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     ServerDirectories serverDirectories =
         new ServerDirectories(
             fs.getPath("/install"), fs.getPath("/output"), fs.getPath("/output_user"));

@@ -36,23 +36,30 @@ public final class FlagGuardedValue {
 
   private FlagGuardedValue(Object obj, String flag, FlagType flagType) {
     this.obj = obj;
+    if (flag.charAt(0) != '-' && flag.charAt(0) != '+') {
+      throw new IllegalArgumentException(String.format("flag needs [+-] prefix: %s", flag));
+    }
     this.flag = flag;
     this.flagType = flagType;
   }
 
   /**
-   * Creates a flag guard which only permits access of the given object when the given flag is true.
-   * If the given flag is false and the object would be accessed, an error is thrown describing the
-   * feature as experimental, and describing that the flag must be set to true.
+   * Creates a flag guard which only permits access of the given object when the given boolean flag
+   * is true. If the given flag is false and the object would be accessed, an error is thrown
+   * describing the feature as experimental, and describing that the flag must be set to true.
+   *
+   * <p>The flag identifier must have a + or - prefix; see StarlarkSemantics.
    */
   public static FlagGuardedValue onlyWhenExperimentalFlagIsTrue(String flag, Object obj) {
     return new FlagGuardedValue(obj, flag, FlagType.EXPERIMENTAL);
   }
 
   /**
-   * Creates a flag guard which only permits access of the given object when the given flag is
-   * false. If the given flag is true and the object would be accessed, an error is thrown
+   * Creates a flag guard which only permits access of the given object when the given boolean flag
+   * is false. If the given flag is true and the object would be accessed, an error is thrown
    * describing the feature as deprecated, and describing that the flag must be set to false.
+   *
+   * <p>The flag identifier must have a + or - prefix; see StarlarkSemantics.
    */
   public static FlagGuardedValue onlyWhenIncompatibleFlagIsFalse(String flag, Object obj) {
     return new FlagGuardedValue(obj, flag, FlagType.DEPRECATION);
@@ -67,11 +74,11 @@ public final class FlagGuardedValue {
         ? name
             + " is experimental and thus unavailable with the current flags. It may be enabled by"
             + " setting --"
-            + flag
+            + flag.substring(1)
         : name
             + " is deprecated and will be removed soon. It may be temporarily re-enabled by"
             + " setting --"
-            + flag
+            + flag.substring(1)
             + "=false";
   }
 

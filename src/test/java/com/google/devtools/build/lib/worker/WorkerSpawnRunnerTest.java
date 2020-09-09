@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -55,7 +56,7 @@ import org.mockito.junit.MockitoRule;
 /** Unit tests for the WorkerSpawnRunner. */
 @RunWith(JUnit4.class)
 public class WorkerSpawnRunnerTest {
-  final FileSystem fs = new InMemoryFileSystem();
+  final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
   @Mock ExtendedEventHandler reporter;
   @Mock LocalEnvProvider localEnvProvider;

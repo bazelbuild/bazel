@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -22,8 +23,9 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 
 /** Common FileSystem related items for serialization tests. */
 public class FsUtils {
-
-  public static final InMemoryFileSystem TEST_FILESYSTEM = new InMemoryFileSystem();
+  // Choice of digest function doesn't matter.
+  public static final InMemoryFileSystem TEST_FILESYSTEM =
+      new InMemoryFileSystem(DigestHashFunction.SHA256);
 
   private static final Root TEST_ROOT =
       Root.fromPath(TEST_FILESYSTEM.getPath(PathFragment.create("/anywhere/at/all")));

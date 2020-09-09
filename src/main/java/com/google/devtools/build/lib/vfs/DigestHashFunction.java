@@ -16,18 +16,16 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
-import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DigestLength.DigestLengthImpl;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map.Entry;
 
@@ -151,20 +149,6 @@ public class DigestHashFunction {
     return hash;
   }
 
-  /**
-   * Returns the default DigestHashFunction, or the testing default if unset.
-   */
-  public static DigestHashFunction getDefaultUnchecked() {
-    try {
-      return getDefault();
-    } catch (DefaultHashFunctionNotSetException e) {
-      // Some tests use this class without calling GoogleUnixFileSystemModule.globalInit().
-      Preconditions.checkState(TestType.isInTest(), "Default hash function has not been set");
-      return DigestHashFunction.SHA256;
-    }
-  }
-
-
   /** Indicates that the default has not been initialized. */
   public static final class DefaultHashFunctionNotSetException extends Exception {
     DefaultHashFunctionNotSetException(String message) {
@@ -266,8 +250,7 @@ public class DigestHashFunction {
     }
   }
 
-  @VisibleForTesting
-  static Collection<DigestHashFunction> getPossibleHashFunctions() {
-    return hashFunctionRegistry.values();
+  public static ImmutableSet<DigestHashFunction> getPossibleHashFunctions() {
+    return ImmutableSet.copyOf(hashFunctionRegistry.values());
   }
 }

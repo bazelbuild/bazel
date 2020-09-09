@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
@@ -774,7 +775,7 @@ public class Package {
             helper,
             LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
             workspaceName,
-            starlarkSemantics.incompatibleNoImplicitFileExport(),
+            starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
             Builder.EMPTY_REPOSITORY_MAPPING)
         .setFilename(workspacePath);
   }

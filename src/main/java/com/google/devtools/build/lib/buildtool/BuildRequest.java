@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
@@ -76,7 +76,7 @@ public class BuildRequest implements OptionsProvider {
       ImmutableList.of(
           BuildRequestOptions.class,
           PackageOptions.class,
-          StarlarkSemanticsOptions.class,
+          BuildLanguageOptions.class,
           LoadingOptions.class,
           AnalysisOptions.class,
           ExecutionOptions.class,

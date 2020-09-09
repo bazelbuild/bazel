@@ -14,7 +14,6 @@
 
 package net.starlark.java.annot.processor.testsources;
 
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
@@ -25,6 +24,8 @@ import net.starlark.java.annot.StarlarkMethod;
  */
 public class EnablingAndDisablingFlagParam implements StarlarkValue {
 
+  private static final String FOO = "-foo";
+
   @StarlarkMethod(
       name = "someMethod",
       documented = false,
@@ -34,8 +35,8 @@ public class EnablingAndDisablingFlagParam implements StarlarkValue {
             name = "two",
             type = Integer.class,
             named = true,
-            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API,
-            disableWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API),
+            enableOnlyWithFlag = FOO,
+            disableWithFlag = FOO),
       })
   public String someMethod(String one, Integer two) {
     return "foo";

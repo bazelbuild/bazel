@@ -19,15 +19,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FileOptions;
-import com.google.devtools.build.lib.syntax.Module;
-import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.SyntaxError;
 import java.io.File;
 import java.util.HashMap;
 import java.util.List;
@@ -35,10 +26,13 @@ import java.util.Map;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkGlobalLibrary;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.syntax.FileOptions;
+import net.starlark.java.syntax.ParserInput;
+import net.starlark.java.syntax.SyntaxError;
 
-/** Tests of Starlark evaluator. */
+/** Script-based tests of Starlark evaluator. */
 @StarlarkGlobalLibrary
-public final class EvalTest {
+public final class ScriptTest {
 
   // Tests for Starlark.
   //
@@ -144,12 +138,12 @@ public final class EvalTest {
         // parse & execute
         ParserInput input = ParserInput.fromString(buf.toString(), file.toString());
         ImmutableMap.Builder<String, Object> predeclared = ImmutableMap.builder();
-        Starlark.addMethods(predeclared, new EvalTest()); // e.g. assert_eq
+        Starlark.addMethods(predeclared, new ScriptTest()); // e.g. assert_eq
         StarlarkSemantics semantics = StarlarkSemantics.DEFAULT;
         Module module = Module.withPredeclared(semantics, predeclared.build());
         try (Mutability mu = Mutability.create("test")) {
           StarlarkThread thread = new StarlarkThread(mu, semantics);
-          thread.setThreadLocal(Reporter.class, EvalTest::reportError);
+          thread.setThreadLocal(Reporter.class, ScriptTest::reportError);
           Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
 
         } catch (SyntaxError.Exception ex) {

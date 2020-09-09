@@ -237,7 +237,10 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     Duration timeout = context.getTimeout();
 
     ProcessWrapper.CommandLineBuilder processWrapperCommandLineBuilder =
-        processWrapper.commandLineBuilder(spawn.getArguments()).setTimeout(timeout);
+        processWrapper
+            .commandLineBuilder(spawn.getArguments())
+            .addExecutionInfo(spawn.getExecutionInfo())
+            .setTimeout(timeout);
 
     final Path statisticsPath;
     if (getSandboxOptions().collectLocalSandboxExecutionStatistics) {

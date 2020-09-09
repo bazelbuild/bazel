@@ -33,6 +33,9 @@ import javax.annotation.Nullable;
 public final class AndroidSdkProvider extends NativeInfo
     implements AndroidSdkProviderApi<Artifact, FilesToRunProvider, TransitiveInfoCollection> {
 
+  public static final String ANDROID_SDK_TOOLCHAIN_TYPE_ATTRIBUTE_NAME =
+      "$android_sdk_toolchain_type";
+
   public static final Provider PROVIDER = new Provider();
 
   private final String buildToolsVersion;

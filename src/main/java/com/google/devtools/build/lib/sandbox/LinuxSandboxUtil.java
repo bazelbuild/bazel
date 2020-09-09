@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -70,6 +71,7 @@ public final class LinuxSandboxUtil {
     private boolean useFakeRoot = false;
     private boolean useFakeUsername = false;
     private boolean useDebugMode = false;
+    private boolean sigintSendsSigterm = false;
 
     private CommandLineBuilder(Path linuxSandboxPath, List<String> commandArguments) {
       this.linuxSandboxPath = linuxSandboxPath;
@@ -167,6 +169,14 @@ public final class LinuxSandboxUtil {
       return this;
     }
 
+    /** Incorporates settings from a spawn's execution info. */
+    public CommandLineBuilder addExecutionInfo(Map<String, String> executionInfo) {
+      if (executionInfo.containsKey(ExecutionRequirements.GRACEFUL_TERMINATION)) {
+        sigintSendsSigterm = true;
+      }
+      return this;
+    }
+
     /**
      * Builds the command line to invoke a specific command using the {@code linux-sandbox} tool.
      */
@@ -224,6 +234,9 @@ public final class LinuxSandboxUtil {
       }
       if (useDebugMode) {
         commandLineBuilder.add("-D");
+      }
+      if (sigintSendsSigterm) {
+        commandLineBuilder.add("-i");
       }
       commandLineBuilder.add("--");
       commandLineBuilder.addAll(commandArguments);

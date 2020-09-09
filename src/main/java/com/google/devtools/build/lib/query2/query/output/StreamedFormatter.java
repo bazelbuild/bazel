@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.query2.query.output;
 
+import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
@@ -37,7 +38,8 @@ import javax.annotation.Nullable;
  */
 public interface StreamedFormatter {
   /** Specifies options to be used by subsequent calls to {@link #createStreamCallback}. */
-  void setOptions(CommonQueryOptions options, AspectResolver aspectResolver);
+  void setOptions(
+      CommonQueryOptions options, AspectResolver aspectResolver, HashFunction hashFunction);
 
   /** Sets an optional handler for reporting status output / errors. */
   void setEventHandler(@Nullable EventHandler eventHandler);

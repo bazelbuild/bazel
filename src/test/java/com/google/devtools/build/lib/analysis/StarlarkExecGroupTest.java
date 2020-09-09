@@ -40,7 +40,7 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
 
   @Before
   public final void setUp() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_exec_groups");
+    setBuildLanguageOptions("--experimental_exec_groups");
   }
 
   /**

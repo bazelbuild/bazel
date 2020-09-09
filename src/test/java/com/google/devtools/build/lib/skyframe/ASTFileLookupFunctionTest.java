@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.Statement;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -44,8 +45,12 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ASTFileLookupFunctionTest extends BuildViewTestCase {
 
-  private class MockFileSystem extends InMemoryFileSystem {
+  private static class MockFileSystem extends InMemoryFileSystem {
     PathFragment throwIOExceptionFor = null;
+
+    MockFileSystem() {
+      super(DigestHashFunction.SHA256);
+    }
 
     @Override
     public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {

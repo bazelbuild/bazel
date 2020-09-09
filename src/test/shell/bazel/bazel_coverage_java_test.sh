@@ -617,7 +617,47 @@ EOF
   bazel coverage --test_output=all --test_arg=--nooutputredirect \
       --instrumentation_filter=//java/cov javatests/cov:CovTest >"${TEST_log}"
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
-  assert_coverage_result "java/cov/Cov.java" ${coverage_file_path}
+
+  local expected_result_cov="SF:java/cov/Cov.java
+FN:2,cov/Cov::<init> ()V
+FN:4,cov/Cov::main ([Ljava/lang/String;)V
+FNDA:0,cov/Cov::<init> ()V
+FNDA:2,cov/Cov::main ([Ljava/lang/String;)V
+FNF:2
+FNH:1
+BRDA:4,0,0,0
+BRDA:4,0,1,2
+BRDA:5,0,0,1
+BRDA:5,0,1,1
+BRF:4
+BRH:3
+DA:2,0
+DA:4,2
+DA:5,2
+DA:6,1
+DA:8,1
+DA:11,2
+LH:5
+LF:6
+end_of_record"
+
+  local expected_result_random="SF:java/cov/RandomBinary.java
+FN:2,cov/RandomBinary::<init> ()V
+FN:4,cov/RandomBinary::main ([Ljava/lang/String;)V
+FNDA:0,cov/RandomBinary::<init> ()V
+FNDA:0,cov/RandomBinary::main ([Ljava/lang/String;)V
+FNF:2
+FNH:0
+DA:2,0
+DA:4,0
+LH:0
+LF:2
+end_of_record"
+
+  # we do not assert the order of the source files in the coverage report
+  # only that they are both included and correctly merged
+  assert_coverage_result "$expected_result_cov" ${coverage_file_path}
+  assert_coverage_result "$expected_result_random" ${coverage_file_path}
 }
 
 run_suite "test tests"

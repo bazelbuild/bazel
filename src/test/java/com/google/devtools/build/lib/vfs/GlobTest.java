@@ -56,23 +56,24 @@ public class GlobTest {
 
   @Before
   public final void initializeFileSystem() throws Exception  {
-    fs = new InMemoryFileSystem() {
-      @Override
-      public Collection<Dirent> readdir(Path path, boolean followSymlinks) throws IOException {
-        if (path.equals(throwOnReaddir)) {
-          throw new FileNotFoundException(path.getPathString());
-        }
-        return super.readdir(path, followSymlinks);
-      }
+    fs =
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
+          @Override
+          public Collection<Dirent> readdir(Path path, boolean followSymlinks) throws IOException {
+            if (path.equals(throwOnReaddir)) {
+              throw new FileNotFoundException(path.getPathString());
+            }
+            return super.readdir(path, followSymlinks);
+          }
 
-      @Override
-      public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
-        if (path.equals(throwOnStat)) {
-          throw new FileNotFoundException(path.getPathString());
-        }
-        return super.statIfFound(path, followSymlinks);
-      }
-    };
+          @Override
+          public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
+            if (path.equals(throwOnStat)) {
+              throw new FileNotFoundException(path.getPathString());
+            }
+            return super.statIfFound(path, followSymlinks);
+          }
+        };
     tmpPath = fs.getPath("/globtmp");
     for (String dir : ImmutableList.of("foo/bar/wiz",
                          "foo/barnacle/wiz",
