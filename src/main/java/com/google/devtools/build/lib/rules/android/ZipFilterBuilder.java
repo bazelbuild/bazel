@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -147,7 +148,8 @@ public class ZipFilterBuilder {
             .addInput(inputZip)
             .addInputs(filterZips)
             .addOutput(outputZip)
-            .setExecutable(ruleContext.getExecutablePrerequisite("$zip_filter"))
+            .setExecutable(
+                ruleContext.getExecutablePrerequisite("$zip_filter", TransitionMode.HOST))
             .addCommandLine(args.build())
             .setProgressMessage("Filtering Zip %s", inputZip.prettyPrint())
             .setMnemonic("ZipFilter")

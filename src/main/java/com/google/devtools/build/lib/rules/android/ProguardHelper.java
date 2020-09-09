@@ -26,6 +26,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -164,11 +165,14 @@ public final class ProguardHelper {
     return collectTransitiveProguardSpecs(
         ruleContext,
         Iterables.concat(
-            specsToInclude, ruleContext.getPrerequisiteArtifacts(":extra_proguard_specs").list()),
+            specsToInclude,
+            ruleContext
+                .getPrerequisiteArtifacts(":extra_proguard_specs", TransitionMode.TARGET)
+                .list()),
         ruleContext.attributes().has(PROGUARD_SPECS, BuildType.LABEL_LIST)
-            ? ruleContext.getPrerequisiteArtifacts(PROGUARD_SPECS).list()
+            ? ruleContext.getPrerequisiteArtifacts(PROGUARD_SPECS, TransitionMode.TARGET).list()
             : ImmutableList.<Artifact>of(),
-        ruleContext.getPrerequisites("deps", ProguardSpecProvider.PROVIDER));
+        ruleContext.getPrerequisites("deps", TransitionMode.TARGET, ProguardSpecProvider.PROVIDER));
   }
 
   /**
@@ -381,7 +385,8 @@ public final class ProguardHelper {
       Optional<Label> optimizerTarget = optimizer.label();
       FilesToRunProvider executable = null;
       if (optimizerTarget.isPresent()) {
-        TransitiveInfoCollection optimizerDep = ruleContext.getPrerequisite(":bytecode_optimizer");
+        TransitiveInfoCollection optimizerDep =
+            ruleContext.getPrerequisite(":bytecode_optimizer", TransitionMode.HOST);
         if (optimizerDep.getLabel().equals(optimizerTarget.get())) {
           executable = optimizerDep.getProvider(FilesToRunProvider.class);
         }

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
@@ -107,7 +108,7 @@ public class AndroidResources {
   private static void validateNoAndroidResourcesInSources(RuleContext ruleContext)
       throws RuleErrorException {
     Iterable<AndroidResourcesInfo> resources =
-        ruleContext.getPrerequisites("srcs", AndroidResourcesInfo.PROVIDER);
+        ruleContext.getPrerequisites("srcs", TransitionMode.TARGET, AndroidResourcesInfo.PROVIDER);
     for (AndroidResourcesInfo info : resources) {
       ruleContext.throwWithAttributeError(
           "srcs",
@@ -116,7 +117,7 @@ public class AndroidResources {
   }
 
   private static void validateManifest(RuleContext ruleContext) throws RuleErrorException {
-    if (ruleContext.getPrerequisiteArtifact("manifest") == null) {
+    if (ruleContext.getPrerequisiteArtifact("manifest", TransitionMode.TARGET) == null) {
       ruleContext.throwWithAttributeError(
           "manifest", "manifest is required when resource_files or assets are defined.");
     }
@@ -130,7 +131,7 @@ public class AndroidResources {
 
     return from(
         ruleContext,
-        ruleContext.getPrerequisites(resourcesAttr, FileProvider.class),
+        ruleContext.getPrerequisites(resourcesAttr, TransitionMode.TARGET, FileProvider.class),
         resourcesAttr);
   }
 

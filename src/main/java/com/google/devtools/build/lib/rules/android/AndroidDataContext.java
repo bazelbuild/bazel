@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -79,7 +80,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
 
     return new AndroidDataContext(
         ruleContext,
-        ruleContext.getExecutablePrerequisite("$android_resources_busybox"),
+        ruleContext.getExecutablePrerequisite("$android_resources_busybox", TransitionMode.HOST),
         androidConfig.persistentBusyboxTools(),
         AndroidSdkProvider.fromRuleContext(ruleContext),
         hasExemption(ruleContext, "allow_raw_access_to_resource_paths", false),

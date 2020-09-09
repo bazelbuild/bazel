@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
@@ -293,7 +294,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   private static Iterable<Artifact> getProducedRuntimeJars(
       ConfiguredTarget base, RuleContext ruleContext) {
     if (isProtoLibrary(ruleContext)) {
-      if (!ruleContext.getPrerequisites("srcs").isEmpty()) {
+      if (!ruleContext.getPrerequisites("srcs", TransitionMode.TARGET).isEmpty()) {
         JavaRuleOutputJarsProvider outputJarsProvider =
             base.getProvider(JavaRuleOutputJarsProvider.class);
         if (outputJarsProvider != null) {
@@ -364,7 +365,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     IterablesChain.Builder<T> result = IterablesChain.builder();
     for (String attr : TRANSITIVE_ATTRIBUTES) {
       if (ruleContext.attributes().getAttributeType(attr) != null) {
-        result.add(ruleContext.getPrerequisites(attr, classType));
+        result.add(ruleContext.getPrerequisites(attr, TransitionMode.TARGET, classType));
       }
     }
     return result.build();
@@ -380,6 +381,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
               ruleContext
                   .getPrerequisite(
                       ":dex_archive_android_sdk",
+                      TransitionMode.TARGET,
                       AndroidSdkProvider.PROVIDER)
                   .getAndroidJar())
           .build();
@@ -447,7 +449,8 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     ruleContext.registerAction(
         new SpawnAction.Builder()
             .useDefaultShellEnvironment()
-            .setExecutable(ruleContext.getExecutablePrerequisite(desugarPrereqName))
+            .setExecutable(
+                ruleContext.getExecutablePrerequisite(desugarPrereqName, TransitionMode.HOST))
             .addInput(jar)
             .addTransitiveInputs(bootclasspath)
             .addTransitiveInputs(classpath)
@@ -484,7 +487,8 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     SpawnAction.Builder dexbuilder =
         new SpawnAction.Builder()
             .useDefaultShellEnvironment()
-            .setExecutable(ruleContext.getExecutablePrerequisite(dexbuilderPrereq))
+            .setExecutable(
+                ruleContext.getExecutablePrerequisite(dexbuilderPrereq, TransitionMode.HOST))
             // WorkerSpawnStrategy expects the last argument to be @paramfile
             .addInput(jar)
             .addOutput(dexArchive)

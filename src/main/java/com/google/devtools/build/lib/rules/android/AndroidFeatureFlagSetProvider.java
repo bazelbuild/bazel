@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -101,7 +102,7 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
     }
 
     Iterable<? extends TransitiveInfoCollection> actualTargets =
-        ruleContext.getPrerequisites(FEATURE_FLAG_ATTR);
+        ruleContext.getPrerequisites(FEATURE_FLAG_ATTR, TransitionMode.TARGET);
     RuleErrorException exception = null;
     for (TransitiveInfoCollection target : actualTargets) {
       Label label = AliasProvider.getDependencyLabel(target);

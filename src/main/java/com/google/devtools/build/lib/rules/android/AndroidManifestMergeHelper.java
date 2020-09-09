@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -33,7 +34,7 @@ public final class AndroidManifestMergeHelper {
       Artifact mergedManifest) {
     createMergeManifestAction(
         ruleContext,
-        ruleContext.getPrerequisite("$android_manifest_merge_tool"),
+        ruleContext.getPrerequisite("$android_manifest_merge_tool", TransitionMode.HOST),
         merger,
         mergees,
         excludePermissions,

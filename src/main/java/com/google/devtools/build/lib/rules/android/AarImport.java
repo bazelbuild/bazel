@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -78,7 +79,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
     AndroidSdkProvider.verifyPresence(ruleContext);
 
     RuleConfiguredTargetBuilder ruleBuilder = new RuleConfiguredTargetBuilder(ruleContext);
-    Artifact aar = ruleContext.getPrerequisiteArtifact("aar");
+    Artifact aar = ruleContext.getPrerequisiteArtifact("aar", TransitionMode.TARGET);
 
     Artifact allAarJars = createAarTreeArtifact(ruleContext, "jars");
     Artifact jarMergingParams = createAarArtifact(ruleContext, "jar_merging_params");
@@ -139,8 +140,8 @@ public class AarImport implements RuleConfiguredTargetFactory {
 
     ImmutableList<TransitiveInfoCollection> targets =
         ImmutableList.<TransitiveInfoCollection>builder()
-            .addAll(ruleContext.getPrerequisites("exports"))
-            .addAll(ruleContext.getPrerequisites("deps"))
+            .addAll(ruleContext.getPrerequisites("exports", TransitionMode.TARGET))
+            .addAll(ruleContext.getPrerequisites("deps", TransitionMode.TARGET))
             .build();
     JavaCommon common =
         new JavaCommon(
@@ -197,7 +198,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
 
     // Wire up the source jar for the current target and transitive source jars from dependencies.
     ImmutableList<Artifact> srcJars = ImmutableList.of();
-    Artifact srcJar = ruleContext.getPrerequisiteArtifact("srcjar");
+    Artifact srcJar = ruleContext.getPrerequisiteArtifact("srcjar", TransitionMode.TARGET);
     NestedSetBuilder<Artifact> transitiveJavaSourceJarBuilder = NestedSetBuilder.stableOrder();
     if (srcJar != null) {
       srcJars = ImmutableList.of(srcJar);
@@ -205,7 +206,8 @@ public class AarImport implements RuleConfiguredTargetFactory {
     }
     for (JavaSourceJarsProvider other :
         JavaInfo.getProvidersFromListOfTargets(
-            JavaSourceJarsProvider.class, ruleContext.getPrerequisites("exports"))) {
+            JavaSourceJarsProvider.class,
+            ruleContext.getPrerequisites("exports", TransitionMode.TARGET))) {
       transitiveJavaSourceJarBuilder.addTransitive(other.getTransitiveSourceJars());
     }
     NestedSet<Artifact> transitiveJavaSourceJars = transitiveJavaSourceJarBuilder.build();
@@ -267,7 +269,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
       return NestedSetBuilder.<Artifact>stableOrder()
           .addTransitive(
               ruleContext
-                  .getPrerequisite("$desugar_java8_extra_bootclasspath")
+                  .getPrerequisite("$desugar_java8_extra_bootclasspath", TransitionMode.HOST)
                   .getProvider(FileProvider.class)
                   .getFilesToBuild())
           .add(AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar())
@@ -295,7 +297,9 @@ public class AarImport implements RuleConfiguredTargetFactory {
     SpawnAction.Builder builder =
         new SpawnAction.Builder()
             .useDefaultShellEnvironment()
-            .setExecutable(ruleContext.getExecutablePrerequisite(AarImportBaseRule.ZIPPER))
+            .setExecutable(
+                ruleContext.getExecutablePrerequisite(
+                    AarImportBaseRule.ZIPPER, TransitionMode.HOST))
             .setMnemonic("AarFileExtractor")
             .setProgressMessage("Extracting %s from %s", filename, aar.getFilename())
             .addInput(aar)
@@ -323,7 +327,8 @@ public class AarImport implements RuleConfiguredTargetFactory {
     return new SpawnAction.Builder()
         .useDefaultShellEnvironment()
         .setExecutable(
-            ruleContext.getExecutablePrerequisite(AarImportBaseRule.AAR_RESOURCES_EXTRACTOR))
+            ruleContext.getExecutablePrerequisite(
+                AarImportBaseRule.AAR_RESOURCES_EXTRACTOR, TransitionMode.HOST))
         .setMnemonic("AarResourcesExtractor")
         .addInput(aar)
         .addOutput(resourcesDir)
@@ -349,7 +354,8 @@ public class AarImport implements RuleConfiguredTargetFactory {
     return new SpawnAction.Builder()
         .useDefaultShellEnvironment()
         .setExecutable(
-            ruleContext.getExecutablePrerequisite(AarImportBaseRule.AAR_EMBEDDED_JARS_EXTACTOR))
+            ruleContext.getExecutablePrerequisite(
+                AarImportBaseRule.AAR_EMBEDDED_JARS_EXTACTOR, TransitionMode.HOST))
         .setMnemonic("AarEmbeddedJarsExtractor")
         .setProgressMessage("Extracting classes.jar and libs/*.jar from %s", aar.getFilename())
         .addInput(aar)
@@ -389,7 +395,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
             .useDefaultShellEnvironment()
             .setExecutable(
                 ruleContext.getExecutablePrerequisite(
-                    AarImportBaseRule.AAR_NATIVE_LIBS_ZIP_CREATOR))
+                    AarImportBaseRule.AAR_NATIVE_LIBS_ZIP_CREATOR, TransitionMode.HOST))
             .setMnemonic("AarNativeLibsFilter")
             .setProgressMessage("Filtering AAR native libs by architecture")
             .addInput(aar)
@@ -409,10 +415,11 @@ public class AarImport implements RuleConfiguredTargetFactory {
       SpecialArtifact databindingSetterStoreFiles) {
 
     Iterable<? extends DataBindingV2ProviderApi<Artifact>> databindingProvidersFromDeps =
-        ruleContext.getPrerequisites("deps", DataBindingV2Provider.PROVIDER);
+        ruleContext.getPrerequisites("deps", TransitionMode.TARGET, DataBindingV2Provider.PROVIDER);
 
     Iterable<? extends DataBindingV2ProviderApi<Artifact>> databindingProvidersFromExports =
-        ruleContext.getPrerequisites("exports", DataBindingV2Provider.PROVIDER);
+        ruleContext.getPrerequisites(
+            "exports", TransitionMode.TARGET, DataBindingV2Provider.PROVIDER);
 
     DataBindingV2Provider dataBindingV2Provider =
         DataBindingV2Provider.createProvider(

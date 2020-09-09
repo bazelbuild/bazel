@@ -18,6 +18,7 @@ import com.google.common.base.MoreObjects;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -91,7 +92,8 @@ public final class ResourceDependencies {
 
   public static ResourceDependencies fromRuleDeps(RuleContext ruleContext, boolean neverlink) {
     return fromProviders(
-        AndroidCommon.getTransitivePrerequisites(ruleContext, AndroidResourcesInfo.PROVIDER),
+        AndroidCommon.getTransitivePrerequisites(
+            ruleContext, TransitionMode.TARGET, AndroidResourcesInfo.PROVIDER),
         neverlink);
   }
 

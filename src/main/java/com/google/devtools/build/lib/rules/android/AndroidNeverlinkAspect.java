@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AspectDefinition;
@@ -68,7 +69,7 @@ public class AndroidNeverlinkAspect extends NativeAspectClass implements Configu
         continue;
       }
 
-      deps.addAll(ruleContext.getPrerequisites(attribute));
+      deps.addAll(ruleContext.getPrerequisites(attribute, TransitionMode.TARGET));
     }
 
     NestedSetBuilder<Artifact> runtimeJars = NestedSetBuilder.naiveLinkOrder();
