@@ -1083,6 +1083,11 @@ java_library(
 )
 
 java_library(
+    name = "transition_mode",
+    srcs = ["TransitionMode.java"],
+)
+
+java_library(
     name = "transitive_info_collection",
     srcs = ["TransitiveInfoCollection.java"],
     deps = [
