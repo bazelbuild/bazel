@@ -101,7 +101,7 @@ def chained_genrules(name, visibility=None):
 ```
 
 Note that we only assigned the value of `visibility` to the second genrule.
-This enables macro authors hide outputs of intermediate rules from being
+This enables macro authors to hide the outputs of intermediate rules from being
 depended upon by other targets in the workspace.
 
 > Tip: Similar to `$@` for outputs, `$<` expands to the locations of files in
