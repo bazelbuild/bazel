@@ -58,10 +58,6 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
       ImmutableSet.<Key<?>>of(
           ObjcProvider.SDK_DYLIB, ObjcProvider.SDK_FRAMEWORK, ObjcProvider.WEAK_SDK_FRAMEWORK);
 
-  @VisibleForTesting
-  static final String UNSUPPORTED_PLATFORM_TYPE_ERROR_FORMAT =
-      "Unsupported platform type \"%s\"";
-
   @Override
   public final ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
