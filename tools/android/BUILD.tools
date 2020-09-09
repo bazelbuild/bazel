@@ -460,8 +460,9 @@ genrule(
 # //external:has_androidsdk is bound to either
 # @bazel_tools//tools/android:always_true or
 # @bazel_tools//tools/android:always_false depending on whether
-# android_sdk_repository has run. This allows targets to depend on targets from
-# @androidsdk if and only if the user has an android_sdk_repository set up.
+# android_sdk_repository has run and is valid. This allows targets to depend on
+# targets from @androidsdk if and only if the user has an
+# android_sdk_repository set up.
 
 config_feature_flag(
     name = "true",
