@@ -20,7 +20,7 @@ sh_binary(
     ],
 )
 
-filegroup(
+cc_binary(
     name = "libtool_check_unique",
     srcs = ["libtool_check_unique.cc"],
 )
