@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -24,7 +25,6 @@ import build.bazel.remote.execution.v2.DigestFunction.Value;
 import build.bazel.remote.execution.v2.ExecutionCapabilities;
 import build.bazel.remote.execution.v2.GetCapabilitiesRequest;
 import build.bazel.remote.execution.v2.ServerCapabilities;
-import build.bazel.semver.SemVer;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -298,8 +298,8 @@ public class RemoteModuleTest {
 
     ServerCapabilities cacheOnlyCaps =
         ServerCapabilities.newBuilder()
-            .setLowApiVersion(SemVer.newBuilder().setMajor(2).build())
-            .setHighApiVersion(SemVer.newBuilder().setMajor(2).build())
+            .setLowApiVersion(ApiVersion.current.toSemVer())
+            .setHighApiVersion(ApiVersion.current.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder().addDigestFunction(Value.SHA256).build())
             .build();
@@ -335,8 +335,39 @@ public class RemoteModuleTest {
   }
 
   @Test
-  public void testShouldIgnoreInaccessibleGrpcRemoteCache() throws Exception {
-    String cacheServerName = "grpc://cache-server";
+  public void testVerifyCapabilities_exitRemoteCacheWithoutRequiredCapabilities() throws Exception {
+    ServerCapabilities noneCaps =
+        ServerCapabilities.newBuilder()
+            .setLowApiVersion(ApiVersion.current.toSemVer())
+            .setHighApiVersion(ApiVersion.current.toSemVer())
+            .build();
+    CapabilitiesImpl cacheServerCapabilitiesImpl = new CapabilitiesImpl(noneCaps);
+    String cacheServerName = "cache-server";
+    Server cacheServer = createFakeServer(cacheServerName, cacheServerCapabilitiesImpl);
+    cacheServer.start();
+
+    try {
+      RemoteModule remoteModule = new RemoteModule();
+      RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+      remoteOptions.remoteCache = cacheServerName;
+      remoteModule.setChannelFactory(
+          (target, proxy, options, interceptors) -> InProcessChannelBuilder.forName(target)
+              .directExecutor().build());
+
+      CommandEnvironment env = createTestCommandEnvironment(remoteOptions);
+
+      assertThrows(AbruptExitException.class, () -> {
+        remoteModule.beforeCommand(env);
+      });
+    } finally {
+      cacheServer.shutdownNow();
+      cacheServer.awaitTermination();
+    }
+  }
+
+  @Test
+  public void testVerifyCapabilities_ignoreInaccessibleGrpcRemoteCache() throws Exception {
+    String cacheServerName = "cache-server";
     CapabilitiesImplBase cacheServerCapabilitiesImpl = new CapabilitiesImplBase() {
       @Override
       public void getCapabilities(GetCapabilitiesRequest request,
