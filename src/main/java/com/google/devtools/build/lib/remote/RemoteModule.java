@@ -196,9 +196,11 @@ public final class RemoteModule extends BlazeModule {
     DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
     DigestUtil digestUtil = new DigestUtil(hashFn);
 
-    ExecutionOptions executionOptions = Preconditions
-        .checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
-    boolean verboseFailures = executionOptions.verboseFailures;
+    boolean verboseFailures = false;
+    ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
+    if (executionOptions != null) {
+      verboseFailures = executionOptions.verboseFailures;
+    }
 
     boolean enableDiskCache = RemoteCacheClientFactory.isDiskCache(remoteOptions);
     boolean enableHttpCache = RemoteCacheClientFactory.isHttpCache(remoteOptions);
