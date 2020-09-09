@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -39,10 +38,6 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   public static final LinkOption[] NO_FOLLOW = new LinkOption[] {LinkOption.NOFOLLOW_LINKS};
 
   private final boolean createSymbolicLinks;
-
-  public WindowsFileSystem(boolean createSymbolicLinks) throws DefaultHashFunctionNotSetException {
-    this.createSymbolicLinks = createSymbolicLinks;
-  }
 
   public WindowsFileSystem(DigestHashFunction hashFunction, boolean createSymbolicLinks) {
     super(hashFunction);

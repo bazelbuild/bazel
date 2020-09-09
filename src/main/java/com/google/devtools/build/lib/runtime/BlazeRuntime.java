@@ -97,7 +97,6 @@ import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.util.ThreadUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
-import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -1216,24 +1215,16 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
     FileSystem fs = null;
     Path execRootBasePath = null;
-    try {
-      for (BlazeModule module : blazeModules) {
-        BlazeModule.ModuleFileSystem moduleFs =
-            module.getFileSystem(options, outputBase.getRelative(ServerDirectories.EXECROOT));
-        if (moduleFs != null) {
-          execRootBasePath = moduleFs.virtualExecRootBase();
-          Preconditions.checkState(fs == null, "more than one module returns a file system");
-          fs = moduleFs.fileSystem();
-        }
+    for (BlazeModule module : blazeModules) {
+      BlazeModule.ModuleFileSystem moduleFs =
+          module.getFileSystem(options, outputBase.getRelative(ServerDirectories.EXECROOT));
+      if (moduleFs != null) {
+        execRootBasePath = moduleFs.virtualExecRootBase();
+        Preconditions.checkState(fs == null, "more than one module returns a file system");
+        fs = moduleFs.fileSystem();
       }
-
-    } catch (DefaultHashFunctionNotSetException e) {
-      throw createFilesystemExitException(
-          "No module set the default hash function.",
-          ExitCode.BLAZE_INTERNAL_ERROR,
-          Filesystem.Code.DEFAULT_DIGEST_HASH_FUNCTION_NOT_SET,
-          e);
     }
+
     Preconditions.checkNotNull(fs, "No module set the file system");
 
     SubscriberExceptionHandler currentHandlerValue = null;

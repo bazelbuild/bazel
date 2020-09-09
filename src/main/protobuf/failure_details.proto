@@ -451,7 +451,7 @@ message CrashOptions {
 message Filesystem {
   enum Code {
     FILESYSTEM_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
-    DEFAULT_DIGEST_HASH_FUNCTION_CHANGED = 1 [(metadata) = { exit_code: 37 }];
+    reserved 1;
     DEFAULT_DIGEST_HASH_FUNCTION_NOT_SET = 2 [(metadata) = { exit_code: 37 }];
     EMBEDDED_BINARIES_ENUMERATION_FAILURE = 3 [(metadata) = { exit_code: 36 }];
     SERVER_PID_TXT_FILE_READ_FAILURE = 4 [(metadata) = { exit_code: 1 }];
