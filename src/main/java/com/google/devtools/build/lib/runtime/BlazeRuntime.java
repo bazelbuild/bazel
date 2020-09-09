@@ -82,7 +82,6 @@ import com.google.devtools.build.lib.shell.JavaSubprocessFactory;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.SubprocessFactory;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.CustomExitCodePublisher;
@@ -101,10 +100,8 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.windows.WindowsFileSystem;
 import com.google.devtools.build.lib.windows.WindowsSubprocessFactory;
 import com.google.devtools.common.options.CommandNameCache;
 import com.google.devtools.common.options.InvocationPolicyParser;
@@ -1120,20 +1117,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
   }
 
-  private static FileSystem defaultFileSystemImplementation(
-      BlazeServerStartupOptions startupOptions) throws DefaultHashFunctionNotSetException {
-    if ("0".equals(System.getProperty("io.bazel.EnableJni"))) {
-      // Ignore UnixFileSystem, to be used for bootstrapping.
-      return OS.getCurrent() == OS.WINDOWS
-          ? new WindowsFileSystem(startupOptions.enableWindowsSymlinks)
-          : new JavaIoFileSystem();
-    }
-    // The JNI-based UnixFileSystem is faster, but on Windows it is not available.
-    return OS.getCurrent() == OS.WINDOWS
-        ? new WindowsFileSystem(startupOptions.enableWindowsSymlinks)
-        : new UnixFileSystem();
-  }
-
   private static SubprocessFactory subprocessFactoryImplementation() {
     if (!"0".equals(System.getProperty("io.bazel.EnableJni")) && OS.getCurrent() == OS.WINDOWS) {
       return WindowsSubprocessFactory.INSTANCE;
@@ -1244,9 +1227,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         }
       }
 
-      if (fs == null) {
-        fs = defaultFileSystemImplementation(startupOptions);
-      }
     } catch (DefaultHashFunctionNotSetException e) {
       throw createFilesystemExitException(
           "No module set the default hash function.",
@@ -1254,6 +1234,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           Filesystem.Code.DEFAULT_DIGEST_HASH_FUNCTION_NOT_SET,
           e);
     }
+    Preconditions.checkNotNull(fs, "No module set the file system");
 
     SubscriberExceptionHandler currentHandlerValue = null;
     for (BlazeModule module : blazeModules) {
