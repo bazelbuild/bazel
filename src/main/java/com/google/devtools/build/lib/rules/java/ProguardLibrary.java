@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -93,7 +94,8 @@ public final class ProguardLibrary {
     }
     NestedSetBuilder<Artifact> dependencySpecsBuilder = NestedSetBuilder.naiveLinkOrder();
     for (ProguardSpecProvider provider :
-        ruleContext.getPrerequisites(attributeName, ProguardSpecProvider.PROVIDER)) {
+        ruleContext.getPrerequisites(
+            attributeName, TransitionMode.DONT_CHECK, ProguardSpecProvider.PROVIDER)) {
       dependencySpecsBuilder.addTransitive(provider.getTransitiveProguardSpecs());
     }
     return dependencySpecsBuilder.build();

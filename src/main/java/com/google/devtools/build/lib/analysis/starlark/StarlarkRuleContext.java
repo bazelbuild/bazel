@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.ShToolchain;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
@@ -528,21 +529,21 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     return splitAttributes;
   }
 
-  /** See {@link RuleContext#getExecutablePrerequisite(String)}. */
+  /** See {@link RuleContext#getExecutablePrerequisite(String, TransitionMode)}. */
   @Override
   public StructImpl getExecutable() throws EvalException {
     checkMutable("executable");
     return attributesCollection.getExecutable();
   }
 
-  /** See {@link RuleContext#getPrerequisiteArtifact(String)}. */
+  /** See {@link RuleContext#getPrerequisiteArtifact(String, TransitionMode)}. */
   @Override
   public StructImpl getFile() throws EvalException {
     checkMutable("file");
     return attributesCollection.getFile();
   }
 
-  /** See {@link RuleContext#getPrerequisiteArtifacts(String)}. */
+  /** See {@link RuleContext#getPrerequisiteArtifacts(String, TransitionMode)}. */
   @Override
   public StructImpl getFiles() throws EvalException {
     checkMutable("files");

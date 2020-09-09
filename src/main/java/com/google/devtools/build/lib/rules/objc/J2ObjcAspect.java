@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -858,7 +859,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       if (ruleContext.attributes().has(attrName, BuildType.LABEL_LIST)
           || ruleContext.attributes().has(attrName, BuildType.LABEL)) {
         ImmutableList.Builder<CcInfo> ccInfoList = new ImmutableList.Builder<>();
-        for (TransitiveInfoCollection dep : ruleContext.getPrerequisites(attrName)) {
+        for (TransitiveInfoCollection dep :
+            ruleContext.getPrerequisites(attrName, TransitionMode.DONT_CHECK)) {
           J2ObjcCcInfo j2objcCcInfo = dep.getProvider(J2ObjcCcInfo.class);
           CcInfo ccInfo = dep.get(CcInfo.PROVIDER);
           // If a dep has both a J2ObjcCcInfo and a CcInfo, skip the CcInfo.  This can only happen
@@ -871,7 +873,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         }
         builder.addDepCcHeaderProviders(ccInfoList.build());
         builder.addDepObjcProviders(
-            ruleContext.getPrerequisites(attrName, ObjcProvider.STARLARK_CONSTRUCTOR));
+            ruleContext.getPrerequisites(
+                attrName, TransitionMode.DONT_CHECK, ObjcProvider.STARLARK_CONSTRUCTOR));
       }
     }
 

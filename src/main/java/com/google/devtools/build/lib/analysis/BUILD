@@ -360,6 +360,7 @@ java_library(
         ":toolchain_collection",
         ":toolchain_context",
         ":top_level_artifact_context",
+        ":transition_mode",
         ":transitive_info_collection",
         ":transitive_info_provider",
         ":transitive_info_provider_effective_class_helper",
