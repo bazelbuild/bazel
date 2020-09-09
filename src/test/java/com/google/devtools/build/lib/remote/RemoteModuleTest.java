@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.exec.BinTools;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -70,6 +71,7 @@ public class RemoteModuleTest {
     CommonCommandOptions commonCommandOptions = Options.getDefaults(CommonCommandOptions.class);
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
     ClientOptions clientOptions = Options.getDefaults(ClientOptions.class);
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
 
     AuthAndTLSOptions authAndTLSOptions = Options.getDefaults(AuthAndTLSOptions.class);
 
@@ -80,6 +82,7 @@ public class RemoteModuleTest {
     when(options.getOptions(ClientOptions.class)).thenReturn(clientOptions);
     when(options.getOptions(RemoteOptions.class)).thenReturn(remoteOptions);
     when(options.getOptions(AuthAndTLSOptions.class)).thenReturn(authAndTLSOptions);
+    when(options.getOptions(ExecutionOptions.class)).thenReturn(executionOptions);
 
     String productName = "bazel";
     Scratch scratch = new Scratch();
@@ -327,6 +330,39 @@ public class RemoteModuleTest {
       cacheServer.shutdownNow();
 
       executionServer.awaitTermination();
+      cacheServer.awaitTermination();
+    }
+  }
+
+  @Test
+  public void testShouldIgnoreInaccessibleGrpcRemoteCache() throws Exception {
+    String cacheServerName = "grpc://cache-server";
+    CapabilitiesImplBase cacheServerCapabilitiesImpl = new CapabilitiesImplBase() {
+      @Override
+      public void getCapabilities(GetCapabilitiesRequest request,
+          StreamObserver<ServerCapabilities> responseObserver) {
+        responseObserver.onError(new UnsupportedOperationException());
+      }
+    };
+    Server cacheServer = createFakeServer(cacheServerName, cacheServerCapabilitiesImpl);
+    cacheServer.start();
+
+    try {
+      RemoteModule remoteModule = new RemoteModule();
+      RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+      remoteOptions.remoteCache = cacheServerName;
+      remoteModule.setChannelFactory(
+          (target, proxy, options, interceptors) -> InProcessChannelBuilder.forName(target)
+              .directExecutor().build());
+
+      CommandEnvironment env = createTestCommandEnvironment(remoteOptions);
+
+      remoteModule.beforeCommand(env);
+
+      assertThat(Thread.interrupted()).isFalse();
+      assertThat(remoteModule.getActionContextProvider()).isNull();
+    } finally {
+      cacheServer.shutdownNow();
       cacheServer.awaitTermination();
     }
   }
