@@ -11,15 +11,6 @@ filegroup(
 )
 
 sh_binary(
-    name = "libtool",
-    srcs = [":libtool.sh"],
-    data = [
-        ":make_hashed_objlist.py",
-        ":xcrunwrapper",
-    ],
-)
-
-sh_binary(
     name = "xcrunwrapper",
     srcs = [":xcrunwrapper.sh"],
 )
