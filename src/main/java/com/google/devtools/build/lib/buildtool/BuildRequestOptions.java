@@ -141,10 +141,13 @@ public class BuildRequestOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
       defaultValue = "null",
       help =
-          "Specifies which output groups of the top-level targets to build. If omitted, a default "
-              + "set of output groups are built. When specified the default set is overridden. "
-              + "However you may use --output_groups=+<output_group> or "
-              + "--output_groups=-<output_group> to instead modify the set of output groups.")
+          "A list of comma-separated output group names, each of which optionally prefixed by a +"
+              + " or a -. A group prefixed by + is added to the default set of output groups,"
+              + " while a group prefixed by - is removed from the default set. If at least one"
+              + " group is not prefixed, the default set of output groups is omitted. For example,"
+              + " --output_groups=+foo,+bar builds the union of the default set, foo, and bar,"
+              + " while --output_groups=foo,bar overrides the default set such that only foo and"
+              + " bar are built.")
   public List<String> outputGroups;
 
   @Option(
