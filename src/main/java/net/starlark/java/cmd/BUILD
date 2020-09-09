@@ -3,6 +3,14 @@
 
 load("@rules_java//java:defs.bzl", "java_binary")
 
+licenses(["notice"])
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src:__subpackages__"],
+)
+
 java_binary(
     name = "starlark",
     srcs = ["Main.java"],
@@ -16,15 +24,9 @@ java_binary(
         "-XX:+IgnoreUnrecognizedVMOptions",
     ],
     main_class = "net.starlark.java.cmd.Main",
-    visibility = ["//visibility:public"],
+    visibility = ["//src/main/java/net/starlark/java:clients"],
     deps = [
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
     ],
-)
-
-filegroup(
-    name = "srcs",
-    srcs = glob(["**"]),
-    visibility = ["//src/main/java/net/starlark/java:bazel"],
 )
