@@ -205,11 +205,6 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 .exec()
                 .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/objc:xcrunwrapper")))
         .add(
-            attr(ObjcRuleClasses.LIBTOOL_ATTRIBUTE, LABEL)
-                .cfg(HostTransition.createFactory())
-                .exec()
-                .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/objc:libtool")))
-        .add(
             attr(XcodeConfigRule.XCODE_CONFIG_ATTR_NAME, LABEL)
                 .allowedRuleClasses("xcode_config")
                 .checkConstraints()
