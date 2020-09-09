@@ -395,8 +395,8 @@ public final class RemoteModule extends BlazeModule {
     //
     // If they point to different endpoints, we check the endpoint with execution or cache
     // capabilities respectively.
-    if (execChannel != null) {
-      try {
+    try {
+      if (execChannel != null) {
         if (cacheChannel != execChannel) {
           verifyServerCapabilities(
               remoteOptions,
@@ -424,15 +424,7 @@ public final class RemoteModule extends BlazeModule {
               digestUtil,
               ServerCapabilitiesRequirement.EXECUTION_AND_CACHE);
         }
-      } catch (IOException e) {
-        env.getReporter().handle(Event.error(Throwables.getStackTraceAsString(e)));
-        throw createExitException(
-            "Failed to query remote execution capabilities: " + Utils.grpcAwareErrorMessage(e),
-            ExitCode.REMOTE_ERROR,
-            Code.CAPABILITIES_QUERY_FAILURE);
-      }
-    } else {
-      try {
+      } else {
         verifyServerCapabilities(
             remoteOptions,
             cacheChannel,
@@ -441,13 +433,21 @@ public final class RemoteModule extends BlazeModule {
             env,
             digestUtil,
             ServerCapabilitiesRequirement.CACHE);
-      } catch (IOException e) {
-        if (verboseFailures) {
-          env.getReporter().handle(Event.warn(Throwables.getStackTraceAsString(e)));
-        }
-        env.getReporter().handle(Event
-            .warn("Failed to query remote cache capabilities: " + Utils.grpcAwareErrorMessage(e)));
+      }
+    } catch (IOException e) {
+      if (verboseFailures) {
+        env.getReporter().handle(Event.error(Throwables.getStackTraceAsString(e)));
+      }
+      String errorMessage =
+          "Failed to query remote execution capabilities: " + Utils.grpcAwareErrorMessage(e);
+      if (remoteOptions.remoteLocalFallback) {
+        env.getReporter().handle(Event.warn(errorMessage));
         return;
+      } else {
+        throw createExitException(
+            errorMessage,
+            ExitCode.REMOTE_ERROR,
+            Code.CAPABILITIES_QUERY_FAILURE);
       }
     }
 

@@ -335,7 +335,7 @@ public class RemoteModuleTest {
   }
 
   @Test
-  public void testVerifyCapabilities_exitRemoteCacheWithoutRequiredCapabilities() throws Exception {
+  public void testLocalFallback_shouldErrorForRemoteCacheWithoutRequiredCapabilities() throws Exception {
     ServerCapabilities noneCaps =
         ServerCapabilities.newBuilder()
             .setLowApiVersion(ApiVersion.current.toSemVer())
@@ -350,6 +350,7 @@ public class RemoteModuleTest {
       RemoteModule remoteModule = new RemoteModule();
       RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
       remoteOptions.remoteCache = cacheServerName;
+      remoteOptions.remoteLocalFallback = true;
       remoteModule.setChannelFactory(
           (target, proxy, options, interceptors) -> InProcessChannelBuilder.forName(target)
               .directExecutor().build());
@@ -366,7 +367,7 @@ public class RemoteModuleTest {
   }
 
   @Test
-  public void testVerifyCapabilities_ignoreInaccessibleGrpcRemoteCache() throws Exception {
+  public void testLocalFallback_shouldErrorInaccessibleGrpcRemoteCacheIfFlagNotSet() throws Exception {
     String cacheServerName = "cache-server";
     CapabilitiesImplBase cacheServerCapabilitiesImpl = new CapabilitiesImplBase() {
       @Override
@@ -382,6 +383,40 @@ public class RemoteModuleTest {
       RemoteModule remoteModule = new RemoteModule();
       RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
       remoteOptions.remoteCache = cacheServerName;
+      remoteOptions.remoteLocalFallback = false;
+      remoteModule.setChannelFactory(
+          (target, proxy, options, interceptors) -> InProcessChannelBuilder.forName(target)
+              .directExecutor().build());
+
+      CommandEnvironment env = createTestCommandEnvironment(remoteOptions);
+
+      assertThrows(AbruptExitException.class, () -> {
+        remoteModule.beforeCommand(env);
+      });
+    } finally {
+      cacheServer.shutdownNow();
+      cacheServer.awaitTermination();
+    }
+  }
+
+  @Test
+  public void testLocalFallback_shouldIgnoreInaccessibleGrpcRemoteCache() throws Exception {
+    String cacheServerName = "cache-server";
+    CapabilitiesImplBase cacheServerCapabilitiesImpl = new CapabilitiesImplBase() {
+      @Override
+      public void getCapabilities(GetCapabilitiesRequest request,
+          StreamObserver<ServerCapabilities> responseObserver) {
+        responseObserver.onError(new UnsupportedOperationException());
+      }
+    };
+    Server cacheServer = createFakeServer(cacheServerName, cacheServerCapabilitiesImpl);
+    cacheServer.start();
+
+    try {
+      RemoteModule remoteModule = new RemoteModule();
+      RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+      remoteOptions.remoteCache = cacheServerName;
+      remoteOptions.remoteLocalFallback = true;
       remoteModule.setChannelFactory(
           (target, proxy, options, interceptors) -> InProcessChannelBuilder.forName(target)
               .directExecutor().build());
