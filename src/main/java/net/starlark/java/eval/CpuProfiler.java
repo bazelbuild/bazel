@@ -14,8 +14,9 @@
 
 package net.starlark.java.eval;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.collect.ImmutableList;
-import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
@@ -255,7 +256,6 @@ final class CpuProfiler {
     private final Duration period;
     private final long startNano;
     private GZIPOutputStream gz;
-    private CodedOutputStream enc;
     private IOException error; // the first write error, if any; reported during stop()
 
     PprofWriter(OutputStream out, Duration period) {
@@ -264,24 +264,21 @@ final class CpuProfiler {
 
       try {
         this.gz = new GZIPOutputStream(out);
-        this.enc = CodedOutputStream.newInstance(gz);
         getStringID(""); // entry 0 is always ""
 
         // dimension and unit
         ByteArrayOutputStream unit = new ByteArrayOutputStream();
-        CodedOutputStream unitEnc = CodedOutputStream.newInstance(unit);
-        unitEnc.writeInt64(VALUETYPE_TYPE, getStringID("CPU"));
-        unitEnc.writeInt64(VALUETYPE_UNIT, getStringID("microseconds"));
-        unitEnc.flush();
+        writeLong(unit, VALUETYPE_TYPE, getStringID("CPU"));
+        writeLong(unit, VALUETYPE_UNIT, getStringID("microseconds"));
 
         // informational fields of Profile
-        enc.writeByteArray(PROFILE_SAMPLE_TYPE, unit.toByteArray());
+        writeByteArray(gz, PROFILE_SAMPLE_TYPE, unit.toByteArray());
         // magnitude of sampling period:
-        enc.writeInt64(PROFILE_PERIOD, period.toNanos() / 1000L);
+        writeLong(gz, PROFILE_PERIOD, period.toNanos() / 1000L);
         // dimension and unit of period:
-        enc.writeByteArray(PROFILE_PERIOD_TYPE, unit.toByteArray());
+        writeByteArray(gz, PROFILE_PERIOD_TYPE, unit.toByteArray());
         // start (real) time of profile:
-        enc.writeInt64(PROFILE_TIME_NANOS, System.currentTimeMillis() * 1000000L);
+        writeLong(gz, PROFILE_TIME_NANOS, System.currentTimeMillis() * 1000000L);
       } catch (IOException ex) {
         this.error = ex;
       }
@@ -291,13 +288,11 @@ final class CpuProfiler {
       if (this.error == null) {
         try {
           ByteArrayOutputStream sample = new ByteArrayOutputStream();
-          CodedOutputStream sampleEnc = CodedOutputStream.newInstance(sample);
-          sampleEnc.writeInt64(SAMPLE_VALUE, ticks * period.toNanos() / 1000L);
+          writeLong(sample, SAMPLE_VALUE, ticks * period.toNanos() / 1000L);
           for (Debug.Frame fr : stack.reverse()) {
-            sampleEnc.writeUInt64(SAMPLE_LOCATION_ID, getLocationID(fr));
+            writeLong(sample, SAMPLE_LOCATION_ID, getLocationID(fr));
           }
-          sampleEnc.flush();
-          enc.writeByteArray(PROFILE_SAMPLE, sample.toByteArray());
+          writeByteArray(gz, PROFILE_SAMPLE, sample.toByteArray());
         } catch (IOException ex) {
           this.error = ex;
         }
@@ -307,14 +302,40 @@ final class CpuProfiler {
     synchronized void writeEnd() throws IOException {
       long endNano = System.nanoTime();
       try {
-        enc.writeInt64(PROFILE_DURATION_NANOS, endNano - startNano);
-        enc.flush();
+        writeLong(gz, PROFILE_DURATION_NANOS, endNano - startNano);
         if (this.error != null) {
           throw this.error; // retained from an earlier error
         }
       } finally {
         gz.close();
       }
+    }
+
+    // Protocol encoding helpers; see https://developers.google.com/protocol-buffers/docs/encoding.
+    // (Copied to avoid a dependency on the corresponding methods of protobuf.CodedOutputStream.)
+
+    private static void writeLong(OutputStream out, int fieldNumber, long x) throws IOException {
+      writeVarint(out, (fieldNumber << 3) | 0); // wire type 0 = varint
+      writeVarint(out, x);
+    }
+
+    private static void writeString(OutputStream out, int fieldNumber, String x)
+        throws IOException {
+      writeByteArray(out, fieldNumber, x.getBytes(UTF_8));
+    }
+
+    private static void writeByteArray(OutputStream out, int fieldNumber, byte[] x)
+        throws IOException {
+      writeVarint(out, (fieldNumber << 3) | 2); // wire type 2 = length-delimited
+      writeVarint(out, x.length);
+      out.write(x);
+    }
+
+    private static void writeVarint(OutputStream out, long value) throws IOException {
+      for (; (value & ~0x7f) != 0; value >>>= 7) {
+        out.write((byte) ((value & 0x7f) | 0x80));
+      }
+      out.write((byte) value);
     }
 
     // Field numbers from pprof protocol.
@@ -361,7 +382,7 @@ final class CpuProfiler {
     private long getStringID(String s) throws IOException {
       Long i = stringIDs.putIfAbsent(s, Long.valueOf(stringIDs.size()));
       if (i == null) {
-        enc.writeString(PROFILE_STRING_TABLE, s);
+        writeString(gz, PROFILE_STRING_TABLE, s);
         return stringIDs.size() - 1L;
       }
       return i;
@@ -386,14 +407,12 @@ final class CpuProfiler {
         long nameID = getStringID(name);
 
         ByteArrayOutputStream fun = new ByteArrayOutputStream();
-        CodedOutputStream funEnc = CodedOutputStream.newInstance(fun);
-        funEnc.writeUInt64(FUNCTION_ID, id);
-        funEnc.writeInt64(FUNCTION_NAME, nameID);
-        funEnc.writeInt64(FUNCTION_SYSTEM_NAME, nameID);
-        funEnc.writeInt64(FUNCTION_FILENAME, getStringID(filename));
-        funEnc.writeInt64(FUNCTION_START_LINE, (long) loc.line());
-        funEnc.flush();
-        enc.writeByteArray(PROFILE_FUNCTION, fun.toByteArray());
+        writeLong(fun, FUNCTION_ID, id);
+        writeLong(fun, FUNCTION_NAME, nameID);
+        writeLong(fun, FUNCTION_SYSTEM_NAME, nameID);
+        writeLong(fun, FUNCTION_FILENAME, getStringID(filename));
+        writeLong(fun, FUNCTION_START_LINE, (long) loc.line());
+        writeByteArray(gz, PROFILE_FUNCTION, fun.toByteArray());
 
         functionIDs.put(addr, id);
       }
@@ -430,18 +449,14 @@ final class CpuProfiler {
         id = pcAddr;
 
         ByteArrayOutputStream line = new ByteArrayOutputStream();
-        CodedOutputStream lineenc = CodedOutputStream.newInstance(line);
-        lineenc.writeUInt64(LINE_FUNCTION_ID, getFunctionID(fn, fnAddr));
-        lineenc.writeInt64(LINE_LINE, (long) fr.getLocation().line());
-        lineenc.flush();
+        writeLong(line, LINE_FUNCTION_ID, getFunctionID(fn, fnAddr));
+        writeLong(line, LINE_LINE, (long) fr.getLocation().line());
 
         ByteArrayOutputStream loc = new ByteArrayOutputStream();
-        CodedOutputStream locenc = CodedOutputStream.newInstance(loc);
-        locenc.writeUInt64(LOCATION_ID, id);
-        locenc.writeUInt64(LOCATION_ADDRESS, pcAddr);
-        locenc.writeByteArray(LOCATION_LINE, line.toByteArray());
-        locenc.flush();
-        enc.writeByteArray(PROFILE_LOCATION, loc.toByteArray());
+        writeLong(loc, LOCATION_ID, id);
+        writeLong(loc, LOCATION_ADDRESS, pcAddr);
+        writeByteArray(loc, LOCATION_LINE, line.toByteArray());
+        writeByteArray(gz, PROFILE_LOCATION, loc.toByteArray());
 
         locationIDs.put(pcAddr, id);
       }
