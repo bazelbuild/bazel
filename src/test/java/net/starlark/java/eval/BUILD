@@ -1,14 +1,12 @@
 load("@rules_java//java:defs.bzl", "java_test")
 
-package(
-    default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
-)
+package(default_testonly = 1)
 
 filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
+    visibility = ["//src/main/java/net/starlark/java:bazel"],
 )
 
 # EvalTests test the Starlark interpreter.

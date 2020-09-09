@@ -3,8 +3,6 @@
 
 load("@rules_java//java:defs.bzl", "java_binary")
 
-package(default_visibility = ["//src:__subpackages__"])
-
 java_binary(
     name = "starlark",
     srcs = ["Main.java"],
@@ -19,10 +17,14 @@ java_binary(
     ],
     main_class = "net.starlark.java.cmd.Main",
     visibility = ["//visibility:public"],
-    deps = ["//src/main/java/com/google/devtools/build/lib:syntax"],
+    deps = [
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
+    ],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
+    visibility = ["//src/main/java/net/starlark/java:bazel"],
 )

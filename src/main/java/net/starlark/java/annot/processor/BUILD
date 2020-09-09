@@ -1,6 +1,6 @@
 load("@rules_java//java:defs.bzl", "java_plugin")
 
-package(default_visibility = ["//src:__subpackages__"])
+licenses(["notice"])
 
 filegroup(
     name = "srcs",
@@ -15,6 +15,7 @@ java_plugin(
     name = "processor",
     srcs = ["StarlarkMethodProcessor.java"],
     processor_class = "net.starlark.java.annot.processor.StarlarkMethodProcessor",
+    visibility = ["//src/main/java/net/starlark/java:starlark"],
     deps = [
         "//src/main/java/net/starlark/java/annot:annot_sans_processor",
         "//third_party:error_prone_annotations",
@@ -27,6 +28,7 @@ java_plugin(
     name = "processor_new",
     srcs = ["StarlarkMethodProcessor.java"],
     processor_class = "net.starlark.java.annot.processor.StarlarkMethodProcessor$New",
+    visibility = ["//src/main/java/net/starlark/java:starlark"],
     deps = [
         "//src/main/java/net/starlark/java/annot:annot_sans_processor",
         "//third_party:error_prone_annotations",
