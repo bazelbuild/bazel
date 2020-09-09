@@ -62,6 +62,11 @@ function hash_objfile() {
   echo "$SYMLINK_NAME"
 }
 
+python_executable=/usr/bin/python2.7
+if [[ ! -x "$python_executable" ]]; then
+  python_executable=python
+fi
+
 ARGS=()
 
 while [[ $# -gt 0 ]]; do
@@ -82,7 +87,7 @@ while [[ $# -gt 0 ]]; do
       HASHED_FILELIST="${ARG%.objlist}_hashes.objlist"
       rm -f "${HASHED_FILELIST}"
       # Use python helper script for fast md5 calculation of many strings.
-      python "${MY_LOCATION}/make_hashed_objlist.py" \
+      "$python_executable" "${MY_LOCATION}/make_hashed_objlist.py" \
         "${ARG}" "${HASHED_FILELIST}" "${TEMPDIR}"
       ARGS+=("${HASHED_FILELIST}")
       ;;
