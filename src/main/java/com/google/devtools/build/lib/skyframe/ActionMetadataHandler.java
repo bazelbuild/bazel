@@ -599,7 +599,7 @@ final class ActionMetadataHandler implements MetadataHandler {
     }
 
     if (artifact.isSymlink()) {
-      return FileArtifactValue.createForUnresolvedSymlink(pathNoFollow.readSymbolicLink());
+      return FileArtifactValue.createForUnresolvedSymlink(pathNoFollow);
     }
 
     // We use FileStatus#isSymbolicLink over Path#isSymbolicLink to avoid the unnecessary stat
