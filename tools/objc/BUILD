@@ -37,11 +37,6 @@ filegroup(
 )
 
 filegroup(
-    name = "protobuf_compiler",
-    srcs = ["protobuf_compiler.py"],
-)
-
-filegroup(
     name = "protobuf_compiler_support",
     srcs = ["protobuf_support"],
 )
