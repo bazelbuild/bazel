@@ -66,7 +66,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   private final boolean enableAppleBinaryNativeProtos;
   private final HeaderDiscovery.DotdPruningMode dotdPruningPlan;
   private final boolean shouldScanIncludes;
-  private final Label appleSdk;
   private final boolean compileInfoMigration;
 
   ObjcConfiguration(
@@ -96,7 +95,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
             ? HeaderDiscovery.DotdPruningMode.USE
             : HeaderDiscovery.DotdPruningMode.DO_NOT_USE;
     this.shouldScanIncludes = objcOptions.scanIncludes;
-    this.appleSdk = objcOptions.appleSdk;
     this.compileInfoMigration = objcOptions.incompatibleObjcCompileInfoMigration;
   }
 
@@ -255,11 +253,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   /** Returns true iff we should do "include scanning" during this build. */
   public boolean shouldScanIncludes() {
     return shouldScanIncludes;
-  }
-
-  /** Returns the label for the Apple SDK for current build configuration. */
-  public Label getAppleSdk() {
-    return appleSdk;
   }
 
   /** Whether native rules can assume compile info has been migrated to CcInfo. */
