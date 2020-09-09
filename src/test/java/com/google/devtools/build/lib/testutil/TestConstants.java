@@ -90,8 +90,6 @@ public class TestConstants {
 
   public static final ImmutableList<String> IGNORED_MESSAGE_PREFIXES = ImmutableList.<String>of();
 
-  public static final String WORKSPACE_CONTENT = "";
-
   /** The path in which the mock cc crosstool resides. */
   public static final String MOCK_CC_CROSSTOOL_PATH = "tools/cpp";
 
@@ -103,11 +101,6 @@ public class TestConstants {
   /** The output file path prefix for tool file dependencies. */
   public static final String TOOLS_REPOSITORY_PATH_PREFIX = "external/bazel_tools/";
 
-  /** Repository label prefix for rules_cc. */
-  public static final String RULES_CC_REPOSITORY = "@rules_cc//";
-  /**
-   * The file path in which to create files so that they end up under {@link #RULES_CC_REPOSITORY}.
-   */
   public static final String RULES_CC_REPOSITORY_SCRATCH = "rules_cc_workspace/";
   /** The directory in which rules_cc repo resides in execroot. */
   public static final String RULES_CC_REPOSITORY_EXECROOT = "external/rules_cc/";

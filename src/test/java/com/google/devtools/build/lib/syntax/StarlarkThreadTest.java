@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -56,7 +55,6 @@ public final class StarlarkThreadTest {
   // Test update through API, reference through interpreter:
   @Test
   public void testReference() throws Exception {
-    ev.setFailFast(false);
     SyntaxError.Exception e = assertThrows(SyntaxError.Exception.class, () -> ev.eval("foo"));
     assertThat(e).hasMessageThat().isEqualTo("name 'foo' is not defined");
     ev.update("foo", "bar");

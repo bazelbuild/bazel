@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkConfigApi.BuildSettingApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.syntax.Dict;
@@ -23,7 +24,6 @@ import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -154,7 +154,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             noneable = true,
             defaultValue = "None",
             valueWhenDisabled = "None",
-            disableWithFlag = FlagIdentifier.INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM,
+            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM,
             doc =
                 "This parameter has been deprecated. Migrate rules to use"
                     + " <code>OutputGroupInfo</code> or <code>attr.output</code> instead. <p>A"
@@ -347,7 +347,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             noneable = true,
             defaultValue = "None",
             positional = false,
-            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_EXEC_GROUPS,
+            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_EXEC_GROUPS,
             valueWhenDisabled = "None",
             doc =
                 "Dict of execution group name (string) to <a"

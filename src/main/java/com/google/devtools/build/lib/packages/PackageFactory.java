@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -536,7 +537,7 @@ public final class PackageFactory {
         packageSettings,
         packageId,
         workspaceName,
-        starlarkSemantics.incompatibleNoImplicitFileExport(),
+        starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
         Package.Builder.EMPTY_REPOSITORY_MAPPING);
   }
 
@@ -594,7 +595,8 @@ public final class PackageFactory {
         FileOptions.builder()
             .requireLoadStatementsFirst(false)
             .allowToplevelRebinding(true)
-            .restrictStringEscapes(semantics.incompatibleRestrictStringEscapes())
+            .restrictStringEscapes(
+                semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_RESTRICT_STRING_ESCAPES))
             .build();
     StarlarkFile file = StarlarkFile.parse(input, options);
     Package.Builder packageBuilder =
@@ -868,7 +870,7 @@ public final class PackageFactory {
     packageValidator.validate(pkg, eventHandler);
 
     // Enforce limit on number of compute steps in BUILD file (b/151622307).
-    long maxSteps = starlarkSemantics.maxComputationSteps();
+    long maxSteps = starlarkSemantics.get(BuildLanguageOptions.MAX_COMPUTATION_STEPS);
     long steps = pkg.getComputationSteps();
     if (maxSteps > 0 && steps > maxSteps) {
       String message =
@@ -925,7 +927,7 @@ public final class PackageFactory {
                 packageSettings,
                 packageId,
                 workspaceName,
-                semantics.incompatibleNoImplicitFileExport(),
+                semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
                 repositoryMapping)
             .setFilename(buildFilePath)
             .setDefaultVisibility(defaultVisibility)

@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.AspectLegalCppSemantics;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
@@ -347,7 +348,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
                   ruleContext
                       .getAnalysisEnvironment()
                       .getStarlarkSemantics()
-                      .experimentalSiblingRepositoryLayout());
+                      .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
       if (protoRoot.equals(".") || protoRoot.equals(repositoryRoot.getPathString())) {
         return helper;
       }
@@ -366,7 +367,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
                   ruleContext
                       .getAnalysisEnvironment()
                       .getStarlarkSemantics()
-                      .experimentalSiblingRepositoryLayout());
+                      .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
       if (protoRootFragment.startsWith(repositoryPath)) {
         protoRootFragment = protoRootFragment.relativeTo(repositoryPath);
       }

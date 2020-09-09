@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.collect.nestedset;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Debug;
 import com.google.devtools.build.lib.syntax.Dict;
@@ -523,7 +524,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
       throw new EvalException(ex);
     }
 
-    if (semantics.incompatibleDisableDepsetItems()) {
+    if (semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_DEPSET_ITEMS)) {
       if (x != Starlark.NONE) {
         if (direct != Starlark.NONE) {
           throw new EvalException(
@@ -542,7 +543,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
               order,
               Sequence.noneableCast(direct, Object.class, "direct"),
               Sequence.noneableCast(transitive, Depset.class, "transitive"),
-              semantics.incompatibleAlwaysCheckDepsetElements());
+              semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS));
     } else {
       if (x != Starlark.NONE) {
         if (!isEmptyStarlarkList(items)) {
@@ -587,7 +588,10 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     List<Depset> transitiveList = Sequence.noneableCast(transitive, Depset.class, "transitive");
 
     return fromDirectAndTransitive(
-        order, directElements, transitiveList, semantics.incompatibleAlwaysCheckDepsetElements());
+        order,
+        directElements,
+        transitiveList,
+        semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS));
   }
 
   private static boolean isEmptyStarlarkList(Object o) {

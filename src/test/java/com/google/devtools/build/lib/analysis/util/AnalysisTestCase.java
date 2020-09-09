@@ -53,8 +53,8 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -222,7 +222,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
-        Options.getDefaults(StarlarkSemanticsOptions.class),
+        Options.getDefaults(BuildLanguageOptions.class),
         UUID.randomUUID(),
         ImmutableMap.of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
@@ -267,7 +267,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                     Arrays.asList(
                         ExecutionOptions.class,
                         PackageOptions.class,
-                        StarlarkSemanticsOptions.class,
+                        BuildLanguageOptions.class,
                         BuildRequestOptions.class,
                         AnalysisOptions.class,
                         KeepGoingOption.class,
@@ -362,8 +362,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
 
-    StarlarkSemanticsOptions starlarkSemanticsOptions =
-        optionsParser.getOptions(StarlarkSemanticsOptions.class);
+    BuildLanguageOptions starlarkSemanticsOptions =
+        optionsParser.getOptions(BuildLanguageOptions.class);
 
     skyframeExecutor.preparePackageLoading(
         pathPackageLocator,

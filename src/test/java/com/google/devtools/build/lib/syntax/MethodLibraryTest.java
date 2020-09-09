@@ -21,7 +21,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.util.List;
 import net.starlark.java.annot.StarlarkBuiltin;
 import org.junit.Test;

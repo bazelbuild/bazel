@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.TopLevelBootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidBootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDex2OatInfoApi;
@@ -193,10 +193,10 @@ public class SkydocMain {
           DocstringParseException {
     OptionsParser parser =
         OptionsParser.builder()
-            .optionsClasses(StarlarkSemanticsOptions.class, SkydocOptions.class)
+            .optionsClasses(BuildLanguageOptions.class, SkydocOptions.class)
             .build();
     parser.parseAndExitUponError(args);
-    StarlarkSemanticsOptions semanticsOptions = parser.getOptions(StarlarkSemanticsOptions.class);
+    BuildLanguageOptions semanticsOptions = parser.getOptions(BuildLanguageOptions.class);
     semanticsOptions.incompatibleNewActionsApi = false;
     SkydocOptions skydocOptions = parser.getOptions(SkydocOptions.class);
 

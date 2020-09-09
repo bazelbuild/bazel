@@ -37,6 +37,7 @@ import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
@@ -122,8 +123,8 @@ import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -164,7 +165,6 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -487,9 +487,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             buildFilesByPriority,
             externalPackageHelper));
     map.put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction());
-    map.put(
-        SkyFunctions.AST_FILE_LOOKUP,
-        new ASTFileLookupFunction(pkgFactory, DigestHashFunction.getDefaultUnchecked()));
+    map.put(SkyFunctions.AST_FILE_LOOKUP, new ASTFileLookupFunction(pkgFactory, getHashFunction()));
     map.put(SkyFunctions.STARLARK_BUILTINS, new StarlarkBuiltinsFunction(pkgFactory));
     map.put(SkyFunctions.BZL_LOAD, newBzlLoadFunction(ruleClassProvider, pkgFactory));
     map.put(SkyFunctions.GLOB, newGlobFunction());
@@ -649,8 +647,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   protected SkyFunction newBzlLoadFunction(
       RuleClassProvider ruleClassProvider, PackageFactory pkgFactory) {
-    return BzlLoadFunction.create(
-        this.pkgFactory, DigestHashFunction.getDefaultUnchecked(), astFileLookupValueCache);
+    return BzlLoadFunction.create(this.pkgFactory, getHashFunction(), astFileLookupValueCache);
   }
 
   protected PerBuildSyscallCache newPerBuildSyscallCache(int concurrencyLevel) {
@@ -1352,7 +1349,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   public void preparePackageLoading(
       PathPackageLocator pkgLocator,
       PackageOptions packageOptions,
-      StarlarkSemanticsOptions starlarkSemanticsOptions,
+      BuildLanguageOptions starlarkSemanticsOptions,
       UUID commandId,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm) {
@@ -1369,7 +1366,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     StarlarkSemantics starlarkSemantics = getEffectiveStarlarkSemantics(starlarkSemanticsOptions);
     setStarlarkSemantics(starlarkSemantics);
-    setSiblingDirectoryLayout(starlarkSemantics.experimentalSiblingRepositoryLayout());
+    setSiblingDirectoryLayout(
+        starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
     setPackageLocator(pkgLocator);
 
     syscalls.set(getPerBuildSyscallCache(packageOptions.globbingThreads));
@@ -1400,7 +1398,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   public StarlarkSemantics getEffectiveStarlarkSemantics(
-      StarlarkSemanticsOptions starlarkSemanticsOptions) {
+      BuildLanguageOptions starlarkSemanticsOptions) {
     return starlarkSemanticsOptions.toStarlarkSemantics();
   }
 
@@ -2540,6 +2538,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return actionKeyContext;
   }
 
+  // TODO(janakr): Is there a better place for this?
+  public HashFunction getHashFunction() {
+    return fileSystem.getDigestFunction().getHashFunction();
+  }
+
   class SkyframePackageLoader {
     /**
      * Looks up a particular package (mostly used after the loading phase, so packages should
@@ -2602,11 +2605,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   @VisibleForTesting
-  public FileSystem getFileSystemForTesting() {
-    return fileSystem;
-  }
-
-  @VisibleForTesting
   public RuleClassProvider getRuleClassProviderForTesting() {
     return ruleClassProvider;
   }
@@ -2638,7 +2636,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       ExtendedEventHandler eventHandler,
       PackageOptions packageOptions,
       PathPackageLocator pathPackageLocator,
-      StarlarkSemanticsOptions starlarkSemanticsOptions,
+      BuildLanguageOptions starlarkSemanticsOptions,
       UUID commandId,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm,
@@ -2690,7 +2688,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   protected void syncPackageLoading(
       PackageOptions packageOptions,
       PathPackageLocator pathPackageLocator,
-      StarlarkSemanticsOptions starlarkSemanticsOptions,
+      BuildLanguageOptions starlarkSemanticsOptions,
       UUID commandId,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm,

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkerInputApi;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -441,7 +442,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   @Override
   public Object getStarlarkLibrariesToLink(StarlarkSemantics semantics) {
     // TODO(plf): Flag can be removed already.
-    if (semantics.incompatibleDepsetForLibrariesToLinkGetter()) {
+    if (semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER)) {
       return Depset.of(LibraryToLink.TYPE, getLibraries());
     } else {
       return StarlarkList.immutableCopyOf(getLibraries().toList());

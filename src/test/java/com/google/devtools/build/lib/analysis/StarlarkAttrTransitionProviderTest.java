@@ -86,7 +86,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   }
 
   private void writeBasicTestFiles() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setBuildLanguageOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
     scratch.file(
@@ -123,7 +123,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testStarlarkSplitTransitionSplitAttr() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setBuildLanguageOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
     scratch.file(
         "test/starlark/rules.bzl",
@@ -181,7 +181,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testStarlarkListSplitTransitionSplitAttr() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setBuildLanguageOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
     scratch.file(
         "test/starlark/rules.bzl",
@@ -233,7 +233,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testStarlarkPatchTransitionSplitAttr() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setBuildLanguageOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
     scratch.file(
         "test/starlark/rules.bzl",
@@ -284,7 +284,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   public void testStarlarkConfigSplitAttr() throws Exception {
     // This is a customized test case for b/152078818, where a starlark transition that takes a
     // starlark config as input caused a failure when no custom values were provided for the config.
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setBuildLanguageOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
     scratch.file(
         "test/starlark/rules.bzl",
@@ -348,7 +348,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTargetAndRuleNotInAllowlist() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setBuildLanguageOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
     scratch.file(
@@ -416,7 +416,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   }
 
   private void writeReadSettingsTestFiles() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setBuildLanguageOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
 
     scratch.file(
@@ -466,7 +466,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   }
 
   private void writeOptionConversionTestFiles() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setBuildLanguageOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
 
     scratch.file(
@@ -516,7 +516,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testUndeclaredOptionKey() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setBuildLanguageOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
 
     scratch.file(
@@ -549,7 +549,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testDeclaredOutputNotReturned() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setBuildLanguageOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
 
     scratch.file(
@@ -586,7 +586,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testSettingsContainOnlyInputs() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setBuildLanguageOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
 
     scratch.file(
@@ -623,7 +623,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testInvalidInputKey() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setBuildLanguageOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
 
     scratch.file(
@@ -658,7 +658,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testInvalidNativeOptionInput() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setBuildLanguageOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
 
     scratch.file(
@@ -694,7 +694,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testInvalidNativeOptionOutput() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setBuildLanguageOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
 
     scratch.file(
@@ -729,7 +729,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testInvalidOutputKey() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setBuildLanguageOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
 
     scratch.file(
@@ -764,7 +764,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testInvalidOptionValue() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setBuildLanguageOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
 
     scratch.file(
@@ -797,7 +797,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testDuplicateOutputs() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setBuildLanguageOptions("--experimental_starlark_config_transitions=true");
     writeAllowlistFile();
 
     scratch.file(
@@ -890,7 +890,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testCannotTransitionWithoutFlag() throws Exception {
     writeBasicTestFiles();
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=false");
+    setBuildLanguageOptions("--experimental_starlark_config_transitions=false");
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test/starlark:test");
@@ -1741,7 +1741,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
    */
   private void testNoOpTransitionLeavesSameConfig_native(boolean directRead) throws Exception {
     writeAllowlistFile();
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setBuildLanguageOptions("--experimental_starlark_config_transitions=true");
 
     String outputValue = directRead ? "settings['//command_line_option:test_arg']" : "['frisbee']";
     String inputs = directRead ? "['//command_line_option:test_arg']" : "[]";
@@ -1802,7 +1802,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   private void testNoOpTransitionLeavesSameConfig_starlark(boolean directRead, boolean setToDefault)
       throws Exception {
     writeAllowlistFile();
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setBuildLanguageOptions("--experimental_starlark_config_transitions=true");
 
     String outputValue = directRead ? "settings['//test:flag']" : "'frisbee'";
     String inputs = directRead ? "['//test:flag']" : "[]";

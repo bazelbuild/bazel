@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.ManualClock;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -129,7 +130,7 @@ public class FilesystemValueCheckerTestBase {
     }
 
     private MockFileSystem(ManualClock clock) {
-      super(clock);
+      super(clock, DigestHashFunction.SHA256);
     }
 
     @Override

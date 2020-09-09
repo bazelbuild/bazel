@@ -76,8 +76,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:build_type",
-        "//src/main/java/com/google/devtools/build/lib/packages:type",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/util:classpath",
         "//src/main/java/net/starlark/java/annot",
@@ -101,7 +99,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:build_type",
     ],
 )
 

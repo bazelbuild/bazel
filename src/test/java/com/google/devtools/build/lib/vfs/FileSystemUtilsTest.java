@@ -54,7 +54,7 @@ public class FileSystemUtilsTest {
   @Before
   public final void initializeFileSystem() throws Exception  {
     clock = new ManualClock();
-    fileSystem = new InMemoryFileSystem(clock);
+    fileSystem = new InMemoryFileSystem(clock, DigestHashFunction.SHA256);
     workingDir = fileSystem.getPath("/workingDir");
     workingDir.createDirectory();
   }
@@ -365,6 +365,10 @@ public class FileSystemUtilsTest {
   @Test
   public void testMoveFileAcrossDevices() throws Exception {
     class MultipleDeviceFS extends InMemoryFileSystem {
+      MultipleDeviceFS() {
+        super(DigestHashFunction.SHA256);
+      }
+
       @Override
       public void renameTo(Path source, Path target) throws IOException {
         if (!source.startsWith(target.asFragment().subFragment(0, 1))) {

@@ -1149,7 +1149,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testDefaultProviderInvalidConfiguration() throws Exception {
-    setStarlarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
+    setBuildLanguageOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file(
         "test/foo.bzl",
         "foo_provider = provider()",
@@ -2508,7 +2508,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
 
     scratch.file("test/BUILD", "load('//test:rule.bzl', 'foo')", "foo(name='foo')");
 
-    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setBuildLanguageOptions("--experimental_starlark_config_transitions=true");
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:foo");
@@ -2549,7 +2549,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
         "    '_attr': attr.label(",
         "        cfg = android_common.multi_cpu_configuration,",
         "        default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})");
-    setStarlarkSemanticsOptions("--experimental_google_legacy_api");
+    setBuildLanguageOptions("--experimental_google_legacy_api");
 
     scratch.file("test/BUILD", "load('//test:rule.bzl', 'foo')", "foo(name='foo')");
 
@@ -3049,7 +3049,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
             "args.add_all([directory], map_each=_path)");
 
     ev.setSemantics("--incompatible_run_shell_command_string");
-    // setStarlarkSemanticsOptions reinitializes the thread -- set the ruleContext on the new one.
+    // setBuildLanguageOptions reinitializes the thread -- set the ruleContext on the new one.
     setRuleContext(createRuleContext("//foo:foo"));
 
     CommandLine commandLine2 =

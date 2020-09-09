@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -35,8 +36,6 @@ import org.junit.runners.JUnit4;
 /** TargetPatternEvaluator tests that require a custom filesystem. */
 @RunWith(JUnit4.class)
 public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluatorTest {
-  private static final String FS_ROOT = "/fsg";
-
   private static class Transformer {
     @SuppressWarnings("unused")
     @Nullable
@@ -56,7 +55,7 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
 
   @Override
   protected FileSystem createFileSystem() {
-    return new InMemoryFileSystem(BlazeClock.instance()) {
+    return new InMemoryFileSystem(DigestHashFunction.SHA256) {
       @Override
       public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
         FileStatus defaultResult = super.stat(path, followSymlinks);

@@ -1990,7 +1990,7 @@ public abstract class AbstractQueryTest<T> {
     /** Return an instance of {@link QueryEnvironment} according to set-up rules. */
     QueryEnvironment<T> getQueryEnvironment();
 
-    /** Evaluates the given query and returns the result. */
+    /** Evaluates the given query and returns the result. Query is expected to have valid syntax. */
     ResultAndTargets<T> evaluateQuery(String query) throws QueryException, InterruptedException;
 
     default Set<T> evaluateQueryRaw(String query) throws QueryException, InterruptedException {

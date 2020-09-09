@@ -61,7 +61,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/packages:starlark_semantics_options",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/android",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/apple",

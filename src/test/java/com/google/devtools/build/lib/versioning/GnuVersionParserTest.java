@@ -94,7 +94,7 @@ public class GnuVersionParserTest {
 
   /** Creates an executable shell script with the given contents and returns its path. */
   private static Path createHelper(String content) throws IOException {
-    FileSystem fs = new JavaIoFileSystem(DigestHashFunction.getDefaultUnchecked());
+    FileSystem fs = new JavaIoFileSystem(DigestHashFunction.SHA256);
     Path helper = fs.getPath(System.getenv("TEST_TMPDIR")).getRelative("helper.sh");
     try (PrintWriter output =
         new PrintWriter(new OutputStreamWriter(helper.getOutputStream(), StandardCharsets.UTF_8))) {

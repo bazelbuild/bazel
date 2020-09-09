@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.ResolvedFileValue;
 import com.google.devtools.build.lib.syntax.FileOptions;
@@ -91,7 +92,8 @@ public class WorkspaceASTFunction implements SkyFunction {
             .requireLoadStatementsFirst(false)
             .recordScope(false) // mustn't mutate (resolve) syntax in a downstream skyframe function
             .restrictStringEscapes(
-                semantics != null && semantics.incompatibleRestrictStringEscapes())
+                semantics != null
+                    && semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_RESTRICT_STRING_ESCAPES))
             .build();
 
     Path repoWorkspace = workspaceRoot.getRoot().getRelative(workspaceRoot.getRootRelativePath());

@@ -452,7 +452,7 @@ public final class SkyframeBuildView {
     }
     foundActionConflict = !actionConflicts.isEmpty();
 
-    if (!result.hasError() && actionConflicts.isEmpty()) {
+    if (!result.hasError() && !foundActionConflict) {
       return new SkyframeAnalysisResult(
           /*hasLoadingError=*/ false,
           /*hasAnalysisError=*/ false,
@@ -503,7 +503,7 @@ public final class SkyframeBuildView {
       throw errors.second;
     }
 
-    if (!actionConflicts.isEmpty()) {
+    if (foundActionConflict) {
       // In order to determine the set of configured targets transitively error free from action
       // conflict issues, we run a post-processing update() that uses the bad action map.
       Predicate<ActionLookupKey> errorFreePredicate;

@@ -92,19 +92,19 @@ function test_null_build() {
 
   bazel build //test:ninjabuild --experimental_ninja_actions &> $TEST_log \
       || fail "should have generated output successfully"
-  expect_log "INFO: 1 process"
+  expect_log "INFO: 2 processes: 1 internal, 1 local"
 
   # Verify null build with hot server.
   bazel build //test:ninjabuild --experimental_ninja_actions &> $TEST_log \
       || fail "should have generated output successfully"
-  expect_log "INFO: 0 processes."
+  expect_log "INFO: 1 process: 1 internal"
 
   bazel shutdown
 
   # Verify null build even after restart.
   bazel build //test:ninjabuild --experimental_ninja_actions &> $TEST_log \
       || fail "should have generated output successfully"
-  expect_log "INFO: 0 processes."
+  expect_log "INFO: 1 process: 1 internal"
 }
 
 # Tests that newly discovered dependencies cause a rebuild after restart.
@@ -298,7 +298,7 @@ EOF
 
   bazel build //test:ninjabuild --experimental_ninja_actions &> $TEST_log \
       || fail "should have generated output successfully"
-  expect_log "INFO: 2 processes"
+  expect_log "INFO: 3 processes: 1 internal, 2 local"
 
   # test/two is a dependency of out/test/generated, which was an originally
   # declared input, but not according to the depfile.
@@ -311,7 +311,7 @@ EOF
   # an action cache hit on the root action.
   bazel build -s //test:ninjabuild --experimental_ninja_actions &> $TEST_log \
       || fail "should have generated output successfully"
-  expect_log "INFO: 1 process"
+  expect_log "INFO: 2 processes: 1 internal, 1 local"
 
   cat > test/cattool.sh <<'EOF'
 OUTPUT=${!#}
@@ -325,14 +325,14 @@ EOF
   # Build should re-execute, as cattool.sh has changed.
   bazel build //test:ninjabuild --experimental_ninja_actions &> $TEST_log \
       || fail "should have generated output successfully"
-  expect_log "INFO: 1 process"
+  expect_log "INFO: 2 processes: 1 internal, 1 local"
 
   # test/two should again be reflected as an input to the build via
   # the inclusion of out/test/generated in the depfile.
   echo "x" > test/two
   bazel build //test:ninjabuild --experimental_ninja_actions &> $TEST_log \
       || fail "build should have failed"
-  expect_log "INFO: 2 processes"
+  expect_log "INFO: 3 processes: 1 internal, 2 local"
 }
 
 function test_external_source_dependency() {

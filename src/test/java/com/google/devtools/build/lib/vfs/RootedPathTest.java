@@ -33,7 +33,7 @@ public class RootedPathTest {
 
   @Before
   public final void initializeFileSystem() throws Exception  {
-    filesystem = new InMemoryFileSystem(BlazeClock.instance());
+    filesystem = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
     root = filesystem.getPath("/");
   }
 

@@ -16,7 +16,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:build_type",
         "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
         "//third_party:guava",
     ],

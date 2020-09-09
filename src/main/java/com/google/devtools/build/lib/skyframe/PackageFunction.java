@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageExc
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -1218,7 +1219,9 @@ public class PackageFunction implements SkyFunction {
                 .recordScope(false) // don't mutate BUILD syntax
                 .requireLoadStatementsFirst(false)
                 .allowToplevelRebinding(true)
-                .restrictStringEscapes(starlarkSemantics.incompatibleRestrictStringEscapes())
+                .restrictStringEscapes(
+                    starlarkSemantics.getBool(
+                        BuildLanguageOptions.INCOMPATIBLE_RESTRICT_STRING_ESCAPES))
                 .build();
         file = StarlarkFile.parse(input, options);
         fileSyntaxCache.put(packageId, file);

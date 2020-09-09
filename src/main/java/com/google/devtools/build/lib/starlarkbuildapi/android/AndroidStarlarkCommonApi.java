@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -70,7 +70,7 @@ public interface AndroidStarlarkCommonApi<FileT extends FileApi, JavaInfoT exten
       name = "enable_implicit_sourceless_deps_exports_compatibility",
       doc = "Takes a JavaInfo and converts it to an implicit exportable JavaInfo.",
       documented = false,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
       parameters = {
         @Param(
             name = "dep",

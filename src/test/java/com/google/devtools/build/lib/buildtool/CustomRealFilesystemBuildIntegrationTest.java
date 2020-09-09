@@ -262,7 +262,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     private final Set<String> createDirectoryErrorNames = new HashSet<>();
 
     private CustomRealFilesystem() {
-      super(DigestHashFunction.getDefaultUnchecked());
+      super(DigestHashFunction.SHA256);
     }
 
     void alwaysError(Path path) {

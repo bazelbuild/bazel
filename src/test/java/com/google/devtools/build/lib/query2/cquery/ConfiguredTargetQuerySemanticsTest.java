@@ -422,13 +422,35 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   }
 
   @Test
-  public void testConfig_badConfig() throws Exception {
+  public void testConfig_configHashPrefix() throws Exception {
     createConfigRulesAndBuild();
-    assertThat(evalThrows("config(//test:my_rule,foo)", true))
-        .isEqualTo(
-            "Unknown value 'foo'. The second argument of config() must be 'target', 'host', "
-                + "'null', or a valid configuration hash (i.e. one of the outputs of "
-                + "'blaze config')");
+    writeFile("mytest/BUILD", "simple_rule(name = 'mytarget')");
+
+    Set<ConfiguredTarget> result = eval("//mytest:mytarget");
+    String configHash = getConfiguration(Iterables.getOnlyElement(result)).checksum();
+    String hashPrefix = configHash.substring(0, configHash.length() / 2);
+
+    Set<ConfiguredTarget> resultFromPrefix = eval("config(//mytest:mytarget," + hashPrefix + ")");
+    assertThat(resultFromPrefix).containsExactlyElementsIn(result);
+  }
+
+  @Test
+  public void testConfig_configHashUnknownPrefix() throws Exception {
+    createConfigRulesAndBuild();
+    writeFile("mytest/BUILD", "simple_rule(name = 'mytarget')");
+
+    Set<ConfiguredTarget> result = eval("//mytest:mytarget");
+    String configHash = getConfiguration(Iterables.getOnlyElement(result)).checksum();
+    String rightPrefix = configHash.substring(0, configHash.length() / 2);
+    char lastChar = rightPrefix.charAt(rightPrefix.length() - 1);
+    String wrongPrefix = rightPrefix.substring(0, rightPrefix.length() - 1) + (lastChar + 1);
+
+    QueryException e =
+        assertThrows(
+            QueryException.class, () -> eval("config(//mytest:mytarget," + wrongPrefix + ")"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("config()'s second argument must identify a unique configuration");
   }
 
   @Test

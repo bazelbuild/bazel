@@ -245,7 +245,12 @@ class PrefixReferenceScanner extends ClassVisitor {
     @Override
     public AnnotationVisitor visitTypeAnnotation(
         int typeRef, TypePath typePath, String desc, boolean visible) {
-      typeReference(desc);
+      // Adjust the type annotation descriptor for proguarded byte code. b/166658450
+      if (desc.contains("/") && !desc.startsWith("L")) {
+        desc = "L" + desc + ";";
+      }
+      Type type = Type.getType(desc);
+      typeReference(type);
       return av;
     }
 

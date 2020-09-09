@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.hash.HashFunction;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -697,6 +698,10 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       this.digest = Preconditions.checkNotNull(digest);
     }
 
+    private InlineFileArtifactValue(byte[] bytes, HashFunction hashFunction) {
+      this(bytes, hashFunction.hashBytes(bytes).asBytes());
+    }
+
     @Override
     public boolean equals(Object o) {
       if (!(o instanceof InlineFileArtifactValue)) {
@@ -712,16 +717,11 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       return Objects.hash(Arrays.hashCode(digest), dataIsShareable());
     }
 
-    private InlineFileArtifactValue(byte[] bytes) {
-      this(
-          bytes,
-          DigestHashFunction.getDefaultUnchecked().getHashFunction().hashBytes(bytes).asBytes());
-    }
-
-    public static InlineFileArtifactValue create(byte[] bytes, boolean shareable) {
+    public static InlineFileArtifactValue create(
+        byte[] bytes, boolean shareable, HashFunction hashFunction) {
       return shareable
-          ? new InlineFileArtifactValue(bytes)
-          : new UnshareableInlineFileArtifactValue(bytes);
+          ? new InlineFileArtifactValue(bytes, hashFunction)
+          : new UnshareableInlineFileArtifactValue(bytes, hashFunction);
     }
 
     public ByteArrayInputStream getInputStream() {
@@ -760,8 +760,8 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   }
 
   private static final class UnshareableInlineFileArtifactValue extends InlineFileArtifactValue {
-    UnshareableInlineFileArtifactValue(byte[] bytes) {
-      super(bytes);
+    UnshareableInlineFileArtifactValue(byte[] bytes, HashFunction hashFunction) {
+      super(bytes, hashFunction);
     }
 
     @Override

@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.util.Pair;
@@ -268,7 +269,7 @@ public class ProtoCompileActionBuilder {
         ruleContext
             .getAnalysisEnvironment()
             .getStarlarkSemantics()
-            .experimentalSiblingRepositoryLayout();
+            .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT);
 
     // Add include maps
     addIncludeMapArguments(
@@ -468,7 +469,7 @@ public class ProtoCompileActionBuilder {
         ruleContext
             .getAnalysisEnvironment()
             .getStarlarkSemantics()
-            .experimentalSiblingRepositoryLayout();
+            .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT);
 
     result
         .addOutputs(outputs)

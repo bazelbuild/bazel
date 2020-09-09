@@ -68,7 +68,7 @@ public class AndroidStarlarkTest extends BuildViewTestCase {
     scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
 
     scratch.file("myinfo/BUILD");
-    setStarlarkSemanticsOptions("--experimental_google_legacy_api");
+    setBuildLanguageOptions("--experimental_google_legacy_api");
   }
 
   private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {

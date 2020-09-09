@@ -20,6 +20,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.Settings;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigGlobalLibraryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.syntax.Dict;
@@ -51,9 +52,13 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
     List<String> inputsList = Sequence.cast(inputs, String.class, "inputs");
     List<String> outputsList = Sequence.cast(outputs, String.class, "outputs");
     validateBuildSettingKeys(
-        inputsList, Settings.INPUTS, semantics.experimentalStarlarkConfigTransitions());
+        inputsList,
+        Settings.INPUTS,
+        semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_STARLARK_CONFIG_TRANSITIONS));
     validateBuildSettingKeys(
-        outputsList, Settings.OUTPUTS, semantics.experimentalStarlarkConfigTransitions());
+        outputsList,
+        Settings.OUTPUTS,
+        semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_STARLARK_CONFIG_TRANSITIONS));
     return StarlarkDefinedConfigTransition.newRegularTransition(
         implementation, inputsList, outputsList, semantics, thread);
   }

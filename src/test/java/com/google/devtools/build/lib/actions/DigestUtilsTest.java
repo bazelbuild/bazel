@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Strings;
 import com.google.common.cache.CacheStats;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
-import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -59,7 +58,7 @@ public class DigestUtilsTest {
     final CountDownLatch readyLatch = new CountDownLatch(1);   // Used to block main thread.
 
     FileSystem myfs =
-        new InMemoryFileSystem(BlazeClock.instance(), hf) {
+        new InMemoryFileSystem(hf) {
           @Override
           protected byte[] getDigest(Path path) throws IOException {
             try {
@@ -166,7 +165,7 @@ public class DigestUtilsTest {
     final AtomicInteger getDigestCounter = new AtomicInteger(0);
 
     FileSystem tracingFileSystem =
-        new InMemoryFileSystem(BlazeClock.instance()) {
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
           @Override
           protected byte[] getFastDigest(Path path) {
             getFastDigestCounter.incrementAndGet();
@@ -219,7 +218,7 @@ public class DigestUtilsTest {
     final AtomicInteger getDigestCounter = new AtomicInteger(0);
 
     FileSystem tracingFileSystem =
-        new InMemoryFileSystem(BlazeClock.instance()) {
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
           @Override
           protected byte[] getFastDigest(Path path) {
             getFastDigestCounter.incrementAndGet();
@@ -261,7 +260,7 @@ public class DigestUtilsTest {
   public void manuallyComputeDigest() throws Exception {
     byte[] digest = {1, 2, 3};
     FileSystem noDigestFileSystem =
-        new InMemoryFileSystem(BlazeClock.instance()) {
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
           @Override
           protected byte[] getFastDigest(Path path) {
             throw new AssertionError("Unexpected call to getFastDigest");

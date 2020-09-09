@@ -14,11 +14,11 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
+import com.google.devtools.build.lib.google.vfs.GoogleHashFunctions;
 import com.google.devtools.build.lib.skyframe.MutableSupplier;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -63,7 +63,7 @@ public abstract class IoHookTestCase extends GoogleBuildIntegrationTestCase {
   @Override
   protected FileSystem createFileSystem() {
     setListener(DUMMY_LISTENER);
-    return new UnixFileSystem(DigestHashFunction.getDefaultUnchecked()) {
+    return new UnixFileSystem(GoogleHashFunctions.PSHA2) {
       @Override
       protected void chmod(Path path, int chmod) throws IOException {
         listener.get().handle(PathOp.CHMOD, path);

@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.FileOptions;
@@ -74,7 +74,7 @@ public class EvaluationTestCase {
    */
   public final void setSemantics(String... options) throws OptionsParsingException {
     this.semantics =
-        Options.parse(StarlarkSemanticsOptions.class, options).getOptions().toStarlarkSemantics();
+        Options.parse(BuildLanguageOptions.class, options).getOptions().toStarlarkSemantics();
 
     // Re-initialize the thread and module with the new semantics when needed.
     this.thread = null;

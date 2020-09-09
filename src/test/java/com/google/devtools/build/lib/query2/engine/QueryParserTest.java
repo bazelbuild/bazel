@@ -94,8 +94,9 @@ public final class QueryParserTest {
   }
 
   public static void checkParseFails(String query, String expectedError) {
-    QueryException e =
-        assertThrows(QueryException.class, () -> QueryExpression.parse(query, mockEnvironment()));
+    QuerySyntaxException e =
+        assertThrows(
+            QuerySyntaxException.class, () -> QueryExpression.parse(query, mockEnvironment()));
     assertThat(e).hasMessageThat().isEqualTo(expectedError);
   }
 

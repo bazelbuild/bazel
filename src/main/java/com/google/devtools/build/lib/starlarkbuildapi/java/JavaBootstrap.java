@@ -15,10 +15,10 @@
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi.JavaInfoProviderApi;
 import com.google.devtools.build.lib.syntax.FlagGuardedValue;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /** {@link Bootstrap} for Starlark objects related to the java language. */
 public class JavaBootstrap implements Bootstrap {
@@ -52,6 +52,6 @@ public class JavaBootstrap implements Bootstrap {
     builder.put(
         ProguardSpecProviderApi.NAME,
         FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-            FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API, proguardSpecProvider));
+            BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, proguardSpecProvider));
   }
 }

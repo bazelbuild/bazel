@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -44,7 +45,7 @@ public class SandboxfsSandboxedSpawnTest {
 
   @Before
   public final void setupTestDirs() throws IOException {
-    FileSystem fileSystem = new InMemoryFileSystem();
+    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
     testRoot = fileSystem.getPath(TestUtils.tmpDir());
     testRoot.createDirectoryAndParents();
 

@@ -141,7 +141,7 @@ public class ConstraintTest extends BuildViewTestCase {
 
   @Test
   public void testConstraint_defaultValue_starlark() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_platforms_api=true");
+    setBuildLanguageOptions("--experimental_platforms_api=true");
     scratch.file(
         "constraint_default/BUILD",
         "constraint_setting(name = 'basic',",
@@ -198,7 +198,7 @@ public class ConstraintTest extends BuildViewTestCase {
 
   @Test
   public void testConstraint_defaultValue_notSet_starlark() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_platforms_api=true");
+    setBuildLanguageOptions("--experimental_platforms_api=true");
     scratch.file("constraint_default/BUILD", "constraint_setting(name = 'basic')");
 
     scratch.file(

@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.repository;
 
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkCallable;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkGlobalLibrary;
@@ -94,7 +94,7 @@ public interface RepositoryModuleApi {
             doc = "Compatible with remote execution",
             named = true,
             positional = false,
-            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_REPO_REMOTE_EXEC,
+            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_REPO_REMOTE_EXEC,
             valueWhenDisabled = "False"),
         @Param(
             name = "doc",

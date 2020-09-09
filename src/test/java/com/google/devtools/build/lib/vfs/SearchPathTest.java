@@ -25,7 +25,7 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class SearchPathTest {
-  private FileSystem fs = new InMemoryFileSystem();
+  private FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
 
   @Test
   public void testNull() throws Exception {

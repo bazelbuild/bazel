@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
@@ -119,7 +120,7 @@ public final class FetchCommand implements BlazeCommand {
     QueryExpression expr;
     try {
       expr = QueryExpression.parse(query, queryEnv);
-    } catch (QueryException e) {
+    } catch (QuerySyntaxException e) {
       String errorMessage = "Error while parsing '" + query + "': " + e.getMessage();
       env.getReporter().handle(Event.error(null, errorMessage));
       return createFailedBlazeCommandResult(

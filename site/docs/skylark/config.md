@@ -496,8 +496,8 @@ When that happens, this syntax will be deprecated. Currently other issues are
 blocking that migration but be aware you may have to migrate your transitions
 at some point in the future.
 
-Starlark transitions can also declare reads and writes on native options via
-a special prefix to the option name.
+Starlark transitions can also declare reads and writes on native build
+configuration options via a special prefix to the option name.
 
 ```python
 # example/transitions/transitions.bzl
@@ -511,9 +511,25 @@ cpu_transition = transition(
     outputs = ["//command_line_option:cpu"]
 ```
 
-NOTE: Transitioning on --define using "//command_line_option:define" is not
-supported - create a custom [build setting](#users-defined-build-settings) to
-cover this functionality.
+#### Unsupported native options
+
+Bazel doesn't support transitioning on `--define` using
+`"//command_line_option:define"`. Instead, create a custom
+[build setting](#users-defined-build-settings)
+to cover this functionality. In general, any new usage of `--define`, such as in
+select() statements, is discouraged in favor of build settings.
+
+Bazel doesn't support transitioning on options that expand to other options such
+as `--config`. One, option expansion happens at the
+beginning of the build so Starlark transitions have no access to that logic.
+Two, `--config` can be used to set options that aren't part of the build
+configuration which cannot be set by transitions. An example of this is execution options
+like
+[`--spawn_strategy`](https://docs.bazel.build/versions/master/user-manual.html#flag--spawn_strategy)
+. A workaround is to manually expand the option in the starlark transition by
+setting the individual flags to their appropriate values. Unfortunately this
+requires maintaining the expansion in two places. Note that this workaround
+does not allow for command-specific behavior like `--config` does.
 
 ### Accessing attributes with transitions
 

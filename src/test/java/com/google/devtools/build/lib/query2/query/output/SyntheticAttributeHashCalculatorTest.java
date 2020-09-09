@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.Attribute.Discriminator;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import org.junit.Test;
@@ -47,10 +48,16 @@ public class SyntheticAttributeHashCalculatorTest extends PackageLoadingTestCase
 
     String hashBefore =
         SyntheticAttributeHashCalculator.compute(
-            ruleBefore, /*serializedAttributes=*/ ImmutableMap.of(), /*extraDataForAttrHash=*/ "");
+            ruleBefore,
+            /*serializedAttributes=*/ ImmutableMap.of(),
+            /*extraDataForAttrHash=*/ "",
+            DigestHashFunction.SHA256.getHashFunction());
     String hashAfter =
         SyntheticAttributeHashCalculator.compute(
-            ruleAfter, /*serializedAttributes=*/ ImmutableMap.of(), /*extraDataForAttrHash=*/ "");
+            ruleAfter,
+            /*serializedAttributes=*/ ImmutableMap.of(),
+            /*extraDataForAttrHash=*/ "",
+            DigestHashFunction.SHA256.getHashFunction());
 
     assertThat(hashBefore).isNotEqualTo(hashAfter);
   }
@@ -70,10 +77,16 @@ public class SyntheticAttributeHashCalculatorTest extends PackageLoadingTestCase
 
     String hashBefore =
         SyntheticAttributeHashCalculator.compute(
-            ruleBefore, /*serializedAttributes=*/ ImmutableMap.of(), /*extraDataForAttrHash=*/ "");
+            ruleBefore,
+            /*serializedAttributes=*/ ImmutableMap.of(),
+            /*extraDataForAttrHash=*/ "",
+            DigestHashFunction.SHA256.getHashFunction());
     String hashAfter =
         SyntheticAttributeHashCalculator.compute(
-            ruleAfter, /*serializedAttributes=*/ ImmutableMap.of(), /*extraDataForAttrHash=*/ "");
+            ruleAfter,
+            /*serializedAttributes=*/ ImmutableMap.of(),
+            /*extraDataForAttrHash=*/ "",
+            DigestHashFunction.SHA256.getHashFunction());
 
     assertThat(hashBefore).isEqualTo(hashAfter);
   }
@@ -85,7 +98,10 @@ public class SyntheticAttributeHashCalculatorTest extends PackageLoadingTestCase
 
     String hashBefore =
         SyntheticAttributeHashCalculator.compute(
-            rule, /*serializedAttributes=*/ ImmutableMap.of(), /*extraDataForAttrHash=*/ "");
+            rule,
+            /*serializedAttributes=*/ ImmutableMap.of(),
+            /*extraDataForAttrHash=*/ "",
+            DigestHashFunction.SHA256.getHashFunction());
 
     ImmutableMap<Attribute, Build.Attribute> serializedAttributes =
         ImmutableMap.of(
@@ -98,7 +114,10 @@ public class SyntheticAttributeHashCalculatorTest extends PackageLoadingTestCase
 
     String hashAfter =
         SyntheticAttributeHashCalculator.compute(
-            rule, serializedAttributes, /*extraDataForAttrHash*/ "");
+            rule,
+            serializedAttributes, /*extraDataForAttrHash*/
+            "",
+            DigestHashFunction.SHA256.getHashFunction());
 
     assertThat(hashBefore).isNotEqualTo(hashAfter);
   }
@@ -110,13 +129,17 @@ public class SyntheticAttributeHashCalculatorTest extends PackageLoadingTestCase
 
     String hashBefore =
         SyntheticAttributeHashCalculator.compute(
-            rule, /*serializedAttributes=*/ ImmutableMap.of(), /*extraDataForAttrHash=*/ "");
+            rule,
+            /*serializedAttributes=*/ ImmutableMap.of(),
+            /*extraDataForAttrHash=*/ "",
+            DigestHashFunction.SHA256.getHashFunction());
 
     String hashAfter =
         SyntheticAttributeHashCalculator.compute(
             rule,
             /*serializedAttributes=*/ ImmutableMap.of(), /*extraDataForAttrHash*/
-            "blahblaah");
+            "blahblaah",
+            DigestHashFunction.SHA256.getHashFunction());
 
     assertThat(hashBefore).isNotEqualTo(hashAfter);
   }
@@ -139,10 +162,16 @@ public class SyntheticAttributeHashCalculatorTest extends PackageLoadingTestCase
 
     String hashBefore =
         SyntheticAttributeHashCalculator.compute(
-            ruleBefore, /*serializedAttributes=*/ ImmutableMap.of(), /*extraDataForAttrHash=*/ "");
+            ruleBefore,
+            /*serializedAttributes=*/ ImmutableMap.of(),
+            /*extraDataForAttrHash=*/ "",
+            DigestHashFunction.SHA256.getHashFunction());
     String hashAfter =
         SyntheticAttributeHashCalculator.compute(
-            ruleAfter, /*serializedAttributes=*/ ImmutableMap.of(), /*extraDataForAttrHash=*/ "");
+            ruleAfter,
+            /*serializedAttributes=*/ ImmutableMap.of(),
+            /*extraDataForAttrHash=*/ "",
+            DigestHashFunction.SHA256.getHashFunction());
 
     assertThat(hashBefore).isNotEqualTo(hashAfter);
   }

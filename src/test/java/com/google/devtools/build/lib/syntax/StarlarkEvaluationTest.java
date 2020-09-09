@@ -20,8 +20,8 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.errorprone.annotations.DoNotCall;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import net.starlark.java.annot.Param;
@@ -1877,14 +1877,18 @@ public final class StarlarkEvaluationTest {
 
   @Test
   public void testPrint() throws Exception {
-    // TODO(fwe): cannot be handled by current testing suite
-    ev.setFailFast(false);
-    ev.exec("print('hello')");
-    ev.assertContainsDebug("hello");
-    ev.exec("print('a', 'b')");
-    ev.assertContainsDebug("a b");
-    ev.exec("print('a', 'b', sep='x')");
-    ev.assertContainsDebug("axb");
+    ParserInput input =
+        ParserInput.fromLines(
+            "print('hello')", //
+            "print('a', 'b')",
+            "print('a', 'b', sep='x')");
+    List<String> prints = new ArrayList<>();
+    try (Mutability mu = Mutability.create("test")) {
+      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      thread.setPrintHandler((unused, msg) -> prints.add(msg));
+      Starlark.execFile(input, FileOptions.DEFAULT, Module.create(), thread);
+    }
+    assertThat(prints).containsExactly("hello", "a b", "axb").inOrder();
   }
 
   @Test

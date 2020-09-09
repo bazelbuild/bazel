@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
@@ -437,7 +438,9 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         }
       }
     } else if (commandUnchecked instanceof Sequence) {
-      if (thread.getSemantics().incompatibleRunShellCommandString()) {
+      if (thread
+          .getSemantics()
+          .getBool(BuildLanguageOptions.INCOMPATIBLE_RUN_SHELL_COMMAND_STRING)) {
         throw Starlark.errorf(
             "'command' must be of type string. passing a sequence of strings as 'command'"
                 + " is deprecated. To temporarily disable this check,"
@@ -593,7 +596,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         TargetUtils.getFilteredExecutionInfo(
             executionRequirementsUnchecked,
             ruleContext.getRule(),
-            starlarkSemantics.experimentalAllowTagsPropagation());
+            starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_ALLOW_TAGS_PROPAGATION));
     builder.setExecutionInfo(executionInfo);
 
     if (inputManifestsUnchecked != Starlark.NONE) {

@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
@@ -404,7 +405,9 @@ public final class StarlarkRepositoryContextTest {
     setUpContextForRule(
         attrValues,
         ImmutableSet.of(),
-        StarlarkSemantics.builderWithDefaults().experimentalRepoRemoteExec(true).build(),
+        StarlarkSemantics.builder()
+            .setBool(BuildLanguageOptions.EXPERIMENTAL_REPO_REMOTE_EXEC, true)
+            .build(),
         repoRemoteExecutor,
         Attribute.attr("$remotable", Type.BOOLEAN).build(),
         Attribute.attr("exec_properties", Type.STRING_DICT).build());

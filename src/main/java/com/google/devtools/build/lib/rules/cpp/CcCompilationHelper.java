@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
@@ -950,7 +951,7 @@ public final class CcCompilationHelper {
         actionConstructionContext
             .getAnalysisEnvironment()
             .getStarlarkSemantics()
-            .experimentalSiblingRepositoryLayout();
+            .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT);
     PathFragment repositoryPath =
         label.getPackageIdentifier().getRepository().getExecPath(siblingRepositoryLayout);
     ccCompilationContextBuilder.addQuoteIncludeDir(repositoryPath);
