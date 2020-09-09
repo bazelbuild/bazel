@@ -65,9 +65,3 @@ filegroup(
     name = "protobuf_well_known_types",
     srcs = ["dummy.proto"],
 )
-
-# Intentionally empty
-filegroup(
-    name = "header_scanner",
-    srcs = [],
-)
