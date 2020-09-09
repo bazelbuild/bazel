@@ -16,7 +16,13 @@ sh_binary(
     data = [
         ":make_hashed_objlist.py",
         ":xcrunwrapper",
+        ":libtool_check_unique",
     ],
+)
+
+filegroup(
+    name = "libtool_check_unique",
+    srcs = ["libtool_check_unique.cc"],
 )
 
 sh_binary(
