@@ -63,6 +63,7 @@ public class CanonicalStringIndexer extends AbstractIndexer {
   public int getOrCreateIndex(String s) {
     Integer i = stringToInt.get(s);
     if (i == null) {
+      s = StringCanonicalizer.intern(s);
       synchronized (this) {
         // First, make sure another thread hasn't just added the entry:
         i = stringToInt.get(s);
@@ -71,7 +72,6 @@ public class CanonicalStringIndexer extends AbstractIndexer {
         }
 
         int ind = intToString.size();
-        s = StringCanonicalizer.intern(s);
         stringToInt.put(s, ind);
         intToString.put(ind, s);
         return ind;
