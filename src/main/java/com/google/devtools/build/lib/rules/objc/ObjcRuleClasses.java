@@ -64,8 +64,6 @@ public class ObjcRuleClasses {
    * Name of the attribute used for implicit dependency on the libtool wrapper.
    */
   public static final String LIBTOOL_ATTRIBUTE = "$libtool";
-  /** Name of attribute used for implicit dependency on the apple SDKs. */
-  public static final String APPLE_SDK_ATTRIBUTE = ":apple_sdk";
 
   static final String LIPO = "lipo";
   static final String STRIP = "strip";
