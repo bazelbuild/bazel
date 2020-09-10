@@ -333,7 +333,7 @@ _pkg_deb = rule(
         # Implicit dependencies.
         "make_deb": attr.label(
             default = Label("//tools/build_defs/pkg:make_deb"),
-            cfg = "host",
+            cfg = "exec",
             executable = True,
             allow_files = True,
         ),
