@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -94,17 +93,11 @@ public class AndroidCommon {
 
   public static final <T extends Info> Iterable<T> getTransitivePrerequisites(
       RuleContext ruleContext, BuiltinProvider<T> key) {
-    return getTransitivePrerequisites(ruleContext, TransitionMode.DONT_CHECK, key);
-  }
-
-  // TODO(b/165916637): Update callers to not pass TransitionMode.
-  public static final <T extends Info> Iterable<T> getTransitivePrerequisites(
-      RuleContext ruleContext, TransitionMode mode, BuiltinProvider<T> key) {
     IterablesChain.Builder<T> builder = IterablesChain.builder();
     AttributeMap attributes = ruleContext.attributes();
     for (String attr : TRANSITIVE_ATTRIBUTES) {
       if (attributes.has(attr, BuildType.LABEL_LIST)) {
-        builder.add(ruleContext.getPrerequisites(attr, mode, key));
+        builder.add(ruleContext.getPrerequisites(attr, key));
       }
     }
     return builder.build();
