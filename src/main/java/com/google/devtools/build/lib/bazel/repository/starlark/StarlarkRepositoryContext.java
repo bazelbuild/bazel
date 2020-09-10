@@ -860,10 +860,13 @@ public class StarlarkRepositoryContext
             rule.getLabel().toString(),
             thread.getCallerLocation());
 
-    // Download to outputDirectory and delete it after extraction
+    // Download to tmp directory inside the outputDirectory and delete it after extraction
     StarlarkPath outputPath = getPath("download_and_extract()", output);
     checkInOutputDirectory("write", outputPath);
     createDirectory(outputPath.getPath());
+
+    Path downloadDirectory = outputPath.getPath().getRelative("tmp");
+    createDirectory(downloadDirectory);
 
     Path downloadedPath;
     try (SilentCloseable c =
@@ -875,7 +878,7 @@ public class StarlarkRepositoryContext
               checksum,
               canonicalId,
               Optional.of(type),
-              outputPath.getPath(),
+              downloadDirectory,
               env.getListener(),
               osObject.getEnvironmentVariables(),
               getName());
@@ -914,13 +917,13 @@ public class StarlarkRepositoryContext
 
     StructImpl downloadResult = calculateDownloadResult(checksum, downloadedPath);
     try {
-      if (downloadedPath.exists()) {
-        downloadedPath.delete();
+      if (downloadDirectory.exists()) {
+        downloadDirectory.deleteTree();
       }
     } catch (IOException e) {
       throw new RepositoryFunctionException(
           new IOException(
-              "Couldn't delete temporary file (" + downloadedPath.getPathString() + ")", e),
+              "Couldn't delete temporary directory (" + downloadDirectory.getPathString() + ")", e),
           Transience.TRANSIENT);
     }
     return downloadResult;
