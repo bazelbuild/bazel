@@ -36,6 +36,8 @@ import shutil
 import sys
 import tempfile
 import zipfile
+from queue import Queue
+from threading import Thread
 
 
 class DexmanifestBuilder(object):
@@ -47,6 +49,8 @@ class DexmanifestBuilder(object):
     self.output_dex_counter = 1
     self.checksums = set()
     self.tmpdir = None
+    self.queue = Queue()
+    self.threads_list = list()
 
   def __enter__(self):
     self.tmpdir = tempfile.mkdtemp()
@@ -55,8 +59,11 @@ class DexmanifestBuilder(object):
   def __exit__(self, unused_type, unused_value, unused_traceback):
     shutil.rmtree(self.tmpdir, True)
 
-  def Checksum(self, filename):
-    """Compute the SHA-256 checksum of a file."""
+  def Checksum(self, filename, input_dex_or_zip, zippath):
+    """
+    Compute the SHA-256 checksum of a file. This method could be invoked concurrently. Therefore we need to
+    include other metadata like input_dex_or_zip to keep the context.
+    """
     h = hashlib.sha256()
     with open(filename, "rb") as f:
       while True:
@@ -66,30 +73,40 @@ class DexmanifestBuilder(object):
 
         h.update(data)
 
-    return h.hexdigest()
+    return h.hexdigest(), input_dex_or_zip, zippath
 
-  def AddDex(self, input_dex_or_zip, zippath, dex):
-    """Adds a dex file to the output.
+  def AddDexes(self, dex_metadata_list):
+    """
+    Adds all dex file together to the output.
+    Sort the result to make sure the dexes order are always the same given the same input.
 
     Args:
+      A dex_metadata list where all elements are formed as [fs_checksum, input_dex_or_zip, zippath]
+      fs_checksum: the SHA-256 checksum for dex file
       input_dex_or_zip: the input file written to the manifest
       zippath: the zip path written to the manifest or None if the input file
           is not a .zip .
-      dex: the dex file to be added
 
     Returns:
       None.
     """
+    dex_metadata_list_sorted = sorted(dex_metadata_list, key = lambda x: (x[1], x[2]))
+    for dex_metadata in dex_metadata_list_sorted:
+      fs_checksum, input_dex_or_zip, zippath = dex_metadata[0], dex_metadata[1], dex_metadata[2]
+      if fs_checksum in self.checksums:
+        return
+      self.checksums.add(fs_checksum)
+      zip_dex = "incremental_classes%d.dex" % self.output_dex_counter
+      self.output_dex_counter += 1
+      self.manifest_lines.append("%s %s %s %s" %(
+              input_dex_or_zip, zippath if zippath else "-", zip_dex, fs_checksum))
 
-    fs_checksum = self.Checksum(dex)
-    if fs_checksum in self.checksums:
-      return
-
-    self.checksums.add(fs_checksum)
-    zip_dex = "incremental_classes%d.dex" % self.output_dex_counter
-    self.output_dex_counter += 1
-    self.manifest_lines.append("%s %s %s %s" %(
-        input_dex_or_zip, zippath if zippath else "-", zip_dex, fs_checksum))
+  def computeChecksumConcurrently(self, input_dex_or_zip, zippath, dex):
+    """Call Checksum concurrently to improve build performance when an app contains multiple dex files."""
+    t = Thread(target=lambda q, arg1, arg2, arg3: q.put(self.Checksum(arg1, arg2, arg3)), \
+      args=(self.queue, dex, input_dex_or_zip, zippath))
+    t.start()
+    self.threads_list.append(t)
 
   def Run(self, argv):
     """Creates a dex manifest."""
@@ -116,9 +133,18 @@ class DexmanifestBuilder(object):
 
             input_dex_zip.extract(input_dex_dex, input_dex_dir)
             fs_dex = input_dex_dir + "/" + input_dex_dex
-            self.AddDex(input_filename, input_dex_dex, fs_dex)
+            self.computeChecksumConcurrently(input_filename, input_dex_dex, fs_dex)
       elif input_filename.endswith(".dex"):
-        self.AddDex(input_filename, None, input_filename)
+        self.computeChecksumConcurrently(input_filename, None, input_filename)
+    # Collect results from all threads
+    for t in self.threads_list:
+        t.join()
+
+    results = []
+    while not self.queue.empty():
+        fs_checksum, input_dex_or_zip, zippath = self.queue.get()
+        results.append([fs_checksum, input_dex_or_zip, zippath])
+    self.AddDexes(results)
 
     with open(argv[0], "wb") as manifest:
       manifest.write(("\n".join(self.manifest_lines)).encode("utf-8"))
