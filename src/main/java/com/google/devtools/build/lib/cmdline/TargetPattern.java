@@ -822,12 +822,6 @@ public abstract class TargetPattern implements Serializable {
             TargetPatterns.Code.TARGET_CANNOT_BE_EMPTY_STRING);
       }
 
-      // Transform "/BUILD" suffix into ":BUILD" to accept //foo/bar/BUILD
-      // syntax as a synonym to //foo/bar:BUILD.
-      if (pattern.endsWith("/BUILD")) {
-        pattern = pattern.substring(0, pattern.length() - 6) + ":BUILD";
-      }
-
       int colonIndex = pattern.lastIndexOf(':');
       String packagePart = colonIndex < 0 ? pattern : pattern.substring(0, colonIndex);
       String targetPart = colonIndex < 0 ? "" : pattern.substring(colonIndex + 1);
