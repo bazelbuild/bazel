@@ -14,8 +14,8 @@
 
 package net.starlark.java.annot.processor.testsources;
 
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Test case for a class with a StarlarkMethod which has selfCall=true but no name. */
 public class SelfCallWithNoName implements StarlarkValue {
