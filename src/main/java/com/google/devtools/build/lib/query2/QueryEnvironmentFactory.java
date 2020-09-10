@@ -65,7 +65,7 @@ public class QueryEnvironmentFactory {
           eventHandler,
           settings,
           extraFunctions,
-          relativeWorkingDirectory.getPathString(),
+          relativeWorkingDirectory,
           graphFactory,
           universeScope,
           packagePath,

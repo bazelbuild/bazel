@@ -46,7 +46,20 @@ java_library(
         "UniverseScope.java",
     ],
     deps = [
+        ":UniverseSkyKey",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:prepare_deps_of_patterns_value",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "UniverseSkyKey",
+    srcs = ["UniverseSkyKey.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
     ],
 )

@@ -20,22 +20,26 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsValue.TargetPatternSequence;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link TargetPatternSequence_AutoCodec}. */
+/** Tests for serialization of {@link TargetPatternSequence}. */
 @RunWith(JUnit4.class)
 public final class TargetPatternSequenceCodecTest {
   @Test
   public void testCodec() throws Exception {
     new SerializationTester(
-            TargetPatternSequence.create(ImmutableList.of(), ""),
-            TargetPatternSequence.create(ImmutableList.of("foo", "bar"), "baz"),
-            TargetPatternSequence.create(ImmutableList.of("uno", "dos"), "tres"),
-            TargetPatternSequence.create(ImmutableList.of("dos", "uno"), "tres"))
+            TargetPatternSequence.create(ImmutableList.of(), PathFragment.EMPTY_FRAGMENT),
+            TargetPatternSequence.create(
+                ImmutableList.of("foo", "bar"), PathFragment.create("baz")),
+            TargetPatternSequence.create(
+                ImmutableList.of("uno", "dos"), PathFragment.create("tres")),
+            TargetPatternSequence.create(
+                ImmutableList.of("dos", "uno"), PathFragment.create("tres")))
         .runTests();
   }
 
@@ -46,14 +50,16 @@ public final class TargetPatternSequenceCodecTest {
     ByteArrayOutputStream outputBytes = new ByteArrayOutputStream();
     CodedOutputStream codedOut = CodedOutputStream.newInstance(outputBytes);
     writeContext.serialize(
-        TargetPatternSequence.create(ImmutableList.of("uno", "dos"), "tres"), codedOut);
+        TargetPatternSequence.create(ImmutableList.of("uno", "dos"), PathFragment.create("tres")),
+        codedOut);
     codedOut.flush();
     byte[] serialized1 = outputBytes.toByteArray();
     assertThat(serialized1).asList().isNotEmpty();
     outputBytes.reset();
     codedOut = CodedOutputStream.newInstance(outputBytes);
     writeContext.serialize(
-        TargetPatternSequence.create(ImmutableList.of("dos", "uno"), "tres"), codedOut);
+        TargetPatternSequence.create(ImmutableList.of("dos", "uno"), PathFragment.create("tres")),
+        codedOut);
     codedOut.flush();
     byte[] serialized2 = outputBytes.toByteArray();
     assertThat(serialized2).asList().isNotEmpty();

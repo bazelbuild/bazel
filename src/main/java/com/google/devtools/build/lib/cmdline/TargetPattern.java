@@ -60,11 +60,11 @@ public abstract class TargetPattern implements Serializable {
   private static final Splitter SLASH_SPLITTER = Splitter.on('/');
   private static final Joiner SLASH_JOINER = Joiner.on('/');
 
-  private static final Parser DEFAULT_PARSER = new Parser("");
+  private static final Parser DEFAULT_PARSER = new Parser(PathFragment.EMPTY_FRAGMENT);
 
   private final Type type;
   private final String originalPattern;
-  private final String offset;
+  private final PathFragment offset;
 
   /**
    * Returns a parser with no offset. Note that the Parser class is immutable, so this method may
@@ -117,7 +117,7 @@ public abstract class TargetPattern implements Serializable {
     return SLASH_JOINER.join(pieces);
   }
 
-  private TargetPattern(Type type, String originalPattern, String offset) {
+  private TargetPattern(Type type, String originalPattern, PathFragment offset) {
     // Don't allow inheritance outside this class.
     this.type = type;
     this.originalPattern = Preconditions.checkNotNull(originalPattern);
@@ -139,10 +139,8 @@ public abstract class TargetPattern implements Serializable {
     return originalPattern;
   }
 
-  /**
-   * Return the offset this target pattern was parsed with.
-   */
-  public String getOffset() {
+  /** Returns the offset this target pattern was parsed with. */
+  public PathFragment getOffset() {
     return offset;
   }
 
@@ -316,7 +314,10 @@ public abstract class TargetPattern implements Serializable {
     private final PackageIdentifier directory;
 
     private SingleTarget(
-        String targetName, PackageIdentifier directory, String originalPattern, String offset) {
+        String targetName,
+        PackageIdentifier directory,
+        String originalPattern,
+        PathFragment offset) {
       super(Type.SINGLE_TARGET, originalPattern, offset);
       this.targetName = Preconditions.checkNotNull(targetName);
       this.directory = Preconditions.checkNotNull(directory);
@@ -380,7 +381,7 @@ public abstract class TargetPattern implements Serializable {
 
     private final String path;
 
-    private InterpretPathAsTarget(String path, String originalPattern, String offset) {
+    private InterpretPathAsTarget(String path, String originalPattern, PathFragment offset) {
       super(Type.PATH_AS_TARGET, originalPattern, offset);
       this.path = normalize(Preconditions.checkNotNull(path));
     }
@@ -468,9 +469,14 @@ public abstract class TargetPattern implements Serializable {
     private final boolean rulesOnly;
     private final boolean checkWildcardConflict;
 
-    private TargetsInPackage(String originalPattern, String offset,
-        PackageIdentifier packageIdentifier, String suffix, boolean wasOriginallyAbsolute,
-        boolean rulesOnly, boolean checkWildcardConflict) {
+    private TargetsInPackage(
+        String originalPattern,
+        PathFragment offset,
+        PackageIdentifier packageIdentifier,
+        String suffix,
+        boolean wasOriginallyAbsolute,
+        boolean rulesOnly,
+        boolean checkWildcardConflict) {
       super(Type.TARGETS_IN_PACKAGE, originalPattern, offset);
       Preconditions.checkArgument(!packageIdentifier.getRepository().isDefault());
       this.packageIdentifier = packageIdentifier;
@@ -586,7 +592,10 @@ public abstract class TargetPattern implements Serializable {
     private final boolean rulesOnly;
 
     private TargetsBelowDirectory(
-        String originalPattern, String offset, PackageIdentifier directory, boolean rulesOnly) {
+        String originalPattern,
+        PathFragment offset,
+        PackageIdentifier directory,
+        boolean rulesOnly) {
       super(Type.TARGETS_BELOW_DIRECTORY, originalPattern, offset);
       Preconditions.checkArgument(!directory.getRepository().isDefault());
       this.directory = Preconditions.checkNotNull(directory);
@@ -755,21 +764,15 @@ public abstract class TargetPattern implements Serializable {
 
     /**
      * Directory prefix to use when resolving relative labels (rather than absolute ones). For
-     * example, if the working directory is "<workspace root>/foo", then this should be "foo",
-     * which will make patterns such as "bar:bar" be resolved as "//foo/bar:bar". This makes the
-     * command line a bit more convenient to use.
+     * example, if the working directory is "<workspace root>/foo", then this should be "foo", which
+     * will make patterns such as "bar:bar" be resolved as "//foo/bar:bar". This makes the command
+     * line a bit more convenient to use.
      */
-    private final String relativeDirectory;
+    private final PathFragment relativeDirectory;
 
-    /**
-     * Creates a new parser with the given offset for relative patterns.
-     */
-    public Parser(String relativeDirectory) {
+    /** Creates a new parser with the given offset for relative patterns. */
+    public Parser(PathFragment relativeDirectory) {
       this.relativeDirectory = relativeDirectory;
-    }
-
-    public String getRelativeDirectory() {
-      return relativeDirectory;
     }
 
     /**
@@ -952,13 +955,11 @@ public abstract class TargetPattern implements Serializable {
         return pattern;
       }
 
-      // It seems natural to use {@link PathFragment#getRelative()} here,
-      // but it doesn't work when the pattern starts with ":".
-      // "foo".getRelative(":all") would return "foo/:all", where we
-      // really want "foo:all".
+      // PathFragment#getRelative doesn't work when the pattern starts with ":".
+      // "foo".getRelative(":all") would return "foo/:all", where we really want "foo:all".
       return pattern.startsWith(":") || relativeDirectory.isEmpty()
-          ? "//" + relativeDirectory + pattern
-          : "//" + relativeDirectory + "/" + pattern;
+          ? "//" + relativeDirectory.getPathString() + pattern
+          : "//" + relativeDirectory.getPathString() + "/" + pattern;
     }
   }
 
