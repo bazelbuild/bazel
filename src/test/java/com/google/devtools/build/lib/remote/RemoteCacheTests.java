@@ -1207,6 +1207,35 @@ public class RemoteCacheTests {
   }
 
   @Test
+  public void testDownloadFileWithSymlinkTemplate() throws Exception {
+    // Test that when a symlink template is provided, we don't actually download files to disk.
+    // Instead, a symbolic link should be created that points to a location where the file may
+    // actually be found. That location could, for example, be backed by a FUSE file system that
+    // exposes the Content Addressable Storage.
+
+    // arrange
+    final ConcurrentMap<Digest, byte[]> cas = new ConcurrentHashMap<>();
+
+    Digest helloDigest = digestUtil.computeAsUtf8("hello-contents");
+    cas.put(helloDigest, "hello-contents".getBytes(StandardCharsets.UTF_8));
+
+    Path file = fs.getPath("/execroot/symlink-to-file");
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteDownloadSymlinkTemplate = "/home/alice/cas/{hash}-{size_bytes}";
+    RemoteCache remoteCache = new InMemoryRemoteCache(cas, options, digestUtil);
+
+    // act
+    Utils.getFromFuture(remoteCache.downloadFile(file, helloDigest));
+
+    // assert
+    assertThat(file.isSymbolicLink()).isTrue();
+    assertThat(file.readSymbolicLink())
+        .isEqualTo(
+            PathFragment.create(
+                "/home/alice/cas/a378b939ad2e1d470a9a28b34b0e256b189e85cb236766edc1d46ec3b6ca82e5-14"));
+  }
+
+  @Test
   public void testDownloadDirectory() throws Exception {
     // Test that downloading an output directory works.
 

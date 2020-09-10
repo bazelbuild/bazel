@@ -460,6 +460,21 @@ public final class RemoteOptions extends OptionsBase {
               + " discard the remotely cached values if they don't match the expected value.")
   public boolean remoteVerifyDownloads;
 
+  @Option(
+      name = "remote_download_symlink_template",
+      defaultValue = "",
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Instead of downloading remote build outputs to the local machine, create symbolic "
+              + "links. The target of the symbolic links can be specified in the form of a "
+              + "template string. This template string may contain {hash} and {size_bytes} that "
+              + "expand to the hash of the object and the size in bytes, respectively. "
+              + "These symbolic links may, for example, point to a FUSE file system "
+              + "that loads objects from the CAS on demand.")
+  public String remoteDownloadSymlinkTemplate;
+
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.
 
