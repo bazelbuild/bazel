@@ -406,7 +406,6 @@ function build_jni() {
 
 build_jni "${ARCHIVE_DIR}"
 
-cp src/main/tools/jdk.BUILD ${ARCHIVE_DIR}/jdk.BUILD
 cp $OUTPUT_DIR/libblaze.jar ${ARCHIVE_DIR}
 
 # TODO(b/28965185): Remove when xcode-locator is no longer required in embedded_binaries.
