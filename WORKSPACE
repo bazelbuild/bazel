@@ -178,7 +178,7 @@ distdir_tar(
         # c-ares/c-ares
         "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
         # protocolbuffers/upb
-        "9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
+        "382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz",
     ],
     dirname = "derived/distdir",
     sha256 = {
@@ -215,7 +215,7 @@ distdir_tar(
         # c-ares/c-ares
         "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz": "e8c2751ddc70fed9dc6f999acd92e232d5846f009ee1674f8aee81f19b2b915a",
         # protocolbuffers/upb
-        "9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz": "61d0417abd60e65ed589c9deee7c124fe76a4106831f6ad39464e1525cef1454",
+        "382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz": "7992217989f3156f8109931c1fc6db3434b7414957cb82371552377beaeb9d6c",
     },
     urls = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": [
@@ -300,9 +300,9 @@ distdir_tar(
             "https://github.com/c-ares/c-ares/archive/e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
         ],
         # protocolbuffers/upb
-        "9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz": [
-            "https://mirror.bazel.build/github.com/protocolbuffers/upb/archive/9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
-            "https://github.com/protocolbuffers/upb/archive/9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
+        "382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz": [
+            "https://mirror.bazel.build/github.com/protocolbuffers/upb/archive/382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz",
+            "https://github.com/protocolbuffers/upb/archive/382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz",
         ],
     },
 )
@@ -553,7 +553,7 @@ distdir_tar(
         # c-ares/c-ares
         "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
         # protocolbuffers/upb
-        "9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
+        "382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz",
     ],
     dirname = "test_WORKSPACE/distdir",
     sha256 = {
@@ -583,7 +583,7 @@ distdir_tar(
         # c-ares/c-ares
         "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz": "e8c2751ddc70fed9dc6f999acd92e232d5846f009ee1674f8aee81f19b2b915a",
         # protocolbuffers/upb
-        "9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz": "61d0417abd60e65ed589c9deee7c124fe76a4106831f6ad39464e1525cef1454",
+        "382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz": "7992217989f3156f8109931c1fc6db3434b7414957cb82371552377beaeb9d6c",
     },
     urls = {
         "java_tools_javac11_linux-v9.0.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v9.0/java_tools_javac11_linux-v9.0.zip"],
@@ -638,9 +638,9 @@ distdir_tar(
             "https://github.com/c-ares/c-ares/archive/e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
         ],
         # protocolbuffers/upb
-        "9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz": [
-            "https://mirror.bazel.build/github.com/protocolbuffers/upb/archive/9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
-            "https://github.com/protocolbuffers/upb/archive/9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
+        "382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz": [
+            "https://mirror.bazel.build/github.com/protocolbuffers/upb/archive/382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz",
+            "https://github.com/protocolbuffers/upb/archive/382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz",
         ],
     },
 )
@@ -1055,6 +1055,16 @@ load("@local_config_winsdk//:toolchains.bzl", "register_local_rc_exe_toolchains"
 register_local_rc_exe_toolchains()
 
 register_toolchains("//src/main/res:empty_rc_toolchain")
+
+http_archive(
+    name = "upb",
+    sha256 = "7992217989f3156f8109931c1fc6db3434b7414957cb82371552377beaeb9d6c",
+    strip_prefix = "upb-382d5afc60e05470c23e8de19b19fc5ad231e732",
+    urls = [
+        "https://mirror.bazel.build/github.com/protocolbuffers/upb/archive/382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz",
+        "https://github.com/protocolbuffers/upb/archive/382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz",
+    ],
+)
 
 http_archive(
     name = "com_github_grpc_grpc",
