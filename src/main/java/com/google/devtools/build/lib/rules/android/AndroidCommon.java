@@ -256,7 +256,7 @@ public class AndroidCommon {
           .setDefinesAndroidResources(true)
           // Sets the possibly merged manifest and the raw manifest.
           .setGeneratedManifest(resourceApk.getManifest())
-          .setManifest(ruleContext.getPrerequisiteArtifact("manifest", TransitionMode.TARGET))
+          .setManifest(ruleContext.getPrerequisiteArtifact("manifest"))
           .setJavaPackage(getJavaPackage(ruleContext))
           .setResourceApk(resourceApk.getArtifact());
     }
@@ -359,8 +359,7 @@ public class AndroidCommon {
   public static NestedSetBuilder<Artifact> collectTransitiveNativeLibs(RuleContext ruleContext) {
     NestedSetBuilder<Artifact> transitiveNativeLibs = NestedSetBuilder.naiveLinkOrder();
     Iterable<AndroidNativeLibsInfo> infos =
-        getTransitivePrerequisites(
-            ruleContext, TransitionMode.TARGET, AndroidNativeLibsInfo.PROVIDER);
+        getTransitivePrerequisites(ruleContext, AndroidNativeLibsInfo.PROVIDER);
     for (AndroidNativeLibsInfo nativeLibsZipsInfo : infos) {
       transitiveNativeLibs.addTransitive(nativeLibsZipsInfo.getNativeLibs());
     }
@@ -386,7 +385,7 @@ public class AndroidCommon {
   /** Returns the artifact for the debug key for signing the APK. */
   static ImmutableList<Artifact> getApkDebugSigningKeys(RuleContext ruleContext) {
     ImmutableList<Artifact> keys =
-        ruleContext.getPrerequisiteArtifacts("debug_signing_keys", TransitionMode.HOST).list();
+        ruleContext.getPrerequisiteArtifacts("debug_signing_keys").list();
     if (!keys.isEmpty()) {
       return keys;
     }
@@ -452,8 +451,7 @@ public class AndroidCommon {
       NestedSetBuilder<Artifact> bootclasspath = NestedSetBuilder.<Artifact>stableOrder();
       if (getAndroidConfig(ruleContext).desugarJava8()) {
         bootclasspath.addTransitive(
-            PrerequisiteArtifacts.nestedSet(
-                ruleContext, "$desugar_java8_extra_bootclasspath", TransitionMode.HOST));
+            PrerequisiteArtifacts.nestedSet(ruleContext, "$desugar_java8_extra_bootclasspath"));
       }
       bootclasspath.add(androidSdkProvider.getAndroidJar());
       bootClassPathInfo = BootClassPathInfo.create(bootclasspath.build());
@@ -842,8 +840,7 @@ public class AndroidCommon {
   private NestedSet<Artifact> collectHiddenTopLevelArtifacts(RuleContext ruleContext) {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     for (OutputGroupInfo provider :
-        getTransitivePrerequisites(
-            ruleContext, TransitionMode.TARGET, OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
+        getTransitivePrerequisites(ruleContext, OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
       builder.addTransitive(provider.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL));
     }
     return builder.build();
@@ -863,8 +860,7 @@ public class AndroidCommon {
       DataBindingContext dataBindingContext,
       boolean isLibrary) {
 
-    ImmutableList<Artifact> ruleSources =
-        ruleContext.getPrerequisiteArtifacts("srcs", TransitionMode.TARGET).list();
+    ImmutableList<Artifact> ruleSources = ruleContext.getPrerequisiteArtifacts("srcs").list();
 
     ImmutableList<Artifact> dataBindingSources =
         dataBindingContext.getAnnotationSourceFiles(ruleContext);
@@ -885,8 +881,7 @@ public class AndroidCommon {
       bothDeps = JavaCommon.defaultDeps(ruleContext, semantics, ClasspathType.BOTH);
     } else {
       // Binary:
-      compileDeps =
-          ImmutableList.copyOf(ruleContext.getPrerequisites("deps", TransitionMode.TARGET));
+      compileDeps = ImmutableList.copyOf(ruleContext.getPrerequisites("deps"));
       runtimeDeps = compileDeps;
       bothDeps = compileDeps;
     }
@@ -900,8 +895,7 @@ public class AndroidCommon {
    */
   static NestedSet<Artifact> getSupportApks(RuleContext ruleContext) {
     NestedSetBuilder<Artifact> supportApks = NestedSetBuilder.stableOrder();
-    for (TransitiveInfoCollection dep :
-        ruleContext.getPrerequisites("support_apks", TransitionMode.TARGET)) {
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("support_apks")) {
       ApkInfo apkProvider = dep.get(ApkInfo.PROVIDER);
       FileProvider fileProvider = dep.getProvider(FileProvider.class);
       // If ApkInfo is present, do not check FileProvider for .apk files. For example,

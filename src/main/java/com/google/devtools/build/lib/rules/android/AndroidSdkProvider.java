@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.rules.android.AndroidStarlarkData.fr
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
@@ -103,8 +102,7 @@ public final class AndroidSdkProvider extends NativeInfo
    * not specified.
    */
   public static AndroidSdkProvider fromRuleContext(RuleContext ruleContext) {
-    return ruleContext.getPrerequisite(
-        ":android_sdk", TransitionMode.TARGET, AndroidSdkProvider.PROVIDER);
+    return ruleContext.getPrerequisite(":android_sdk", AndroidSdkProvider.PROVIDER);
   }
 
   /** Throws an error if the Android SDK cannot be found. */
