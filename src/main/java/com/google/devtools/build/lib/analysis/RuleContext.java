@@ -1021,9 +1021,27 @@ public final class RuleContext extends TargetContext
    * specified attribute.
    */
   public List<? extends TransitiveInfoCollection> getPrerequisites(String attributeName) {
+    if (!attributes().has(attributeName)) {
+      return ImmutableList.of();
+    }
+
+    List<ConfiguredTargetAndData> prerequisiteConfiguredTargets;
+    if (getRule().getRuleClass().equals("android_binary")
+        && attributeName.equals("deps")
+        && attributes().getAttributeDefinition(attributeName).getTransitionFactory().isSplit()) {
+      // TODO(b/168038145): Restore legacy behavior of returning the prerequisites from the first
+      // portion of the split transition.
+      // Callers should be identified, cleaned up, and this check removed.
+      Map<Optional<String>, List<ConfiguredTargetAndData>> map =
+          getSplitPrerequisiteConfiguredTargetAndTargets(attributeName);
+      prerequisiteConfiguredTargets =
+          map.isEmpty() ? ImmutableList.of() : map.entrySet().iterator().next().getValue();
+    } else {
+      prerequisiteConfiguredTargets = getPrerequisiteConfiguredTargets(attributeName);
+    }
+
     return Lists.transform(
-        getPrerequisiteConfiguredTargets(attributeName),
-        ConfiguredTargetAndData::getConfiguredTarget);
+        prerequisiteConfiguredTargets, ConfiguredTargetAndData::getConfiguredTarget);
   }
 
   /**
