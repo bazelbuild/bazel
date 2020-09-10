@@ -111,6 +111,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   private boolean includeRuleInputsAndOutputs = true;
   private boolean includeSyntheticAttributeHash = false;
   private boolean includeInstantiationStack = false;
+  private boolean includeDefinitionStack = false;
   private HashFunction hashFunction = null;
 
   @Nullable private EventHandler eventHandler;
@@ -134,6 +135,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     this.includeRuleInputsAndOutputs = options.protoIncludeRuleInputsAndOutputs;
     this.includeSyntheticAttributeHash = options.protoIncludeSyntheticAttributeHash;
     this.includeInstantiationStack = options.protoIncludeInstantiationStack;
+    this.includeDefinitionStack = options.protoIncludeDefinitionStack;
     this.hashFunction = hashFunction;
   }
 
@@ -267,6 +269,14 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
         }
       }
 
+      if (includeDefinitionStack && rule.getRuleClassObject().isStarlark()) {
+        for (StarlarkThread.CallStackEntry fr : rule.getRuleClassObject().getCallStack()) {
+          // Always report relative locations.
+          // (New fields needn't honor relativeLocations.)
+          rulePb.addDefinitionStack(
+              FormatUtils.getRootRelativeLocation(fr.location, rule.getPackage()) + ": " + fr.name);
+        }
+      }
       targetPb.setType(RULE);
       targetPb.setRule(rulePb);
     } else if (target instanceof OutputFile) {
