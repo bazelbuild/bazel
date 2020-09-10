@@ -15,12 +15,11 @@
 package com.google.devtools.build.skydoc.fakebuildapi.android;
 
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.rules.android.AndroidIdlProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidIdlProviderApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 
-/** Fake implementation of {@link AndroidIdlProvider}. */
+/** Fake implementation of AndroidIdlProvider. */
 public class FakeAndroidIdlProvider implements AndroidIdlProviderApi<FileApi> {
 
   @Override

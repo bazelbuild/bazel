@@ -15,13 +15,12 @@
 package com.google.devtools.build.skydoc.fakebuildapi.android;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.rules.android.AndroidProguardInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidProguardInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 
-/** Fake implementation of {@link AndroidProguardInfo}. */
+/** Fake implementation of AndroidProguardInfo. */
 public class FakeAndroidProguardInfo implements AndroidProguardInfoApi<FileApi> {
 
   @Override

@@ -14,13 +14,12 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.android;
 
-import com.google.devtools.build.lib.rules.android.AndroidCcLinkParamsProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidCcLinkParamsProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 
-/** Fake implementation of {@link AndroidCcLinkParamsProvider}. */
+/** Fake implementation of AndroidCcLinkParamsProvider. */
 public class FakeAndroidCcLinkParamsProvider
     implements AndroidCcLinkParamsProviderApi<FileApi, CcInfoApi<FileApi>> {
 
