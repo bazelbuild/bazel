@@ -226,6 +226,18 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public boolean scanIncludes;
 
   @Option(
+    name = "apple_sdk",
+    defaultValue = "null",
+    converter = LabelConverter.class,
+    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+    help =
+        "Location of target that will provide the appropriate Apple SDK for the current build "
+            + "configuration."
+  )
+  public Label appleSdk;
+
+  @Option(
       name = "incompatible_objc_compile_info_migration",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
