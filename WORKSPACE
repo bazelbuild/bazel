@@ -1056,6 +1056,21 @@ register_local_rc_exe_toolchains()
 
 register_toolchains("//src/main/res:empty_rc_toolchain")
 
+# Patch upb for grpc due to https://github.com/bazelbuild/bazel/issues/12056
+# TODO: Remove the following after upgrading grpc to a newer version that's not
+# affected by this issue.
+http_archive(
+    name = "upb",
+    sha256 = "61d0417abd60e65ed589c9deee7c124fe76a4106831f6ad39464e1525cef1454",
+    patches = ["//third_party/grpc:upb_gcc10_fix.patch"],
+    patch_args = ["-p1"],
+    strip_prefix = "upb-9effcbcb27f0a665f9f345030188c0b291e32482",
+    urls = [
+        "https://mirror.bazel.build/github.com/protocolbuffers/upb/archive/9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
+        "https://github.com/protocolbuffers/upb/archive/9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
+    ],
+)
+
 http_archive(
     name = "com_github_grpc_grpc",
     urls = [
