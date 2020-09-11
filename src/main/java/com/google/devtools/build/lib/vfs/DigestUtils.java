@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.actions.cache;
+package com.google.devtools.build.lib.vfs;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -19,21 +19,10 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
 import com.google.common.primitives.Longs;
-import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.VarInt;
-import com.google.devtools.build.lib.vfs.FileStatus;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.ByteBuffer;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
-import javax.annotation.Nullable;
 
 /**
  * Utility class for getting digests of files.
@@ -152,7 +141,7 @@ public class DigestUtils {
    * provide it via extended attribute.
    */
   private static byte[] getDigestInExclusiveMode(Path path) throws IOException {
-    long startTime = BlazeClock.nanoTime();
+    long startTime = Profiler.nanoTimeMaybe();
     synchronized (DIGEST_LOCK) {
       Profiler.instance().logSimpleTask(startTime, ProfilerTask.WAIT, path.getPathString());
       return getDigestInternal(path);
@@ -160,14 +149,14 @@ public class DigestUtils {
   }
 
   private static byte[] getDigestInternal(Path path) throws IOException {
-    long startTime = BlazeClock.nanoTime();
+    long startTime = System.nanoTime();
     byte[] digest = path.getDigest();
 
     // When using multi-threaded digesting, it makes no sense to use the throughput of a single
     // digest operation to determine whether a read was abnormally slow (as the scheduler might just
     // have preferred other reads).
     if (!MULTI_THREADED_DIGEST.get()) {
-      long millis = (BlazeClock.nanoTime() - startTime) / 1000000;
+      long millis = (System.nanoTime() - startTime) / 1000000;
       if (millis > SLOW_READ_MILLIS && (path.getFileSize() / millis) < SLOW_READ_THROUGHPUT) {
         System.err.printf(
             "Slow read: a %d-byte read from %s took %d ms.%n", path.getFileSize(), path, millis);
@@ -231,6 +220,20 @@ public class DigestUtils {
   }
 
   /**
+   * Gets the digest of {@code path}, using a constant-time xattr call if the filesystem supports
+   * it, and calculating the digest manually otherwise.
+   *
+   * <p>Unlike {@link #getDigestWithManualFallback}, will not rate-limit manual digesting of files,
+   * so only use this method if the file size is truly unknown and you don't expect many concurrent
+   * manual digests of large files.
+   *
+   * @param path Path of the file.
+   */
+  public static byte[] getDigestWithManualFallbackWhenSizeUnknown(Path path) throws IOException {
+    return getDigestWithManualFallback(path, -1);
+  }
+
+  /**
    * Calculates the digest manually.
    *
    * @param path Path of the file.
@@ -271,64 +274,8 @@ public class DigestUtils {
     return digest;
   }
 
-  /**
-   * @param source the byte buffer source.
-   * @return the digest from the given buffer.
-   * @throws IOException if the byte buffer is incorrectly formatted.
-   */
-  public static byte[] read(ByteBuffer source) throws IOException {
-    int size = VarInt.getVarInt(source);
-    byte[] bytes = new byte[size];
-    source.get(bytes);
-    return bytes;
-  }
-
-  /** Write the digest to the output stream. */
-  public static void write(byte[] digest, OutputStream sink) throws IOException {
-    VarInt.putVarInt(digest.length, sink);
-    sink.write(digest);
-  }
-
-  /**
-   * @param mdMap A collection of (execPath, FileArtifactValue) pairs. Values may be null.
-   * @return an <b>order-independent</b> digest from the given "set" of (path, metadata) pairs.
-   */
-  public static byte[] fromMetadata(Map<String, FileArtifactValue> mdMap) {
-    byte[] result = new byte[1]; // reserve the empty string
-    // Profiling showed that MessageDigest engine instantiation was a hotspot, so create one
-    // instance for this computation to amortize its cost.
-    Fingerprint fp = new Fingerprint();
-    for (Map.Entry<String, FileArtifactValue> entry : mdMap.entrySet()) {
-      result = xor(result, getDigest(fp, entry.getKey(), entry.getValue()));
-    }
-    return result;
-  }
-
-  /**
-   * @param env A collection of (String, String) pairs.
-   * @return an order-independent digest of the given set of pairs.
-   */
-  public static byte[] fromEnv(Map<String, String> env) {
-    byte[] result = new byte[0];
-    Fingerprint fp = new Fingerprint();
-    for (Map.Entry<String, String> entry : env.entrySet()) {
-      fp.addString(entry.getKey());
-      fp.addString(entry.getValue());
-      result = xor(result, fp.digestAndReset());
-    }
-    return result;
-  }
-
-  private static byte[] getDigest(Fingerprint fp, String execPath, @Nullable FileArtifactValue md) {
-    fp.addString(execPath);
-    if (md != null) {
-      md.addTo(fp);
-    }
-    return fp.digestAndReset();
-  }
-
   /** Compute lhs ^= rhs bitwise operation of the arrays. May clobber either argument. */
-  private static byte[] xor(byte[] lhs, byte[] rhs) {
+  public static byte[] xor(byte[] lhs, byte[] rhs) {
     int n = rhs.length;
     if (lhs.length >= n) {
       for (int i = 0; i < n; i++) {

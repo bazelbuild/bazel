@@ -11,19 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.actions;
+package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Strings;
 import com.google.common.cache.CacheStats;
-import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.util.Arrays;
@@ -36,9 +31,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for DigestUtils.
- */
+/** Tests for {@link DigestUtils}. */
 @RunWith(JUnit4.class)
 public class DigestUtilsTest {
 

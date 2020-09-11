@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.exec.Protos.SpawnExec;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.util.io.MessageOutputStream;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -92,7 +93,7 @@ public class SpawnLogContext implements ActionContext {
         ActionInput input = e.getValue();
         Path inputPath = execRoot.getRelative(input.getExecPathString());
         if (inputPath.isDirectory()) {
-          listDirectoryContents(inputPath, (file) -> builder.addInputs(file), metadataProvider);
+          listDirectoryContents(inputPath, builder::addInputs, metadataProvider);
         } else {
           Digest digest = computeDigest(input, null, metadataProvider);
           builder.addInputsBuilder().setPath(input.getExecPathString()).setDigest(digest);
@@ -110,7 +111,7 @@ public class SpawnLogContext implements ActionContext {
     for (Map.Entry<Path, ActionInput> e : existingOutputs.entrySet()) {
       Path path = e.getKey();
       if (path.isDirectory()) {
-        listDirectoryContents(path, (file) -> builder.addActualOutputs(file), metadataProvider);
+        listDirectoryContents(path, builder::addActualOutputs, metadataProvider);
       } else {
         File.Builder outputBuilder = builder.addActualOutputsBuilder();
         outputBuilder.setPath(path.relativeTo(execRoot).toString());
@@ -233,9 +234,11 @@ public class SpawnLogContext implements ActionContext {
       path = execRoot.getRelative(input.getExecPath());
     }
     // Compute digest manually.
+    long fileSize = path.getFileSize();
     return digest
-        .setHash(HashCode.fromBytes(path.getDigest()).toString())
-        .setSizeBytes(path.getFileSize())
+        .setHash(
+            HashCode.fromBytes(DigestUtils.getDigestWithManualFallback(path, fileSize)).toString())
+        .setSizeBytes(fileSize)
         .build();
   }
 }
