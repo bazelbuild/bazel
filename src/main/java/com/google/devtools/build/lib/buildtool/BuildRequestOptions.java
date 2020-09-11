@@ -59,10 +59,11 @@ public class BuildRequestOptions extends OptionsBase {
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
       converter = JobsConverter.class,
       help =
-          "The number of concurrent jobs to run. Takes {@value FLAG_SYNTAX}. Values must be"
-              + " between 1 and"
+          "The number of concurrent jobs to run. Takes "
+              + ResourceConverter.FLAG_SYNTAX
+              + ". Values must be between 1 and "
               + MAX_JOBS
-              + " values above "
+              + ". Values above "
               + JOBS_TOO_HIGH_WARNING
               + " may cause memory issues. \"auto\" calculates a reasonable default based on"
               + " host resources.")
