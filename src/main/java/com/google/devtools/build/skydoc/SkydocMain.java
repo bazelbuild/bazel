@@ -681,8 +681,7 @@ public class SkydocMain {
     GeneratedExtensionRegistryProviderApi.NAME,
     JavaNativeLibraryInfoApi.NAME,
     JsModuleInfoApi.NAME,
-    "JsInfo",
-    "PintoModuleProvider"
+    "JsInfo"
   };
 
   /**
