@@ -96,7 +96,6 @@ public class J2ObjcLibraryRule implements RuleDefinition {
         .ancestors(
             J2ObjcLibraryBaseRule.class,
             ObjcRuleClasses.CrosstoolRule.class,
-            ObjcRuleClasses.LibtoolRule.class,
             ObjcRuleClasses.XcrunRule.class)
         .build();
   }
