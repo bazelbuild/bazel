@@ -96,7 +96,9 @@ StartupOptions::StartupOptions(const string &product_name,
 #endif
       unlimit_coredumps(false),
       incompatible_enable_execution_transition(false),
-      windows_enable_symlinks(false) {
+      windows_enable_symlinks(false),
+      version(false),
+      trust_install_base(false) {
   if (blaze::IsRunningWithinTest()) {
     output_root = blaze_util::MakeAbsolute(blaze::GetPathEnv("TEST_TMPDIR"));
     max_idle_secs = 15;
@@ -147,6 +149,10 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("write_command_log", &write_command_log);
   RegisterNullaryStartupFlag("windows_enable_symlinks",
                              &windows_enable_symlinks);
+  RegisterNullaryStartupFlag("version",
+                             &version);
+  RegisterNullaryStartupFlag("trust_install_base",
+                             &trust_install_base);
   RegisterUnaryStartupFlag("command_port");
   RegisterUnaryStartupFlag("connect_timeout_secs");
   RegisterUnaryStartupFlag("digest_function");

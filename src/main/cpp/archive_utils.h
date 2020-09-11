@@ -20,6 +20,11 @@
 
 namespace blaze {
 
+void DetermineArchiveContentsFromInstallBase(
+                              const std::string &install_base,
+                              std::vector<std::string> &files,
+                              std::string &install_md5);
+
 // Determines the contents of the archive, storing the names of the contained
 // files into `files` and the install md5 key into `install_md5`.
 void DetermineArchiveContents(const std::string &archive_path,

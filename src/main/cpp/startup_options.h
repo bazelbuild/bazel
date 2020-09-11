@@ -277,6 +277,15 @@ class StartupOptions {
   // developer mode to be enabled.
   bool windows_enable_symlinks;
 
+  // Whether to print version info and exit.
+  bool version;
+
+  // Whether to trust the install base directory provided by --install_base
+  // and skip all the checks. This will allow running the Bazel client without
+  // appending the zip archive when a install base is available, eg. for Debian
+  // installation.
+  bool trust_install_base;
+
  protected:
   // Constructor for subclasses only so that site-specific extensions of this
   // class can override the product name.  The product_name must be the
