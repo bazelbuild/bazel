@@ -66,9 +66,9 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
    * Returns a {@link ConfigMatchingProvider} that matches if the owning target's platform includes
    * this constraint.
    *
-   * <p>The {@link com.google.devtools.build.lib.rules.platform.ConstraintValue;ConstraintValue}
-   * rule can't directly return a {@link ConfigMatchingProvider} because, as part of a platform's
-   * definition, it doesn't have access to the platform during its analysis.
+   * <p>The {@link com.google.devtools.build.lib.rules.platform.ConstraintValue} rule can't directly
+   * return a {@link ConfigMatchingProvider} because, as part of a platform's definition, it doesn't
+   * have access to the platform during its analysis.
    *
    * <p>Instead, a target with a <code>select()</code> on a {@link
    * com.google.devtools.build.lib.rules.platform.ConstraintValue} passes its platform info to this

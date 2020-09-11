@@ -796,6 +796,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       SkyKey baseKey = entry.getConfiguredTargetKey();
       // The code above guarantees that value is non-null here.
       ConfiguredTarget value = configValues.get(baseKey).getConfiguredTarget();
+      // The below handles config_setting (which nativly provides ConfigMatchingProvider) and
+      // constraint_value (which needs a custom-built ConfigMatchingProvider). If we ever add
+      // support for more rules we should move resolution logic to ConfigMatchingProvider and
+      // simplify the logic here.
       ConfigMatchingProvider matchingProvider = value.getProvider(ConfigMatchingProvider.class);
       ConstraintValueInfo constraintValueInfo = value.get(ConstraintValueInfo.PROVIDER);
 
