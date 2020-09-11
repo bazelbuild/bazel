@@ -372,6 +372,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:runtime/blaze_command_result",
         "//src/main/java/com/google/devtools/build/lib:runtime/command_dispatcher",
+        "//src/main/java/com/google/devtools/build/lib:runtime/safe_request_logging",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",

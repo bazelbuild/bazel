@@ -23,9 +23,9 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandDispatcher;
 import com.google.devtools.build.lib.runtime.CommandDispatcher.LockingMode;
+import com.google.devtools.build.lib.runtime.SafeRequestLogging;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.CommandManager.RunningCommand;
 import com.google.devtools.build.lib.server.CommandProtos.CancelRequest;
@@ -102,43 +102,34 @@ import java.util.concurrent.Executors;
  */
 public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase implements RPCServer {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-  private final boolean shutdownOnLowSysMem;
 
-  /**
-   * Factory class. Instantiated by reflection.
-   *
-   * <p>Used so that method calls using reflection are as simple as possible.
-   */
-  public static class Factory implements RPCServer.Factory {
-    @Override
-    public RPCServer create(
-        CommandDispatcher dispatcher,
-        ShutdownHooks shutdownHooks,
-        PidFileWatcher pidFileWatcher,
-        Clock clock,
-        int port,
-        Path serverDirectory,
-        int serverPid,
-        int maxIdleSeconds,
-        boolean shutdownOnLowSysMem,
-        boolean idleServerTasks)
-        throws AbruptExitException {
-      SecureRandom random = new SecureRandom();
-      return new GrpcServerImpl(
-          dispatcher,
-          shutdownHooks,
-          pidFileWatcher,
-          clock,
-          port,
-          generateCookie(random, 16),
-          generateCookie(random, 16),
-          serverDirectory,
-          serverPid,
-          maxIdleSeconds,
-          shutdownOnLowSysMem,
-          idleServerTasks);
-    }
+  public static GrpcServerImpl create(
+      CommandDispatcher dispatcher,
+      ShutdownHooks shutdownHooks,
+      PidFileWatcher pidFileWatcher,
+      Clock clock,
+      int port,
+      Path serverDirectory,
+      int serverPid,
+      int maxIdleSeconds,
+      boolean shutdownOnLowSysMem,
+      boolean idleServerTasks) {
+    SecureRandom random = new SecureRandom();
+    return new GrpcServerImpl(
+        dispatcher,
+        shutdownHooks,
+        pidFileWatcher,
+        clock,
+        port,
+        generateCookie(random, 16),
+        generateCookie(random, 16),
+        serverDirectory,
+        serverPid,
+        maxIdleSeconds,
+        shutdownOnLowSysMem,
+        idleServerTasks);
   }
+
 
   @VisibleForTesting
   enum StreamType {
@@ -290,6 +281,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
   private final String requestCookie;
   private final String responseCookie;
   private final int maxIdleSeconds;
+  private final boolean shutdownOnLowSysMem;
   private final PidFileWatcher pidFileWatcher;
   private final int serverPid;
   private final int port;
@@ -549,7 +541,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
             .collect(ImmutableList.toImmutableList());
 
         InvocationPolicy policy = InvocationPolicyParser.parsePolicy(request.getInvocationPolicy());
-        logger.atInfo().log(BlazeRuntime.getRequestLogString(args));
+        logger.atInfo().log(SafeRequestLogging.getRequestLogString(args));
         result =
             dispatcher.exec(
                 policy,

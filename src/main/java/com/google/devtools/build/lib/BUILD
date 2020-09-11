@@ -200,6 +200,11 @@ java_library(
 )
 
 java_library(
+    name = "runtime/safe_request_logging",
+    srcs = ["runtime/SafeRequestLogging.java"],
+)
+
+java_library(
     name = "keep-going-option",
     srcs = ["runtime/KeepGoingOption.java"],
     deps = ["//src/main/java/com/google/devtools/common/options"],
@@ -347,6 +352,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/query2/query/output",
         "//src/main/java/com/google/devtools/build/lib/rules:alias",
         "//src/main/java/com/google/devtools/build/lib/runtime/events",
+        "//src/main/java/com/google/devtools/build/lib/server",
         "//src/main/java/com/google/devtools/build/lib/server:pid_file_watcher",
         "//src/main/java/com/google/devtools/build/lib/server:rpc_server",
         "//src/main/java/com/google/devtools/build/lib/server:shutdown_hooks",
