@@ -34,7 +34,7 @@ public class AndroidStarlarkCommonTest extends AndroidBuildViewTestCase {
 
   @Test
   public void enableImplicitSourcelessDepsExportsCompatibilityTest() throws Exception {
-    setStarlarkSemanticsOptions(
+    setBuildLanguageOptions(
         "--experimental_enable_android_migration_apis", "--experimental_google_legacy_api");
     scratch.file(
         "java/android/compatible.bzl",

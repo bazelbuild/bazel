@@ -52,7 +52,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
 
   @Before
   public void setUp() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_builtins_bzl_path=notdisabled");
+    setBuildLanguageOptions("--experimental_builtins_bzl_path=notdisabled");
   }
 
   /**
@@ -172,7 +172,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     writePkgBzl(
         "print('overridable_symbol :: ' + str(overridable_symbol))",
         "print('overridable_rule :: ' + str(native.overridable_rule))");
-    setStarlarkSemanticsOptions("--experimental_builtins_bzl_path=");
+    setBuildLanguageOptions("--experimental_builtins_bzl_path=");
 
     buildDummyAndAssertSuccess();
     assertContainsEvent("overridable_symbol :: original_value");
@@ -187,7 +187,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     writePkgBzl(
         "print('overridable_symbol :: ' + str(overridable_symbol))",
         "print('overridable_rule :: ' + str(native.overridable_rule))");
-    setStarlarkSemanticsOptions("--experimental_builtins_bzl_path=");
+    setBuildLanguageOptions("--experimental_builtins_bzl_path=");
 
     buildDummyAndAssertSuccess();
     assertContainsEvent("overridable_symbol :: original_value");

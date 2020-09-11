@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.starlarkbuildapi.platform;
 
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
@@ -37,7 +37,7 @@ public interface ConstraintSettingInfoApi extends StructApi {
       name = "label",
       doc = "The label of the target that created this constraint.",
       structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API)
   Label label();
 
   @StarlarkMethod(
@@ -45,7 +45,7 @@ public interface ConstraintSettingInfoApi extends StructApi {
       doc = "The default constraint_value for this setting.",
       structField = true,
       allowReturnNones = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API)
   @Nullable
   ConstraintValueInfoApi defaultConstraintValue();
 

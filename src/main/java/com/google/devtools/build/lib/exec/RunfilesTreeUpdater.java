@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -80,7 +81,9 @@ public class RunfilesTreeUpdater {
       // symbolic link, it is likely a symbolic link to the input manifest, so we cannot trust it as
       // an up-to-date check.
       if (!outputManifest.isSymbolicLink()
-          && Arrays.equals(outputManifest.getDigest(), inputManifest.getDigest())) {
+          && Arrays.equals(
+              DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(outputManifest),
+              DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(inputManifest))) {
         return;
       }
     } catch (IOException e) {

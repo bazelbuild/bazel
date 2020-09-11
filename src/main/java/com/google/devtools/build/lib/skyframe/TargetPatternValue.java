@@ -112,7 +112,7 @@ public final class TargetPatternValue implements SkyValue {
    * @param offset The offset to apply to relative target patterns.
    */
   @ThreadSafe
-  public static TargetPatternKey key(String pattern, FilteringPolicy policy, String offset)
+  public static TargetPatternKey key(String pattern, FilteringPolicy policy, PathFragment offset)
       throws TargetParsingException {
     return Iterables.getOnlyElement(keys(ImmutableList.of(pattern), policy, offset)).getSkyKey();
   }
@@ -129,8 +129,8 @@ public final class TargetPatternValue implements SkyValue {
    * @param offset The offset to apply to relative target patterns.
    */
   @ThreadSafe
-  public static Iterable<TargetPatternSkyKeyOrException> keys(List<String> patterns,
-      FilteringPolicy policy, String offset) {
+  public static Iterable<TargetPatternSkyKeyOrException> keys(
+      List<String> patterns, FilteringPolicy policy, PathFragment offset) {
     TargetPattern.Parser parser = new TargetPattern.Parser(offset);
     ImmutableList.Builder<TargetPatternSkyKeyOrException> builder = ImmutableList.builder();
     for (String pattern : patterns) {
@@ -284,14 +284,14 @@ public final class TargetPatternValue implements SkyValue {
     private final FilteringPolicy policy;
     private final boolean isNegative;
 
-    private final String offset;
+    private final PathFragment offset;
     private final ImmutableSet<PathFragment> excludedSubdirectories;
 
     public TargetPatternKey(
         TargetPattern parsedPattern,
         FilteringPolicy policy,
         boolean isNegative,
-        String offset,
+        PathFragment offset,
         ImmutableSet<PathFragment> excludedSubdirectories) {
       this.parsedPattern = Preconditions.checkNotNull(parsedPattern);
       this.policy = Preconditions.checkNotNull(policy);
@@ -321,7 +321,7 @@ public final class TargetPatternValue implements SkyValue {
       return policy;
     }
 
-    public String getOffset() {
+    public PathFragment getOffset() {
       return offset;
     }
 

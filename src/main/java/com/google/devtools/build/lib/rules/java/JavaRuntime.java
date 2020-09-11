@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -53,7 +54,7 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
         ruleContext
             .getAnalysisEnvironment()
             .getStarlarkSemantics()
-            .experimentalSiblingRepositoryLayout();
+            .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT);
     PathFragment javaHome = defaultJavaHome(ruleContext.getLabel(), siblingRepositoryLayout);
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("java_home")) {
       PathFragment javaHomeAttribute =

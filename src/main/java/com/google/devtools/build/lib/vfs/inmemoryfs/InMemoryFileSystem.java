@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.vfs.inmemoryfs;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.clock.Clock;
@@ -78,22 +77,6 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
     super(hashFunction);
     this.clock = clock;
     this.rootInode = newRootInode(clock);
-  }
-
-  /**
-   * Creates a new InMemoryFileSystem with default clock and hash function.
-   */
-  @VisibleForTesting
-  public InMemoryFileSystem() {
-    this(new JavaClock());
-  }
-
-  /**
-   * Creates a new InMemoryFileSystem.
-   */
-  @VisibleForTesting
-  public InMemoryFileSystem(Clock clock) {
-    this(clock, DigestHashFunction.getDefaultUnchecked());
   }
 
   private static InMemoryDirectoryInfo newRootInode(Clock clock) {

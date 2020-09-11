@@ -37,8 +37,8 @@ public class UnixPathEqualityTest {
 
   @Before
   public final void initializeFileSystem() throws Exception  {
-    unixFs = new UnixFileSystem(DigestHashFunction.getDefaultUnchecked());
-    otherUnixFs = new UnixFileSystem(DigestHashFunction.getDefaultUnchecked());
+    unixFs = new UnixFileSystem(DigestHashFunction.SHA256);
+    otherUnixFs = new UnixFileSystem(DigestHashFunction.SHA256);
     assertThat(unixFs != otherUnixFs).isTrue();
   }
 

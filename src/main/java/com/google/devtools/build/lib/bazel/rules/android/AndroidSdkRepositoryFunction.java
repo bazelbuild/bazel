@@ -106,12 +106,10 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
       androidSdkPath =
           fs.getPath(getAndroidHomeEnvironmentVar(directories.getWorkspace(), environ));
     } else {
-      throw new RepositoryFunctionException(
-          new EvalException(
-              rule.getLocation(),
-              "Either the path attribute of android_sdk_repository or the ANDROID_HOME environment "
-                  + "variable must be set."),
-          Transience.PERSISTENT);
+      // Write an empty BUILD file that declares errors when referred to.
+      String buildFile = getStringResource("android_sdk_repository_empty_template.txt");
+      writeBuildFile(outputDirectory, buildFile);
+      return RepositoryDirectoryValue.builder().setPath(outputDirectory);
     }
 
     if (!symlinkLocalRepositoryContents(outputDirectory, androidSdkPath, userDefinedPath)) {

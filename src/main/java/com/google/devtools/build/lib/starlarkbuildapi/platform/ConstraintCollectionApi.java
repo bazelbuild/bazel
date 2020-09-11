@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.platform;
 
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkIndexable;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -40,7 +40,7 @@ public interface ConstraintCollectionApi<
       name = "constraint_settings",
       doc = "The ConstraintSettingInfo values that this collection directly references.",
       structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API)
   Sequence<ConstraintSettingInfoT> constraintSettings();
 
   @StarlarkMethod(
@@ -54,7 +54,7 @@ public interface ConstraintCollectionApi<
             named = true,
             doc = "The constraint setting to fetch the value for.")
       },
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API)
   @Nullable
   ConstraintValueInfoT get(ConstraintSettingInfoT constraint);
 
@@ -68,7 +68,7 @@ public interface ConstraintCollectionApi<
             named = true,
             doc = "The constraint setting to check.")
       },
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API)
   boolean has(ConstraintSettingInfoT constraint);
 
   @StarlarkMethod(
@@ -81,6 +81,6 @@ public interface ConstraintCollectionApi<
             named = true,
             doc = "The constraint value to check.")
       },
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API)
   boolean hasConstraintValue(ConstraintValueInfoT constraintValue);
 }

@@ -314,8 +314,17 @@ public class StandaloneTestStrategy extends TestStrategy {
     }
     long startTimeMillis = actionExecutionContext.getClock().currentTimeMillis();
     SpawnStrategyResolver resolver = actionExecutionContext.getContext(SpawnStrategyResolver.class);
-    SpawnContinuation spawnContinuation =
-        resolver.beginExecution(spawn, actionExecutionContext.withFileOutErr(testOutErr));
+    SpawnContinuation spawnContinuation;
+    try {
+      spawnContinuation =
+          resolver.beginExecution(spawn, actionExecutionContext.withFileOutErr(testOutErr));
+    } catch (InterruptedException e) {
+      if (streamed != null) {
+        streamed.close();
+      }
+      testOutErr.close();
+      throw e;
+    }
     return new BazelTestAttemptContinuation(
         testAction,
         actionExecutionContext,
@@ -573,6 +582,10 @@ public class StandaloneTestStrategy extends TestStrategy {
         builder
             .setTestPassed(false)
             .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED);
+      } catch (InterruptedException e) {
+        closeSuppressed(e, streamed);
+        closeSuppressed(e, fileOutErr);
+        throw e;
       }
       long endTimeMillis = actionExecutionContext.getClock().currentTimeMillis();
 

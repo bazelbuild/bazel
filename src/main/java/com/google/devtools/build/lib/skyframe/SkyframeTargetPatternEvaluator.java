@@ -58,13 +58,13 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
       Collection<String> patterns,
       boolean keepGoing)
       throws TargetParsingException, InterruptedException {
-    String offset = relativeWorkingDirectory.getPathString();
     ImmutableMap.Builder<String, Collection<Target>> resultBuilder = ImmutableMap.builder();
     List<PatternLookup> patternLookups = new ArrayList<>();
     List<SkyKey> allKeys = new ArrayList<>();
     for (String pattern : patterns) {
       Preconditions.checkArgument(!pattern.startsWith("-"));
-      PatternLookup patternLookup = createPatternLookup(offset, eventHandler, pattern, keepGoing);
+      PatternLookup patternLookup =
+          createPatternLookup(relativeWorkingDirectory, eventHandler, pattern, keepGoing);
       if (patternLookup == null) {
         resultBuilder.put(pattern, ImmutableSet.of());
       } else {
@@ -139,7 +139,10 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
   }
 
   private PatternLookup createPatternLookup(
-      String offset, ExtendedEventHandler eventHandler, String targetPattern, boolean keepGoing)
+      PathFragment offset,
+      ExtendedEventHandler eventHandler,
+      String targetPattern,
+      boolean keepGoing)
       throws TargetParsingException {
     try {
       TargetPatternKey key =

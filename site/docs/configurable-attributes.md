@@ -144,9 +144,14 @@ build parameters, which include `--cpu=arm`. The `tools` attribute changes
 ## Configuration conditions
 
 Each key in a configurable attribute is a label reference to a
-[`config_setting`](be/general.html#config_setting). This is just a collection of
+[`config_setting`](be/general.html#config_setting) or
+[`constraint_value`](be/platform.html#constraint_value).
+
+`config_setting` is just a collection of
 expected command line flag settings. By encapsulating these in a target, it's
 easy to maintain "standard" conditions users can reference from multiple places.
+
+`constraint_value` provides support for [multi-platform behavior](#platforms).
 
 
 ### Built-in flags
@@ -263,7 +268,7 @@ While the ability to specify multiple flags on the command line provides
 flexibility, it can also be burdensome to individually set each one every time
 you want to build a target.
    [Platforms](platforms.html)
-allow you to consolidate these into simple bundles.
+let you consolidate these into simple bundles.
 
 ```python
 # myapp/BUILD
@@ -338,8 +343,26 @@ Without platforms, this might look something like
 bazel build //my_app:my_rocks --define color=white --define texture=smooth --define type=metamorphic
 ```
 
-Platforms are still under development. See the [documentation](platforms.html)
-and [roadmap](https://bazel.build/roadmaps/platforms.html) for details.
+`select()` can also directly read `constraint_value`s:
+
+```python
+constraint_setting(name = "type")
+constraint_value(name = "igneous", constraint_setting = "type")
+constraint_value(name = "metamorphic", constraint_setting = "type")
+sh_binary(
+    name = "my_rocks",
+    srcs = select({
+        ":igneous": ["igneous.sh"],
+        ":metamorphic" ["metamorphic.sh"],
+    }),
+)
+```
+
+This saves the need for boilerplate `config_setting`s when you only need to
+check against single values.
+
+Platforms are still under development. See the
+[documentation](platforms-intro.html) for details.
 
 ## Combining `select()`s
 

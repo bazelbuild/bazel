@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.HasDigest;
-import com.google.devtools.build.lib.actions.cache.DigestUtils;
+import com.google.devtools.build.lib.actions.cache.MetadataDigestUtils;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -131,7 +131,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
   @AutoCodec.VisibleForSerialization
   static final TreeArtifactValue EMPTY =
       new TreeArtifactValue(
-          DigestUtils.fromMetadata(ImmutableMap.of()),
+          MetadataDigestUtils.fromMetadata(ImmutableMap.of()),
           ImmutableSortedMap.of(),
           /*archivedRepresentation=*/ null,
           /*entirelyRemote=*/ false);

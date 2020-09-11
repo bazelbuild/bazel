@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
+import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.testutil.AbstractQueryTest.QueryHelper;
@@ -63,14 +64,14 @@ import org.junit.Before;
  * now.
  */
 public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> {
-  protected String parserPrefix;
+  protected PathFragment parserPrefix;
   protected AnalysisHelper analysisHelper;
   private boolean wholeTestUniverse;
 
   @Override
   public void setUp() throws Exception {
     super.setUp();
-    parserPrefix = "";
+    parserPrefix = PathFragment.EMPTY_FRAGMENT;
     analysisHelper = new AnalysisHelper();
     wholeTestUniverse = false;
     // Reverse the @Before method list, so that superclass is called before subclass.
@@ -234,6 +235,9 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
     } catch (IOException e) {
       // Should be impossible since AggregateAllOutputFormatterCallback doesn't throw IOException.
       throw new IllegalStateException(e);
+    } catch (QuerySyntaxException e) {
+      // Expect the user to provide valid syntax.
+      throw new IllegalArgumentException(e);
     }
     Set<T> targets = env.createThreadSafeMutableSet();
     targets.addAll(callback.getResult());

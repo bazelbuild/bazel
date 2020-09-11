@@ -23,11 +23,13 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.Artifact.MissingExpansionException;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.FilesetManifest;
 import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehavior;
+import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -341,12 +343,21 @@ public class StarlarkCustomCommandLine extends CommandLine {
     private static void expandFileset(
         Artifact.ArtifactExpander artifactExpander, Artifact fileset, List<Object> expandedValues)
         throws CommandLineExpansionException {
+      ImmutableList<FilesetOutputSymlink> expandedFileSet;
+      try {
+        expandedFileSet = artifactExpander.getFileset(fileset);
+      } catch (MissingExpansionException e) {
+        throw new CommandLineExpansionException(
+            String.format(
+                "Could not expand fileset: %s. Did you forget to add it as an input of the"
+                    + " action?",
+                fileset),
+            e);
+      }
       try {
         FilesetManifest filesetManifest =
             FilesetManifest.constructFilesetManifest(
-                artifactExpander.getFileset(fileset),
-                fileset.getExecPath(),
-                RelativeSymlinkBehavior.IGNORE);
+                expandedFileSet, fileset.getExecPath(), RelativeSymlinkBehavior.IGNORE);
         for (PathFragment relativePath : filesetManifest.getEntries().keySet()) {
           expandedValues.add(new FilesetSymlinkFile(fileset, relativePath));
         }

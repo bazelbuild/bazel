@@ -594,8 +594,9 @@ public final class SkyframeActionExecutor {
         //  better to integrate them with the action cache and rerun the action when they change.
         String actionKey = action.getKey(actionKeyContext, artifactExpander);
         FileOutErr fileOutErr = actionLogBufferPathGenerator.persistent(actionKey, pathResolver);
-        // Set the mightHaveOutput bit in FileOutErr. Otherwise hasRecordedOutput() doesn't check if
-        // the file exists and just returns false.
+        // getOutputPath and getErrorPath cause the FileOutErr to be marked as "dirty" which
+        // invalidates any prior in-memory state it had. Need to do this so that hasRecordedOutput()
+        // checks for file existence again.
         fileOutErr.getOutputPath();
         fileOutErr.getErrorPath();
         if (fileOutErr.hasRecordedOutput()) {

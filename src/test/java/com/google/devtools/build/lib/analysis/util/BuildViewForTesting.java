@@ -55,6 +55,8 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.TransitionResolver;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.causes.Cause;
@@ -326,7 +328,12 @@ public class BuildViewForTesting {
         ctgNode,
         configurations.getHostConfiguration(),
         /*aspect=*/ null,
-        getConfigurableAttributeKeysForTesting(eventHandler, ctgNode),
+        getConfigurableAttributeKeysForTesting(
+            eventHandler,
+            ctgNode,
+            toolchainContexts == null
+                ? null
+                : toolchainContexts.getDefaultToolchainContext().targetPlatform()),
         toolchainContexts,
         DependencyResolver.shouldUseToolchainTransition(configuration, target),
         ruleClassProvider.getTrimmingTransitionFactory());
@@ -337,7 +344,9 @@ public class BuildViewForTesting {
    * present in this rule's attributes.
    */
   private ImmutableMap<Label, ConfigMatchingProvider> getConfigurableAttributeKeysForTesting(
-      ExtendedEventHandler eventHandler, TargetAndConfiguration ctg)
+      ExtendedEventHandler eventHandler,
+      TargetAndConfiguration ctg,
+      @Nullable PlatformInfo platformInfo)
       throws StarlarkTransition.TransitionException, InvalidConfigurationException,
           InterruptedException {
     if (!(ctg.getTarget() instanceof Rule)) {
@@ -353,7 +362,16 @@ public class BuildViewForTesting {
         }
         ConfiguredTarget ct = getConfiguredTargetForTesting(
             eventHandler, label, ctg.getConfiguration());
-        keys.put(label, Preconditions.checkNotNull(ct.getProvider(ConfigMatchingProvider.class)));
+        ConfigMatchingProvider matchProvider = ct.getProvider(ConfigMatchingProvider.class);
+        ConstraintValueInfo constraintValueInfo = ct.get(ConstraintValueInfo.PROVIDER);
+        if (matchProvider != null) {
+          keys.put(label, matchProvider);
+        } else if (constraintValueInfo != null && platformInfo != null) {
+          keys.put(label, constraintValueInfo.configMatchingProvider(platformInfo));
+        } else {
+          throw new InvalidConfigurationException(
+              String.format("%s isn't a valid select() condition", label));
+        }
       }
     }
     return ImmutableMap.copyOf(keys);

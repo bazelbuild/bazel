@@ -14,19 +14,20 @@
 
 package net.starlark.java.annot.processor.testsources;
 
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Test case for a StarlarkMethod which has a "extraKeywords" parameter which has enableOnlyWithFlag
  * set. (This is unsupported.)
  */
 public class ToggledKwargsParam implements StarlarkValue {
+
+  private static final String FOO = "-foo";
 
   @StarlarkMethod(
       name = "toggled_kwargs_method",
@@ -36,10 +37,7 @@ public class ToggledKwargsParam implements StarlarkValue {
         @Param(name = "two", type = Integer.class, named = true),
       },
       extraPositionals = @Param(name = "args"),
-      extraKeywords =
-          @Param(
-              name = "kwargs",
-              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API),
+      extraKeywords = @Param(name = "kwargs", enableOnlyWithFlag = FOO),
       useStarlarkThread = true)
   public String toggledKwargsMethod(
       String one, Integer two, Sequence<?> args, Dict<?, ?> kwargs, StarlarkThread thread) {

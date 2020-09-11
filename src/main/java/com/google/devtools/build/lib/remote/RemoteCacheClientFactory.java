@@ -19,7 +19,6 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
-import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.disk.DiskAndRemoteCacheClient;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
@@ -58,17 +57,8 @@ public final class RemoteCacheClientFactory {
     return new DiskAndRemoteCacheClient(diskCacheClient, remoteCacheClient, options);
   }
 
-  public static ReferenceCountedChannel createGrpcChannel(
-      String target,
-      String proxyUri,
-      AuthAndTLSOptions authOptions,
-      @Nullable List<ClientInterceptor> interceptors)
-      throws IOException {
-    return new ReferenceCountedChannel(
-        GoogleAuthUtils.newChannel(target, proxyUri, authOptions, interceptors));
-  }
-
   public static ReferenceCountedChannel createGrpcChannelPool(
+      ChannelFactory channelFactory,
       int poolSize,
       String target,
       String proxyUri,
@@ -77,7 +67,7 @@ public final class RemoteCacheClientFactory {
       throws IOException {
     List<ManagedChannel> channels = new ArrayList<>();
     for (int i = 0; i < poolSize; i++) {
-      channels.add(GoogleAuthUtils.newChannel(target, proxyUri, authOptions, interceptors));
+      channels.add(channelFactory.newChannel(target, proxyUri, authOptions, interceptors));
     }
     return new ReferenceCountedChannelPool(ImmutableList.copyOf(channels));
   }

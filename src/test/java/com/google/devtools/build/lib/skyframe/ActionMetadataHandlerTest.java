@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -58,7 +59,7 @@ public final class ActionMetadataHandlerTest {
 
   private final Scratch scratch =
       new Scratch(
-          new InMemoryFileSystem() {
+          new InMemoryFileSystem(DigestHashFunction.SHA256) {
             @Override
             public void chmod(Path path, int mode) throws IOException {
               assertThat(mode).isEqualTo(0555); // Read only and executable.

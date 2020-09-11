@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.ProcessableModifiedFileSet;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -46,7 +47,7 @@ public class DiffAwarenessManagerTest {
 
   @Before
   public final void createFileSystem() throws Exception  {
-    fs = new InMemoryFileSystem();
+    fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
   }
 
   @Before

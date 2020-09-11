@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
@@ -302,7 +303,9 @@ public final class StarlarkRuleConfiguredTargetUtil {
       loc = info.getCreationLoc();
       if (getProviderKey(loc, info).equals(StructProvider.STRUCT.getKey())) {
 
-        if (context.getStarlarkSemantics().incompatibleDisallowStructProviderSyntax()) {
+        if (context
+            .getStarlarkSemantics()
+            .getBool(BuildLanguageOptions.INCOMPATIBLE_DISALLOW_STRUCT_PROVIDER_SYNTAX)) {
           throw Starlark.errorf(
               "Returning a struct from a rule implementation function is deprecated and will "
                   + "be removed soon. It may be temporarily re-enabled by setting "

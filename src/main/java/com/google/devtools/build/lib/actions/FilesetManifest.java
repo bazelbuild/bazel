@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -114,7 +115,8 @@ public final class FilesetManifest {
     // in-memory Filesystem. This allows us to then crawl the filesystem for files. Any readable
     // file is a valid part of the FilesetManifest. Dangling internal links or symlink cycles will
     // be discovered by the in-memory filesystem.
-    InMemoryFileSystem fs = new InMemoryFileSystem();
+    // (Choice of digest function is irrelevant).
+    InMemoryFileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     Path root = fs.getPath("/");
     for (Map.Entry<PathFragment, String> e : entries.entrySet()) {
       PathFragment location = e.getKey();

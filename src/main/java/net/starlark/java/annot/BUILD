@@ -1,7 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(default_visibility = ["//src:__subpackages__"])
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -13,7 +11,15 @@ filegroup(
 java_library(
     name = "annot",
     exported_plugins = ["//src/main/java/net/starlark/java/annot/processor"],
-    visibility = ["//visibility:public"],
+    visibility = ["//src/main/java/net/starlark/java:clients"],
+    exports = [":annot_sans_processor"],
+)
+
+# Transitional hack for renaming.
+java_library(
+    name = "annot_new",
+    exported_plugins = ["//src/main/java/net/starlark/java/annot/processor:processor_new"],
+    visibility = ["//src/main/java/net/starlark/java:clients"],
     exports = [":annot_sans_processor"],
 )
 
@@ -21,5 +27,6 @@ java_library(
 java_library(
     name = "annot_sans_processor",
     srcs = glob(["*.java"]),
+    visibility = ["//src/main/java/net/starlark/java/annot/processor:__pkg__"],
     deps = ["//third_party:jsr305"],
 )

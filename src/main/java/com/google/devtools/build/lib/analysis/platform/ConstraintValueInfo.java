@@ -14,6 +14,10 @@
 
 package com.google.devtools.build.lib.analysis.platform;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
@@ -56,6 +60,31 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
   @Override
   public Label label() {
     return label;
+  }
+
+  /**
+   * Returns a {@link ConfigMatchingProvider} that matches if the owning target's platform includes
+   * this constraint.
+   *
+   * <p>The {@link com.google.devtools.build.lib.rules.platform.ConstraintValue} rule can't directly
+   * return a {@link ConfigMatchingProvider} because, as part of a platform's definition, it doesn't
+   * have access to the platform during its analysis.
+   *
+   * <p>Instead, a target with a <code>select()</code> on a {@link
+   * com.google.devtools.build.lib.rules.platform.ConstraintValue} passes its platform info to this
+   * method.
+   */
+  public ConfigMatchingProvider configMatchingProvider(PlatformInfo platformInfo) {
+    return new ConfigMatchingProvider(
+        label,
+        ImmutableMultimap.of(),
+        ImmutableMap.of(),
+        // Technically a select() on a constraint_value requires PlatformConfiguration, since that's
+        // used to build the platform this checks against. But platformInfo's existence implies
+        // the owning target already depends on PlatformConfiguration. And we can't reference
+        // PlatformConfiguration.class here without a build dependency cycle.
+        ImmutableSet.of(),
+        platformInfo.constraints().hasConstraintValue(this));
   }
 
   @Override

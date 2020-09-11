@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.sandbox;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -32,7 +33,7 @@ public class FakeSandboxfsProcessIntegrationTest extends BaseSandboxfsProcessInt
 
   @Override
   Path newTmpDir() throws IOException {
-    FileSystem fileSystem = new InMemoryFileSystem();
+    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
     Path tmpDir = fileSystem.getPath("/tmp");
     tmpDir.createDirectory();
     return tmpDir;

@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.common.UniverseScope;
+import com.google.devtools.build.lib.query2.common.UniverseSkyKey;
 import com.google.devtools.build.lib.query2.compat.FakeLoadTarget;
 import com.google.devtools.build.lib.query2.engine.AllRdepsFunction;
 import com.google.devtools.build.lib.query2.engine.Callback;
@@ -153,7 +154,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   protected final UniverseScope universeScope;
   protected boolean blockUniverseEvaluationErrors;
   protected ExtendedEventHandler universeEvalEventHandler;
-  protected final String parserPrefix;
+  protected final PathFragment parserPrefix;
   protected final PathPackageLocator pkgPath;
   protected final int queryEvaluationParallelismLevel;
   private final boolean visibilityDepsAreAllowed;
@@ -172,7 +173,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       ExtendedEventHandler eventHandler,
       Set<Setting> settings,
       Iterable<QueryFunction> extraFunctions,
-      String parserPrefix,
+      PathFragment parserPrefix,
       WalkableGraphFactory graphFactory,
       UniverseScope universeScope,
       PathPackageLocator pkgPath,
@@ -200,7 +201,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       ExtendedEventHandler eventHandler,
       Set<Setting> settings,
       Iterable<QueryFunction> extraFunctions,
-      String parserPrefix,
+      PathFragment parserPrefix,
       WalkableGraphFactory graphFactory,
       UniverseScope universeScope,
       PathPackageLocator pkgPath,
@@ -245,9 +246,9 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   protected void beforeEvaluateQuery(QueryExpression expr)
       throws QueryException, InterruptedException {
-    ImmutableList<String> universeScopeListToUse = universeScope.inferFromQueryExpression(expr);
+    UniverseSkyKey universeKey = universeScope.getUniverseKey(expr, parserPrefix);
+    ImmutableList<String> universeScopeListToUse = universeKey.getPatterns();
     logger.atInfo().log("Using a --universe_scope value of %s", universeScopeListToUse);
-    SkyKey universeKey = graphFactory.getUniverseKey(universeScopeListToUse, parserPrefix);
     Set<SkyKey> roots = getGraphRootsFromUniverseKeyAndExpression(universeKey, expr);
 
     EvaluationResult<SkyValue> result;

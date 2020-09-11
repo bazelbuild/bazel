@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.runtime.commands.info;
 
 import com.google.common.base.Supplier;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -41,11 +41,11 @@ public final class StarlarkSemanticsInfoItem extends InfoItem {
 
   @Override
   public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env) {
-    StarlarkSemanticsOptions starlarkSemanticsOptions =
-        commandOptions.getOptions(StarlarkSemanticsOptions.class);
+    BuildLanguageOptions starlarkSemanticsOptions =
+        commandOptions.getOptions(BuildLanguageOptions.class);
     SkyframeExecutor skyframeExecutor = env.getBlazeWorkspace().getSkyframeExecutor();
     StarlarkSemantics effectiveStarlarkSemantics =
         skyframeExecutor.getEffectiveStarlarkSemantics(starlarkSemanticsOptions);
-    return print(effectiveStarlarkSemantics.toDeterministicString());
+    return print(effectiveStarlarkSemantics);
   }
 }

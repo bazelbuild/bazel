@@ -72,8 +72,8 @@ import com.google.devtools.build.lib.server.CommandProtos.EnvironmentVariable;
 import com.google.devtools.build.lib.server.CommandProtos.ExecRequest;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
-import com.google.devtools.build.lib.server.FailureDetails.GrpcServer;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
+import com.google.devtools.build.lib.server.GrpcServerImpl;
 import com.google.devtools.build.lib.server.PidFileWatcher;
 import com.google.devtools.build.lib.server.RPCServer;
 import com.google.devtools.build.lib.server.ShutdownHooks;
@@ -82,7 +82,6 @@ import com.google.devtools.build.lib.shell.JavaSubprocessFactory;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.SubprocessFactory;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.CustomExitCodePublisher;
@@ -98,13 +97,10 @@ import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.util.ThreadUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
-import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.windows.WindowsFileSystem;
 import com.google.devtools.build.lib.windows.WindowsSubprocessFactory;
 import com.google.devtools.common.options.CommandNameCache;
 import com.google.devtools.common.options.InvocationPolicyParser;
@@ -142,8 +138,6 @@ import java.util.function.Supplier;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -154,8 +148,6 @@ import javax.annotation.Nullable;
  * <p>The parts specific to the current command are stored in {@link CommandEnvironment}.
  */
 public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
-  private static final Pattern suppressFromLog =
-      Pattern.compile("--client_env=([^=]*(?:auth|pass|cookie)[^=]*)=", Pattern.CASE_INSENSITIVE);
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -800,34 +792,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     return result.build();
   }
 
-  /**
-   * Generates a string form of a request to be written to the logs, filtering the user environment
-   * to remove anything that looks private. The current filter criteria removes any variable whose
-   * name includes "auth", "pass", or "cookie".
-   *
-   * @param requestStrings
-   * @return the filtered request to write to the log.
-   */
-  public static String getRequestLogString(List<String> requestStrings) {
-    StringBuilder buf = new StringBuilder();
-    buf.append('[');
-    String sep = "";
-    Matcher m = suppressFromLog.matcher("");
-    for (String s : requestStrings) {
-      buf.append(sep);
-      m.reset(s);
-      if (m.lookingAt()) {
-        buf.append(m.group());
-        buf.append("__private_value_removed__");
-      } else {
-        buf.append(s);
-      }
-      sep = ", ";
-    }
-    buf.append(']');
-    return buf.toString();
-  }
-
   /** Command line options split in to two parts: startup options and everything else. */
   @VisibleForTesting
   static class CommandLineOptions {
@@ -964,11 +928,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       startupOptionsFromCommandLine.add(new Pair<>("", option));
     }
 
-    BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime);
+    BlazeCommandDispatcher dispatcher =
+        new BlazeCommandDispatcher(runtime, BlazeCommandDispatcher.UNKNOWN_SERVER_PID);
     boolean shutdownDone = false;
 
     try {
-      logger.atInfo().log(getRequestLogString(commandLineOptions.getOtherArgs()));
+      logger.atInfo().log(
+          SafeRequestLogging.getRequestLogString(commandLineOptions.getOtherArgs()));
       BlazeCommandResult result =
           dispatcher.exec(
               policy,
@@ -1038,8 +1004,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private static int serverMain(Iterable<BlazeModule> modules, OutErr outErr, String[] args) {
     InterruptSignalHandler sigintHandler = null;
     try {
-      final RPCServer[] rpcServer = new RPCServer[1];
-      Runnable prepareForAbruptShutdown = () -> rpcServer[0].prepareForAbruptShutdown();
+      AtomicReference<RPCServer> rpcServerRef = new AtomicReference<>();
+      Runnable prepareForAbruptShutdown = () -> rpcServerRef.get().prepareForAbruptShutdown();
       BlazeRuntime runtime = newRuntime(modules, Arrays.asList(args), prepareForAbruptShutdown);
 
       // server.pid was written in the C++ launcher after fork() but before exec(). The client only
@@ -1053,39 +1019,22 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       ShutdownHooks shutdownHooks = ShutdownHooks.createAndRegister();
       shutdownHooks.deleteAtExit(pidFile);
 
-      BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime);
+      BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime, serverPid);
       BlazeServerStartupOptions startupOptions =
           runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class);
-      try {
-        // This is necessary so that Bazel kind of works during bootstrapping, at which time the
-        // gRPC server is not compiled in so that we don't need gRPC for bootstrapping.
-        Class<?> factoryClass =
-            Class.forName("com.google.devtools.build.lib.server.GrpcServerImpl$Factory");
-        RPCServer.Factory factory = (RPCServer.Factory) factoryClass.getConstructor().newInstance();
-        rpcServer[0] =
-            factory.create(
-                dispatcher,
-                shutdownHooks,
-                pidFileWatcher,
-                runtime.getClock(),
-                startupOptions.commandPort,
-                runtime.getServerDirectory(),
-                serverPid,
-                startupOptions.maxIdleSeconds,
-                startupOptions.shutdownOnLowSysMem,
-                startupOptions.idleServerTasks);
-      } catch (ReflectiveOperationException | IllegalArgumentException e) {
-        throw new AbruptExitException(
-            DetailedExitCode.of(
-                ExitCode.BLAZE_INTERNAL_ERROR,
-                FailureDetail.newBuilder()
-                    .setMessage("gRPC server not compiled in")
-                    .setGrpcServer(
-                        GrpcServer.newBuilder()
-                            .setCode(GrpcServer.Code.GRPC_SERVER_NOT_COMPILED_IN))
-                    .build()),
-            e);
-      }
+      RPCServer rpcServer =
+          GrpcServerImpl.create(
+              dispatcher,
+              shutdownHooks,
+              pidFileWatcher,
+              runtime.getClock(),
+              startupOptions.commandPort,
+              runtime.getServerDirectory(),
+              serverPid,
+              startupOptions.maxIdleSeconds,
+              startupOptions.shutdownOnLowSysMem,
+              startupOptions.idleServerTasks);
+      rpcServerRef.set(rpcServer);
 
       // Register the signal handler.
       sigintHandler =
@@ -1093,11 +1042,11 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             @Override
             public void run() {
               logger.atSevere().log("User interrupt");
-              rpcServer[0].interrupt();
+              rpcServer.interrupt();
             }
           };
 
-      rpcServer[0].serve();
+      rpcServer.serve();
       runtime.shutdown();
       dispatcher.shutdown();
       return ExitCode.SUCCESS.getNumericExitCode();
@@ -1117,20 +1066,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         sigintHandler.uninstall();
       }
     }
-  }
-
-  private static FileSystem defaultFileSystemImplementation(
-      BlazeServerStartupOptions startupOptions) throws DefaultHashFunctionNotSetException {
-    if ("0".equals(System.getProperty("io.bazel.EnableJni"))) {
-      // Ignore UnixFileSystem, to be used for bootstrapping.
-      return OS.getCurrent() == OS.WINDOWS
-          ? new WindowsFileSystem(startupOptions.enableWindowsSymlinks)
-          : new JavaIoFileSystem();
-    }
-    // The JNI-based UnixFileSystem is faster, but on Windows it is not available.
-    return OS.getCurrent() == OS.WINDOWS
-        ? new WindowsFileSystem(startupOptions.enableWindowsSymlinks)
-        : new UnixFileSystem();
   }
 
   private static SubprocessFactory subprocessFactoryImplementation() {
@@ -1232,27 +1167,17 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
     FileSystem fs = null;
     Path execRootBasePath = null;
-    try {
-      for (BlazeModule module : blazeModules) {
-        BlazeModule.ModuleFileSystem moduleFs =
-            module.getFileSystem(options, outputBase.getRelative(ServerDirectories.EXECROOT));
-        if (moduleFs != null) {
-          execRootBasePath = moduleFs.virtualExecRootBase();
-          Preconditions.checkState(fs == null, "more than one module returns a file system");
-          fs = moduleFs.fileSystem();
-        }
+    for (BlazeModule module : blazeModules) {
+      BlazeModule.ModuleFileSystem moduleFs =
+          module.getFileSystem(options, outputBase.getRelative(ServerDirectories.EXECROOT));
+      if (moduleFs != null) {
+        execRootBasePath = moduleFs.virtualExecRootBase();
+        Preconditions.checkState(fs == null, "more than one module returns a file system");
+        fs = moduleFs.fileSystem();
       }
-
-      if (fs == null) {
-        fs = defaultFileSystemImplementation(startupOptions);
-      }
-    } catch (DefaultHashFunctionNotSetException e) {
-      throw createFilesystemExitException(
-          "No module set the default hash function.",
-          ExitCode.BLAZE_INTERNAL_ERROR,
-          Filesystem.Code.DEFAULT_DIGEST_HASH_FUNCTION_NOT_SET,
-          e);
     }
+
+    Preconditions.checkNotNull(fs, "No module set the file system");
 
     SubscriberExceptionHandler currentHandlerValue = null;
     for (BlazeModule module : blazeModules) {

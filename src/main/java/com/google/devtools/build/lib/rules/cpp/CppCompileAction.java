@@ -64,7 +64,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -564,7 +564,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
             systemIncludeDirs,
             actionExecutionContext
                 .getOptions()
-                .getOptions(StarlarkSemanticsOptions.class)
+                .getOptions(BuildLanguageOptions.class)
                 .experimentalSiblingRepositoryLayout);
       }
 
@@ -1856,7 +1856,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       boolean siblingRepositoryLayout =
           actionExecutionContext
               .getOptions()
-              .getOptions(StarlarkSemanticsOptions.class)
+              .getOptions(BuildLanguageOptions.class)
               .experimentalSiblingRepositoryLayout;
 
       NestedSet<Artifact> discoveredInputs;

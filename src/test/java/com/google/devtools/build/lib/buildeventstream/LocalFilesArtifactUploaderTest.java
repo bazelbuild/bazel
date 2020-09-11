@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -31,7 +32,7 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link LocalFilesArtifactUploader} */
 @RunWith(JUnit4.class)
 public class LocalFilesArtifactUploaderTest {
-  private final FileSystem fileSystem = new InMemoryFileSystem();
+  private final FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
   private final LocalFilesArtifactUploader artifactUploader = new LocalFilesArtifactUploader();
 
   @Test

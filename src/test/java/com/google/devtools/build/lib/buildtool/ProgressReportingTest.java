@@ -64,7 +64,7 @@ public class ProgressReportingTest extends BuildIntegrationTestCase {
 
   @Override
   protected FileSystem createFileSystem() {
-    return new UnixFileSystem(DigestHashFunction.getDefaultUnchecked()) {
+    return new UnixFileSystem(DigestHashFunction.SHA256) {
 
       private void recordAccess(PathOp op, Path path) {
         if (receiver != null) {

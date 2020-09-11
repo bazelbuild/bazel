@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -47,36 +46,29 @@ public class AndroidSdkBase implements RuleConfiguredTargetFactory {
     // rule. Otherwise, use what they told us to.
     FilesToRunProvider proguard =
         ruleContext.getFragment(JavaConfiguration.class).getProguardBinary() == null
-            ? ruleContext.getExecutablePrerequisite("proguard", TransitionMode.HOST)
-            : ruleContext.getExecutablePrerequisite(":proguard", TransitionMode.HOST);
+            ? ruleContext.getExecutablePrerequisite("proguard")
+            : ruleContext.getExecutablePrerequisite(":proguard");
 
     String buildToolsVersion =
         AggregatingAttributeMapper.of(ruleContext.getRule())
             .get("build_tools_version", Type.STRING);
-    FilesToRunProvider aidl = ruleContext.getExecutablePrerequisite("aidl", TransitionMode.HOST);
-    FilesToRunProvider aapt = ruleContext.getExecutablePrerequisite("aapt", TransitionMode.HOST);
-    FilesToRunProvider aapt2 = ruleContext.getExecutablePrerequisite("aapt2", TransitionMode.HOST);
-    FilesToRunProvider apkBuilder =
-        ruleContext.getExecutablePrerequisite("apkbuilder", TransitionMode.HOST);
-    FilesToRunProvider apkSigner =
-        ruleContext.getExecutablePrerequisite("apksigner", TransitionMode.HOST);
+    FilesToRunProvider aidl = ruleContext.getExecutablePrerequisite("aidl");
+    FilesToRunProvider aapt = ruleContext.getExecutablePrerequisite("aapt");
+    FilesToRunProvider aapt2 = ruleContext.getExecutablePrerequisite("aapt2");
+    FilesToRunProvider apkBuilder = ruleContext.getExecutablePrerequisite("apkbuilder");
+    FilesToRunProvider apkSigner = ruleContext.getExecutablePrerequisite("apksigner");
 
-    FilesToRunProvider adb = ruleContext.getExecutablePrerequisite("adb", TransitionMode.HOST);
-    FilesToRunProvider dx = ruleContext.getExecutablePrerequisite("dx", TransitionMode.HOST);
+    FilesToRunProvider adb = ruleContext.getExecutablePrerequisite("adb");
+    FilesToRunProvider dx = ruleContext.getExecutablePrerequisite("dx");
     FilesToRunProvider mainDexListCreator =
-        ruleContext.getExecutablePrerequisite("main_dex_list_creator", TransitionMode.HOST);
-    FilesToRunProvider zipalign =
-        ruleContext.getExecutablePrerequisite("zipalign", TransitionMode.HOST);
-    Artifact frameworkAidl =
-        ruleContext.getPrerequisiteArtifact("framework_aidl", TransitionMode.HOST);
-    TransitiveInfoCollection aidlLib =
-        ruleContext.getPrerequisite("aidl_lib", TransitionMode.TARGET);
-    Artifact androidJar = ruleContext.getPrerequisiteArtifact("android_jar", TransitionMode.HOST);
+        ruleContext.getExecutablePrerequisite("main_dex_list_creator");
+    FilesToRunProvider zipalign = ruleContext.getExecutablePrerequisite("zipalign");
+    Artifact frameworkAidl = ruleContext.getPrerequisiteArtifact("framework_aidl");
+    TransitiveInfoCollection aidlLib = ruleContext.getPrerequisite("aidl_lib");
+    Artifact androidJar = ruleContext.getPrerequisiteArtifact("android_jar");
     Artifact sourceProperties = ruleContext.getHostPrerequisiteArtifact("source_properties");
-    Artifact shrinkedAndroidJar =
-        ruleContext.getPrerequisiteArtifact("shrinked_android_jar", TransitionMode.HOST);
-    Artifact mainDexClasses =
-        ruleContext.getPrerequisiteArtifact("main_dex_classes", TransitionMode.HOST);
+    Artifact shrinkedAndroidJar = ruleContext.getPrerequisiteArtifact("shrinked_android_jar");
+    Artifact mainDexClasses = ruleContext.getPrerequisiteArtifact("main_dex_classes");
 
     if (ruleContext.hasErrors()) {
       return null;

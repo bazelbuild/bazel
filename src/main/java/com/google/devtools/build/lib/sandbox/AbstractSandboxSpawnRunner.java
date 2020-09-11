@@ -182,7 +182,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
         subprocess.waitFor();
         terminationStatus = new TerminationStatus(subprocess.exitValue(), subprocess.timedout());
       } catch (InterruptedException e) {
-        subprocess.destroy();
+        subprocess.destroyAndWait();
         throw e;
       }
     } catch (IOException e) {

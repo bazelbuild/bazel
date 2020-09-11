@@ -13,18 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.hash.HashFunction;
 import com.google.common.io.BaseEncoding;
-import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.BigIntegerFingerprint;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -33,7 +34,6 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -264,19 +264,13 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     return new RegularFileArtifactValue(digest, /*proxy=*/ null, size);
   }
 
-  public static FileArtifactValue createForUnresolvedSymlink(PathFragment symlinkTarget) {
-    DigestHashFunction digestHashFunction;
-
-    try {
-      digestHashFunction = DigestHashFunction.getDefault();
-    } catch (DefaultHashFunctionNotSetException e) {
-      throw new IllegalStateException(e);
-    }
-
+  public static FileArtifactValue createForUnresolvedSymlink(Path symlink) throws IOException {
     byte[] digest =
-        digestHashFunction
+        symlink
+            .getFileSystem()
+            .getDigestFunction()
             .getHashFunction()
-            .hashString(symlinkTarget.getPathString(), StandardCharsets.ISO_8859_1)
+            .hashString(symlink.readSymbolicLink().getPathString(), ISO_8859_1)
             .asBytes();
 
     // We need to be able to tell the difference between a symlink and a file containing the same
@@ -697,6 +691,10 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       this.digest = Preconditions.checkNotNull(digest);
     }
 
+    private InlineFileArtifactValue(byte[] bytes, HashFunction hashFunction) {
+      this(bytes, hashFunction.hashBytes(bytes).asBytes());
+    }
+
     @Override
     public boolean equals(Object o) {
       if (!(o instanceof InlineFileArtifactValue)) {
@@ -712,16 +710,11 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       return Objects.hash(Arrays.hashCode(digest), dataIsShareable());
     }
 
-    private InlineFileArtifactValue(byte[] bytes) {
-      this(
-          bytes,
-          DigestHashFunction.getDefaultUnchecked().getHashFunction().hashBytes(bytes).asBytes());
-    }
-
-    public static InlineFileArtifactValue create(byte[] bytes, boolean shareable) {
+    public static InlineFileArtifactValue create(
+        byte[] bytes, boolean shareable, HashFunction hashFunction) {
       return shareable
-          ? new InlineFileArtifactValue(bytes)
-          : new UnshareableInlineFileArtifactValue(bytes);
+          ? new InlineFileArtifactValue(bytes, hashFunction)
+          : new UnshareableInlineFileArtifactValue(bytes, hashFunction);
     }
 
     public ByteArrayInputStream getInputStream() {
@@ -760,8 +753,8 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   }
 
   private static final class UnshareableInlineFileArtifactValue extends InlineFileArtifactValue {
-    UnshareableInlineFileArtifactValue(byte[] bytes) {
-      super(bytes);
+    UnshareableInlineFileArtifactValue(byte[] bytes, HashFunction hashFunction) {
+      super(bytes, hashFunction);
     }
 
     @Override
@@ -773,10 +766,10 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   /**
    * Used to resolve source symlinks when diskless.
    *
-   * <p>When {@link com.google.devtools.build.lib.skyframe.ActionFileSystem} creates symlinks, it
-   * relies on metadata ({@link FileArtifactValue}) to resolve the actual underlying data. In the
-   * case of remote or inline files, this information is self-contained. However, in the case of
-   * source files, the path is required to resolve the content.
+   * <p>When the optional per-action file system creates symlinks, it relies on metadata ({@link
+   * FileArtifactValue}) to resolve the actual underlying data. In the case of remote or inline
+   * files, this information is self-contained. However, in the case of source files, the path is
+   * required to resolve the content.
    */
   public static final class SourceFileArtifactValue extends FileArtifactValue {
     private final PathFragment execPath;

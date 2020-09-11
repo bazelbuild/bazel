@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
@@ -258,7 +259,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       if (!ruleContext
           .getAnalysisEnvironment()
           .getStarlarkSemantics()
-          .experimentalCcSharedLibrary()) {
+          .getBool(BuildLanguageOptions.EXPERIMENTAL_CC_SHARED_LIBRARY)) {
         ruleContext.ruleError(
             "The attribute 'dynamic_deps' can only be used with the flag"
                 + " --experimental_cc_shared_library.");

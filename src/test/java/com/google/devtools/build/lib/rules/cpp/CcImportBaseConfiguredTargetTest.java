@@ -36,7 +36,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
 
   @Before
   public void setStarlarkImplementationLoadStatement() throws Exception {
-    setStarlarkSemanticsOptions(StarlarkCcCommonTestHelper.CC_STARLARK_WHITELIST_FLAG);
+    setBuildLanguageOptions(StarlarkCcCommonTestHelper.CC_STARLARK_WHITELIST_FLAG);
     invalidatePackages();
     setIsStarlarkImplementation();
   }

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.server;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -33,7 +34,7 @@ public class ShutdownHooksTest {
 
   @Before
   public void setUp() {
-    fileSystem = new InMemoryFileSystem();
+    fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
   }
 
   @Test

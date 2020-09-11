@@ -213,12 +213,15 @@ public abstract class Artifact
     void expand(Artifact artifact, Collection<? super Artifact> output);
 
     /**
-     * Retrieve the expansion of Filesets for the given artifact.
+     * Returns the expansion of Fileset for the given artifact.
      *
      * @param artifact {@code artifact.isFileset()} must be true.
+     * @throws MissingExpansionException if the expander is missing data needed to expand provided
+     *     fileset.
      */
-    default ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact) {
-      throw new UnsupportedOperationException();
+    default ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact)
+        throws MissingExpansionException {
+      throw new MissingExpansionException("Cannot expand fileset " + artifact);
     }
 
     /**
@@ -231,6 +234,17 @@ public abstract class Artifact
     @Nullable
     default ArchivedTreeArtifact getArchivedTreeArtifact(SpecialArtifact treeArtifact) {
       return null;
+    }
+  }
+
+  /**
+   * Exception thrown when attempting to {@linkplain ArtifactExpander expand} an artifact for which
+   * we do not have the necessary data.
+   */
+  public static final class MissingExpansionException extends Exception {
+
+    public MissingExpansionException(String message) {
+      super(message);
     }
   }
 
@@ -260,9 +274,14 @@ public abstract class Artifact
     }
 
     @Override
-    public ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact) {
+    public ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact)
+        throws MissingExpansionException {
       Preconditions.checkState(artifact.isFileset());
-      return Preconditions.checkNotNull(expandedFilesets.get(artifact));
+      ImmutableList<FilesetOutputSymlink> filesetLinks = expandedFilesets.get(artifact);
+      if (filesetLinks == null) {
+        throw new MissingExpansionException("Missing expansion for fileset: " + artifact);
+      }
+      return filesetLinks;
     }
 
     @Override

@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -69,7 +70,7 @@ public class GrpcServerTest {
   private static final int SERVER_PID = 42;
   private static final String REQUEST_COOKIE = "request-cookie";
 
-  private final FileSystem fileSystem = new InMemoryFileSystem();
+  private final FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
   private Path serverDirectory;
   private GrpcServerImpl serverImpl;
   private Server server;

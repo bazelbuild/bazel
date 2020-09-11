@@ -59,6 +59,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/network:srcs",
         "//src/main/java/com/google/devtools/build/lib/packages:srcs",
         "//src/main/java/com/google/devtools/build/lib/packages/metrics:srcs",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics:srcs",
         "//src/main/java/com/google/devtools/build/lib/pkgcache:srcs",
         "//src/main/java/com/google/devtools/build/lib/platform:srcs",
         "//src/main/java/com/google/devtools/build/lib/profiler/callcounts:srcs",
@@ -86,6 +87,9 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/server:srcs",
         "//src/main/java/net/starlark/java/annot/processor:srcs",
         "//src/main/java/net/starlark/java/annot:srcs",
+        "//src/main/java/net/starlark/java/eval:srcs",
+        "//src/main/java/net/starlark/java/syntax:srcs",
+        "//src/main/java/net/starlark/java:srcs",
         "//src/main/java/com/google/devtools/build/lib/ssd:srcs",
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
         "//src/main/java/com/google/devtools/build/lib/supplier:srcs",
@@ -196,6 +200,11 @@ java_library(
 )
 
 java_library(
+    name = "runtime/safe_request_logging",
+    srcs = ["runtime/SafeRequestLogging.java"],
+)
+
+java_library(
     name = "keep-going-option",
     srcs = ["runtime/KeepGoingOption.java"],
     deps = ["//src/main/java/com/google/devtools/common/options"],
@@ -276,6 +285,7 @@ java_library(
         ":runtime/command_dispatcher",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/actions:middleman_type",
@@ -330,9 +340,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec/local:options",
         "//src/main/java/com/google/devtools/build/lib/metrics:event",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:build_type",
-        "//src/main/java/com/google/devtools/build/lib/packages:starlark_semantics_options",
-        "//src/main/java/com/google/devtools/build/lib/packages:type",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/platform:suspend_counter",
         "//src/main/java/com/google/devtools/build/lib/profiler",
@@ -344,6 +352,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/query2/query/output",
         "//src/main/java/com/google/devtools/build/lib/rules:alias",
         "//src/main/java/com/google/devtools/build/lib/runtime/events",
+        "//src/main/java/com/google/devtools/build/lib/server",
         "//src/main/java/com/google/devtools/build/lib/server:pid_file_watcher",
         "//src/main/java/com/google/devtools/build/lib/server:rpc_server",
         "//src/main/java/com/google/devtools/build/lib/server:shutdown_hooks",
