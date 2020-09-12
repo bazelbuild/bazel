@@ -524,6 +524,11 @@ int ReadSymlinkOrJunction(const wstring& path, wstring* result,
           p, buf->MountPointReparseBuffer.SubstituteNameLength / sizeof(WCHAR));
       return ReadSymlinkOrJunctionResult::kSuccess;
     }
+    case IO_REPARSE_TAG_PROJFS:
+    {
+        // Virtual File System for Git
+        return ReadSymlinkOrJunctionResult::kNotALink;
+    }
     default:
       return ReadSymlinkOrJunctionResult::kUnknownLinkType;
   }
