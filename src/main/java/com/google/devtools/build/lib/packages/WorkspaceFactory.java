@@ -14,12 +14,9 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
@@ -32,7 +29,6 @@ import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Program;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -44,8 +40,6 @@ import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -109,50 +103,13 @@ public class WorkspaceFactory {
             allowOverride, ruleFactory, this.workspaceGlobals, starlarkSemantics);
   }
 
-  // TODO(adonovan): move this into the test. It doesn't need privileged access,
-  // and it's called exactly once (!).
-  @VisibleForTesting
-  void parseForTesting(ParserInput source, @Nullable StoredEventHandler localReporter)
-      throws BuildFileContainsErrorsException, InterruptedException {
-    if (localReporter == null) {
-      localReporter = new StoredEventHandler();
-    }
-
-    StarlarkFile file = StarlarkFile.parse(source); // use default options in tests
-    if (!file.ok()) {
-      Event.replayEventsOn(localReporter, file.errors());
-      throw new BuildFileContainsErrorsException(
-          LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, "Failed to parse " + source.getFile());
-    }
-    execute(
-        file,
-        /* additionalLoadedModules= */ ImmutableMap.of(),
-        localReporter,
-        WorkspaceFileValue.key(
-            RootedPath.toRootedPath(
-                Root.fromPath(workspaceDir), PathFragment.create(source.getFile()))));
-  }
-
   /**
    * Actually runs through the AST, calling the functions in the WORKSPACE file and adding rules to
    * the //external package.
    */
   public void execute(
       StarlarkFile file, // becomes resolved as a side effect
-      Map<String, Module> loadedModules,
-      WorkspaceFileValue.WorkspaceFileKey workspaceFileKey)
-      throws InterruptedException {
-    Preconditions.checkNotNull(file);
-    Preconditions.checkNotNull(loadedModules);
-    // TODO(adonovan): What's up with the transient StoredEventHandler?
-    // Doesn't this discard events, including print statements?
-    execute(file, loadedModules, new StoredEventHandler(), workspaceFileKey);
-  }
-
-  private void execute(
-      StarlarkFile file, // becomes resolved as a side effect
       Map<String, Module> additionalLoadedModules,
-      StoredEventHandler localReporter,
       WorkspaceFileValue.WorkspaceFileKey workspaceFileKey)
       throws InterruptedException {
     loadedModules.putAll(additionalLoadedModules);
@@ -163,6 +120,7 @@ public class WorkspaceFactory {
     predeclared.putAll(bindings); // (may shadow bindings in default environment)
     Module module = Module.withPredeclared(starlarkSemantics, predeclared);
 
+    StoredEventHandler localReporter = new StoredEventHandler();
     try {
       // compile
       Program prog = Program.compileFile(file, module);
@@ -215,7 +173,6 @@ public class WorkspaceFactory {
     if (localReporter.hasErrors()) {
       builder.setContainsErrors();
     }
-    localReporter.clear();
   }
 
   /**
