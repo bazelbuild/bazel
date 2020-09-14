@@ -165,6 +165,7 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.ResourceUsage;
+import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -258,12 +259,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   // the number of cores and use that as the thread-pool size for CPU-bound operations.
   // I just bumped this to 200 to get reasonable execution phase performance; that may cause
   // significant overhead for CPU-bound processes (i.e. analysis). [skyframe-analysis]
-  @VisibleForTesting
   public static final int DEFAULT_THREAD_COUNT =
       // Reduce thread count while running tests of Bazel. Test cases are typically small, and large
       // thread pools vying for a relatively small number of CPU cores may induce non-optimal
       // performance.
-      System.getenv("TEST_TMPDIR") == null ? 200 : 5;
+      TestType.isInTest() ? 5 : 200;
 
   // The limit of how many times we will traverse through an exception chain when catching a
   // target parsing exception.
