@@ -10,8 +10,8 @@ def _local_java_repository_impl(repository_ctx):
     java_home = repository_ctx.attr.java_home
     java_home_path = repository_ctx.path(java_home)
     if not java_home_path.exists:
-        fail('The repository\'s path is "%s" (absolute: "%s") ' +
-             "but this directory does not exist." % (java_home, str(java_home_path)))
+        fail('The path indicated by the "java_home" attribute "%s" (absolute: "%s") ' +
+             "does not exist." % (java_home, str(java_home_path)))
 
     repository_ctx.file(
         "WORKSPACE",
