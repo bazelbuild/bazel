@@ -90,8 +90,9 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   String CONFIGURATION_ARG = "cfg";
   // TODO(b/151742236): Update when new Starlark-based configuration framework is implemented.
   String CONFIGURATION_DOC =
-      "<a href=\"../rules.$DOC_EXT#configurations\">Configuration</a> of the attribute. It can be "
-          + "either <code>\"host\"</code> or <code>\"target\"</code>.";
+      "<a href=\"https://docs.bazel.build/versions/master/skylark/rules.html#configurations\">"
+          + "Configuration</a> of the attribute. It can be either <code>\"host\"</code>, "
+          + "<code>\"exec\"</code>, or <code>\"target\"</code>.";
 
   String DEFAULT_ARG = "default";
   // A trailing space is required because it's often prepended to other sentences
