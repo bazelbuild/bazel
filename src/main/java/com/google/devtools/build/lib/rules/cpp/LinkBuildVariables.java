@@ -54,8 +54,6 @@ public enum LinkBuildVariables {
   LINKER_PARAM_FILE("linker_param_file"),
   /** execpath of the output of the linker. */
   OUTPUT_EXECPATH("output_execpath"),
-
-  LIBRARY_INSTALL_NAME("library_install_name"),
   /** "yes"|"no" depending on whether interface library should be generated. */
   GENERATE_INTERFACE_LIBRARY("generate_interface_library"),
   /** Path to the interface library builder tool. */
@@ -164,8 +162,6 @@ public enum LinkBuildVariables {
     // output exec path
     if (outputFile != null && !isLtoIndexing) {
       buildVariables.addStringVariable(OUTPUT_EXECPATH.getVariableName(), outputFile);
-      PathFragment frag = PathFragment.create(outputFile);
-      buildVariables.addStringVariable(LIBRARY_INSTALL_NAME.getVariableName(), frag.getBaseName());
     }
 
     if (isLtoIndexing) {
