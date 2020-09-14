@@ -22,6 +22,8 @@ import com.google.common.testing.EqualsTester;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetStore.MissingNestedSetException;
+import com.google.protobuf.ByteString;
 import java.time.Duration;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -30,12 +32,10 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link com.google.devtools.build.lib.collect.nestedset.NestedSet}.
- */
+/** Tests for {@link NestedSet}. */
 @RunWith(JUnit4.class)
-public class NestedSetImplTest {
-  @SafeVarargs
+public final class NestedSetTest {
+
   private static NestedSetBuilder<String> nestedSetBuilder(String... directMembers) {
     NestedSetBuilder<String> builder = NestedSetBuilder.stableOrder();
     builder.addAll(Lists.newArrayList(directMembers));
@@ -115,12 +115,19 @@ public class NestedSetImplTest {
   @Test
   public void canIncludeAnyOrderInStableOrderAndViceVersa() {
     NestedSetBuilder.stableOrder()
-        .addTransitive(NestedSetBuilder.compileOrder()
-            .addTransitive(NestedSetBuilder.stableOrder().build()).build())
-        .addTransitive(NestedSetBuilder.linkOrder()
-            .addTransitive(NestedSetBuilder.stableOrder().build()).build())
-        .addTransitive(NestedSetBuilder.naiveLinkOrder()
-            .addTransitive(NestedSetBuilder.stableOrder().build()).build()).build();
+        .addTransitive(
+            NestedSetBuilder.compileOrder()
+                .addTransitive(NestedSetBuilder.stableOrder().build())
+                .build())
+        .addTransitive(
+            NestedSetBuilder.linkOrder()
+                .addTransitive(NestedSetBuilder.stableOrder().build())
+                .build())
+        .addTransitive(
+            NestedSetBuilder.naiveLinkOrder()
+                .addTransitive(NestedSetBuilder.stableOrder().build())
+                .build())
+        .build();
     assertThrows(
         "Shouldn't be able to include a non-stable order inside a different non-stable order!",
         IllegalArgumentException.class,
@@ -133,7 +140,7 @@ public class NestedSetImplTest {
   /**
    * A handy wrapper that allows us to use EqualsTester to test shallowEquals and shallowHashCode.
    */
-  private static class SetWrapper<E> {
+  private static final class SetWrapper<E> {
     NestedSet<E> set;
 
     SetWrapper(NestedSet<E> wrapped) {
@@ -268,8 +275,8 @@ public class NestedSetImplTest {
     }
   }
 
-  private NestedSet<Integer> createNestedSet(Order order, int numDirects, int numTransitives,
-      Order transitiveOrder) {
+  private static NestedSet<Integer> createNestedSet(
+      Order order, int numDirects, int numTransitives, Order transitiveOrder) {
     NestedSetBuilder<Integer> builder = new NestedSetBuilder<>(order);
 
     for (int direct = 0; direct < numDirects; direct++) {
@@ -365,6 +372,19 @@ public class NestedSetImplTest {
     assertThrows(
         InterruptedException.class,
         () -> deserializingNestedSet.toListWithTimeout(Duration.ofDays(1)));
+  }
+
+  @Test
+  public void toListWithTimeout_propagatesMissingNestedSetException() {
+    NestedSet<String> deserializingNestedSet =
+        NestedSet.withFuture(
+            Order.STABLE_ORDER,
+            UNKNOWN_DEPTH,
+            Futures.immediateFailedFuture(
+                new MissingNestedSetException(ByteString.copyFromUtf8("fingerprint"))));
+    assertThrows(
+        MissingNestedSetException.class,
+        () -> deserializingNestedSet.toListWithTimeout(Duration.ofNanos(1)));
   }
 
   @Test
