@@ -11,7 +11,6 @@ java_library(
     srcs = glob(["**/*.java"]),
     resources = [":template_files"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
@@ -46,6 +45,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/test",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/annot",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:builtin_java_proto",
         "//third_party:apache_velocity",
         "//third_party:guava",

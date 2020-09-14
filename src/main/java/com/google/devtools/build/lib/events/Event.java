@@ -19,9 +19,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.comparing;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import java.io.IOException;
 import java.io.Serializable;
@@ -32,6 +29,9 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.SyntaxError;
 
 /**
  * A situation encountered by the build system that's worth reporting.

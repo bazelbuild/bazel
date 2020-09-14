@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBoots
 import com.google.devtools.build.lib.starlarkbuildapi.stubs.ProviderStub;
 import com.google.devtools.build.lib.starlarkbuildapi.stubs.StarlarkAspectStub;
 import com.google.devtools.build.lib.starlarkbuildapi.test.TestingBootstrap;
-import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeActionsInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeBuildApiGlobals;
@@ -96,6 +95,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.eval.Starlark;
 
 /**
  * A helper class that collects Starlark Api symbols including top level modules, native rules and

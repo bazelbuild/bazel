@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.python.PyInfoApi.PyInfoProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.python.PyRuntimeInfoApi.PyRuntimeInfoProviderApi;
-import com.google.devtools.build.lib.syntax.FlagGuardedValue;
+import net.starlark.java.eval.FlagGuardedValue;
 
 /** {@link Bootstrap} for Starlark objects related to the Python rules. */
 public class PyBootstrap implements Bootstrap {

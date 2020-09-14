@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.skydoc.rendering;
 
-import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
@@ -24,6 +23,7 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
+import net.starlark.java.eval.StarlarkFunction;
 
 /** Produces skydoc output in proto form. */
 public class ProtoRenderer {

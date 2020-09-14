@@ -16,8 +16,8 @@ package com.google.devtools.build.skydoc.fakebuildapi.android;
 
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidInstrumentationInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.ApkInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Printer;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
 
 /** Fake implementation of {@link AndroidInstrumentationInfoApi}. */
 public class FakeAndroidInstrumentationInfo

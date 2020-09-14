@@ -25,10 +25,10 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Objects;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.syntax.Location;
 
 /** Provider for a platform constraint value that fulfills a {@link ConstraintSettingInfo}. */
 @Immutable

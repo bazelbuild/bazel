@@ -17,8 +17,6 @@ package com.google.devtools.build.skydoc.rendering;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionParamInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.StarlarkFunctionInfo;
 import com.google.devtools.starlark.common.DocstringUtils;
@@ -28,6 +26,8 @@ import com.google.devtools.starlark.common.DocstringUtils.ParameterDoc;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFunction;
 
 /** Contains a number of utility methods for functions and parameters. */
 public final class FunctionUtil {

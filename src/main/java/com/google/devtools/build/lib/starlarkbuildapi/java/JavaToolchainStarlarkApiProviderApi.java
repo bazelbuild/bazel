@@ -17,10 +17,10 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainInfoApi;
-import com.google.devtools.build.lib.syntax.Sequence;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Sequence;
 
 /**
  * Provides access to information about the Java toolchain rule. Accessible as a 'java_toolchain'

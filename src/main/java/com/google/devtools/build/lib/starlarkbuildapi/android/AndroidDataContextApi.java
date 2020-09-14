@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Wraps common tools and settings used for working with Android assets, resources, and manifests.

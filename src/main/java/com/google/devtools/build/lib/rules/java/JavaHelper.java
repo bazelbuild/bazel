@@ -22,10 +22,10 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.shell.ShellUtils;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** Utility methods for use by Java-related parts of Bazel. */
 // TODO(bazel-team): Merge with JavaUtil.

@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.skydoc;
 
-import com.google.devtools.build.lib.syntax.ParserInput;
 import java.io.IOException;
+import net.starlark.java.syntax.ParserInput;
 
 /**
  * Helper to handle Skydoc file I/O. This abstraction is useful for tests which don't involve

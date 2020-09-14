@@ -15,7 +15,7 @@
 package com.google.devtools.build.skydoc.fakebuildapi.apple;
 
 import com.google.devtools.build.lib.starlarkbuildapi.apple.DottedVersionApi;
-import com.google.devtools.build.lib.syntax.Printer;
+import net.starlark.java.eval.Printer;
 
 /**
  * Fake implementation of {@link DottedVersionApi}.

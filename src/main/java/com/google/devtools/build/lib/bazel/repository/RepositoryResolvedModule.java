@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.File;
 import java.io.IOException;
@@ -32,6 +31,7 @@ import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import net.starlark.java.eval.Printer;
 
 /** Module providing the collection of the resolved values for the repository rules executed. */
 public final class RepositoryResolvedModule extends BlazeModule {

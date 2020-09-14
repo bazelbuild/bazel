@@ -25,9 +25,9 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
-import com.google.devtools.build.lib.syntax.Location;
 import java.io.IOException;
 import java.io.OutputStream;
+import net.starlark.java.syntax.Location;
 
 /**
  * An output formatter that prints the labels of the targets, preceded by

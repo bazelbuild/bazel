@@ -21,10 +21,10 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
-import com.google.devtools.build.lib.syntax.Debug;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.UUID;
+import net.starlark.java.eval.Debug;
 
 /**
  * A {@link BlazeModule} that can be used to record interesting information about all allocations

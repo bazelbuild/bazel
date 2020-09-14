@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Provider for the runtime classpath contributions of a Java binary. */
 @StarlarkBuiltin(name = "JavaRuntimeClasspathProvider", doc = "", documented = false)

@@ -16,7 +16,7 @@ package com.google.devtools.build.skydoc.fakebuildapi.android;
 
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidManifestInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.eval.EvalException;
 
 /** Fake implementation of AndroidManifestInfo. */
 public class FakeAndroidManifestInfo implements AndroidManifestInfoApi<FileApi> {

@@ -17,7 +17,7 @@ package com.google.devtools.build.skydoc.fakebuildapi.android;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidCcLinkParamsProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.eval.EvalException;
 
 /** Fake implementation of AndroidCcLinkParamsProvider. */
 public class FakeAndroidCcLinkParamsProvider

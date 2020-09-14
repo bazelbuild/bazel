@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidAssetsInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.ParsedAndroidAssetsApi;
-import com.google.devtools.build.lib.syntax.EvalException;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /** Fake implementation of AndroidAssetsInfo. */
 public class FakeAndroidAssetsInfo

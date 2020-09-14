@@ -34,8 +34,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.syntax.Location;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /** Fake implementation of {@link ActionExecutionMetadata} for testing. */
 public class FakeOwner implements ActionExecutionMetadata {

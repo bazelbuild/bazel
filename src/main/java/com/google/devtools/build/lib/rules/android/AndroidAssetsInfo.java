@@ -25,9 +25,9 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidAssetsInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
 import java.util.Optional;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /** Provides information about transitive Android assets. */
 public final class AndroidAssetsInfo extends NativeInfo

@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain.AdditionalBuildVariablesComputer;
-import com.google.devtools.build.lib.syntax.Location;
+import net.starlark.java.syntax.Location;
 
 /**
  * Provider encapsulating all the information from the cc_toolchain rule that affects creation of

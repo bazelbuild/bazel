@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration.Configuratio
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.objc.AppleBinary.BinaryType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
-import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -54,6 +53,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import net.starlark.java.eval.Dict;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;

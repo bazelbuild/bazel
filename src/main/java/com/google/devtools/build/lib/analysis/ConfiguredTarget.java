@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
-import com.google.devtools.build.lib.syntax.ClassObject;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.ClassObject;
 
 /**
  * A {@link ConfiguredTarget} is conceptually a {@link TransitiveInfoCollection} coupled with the

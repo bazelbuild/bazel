@@ -17,8 +17,8 @@ package com.google.devtools.build.skydoc.fakebuildapi.android;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidLibraryAarInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Sequence;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 
 /** Fake implementation of {@link AndroidLibraryAarInfoApi}. */
 public class FakeAndroidLibraryAarInfo implements AndroidLibraryAarInfoApi<FileApi> {

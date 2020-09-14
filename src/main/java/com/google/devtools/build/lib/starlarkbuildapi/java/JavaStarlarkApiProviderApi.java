@@ -15,10 +15,10 @@
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDeprecated;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Provides access to information about Java rules. Every Java-related target provides this struct,

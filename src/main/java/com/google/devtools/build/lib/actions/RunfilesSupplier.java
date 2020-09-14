@@ -18,10 +18,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Map;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Convenience wrapper around runfiles allowing lazy expansion. */
 // TODO(bazel-team): Ideally we could refer to Runfiles objects directly here, but current package

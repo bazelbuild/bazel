@@ -17,8 +17,8 @@ package com.google.devtools.build.skydoc.fakebuildapi.android;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidFeatureFlagSetProviderApi;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
 
 /** Fake implementation of {@link AndroidFeatureFlagSetProviderApi}. */
 public class FakeAndroidFeatureFlagSetProvider implements AndroidFeatureFlagSetProviderApi {

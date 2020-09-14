@@ -12,7 +12,7 @@ md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
     name = "install_base_key-file" + suffix,
     srcs = [
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
-        "//src/main/java/com/google/devtools/build/lib/syntax:cpu_profiler",
+        "//src/main/java/net/starlark/java/eval:cpu_profiler",
         # TODO(brandjon): ensure we haven't forgotten any package-zip items,
         # otherwise bazel won't correctly reextract modified files.
         "//src/main/cpp:client",
@@ -336,7 +336,7 @@ filegroup(
         "install_base_key" + suffix,
         ":platforms_archive",
         # Ordinary items follow:
-        "//src/main/java/com/google/devtools/build/lib/syntax:cpu_profiler",
+        "//src/main/java/net/starlark/java/eval:cpu_profiler",
         "//src/main/native:target-os-unix-native-lib",
         "//src/main/native/windows:target-os-native-lib",
         "//src/main/tools:build-runfiles",
