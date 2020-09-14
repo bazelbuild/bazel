@@ -18,10 +18,12 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.MalformedJsonException;
 import com.google.protobuf.util.JsonFormat;
 import com.google.protobuf.util.JsonFormat.Printer;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -55,34 +57,37 @@ final class JsonWorkerProtocol implements WorkerProtocolImpl {
     Integer exitCode = null;
     String output = null;
     Integer requestId = null;
-
-    reader.beginObject();
-    while (reader.hasNext()) {
-      String name = reader.nextName();
-      switch (name) {
-        case "exitCode":
-          if (exitCode != null) {
-            throw new IOException("Work response cannot have more than one exit code");
-          }
-          exitCode = reader.nextInt();
-          break;
-        case "output":
-          if (output != null) {
-            throw new IOException("Work response cannot have more than one output");
-          }
-          output = reader.nextString();
-          break;
-        case "requestId":
-          if (requestId != null) {
-            throw new IOException("Work response cannot have more than one requestId");
-          }
-          requestId = reader.nextInt();
-          break;
-        default:
-          throw new IOException(name + " is an incorrect field in work response");
+    try {
+      reader.beginObject();
+      while (reader.hasNext()) {
+        String name = reader.nextName();
+        switch (name) {
+          case "exitCode":
+            if (exitCode != null) {
+              throw new IOException("Work response cannot have more than one exit code");
+            }
+            exitCode = reader.nextInt();
+            break;
+          case "output":
+            if (output != null) {
+              throw new IOException("Work response cannot have more than one output");
+            }
+            output = reader.nextString();
+            break;
+          case "requestId":
+            if (requestId != null) {
+              throw new IOException("Work response cannot have more than one requestId");
+            }
+            requestId = reader.nextInt();
+            break;
+          default:
+            throw new IOException(name + " is an incorrect field in work response");
+        }
       }
-    }
     reader.endObject();
+    } catch (MalformedJsonException | EOFException | IllegalStateException e) {
+      throw new IOException("Could not parse json work request correctly", e);
+    }
 
     WorkResponse.Builder responseBuilder = WorkResponse.newBuilder();
 
