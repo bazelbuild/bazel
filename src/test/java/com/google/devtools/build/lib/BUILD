@@ -44,7 +44,7 @@ filegroup(
         "//src/test/java/net/starlark/java/syntax:srcs",
         "//src/test/java/com/google/devtools/build/lib/starlarkdebug/server:srcs",
         "//src/test/java/com/google/devtools/build/lib/supplier:srcs",
-        "//src/test/java/com/google/devtools/build/lib/syntax:srcs",
+        "//src/test/java/com/google/devtools/build/lib/syntax/util:srcs",
         "//src/test/java/com/google/devtools/build/lib/versioning:srcs",
         "//src/test/java/com/google/devtools/build/lib/vfs:srcs",
         "//src/test/java/com/google/devtools/build/lib/unsafe:srcs",

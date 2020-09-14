@@ -261,8 +261,7 @@ public final class TargetUtils {
    * #legalExecInfoKeys}.
    *
    * @param executionRequirementsUnchecked execution_requirements of a rule, expected to be of a
-   *     {@code Dict<String, String>} type, null or {@link
-   *     com.google.devtools.build.lib.syntax.Runtime#NONE}
+   *     {@code Dict<String, String>} type, null or Starlark None.
    * @param rule a rule instance to get tags from
    * @param allowTagsPropagation if set to true, tags will be propagated from a target to the
    *     actions' execution requirements, for more details {@see

@@ -204,7 +204,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     assertThat(e).hasMessageThat().contains(errorSubstring);
   }
 
-  // TODO(adonovan): move these tests of the interpreter core into lib.syntax.
+  // TODO(adonovan): move these tests of Starlark interpreter core into net/starlark/java.
 
   @Test
   public void testStarlarkFunctionPosArgs() throws Exception {

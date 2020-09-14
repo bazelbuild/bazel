@@ -1249,7 +1249,7 @@ public final class PackageFactory {
     return success[0];
   }
 
-  // Install profiler hooks into lib.syntax.
+  // Install profiler hooks into Starlark interpreter.
   static {
     // parser profiler
     StarlarkFile.setParseProfiler(

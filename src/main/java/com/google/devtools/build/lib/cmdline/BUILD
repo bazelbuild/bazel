@@ -9,9 +9,6 @@ filegroup(
 )
 
 # cmdline provides Label and target pattern parsing.
-#
-# TODO(adonovan): break the dependency from lib.syntax to lib.cmdline by putting
-# the Label of the BUILD/.bzl file in the Starlark thread-local state.
 java_library(
     name = "cmdline",
     srcs = [
@@ -38,7 +35,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
-        "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
@@ -46,7 +42,8 @@ java_library(
     ],
 )
 
-# Does not depend on lib/syntax.
+# Does not depend on Starlark. But this is no longer relevant because Starlark no longer depends on cmdline.
+# TODO(adonovan): merge these packages.
 java_library(
     name = "cmdline-primitives",
     srcs = [

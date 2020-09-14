@@ -565,7 +565,7 @@ public final class BuildType {
 
     @Override
     public void repr(Printer printer) {
-      // Convert to a lib.syntax.SelectorList to guarantee consistency with callers that serialize
+      // Convert to a lib.packages.SelectorList to guarantee consistency with callers that serialize
       // directly on that type.
       List<SelectorValue> selectorValueList = new ArrayList<>();
       for (Selector<T> element : elements) {
