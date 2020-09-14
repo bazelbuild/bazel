@@ -433,6 +433,7 @@ filegroup(
         "BUILD-jdk",  # Tools are build from the workspace for tests.
         "DumpPlatformClassPath.java",
         "default_java_toolchain.bzl",
+        "fail_rule.bzl",
         "java_toolchain_alias.bzl",
         "jdk.BUILD",
         "local_java_repository.bzl",

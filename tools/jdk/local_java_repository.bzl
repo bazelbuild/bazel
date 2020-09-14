@@ -1,8 +1,22 @@
-"""Java repository implementation
+# Copyright 2020 The Bazel Authors. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Java repository implementation.
 
 Creates a local repository using jdk.BUILD file.
 
-When java executable is not present it creates a BUILD file with target "jdk"
+When Java executable is not present it creates a BUILD file with target "jdk"
 displaying an error message.
 """
 
@@ -37,11 +51,12 @@ def _local_java_repository_impl(repository_ctx):
     # TODO(ilist): replace error message after toolchain implementation
     repository_ctx.file(
         "BUILD.bazel",
-        '''load("@bazel_tools//tools/jdk:local_java_repository.bzl", "failrule")
+        '''load("@bazel_tools//tools/jdk:fail_rule.bzl", "fail_rule")
 
-failrule(
+fail_rule(
     name = "jdk",
-    msg = ("Cannot find Java binary %s in %s; either correct your JAVA_HOME, " +
+    header = "Auto-Configuration Error:",
+    message = ("Cannot find Java binary %s in %s; either correct your JAVA_HOME, " +
            "PATH or specify embedded Java (e.g. " +
            "--javabase=@bazel_tools//tools/jdk:remote_jdk11)")
 )''' % ("bin/java" + extension, java_home),
@@ -56,14 +71,4 @@ local_java_repository = repository_rule(
         "java_home": attr.string(),
         "_build_file": attr.label(default = "@bazel_tools//tools/jdk:jdk.BUILD"),
     },
-)
-
-def _fail_rule_impl(ctx):
-    red = "\033[0;31m"
-    no_color = "\033[0m"
-    fail("\n%sAuto-Configuration Error:%s %s\n" % (red, no_color, ctx.attr.msg))
-
-failrule = rule(
-    implementation = _fail_rule_impl,
-    attrs = {"msg": attr.string()},
 )
