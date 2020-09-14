@@ -49,9 +49,11 @@ public final class StarlarkSemantics {
   // Key<Boolean> is permitted too.
   // We use ImmutableSortedMap for the benefit of equals/hashCode/toString.
   private final ImmutableSortedMap<String, Object> map;
+  private final int hashCode;
 
   private StarlarkSemantics(ImmutableSortedMap<String, Object> map) {
     this.map = map;
+    this.hashCode = map.hashCode();
   }
 
   /** Returns the value of a boolean option, which must have a [+-] prefix. */
@@ -169,7 +171,7 @@ public final class StarlarkSemantics {
 
   @Override
   public int hashCode() {
-    return map.hashCode();
+    return hashCode;
   }
 
   @Override

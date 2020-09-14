@@ -55,9 +55,10 @@ import net.starlark.java.annot.StarlarkMethod;
             + "# Slice steps can be used, too:\n"
             + "s = \"hello\"[::2] # \"hlo\"\n"
             + "t = \"hello\"[3:0:-1] # \"lle\"\n</pre>"
-            + "Strings are iterable and support the <code>in</code> operator. Examples:<br>"
+            + "Strings are not directly iterable, use the <code>.elems()</code> "
+            + "method to iterate over their characters. Examples:<br>"
             + "<pre class=\"language-python\">\"bc\" in \"abcd\"   # evaluates to True\n"
-            + "x = [s for s in \"abc\"]  # x == [\"a\", \"b\", \"c\"]</pre>\n"
+            + "x = [s for s.elems() in \"abc\"]  # x == [\"a\", \"b\", \"c\"]</pre>\n"
             + "Implicit concatenation of strings is not allowed; use the <code>+</code> "
             + "operator instead. Comparison operators perform a lexicographical comparison; "
             + "use <code>==</code> to test for equality.")
@@ -82,28 +83,32 @@ final class StringModule implements StarlarkValue {
     }
   }
 
-  // Emulate Python substring function
-  // It converts out of range indices, and never fails
-  //
-  // TODO(adonovan): opt: avoid this function, as String.substring now allocates a copy (!)
-  private static String pythonSubstring(String str, int start, Object end, String what)
+  // Returns the substring denoted by str[start:end], which is never out of bounds.
+  // For speed, we don't return str.substring(start, end), as substring allocates a copy.
+  // Instead we return the (start, end) indices, packed into the lo/hi arms of a long.
+  private static long substringIndices(String str, int start, Object end, String name)
       throws EvalException {
-    if (start == 0 && Starlark.isNullOrNone(end)) {
-      return str;
+    // This function duplicates the logic of Starlark.slice for strings.
+    int n = str.length();
+    // TODO(adonovan): allow start to be None, as required by spec.
+    start = EvalUtils.toIndex(start, n);
+    int stop = end == Starlark.NONE ? n : EvalUtils.toIndex(Starlark.toInt(end, name), n);
+    if (stop < start) {
+      stop = start; // => empty result
     }
-    start = EvalUtils.toIndex(start, str.length());
-    int stop;
-    if (Starlark.isNullOrNone(end)) {
-      stop = str.length();
-    } else if (end instanceof Integer) {
-      stop = EvalUtils.toIndex((Integer) end, str.length());
-    } else {
-      throw Starlark.errorf("expected int for %s, got %s", what, Starlark.type(end));
-    }
-    if (start >= stop) {
-      return "";
-    }
-    return str.substring(start, stop);
+    return pack(start, stop); // = str.substring(start, stop)
+  }
+
+  private static long pack(int lo, int hi) {
+    return (((long) hi) << 32) | (lo & 0xffffffffL);
+  }
+
+  private static int lo(long x) {
+    return (int) x;
+  }
+
+  private static int hi(long x) {
+    return (int) (x >>> 32);
   }
 
   @StarlarkMethod(
@@ -472,6 +477,7 @@ final class StringModule implements StarlarkValue {
     if (self.isEmpty()) {
       return self;
     }
+    // TODO(adonovan): fix: support non-ASCII characters. Requires that Bazel stop abusing Latin1.
     return Character.toUpperCase(self.charAt(0)) + Ascii.toLowerCase(self.substring(1));
   }
 
@@ -512,11 +518,15 @@ final class StringModule implements StarlarkValue {
   private static int stringFind(
       boolean forward, String self, String sub, int start, Object end, String msg)
       throws EvalException {
-    String substr = pythonSubstring(self, start, end, msg);
+    long indices = substringIndices(self, start, end, msg);
+    // Unfortunately Java forces us to allocate here, even though
+    // String has a private indexOf method that accepts indices.
+    // Fortunately the common case is self[0:n].
+    String substr = self.substring(lo(indices), hi(indices));
     int subpos = forward ? substr.indexOf(sub) : substr.lastIndexOf(sub);
     return subpos < 0
         ? subpos //
-        : subpos + EvalUtils.toIndex(start, self.length());
+        : subpos + lo(indices);
   }
 
   private static final Pattern SPLIT_LINES_PATTERN =
@@ -815,10 +825,14 @@ final class StringModule implements StarlarkValue {
             doc = "optional position before which to restrict to search.")
       })
   public Integer count(String self, String sub, Integer start, Object end) throws EvalException {
-    String str = pythonSubstring(self, start, end, "'end' operand of 'find'");
+    long indices = substringIndices(self, start, end, "'end' operand of 'count'");
     if (sub.isEmpty()) {
-      return str.length() + 1;
+      return hi(indices) - lo(indices) + 1; // str.length() + 1
     }
+    // Unfortunately Java forces us to allocate here, even though
+    // String has a private indexOf method that accepts indices.
+    // Fortunately the common case is self[0:n].
+    String str = self.substring(lo(indices), hi(indices));
     int count = 0;
     int index = 0;
     while ((index = str.indexOf(sub, index)) >= 0) {
@@ -857,7 +871,7 @@ final class StringModule implements StarlarkValue {
               @ParamType(type = String.class),
               @ParamType(type = Tuple.class, generic1 = String.class),
             },
-            doc = "The substring to check."),
+            doc = "The suffix (or tuple of alternative suffixes) to match."),
         @Param(
             name = "start",
             type = Integer.class,
@@ -871,16 +885,22 @@ final class StringModule implements StarlarkValue {
             doc = "optional position at which to stop comparing.")
       })
   public Boolean endsWith(String self, Object sub, Integer start, Object end) throws EvalException {
-    String str = pythonSubstring(self, start, end, "'end' operand of 'endswith'");
+    long indices = substringIndices(self, start, end, "'end' operand of 'endswith'");
     if (sub instanceof String) {
-      return str.endsWith((String) sub);
+      return substringEndsWith(self, lo(indices), hi(indices), (String) sub);
     }
     for (String s : Sequence.cast(sub, String.class, "sub")) {
-      if (str.endsWith(s)) {
+      if (substringEndsWith(self, lo(indices), hi(indices), s)) {
         return true;
       }
     }
     return false;
+  }
+
+  // Computes str.substring(start, end).endsWith(suffix) without allocation.
+  private static boolean substringEndsWith(String str, int start, int end, String suffix) {
+    int n = suffix.length();
+    return start + n <= end && str.regionMatches(end - n, suffix, 0, n);
   }
 
   // In Python, formatting is very complex.
@@ -939,7 +959,7 @@ final class StringModule implements StarlarkValue {
               @ParamType(type = String.class),
               @ParamType(type = Tuple.class, generic1 = String.class),
             },
-            doc = "The substring(s) to check."),
+            doc = "The prefix (or tuple of alternative prefixes) to match."),
         @Param(
             name = "start",
             type = Integer.class,
@@ -954,15 +974,20 @@ final class StringModule implements StarlarkValue {
       })
   public Boolean startsWith(String self, Object sub, Integer start, Object end)
       throws EvalException {
-    String str = pythonSubstring(self, start, end, "'end' operand of 'startswith'");
+    long indices = substringIndices(self, start, end, "'end' operand of 'startswith'");
     if (sub instanceof String) {
-      return str.startsWith((String) sub);
+      return substringStartsWith(self, lo(indices), hi(indices), (String) sub);
     }
     for (String s : Sequence.cast(sub, String.class, "sub")) {
-      if (str.startsWith(s)) {
+      if (substringStartsWith(self, lo(indices), hi(indices), s)) {
         return true;
       }
     }
     return false;
+  }
+
+  // Computes str.substring(start, end).startsWith(prefix) without allocation.
+  private static boolean substringStartsWith(String str, int start, int end, String prefix) {
+    return start + prefix.length() <= end && str.startsWith(prefix, start);
   }
 }
