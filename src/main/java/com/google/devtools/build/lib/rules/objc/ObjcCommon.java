@@ -428,9 +428,8 @@ public final class ObjcCommon {
 
       for (CompilationArtifacts artifacts : compilationArtifacts.asSet()) {
         Iterable<Artifact> allSources =
-            Iterables.concat(artifacts.getSrcs(), artifacts.getNonArcSrcs());
-        // TODO(bazel-team): Add private headers to the provider when we have module maps to enforce
-        // them.
+            Iterables.concat(
+                artifacts.getSrcs(), artifacts.getNonArcSrcs(), artifacts.getPrivateHdrs());
         objcProvider
             .addAll(LIBRARY, artifacts.getArchive().asSet())
             .addAll(SOURCE, allSources)

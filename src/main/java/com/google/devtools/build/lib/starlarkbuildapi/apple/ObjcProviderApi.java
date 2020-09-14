@@ -83,8 +83,8 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
       name = "direct_headers",
       structField = true,
       doc =
-          "Header files from this target directly (no transitive headers). "
-              + "These may be either public or private headers.")
+          "Public header files from this target directly (no transitive headers). "
+              + "These are mostly headers from the 'hdrs' attribute.")
   Sequence<FileApiT> directHeaders();
 
   @StarlarkMethod(
@@ -229,7 +229,9 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
   @StarlarkMethod(
       name = "direct_sources",
       structField = true,
-      doc = "All direct source files from this target (no transitive files).")
+      doc =
+          "All direct source files from this target (no transitive files), "
+              + "including any headers in the 'srcs' attribute.")
   Sequence<FileApiT> directSources();
 
   @StarlarkMethod(
