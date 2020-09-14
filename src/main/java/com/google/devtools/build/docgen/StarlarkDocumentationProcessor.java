@@ -13,12 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.docgen;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkDocUtils;
 import com.google.devtools.build.docgen.starlark.StarlarkMethodDoc;
-import com.google.devtools.build.lib.util.Classpath;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
 import java.io.File;
 import java.io.IOException;
@@ -29,6 +27,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.TreeMap;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /** A class to assemble documentation for Starlark. */
@@ -38,9 +37,6 @@ public final class StarlarkDocumentationProcessor {
       ImmutableList.<StarlarkDocumentationCategory>of(
           StarlarkDocumentationCategory.NONE, StarlarkDocumentationCategory.TOP_LEVEL_TYPE);
 
-  // Common prefix of packages that may contain Starlark modules.
-  @VisibleForTesting static final String MODULES_PACKAGE_PREFIX = "com/google/devtools/build";
-
   private StarlarkDocumentationProcessor() {}
 
   /** Generates the Starlark documentation to the given output directory. */
@@ -49,8 +45,7 @@ public final class StarlarkDocumentationProcessor {
     parseOptions(args);
 
     Map<String, StarlarkBuiltinDoc> modules =
-        StarlarkDocumentationCollector.collectModules(
-            Classpath.findClasses(MODULES_PACKAGE_PREFIX));
+        new TreeMap<>(StarlarkDocumentationCollector.getAllModules());
 
     // Generate the top level module first in the doc
     StarlarkBuiltinDoc topLevelModule =
