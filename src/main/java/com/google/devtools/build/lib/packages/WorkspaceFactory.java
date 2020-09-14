@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Module;
@@ -192,7 +193,8 @@ public class WorkspaceFactory {
         try {
           Starlark.execFileProgram(prog, module, thread);
         } catch (EvalException ex) {
-          localReporter.handle(Event.error(null, ex.getMessageWithStack()));
+          localReporter.handle(
+              Package.error(null, ex.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
         }
       }
 
@@ -231,6 +233,9 @@ public class WorkspaceFactory {
     // Transmit the content of the parent package to the new package builder.
     if (aPackage.containsErrors()) {
       builder.setContainsErrors();
+    }
+    if (aPackage.getFailureDetail() != null) {
+      builder.setFailureDetailOverride(aPackage.getFailureDetail());
     }
     builder.addRegisteredExecutionPlatforms(aPackage.getRegisteredExecutionPlatforms());
     builder.addRegisteredToolchains(aPackage.getRegisteredToolchains());

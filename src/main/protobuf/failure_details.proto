@@ -1115,6 +1115,21 @@ message PackageLoading {
     PACKAGE_MISSING = 11 [(metadata) = { exit_code: 1 }];
     TARGET_MISSING = 12 [(metadata) = { exit_code: 1 }];
     NO_SUCH_THING = 13 [(metadata) = { exit_code: 1 }];
+    GLOB_IO_EXCEPTION = 14 [(metadata) = { exit_code: 1 }];
+    DUPLICATE_LABEL = 15 [(metadata) = { exit_code: 1 }];
+    INVALID_PACKAGE_SPECIFICATION = 16 [(metadata) = { exit_code: 1 }];
+    SYNTAX_ERROR = 17 [(metadata) = { exit_code: 1 }];
+    ENVIRONMENT_IN_DIFFERENT_PACKAGE = 18 [(metadata) = { exit_code: 1 }];
+    DEFAULT_ENVIRONMENT_UNDECLARED = 19 [(metadata) = { exit_code: 1 }];
+    ENVIRONMENT_IN_MULTIPLE_GROUPS = 20 [(metadata) = { exit_code: 1 }];
+    ENVIRONMENT_DOES_NOT_EXIST = 21 [(metadata) = { exit_code: 1 }];
+    ENVIRONMENT_INVALID = 22 [(metadata) = { exit_code: 1 }];
+    ENVIRONMENT_NOT_IN_GROUP = 23 [(metadata) = { exit_code: 1 }];
+    PACKAGE_NAME_INVALID = 24 [(metadata) = { exit_code: 1 }];
+    STARLARK_EVAL_ERROR = 25 [(metadata) = { exit_code: 1 }];
+    LICENSE_PARSE_FAILURE = 26 [(metadata) = { exit_code: 1 }];
+    DISTRIBUTIONS_PARSE_FAILURE = 27 [(metadata) = { exit_code: 1 }];
+    LABEL_CROSSES_PACKAGE_BOUNDARY = 28 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;

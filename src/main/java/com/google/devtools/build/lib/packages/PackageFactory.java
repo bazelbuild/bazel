@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.CallExpression;
 import com.google.devtools.build.lib.syntax.DefStatement;
@@ -991,7 +992,11 @@ public final class PackageFactory {
 
     // Report scan/parse errors.
     if (!file.ok()) {
-      Event.replayEventsOn(pkgContext.eventHandler, file.errors());
+      Event.replayEventsOn(
+          pkgContext.eventHandler,
+          file.errors(),
+          DetailedExitCode.class,
+          syntaxError -> Package.createDetailedCode(syntaxError.toString(), Code.SYNTAX_ERROR));
       return false;
     }
 
@@ -1000,7 +1005,8 @@ public final class PackageFactory {
     // after we've parsed the BUILD file and created the Package.
     String error = LabelValidator.validatePackageName(packageId.getPackageFragment().toString());
     if (error != null) {
-      pkgContext.eventHandler.handle(Event.error(file.getStartLocation(), error));
+      pkgContext.eventHandler.handle(
+          Package.error(file.getStartLocation(), error, Code.PACKAGE_NAME_INVALID));
       return false;
     }
 
@@ -1022,7 +1028,11 @@ public final class PackageFactory {
     try {
       prog = Program.compileFile(file, module);
     } catch (SyntaxError.Exception ex) {
-      Event.replayEventsOn(pkgContext.eventHandler, ex.errors());
+      Event.replayEventsOn(
+          pkgContext.eventHandler,
+          ex.errors(),
+          DetailedExitCode.class,
+          syntaxError -> Package.createDetailedCode(syntaxError.toString(), Code.SYNTAX_ERROR));
       return false;
     }
 
@@ -1082,7 +1092,8 @@ public final class PackageFactory {
       try {
         Starlark.execFileProgram(prog, module, thread);
       } catch (EvalException ex) {
-        pkgContext.eventHandler.handle(Event.error(null, ex.getMessageWithStack()));
+        pkgContext.eventHandler.handle(
+            Package.error(null, ex.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
         return false;
       }
 
@@ -1119,7 +1130,7 @@ public final class PackageFactory {
     NodeVisitor checker =
         new NodeVisitor() {
           void error(Location loc, String message) {
-            eventHandler.handle(Event.error(loc, message));
+            eventHandler.handle(Package.error(loc, message, Code.SYNTAX_ERROR));
             success[0] = false;
           }
 

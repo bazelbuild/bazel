@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.rules.repository.WorkspaceFileHelper;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -854,7 +855,7 @@ public class PackageFunction implements SkyFunction {
     String message =
         ContainingPackageLookupValue.getErrorMessageForLabelCrossingPackageBoundary(
             pkgRoot, label, containingPkgLookupValue);
-    pkgBuilder.addEvent(Event.error(location, message));
+    pkgBuilder.addEvent(Package.error(location, message, Code.LABEL_CROSSES_PACKAGE_BOUNDARY));
     return true;
   }
 
