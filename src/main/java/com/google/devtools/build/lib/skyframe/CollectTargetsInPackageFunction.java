@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
-import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Package;
@@ -25,7 +24,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 /**
@@ -34,8 +32,6 @@ import javax.annotation.Nullable;
  * is a package with this id.
  */
 class CollectTargetsInPackageFunction implements SkyFunction {
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
@@ -49,10 +45,6 @@ class CollectTargetsInPackageFunction implements SkyFunction {
     }
     Package pkg = packageValue.getPackage();
     if (pkg.containsErrors()) {
-      // TODO(b/165676039): Remove this once bug is resolved.
-      logger.atInfo().atMostEvery(5, TimeUnit.SECONDS).log(
-          "Package contains errors CollectTargetsInPackageFunction: "
-              + packageId.getPackageFragment().getPathString());
       env.getListener()
           .handle(
               Event.error(
