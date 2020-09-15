@@ -41,7 +41,6 @@ import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.nio.charset.Charset;
-import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -133,8 +132,33 @@ public final class NestedSetCodecTest {
 
     assertThat(deserialized).isInstanceOf(NestedSet.class);
     assertThrows(
-        MissingNestedSetException.class,
-        () -> ((NestedSet<?>) deserialized).toListWithTimeout(Duration.ofNanos(1)));
+        MissingNestedSetException.class, ((NestedSet<?>) deserialized)::toListInterruptibly);
+  }
+
+  @Test
+  public void unexpectedException_hiddenUntilNestedSetIsConsumed() throws Exception {
+    NestedSetStorageEndpoint storageEndpoint =
+        new NestedSetStorageEndpoint() {
+          @Override
+          public ListenableFuture<Void> put(ByteString fingerprint, byte[] serializedBytes) {
+            return immediateFuture(null);
+          }
+
+          @Override
+          public ListenableFuture<byte[]> get(ByteString fingerprint) {
+            return immediateFailedFuture(new RuntimeException("Something went wrong"));
+          }
+        };
+    ObjectCodecs serializer = createCodecs(new NestedSetStore(storageEndpoint));
+    ObjectCodecs deserializer = createCodecs(new NestedSetStore(storageEndpoint));
+
+    NestedSet<?> serialized = NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b");
+    SerializationResult<ByteString> result = serializer.serializeMemoizedAndBlocking(serialized);
+    Object deserialized = deserializer.deserializeMemoized(result.getObject());
+
+    assertThat(deserialized).isInstanceOf(NestedSet.class);
+    Exception e = assertThrows(RuntimeException.class, ((NestedSet<?>) deserialized)::toList);
+    assertThat(e).hasMessageThat().contains("Something went wrong");
   }
 
   /**
