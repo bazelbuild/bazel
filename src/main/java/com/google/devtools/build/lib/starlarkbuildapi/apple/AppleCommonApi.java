@@ -276,8 +276,8 @@ public interface AppleCommonApi<
               doc = "Dictionary of arguments."),
       useStarlarkThread = true)
   // This method is registered statically for Starlark, and never called directly.
-  ObjcProviderApi<?> newObjcProvider(Boolean usesSwift, Dict<?, ?> kwargs, StarlarkThread thread)
-      throws EvalException;
+  ObjcProviderApi<?> newObjcProvider(
+      Boolean usesSwift, Dict<String, Object> kwargs, StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "new_dynamic_framework_provider",

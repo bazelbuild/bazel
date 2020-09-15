@@ -56,6 +56,6 @@ public interface OutputGroupInfoApi extends StructApi {
     @StarlarkConstructor(
         objectType = OutputGroupInfoApi.class,
         receiverNameForDoc = "OutputGroupInfo")
-    OutputGroupInfoApi constructor(Dict<?, ?> kwargs) throws EvalException;
+    OutputGroupInfoApi constructor(Dict<String, Object> kwargs) throws EvalException;
   }
 }
