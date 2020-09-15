@@ -32,7 +32,7 @@ java_test(
         "StringModuleTest.java",
     ],
     deps = [
-        "//src/main/java/net/starlark/java/annot:annot_new",
+        "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
@@ -75,7 +75,7 @@ java_test(
     ],
     use_testrunner = False,
     deps = [
-        "//src/main/java/net/starlark/java/annot:annot_new",
+        "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",

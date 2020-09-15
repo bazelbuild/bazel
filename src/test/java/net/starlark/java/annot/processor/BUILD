@@ -14,7 +14,7 @@ java_test(
     resources = glob(["testsources/*.java"]),
     runtime_deps = ["//src/main/java/net/starlark/java/eval"],  # loaded reflectively
     deps = [
-        "//src/main/java/net/starlark/java/annot/processor:processor_new",
+        "//src/main/java/net/starlark/java/annot/processor",
         "//third_party:compile_testing",
         "//third_party:guava",
         "//third_party:junit4",

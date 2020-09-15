@@ -37,7 +37,7 @@ public final class StarlarkMethodProcessorTest {
   public void testGoldenCase() throws Exception {
     assertAbout(javaSource())
         .that(getFile("GoldenCase.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .compilesWithoutError();
   }
 
@@ -45,7 +45,7 @@ public final class StarlarkMethodProcessorTest {
   public void testPrivateMethod() throws Exception {
     assertAbout(javaSource())
         .that(getFile("PrivateMethod.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining("StarlarkMethod-annotated methods must be public.");
   }
@@ -54,7 +54,7 @@ public final class StarlarkMethodProcessorTest {
   public void testStaticMethod() throws Exception {
     assertAbout(javaSource())
         .that(getFile("StaticMethod.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining("StarlarkMethod-annotated methods cannot be static.");
   }
@@ -64,7 +64,7 @@ public final class StarlarkMethodProcessorTest {
   public void testStructFieldWithArguments() throws Exception {
     assertAbout(javaSource())
         .that(getFile("StructFieldWithArguments.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
             "method structFieldMethod is annotated structField=true but also has 1 Param"
@@ -75,7 +75,7 @@ public final class StarlarkMethodProcessorTest {
   public void testStructFieldWithInvalidInfo() throws Exception {
     assertAbout(javaSource())
         .that(getFile("StructFieldWithInvalidInfo.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
             "a StarlarkMethod-annotated method with structField=true may not also specify"
@@ -86,7 +86,7 @@ public final class StarlarkMethodProcessorTest {
   public void testStructFieldWithExtraArgs() throws Exception {
     assertAbout(javaSource())
         .that(getFile("StructFieldWithExtraArgs.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
             "a StarlarkMethod-annotated method with structField=true may not also specify"
@@ -97,7 +97,7 @@ public final class StarlarkMethodProcessorTest {
   public void testStructFieldWithExtraKeywords() throws Exception {
     assertAbout(javaSource())
         .that(getFile("StructFieldWithExtraKeywords.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
             "a StarlarkMethod-annotated method with structField=true may not also specify"
@@ -108,7 +108,7 @@ public final class StarlarkMethodProcessorTest {
   public void testDocumentationMissing() throws Exception {
     assertAbout(javaSource())
         .that(getFile("DocumentationMissing.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining("The 'doc' string must be non-empty if 'documented' is true.");
   }
@@ -117,7 +117,7 @@ public final class StarlarkMethodProcessorTest {
   public void testArgumentMissing() throws Exception {
     assertAbout(javaSource())
         .that(getFile("ArgumentMissing.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
             "method methodWithParams has 1 Param annotations but only 0 parameters");
@@ -127,7 +127,7 @@ public final class StarlarkMethodProcessorTest {
   public void testStarlarkThreadMissing() throws Exception {
     assertAbout(javaSource())
         .that(getFile("StarlarkThreadMissing.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
             "for useStarlarkThread special parameter 'shouldBeThread', got type java.lang.String,"
@@ -138,7 +138,7 @@ public final class StarlarkMethodProcessorTest {
   public void testStarlarkInfoBeforeParams() throws Exception {
     assertAbout(javaSource())
         .that(getFile("StarlarkInfoBeforeParams.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
             "for useStarlarkThread special parameter 'three', got type java.lang.String, want"
@@ -154,7 +154,7 @@ public final class StarlarkMethodProcessorTest {
   public void testTooManyArguments() throws Exception {
     assertAbout(javaSource())
         .that(getFile("TooManyArguments.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
             "method methodWithTooManyArguments is annotated with 1 Params plus 0 special"
@@ -165,7 +165,7 @@ public final class StarlarkMethodProcessorTest {
   public void testInvalidParamNoneDefault() throws Exception {
     assertAbout(javaSource())
         .that(getFile("InvalidParamNoneDefault.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
             "Parameter 'a_parameter' has 'None' default value but is not noneable.");
@@ -175,7 +175,7 @@ public final class StarlarkMethodProcessorTest {
   public void testParamTypeConflict() throws Exception {
     assertAbout(javaSource())
         .that(getFile("ParamTypeConflict.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
             "Parameter 'a_parameter' has both 'type' and 'allowedTypes' specified."
@@ -186,7 +186,7 @@ public final class StarlarkMethodProcessorTest {
   public void testParamNeitherNamedNorPositional() throws Exception {
     assertAbout(javaSource())
         .that(getFile("ParamNeitherNamedNorPositional.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining("Parameter 'a_parameter' must be either positional or named");
   }
@@ -195,7 +195,7 @@ public final class StarlarkMethodProcessorTest {
   public void testNonDefaultParamAfterDefault() throws Exception {
     assertAbout(javaSource())
         .that(getFile("NonDefaultParamAfterDefault.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
             "Positional parameter 'two' has no default value but is specified "
@@ -206,7 +206,7 @@ public final class StarlarkMethodProcessorTest {
   public void testPositionalParamAfterNonPositional() throws Exception {
     assertAbout(javaSource())
         .that(getFile("PositionalParamAfterNonPositional.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
             "Positional parameter 'two' is specified after one or more non-positional parameters");
@@ -216,7 +216,7 @@ public final class StarlarkMethodProcessorTest {
   public void testPositionalOnlyParamAfterNamed() throws Exception {
     assertAbout(javaSource())
         .that(getFile("PositionalOnlyParamAfterNamed.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
             "Positional-only parameter 'two' is specified after one or more named parameters");
@@ -226,7 +226,7 @@ public final class StarlarkMethodProcessorTest {
   public void testExtraKeywordsOutOfOrder() throws Exception {
     assertAbout(javaSource())
         .that(getFile("ExtraKeywordsOutOfOrder.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
             "extraKeywords special parameter 'one' has type java.lang.String, to which"
@@ -237,7 +237,7 @@ public final class StarlarkMethodProcessorTest {
   public void testExtraPositionalsMissing() throws Exception {
     assertAbout(javaSource())
         .that(getFile("ExtraPositionalsMissing.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
             "method threeArgMethod is annotated with 1 Params plus 2 special parameters, but has"
@@ -248,7 +248,7 @@ public final class StarlarkMethodProcessorTest {
   public void testSelfCallWithNoName() throws Exception {
     assertAbout(javaSource())
         .that(getFile("SelfCallWithNoName.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining("StarlarkMethod.name must be non-empty.");
   }
@@ -257,7 +257,7 @@ public final class StarlarkMethodProcessorTest {
   public void testSelfCallWithStructField() throws Exception {
     assertAbout(javaSource())
         .that(getFile("SelfCallWithStructField.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
             "a StarlarkMethod-annotated method with structField=true may not also specify"
@@ -268,7 +268,7 @@ public final class StarlarkMethodProcessorTest {
   public void testMultipleSelfCallMethods() throws Exception {
     assertAbout(javaSource())
         .that(getFile("MultipleSelfCallMethods.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining("Containing class has more than one selfCall method defined.");
   }
@@ -277,7 +277,7 @@ public final class StarlarkMethodProcessorTest {
   public void testEnablingAndDisablingFlag() throws Exception {
     assertAbout(javaSource())
         .that(getFile("EnablingAndDisablingFlag.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
             "Only one of StarlarkMethod.enableOnlyWithFlag and StarlarkMethod.disableWithFlag may"
@@ -288,7 +288,7 @@ public final class StarlarkMethodProcessorTest {
   public void testEnablingAndDisablingFlag_param() throws Exception {
     assertAbout(javaSource())
         .that(getFile("EnablingAndDisablingFlagParam.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
             "Parameter 'two' has enableOnlyWithFlag and disableWithFlag set. "
@@ -299,7 +299,7 @@ public final class StarlarkMethodProcessorTest {
   public void testConflictingMethodNames() throws Exception {
     assertAbout(javaSource())
         .that(getFile("ConflictingMethodNames.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
             "Containing class defines more than one method named 'conflicting_method'");
@@ -309,7 +309,7 @@ public final class StarlarkMethodProcessorTest {
   public void testDisabledValueParamNoToggle() throws Exception {
     assertAbout(javaSource())
         .that(getFile("DisabledValueParamNoToggle.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining("Parameter 'two' has valueWhenDisabled set, but is always enabled");
   }
@@ -318,7 +318,7 @@ public final class StarlarkMethodProcessorTest {
   public void testToggledKwargsParam() throws Exception {
     assertAbout(javaSource())
         .that(getFile("ToggledKwargsParam.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining("The extraKeywords parameter may not be toggled by semantic flag");
   }
@@ -327,7 +327,7 @@ public final class StarlarkMethodProcessorTest {
   public void testToggledParamNoDisabledValue() throws Exception {
     assertAbout(javaSource())
         .that(getFile("ToggledParamNoDisabledValue.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
             "Parameter 'two' may be disabled by semantic flag, "
@@ -338,7 +338,7 @@ public final class StarlarkMethodProcessorTest {
   public void testSpecifiedGenericType() throws Exception {
     assertAbout(javaSource())
         .that(getFile("SpecifiedGenericType.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
             "parameter 'one' has generic type "
@@ -349,7 +349,7 @@ public final class StarlarkMethodProcessorTest {
   public void testInvalidNoneableParameter() throws Exception {
     assertAbout(javaSource())
         .that(getFile("InvalidNoneableParameter.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
             "Expected type 'Object' but got type 'java.lang.String' "
@@ -360,7 +360,7 @@ public final class StarlarkMethodProcessorTest {
   public void testDoesntImplementStarlarkValue() throws Exception {
     assertAbout(javaSource())
         .that(getFile("DoesntImplementStarlarkValue.java"))
-        .processedWith(new StarlarkMethodProcessor.New())
+        .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
             "method x has StarlarkMethod annotation but enclosing class"
