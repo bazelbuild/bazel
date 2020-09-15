@@ -81,7 +81,9 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -860,17 +862,19 @@ public class StarlarkRepositoryContext
             rule.getLabel().toString(),
             thread.getCallerLocation());
 
-    // Download to tmp directory inside the outputDirectory and delete it after extraction
     StarlarkPath outputPath = getPath("download_and_extract()", output);
     checkInOutputDirectory("write", outputPath);
     createDirectory(outputPath.getPath());
 
-    Path downloadDirectory = outputPath.getPath().getRelative("tmp");
-    createDirectory(downloadDirectory);
-
     Path downloadedPath;
+    Path downloadDirectory;
     try (SilentCloseable c =
         Profiler.instance().profile("fetching: " + rule.getLabel().toString())) {
+
+      // Download to temp directory inside the outputDirectory and delete it after extraction
+      java.nio.file.Path tempDirectory = Files.createTempDirectory(Paths.get(outputPath.toString()), "temp");
+      downloadDirectory = outputDirectory.getFileSystem().getPath(tempDirectory.toFile().getAbsolutePath());
+
       downloadedPath =
           downloadManager.download(
               urls,
