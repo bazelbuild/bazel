@@ -365,6 +365,25 @@ public final class NestedSetTest {
   }
 
   @Test
+  public void toListInterruptibly_propagatesInterrupt() {
+    NestedSet<String> deserializingNestedSet =
+        NestedSet.withFuture(Order.STABLE_ORDER, UNKNOWN_DEPTH, SettableFuture.create());
+    Thread.currentThread().interrupt();
+    assertThrows(InterruptedException.class, deserializingNestedSet::toListInterruptibly);
+  }
+
+  @Test
+  public void toListInterruptibly_propagatesMissingNestedSetException() {
+    NestedSet<String> deserializingNestedSet =
+        NestedSet.withFuture(
+            Order.STABLE_ORDER,
+            UNKNOWN_DEPTH,
+            Futures.immediateFailedFuture(
+                new MissingNestedSetException(ByteString.copyFromUtf8("fingerprint"))));
+    assertThrows(MissingNestedSetException.class, deserializingNestedSet::toListInterruptibly);
+  }
+
+  @Test
   public void toListWithTimeout_propagatesInterrupt() {
     NestedSet<String> deserializingNestedSet =
         NestedSet.withFuture(Order.STABLE_ORDER, UNKNOWN_DEPTH, SettableFuture.create());

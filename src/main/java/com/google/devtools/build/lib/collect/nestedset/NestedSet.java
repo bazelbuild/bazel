@@ -398,16 +398,26 @@ public final class NestedSet<E> {
   }
 
   /**
-   * Returns an immutable list of all unique elements of the this set, similar to {@link #toList},
-   * but will propagate an {@code InterruptedException} if one is thrown.
+   * Returns an immutable list of all unique elements of this set, similar to {@link #toList}, but
+   * will propagate an {@code InterruptedException} or {@link MissingNestedSetException} if one is
+   * thrown.
    */
-  public ImmutableList<E> toListInterruptibly() throws InterruptedException {
-    return actualChildrenToList(getChildrenInterruptibly());
+  public ImmutableList<E> toListInterruptibly()
+      throws InterruptedException, MissingNestedSetException {
+    Object actualChildren;
+    if (children instanceof ListenableFuture) {
+      actualChildren =
+          MoreFutures.waitForFutureAndGetWithCheckedException(
+              (ListenableFuture<Object[]>) children, MissingNestedSetException.class);
+    } else {
+      actualChildren = children;
+    }
+    return actualChildrenToList(actualChildren);
   }
 
   /**
-   * Returns an immutable list of all unique elements of the this set, similar to {@link #toList},
-   * but will propagate an {@code InterruptedException} if one is thrown and will throw {@link
+   * Returns an immutable list of all unique elements of this set, similar to {@link #toList}, but
+   * will propagate an {@code InterruptedException} if one is thrown and will throw {@link
    * TimeoutException} if this set is deserializing and does not become ready within the given
    * timeout.
    *
