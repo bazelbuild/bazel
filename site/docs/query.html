@@ -1542,9 +1542,9 @@ maxrank
 
 <h3 id="regex">Regular expressions</h3>
 
-Regular expressions in the query language are implemented using the Java
-regex library, so they support the full syntax documented
-for <a href="https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html"><code>java.util.regex.Pattern</code></a>.
+Regular expressions in the query language use the Java regex library, so you can use the
+full syntax for <a href="https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html"><code>java.util.regex.Pattern</code></a>.
+
 
 <h3 id="external-repos">Querying with external repositories</h3>
 
@@ -1568,10 +1568,10 @@ for <a href="https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.h
 
 <pre>
   # Querying over all members of //external returns the repository.
-  bazel query 'kind(maven_jar, //external:*)'
+  bazel query 'kind(http_archive, //external:*)'
   //external:other-repo
 
   # ...but the repository is not a dependency.
-  bazel query 'kind(maven_jar, deps(//foo:bar))'
+  bazel query 'kind(http_archive, deps(//foo:bar))'
   INFO: Empty results
 </pre>
