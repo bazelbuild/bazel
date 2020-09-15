@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
@@ -385,10 +386,22 @@ public final class NestedSet<E> {
    * Returns true if the contents of this set are currently available in memory.
    *
    * <p>Only returns false if this set {@link #isFromStorage} and the contents are not fully
-   * deserialized.
+   * deserialized (either because the deserialization future is not complete or because it failed).
    */
   public boolean isReady() {
-    return !isFromStorage() || ((ListenableFuture<Object[]>) children).isDone();
+    if (!isFromStorage()) {
+      return true;
+    }
+    ListenableFuture<?> future = (ListenableFuture<?>) children;
+    if (!future.isDone() || future.isCancelled()) {
+      return false;
+    }
+    try {
+      Futures.getDone(future);
+      return true;
+    } catch (Exception e) {
+      return false;
+    }
   }
 
   /** Returns the single element; only call this if {@link #isSingleton} returns true. */
