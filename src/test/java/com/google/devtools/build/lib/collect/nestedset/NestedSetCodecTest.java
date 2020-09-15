@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.collect.nestedset;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -114,7 +115,7 @@ public final class NestedSetCodecTest {
         new NestedSetStorageEndpoint() {
           @Override
           public ListenableFuture<Void> put(ByteString fingerprint, byte[] serializedBytes) {
-            return immediateFuture(null);
+            return immediateVoidFuture();
           }
 
           @Override
@@ -141,7 +142,7 @@ public final class NestedSetCodecTest {
         new NestedSetStorageEndpoint() {
           @Override
           public ListenableFuture<Void> put(ByteString fingerprint, byte[] serializedBytes) {
-            return immediateFuture(null);
+            return immediateVoidFuture();
           }
 
           @Override
@@ -202,11 +203,11 @@ public final class NestedSetCodecTest {
         // The write of the shared inner NestedSet {"a", "b"}
         .thenReturn(sharedInnerWrite)
         // The write of the inner NestedSet {"c", "d"}
-        .thenReturn(immediateFuture(null))
+        .thenReturn(immediateVoidFuture())
         // The write of the outer NestedSet {{"a", "b"}, {"c", "d"}}
         .thenReturn(outerWrite)
         // The write of the inner NestedSet {"e", "f"}
-        .thenReturn(immediateFuture(null));
+        .thenReturn(immediateVoidFuture());
     ObjectCodecs objectCodecs = createCodecs(new NestedSetStore(mockStorage));
 
     NestedSet<String> sharedInnerNestedSet = NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b");
@@ -251,7 +252,7 @@ public final class NestedSetCodecTest {
     Object[] contents = new Object[0];
     ByteString fingerprint = ByteString.copyFrom(new byte[2]);
     cache.put(
-        NestedSetStore.FingerprintComputationResult.create(fingerprint, immediateFuture(null)),
+        NestedSetStore.FingerprintComputationResult.create(fingerprint, immediateVoidFuture()),
         contents);
     GcFinalization.awaitFullGc();
     assertThat(cache.putIfAbsent(fingerprint, immediateFuture(null))).isEqualTo(contents);

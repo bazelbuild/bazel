@@ -27,7 +27,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationConstants;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
@@ -127,7 +127,16 @@ public class NestedSetStore {
 
   /** An in-memory cache for fingerprint <-> NestedSet associations. */
   @VisibleForTesting
-  public static class NestedSetCache {
+  static class NestedSetCache {
+    private final BugReporter bugReporter;
+
+    NestedSetCache() {
+      this(BugReporter.defaultInstance());
+    }
+
+    private NestedSetCache(BugReporter bugReporter) {
+      this.bugReporter = bugReporter;
+    }
 
     /**
      * Fingerprint to array cache.
@@ -218,9 +227,7 @@ public class NestedSetStore {
               // Failure to fetch the NestedSet contents is unexpected, but the failed future can
               // be stored as the NestedSet children. This way the exception is only propagated if
               // the NestedSet is consumed (unrolled).
-              BugReport.sendBugReport(
-                  new IllegalStateException(
-                      "Expected write for " + fingerprint + " to be complete", e));
+              bugReporter.sendBugReport(e);
             }
           },
           MoreExecutors.directExecutor());
@@ -262,12 +269,15 @@ public class NestedSetStore {
    * Creates a NestedSetStore with the provided {@link NestedSetStorageEndpoint} and executor for
    * deserialization.
    */
-  public NestedSetStore(NestedSetStorageEndpoint nestedSetStorageEndpoint, Executor executor) {
-    this(nestedSetStorageEndpoint, new NestedSetCache(), executor);
+  public NestedSetStore(
+      NestedSetStorageEndpoint nestedSetStorageEndpoint,
+      Executor executor,
+      BugReporter bugReporter) {
+    this(nestedSetStorageEndpoint, new NestedSetCache(bugReporter), executor);
   }
 
   @VisibleForTesting
-  public NestedSetStore(
+  NestedSetStore(
       NestedSetStorageEndpoint nestedSetStorageEndpoint,
       NestedSetCache nestedSetCache,
       Executor executor) {

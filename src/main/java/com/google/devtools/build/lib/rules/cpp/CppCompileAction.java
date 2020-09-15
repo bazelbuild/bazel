@@ -613,22 +613,27 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       // We get a collection view of the NestedSet in a way that can throw an InterruptedException
       // because a NestedSet may contain a future.
       Map.Entry<Artifact, NestedSet<? extends Artifact>> entry = iterator.next();
+      Artifact dep = entry.getKey();
       NestedSet<? extends Artifact> transitive = entry.getValue();
 
       List<? extends Artifact> modules;
       try {
         modules = actionExecutionContext.getNestedSetExpander().toListInterruptibly(transitive);
-      } catch (TimeoutException e) {
+      } catch (TimeoutException | MissingNestedSetException e) {
+        DetailedExitCode code =
+            e instanceof TimeoutException
+                ? createDetailedExitCode(
+                    "Timed out expanding modules for " + dep, Code.MODULE_EXPANSION_TIMEOUT)
+                : createDetailedExitCode(
+                    "Missing data while expanding modules for " + dep,
+                    Code.MODULE_EXPANSION_MISSING_DATA);
         if (actionExecutionContext.isRewindingEnabled()) {
-          throw lostInputsExceptionForTimedOutNestedSetExpansion(entry.getKey(), iterator, e);
+          // If rewinding is enabled, this error is recoverable.
+          throw lostInputsExceptionForFailedNestedSetExpansion(dep, iterator, e, code);
         }
         BugReport.sendBugReport(e);
-        String message = "Timed out expanding modules";
-        DetailedExitCode code = createDetailedExitCode(message, Code.MODULE_EXPANSION_TIMEOUT);
-        throw new ActionExecutionException(message, this, /*catastrophe=*/ false, code);
-      } catch (MissingNestedSetException e) {
-        // TODO(b/168360382): Make this non-fatal by treating it like a timeout.
-        throw new IllegalStateException(e);
+        throw new ActionExecutionException(
+            code.getFailureDetail().getMessage(), e, this, /*catastrophe=*/ false, code);
       }
 
       for (Artifact module : modules) {
@@ -655,14 +660,16 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   /**
-   * Handles a timeout during expansion of transitively used modules.
+   * Handles a failure (timeout or missing data) during expansion of transitively used modules.
    *
    * <p>A timeout may occur if a nested set of transitively used modules {@linkplain
-   * NestedSet#isFromStorage} but is not {@linkplain NestedSet#isReady ready}. The timeout is
-   * handled by throwing {@link LostInputsActionExecutionException} so that rewinding kicks in and
-   * rebuilds the nodes with the unavailable nested sets.
+   * NestedSet#isFromStorage} but is not {@linkplain NestedSet#isReady ready}, while a {@link
+   * MissingNestedSetException} may occur if the data cannot be found.
    *
-   * <p>As soon as one timeout is seen, any other nested sets of modules which are not ready are
+   * <p>Both cases are handled by throwing {@link LostInputsActionExecutionException} so that
+   * rewinding kicks in and rebuilds the nodes with the unavailable nested sets.
+   *
+   * <p>As soon as one failure is seen, any other nested sets of modules which are not ready are
    * also treated as lost inputs.
    *
    * <p>Although the output {@link Artifact} (.pcm file) of dependent modules is not technically
@@ -671,10 +678,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * we use the .pcm file's exec path since rewinding only uses the digest to detect multiple
    * rewinds of the same input.
    */
-  private LostInputsActionExecutionException lostInputsExceptionForTimedOutNestedSetExpansion(
+  private LostInputsActionExecutionException lostInputsExceptionForFailedNestedSetExpansion(
       Artifact timedOut,
       Iterator<Map.Entry<Artifact, NestedSet<? extends Artifact>>> remainingModules,
-      TimeoutException e) {
+      Exception e,
+      DetailedExitCode code) {
     ImmutableMap.Builder<String, ActionInput> lostInputsBuilder = ImmutableMap.builder();
     lostInputsBuilder.put(timedOut.getExecPathString(), timedOut);
     remainingModules.forEachRemaining(
@@ -685,11 +693,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           }
         });
     ImmutableMap<String, ActionInput> lostInputs = lostInputsBuilder.build();
-    String message = "Timed out expanding modules";
-    DetailedExitCode code = createDetailedExitCode(message, Code.MODULE_EXPANSION_TIMEOUT);
-    ActionInputDepOwnerMap owners =
-        new ActionInputDepOwnerMap(ImmutableList.copyOf(lostInputs.values()));
-    return new LostInputsActionExecutionException(message, lostInputs, owners, this, e, code);
+    ActionInputDepOwnerMap owners = new ActionInputDepOwnerMap(lostInputs.values());
+    return new LostInputsActionExecutionException(
+        code.getFailureDetail().getMessage(), lostInputs, owners, this, e, code);
   }
 
   @Override
@@ -1933,7 +1939,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
   }
 
-  static DetailedExitCode createDetailedExitCode(String message, Code detailedCode) {
+  private static DetailedExitCode createDetailedExitCode(String message, Code detailedCode) {
     return DetailedExitCode.of(createFailureDetail(message, detailedCode));
   }
 
