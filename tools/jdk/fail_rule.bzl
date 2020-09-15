@@ -13,10 +13,8 @@
 # limitations under the License.
 
 def _fail_rule_impl(ctx):
-    red = "\033[0;31m"
-    no_color = "\033[0m"
     if ctx.attr.header:
-        fail("\n%s%s%s %s\n" % (red, ctx.attr.header, no_color, ctx.attr.message))
+        fail("%s %s" % (ctx.attr.header, ctx.attr.message))
     else:
         fail(ctx.attr.message)
 
