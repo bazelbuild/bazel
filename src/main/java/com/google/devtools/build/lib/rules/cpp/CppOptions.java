@@ -560,9 +560,6 @@ public class CppOptions extends FragmentOptions {
               + "except bar.o.")
   public List<PerLabelOptions> perFileLtoBackendOpts;
 
-  /** See {@link #hostCrosstoolTop} documentation. * */
-  private static final String HOST_CROSSTOOL_TOP_NOT_YET_SET = "HOST CROSSTOOL TOP NOT YET SET";
-
   /**
    * The value of "--crosstool_top" to use for building tools.
    *
@@ -570,14 +567,13 @@ public class CppOptions extends FragmentOptions {
    * (as opposed to a configuration that comes out of a transition). Otherwise we risk using the
    * wrong crosstool (i.e., trying to build tools with an Android-specific crosstool).
    *
-   * <p>To accomplish this, we initialize this to a special value that means "I haven't been set
-   * yet" and use {@link #getNormalized} to rewrite it to {@link #hostCrosstoolTop} <b>only</b> from
-   * that default. Blaze always evaluates top-level configurations first, so they'll trigger this.
-   * But no followup transitions can.
+   * <p>To accomplish this, we initialize this to null and, if it isn't explicitly set, use {@link
+   * #getNormalized} to rewrite it to {@link #crosstoolTop}. Blaze always evaluates top-level
+   * configurations first, so they'll trigger this. But no followup transitions can.
    */
   @Option(
       name = "host_crosstool_top",
-      defaultValue = HOST_CROSSTOOL_TOP_NOT_YET_SET,
+      defaultValue = "null",
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
@@ -1025,8 +1021,7 @@ public class CppOptions extends FragmentOptions {
       newOptions.targetLibcTopLabel = libcTopLabel;
       changed = true;
     }
-    if (hostCrosstoolTop != null
-        && hostCrosstoolTop.getName().equals(HOST_CROSSTOOL_TOP_NOT_YET_SET)) {
+    if (hostCrosstoolTop == null) {
       // Default to the initial target crosstoolTop.
       newOptions.hostCrosstoolTop = crosstoolTop;
       changed = true;
