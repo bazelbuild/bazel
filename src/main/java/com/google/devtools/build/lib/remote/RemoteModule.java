@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
@@ -373,13 +374,16 @@ public final class RemoteModule extends BlazeModule {
       }
     }
 
-    CallCredentials credentials;
+    CallCredentialsProvider callCredentialsProvider;
     try {
-      credentials = GoogleAuthUtils.newCallCredentials(authAndTlsOptions);
+      callCredentialsProvider = GoogleAuthUtils.newCallCredentialsProvider(authAndTlsOptions);
     } catch (IOException e) {
       handleInitFailure(env, e, Code.CREDENTIALS_INIT_FAILURE);
       return;
     }
+
+    CallCredentials credentials = callCredentialsProvider.getCallCredentials();
+
     RemoteRetrier retrier =
         new RemoteRetrier(
             remoteOptions,
@@ -437,7 +441,7 @@ public final class RemoteModule extends BlazeModule {
         new ByteStreamUploader(
             remoteOptions.remoteInstanceName,
             cacheChannel.retain(),
-            credentials,
+            callCredentialsProvider,
             remoteOptions.remoteTimeout.getSeconds(),
             retrier);
 

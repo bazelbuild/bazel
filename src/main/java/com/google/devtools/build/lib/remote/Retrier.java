@@ -278,14 +278,18 @@ public class Retrier {
 
   private <T> ListenableFuture<T> onExecuteAsyncFailure(
       Exception t, AsyncCallable<T> call, Backoff backoff) {
-    long waitMillis = backoff.nextDelayMillis();
-    if (waitMillis >= 0 && isRetriable(t)) {
-      try {
-        return Futures.scheduleAsync(
-            () -> executeAsync(call, backoff), waitMillis, TimeUnit.MILLISECONDS, retryService);
-      } catch (RejectedExecutionException e) {
-        // May be thrown by .scheduleAsync(...) if i.e. the executor is shutdown.
-        return Futures.immediateFailedFuture(new IOException(e));
+    if (isRetriable(t)) {
+      long waitMillis = backoff.nextDelayMillis();
+      if (waitMillis >= 0) {
+        try {
+          return Futures.scheduleAsync(
+              () -> executeAsync(call, backoff), waitMillis, TimeUnit.MILLISECONDS, retryService);
+        } catch (RejectedExecutionException e) {
+          // May be thrown by .scheduleAsync(...) if i.e. the executor is shutdown.
+          return Futures.immediateFailedFuture(new IOException(e));
+        }
+      } else {
+        return Futures.immediateFailedFuture(t);
       }
     } else {
       return Futures.immediateFailedFuture(t);
