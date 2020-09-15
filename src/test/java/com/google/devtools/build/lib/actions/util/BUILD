@@ -49,6 +49,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:action_cache_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:truth",
