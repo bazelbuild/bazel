@@ -17,7 +17,6 @@ filegroup(
 java_library(
     name = "skyframe_cluster",
     srcs = [
-        "ASTFileLookupFunction.java",
         "ActionArtifactCycleReporter.java",
         "ActionExecutionFunction.java",
         "ActionLookupConflictFindingFunction.java",
@@ -121,9 +120,9 @@ java_library(
         ":artifact_nested_set_key",
         ":aspect_creation_exception",
         ":aspect_value_key",
-        ":ast_file_lookup_value",
         ":build_configuration_value",
         ":build_info_collection_value",
+        ":bzl_compile",
         ":bzl_load_value",
         ":cached_bzl_load_value_and_deps",
         ":cached_bzl_load_value_and_deps_builder_factory",
@@ -875,17 +874,26 @@ java_library(
 )
 
 java_library(
-    name = "ast_file_lookup_value",
-    srcs = ["ASTFileLookupValue.java"],
+    name = "bzl_compile",
+    srcs = [
+        "BzlCompileFunction.java",
+        "BzlCompileValue.java",
+    ],
     deps = [
+        ":precomputed_value",
         ":sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
@@ -2342,7 +2350,7 @@ java_library(
     name = "bzl_load_value",
     srcs = ["BzlLoadValue.java"],
     deps = [
-        ":ast_file_lookup_value",
+        ":bzl_compile",
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",

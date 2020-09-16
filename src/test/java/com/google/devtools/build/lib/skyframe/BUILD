@@ -175,7 +175,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:aggregating_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:artifact_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_value_key",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:ast_file_lookup_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_compile",
         "//src/main/java/com/google/devtools/build/lib/skyframe:ignored_package_prefixes_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:broken_diff_awareness_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration_value",

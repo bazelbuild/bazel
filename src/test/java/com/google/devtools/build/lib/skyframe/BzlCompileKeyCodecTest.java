@@ -23,17 +23,17 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Test for {@link ASTFileLookupValue.Key} serialization. */
+/** Test for {@link BzlCompileValue.Key} serialization. */
 @RunWith(JUnit4.class)
-public final class ASTFileLookupKeyCodecTest {
+public final class BzlCompileKeyCodecTest {
   @Test
   public void testCodec() throws Exception {
     Root root = FsUtils.TEST_ROOTED_PATH.getRoot();
     SerializationTester serializationTester =
         new SerializationTester(
-            ASTFileLookupValue.EMPTY_PRELUDE_KEY,
-            ASTFileLookupValue.keyForPrelude(root, Label.parseAbsoluteUnchecked("//a:a")),
-            ASTFileLookupValue.key(root, Label.parseAbsoluteUnchecked("//a:a")));
+            BzlCompileValue.EMPTY_PRELUDE_KEY,
+            BzlCompileValue.keyForPrelude(root, Label.parseAbsoluteUnchecked("//a:a")),
+            BzlCompileValue.key(root, Label.parseAbsoluteUnchecked("//a:a")));
     FsUtils.addDependencies(serializationTester);
     // Indirectly test that deserialization does interning by verifying that the deserialized
     // instance is the same as the serialized one.

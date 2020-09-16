@@ -39,6 +39,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/repository:external_package_helper",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_compile",
         "//src/main/java/com/google/devtools/build/lib/skyframe:containing_package_lookup_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:file_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:file_symlink_cycle_uniqueness_function",

@@ -29,14 +29,13 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.StarlarkFile;
 
-// TODO(adonovan): Ensure the result is always resolved and update the docstring.
 /**
- * A value that represents an AST file lookup result. There are two subclasses: one for the case
- * where the file is found, and another for the case where the file is missing (but there are no
- * other errors).
+ * The result of BzlCompileFunction, which compiles a .bzl file. There are two subclasses: {@code
+ * Success}, for when the file is found (even though it may contain errors), and {@code Failure},
+ * for when the file does not exist.
  */
-// In practice, almost any change to a .bzl causes the ASTFileLookupValue to be recomputed.
-// We could do better with a finer-grained notion of equality for StarlarkFile than "the source
+// In practice, almost any change to a .bzl causes the BzlCompileValue to be recomputed.
+// We could do better with a finer-grained notion of equality than "the source
 // files differ". In particular, a trivial change such as fixing a typo in a comment should not
 // cause invalidation. (Changes that are only slightly more substantial may be semantically
 // significant. For example, inserting a blank line affects subsequent line numbers, which appear
@@ -45,29 +44,26 @@ import net.starlark.java.syntax.StarlarkFile;
 // Comparing syntax trees for equality is complex and expensive, so the most practical
 // implementation of this optimization will have to wait until Starlark files are compiled,
 // at which point byte-equality of the compiled representation (which is simple to compute)
-// will serve. (At that point, ASTFileLookup should be renamed CompileStarlark.)
+// will serve.
 //
-public abstract class ASTFileLookupValue implements NotComparableSkyValue {
-
-  // TODO(adonovan): flatten this hierarchy into a single class.
-  // It would only cost one word per Starlark file.
-  // Eliminate lookupSuccessful; use getAST() != null.
+// TODO(adonovan): actually compile the code. The name is a step ahead of the implementation.
+public abstract class BzlCompileValue implements NotComparableSkyValue {
 
   public abstract boolean lookupSuccessful();
 
-  public abstract StarlarkFile getAST();
+  public abstract StarlarkFile getAST(); // on success
 
-  public abstract byte[] getDigest();
+  public abstract byte[] getDigest(); // on success
 
-  public abstract String getError();
+  public abstract String getError(); // on failure
 
-  /** If the file is found, this class encapsulates the parsed AST. */
+  /** If the file is found, this class encapsulates the compiled program. */
   @AutoCodec.VisibleForSerialization
-  public static class ASTLookupWithFile extends ASTFileLookupValue {
+  public static class Success extends BzlCompileValue {
     private final StarlarkFile ast;
     private final byte[] digest;
 
-    private ASTLookupWithFile(StarlarkFile ast, byte[] digest) {
+    private Success(StarlarkFile ast, byte[] digest) {
       this.ast = Preconditions.checkNotNull(ast);
       this.digest = Preconditions.checkNotNull(digest);
     }
@@ -96,10 +92,10 @@ public abstract class ASTFileLookupValue implements NotComparableSkyValue {
 
   /** If the file isn't found, this class encapsulates a message with the reason. */
   @AutoCodec.VisibleForSerialization
-  public static class ASTLookupNoFile extends ASTFileLookupValue {
+  public static class Failure extends BzlCompileValue {
     private final String errorMsg;
 
-    private ASTLookupNoFile(String errorMsg) {
+    private Failure(String errorMsg) {
       this.errorMsg = Preconditions.checkNotNull(errorMsg);
     }
 
@@ -126,13 +122,13 @@ public abstract class ASTFileLookupValue implements NotComparableSkyValue {
 
   /** Constructs a value from a failure before parsing a file. */
   @FormatMethod
-  static ASTFileLookupValue noFile(String format, Object... args) {
-    return new ASTLookupNoFile(String.format(format, args));
+  static BzlCompileValue noFile(String format, Object... args) {
+    return new Failure(String.format(format, args));
   }
 
   /** Constructs a value from a parsed file. */
-  public static ASTFileLookupValue withFile(StarlarkFile ast, byte[] digest) {
-    return new ASTLookupWithFile(ast, digest);
+  public static BzlCompileValue withFile(StarlarkFile ast, byte[] digest) {
+    return new Success(ast, digest);
   }
 
   private static final Interner<Key> keyInterner = BlazeInterners.newWeakInterner();

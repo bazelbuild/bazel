@@ -279,9 +279,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private final Cache<PackageIdentifier, StarlarkFile> buildFileSyntaxCache =
       newBuildFileSyntaxCache();
 
-  // Cache of parsed bzl files, for use when we're inlining ASTFileLookupFunction in
+  // Cache of parsed bzl files, for use when we're inlining BzlCompileFunction in
   // BzlLoadFunction. See the comments in BzlLoadFunction for motivations and details.
-  private final Cache<ASTFileLookupValue.Key, ASTFileLookupValue> astFileLookupValueCache =
+  private final Cache<BzlCompileValue.Key, BzlCompileValue> bzlCompileCache =
       CacheBuilder.newBuilder().build();
 
   private final AtomicInteger numPackagesLoaded = new AtomicInteger(0);
@@ -489,7 +489,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             buildFilesByPriority,
             externalPackageHelper));
     map.put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction());
-    map.put(SkyFunctions.AST_FILE_LOOKUP, new ASTFileLookupFunction(pkgFactory, getHashFunction()));
+    map.put(
+        SkyFunctions.BZL_COMPILE, // TODO rename
+        new BzlCompileFunction(pkgFactory, getHashFunction()));
     map.put(SkyFunctions.STARLARK_BUILTINS, new StarlarkBuiltinsFunction(pkgFactory));
     map.put(SkyFunctions.BZL_LOAD, newBzlLoadFunction(ruleClassProvider, pkgFactory));
     map.put(SkyFunctions.GLOB, newGlobFunction());
@@ -649,7 +651,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   protected SkyFunction newBzlLoadFunction(
       RuleClassProvider ruleClassProvider, PackageFactory pkgFactory) {
-    return BzlLoadFunction.create(this.pkgFactory, getHashFunction(), astFileLookupValueCache);
+    return BzlLoadFunction.create(this.pkgFactory, getHashFunction(), bzlCompileCache);
   }
 
   protected PerBuildSyscallCache newPerBuildSyscallCache(int concurrencyLevel) {
@@ -961,10 +963,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    */
   private static final ImmutableSet<SkyFunctionName> LOADING_TYPES =
       ImmutableSet.of(
-          SkyFunctions.PACKAGE,
-          SkyFunctions.BZL_LOAD,
-          SkyFunctions.AST_FILE_LOOKUP,
-          SkyFunctions.GLOB);
+          SkyFunctions.PACKAGE, SkyFunctions.BZL_LOAD, SkyFunctions.BZL_COMPILE, SkyFunctions.GLOB);
 
   /** Data that should be discarded in {@link #discardPreExecutionCache}. */
   protected enum DiscardType {
@@ -1383,7 +1382,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     // build), these may have stale entries.
     packageFunctionCache.invalidateAll();
     buildFileSyntaxCache.invalidateAll();
-    astFileLookupValueCache.invalidateAll();
+    bzlCompileCache.invalidateAll();
 
     numPackagesLoaded.set(0);
     if (packageProgress != null) {

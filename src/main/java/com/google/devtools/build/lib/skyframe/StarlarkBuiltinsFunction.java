@@ -32,11 +32,11 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Starlark;
 
-// TODO(#11437): Teach ASTFileLookup about builtins keys, then have them modify their env the same
+// TODO(#11437): Teach BzlCompile about builtins keys, then have them modify their env the same
 // way as BzlLoadFunction. This will   allow us to define the _internal symbol for @builtins.
 
 // TODO(#11437): Determine places where we need to teach Skyframe about this Skyfunction. Look for
-// special treatment of BzlLoadFunction or ASTFileLookupFunction in existing code.
+// special treatment of BzlLoadFunction or BzlCompileFunction in existing code.
 
 // TODO(#11437): Add support to StarlarkModuleCycleReporter to pretty-print cycles involving
 // @builtins. Blocked on us actually loading files from @builtins.

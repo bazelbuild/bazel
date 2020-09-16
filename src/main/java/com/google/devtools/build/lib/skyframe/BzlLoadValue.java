@@ -88,10 +88,10 @@ public class BzlLoadValue implements SkyValue {
     abstract Key getKeyForLoad(Label loadLabel);
 
     /**
-     * Constructs an ASTFileLookupValue key suitable for retrieving the Starlark code for this .bzl,
+     * Constructs an BzlCompileValue key suitable for retrieving the Starlark code for this .bzl,
      * given the Root in which to find its file.
      */
-    abstract ASTFileLookupValue.Key getASTKey(Root root);
+    abstract BzlCompileValue.Key getCompileKey(Root root);
 
     @Override
     public SkyFunctionName functionName() {
@@ -138,11 +138,11 @@ public class BzlLoadValue implements SkyValue {
     }
 
     @Override
-    ASTFileLookupValue.Key getASTKey(Root root) {
+    BzlCompileValue.Key getCompileKey(Root root) {
       if (isBuildPrelude) {
-        return ASTFileLookupValue.keyForPrelude(root, label);
+        return BzlCompileValue.keyForPrelude(root, label);
       } else {
-        return ASTFileLookupValue.key(root, label);
+        return BzlCompileValue.key(root, label);
       }
     }
 
@@ -214,8 +214,8 @@ public class BzlLoadValue implements SkyValue {
     }
 
     @Override
-    ASTFileLookupValue.Key getASTKey(Root root) {
-      return ASTFileLookupValue.key(root, label);
+    BzlCompileValue.Key getCompileKey(Root root) {
+      return BzlCompileValue.key(root, label);
     }
 
     @Override
@@ -273,8 +273,8 @@ public class BzlLoadValue implements SkyValue {
     }
 
     @Override
-    ASTFileLookupValue.Key getASTKey(Root root) {
-      return ASTFileLookupValue.keyForBuiltins(root, label);
+    BzlCompileValue.Key getCompileKey(Root root) {
+      return BzlCompileValue.keyForBuiltins(root, label);
     }
 
     @Override
