@@ -23,11 +23,13 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.Artifact.MissingExpansionException;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.FilesetManifest;
 import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehavior;
+import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -36,16 +38,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.DirectoryExpander;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkCallable;
-import com.google.devtools.build.lib.syntax.StarlarkFunction;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -57,6 +49,16 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 
 /** Supports ctx.actions.args() from Starlark. */
 @AutoCodec
@@ -341,12 +343,21 @@ public class StarlarkCustomCommandLine extends CommandLine {
     private static void expandFileset(
         Artifact.ArtifactExpander artifactExpander, Artifact fileset, List<Object> expandedValues)
         throws CommandLineExpansionException {
+      ImmutableList<FilesetOutputSymlink> expandedFileSet;
+      try {
+        expandedFileSet = artifactExpander.getFileset(fileset);
+      } catch (MissingExpansionException e) {
+        throw new CommandLineExpansionException(
+            String.format(
+                "Could not expand fileset: %s. Did you forget to add it as an input of the"
+                    + " action?",
+                fileset),
+            e);
+      }
       try {
         FilesetManifest filesetManifest =
             FilesetManifest.constructFilesetManifest(
-                artifactExpander.getFileset(fileset),
-                fileset.getExecPath(),
-                RelativeSymlinkBehavior.IGNORE);
+                expandedFileSet, fileset.getExecPath(), RelativeSymlinkBehavior.IGNORE);
         for (PathFragment relativePath : filesetManifest.getEntries().keySet()) {
           expandedValues.add(new FilesetSymlinkFile(fileset, relativePath));
         }

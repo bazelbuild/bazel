@@ -26,9 +26,9 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.syntax.Location;
 import java.io.Serializable;
 import java.util.HashMap;
+import net.starlark.java.syntax.Location;
 
 /**
  * Implementation for the cc_toolchain rule.

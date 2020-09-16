@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -51,21 +52,21 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
-import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Module;
-import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.Program;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkFile;
-import com.google.devtools.build.lib.syntax.StarlarkList;
-import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.ClassObject;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.Tuple;
+import net.starlark.java.syntax.ParserInput;
+import net.starlark.java.syntax.Program;
+import net.starlark.java.syntax.StarlarkFile;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -1842,5 +1843,125 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(group.requiredToolchains()).containsExactly(makeLabel("//test:my_toolchain_type"));
     assertThat(group.execCompatibleWith())
         .containsExactly(makeLabel("//constraint:cv1"), makeLabel("//constraint:cv2"));
+  }
+
+  @Test
+  public void ruleDefinitionEnvironmentDigest_unaffectedByTargetAttrValueChange() throws Exception {
+    scratch.file(
+        "r/def.bzl",
+        "def _r(ctx): return struct(value=ctx.attr.text)",
+        "r = rule(implementation=_r, attrs={'text': attr.string()})");
+    scratch.file("r/BUILD", "load(':def.bzl', 'r')", "r(name='r', text='old')");
+    byte[] oldDigest =
+        createRuleContext("//r:r")
+            .getRuleContext()
+            .getRule()
+            .getRuleClassObject()
+            .getRuleDefinitionEnvironmentDigest();
+
+    scratch.deleteFile("r/BUILD");
+    scratch.file("r/BUILD", "load(':def.bzl', 'r')", "r(name='r', text='new')");
+    // Signal SkyFrame to discover changed files.
+    skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
+    byte[] newDigest =
+        createRuleContext("//r:r")
+            .getRuleContext()
+            .getRule()
+            .getRuleClassObject()
+            .getRuleDefinitionEnvironmentDigest();
+
+    assertThat(newDigest).isEqualTo(oldDigest);
+  }
+
+  @Test
+  public void ruleDefinitionEnvironmentDigest_accountsForFunctionWhenCreatingRuleWithAMacro()
+      throws Exception {
+    scratch.file("r/create.bzl", "def create(impl): return rule(implementation=impl)");
+    scratch.file(
+        "r/def.bzl",
+        "load(':create.bzl', 'create')",
+        "def f(ctx): return struct(value='OLD')",
+        "r = create(f)");
+    scratch.file("r/BUILD", "load(':def.bzl', 'r')", "r(name='r')");
+    byte[] oldDigest =
+        createRuleContext("//r:r")
+            .getRuleContext()
+            .getRule()
+            .getRuleClassObject()
+            .getRuleDefinitionEnvironmentDigest();
+
+    scratch.deleteFile("r/def.bzl");
+    scratch.file(
+        "r/def.bzl",
+        "load(':create.bzl', 'create')",
+        "def f(ctx): return struct(value='NEW')",
+        "r = create(f)");
+    // Signal SkyFrame to discover changed files.
+    skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
+    byte[] newDigest =
+        createRuleContext("//r:r")
+            .getRuleContext()
+            .getRule()
+            .getRuleClassObject()
+            .getRuleDefinitionEnvironmentDigest();
+
+    assertThat(newDigest).isNotEqualTo(oldDigest);
+  }
+
+  @Test
+  public void ruleDefinitionEnvironmentDigest_accountsForAttrsWhenCreatingRuleWithMacro()
+      throws Exception {
+    scratch.file(
+        "r/create.bzl",
+        "def f(ctx): return struct(value=ctx.attr.to_json())",
+        "def create(attrs): return rule(implementation=f, attrs=attrs)");
+    scratch.file("r/def.bzl", "load(':create.bzl', 'create')", "r = create({})");
+    scratch.file("r/BUILD", "load(':def.bzl', 'r')", "r(name='r')");
+    byte[] oldDigest =
+        createRuleContext("//r:r")
+            .getRuleContext()
+            .getRule()
+            .getRuleClassObject()
+            .getRuleDefinitionEnvironmentDigest();
+
+    scratch.deleteFile("r/def.bzl");
+    scratch.file(
+        "r/def.bzl",
+        "load(':create.bzl', 'create')",
+        "r = create({'value': attr.string(default='')})");
+    // Signal SkyFrame to discover changed files.
+    skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
+    byte[] newDigest =
+        createRuleContext("//r:r")
+            .getRuleContext()
+            .getRule()
+            .getRuleClassObject()
+            .getRuleDefinitionEnvironmentDigest();
+
+    assertThat(newDigest).isNotEqualTo(oldDigest);
+  }
+
+  /**
+   * This test is crucial for correctness of {@link RuleClass#getRuleDefinitionEnvironmentDigest}
+   * since we use a dummy bzl transitive digest in that case. It is correct to do that only because
+   * a rule class created by a BUILD thread cannot be instantiated.
+   */
+  @Test
+  public void ruleClassDefinedInBuildFile_fails() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    scratch.file("r/create.bzl", "def create(impl): return rule(implementation=impl)");
+    scratch.file("r/def.bzl", "load(':create.bzl', 'create')", "r = create({})");
+    scratch.file("r/impl.bzl", "def make_struct(ctx): return struct(value='hello')");
+    scratch.file(
+        "r/BUILD",
+        "load(':create.bzl', 'create')",
+        "load(':impl.bzl', 'make_struct')",
+        "r = create(make_struct)",
+        "r(name='r')");
+
+    getConfiguredTarget("//r:r");
+
+    ev.assertContainsError("Error in rule: Invalid rule class hasn't been exported by a bzl file");
   }
 }

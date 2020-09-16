@@ -18,9 +18,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetStore.MissingNestedSetException;
 import com.google.devtools.build.lib.concurrent.MoreFutures;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -135,7 +137,7 @@ public final class NestedSet<E> {
     // True if we visit the direct members before the transitive members.
     boolean preorder;
 
-    switch(order) {
+    switch (order) {
       case LINK_ORDER:
         directOrder = ImmutableList.copyOf(direct).reverse();
         transitiveOrder = ImmutableList.copyOf(transitive).reverse();
@@ -384,10 +386,22 @@ public final class NestedSet<E> {
    * Returns true if the contents of this set are currently available in memory.
    *
    * <p>Only returns false if this set {@link #isFromStorage} and the contents are not fully
-   * deserialized.
+   * deserialized (either because the deserialization future is not complete or because it failed).
    */
   public boolean isReady() {
-    return !isFromStorage() || ((ListenableFuture<Object[]>) children).isDone();
+    if (!isFromStorage()) {
+      return true;
+    }
+    ListenableFuture<?> future = (ListenableFuture<?>) children;
+    if (!future.isDone() || future.isCancelled()) {
+      return false;
+    }
+    try {
+      Futures.getDone(future);
+      return true;
+    } catch (Exception e) {
+      return false;
+    }
   }
 
   /** Returns the single element; only call this if {@link #isSingleton} returns true. */
@@ -397,31 +411,45 @@ public final class NestedSet<E> {
   }
 
   /**
-   * Returns an immutable list of all unique elements of the this set, similar to {@link #toList},
-   * but will propagate an {@code InterruptedException} if one is thrown.
+   * Returns an immutable list of all unique elements of this set, similar to {@link #toList}, but
+   * will propagate an {@code InterruptedException} or {@link MissingNestedSetException} if one is
+   * thrown.
    */
-  public ImmutableList<E> toListInterruptibly() throws InterruptedException {
-    return actualChildrenToList(getChildrenInterruptibly());
+  public ImmutableList<E> toListInterruptibly()
+      throws InterruptedException, MissingNestedSetException {
+    Object actualChildren;
+    if (children instanceof ListenableFuture) {
+      actualChildren =
+          MoreFutures.waitForFutureAndGetWithCheckedException(
+              (ListenableFuture<Object[]>) children, MissingNestedSetException.class);
+    } else {
+      actualChildren = children;
+    }
+    return actualChildrenToList(actualChildren);
   }
 
   /**
-   * Returns an immutable list of all unique elements of the this set, similar to {@link #toList},
-   * but will propagate an {@code InterruptedException} if one is thrown and will throw {@link
+   * Returns an immutable list of all unique elements of this set, similar to {@link #toList}, but
+   * will propagate an {@code InterruptedException} if one is thrown and will throw {@link
    * TimeoutException} if this set is deserializing and does not become ready within the given
    * timeout.
+   *
+   * <p>Additionally, throws {@link MissingNestedSetException} if this nested set {@link
+   * #isFromStorage} and could not be retrieved.
    *
    * <p>Note that the timeout only applies to blocking for the deserialization future to become
    * available. The actual list transformation is untimed.
    */
   public ImmutableList<E> toListWithTimeout(Duration timeout)
-      throws InterruptedException, TimeoutException {
+      throws InterruptedException, TimeoutException, MissingNestedSetException {
     Object actualChildren;
     if (children instanceof ListenableFuture) {
       try {
         actualChildren =
             ((ListenableFuture<Object[]>) children).get(timeout.toNanos(), TimeUnit.NANOSECONDS);
       } catch (ExecutionException e) {
-        Throwables.propagateIfPossible(e.getCause(), InterruptedException.class);
+        Throwables.propagateIfPossible(
+            e.getCause(), InterruptedException.class, MissingNestedSetException.class);
         throw new IllegalStateException(e);
       }
     } else {
@@ -582,6 +610,7 @@ public final class NestedSet<E> {
   // a copy in cases where we can preallocate an array of the correct size.
   private static final class ArraySharingCollection<E> extends AbstractCollection<E> {
     private final Object[] array;
+
     ArraySharingCollection(Object[] array) {
       this.array = array;
     }

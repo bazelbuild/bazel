@@ -87,5 +87,13 @@ function test_multiple_package_roots {
   expect_log "no such target '//:build_bazel_only'"
 }
 
+function test_build_as_target() {
+  local -r pkg="${FUNCNAME}"
+  mkdir -p "$pkg/BUILD" || fail "could not create \"$pkg/BUILD\""
+  echo 'filegroup(name = "BUILD", srcs = [])' > "$pkg/BUILD/BUILD.bazel" || fail
+  # Note the "shorthand" $pkg/BUILD syntax, not $pkg/BUILD:BUILD.
+  bazel build "$pkg/BUILD" || fail "Expected success"
+}
+
 run_suite "build files tests"
 

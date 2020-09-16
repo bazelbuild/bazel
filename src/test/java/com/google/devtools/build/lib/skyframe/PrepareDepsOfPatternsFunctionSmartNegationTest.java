@@ -210,7 +210,8 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
   private WalkableGraph getGraphFromPatternsEvaluation(
       ImmutableList<String> patternSequence, boolean successExpected, boolean keepGoing)
       throws InterruptedException {
-    SkyKey independentTarget = PrepareDepsOfPatternsValue.key(patternSequence, "");
+    SkyKey independentTarget =
+        PrepareDepsOfPatternsValue.key(patternSequence, PathFragment.EMPTY_FRAGMENT);
     ImmutableList<SkyKey> singletonTargetPattern = ImmutableList.of(independentTarget);
 
     // When PrepareDepsOfPatternsFunction completes evaluation,

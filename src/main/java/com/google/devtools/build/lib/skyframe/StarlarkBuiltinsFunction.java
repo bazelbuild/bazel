@@ -20,10 +20,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.InjectionException;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Module;
-import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.skyframe.RecordingSkyFunctionEnvironment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -31,12 +27,16 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Starlark;
 
-// TODO(#11437): Teach ASTFileLookup about builtins keys, then have them modify their env the same
+// TODO(#11437): Teach BzlCompile about builtins keys, then have them modify their env the same
 // way as BzlLoadFunction. This will   allow us to define the _internal symbol for @builtins.
 
 // TODO(#11437): Determine places where we need to teach Skyframe about this Skyfunction. Look for
-// special treatment of BzlLoadFunction or ASTFileLookupFunction in existing code.
+// special treatment of BzlLoadFunction or BzlCompileFunction in existing code.
 
 // TODO(#11437): Add support to StarlarkModuleCycleReporter to pretty-print cycles involving
 // @builtins. Blocked on us actually loading files from @builtins.

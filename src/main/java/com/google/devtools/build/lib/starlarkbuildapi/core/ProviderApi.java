@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.core;
 
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Interface for provider objects (constructors for {@link StructApi} objects). */
 @StarlarkBuiltin(

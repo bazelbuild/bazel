@@ -25,13 +25,14 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.syntax.Location;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import net.starlark.java.syntax.Location;
 
 /**
  * Model for the "environment_group' rule: the piece of Bazel's rule constraint system that binds
@@ -129,16 +130,22 @@ public class EnvironmentGroup implements Target {
     for (Label environment :
         Iterables.filter(environmentLabels.environments, new DifferentPackage(containingPackage))) {
       events.add(
-          Event.error(
+          Package.error(
               location,
-              environment + " is not in the same package as group " + environmentLabels.label));
+              environment + " is not in the same package as group " + environmentLabels.label,
+              Code.ENVIRONMENT_IN_DIFFERENT_PACKAGE));
     }
 
     // The defaults must be a subset of the member environments.
     for (Label unknownDefault :
         Sets.difference(environmentLabels.defaults, environmentLabels.environments)) {
-      events.add(Event.error(location, "default " + unknownDefault + " is not a "
-          + "declared environment for group " + getLabel()));
+      events.add(
+          Package.error(
+              location,
+              String.format(
+                  "default %s is not a declared environment for group %s",
+                  unknownDefault, getLabel()),
+              Code.DEFAULT_ENVIRONMENT_UNDECLARED));
     }
 
     return events;
@@ -213,13 +220,25 @@ public class EnvironmentGroup implements Target {
 
   private boolean isValidEnvironment(Target env, Label envName, String prefix, List<Event> events) {
     if (env == null) {
-      events.add(Event.error(location, prefix + "environment " + envName + " does not exist"));
+      events.add(
+          Package.error(
+              location,
+              prefix + "environment " + envName + " does not exist",
+              Code.ENVIRONMENT_DOES_NOT_EXIST));
       return false;
     } else if (!env.getTargetKind().equals("environment rule")) {
-      events.add(Event.error(location, prefix + env.getLabel() + " is not a valid environment"));
+      events.add(
+          Package.error(
+              location,
+              prefix + env.getLabel() + " is not a valid environment",
+              Code.ENVIRONMENT_INVALID));
       return false;
     } else if (!environmentLabels.environments.contains(env.getLabel())) {
-      events.add(Event.error(location, prefix + env.getLabel() + " is not a member of this group"));
+      events.add(
+          Package.error(
+              location,
+              prefix + env.getLabel() + " is not a member of this group",
+              Code.ENVIRONMENT_NOT_IN_GROUP));
       return false;
     }
     return true;

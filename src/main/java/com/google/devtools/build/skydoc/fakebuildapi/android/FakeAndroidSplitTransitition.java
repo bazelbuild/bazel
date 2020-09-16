@@ -15,7 +15,7 @@
 package com.google.devtools.build.skydoc.fakebuildapi.android;
 
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidSplitTransititionApi;
-import com.google.devtools.build.lib.syntax.Printer;
+import net.starlark.java.eval.Printer;
 
 /**
  * Fake implementation of {@link AndroidSplitTransititionApi}.

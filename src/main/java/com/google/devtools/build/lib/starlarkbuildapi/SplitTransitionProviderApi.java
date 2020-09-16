@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
-import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Interface for a type representing a split configuration transition. */
 public interface SplitTransitionProviderApi extends StarlarkValue {

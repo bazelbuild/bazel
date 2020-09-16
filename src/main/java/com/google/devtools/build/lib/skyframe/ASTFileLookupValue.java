@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
-import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.NotComparableSkyValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -28,6 +27,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.Objects;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.StarlarkFile;
 
 // TODO(adonovan): Ensure the result is always resolved and update the docstring.
 /**
@@ -214,7 +214,7 @@ public abstract class ASTFileLookupValue implements NotComparableSkyValue {
 
     @Override
     public SkyFunctionName functionName() {
-      return SkyFunctions.AST_FILE_LOOKUP;
+      return SkyFunctions.BZL_COMPILE;
     }
   }
 

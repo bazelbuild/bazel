@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
 import java.util.Arrays;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.syntax.Location;
 
 /**
  * A category of artifacts that are candidate input/output to an action, for which the toolchain can

@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.starlarkbuildapi.python;
 
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * DO NOT USE. Skarlark module exposing Python transitions for Python 2 to 3 migration purposes

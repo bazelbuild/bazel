@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollect
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaProtoCommonApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.eval.EvalException;
 
 /** Fake implementation of {@link JavaProtoCommonApi}. */
 public class FakeJavaProtoCommon

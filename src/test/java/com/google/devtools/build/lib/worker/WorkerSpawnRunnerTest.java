@@ -131,9 +131,8 @@ public class WorkerSpawnRunnerTest {
     assertThat(logFile.exists()).isFalse();
   }
 
-  @Test
-  public void testExecInWorker_showsLogFileInException()
-      throws ExecException, InterruptedException, IOException {
+  private void assertRecordedResponsethrowsException(String recordedResponse, String exceptionText)
+      throws Exception {
     WorkerSpawnRunner runner =
         new WorkerSpawnRunner(
             new SandboxHelpers(false),
@@ -151,8 +150,7 @@ public class WorkerSpawnRunnerTest {
     Path logFile = fs.getPath("/worker.log");
     when(worker.getLogFile()).thenReturn(logFile);
     when(worker.getResponse()).thenThrow(new IOException("Bad protobuf"));
-    String badMessage = "Recorded message";
-    when(worker.getRecordingStreamMessage()).thenReturn(badMessage);
+    when(worker.getRecordingStreamMessage()).thenReturn(recordedResponse);
     String workerLog = "Log from worker\n";
     FileSystemUtils.writeIsoLatin1(logFile, workerLog);
     UserExecException execException =
@@ -169,16 +167,30 @@ public class WorkerSpawnRunnerTest {
                     inputFileCache,
                     spawnMetrics));
 
-    assertThat(execException).hasMessageThat().contains("unparseable WorkResponse!\n");
-    assertThat(execException)
-        .hasMessageThat()
-        .contains(logMarker("Exception details") + "java.io.IOException: Bad protobuf");
-    assertThat(execException)
-        .hasMessageThat()
-        .contains(logMarker("Start of response") + badMessage + logMarker("End of response"));
+    assertThat(execException).hasMessageThat().contains(exceptionText);
+    if (!recordedResponse.isEmpty()) {
+      assertThat(execException)
+          .hasMessageThat()
+          .contains(logMarker("Exception details") + "java.io.IOException: Bad protobuf");
+
+      assertThat(execException)
+          .hasMessageThat()
+          .contains(
+              logMarker("Start of response") + recordedResponse + logMarker("End of response"));
+    }
     assertThat(execException)
         .hasMessageThat()
         .contains(logMarker("Start of log, file at " + logFile.getPathString()) + workerLog);
+  }
+
+  @Test
+  public void testExecInWorker_showsLogFileInException() throws Exception {
+    assertRecordedResponsethrowsException("Some text", "unparseable WorkResponse!\n");
+  }
+
+  @Test
+  public void testExecInWorker_throwsWithEmptyResponse() throws Exception {
+    assertRecordedResponsethrowsException("", "did not return a WorkResponse");
   }
 
   private static String logMarker(String text) {

@@ -71,6 +71,39 @@ EOF
     || fail "BUILD_SCM_STATUS not found"
 }
 
+function test_workspace_status_overrides() {
+  create_new_workspace
+
+  local cmd=`mktemp $TEST_TMPDIR/wsc-XXXXXXXX`
+  cat > $cmd <<EOF
+#!/bin/bash
+
+echo BUILD_USER fake_user
+echo BUILD_HOST fake_host
+echo BUILD_EMBED_LABEL fake_label
+echo BUILD_TIMESTAMP 17
+EOF
+  chmod +x $cmd
+
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+    name="a",
+    srcs=[],
+    outs=["a.out"],
+    stamp=1,
+    cmd="touch $@")
+EOF
+
+  bazel build --stamp //a --workspace_status_command=$cmd || fail "build failed"
+  cat bazel-out/volatile-status.txt > "$TEST_log"
+  expect_log "BUILD_TIMESTAMP 17"
+  cat bazel-out/stable-status.txt > "$TEST_log"
+  expect_log "BUILD_USER fake_user"
+  expect_log "BUILD_HOST fake_host"
+  expect_log "BUILD_EMBED_LABEL fake_label"
+}
+
 function test_workspace_status_cpp() {
   create_new_workspace
 

@@ -351,6 +351,37 @@ final class WorkerSpawnRunner implements SpawnRunner {
     return arg.matches("^@.*//.*");
   }
 
+  private static UserExecException createEmptyResponseException(Path logfile) {
+    String message =
+        ErrorMessage.builder()
+            .message("Worker process did not return a WorkResponse:")
+            .logFile(logfile)
+            .logSizeLimit(4096)
+            .build()
+            .toString();
+    return createUserExecException(message, Code.NO_RESPONSE);
+  }
+
+  private static UserExecException createUnparsableResponseException(
+      String recordingStreamMessage, Path logfile, Exception e) {
+    String message =
+        ErrorMessage.builder()
+            .message(
+                "Worker process returned an unparseable WorkResponse!\n\n"
+                    + "Did you try to print something to stdout? Workers aren't allowed to "
+                    + "do this, as it breaks the protocol between Bazel and the worker "
+                    + "process.\n\n"
+                    + "---8<---8<--- Start of response ---8<---8<---\n"
+                    + recordingStreamMessage
+                    + "---8<---8<--- End of response ---8<---8<---\n\n")
+            .logFile(logfile)
+            .logSizeLimit(8192)
+            .exception(e)
+            .build()
+            .toString();
+    return createUserExecException(message, Code.PARSE_RESPONSE_FAILURE);
+  }
+
   @VisibleForTesting
   WorkResponse execInWorker(
       Spawn spawn,
@@ -435,38 +466,21 @@ final class WorkerSpawnRunner implements SpawnRunner {
         try {
           response = worker.getResponse();
         } catch (IOException e) {
-          // If protobuf couldn't parse the response, try to print whatever the failing worker wrote
-          // to stdout - it's probably a stack trace or some kind of error message that will help
-          // the user figure out why the compiler is failing.
+          // If protobuf or json reader couldn't parse the response, try to print whatever the
+          // failing worker wrote to stdout - it's probably a stack trace or some kind of error
+          // message that will help the user figure out why the compiler is failing.
           String recordingStreamMessage = worker.getRecordingStreamMessage();
-          String message =
-              ErrorMessage.builder()
-                  .message(
-                      "Worker process returned an unparseable WorkResponse!\n\n"
-                          + "Did you try to print something to stdout? Workers aren't allowed to "
-                          + "do this, as it breaks the protocol between Bazel and the worker "
-                          + "process.\n\n"
-                          + "---8<---8<--- Start of response ---8<---8<---\n"
-                          + recordingStreamMessage
-                          + "---8<---8<--- End of response ---8<---8<---\n\n")
-                  .logFile(worker.getLogFile())
-                  .exception(e)
-                  .build()
-                  .toString();
-          throw createUserExecException(message, Code.PARSE_RESPONSE_FAILURE);
+          if (recordingStreamMessage.isEmpty()) {
+            throw createEmptyResponseException(worker.getLogFile());
+          } else {
+            throw createUnparsableResponseException(recordingStreamMessage, worker.getLogFile(), e);
+          }
         }
         spawnMetrics.setExecutionWallTime(executionStopwatch.elapsed());
       }
 
       if (response == null) {
-        String message =
-            ErrorMessage.builder()
-                .message("Worker process did not return a WorkResponse:")
-                .logFile(worker.getLogFile())
-                .logSizeLimit(4096)
-                .build()
-                .toString();
-        throw createUserExecException(message, Code.NO_RESPONSE);
+        throw createEmptyResponseException(worker.getLogFile());
       }
 
       try {

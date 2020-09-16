@@ -13,32 +13,36 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.common;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsValue;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.LinkedHashSet;
 import java.util.Optional;
+import javax.annotation.Nullable;
 
 /** Representation of the --universe_scope option value. */
-public abstract class UniverseScope {
+public interface UniverseScope {
   /** To be used when --infer_universe_scope applies. */
-  public static final UniverseScope INFER_FROM_QUERY_EXPRESSION = new InferredUniverseScope();
+  UniverseScope INFER_FROM_QUERY_EXPRESSION = new InferredUniverseScope();
   /** To be used when neither --universe_scope nor --infer_universe_scope are set. */
-  public static final UniverseScope EMPTY = new ConstantUniverseScope(ImmutableList.of());
-
-  private UniverseScope() {}
+  UniverseScope EMPTY = new ConstantUniverseScope(ImmutableList.of());
 
   /** To be used when --universe_scope is set. */
-  public static UniverseScope fromUniverseScopeList(ImmutableList<String> constantUniverseScope) {
+  static UniverseScope fromUniverseScopeList(ImmutableList<String> constantUniverseScope) {
     return new ConstantUniverseScope(constantUniverseScope);
   }
 
-  public abstract boolean isEmpty();
+  UniverseSkyKey getUniverseKey(@Nullable QueryExpression expr, PathFragment offset);
 
-  public abstract Optional<ImmutableList<String>> getConstantValueMaybe();
+  boolean isEmpty();
 
-  public abstract ImmutableList<String> inferFromQueryExpression(QueryExpression expr);
+  Optional<ImmutableList<String>> getConstantValueMaybe();
 
-  private static final class ConstantUniverseScope extends UniverseScope {
+  /** Constant universe scope. */
+  final class ConstantUniverseScope implements UniverseScope {
     private final ImmutableList<String> constantUniverseScope;
 
     private ConstantUniverseScope(ImmutableList<String> constantUniverseScope) {
@@ -56,12 +60,15 @@ public abstract class UniverseScope {
     }
 
     @Override
-    public ImmutableList<String> inferFromQueryExpression(QueryExpression expr) {
-      return constantUniverseScope;
+    public UniverseSkyKey getUniverseKey(@Nullable QueryExpression expr, PathFragment offset) {
+      return PrepareDepsOfPatternsValue.key(constantUniverseScope, offset);
     }
   }
 
-  private static final class InferredUniverseScope extends UniverseScope {
+  /** Universe scope inferred from query expression. */
+  final class InferredUniverseScope implements UniverseScope {
+    private InferredUniverseScope() {}
+
     @Override
     public boolean isEmpty() {
       return false;
@@ -73,10 +80,11 @@ public abstract class UniverseScope {
     }
 
     @Override
-    public ImmutableList<String> inferFromQueryExpression(QueryExpression expr) {
+    public UniverseSkyKey getUniverseKey(@Nullable QueryExpression expr, PathFragment offset) {
       LinkedHashSet<String> targetPatterns = new LinkedHashSet<>();
-      expr.collectTargetPatterns(targetPatterns);
-      return ImmutableList.copyOf(targetPatterns);
+      checkNotNull(expr).collectTargetPatterns(targetPatterns);
+      return PrepareDepsOfPatternsValue.key(ImmutableList.copyOf(targetPatterns), offset);
     }
   }
+
 }

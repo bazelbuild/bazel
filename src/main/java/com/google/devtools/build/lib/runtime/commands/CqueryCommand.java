@@ -114,7 +114,9 @@ public final class CqueryCommand implements BlazeCommand {
     try {
       expr = QueryParser.parse(query, functions);
     } catch (QuerySyntaxException e) {
-      String message = "Error while parsing '" + query + "': " + e.getMessage();
+      String message =
+          String.format(
+              "Error while parsing '%s': %s", QueryExpression.truncate(query), e.getMessage());
       env.getReporter().handle(Event.error(message));
       return createFailureResult(message, Code.EXPRESSION_PARSE_FAILURE);
     }

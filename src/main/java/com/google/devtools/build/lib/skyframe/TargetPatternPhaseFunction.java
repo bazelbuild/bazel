@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue.TargetPatternPhaseKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -395,7 +396,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
    * @param testFilter the test filter
    */
   private static ResolvedTargets<Target> determineTests(
-      Environment env, List<String> targetPatterns, String offset, TestFilter testFilter)
+      Environment env, List<String> targetPatterns, PathFragment offset, TestFilter testFilter)
       throws InterruptedException {
     List<TargetPatternKey> patternSkyKeys = new ArrayList<>();
     for (TargetPatternSkyKeyOrException keyOrException :

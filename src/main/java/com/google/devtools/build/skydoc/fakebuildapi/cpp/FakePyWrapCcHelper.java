@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyWrapCcHelperApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyWrapCcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.WrapCcIncludeProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
-import com.google.devtools.build.lib.syntax.Sequence;
+import net.starlark.java.eval.Sequence;
 
 /** Fake implementation of {@link PyWrapCcHelperApi}. */
 public class FakePyWrapCcHelper

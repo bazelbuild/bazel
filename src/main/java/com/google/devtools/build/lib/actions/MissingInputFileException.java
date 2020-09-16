@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import net.starlark.java.syntax.Location;
 
 /**
  * This exception is thrown during a build when an input file is missing, but the file is not the

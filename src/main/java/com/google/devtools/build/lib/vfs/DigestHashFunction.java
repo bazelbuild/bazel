@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashFunction;
@@ -68,8 +67,6 @@ public class DigestHashFunction {
 
   public static final DigestHashFunction SHA1 = register(Hashing.sha1(), "SHA-1", "SHA1");
   public static final DigestHashFunction SHA256 = register(Hashing.sha256(), "SHA-256", "SHA256");
-
-  private static DigestHashFunction defaultHash;
 
   private final HashFunction hashFunction;
   private final DigestLength digestLength;
@@ -128,59 +125,6 @@ public class DigestHashFunction {
       }
     }
     return hashFunction;
-  }
-
-  /**
-   * Returns the default DigestHashFunction for this instance of Bazel.
-   *
-   * <p>Note: This is a synchronized function, to make sure it does not occur concurrently with
-   * {@link #setDefault(DigestHashFunction)}. Once this value is set, it's a constant, so to prevent
-   * blocking calls, users should cache this value if needed.
-   *
-   * @throws DefaultHashFunctionNotSetException if the default has not yet been set by a previous
-   *     call to {@link #setDefault}.
-   */
-  public static synchronized DigestHashFunction getDefault()
-      throws DefaultHashFunctionNotSetException {
-    DigestHashFunction hash = defaultHash;
-    if (hash == null) {
-      throw new DefaultHashFunctionNotSetException("DigestHashFunction default has not been set");
-    }
-    return hash;
-  }
-
-  /** Indicates that the default has not been initialized. */
-  public static final class DefaultHashFunctionNotSetException extends Exception {
-    DefaultHashFunctionNotSetException(String message) {
-      super(message);
-    }
-  }
-
-  /**
-   * Sets the default DigestHashFunction for this instance of Bazel - can only be set once to
-   * prevent incongruities.
-   *
-   * @throws DefaultAlreadySetException if it was already set.
-   */
-  public static synchronized void setDefault(DigestHashFunction hash)
-      throws DefaultAlreadySetException {
-    Preconditions.checkNotNull(hash);
-    // Permit redundant calls.  This is difficult to avoid with test suites.
-    if (defaultHash == null || defaultHash == hash) {
-      defaultHash = hash;
-      return;
-    }
-    throw new DefaultAlreadySetException(
-        String.format(
-            "setDefault(%s) failed. The default has already been set to %s, you cannot change it.",
-            hash.name, defaultHash.name));
-  }
-
-  /** Failure to set the default if the default already being set. */
-  public static final class DefaultAlreadySetException extends Exception {
-    DefaultAlreadySetException(String message) {
-      super(message);
-    }
   }
 
   /** Converts a string to its registered {@link DigestHashFunction}. */

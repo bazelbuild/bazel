@@ -17,7 +17,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.syntax.Location;
+import net.starlark.java.syntax.Location;
 
 /**
  * Base class for implementations of {@link

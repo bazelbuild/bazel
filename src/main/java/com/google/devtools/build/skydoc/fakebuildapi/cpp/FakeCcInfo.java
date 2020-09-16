@@ -18,8 +18,8 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcCompilationContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingContextApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Printer;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
 
 /** Fake implementation of {@link CcInfoApi}. */
 public class FakeCcInfo implements CcInfoApi<FileApi> {

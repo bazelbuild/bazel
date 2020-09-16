@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Helper object containing CC linking info objects. */
 @StarlarkBuiltin(

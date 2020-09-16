@@ -486,7 +486,10 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       Map<TargetPatternKey, String> patternKeys = Maps.newHashMapWithExpectedSize(patterns.size());
       for (String pattern : patterns) {
         checkValidPatternType(pattern);
-        patternKeys.put(TargetPatternValue.key(pattern, FilteringPolicies.NO_FILTER, ""), pattern);
+        patternKeys.put(
+            TargetPatternValue.key(
+                pattern, FilteringPolicies.NO_FILTER, PathFragment.EMPTY_FRAGMENT),
+            pattern);
       }
       Set<SkyKey> packageKeys = new HashSet<>();
       Map<String, ResolvedTargets<Label>> resolvedLabelsMap =
@@ -548,7 +551,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     }
 
     private void checkValidPatternType(String pattern) throws TargetParsingException {
-      TargetPattern.Type type = new TargetPattern.Parser("").parse(pattern).getType();
+      TargetPattern.Type type =
+          new TargetPattern.Parser(PathFragment.EMPTY_FRAGMENT).parse(pattern).getType();
       if (type == TargetPattern.Type.PATH_AS_TARGET) {
         throw new TargetParsingException(
             String.format("couldn't determine target from filename '%s'", pattern),

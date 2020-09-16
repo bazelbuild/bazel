@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.graph.DotOutputVisitor;
 import com.google.devtools.build.lib.graph.LabelSerializer;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.query2.engine.DigraphQueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -43,6 +44,10 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMu
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.testutil.AbstractQueryTest.QueryHelper.ResultAndTargets;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
+import com.google.devtools.build.lib.server.FailureDetails.Query;
+import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
@@ -167,15 +172,39 @@ public abstract class AbstractQueryTest<T> {
     return result.getResultSet();
   }
 
-  // Like eval(), but asserts that evaluation completes abruptly with a
-  // QueryException, whose message is returned.
-  protected String evalThrows(String query, boolean unconditionallyThrows) throws Exception {
+  // Like eval(), but asserts that evaluation completes abruptly with a QueryException, whose
+  // message and FailureDetail is returned.
+  protected EvalThrowsResult evalThrows(String query, boolean unconditionallyThrows)
+      throws Exception {
     try {
       helper.evaluateQuery(query);
       fail("evaluateQuery completed normally: " + query);
-      return null; // unreachable
+      throw new IllegalStateException();
     } catch (QueryException e) {
-      return e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
+      String message = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
+      return new EvalThrowsResult(message, e.getFailureDetail());
+    }
+  }
+
+  /**
+   * Error message and {@link FailureDetail} from the failing query evaluation performed by {@link
+   * #evalThrows}.
+   */
+  protected static class EvalThrowsResult {
+    private final String message;
+    private final FailureDetail failureDetail;
+
+    protected EvalThrowsResult(String message, FailureDetail failureDetail) {
+      this.message = message;
+      this.failureDetail = failureDetail;
+    }
+
+    public String getMessage() {
+      return message;
+    }
+
+    public FailureDetail getFailureDetail() {
+      return failureDetail;
     }
   }
 
@@ -206,10 +235,32 @@ public abstract class AbstractQueryTest<T> {
     assertThat(x.containsAll(y)).isFalse();
   }
 
+  protected static void assertPackageLoadingCode(ResultAndTargets<Target> result, Code code) {
+    FailureDetail failureDetail =
+        result.getQueryEvalResult().getDetailedExitCode().getFailureDetail();
+    assertThat(failureDetail).isNotNull();
+    assertPackageLoadingCode(failureDetail, code);
+  }
+
+  protected static void assertPackageLoadingCode(FailureDetail failureDetail, Code code) {
+    assertThat(failureDetail.getPackageLoading().getCode()).isEqualTo(code);
+  }
+
+  protected static void assertQueryCode(ResultAndTargets<Target> result, Query.Code code) {
+    FailureDetail failureDetail =
+        result.getQueryEvalResult().getDetailedExitCode().getFailureDetail();
+    assertThat(failureDetail).isNotNull();
+    assertQueryCode(failureDetail, code);
+  }
+
+  protected static void assertQueryCode(FailureDetail failureDetail, Query.Code code) {
+    assertThat(failureDetail.getQuery().getCode()).isEqualTo(code);
+  }
+
   @Test
   public void testTargetLiteralWithMissingTargets() throws Exception {
     writeFile("a/BUILD");
-    assertThat(evalThrows("//a:b", false))
+    assertThat(evalThrows("//a:b", false).getMessage())
         .isEqualTo(
             "no such target '//a:b': target 'b' not declared in package 'a' "
                 + "defined by "
@@ -239,8 +290,16 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testBadTargetLiterals() throws Exception {
-    assertThat(evalThrows("bad:*:*", false))
-        .isEqualTo("Invalid package name 'bad:*': " + BAD_PACKAGE_NAME);
+    runBadTargetLiteralsTest(true);
+  }
+
+  protected void runBadTargetLiteralsTest(boolean checkDetailedCode) throws Exception {
+    EvalThrowsResult result = evalThrows("bad:*:*", false);
+    if (checkDetailedCode) {
+      assertThat(result.getFailureDetail().getTargetPatterns().getCode())
+          .isEqualTo(TargetPatterns.Code.LABEL_SYNTAX_ERROR);
+    }
+    assertThat(result.getMessage()).isEqualTo("Invalid package name 'bad:*': " + BAD_PACKAGE_NAME);
   }
 
   @Test
@@ -391,7 +450,9 @@ public abstract class AbstractQueryTest<T> {
     assertContains(eval("c:*"), eval("some(c:*)"));
     assertThat(evalToString("some(//c:q)")).isEqualTo("//c:q");
 
-    assertThat(evalThrows("some(//c:q intersect //c:p)", true)).isEqualTo("argument set is empty");
+    EvalThrowsResult result = evalThrows("some(//c:q intersect //c:p)", true);
+    assertThat(result.getMessage()).isEqualTo("argument set is empty");
+    assertQueryCode(result.getFailureDetail(), Query.Code.ARGUMENTS_MISSING);
   }
 
   protected void writeBuildFiles3() throws Exception {
@@ -784,7 +845,9 @@ public abstract class AbstractQueryTest<T> {
     assertContains(
         eval("//b + //c + //d"),
         eval("let x = //a in deps($x) except $x" + getDependencyCorrectionWithGen()));
-    assertThat(evalThrows("$undefined", true)).isEqualTo("undefined variable 'undefined'");
+    EvalThrowsResult result = evalThrows("$undefined", true);
+    assertThat(result.getMessage()).isEqualTo("undefined variable 'undefined'");
+    assertQueryCode(result.getFailureDetail(), Query.Code.VARIABLE_UNDEFINED);
   }
 
   @Test
@@ -944,13 +1007,20 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testCycleInStarlark() throws Exception {
+    runCycleInStarlarkTest(/*checkFailureDetail=*/ true);
+  }
+
+  protected void runCycleInStarlarkTest(boolean checkFailureDetail) throws Exception {
     writeFile("a/BUILD", "load('//a:cycle1.bzl', 'C1')", "sh_library(name = 'a')");
     writeFile("a/cycle1.bzl", "load('//a:cycle2.bzl', 'C2')", "C1 = struct()");
     writeFile("a/cycle2.bzl", "load('//a:cycle1.bzl', 'C1')", "C2 = struct()");
-    try {
-      evalThrows("//a:all", false);
-    } catch (QueryException e) {
-      // Expected.
+    EvalThrowsResult result = evalThrows("//a:all", false);
+    // TODO(mschaller): evalThrows's message can be non-deterministic if events are too. It probably
+    //  needs to be refactored to deal with underlying event non-determinism, because fixing query
+    //  engines' event non-determinism is probably hard.
+    if (checkFailureDetail) {
+      assertThat(result.getFailureDetail().getTargetPatterns().getCode())
+          .isEqualTo(TargetPatterns.Code.CYCLE);
     }
   }
 
@@ -1075,9 +1145,11 @@ public abstract class AbstractQueryTest<T> {
     writeFile("c/BUILD", "test_suite(name='c', tests=['//d'])");
     writeFile("d/BUILD");
 
+    EvalThrowsResult result = evalThrows("tests(//c)", false);
     assertStartsWith(
         "couldn't expand 'tests' attribute of test_suite //c:c: " + "no such target '//d:d'",
-        evalThrows("tests(//c)", false));
+        result.getMessage());
+    assertPackageLoadingCode(result.getFailureDetail(), Code.TARGET_MISSING);
   }
 
   @Test
@@ -1199,7 +1271,7 @@ public abstract class AbstractQueryTest<T> {
     writeFile("x/BUILD", "cc_library(name='x', srcs=['a.cc', 'a.cc'])");
     String expectedError = "Label '//x:a.cc' is duplicated in the 'srcs' attribute of rule 'x'";
     if (helper.isKeepGoing()) {
-      assertThat(evalThrows("//x", false)).isEqualTo(expectedError);
+      assertThat(evalThrows("//x", false).getMessage()).isEqualTo(expectedError);
     } else {
       evalThrows("//x", false);
       assertContainsEvent(expectedError);
@@ -1353,10 +1425,12 @@ public abstract class AbstractQueryTest<T> {
   public void testStrictTestSuiteWithFile() throws Exception {
     helper.setQuerySettings(Setting.TESTS_EXPRESSION_STRICT);
     writeFile("x/BUILD", "test_suite(name='a', tests=['a.txt'])");
-    assertThat(evalThrows("tests(//x:a)", false))
+    EvalThrowsResult result = evalThrows("tests(//x:a)", false);
+    assertThat(result.getMessage())
         .isEqualTo(
             "The label '//x:a.txt' in the test_suite '//x:a' does not refer to a test or "
                 + "test_suite rule!");
+    assertQueryCode(result.getFailureDetail(), Query.Code.INVALID_LABEL_IN_TEST_SUITE);
   }
 
   @Test
@@ -1430,10 +1504,13 @@ public abstract class AbstractQueryTest<T> {
     // When the query environment is queried for targets belonging to packages beneath the
     // package "a/b", which doesn't exist,
     String missingPackage = "a/b";
-    String s = evalThrows("//" + missingPackage + "/...", false);
+    EvalThrowsResult result = evalThrows("//" + missingPackage + "/...", false);
+    String s = result.getMessage();
 
     // Then an exception is thrown that says that the pattern matched nothing.
     assertThat(s).containsMatch("no targets found beneath '" + missingPackage + "'");
+    assertThat(result.getFailureDetail().getTargetPatterns().getCode())
+        .isEqualTo(TargetPatterns.Code.TARGETS_MISSING);
   }
 
   @Test
@@ -2050,3 +2127,4 @@ public abstract class AbstractQueryTest<T> {
     String getLabel(T target);
   }
 }
+

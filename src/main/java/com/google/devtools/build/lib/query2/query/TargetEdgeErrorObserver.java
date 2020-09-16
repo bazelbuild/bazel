@@ -21,6 +21,10 @@ import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 
 /**
  * Record errors, such as missing package/target or rules containing errors, encountered during
@@ -41,6 +45,8 @@ class TargetEdgeErrorObserver implements TargetEdgeObserver {
    */
   private volatile boolean hasErrors = false;
 
+  private final AtomicReference<DetailedExitCode> errorCode = new AtomicReference<>();
+
   /**
    * Reports an unresolved label error and records the fact that an error was encountered.
    *
@@ -52,6 +58,7 @@ class TargetEdgeErrorObserver implements TargetEdgeObserver {
   @Override
   public void missingEdge(Target target, Label label, NoSuchThingException e) {
     hasErrors = true;
+    errorCode.compareAndSet(/*expect=*/ null, /*update=*/ e.getDetailedExitCode());
   }
 
   /**
@@ -67,6 +74,12 @@ class TargetEdgeErrorObserver implements TargetEdgeObserver {
     return hasErrors;
   }
 
+  /** Returns the first {@link DetailedExitCode} encountered, or {@code null} if there were none. */
+  @Nullable
+  public DetailedExitCode getDetailedExitCode() {
+    return errorCode.get();
+  }
+
   @Override
   public void edge(Target from, Attribute attribute, Target to) {
     // No-op.
@@ -76,7 +89,11 @@ class TargetEdgeErrorObserver implements TargetEdgeObserver {
   public void node(Target node) {
     if (node.getPackage().containsErrors()
         || ((node instanceof Rule) && ((Rule) node).containsErrors())) {
-      this.hasErrors = true; // Note, this is thread-safe.
+      this.hasErrors = true;
+      FailureDetail failureDetail = node.getPackage().getFailureDetail();
+      if (failureDetail != null) {
+        errorCode.compareAndSet(/*expect=*/ null, /*update=*/ DetailedExitCode.of(failureDetail));
+      }
     }
   }
 }

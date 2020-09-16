@@ -124,4 +124,33 @@ function test_bazel_license_prints_jdk_license() {
       fail "'bazel license' did not print an expected string from LICENSE"
 }
 
+
+function test_bazel_reports_missing_local_jdk() {
+  # Make a JAVA_HOME with javac and without java
+  # This fails discovery on systems that rely on JAVA_HOME, rely on PATH and
+  # also on Darwin that is using /usr/libexec/java_home for discovery
+
+  mkdir bin
+  touch bin/javac
+  chmod +x bin/javac
+  export JAVA_HOME="$PWD"
+  export PATH="$PWD/bin:$PATH"
+
+  mkdir -p java/main
+  cat >java/main/BUILD <<EOF
+java_library(
+    name = 'JavaExample',
+    srcs = ['JavaExample.java'],
+)
+EOF
+
+  cat >java/main/JavaExample.java <<EOF
+public class JavaExample {
+}
+EOF
+
+  bazel build java/main:JavaExample &>"${TEST_log}" && fail "build should have failed" || true
+  expect_log "Auto-Configuration Error: Cannot find Java binary"
+}
+
 run_suite "bazel test suite"

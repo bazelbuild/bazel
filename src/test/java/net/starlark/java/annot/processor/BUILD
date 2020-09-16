@@ -1,24 +1,19 @@
 load("@rules_java//java:defs.bzl", "java_test")
 
-licenses(["notice"])  # Apache 2.0
+licenses(["notice"])
 
 filegroup(
     name = "srcs",
-    srcs = glob(
-        ["**"],
-    ),
-    visibility = [
-        "//src/test/java/com/google/devtools/build/lib:__pkg__",
-    ],
+    srcs = glob(["**"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 java_test(
     name = "StarlarkMethodProcessorTest",
     srcs = ["StarlarkMethodProcessorTest.java"],
-    resources = [":ProcessorTestFiles"],
+    resources = glob(["testsources/*.java"]),
+    runtime_deps = ["//src/main/java/net/starlark/java/eval"],  # loaded reflectively
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:syntax",
-        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/net/starlark/java/annot/processor",
         "//third_party:compile_testing",
         "//third_party:guava",
@@ -27,18 +22,12 @@ java_test(
     ],
 )
 
-filegroup(
-    name = "ProcessorTestFiles",
-    srcs = glob(["testsources/*.java"]),
-)
-
 test_suite(
     name = "windows_tests",
     tags = [
         "-no_windows",
         "-slow",
     ],
-    visibility = ["//visibility:private"],
 )
 
 test_suite(

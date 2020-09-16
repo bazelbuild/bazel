@@ -15,7 +15,6 @@ package com.google.devtools.build.docgen.starlark;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.syntax.Starlark;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,6 +22,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkDeprecated;
 import net.starlark.java.annot.StarlarkInterfaceUtils;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Starlark;
 
 /** A class representing a Java method callable from Starlark with annotation. */
 public final class StarlarkJavaMethodDoc extends StarlarkMethodDoc {

@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.skydoc;
 
-import com.google.devtools.build.lib.syntax.ParserInput;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import net.starlark.java.syntax.ParserInput;
 
 /** Implementation of {@link StarlarkFileAccessor} which uses the real filesystem. */
 public class FilesystemFileAccessor implements StarlarkFileAccessor {

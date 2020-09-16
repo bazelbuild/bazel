@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertAbout;
 import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.Subject;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
-import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.eval.EvalException;
 
 /** A Truth {@link Subject} for {@link ToolchainInfo}. */
 public class ToolchainInfoSubject extends Subject {

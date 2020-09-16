@@ -21,12 +21,12 @@ import com.google.common.collect.Interners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
-import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.io.Serializable;
 import java.util.Objects;
+import net.starlark.java.eval.Printer;
 
 /**
  * A root for an artifact. The roots are the directories containing artifacts, and they are mapped

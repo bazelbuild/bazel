@@ -15,14 +15,14 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 
 /**
  * A CallStack is an opaque immutable stack of Starlark call frames, outermost call first. Its

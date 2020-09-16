@@ -20,10 +20,10 @@ import com.google.devtools.build.lib.starlarkbuildapi.java.JavaAnnotationProcess
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCompilationInfoProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaRuleOutputJarsProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * Fake implementation of {@link JavaInfoApi}.

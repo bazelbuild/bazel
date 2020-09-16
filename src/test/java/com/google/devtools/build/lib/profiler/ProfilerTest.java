@@ -457,7 +457,7 @@ public class ProfilerTest {
               }
             });
     profiler.markPhase(ProfilePhase.INIT); // Empty phase.
-    profiler.markPhase(ProfilePhase.LOAD);
+    profiler.markPhase(ProfilePhase.TARGET_PATTERN_EVAL);
     thread1.start();
     thread1.join();
     clock.advanceMillis(1);
@@ -495,7 +495,8 @@ public class ProfilerTest {
                 + 1 /* last task */
                 + 1 /* finishing */);
     assertThat(getTraceEventsForPhase(ProfilePhase.INIT, jsonProfile.getTraceEvents())).isEmpty();
-    assertThat(getTraceEventsForPhase(ProfilePhase.LOAD, jsonProfile.getTraceEvents()))
+    assertThat(
+            getTraceEventsForPhase(ProfilePhase.TARGET_PATTERN_EVAL, jsonProfile.getTraceEvents()))
         .hasSize(100); // thread1
     assertThat(getTraceEventsForPhase(ProfilePhase.ANALYZE, jsonProfile.getTraceEvents()))
         .hasSize(101); // complex task and thread2a

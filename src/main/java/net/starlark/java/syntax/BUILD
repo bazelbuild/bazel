@@ -2,10 +2,6 @@
 
 load("@rules_java//java:defs.bzl", "java_library")
 
-# TODO(adonovan): move list of visibility-permitted clients to
-# third_party/bazel/src/main/java/net/starlark/java/BUILD.
-package(default_visibility = ["//src:__subpackages__"])
-
 licenses(["notice"])
 
 filegroup(
@@ -59,6 +55,7 @@ java_library(
         "TokenKind.java",
         "UnaryOperatorExpression.java",
     ],
+    visibility = ["//src/main/java/net/starlark/java:clients"],
     # Do not add Bazel or Google dependencies here!
     deps = [
         "//src/main/java/net/starlark/java/spelling",

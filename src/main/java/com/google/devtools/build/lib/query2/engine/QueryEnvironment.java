@@ -477,7 +477,6 @@ public interface QueryEnvironment<T> {
    * QueryException} or emitting an event, depending on whether the evaluation is running in a "keep
    * going" mode.
    */
-  // TODO(b/138456686): make detailedExitCode non-nullable
   void handleError(
       QueryExpression expression, String message, @Nullable DetailedExitCode detailedExitCode)
       throws QueryException;

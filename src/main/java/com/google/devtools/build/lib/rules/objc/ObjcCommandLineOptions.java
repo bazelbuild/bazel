@@ -226,17 +226,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public boolean scanIncludes;
 
   @Option(
-      name = "objc_header_scanner_tool",
-      defaultValue = "@bazel_tools//tools/objc:header_scanner",
-      converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.CHANGES_INPUTS},
-      help =
-          "Location of tool to scan Objective-C code for inclusions and output a .headers_list "
-              + "file.")
-  public Label objcHeaderScannerTool;
-
-  @Option(
     name = "apple_sdk",
     defaultValue = "null",
     converter = LabelConverter.class,

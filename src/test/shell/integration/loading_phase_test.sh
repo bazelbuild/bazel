@@ -380,7 +380,7 @@ function test_package_loading_errors_in_target_parsing() {
 
 function test_severe_package_loading_errors_via_test_suites_in_target_parsing() {
 
-  mkdir bad || fail "mkdir failed"
+  mkdir -p bad || fail "mkdir failed"
   cat > bad/BUILD <<EOF
 load("//bad:bad.bzl", "some_val")
 sh_test(name = "some_test", srcs = ["test.sh"])
@@ -588,6 +588,42 @@ EOF
     fail "Expected build to succeed"
   )
   assert_contains "^${filename}$" $(bazel info "${PRODUCT_NAME}-bin")/$pkg/paths.txt
+}
+
+function test_path_from_subdir() {
+  local -r pkg="${FUNCNAME}"
+  mkdir -p "$pkg/subdir" || fail "could not create \"$pkg/subdir\""
+  touch "$pkg/subdir/BUILD" || fail "Could not touch"
+  echo 'filegroup(name = "foo", srcs = [])' > "$pkg/BUILD" || fail "echo"
+  cd "$pkg/subdir"
+  bazel query '../BUILD + ../foo' >output 2> "$TEST_log" \
+      || fail "Expected success"
+  assert_contains "^//$pkg:BUILD\$" output
+  assert_contains "^//$pkg:foo\$" output
+}
+
+function test_target_with_BUILD() {
+  local -r pkg="${FUNCNAME}"
+  mkdir -p "$pkg" || fail "could not create \"$pkg\""
+  echo 'filegroup(name = "foo/BUILD", srcs = [])' > "$pkg/BUILD" || fail "echo"
+  bazel query "$pkg/foo/BUILD" >output 2> "$TEST_log" || fail "Expected success"
+  assert_contains "^//$pkg:foo/BUILD\$" output
+}
+
+function test_directory_with_BUILD() {
+  local -r pkg="${FUNCNAME}"
+  mkdir -p "$pkg/BUILD" || fail "could not create \"$pkg/BUILD\""
+  touch "$pkg/BUILD/BUILD" || fail "Couldn't touch"
+  bazel query "$pkg/BUILD" >output 2> "$TEST_log" || fail "Expected success"
+  assert_contains "^//$pkg/BUILD:BUILD\$" output
+}
+
+function test_missing_BUILD() {
+  local -r pkg="${FUNCNAME}"
+  mkdir -p "$pkg/subdir1/subdir2" || fail "could not create under \"$pkg\""
+  touch "$pkg/BUILD" || fail "Couldn't touch"
+  bazel query "$pkg/subdir1/subdir2/BUILD" &> "$TEST_log" && fail "Should fail"
+  expect_log "no such target '//${pkg}:subdir1/subdir2/BUILD'"
 }
 
 run_suite "Integration tests of ${PRODUCT_NAME} using loading/analysis phases."

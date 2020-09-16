@@ -138,8 +138,11 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       return "";
     }
 
+    private static final ImmutableSet<String> SPECIAL_STABLE_KEYS =
+        ImmutableSet.of(BuildInfo.BUILD_EMBED_LABEL, BuildInfo.BUILD_HOST, BuildInfo.BUILD_USER);
+
     private static boolean isStableKey(String key) {
-        return key.startsWith("STABLE_");
+      return key.startsWith("STABLE_") || SPECIAL_STABLE_KEYS.contains(key);
     }
 
     private static Map<String, String> parseWorkspaceStatus(String input) {
@@ -179,12 +182,17 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
           actionExecutionContext.getContext(WorkspaceStatusAction.Context.class);
       Options options = context.getOptions();
       ImmutableMap<String, String> clientEnv = context.getClientEnv();
+      Map<String, String> volatileMap = new TreeMap<>();
+      Map<String, String> stableMap = new TreeMap<>();
+
+      stableMap.put(BuildInfo.BUILD_EMBED_LABEL, options.embedLabel);
+      stableMap.put(BuildInfo.BUILD_HOST, hostname);
+      stableMap.put(BuildInfo.BUILD_USER, username);
+      volatileMap.put(
+          BuildInfo.BUILD_TIMESTAMP, Long.toString(getCurrentTimeMillis(clientEnv) / 1000));
       try {
         Map<String, String> statusMap =
             parseWorkspaceStatus(getAdditionalWorkspaceStatus(options, actionExecutionContext));
-        Map<String, String> volatileMap = new TreeMap<>();
-        Map<String, String> stableMap = new TreeMap<>();
-
         for (Map.Entry<String, String> entry : statusMap.entrySet()) {
           if (isStableKey(entry.getKey())) {
             stableMap.put(entry.getKey(), entry.getValue());
@@ -192,12 +200,6 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
             volatileMap.put(entry.getKey(), entry.getValue());
           }
         }
-
-        stableMap.put(BuildInfo.BUILD_EMBED_LABEL, options.embedLabel);
-        stableMap.put(BuildInfo.BUILD_HOST, hostname);
-        stableMap.put(BuildInfo.BUILD_USER, username);
-        volatileMap.put(
-            BuildInfo.BUILD_TIMESTAMP, Long.toString(getCurrentTimeMillis(clientEnv) / 1000));
 
         Map<String, String> overallMap = new TreeMap<>();
         overallMap.putAll(volatileMap);

@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /** The utility class for {@link AqueryCommand} */
 public final class AqueryCommandUtils {
@@ -33,10 +34,7 @@ public final class AqueryCommandUtils {
    *     --skyframe_state flag
    */
   static ImmutableList<String> getTopLevelTargets(
-      List<String> universeScope,
-      QueryExpression expr,
-      boolean queryCurrentSkyframeState,
-      String query)
+      List<String> universeScope, @Nullable QueryExpression expr, boolean queryCurrentSkyframeState)
       throws QueryException {
     if (expr == null) {
       return ImmutableList.copyOf(universeScope);
@@ -54,7 +52,7 @@ public final class AqueryCommandUtils {
     if (queryCurrentSkyframeState && !topLevelTargets.isEmpty()) {
       throw new QueryException(
           "Error while parsing '"
-              + query
+              + expr.toTrunctatedString()
               + "': Specifying build target(s) "
               + topLevelTargets
               + " with --skyframe_state is currently not supported.",

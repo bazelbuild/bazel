@@ -1,14 +1,12 @@
 load("@rules_java//java:defs.bzl", "java_test")
 
-package(
-    default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
-)
+package(default_testonly = 1)
 
 filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
+    visibility = ["//src/main/java/net/starlark/java:bazel"],
 )
 
 # EvalTests test the Starlark interpreter.
@@ -34,7 +32,7 @@ java_test(
         "StringModuleTest.java",
     ],
     deps = [
-        "//src/main/java/net/starlark/java/annot:annot_new",
+        "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
@@ -77,7 +75,7 @@ java_test(
     ],
     use_testrunner = False,
     deps = [
-        "//src/main/java/net/starlark/java/annot:annot_new",
+        "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",

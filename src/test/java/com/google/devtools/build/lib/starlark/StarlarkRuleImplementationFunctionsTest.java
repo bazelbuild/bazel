@@ -57,12 +57,6 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkList;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OsUtils;
@@ -77,6 +71,12 @@ import java.util.regex.Pattern;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkGlobalLibrary;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkThread;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -204,7 +204,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     assertThat(e).hasMessageThat().contains(errorSubstring);
   }
 
-  // TODO(adonovan): move these tests of the interpreter core into lib.syntax.
+  // TODO(adonovan): move these tests of Starlark interpreter core into net/starlark/java.
 
   @Test
   public void testStarlarkFunctionPosArgs() throws Exception {
@@ -802,8 +802,8 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
    * parameter of the template_action function contains a hack that assumes its input is a UTF-8
    * encoded string which has been ingested as Latin 1. The hack converts the string to its
    * "correct" UTF-8 value. Once Blaze starts calling {@link
-   * com.google.devtools.build.lib.syntax.ParserInput#fromUTF8} instead of {@code fromLatin1} and
-   * the hack for the substituations parameter is removed, this test will fail.
+   * net.starlark.java.syntax.ParserInput#fromUTF8} instead of {@code fromLatin1} and the hack for
+   * the substituations parameter is removed, this test will fail.
    */
   @Test
   public void testCreateTemplateActionWithWrongEncoding() throws Exception {

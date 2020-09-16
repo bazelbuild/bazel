@@ -14,15 +14,14 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.android;
 
-import com.google.devtools.build.lib.rules.android.AndroidSdkProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FilesToRunProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidSdkProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
-import com.google.devtools.build.lib.syntax.EvalException;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
-/** Fake implementation of {@link AndroidSdkProvider}. */
+/** Fake implementation of AndroidSdkProvider. */
 public class FakeAndroidSdkProvider
     implements AndroidSdkProviderApi<
         FileApi, FilesToRunProviderApi<FileApi>, TransitiveInfoCollectionApi> {

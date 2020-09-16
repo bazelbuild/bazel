@@ -42,35 +42,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
-import com.google.devtools.build.lib.syntax.Argument;
-import com.google.devtools.build.lib.syntax.CallExpression;
-import com.google.devtools.build.lib.syntax.DefStatement;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Expression;
-import com.google.devtools.build.lib.syntax.FileOptions;
-import com.google.devtools.build.lib.syntax.ForStatement;
-import com.google.devtools.build.lib.syntax.Identifier;
-import com.google.devtools.build.lib.syntax.IfStatement;
-import com.google.devtools.build.lib.syntax.IntegerLiteral;
-import com.google.devtools.build.lib.syntax.ListExpression;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Module;
-import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.NodeVisitor;
-import com.google.devtools.build.lib.syntax.NoneType;
-import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Program;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkCallable;
-import com.google.devtools.build.lib.syntax.StarlarkFile;
-import com.google.devtools.build.lib.syntax.StarlarkFunction;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.StringLiteral;
-import com.google.devtools.build.lib.syntax.SyntaxError;
-import com.google.devtools.build.lib.syntax.Tuple;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -89,6 +61,35 @@ import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.NoneType;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Tuple;
+import net.starlark.java.syntax.Argument;
+import net.starlark.java.syntax.CallExpression;
+import net.starlark.java.syntax.DefStatement;
+import net.starlark.java.syntax.Expression;
+import net.starlark.java.syntax.FileOptions;
+import net.starlark.java.syntax.ForStatement;
+import net.starlark.java.syntax.Identifier;
+import net.starlark.java.syntax.IfStatement;
+import net.starlark.java.syntax.IntegerLiteral;
+import net.starlark.java.syntax.ListExpression;
+import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.NodeVisitor;
+import net.starlark.java.syntax.ParserInput;
+import net.starlark.java.syntax.Program;
+import net.starlark.java.syntax.StarlarkFile;
+import net.starlark.java.syntax.StringLiteral;
+import net.starlark.java.syntax.SyntaxError;
 
 /**
  * The package factory is responsible for constructing Package instances from a BUILD file's
@@ -991,7 +992,11 @@ public final class PackageFactory {
 
     // Report scan/parse errors.
     if (!file.ok()) {
-      Event.replayEventsOn(pkgContext.eventHandler, file.errors());
+      Event.replayEventsOn(
+          pkgContext.eventHandler,
+          file.errors(),
+          DetailedExitCode.class,
+          syntaxError -> Package.createDetailedCode(syntaxError.toString(), Code.SYNTAX_ERROR));
       return false;
     }
 
@@ -1000,7 +1005,8 @@ public final class PackageFactory {
     // after we've parsed the BUILD file and created the Package.
     String error = LabelValidator.validatePackageName(packageId.getPackageFragment().toString());
     if (error != null) {
-      pkgContext.eventHandler.handle(Event.error(file.getStartLocation(), error));
+      pkgContext.eventHandler.handle(
+          Package.error(file.getStartLocation(), error, Code.PACKAGE_NAME_INVALID));
       return false;
     }
 
@@ -1022,7 +1028,11 @@ public final class PackageFactory {
     try {
       prog = Program.compileFile(file, module);
     } catch (SyntaxError.Exception ex) {
-      Event.replayEventsOn(pkgContext.eventHandler, ex.errors());
+      Event.replayEventsOn(
+          pkgContext.eventHandler,
+          ex.errors(),
+          DetailedExitCode.class,
+          syntaxError -> Package.createDetailedCode(syntaxError.toString(), Code.SYNTAX_ERROR));
       return false;
     }
 
@@ -1082,7 +1092,8 @@ public final class PackageFactory {
       try {
         Starlark.execFileProgram(prog, module, thread);
       } catch (EvalException ex) {
-        pkgContext.eventHandler.handle(Event.error(null, ex.getMessageWithStack()));
+        pkgContext.eventHandler.handle(
+            Package.error(null, ex.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
         return false;
       }
 
@@ -1119,7 +1130,7 @@ public final class PackageFactory {
     NodeVisitor checker =
         new NodeVisitor() {
           void error(Location loc, String message) {
-            eventHandler.handle(Event.error(loc, message));
+            eventHandler.handle(Package.error(loc, message, Code.SYNTAX_ERROR));
             success[0] = false;
           }
 
@@ -1238,7 +1249,7 @@ public final class PackageFactory {
     return success[0];
   }
 
-  // Install profiler hooks into lib.syntax.
+  // Install profiler hooks into Starlark interpreter.
   static {
     // parser profiler
     StarlarkFile.setParseProfiler(

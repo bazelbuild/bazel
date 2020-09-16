@@ -91,9 +91,6 @@ import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.SaneAnalysisException;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -110,6 +107,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.syntax.Location;
 
 /**
  * The totality of data available during the analysis of a rule.
@@ -1021,9 +1021,29 @@ public final class RuleContext extends TargetContext
    * specified attribute.
    */
   public List<? extends TransitiveInfoCollection> getPrerequisites(String attributeName) {
+    if (!attributes().has(attributeName)) {
+      return ImmutableList.of();
+    }
+
+    List<ConfiguredTargetAndData> prerequisiteConfiguredTargets;
+    // android_binary and android_test override deps to use a split transition.
+    if ((getRule().getRuleClass().equals("android_binary")
+            || getRule().getRuleClass().equals("android_test"))
+        && attributeName.equals("deps")
+        && attributes().getAttributeDefinition(attributeName).getTransitionFactory().isSplit()) {
+      // TODO(b/168038145): Restore legacy behavior of returning the prerequisites from the first
+      // portion of the split transition.
+      // Callers should be identified, cleaned up, and this check removed.
+      Map<Optional<String>, List<ConfiguredTargetAndData>> map =
+          getSplitPrerequisiteConfiguredTargetAndTargets(attributeName);
+      prerequisiteConfiguredTargets =
+          map.isEmpty() ? ImmutableList.of() : map.entrySet().iterator().next().getValue();
+    } else {
+      prerequisiteConfiguredTargets = getPrerequisiteConfiguredTargets(attributeName);
+    }
+
     return Lists.transform(
-        getPrerequisiteConfiguredTargets(attributeName),
-        ConfiguredTargetAndData::getConfiguredTarget);
+        prerequisiteConfiguredTargets, ConfiguredTargetAndData::getConfiguredTarget);
   }
 
   /**

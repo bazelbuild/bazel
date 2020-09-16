@@ -676,7 +676,7 @@ public final class Starlark {
       throw new IllegalArgumentException(
           cls.getName() + " is annotated with neither @StarlarkGlobalLibrary nor @StarlarkBuiltin");
     }
-    for (String name : CallUtils.getAnnotatedMethodNames(semantics, v.getClass())) {
+    for (String name : CallUtils.getAnnotatedMethodNames(semantics, cls)) {
       // We use the 2-arg (desc=null) BuiltinCallable constructor instead of passing
       // the descriptor that CallUtils.getAnnotatedMethod would return,
       // because most calls to addMethods pass StarlarkSemantics.DEFAULT,

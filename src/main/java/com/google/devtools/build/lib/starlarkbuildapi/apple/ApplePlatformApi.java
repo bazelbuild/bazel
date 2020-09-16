@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkValue;
 
 /** An interface for an object representing an Apple platform. */
 @StarlarkBuiltin(

@@ -158,7 +158,7 @@ public final class AqueryBuildTool extends PostAnalysisQueryBuildTool<Configured
             extraFunctions,
             topLevelConfigurations,
             hostConfiguration,
-            env.getRelativeWorkingDirectory().getPathString(),
+            env.getRelativeWorkingDirectory(),
             env.getPackageManager().getPackagePath(),
             () -> walkableGraph,
             aqueryOptions);

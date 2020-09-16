@@ -15,7 +15,6 @@ package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Pair;
-import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -105,8 +104,5 @@ public interface WalkableGraph {
   interface WalkableGraphFactory {
     EvaluationResult<SkyValue> prepareAndGet(Set<SkyKey> roots, EvaluationContext evaluationContext)
         throws InterruptedException;
-
-    /** Returns the {@link SkyKey} that defines this universe. */
-    SkyKey getUniverseKey(Collection<String> roots, String offset);
   }
 }

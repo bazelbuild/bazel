@@ -26,12 +26,12 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
 import com.google.devtools.build.lib.packages.BuildType.Selector;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -495,10 +495,10 @@ public class BuildTypeTest {
   }
 
   /**
-   * Tests that {@link BuildType#selectableConvert} returns either the native type or a selector
-   * on that type, in accordance with the provided input.
+   * Tests that {@link BuildType#selectableConvert} returns either the native type or a selector on
+   * that type, in accordance with the provided input.
    */
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings({"unchecked", "TruthIncompatibleType"})
   @Test
   public void testSelectableConvert() throws Exception {
     Object nativeInput = Arrays.asList("//a:a1", "//a:a2");
@@ -523,7 +523,7 @@ public class BuildTypeTest {
     BuildType.SelectorList<?> selectorList = (BuildType.SelectorList<?>) converted;
     assertThat(((Selector<Label>) selectorList.getSelectors().get(0)).getEntries().entrySet())
         .containsExactlyElementsIn(
-            ImmutableMap.of(
+            /* expected: Entry<Label, Label>, actual: Entry<Label, List<Label>> */ ImmutableMap.of(
                     Label.parseAbsolute("//conditions:a", ImmutableMap.of()),
                     expectedLabels,
                     Label.parseAbsolute(

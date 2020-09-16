@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.ProtoInfoApi.ProtoInfoProv
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
-import com.google.devtools.build.lib.syntax.FlagGuardedValue;
+import net.starlark.java.eval.FlagGuardedValue;
 
 /** A {@link Bootstrap} for Starlark objects related to protocol buffers. */
 public class ProtoBootstrap implements Bootstrap {

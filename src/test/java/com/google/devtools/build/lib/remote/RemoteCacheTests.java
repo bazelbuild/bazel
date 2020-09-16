@@ -35,7 +35,6 @@ import build.bazel.remote.execution.v2.OutputDirectory;
 import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import build.bazel.remote.execution.v2.Tree;
-import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -1207,6 +1206,35 @@ public class RemoteCacheTests {
   }
 
   @Test
+  public void testDownloadFileWithSymlinkTemplate() throws Exception {
+    // Test that when a symlink template is provided, we don't actually download files to disk.
+    // Instead, a symbolic link should be created that points to a location where the file may
+    // actually be found. That location could, for example, be backed by a FUSE file system that
+    // exposes the Content Addressable Storage.
+
+    // arrange
+    final ConcurrentMap<Digest, byte[]> cas = new ConcurrentHashMap<>();
+
+    Digest helloDigest = digestUtil.computeAsUtf8("hello-contents");
+    cas.put(helloDigest, "hello-contents".getBytes(StandardCharsets.UTF_8));
+
+    Path file = fs.getPath("/execroot/symlink-to-file");
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteDownloadSymlinkTemplate = "/home/alice/cas/{hash}-{size_bytes}";
+    RemoteCache remoteCache = new InMemoryRemoteCache(cas, options, digestUtil);
+
+    // act
+    Utils.getFromFuture(remoteCache.downloadFile(file, helloDigest));
+
+    // assert
+    assertThat(file.isSymbolicLink()).isTrue();
+    assertThat(file.readSymbolicLink())
+        .isEqualTo(
+            PathFragment.create(
+                "/home/alice/cas/a378b939ad2e1d470a9a28b34b0e256b189e85cb236766edc1d46ec3b6ca82e5-14"));
+  }
+
+  @Test
   public void testDownloadDirectory() throws Exception {
     // Test that downloading an output directory works.
 
@@ -1214,9 +1242,9 @@ public class RemoteCacheTests {
     final ConcurrentMap<Digest, byte[]> cas = new ConcurrentHashMap<>();
 
     Digest fooDigest = digestUtil.computeAsUtf8("foo-contents");
-    cas.put(fooDigest, "foo-contents".getBytes(Charsets.UTF_8));
+    cas.put(fooDigest, "foo-contents".getBytes(UTF_8));
     Digest quxDigest = digestUtil.computeAsUtf8("qux-contents");
-    cas.put(quxDigest, "qux-contents".getBytes(Charsets.UTF_8));
+    cas.put(quxDigest, "qux-contents".getBytes(UTF_8));
 
     Tree barTreeMessage =
         Tree.newBuilder()
@@ -1295,9 +1323,9 @@ public class RemoteCacheTests {
     Digest barTreeDigest = digestUtil.compute(barTreeMessage);
 
     final ConcurrentMap<Digest, byte[]> map = new ConcurrentHashMap<>();
-    map.put(fooDigest, "foo-contents".getBytes(Charsets.UTF_8));
+    map.put(fooDigest, "foo-contents".getBytes(UTF_8));
     map.put(barTreeDigest, barTreeMessage.toByteArray());
-    map.put(quxDigest, "qux-contents".getBytes(Charsets.UTF_8));
+    map.put(quxDigest, "qux-contents".getBytes(UTF_8));
 
     ActionResult.Builder result = ActionResult.newBuilder();
     result.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
@@ -1347,7 +1375,7 @@ public class RemoteCacheTests {
     Digest treeDigest = digestUtil.compute(tree);
 
     final ConcurrentMap<Digest, byte[]> map = new ConcurrentHashMap<>();
-    map.put(fileDigest, "file".getBytes(Charsets.UTF_8));
+    map.put(fileDigest, "file".getBytes(UTF_8));
     map.put(treeDigest, tree.toByteArray());
 
     ActionResult.Builder result = ActionResult.newBuilder();

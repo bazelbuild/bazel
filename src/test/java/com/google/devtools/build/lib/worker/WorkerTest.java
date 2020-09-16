@@ -283,7 +283,18 @@ public final class WorkerTest {
       throws IOException {
     TestWorker testWorker = createTestWorker(responseString.getBytes(UTF_8), JSON);
     IOException ex = assertThrows(IOException.class, testWorker::getResponse);
-    assertThat(ex).hasMessageThat().isEqualTo(expectedError);
+    assertThat(ex).hasMessageThat().contains(expectedError);
+  }
+
+  @Test
+  public void testGetResponse_json_emptyString_throws() throws IOException {
+    verifyGetResponseFailure("", "Could not parse json work request correctly");
+  }
+
+  @Test
+  public void testGetResponse_badJson_throws() throws IOException {
+    verifyGetResponseFailure(
+        "{ \"output\": \"I'm missing a bracket\"", "Could not parse json work request correctly");
   }
 
   @Test

@@ -174,7 +174,9 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
               env,
               options.getOptions(KeepGoingOption.class).keepGoing,
               !streamResults,
-              getUniverseScope(queryOptions),
+              env.getSkyframeExecutor()
+                  .maybeGetHardcodedUniverseScope()
+                  .orElse(getUniverseScope(queryOptions)),
               options.getOptions(LoadingPhaseThreadsOption.class).threads,
               settings,
               useGraphlessQuery)) {

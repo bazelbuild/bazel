@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.repository;
 
 import com.google.common.collect.ImmutableMap.Builder;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
-import com.google.devtools.build.lib.syntax.Starlark;
+import net.starlark.java.eval.Starlark;
 
 /**
  * A {@link Bootstrap} for repository-related libraries of the build API.
