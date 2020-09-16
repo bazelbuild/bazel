@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.remote.http;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.auth.Credentials;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashingOutputStream;
+import com.google.common.io.Closeables;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -285,64 +287,58 @@ public final class HttpCacheClient implements RemoteCacheClient {
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
-  private Channel acquireUploadChannel() throws InterruptedException {
+  private Promise<Channel> acquireUploadChannel() {
     Promise<Channel> channelReady = eventLoop.next().newPromise();
     channelPool
-        .acquire()
-        .addListener(
-            (Future<Channel> channelAcquired) -> {
-              if (!channelAcquired.isSuccess()) {
-                channelReady.setFailure(channelAcquired.cause());
-                return;
-              }
+            .acquire()
+            .addListener(
+                    (Future<Channel> channelAcquired) -> {
+                      if (!channelAcquired.isSuccess()) {
+                        channelReady.setFailure(channelAcquired.cause());
+                        return;
+                      }
 
-              try {
-                Channel ch = channelAcquired.getNow();
-                ChannelPipeline p = ch.pipeline();
+                      try {
+                        Channel ch = channelAcquired.getNow();
+                        ChannelPipeline p = ch.pipeline();
 
-                if (!isChannelPipelineEmpty(p)) {
-                  channelReady.setFailure(
-                      new IllegalStateException("Channel pipeline is not empty."));
-                  return;
-                }
+                        if (!isChannelPipelineEmpty(p)) {
+                          channelReady.setFailure(
+                                  new IllegalStateException("Channel pipeline is not empty."));
+                          return;
+                        }
 
-                p.addFirst(
-                    "timeout-handler",
-                    new IdleTimeoutHandler(timeoutSeconds, WriteTimeoutException.INSTANCE));
-                p.addLast(new HttpResponseDecoder());
-                // The 10KiB limit was chosen arbitrarily. We only expect HTTP servers to respond
-                // with an error message in the body, and that should always be less than 10KiB. If
-                // the response is larger than 10KiB, HttpUploadHandler will catch the
-                // TooLongFrameException that HttpObjectAggregator throws and convert it to an
-                // IOException.
-                p.addLast(new HttpObjectAggregator(10 * 1024));
-                p.addLast(new HttpRequestEncoder());
-                p.addLast(new ChunkedWriteHandler());
-                synchronized (credentialsLock) {
-                  p.addLast(new HttpUploadHandler(creds, extraHttpHeaders));
-                }
+                        p.addFirst(
+                                "timeout-handler",
+                                new IdleTimeoutHandler(timeoutSeconds, WriteTimeoutException.INSTANCE));
+                        p.addLast(new HttpResponseDecoder());
+                        // The 10KiB limit was chosen arbitrarily. We only expect HTTP servers to respond
+                        // with an error message in the body, and that should always be less than 10KiB. If
+                        // the response is larger than 10KiB, HttpUploadHandler will catch the
+                        // TooLongFrameException that HttpObjectAggregator throws and convert it to an
+                        // IOException.
+                        p.addLast(new HttpObjectAggregator(10 * 1024));
+                        p.addLast(new HttpRequestEncoder());
+                        p.addLast(new ChunkedWriteHandler());
+                        synchronized (credentialsLock) {
+                          p.addLast(new HttpUploadHandler(creds, extraHttpHeaders));
+                        }
 
-                if (!ch.eventLoop().inEventLoop()) {
-                  // If addLast is called outside an event loop, then it doesn't complete until the
-                  // event loop is run again. In that case, a message sent to the last handler gets
-                  // delivered to the last non-pending handler, which will most likely end up
-                  // throwing UnsupportedMessageTypeException. Therefore, we only complete the
-                  // promise in the event loop.
-                  ch.eventLoop().execute(() -> channelReady.setSuccess(ch));
-                } else {
-                  channelReady.setSuccess(ch);
-                }
-              } catch (Throwable t) {
-                channelReady.setFailure(t);
-              }
-            });
-
-    try {
-      return channelReady.get();
-    } catch (ExecutionException e) {
-      PlatformDependent.throwException(e.getCause());
-      return null;
-    }
+                        if (!ch.eventLoop().inEventLoop()) {
+                          // If addLast is called outside an event loop, then it doesn't complete until the
+                          // event loop is run again. In that case, a message sent to the last handler gets
+                          // delivered to the last non-pending handler, which will most likely end up
+                          // throwing UnsupportedMessageTypeException. Therefore, we only complete the
+                          // promise in the event loop.
+                          ch.eventLoop().execute(() -> channelReady.setSuccess(ch));
+                        } else {
+                          channelReady.setSuccess(ch);
+                        }
+                      } catch (Throwable t) {
+                        channelReady.setFailure(t);
+                      }
+                    });
+    return channelReady;
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
@@ -576,8 +572,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
-  private void uploadBlocking(String key, long length, InputStream in, boolean casUpload)
-      throws IOException, InterruptedException {
+  private ListenableFuture<Void> uploadAsync(String key, long length, InputStream in, boolean casUpload) {
     InputStream wrappedIn =
         new FilterInputStream(in) {
           @Override
@@ -588,83 +583,94 @@ public final class HttpCacheClient implements RemoteCacheClient {
           }
         };
     UploadCommand upload = new UploadCommand(uri, casUpload, key, wrappedIn, length);
-    Channel ch = null;
-    boolean success = false;
     if (storedBlobs.putIfAbsent((casUpload ? CAS_PREFIX : AC_PREFIX) + key, true) == null) {
-      try {
-        ch = acquireUploadChannel();
-        ChannelFuture uploadFuture = ch.writeAndFlush(upload);
-        uploadFuture.sync();
-        success = true;
-      } catch (Exception e) {
-        // e can be of type HttpException, because Netty uses Unsafe.throwException to re-throw a
-        // checked exception that hasn't been declared in the method signature.
-        if (e instanceof HttpException) {
-          HttpResponse response = ((HttpException) e).response();
-          if (authTokenExpired(response)) {
-            refreshCredentials();
-            // The error is due to an auth token having expired. Let's try again.
-            if (!reset(in)) {
-              // The InputStream can't be reset and thus we can't retry as most likely
-              // bytes have already been read from the InputStream.
-              throw e;
-            }
-            putAfterCredentialRefresh(upload);
-            success = true;
-            return;
-          }
-        }
-        throw e;
-      } finally {
-        if (!success) {
-          storedBlobs.remove(key);
-        }
-        in.close();
-        if (ch != null) {
-          releaseUploadChannel(ch);
-        }
-      }
+      SettableFuture<Void> result = SettableFuture.create();
+      acquireUploadChannel()
+          .addListener(
+              (Future<Channel> chP) -> {
+                if (!chP.isSuccess()) {
+                  result.setException(chP.cause());
+                  return;
+                }
+
+                Channel ch = chP.getNow();
+                ch.writeAndFlush(upload)
+                    .addListener(
+                        (f) ->{
+                          releaseUploadChannel(ch);
+                          if (f.isSuccess()) {
+                            result.set(null);
+                          } else {
+                            Throwable cause = f.cause();
+                            if (cause instanceof HttpException) {
+                              HttpResponse response = ((HttpException) cause).response();
+                              try {
+                                // If the error is due to an expired auth token and we can reset the input stream,
+                                // then try again.
+                                if (authTokenExpired(response) && reset(in)) {
+                                  refreshCredentials();
+                                  uploadAfterCredentialRefresh(upload, result);
+                                } else {
+                                  result.setException(cause);
+                                }
+                              } catch (IOException e) {
+                                result.setException(e);
+                              }
+                            }
+                            result.setException(cause);
+                          }
+                        });
+              });
+      result.addListener(() -> Closeables.closeQuietly(in), MoreExecutors.directExecutor());
+      return result;
+    } else {
+      Closeables.closeQuietly(in);
+      return Futures.immediateFuture(null);
     }
+  }
+
+  @SuppressWarnings("FutureReturnValueIgnored")
+  private void uploadAfterCredentialRefresh(UploadCommand upload, SettableFuture<Void> result) {
+    acquireUploadChannel()
+        .addListener(
+            (Future<Channel> chP) -> {
+              if (!chP.isSuccess()) {
+                result.setException(chP.cause());
+                return;
+              }
+
+              Channel ch = chP.getNow();
+              ch.writeAndFlush(upload)
+                  .addListener(
+                      (f) -> {
+                        releaseUploadChannel(ch);
+                        if (f.isSuccess()) {
+                          result.set(null);
+                        } else {
+                          result.setException(f.cause());
+                        }
+                      });
+            });
   }
 
   @Override
   public ListenableFuture<Void> uploadFile(Digest digest, Path file) {
-    try (InputStream in = file.getInputStream()) {
-      uploadBlocking(digest.getHash(), digest.getSizeBytes(), in, /* casUpload= */ true);
-    } catch (IOException | InterruptedException e) {
+    try {
+      return uploadAsync(digest.getHash(), digest.getSizeBytes(), file.getInputStream(), true);
+    } catch (IOException e) {
+      // Can be thrown from file.getInputStream.
       return Futures.immediateFailedFuture(e);
     }
-    return Futures.immediateFuture(null);
   }
 
   @Override
   public ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
-    try (InputStream in = data.newInput()) {
-      uploadBlocking(digest.getHash(), digest.getSizeBytes(), in, /* casUpload= */ true);
-    } catch (IOException | InterruptedException e) {
-      return Futures.immediateFailedFuture(e);
-    }
-    return Futures.immediateFuture(null);
+    return uploadAsync(digest.getHash(), digest.getSizeBytes(), data.newInput(), true);
   }
 
   @Override
   public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(Iterable<Digest> digests) {
     return Futures.immediateFuture(ImmutableSet.copyOf(digests));
-  }
-
-  @SuppressWarnings("FutureReturnValueIgnored")
-  private void putAfterCredentialRefresh(UploadCommand cmd) throws InterruptedException {
-    Channel ch = null;
-    try {
-      // TODO(buchgr): Look into simplifying the retry logic after a credentials refresh.
-      ch = acquireUploadChannel();
-      ChannelFuture uploadFuture = ch.writeAndFlush(cmd);
-      uploadFuture.sync();
-    } finally {
-      if (ch != null) {
-        releaseUploadChannel(ch);
-      }
-    }
   }
 
   private boolean reset(InputStream in) throws IOException {
@@ -684,8 +690,15 @@ public final class HttpCacheClient implements RemoteCacheClient {
   public void uploadActionResult(ActionKey actionKey, ActionResult actionResult)
       throws IOException, InterruptedException {
     ByteString serialized = actionResult.toByteString();
-    try (InputStream in = serialized.newInput()) {
-      uploadBlocking(actionKey.getDigest().getHash(), serialized.size(), in, false);
+    ListenableFuture<Void> uploadFuture =
+            uploadAsync(actionKey.getDigest().getHash(), serialized.size(), serialized.newInput(), false);
+    try {
+      uploadFuture.get();
+    } catch (ExecutionException e) {
+      Throwables.throwIfUnchecked(e.getCause());
+      Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
+      Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
+      throw new IOException(e.getCause());
     }
   }
 
