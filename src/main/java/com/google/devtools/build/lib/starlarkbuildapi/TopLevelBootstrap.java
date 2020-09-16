@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.DefaultInfoApi.DefaultInfo
 import com.google.devtools.build.lib.starlarkbuildapi.OutputGroupInfoApi.OutputGroupInfoApiProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.syntax.Starlark;
+import net.starlark.java.eval.Starlark;
 
 /**
  * A {@link Bootstrap} for top-level libraries of the build API.

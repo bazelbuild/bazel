@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.repository;
 
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * A structure callable from Starlark that stores the result of repository_ctx.execute() method. It

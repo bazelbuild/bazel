@@ -105,13 +105,6 @@ cc_binary(
     }),
 )
 
-filegroup(
-    name = "jdk-support",
-    srcs = [
-        "jdk.BUILD",
-    ],
-)
-
 exports_files([
     "build_interface_so",
 ])

@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.analysis.AspectCollection.AspectCycleOnPathException;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.syntax.Location;
+import net.starlark.java.syntax.Location;
 
 /**
  * Signals an inconsistency on an aspect path: an aspect occurs twice on the path and the second

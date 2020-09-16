@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
@@ -154,7 +155,7 @@ public final class RemoteModule extends BlazeModule {
       CommandEnvironment env,
       DigestUtil digestUtil,
       ServerCapabilitiesRequirement requirement)
-      throws AbruptExitException {
+      throws AbruptExitException, IOException {
     RemoteServerCapabilities rsc =
         new RemoteServerCapabilities(
             remoteOptions.remoteInstanceName,
@@ -165,12 +166,6 @@ public final class RemoteModule extends BlazeModule {
     ServerCapabilities capabilities = null;
     try {
       capabilities = rsc.get(env.getCommandId().toString(), env.getBuildRequestId());
-    } catch (IOException e) {
-      env.getReporter().handle(Event.error(Throwables.getStackTraceAsString(e)));
-      throw createExitException(
-          "Failed to query remote execution capabilities: " + Utils.grpcAwareErrorMessage(e),
-          ExitCode.REMOTE_ERROR,
-          Code.CAPABILITIES_QUERY_FAILURE);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       return;
@@ -200,6 +195,12 @@ public final class RemoteModule extends BlazeModule {
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
     DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
     DigestUtil digestUtil = new DigestUtil(hashFn);
+
+    boolean verboseFailures = false;
+    ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
+    if (executionOptions != null) {
+      verboseFailures = executionOptions.verboseFailures;
+    }
 
     boolean enableDiskCache = RemoteCacheClientFactory.isDiskCache(remoteOptions);
     boolean enableHttpCache = RemoteCacheClientFactory.isHttpCache(remoteOptions);
@@ -394,16 +395,36 @@ public final class RemoteModule extends BlazeModule {
     //
     // If they point to different endpoints, we check the endpoint with execution or cache
     // capabilities respectively.
-    if (execChannel != null) {
-      if (cacheChannel != execChannel) {
-        verifyServerCapabilities(
-            remoteOptions,
-            execChannel,
-            credentials,
-            retrier,
-            env,
-            digestUtil,
-            ServerCapabilitiesRequirement.EXECUTION);
+    try {
+      if (execChannel != null) {
+        if (cacheChannel != execChannel) {
+          verifyServerCapabilities(
+              remoteOptions,
+              execChannel,
+              credentials,
+              retrier,
+              env,
+              digestUtil,
+              ServerCapabilitiesRequirement.EXECUTION);
+          verifyServerCapabilities(
+              remoteOptions,
+              cacheChannel,
+              credentials,
+              retrier,
+              env,
+              digestUtil,
+              ServerCapabilitiesRequirement.CACHE);
+        } else {
+          verifyServerCapabilities(
+              remoteOptions,
+              execChannel,
+              credentials,
+              retrier,
+              env,
+              digestUtil,
+              ServerCapabilitiesRequirement.EXECUTION_AND_CACHE);
+        }
+      } else {
         verifyServerCapabilities(
             remoteOptions,
             cacheChannel,
@@ -412,25 +433,23 @@ public final class RemoteModule extends BlazeModule {
             env,
             digestUtil,
             ServerCapabilitiesRequirement.CACHE);
-      } else {
-        verifyServerCapabilities(
-            remoteOptions,
-            execChannel,
-            credentials,
-            retrier,
-            env,
-            digestUtil,
-            ServerCapabilitiesRequirement.EXECUTION_AND_CACHE);
       }
-    } else {
-      verifyServerCapabilities(
-          remoteOptions,
-          cacheChannel,
-          credentials,
-          retrier,
-          env,
-          digestUtil,
-          ServerCapabilitiesRequirement.CACHE);
+    } catch (IOException e) {
+      String errorMessage =
+          "Failed to query remote execution capabilities: " + Utils.grpcAwareErrorMessage(e);
+      if (remoteOptions.remoteLocalFallback) {
+        if (verboseFailures) {
+          errorMessage += System.lineSeparator() + Throwables.getStackTraceAsString(e);
+        }
+        env.getReporter().handle(Event.warn(errorMessage));
+        return;
+      } else {
+        if (verboseFailures) {
+          env.getReporter().handle(Event.error(Throwables.getStackTraceAsString(e)));
+        }
+        throw createExitException(
+            errorMessage, ExitCode.REMOTE_ERROR, Code.CAPABILITIES_QUERY_FAILURE);
+      }
     }
 
     ByteStreamUploader uploader =
@@ -852,5 +871,10 @@ public final class RemoteModule extends BlazeModule {
   @VisibleForTesting
   void setChannelFactory(ChannelFactory channelFactory) {
     this.channelFactory = channelFactory;
+  }
+
+  @VisibleForTesting
+  RemoteActionContextProvider getActionContextProvider() {
+    return actionContextProvider;
   }
 }

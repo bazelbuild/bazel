@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -32,6 +31,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import java.io.IOException;
 import java.util.Objects;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /**
  * Parameters of a filesystem traversal requested by a Fileset rule.

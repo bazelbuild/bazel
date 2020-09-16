@@ -89,10 +89,10 @@ filegroup(
         "//src/main/java/net/starlark/java/annot:srcs",
         "//src/main/java/net/starlark/java/eval:srcs",
         "//src/main/java/net/starlark/java/syntax:srcs",
+        "//src/main/java/net/starlark/java:srcs",
         "//src/main/java/com/google/devtools/build/lib/ssd:srcs",
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
         "//src/main/java/com/google/devtools/build/lib/supplier:srcs",
-        "//src/main/java/com/google/devtools/build/lib/syntax:srcs",
         "//src/main/java/com/google/devtools/build/lib/testing/common:srcs",
         "//src/main/java/com/google/devtools/build/lib/unix:srcs",
         "//src/main/java/com/google/devtools/build/lib/unsafe:srcs",
@@ -131,30 +131,13 @@ java_library(
     ],
 )
 
-# Starlark language for configuration files.
-#
-# IMPORTANT:  NOT A PUBLIC INTERFACE. TARGETS SHOULDN'T DEPEND ON THIS.
-#
-java_library(
-    name = "skylark-lang",
-    visibility = ["//visibility:public"],
-    exports = [
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
-        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
-    ],
-)
-
 java_library(
     name = "syntax",
     srcs = [],
     visibility = ["//visibility:public"],
     exports = [
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
-        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
     ],
 )
 
@@ -196,6 +179,11 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
     ],
+)
+
+java_library(
+    name = "runtime/safe_request_logging",
+    srcs = ["runtime/SafeRequestLogging.java"],
 )
 
 java_library(
@@ -346,6 +334,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/query2/query/output",
         "//src/main/java/com/google/devtools/build/lib/rules:alias",
         "//src/main/java/com/google/devtools/build/lib/runtime/events",
+        "//src/main/java/com/google/devtools/build/lib/server",
         "//src/main/java/com/google/devtools/build/lib/server:pid_file_watcher",
         "//src/main/java/com/google/devtools/build/lib/server:rpc_server",
         "//src/main/java/com/google/devtools/build/lib/server:shutdown_hooks",
@@ -372,8 +361,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_pattern_phase_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:top_down_action_cache",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
-        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
         "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
@@ -399,6 +386,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/com/google/devtools/common/options:invocation_policy",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:action_cache_java_proto",
         "//src/main/protobuf:analysis_java_proto",
         "//src/main/protobuf:command_line_java_proto",

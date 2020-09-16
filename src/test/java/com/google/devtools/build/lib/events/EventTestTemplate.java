@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
-import com.google.devtools.build.lib.syntax.Location;
+import net.starlark.java.syntax.Location;
 import org.junit.Before;
 
 // Without 'public', tests fail in the guts of junit reflection.

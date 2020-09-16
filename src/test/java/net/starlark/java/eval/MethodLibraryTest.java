@@ -187,7 +187,7 @@ public final class MethodLibraryTest {
   @Test
   public void testBuiltinFunctionErrorMessage() throws Exception {
     ev.new Scenario()
-        .testIfErrorContains("substring \"z\" not found in \"abc\"", "'abc'.index('z')")
+        .testIfErrorContains("substring not found", "'abc'.index('z')")
         .testIfErrorContains(
             "in call to startswith(), parameter 'sub' got value of type 'int', want 'string or"
                 + " tuple'",

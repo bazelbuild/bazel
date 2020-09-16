@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.packages.metrics;
 
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.protobuf.util.Durations;
 import javax.annotation.concurrent.GuardedBy;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** Tracks per-invocation extreme package loading events. */
 public class PackageMetricsPackageLoadingListener implements PackageLoadingListener {

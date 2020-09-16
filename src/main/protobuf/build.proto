@@ -324,6 +324,12 @@ message Rule {
   //
   // Requires --record_rule_instantiation_callstack=true.
   repeated string instantiation_stack = 13;
+
+  // The Starlark call stack for the definition of the rule class of this
+  // particular rule instance. If empty, either populating the field was not
+  // enabled on the command line with the --proto:definition_stack flag or the
+  // rule is a native one.
+  repeated string definition_stack = 14;
 }
 
 // Summary of all transitive dependencies of 'rule,' where each dependent

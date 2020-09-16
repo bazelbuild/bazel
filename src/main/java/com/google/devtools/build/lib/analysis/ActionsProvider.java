@@ -20,10 +20,10 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.starlarkbuildapi.ActionsInfoProviderApi;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.HashMap;
 import java.util.Map;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.syntax.Location;
 
 /**
  * This provides a view over the actions that were created during the analysis of a rule

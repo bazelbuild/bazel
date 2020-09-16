@@ -230,7 +230,7 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
       handleError(
           caller,
           "errors were encountered while computing transitive closure",
-          /*detailedExitCode=*/ null);
+          errorObserver.getDetailedExitCode());
     }
     callback.process(result);
   }
@@ -306,7 +306,7 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
       handleError(
           caller,
           "errors were encountered while computing transitive closure",
-          /*detailedExitCode=*/ null);
+          errorObserver.getDetailedExitCode());
     }
   }
 

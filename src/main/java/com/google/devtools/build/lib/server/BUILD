@@ -22,9 +22,9 @@ java_library(
         ":pid_file_watcher",
         ":rpc_server",
         ":shutdown_hooks",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:runtime/blaze_command_result",
         "//src/main/java/com/google/devtools/build/lib:runtime/command_dispatcher",
+        "//src/main/java/com/google/devtools/build/lib:runtime/safe_request_logging",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/platform:memory_pressure_counter",
@@ -88,11 +88,6 @@ java_library(
         "RPCServer.java",
     ],
     deps = [
-        ":pid_file_watcher",
-        ":shutdown_hooks",
-        "//src/main/java/com/google/devtools/build/lib:runtime/command_dispatcher",
-        "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
     ],
 )

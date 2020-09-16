@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.analysis.starlark;
 
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkBuildApiGlobals;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * Bazel implementation of {@link StarlarkBuildApiGlobals}: a collection of global Starlark build

@@ -445,6 +445,19 @@ public class RemoteCache implements AutoCloseable {
       return COMPLETED_SUCCESS;
     }
 
+    if (!options.remoteDownloadSymlinkTemplate.isEmpty()) {
+      // Don't actually download files from the CAS. Instead, create a
+      // symbolic link that points to a location where CAS objects may
+      // be found. This could, for example, be a FUSE file system.
+      path.createSymbolicLink(
+          path.getRelative(
+              options
+                  .remoteDownloadSymlinkTemplate
+                  .replace("{hash}", digest.getHash())
+                  .replace("{size_bytes}", String.valueOf(digest.getSizeBytes()))));
+      return COMPLETED_SUCCESS;
+    }
+
     OutputStream out = new LazyFileOutputStream(path);
     SettableFuture<Void> outerF = SettableFuture.create();
     ListenableFuture<Void> f = cacheProtocol.downloadBlob(digest, out);

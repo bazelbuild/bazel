@@ -2060,7 +2060,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(baseArtifactNames(dependerProvider.getDirect(ObjcProvider.HEADER)))
         .containsExactly("bar.h", "bar.inc");
     assertThat(baseArtifactNames(dependerProvider.getDirect(ObjcProvider.SOURCE)))
-        .containsExactly("bar.m");
+        .containsExactly("bar.m", "bar_impl.h");
     assertThat(Artifact.toRootRelativePaths(dependerProvider.getDirect(ObjcProvider.MODULE_MAP)))
         .containsExactly("x/bar.modulemaps/module.modulemap");
 

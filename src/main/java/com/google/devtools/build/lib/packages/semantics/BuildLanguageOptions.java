@@ -18,7 +18,6 @@ package com.google.devtools.build.lib.packages.semantics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -27,6 +26,7 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.Serializable;
 import java.util.List;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * Options that affect the semantics of Bazel's build language.

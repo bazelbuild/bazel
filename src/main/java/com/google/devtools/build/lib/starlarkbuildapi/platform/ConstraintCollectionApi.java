@@ -15,14 +15,14 @@
 package com.google.devtools.build.lib.starlarkbuildapi.platform;
 
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkIndexable;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkIndexable;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Info object representing data about a specific platform. */
 @StarlarkBuiltin(

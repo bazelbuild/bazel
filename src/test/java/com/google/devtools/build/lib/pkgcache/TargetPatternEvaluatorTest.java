@@ -374,8 +374,8 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
 
   @Test
   public void testMentioningBuildFile() throws Exception {
-    ResolvedTargets<Target> result = parseTargetPatternList(parser, parsingListener,
-        Arrays.asList("//foo/bar/BUILD"), false);
+    ResolvedTargets<Target> result =
+        parseTargetPatternList(parser, parsingListener, Arrays.asList("foo/bar/BUILD"), false);
 
     assertThat(result.hasError()).isFalse();
     assertThat(result.getTargets()).hasSize(1);

@@ -5,6 +5,11 @@ load(
     "create_android_sdk_rules",
     "create_system_images_filegroups")
 
+alias(
+    name = "has_androidsdk",
+    actual = "@bazel_tools//tools/android:always_true",
+)
+
 create_android_sdk_rules(
     name = "%repository_name%",
     build_tools_version = "%build_tools_version%",

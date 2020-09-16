@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.BootClassPathInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidSdkProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /** Description of the tools Blaze needs from an Android SDK. */
 @Immutable

@@ -57,7 +57,6 @@ java_library(
     srcs = glob(["*.java"]),
     visibility = ["//src/test:__subpackages__"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -90,6 +89,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/skydoc/rendering",
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:stardoc_output_java_proto",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
         "//src/tools/starlark/java/com/google/devtools/starlark/common",
         "//third_party:guava",
     ],

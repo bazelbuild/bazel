@@ -37,13 +37,25 @@ final class CallUtils {
     }
     Key key = new Key(cls, semantics);
 
-    // Speculatively call `get` because `computeIfAbsent` is more expensive
-    // even when the map already contains a value (common case).
-    CacheValue cacheValue = cache.get(key);
-    if (cacheValue == null) {
-      cacheValue = cache.computeIfAbsent(key, CallUtils::buildCacheValue);
+    // Avoid computeIfAbsent! It is not reentrant,
+    // and if getCacheValue is called before Starlark.UNIVERSE
+    // is initialized then the computation will re-enter the cache.
+    // (This is less likely now that CallUtils is private.)
+    // See b/161479826 for history.
+    //
+    // Concurrent calls may result in duplicate computation.
+    // If this is a performance concern, then we should use a CHM
+    // of futures (see ch.9 of gopl.io) so that the computation
+    // is not done in the critical section of the map stripe.
+    CacheValue v = cache.get(key);
+    if (v == null) {
+      v = buildCacheValue(key);
+      CacheValue prev = cache.putIfAbsent(key, v);
+      if (prev != null) {
+        v = prev; // first thread wins
+      }
     }
-    return cacheValue;
+    return v;
   }
 
   // Key is a simple Pair<Class, StarlarkSemantics>.

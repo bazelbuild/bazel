@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidNativeLibsI
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidResourcesInfoApi.AndroidResourcesInfoApiProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.android.ApkInfoApi.ApkInfoApiProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
-import com.google.devtools.build.lib.syntax.FlagGuardedValue;
 import java.util.Map;
+import net.starlark.java.eval.FlagGuardedValue;
 
 /** {@link Bootstrap} for Starlark objects related to Android rules. */
 public class AndroidBootstrap implements Bootstrap {

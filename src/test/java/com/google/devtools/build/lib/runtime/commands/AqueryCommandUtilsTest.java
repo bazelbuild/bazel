@@ -61,8 +61,7 @@ public class AqueryCommandUtilsTest {
                 AqueryCommandUtils.getTopLevelTargets(
                     /* universeScope= */ ImmutableList.of(),
                     expr,
-                    /* queryCurrentSkyframeState= */ true,
-                    query));
+                    /* queryCurrentSkyframeState= */ true));
     assertThat(exception).hasMessageThat().contains("Error while parsing '" + query);
     assertThat(exception)
         .hasMessageThat()

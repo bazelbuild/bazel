@@ -64,14 +64,14 @@ import org.junit.Before;
  * now.
  */
 public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> {
-  protected String parserPrefix;
+  protected PathFragment parserPrefix;
   protected AnalysisHelper analysisHelper;
   private boolean wholeTestUniverse;
 
   @Override
   public void setUp() throws Exception {
     super.setUp();
-    parserPrefix = "";
+    parserPrefix = PathFragment.EMPTY_FRAGMENT;
     analysisHelper = new AnalysisHelper();
     wholeTestUniverse = false;
     // Reverse the @Before method list, so that superclass is called before subclass.

@@ -59,14 +59,6 @@ import com.google.devtools.build.lib.util.FileTypeSet;
  * Shared rule classes and associated utility code for Objective-C rules.
  */
 public class ObjcRuleClasses {
-
-  /**
-   * Name of the attribute used for implicit dependency on the libtool wrapper.
-   */
-  public static final String LIBTOOL_ATTRIBUTE = "$libtool";
-  /** Name of attribute used for implicit dependency on the apple SDKs. */
-  public static final String APPLE_SDK_ATTRIBUTE = ":apple_sdk";
-
   static final String LIPO = "lipo";
   static final String STRIP = "strip";
 
@@ -510,33 +502,8 @@ public class ObjcRuleClasses {
               BaseRuleClasses.RuleBase.class,
               CompileDependencyRule.class,
               CoptsRule.class,
-              LibtoolRule.class,
               XcrunRule.class,
               CrosstoolRule.class)
-          .build();
-    }
-  }
-
-  /**
-   * Common attributes for {@code objc_*} rules that need to call libtool.
-   */
-  public static class LibtoolRule implements RuleDefinition {
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .add(
-              attr(LIBTOOL_ATTRIBUTE, LABEL)
-                  .cfg(HostTransition.createFactory())
-                  .exec()
-                  .value(env.getToolsLabel("//tools/objc:libtool")))
-          .build();
-    }
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$objc_libtool_rule")
-          .type(RuleClassType.ABSTRACT)
-          .ancestors(XcrunRule.class)
           .build();
     }
   }
@@ -786,8 +753,7 @@ public class ObjcRuleClasses {
               BaseRuleClasses.RuleBase.class,
               CppRuleClasses.CcIncludeScanningRule.class,
               XcrunRule.class,
-              SdkFrameworksDependerRule.class,
-              LibtoolRule.class)
+              SdkFrameworksDependerRule.class)
           .build();
     }
   }

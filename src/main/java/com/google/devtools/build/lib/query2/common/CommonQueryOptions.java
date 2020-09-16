@@ -219,6 +219,16 @@ public class CommonQueryOptions extends OptionsBase {
               + "Note that this requires the stack to be present")
   public boolean protoIncludeInstantiationStack;
 
+  @Option(
+      name = "proto:definition_stack",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Populate the definition_stack proto field, which records for each rule instance the "
+              + "Starlark call stack at the moment the rule's class was defined.")
+  public boolean protoIncludeDefinitionStack;
+
   /** An enum converter for {@code AspectResolver.Mode} . Should be used internally only. */
   public static class AspectResolutionModeConverter extends EnumConverter<Mode> {
     public AspectResolutionModeConverter() {

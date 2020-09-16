@@ -16,7 +16,7 @@ package com.google.devtools.build.skydoc.fakebuildapi.android;
 
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidBinaryDataInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.eval.EvalException;
 
 /** Fake implementation of {@link AndroidBinaryDataInfoApi}. */
 public class FakeAndroidBinaryDataInfo implements AndroidBinaryDataInfoApi<FileApi> {

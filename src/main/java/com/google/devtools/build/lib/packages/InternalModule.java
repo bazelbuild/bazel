@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkValue;
 
 // TODO(#11437): Factor an API out into skylarkbuildapi, for stardoc's benefit. Otherwise, stardoc
 // can't run on @builtins bzls.

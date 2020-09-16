@@ -54,6 +54,8 @@ import com.google.devtools.build.lib.analysis.config.DependencyEvaluationExcepti
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
@@ -78,7 +80,6 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -98,6 +99,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /**
  * SkyFunction for {@link ConfiguredTargetValue}s.
@@ -267,13 +269,27 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     //  would exit this SkyFunction and restart it when permits were available.
     acquireWithLogging(key);
     try {
+      // Determine what toolchains are needed by this target.
+      unloadedToolchainContexts =
+          computeUnloadedToolchainContexts(
+              env,
+              ruleClassProvider,
+              defaultBuildOptions,
+              ctgValue,
+              configuredTargetKey.getToolchainContextKey());
+      if (env.valuesMissing()) {
+        return null;
+      }
+
       // Get the configuration targets that trigger this rule's configurable attributes.
       ImmutableMap<Label, ConfigMatchingProvider> configConditions =
           getConfigConditions(
-              ctgValue.getTarget(),
               env,
               ctgValue,
               transitivePackagesForPackageRootResolution,
+              unloadedToolchainContexts == null
+                  ? null
+                  : unloadedToolchainContexts.getDefaultToolchainContext().targetPlatform(),
               transitiveRootCauses);
       if (env.valuesMissing()) {
         return null;
@@ -290,18 +306,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         throw new ConfiguredTargetFunctionException(
             new ConfiguredValueCreationException(
                 "Cannot compute config conditions", configuration, transitiveRootCauses.build()));
-      }
-
-      // Determine what toolchains are needed by this target.
-      unloadedToolchainContexts =
-          computeUnloadedToolchainContexts(
-              env,
-              ruleClassProvider,
-              defaultBuildOptions,
-              ctgValue,
-              configuredTargetKey.getToolchainContextKey());
-      if (env.valuesMissing()) {
-        return null;
       }
 
       // Calculate the dependencies of this target.
@@ -710,12 +714,13 @@ public final class ConfiguredTargetFunction implements SkyFunction {
    */
   @Nullable
   static ImmutableMap<Label, ConfigMatchingProvider> getConfigConditions(
-      Target target,
       Environment env,
       TargetAndConfiguration ctgValue,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution,
+      @Nullable PlatformInfo platformInfo,
       NestedSetBuilder<Cause> transitiveRootCauses)
       throws DependencyEvaluationException, InterruptedException {
+    Target target = ctgValue.getTarget();
     if (!(target instanceof Rule)) {
       return NO_CONFIG_CONDITIONS;
     }
@@ -789,16 +794,32 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     // Get the configured targets as ConfigMatchingProvider interfaces.
     for (Dependency entry : configConditionDeps) {
       SkyKey baseKey = entry.getConfiguredTargetKey();
+      // The code above guarantees that value is non-null here.
       ConfiguredTarget value = configValues.get(baseKey).getConfiguredTarget();
-      // The code above guarantees that value is non-null here and since the rule is a
-      // config_setting, provider must also be non-null.
-      ConfigMatchingProvider provider = value.getProvider(ConfigMatchingProvider.class);
-      if (provider != null) {
-        configConditions.put(entry.getLabel(), provider);
+      // The below handles config_setting (which nativly provides ConfigMatchingProvider) and
+      // constraint_value (which needs a custom-built ConfigMatchingProvider). If we ever add
+      // support for more rules we should move resolution logic to ConfigMatchingProvider and
+      // simplify the logic here.
+      ConfigMatchingProvider matchingProvider = value.getProvider(ConfigMatchingProvider.class);
+      ConstraintValueInfo constraintValueInfo = value.get(ConstraintValueInfo.PROVIDER);
+
+      if (matchingProvider != null) {
+        configConditions.put(entry.getLabel(), matchingProvider);
+      } else if (constraintValueInfo != null && platformInfo != null) {
+        // If platformInfo == null, that means the owning target doesn't invoke toolchain
+        // resolution, in which case depending on a constraint_value is non-sensical.
+        configConditions.put(
+            entry.getLabel(), constraintValueInfo.configMatchingProvider(platformInfo));
       } else {
         // Not a valid provider for configuration conditions.
         String message =
-            entry.getLabel() + " is not a valid configuration key for " + target.getLabel();
+            String.format(
+                    "%s is not a valid select() condition for %s.\n",
+                    entry.getLabel(), target.getLabel())
+                + String.format(
+                    "To inspect the select(), run: bazel query --output=build %s.\n",
+                    target.getLabel())
+                + "For more help, see https://docs.bazel.build/be/functions.html#select.\n\n";
         env.getListener().handle(Event.error(TargetUtils.getLocationMaybe(target), message));
         throw new DependencyEvaluationException(
             new ConfiguredValueCreationException(

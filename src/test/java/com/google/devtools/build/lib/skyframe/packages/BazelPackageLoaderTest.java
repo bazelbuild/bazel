@@ -92,6 +92,11 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
         "def maybe(repo_rule, name, **kwargs):",
         "  if name not in native.existing_rules():",
         "    repo_rule(name = name, **kwargs)");
+    FileSystemUtils.writeIsoLatin1(tools.getRelative("tools/jdk/BUILD"));
+    FileSystemUtils.writeIsoLatin1(
+        tools.getRelative("tools/jdk/local_java_repository.bzl"),
+        "def local_java_repository(**kwargs):",
+        "  pass");
   }
 
   private void fetchExternalRepo(RepositoryName externalRepo) {

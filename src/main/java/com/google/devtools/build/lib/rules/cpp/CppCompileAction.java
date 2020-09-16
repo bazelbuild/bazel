@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetStore.MissingNestedSetException;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
@@ -76,9 +77,6 @@ import com.google.devtools.build.lib.server.FailureDetails.CppCompile.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.util.DependencySet;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -108,6 +106,9 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
 
 /** Action that represents some kind of C++ compilation step. */
 @ThreadCompatible
@@ -612,19 +613,27 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       // We get a collection view of the NestedSet in a way that can throw an InterruptedException
       // because a NestedSet may contain a future.
       Map.Entry<Artifact, NestedSet<? extends Artifact>> entry = iterator.next();
+      Artifact dep = entry.getKey();
       NestedSet<? extends Artifact> transitive = entry.getValue();
 
       List<? extends Artifact> modules;
       try {
         modules = actionExecutionContext.getNestedSetExpander().toListInterruptibly(transitive);
-      } catch (TimeoutException e) {
+      } catch (TimeoutException | MissingNestedSetException e) {
+        DetailedExitCode code =
+            e instanceof TimeoutException
+                ? createDetailedExitCode(
+                    "Timed out expanding modules for " + dep, Code.MODULE_EXPANSION_TIMEOUT)
+                : createDetailedExitCode(
+                    "Missing data while expanding modules for " + dep,
+                    Code.MODULE_EXPANSION_MISSING_DATA);
         if (actionExecutionContext.isRewindingEnabled()) {
-          throw lostInputsExceptionForTimedOutNestedSetExpansion(entry.getKey(), iterator, e);
+          // If rewinding is enabled, this error is recoverable.
+          throw lostInputsExceptionForFailedNestedSetExpansion(dep, iterator, e, code);
         }
         BugReport.sendBugReport(e);
-        String message = "Timed out expanding modules";
-        DetailedExitCode code = createDetailedExitCode(message, Code.MODULE_EXPANSION_TIMEOUT);
-        throw new ActionExecutionException(message, this, /*catastrophe=*/ false, code);
+        throw new ActionExecutionException(
+            code.getFailureDetail().getMessage(), e, this, /*catastrophe=*/ false, code);
       }
 
       for (Artifact module : modules) {
@@ -651,14 +660,16 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   /**
-   * Handles a timeout during expansion of transitively used modules.
+   * Handles a failure (timeout or missing data) during expansion of transitively used modules.
    *
    * <p>A timeout may occur if a nested set of transitively used modules {@linkplain
-   * NestedSet#isFromStorage} but is not {@linkplain NestedSet#isReady ready}. The timeout is
-   * handled by throwing {@link LostInputsActionExecutionException} so that rewinding kicks in and
-   * rebuilds the nodes with the unavailable nested sets.
+   * NestedSet#isFromStorage} but is not {@linkplain NestedSet#isReady ready}, while a {@link
+   * MissingNestedSetException} may occur if the data cannot be found.
    *
-   * <p>As soon as one timeout is seen, any other nested sets of modules which are not ready are
+   * <p>Both cases are handled by throwing {@link LostInputsActionExecutionException} so that
+   * rewinding kicks in and rebuilds the nodes with the unavailable nested sets.
+   *
+   * <p>As soon as one failure is seen, any other nested sets of modules which are not ready are
    * also treated as lost inputs.
    *
    * <p>Although the output {@link Artifact} (.pcm file) of dependent modules is not technically
@@ -667,10 +678,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * we use the .pcm file's exec path since rewinding only uses the digest to detect multiple
    * rewinds of the same input.
    */
-  private LostInputsActionExecutionException lostInputsExceptionForTimedOutNestedSetExpansion(
+  private LostInputsActionExecutionException lostInputsExceptionForFailedNestedSetExpansion(
       Artifact timedOut,
       Iterator<Map.Entry<Artifact, NestedSet<? extends Artifact>>> remainingModules,
-      TimeoutException e) {
+      Exception e,
+      DetailedExitCode code) {
     ImmutableMap.Builder<String, ActionInput> lostInputsBuilder = ImmutableMap.builder();
     lostInputsBuilder.put(timedOut.getExecPathString(), timedOut);
     remainingModules.forEachRemaining(
@@ -681,11 +693,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           }
         });
     ImmutableMap<String, ActionInput> lostInputs = lostInputsBuilder.build();
-    String message = "Timed out expanding modules";
-    DetailedExitCode code = createDetailedExitCode(message, Code.MODULE_EXPANSION_TIMEOUT);
-    ActionInputDepOwnerMap owners =
-        new ActionInputDepOwnerMap(ImmutableList.copyOf(lostInputs.values()));
-    return new LostInputsActionExecutionException(message, lostInputs, owners, this, e, code);
+    ActionInputDepOwnerMap owners = new ActionInputDepOwnerMap(lostInputs.values());
+    return new LostInputsActionExecutionException(
+        code.getFailureDetail().getMessage(), lostInputs, owners, this, e, code);
   }
 
   @Override
@@ -703,9 +713,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return compileCommandLine.getSourceFile();
   }
 
-  /**
-   * Returns the path where gcc should put its result.
-   */
+  /** Returns the path where gcc should put its result. */
   public Artifact getOutputFile() {
     return outputFile;
   }
@@ -828,7 +836,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   private List<String> getCmdlineIncludes(List<String> args) {
     ImmutableList.Builder<String> cmdlineIncludes = ImmutableList.builder();
-    for (Iterator<String> argi = args.iterator(); argi.hasNext();) {
+    for (Iterator<String> argi = args.iterator(); argi.hasNext(); ) {
       String arg = argi.next();
       if (arg.equals("-include") && argi.hasNext()) {
         cmdlineIncludes.add(argi.next());
@@ -864,8 +872,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   /**
-   * Returns the list of "-D" arguments that should be used by this gcc
-   * invocation. Only used for testing.
+   * Returns the list of "-D" arguments that should be used by this gcc invocation. Only used for
+   * testing.
    */
   @VisibleForTesting
   public ImmutableCollection<String> getDefines() {
@@ -1054,8 +1062,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           if (errors.hasProblems()) {
             System.err.println("ERROR: Include(s) were not in declared srcs:");
           } else {
-            System.err.println("INFO: Include(s) were OK for '" + getSourceFile()
-                + "', declared srcs:");
+            System.err.println(
+                "INFO: Include(s) were OK for '" + getSourceFile() + "', declared srcs:");
           }
           for (Artifact a : ccCompilationContext.getDeclaredIncludeSrcs().toList()) {
             System.err.println("  '" + a.toDetailString() + "'");
@@ -1148,13 +1156,13 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       return true; // Legacy behavior nobody understands anymore.
     }
     if (declaredIncludeDirs.contains(includeDir)) {
-      return true;  // OK: quick exact match.
+      return true; // OK: quick exact match.
     }
     // Not found in the quick lookup: try the wildcards.
     for (PathFragment declared : declaredIncludeDirs) {
       if (declared.getBaseName().equals("**")) {
         if (includeDir.startsWith(declared.getParentDirectory())) {
-          return true;  // OK: under a wildcard dir.
+          return true; // OK: under a wildcard dir.
         }
       }
     }
@@ -1173,15 +1181,15 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       packagesToCheckForBuildFiles.add(dir);
       dir = dir.getParentDirectory();
       if (dir.equals(root.asPath())) {
-        return false;  // Bad: at the top, give up.
+        return false; // Bad: at the top, give up.
       }
       if (declaredIncludeDirs.contains(root.relativize(dir))) {
         for (Path dirOrPackage : packagesToCheckForBuildFiles) {
           if (dirOrPackage.getRelative(BUILD_PATH_FRAGMENT).exists()) {
-            return false;  // Bad: this is a sub-package, not a subdir of a declared package.
+            return false; // Bad: this is a sub-package, not a subdir of a declared package.
           }
         }
-        return true;  // OK: found under a declared dir.
+        return true; // OK: found under a declared dir.
       }
     }
   }
@@ -1282,22 +1290,20 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   /**
-   * Return the directories in which to look for headers (pertains to headers not specifically
+   * Returns the directories in which to look for headers (pertains to headers not specifically
    * listed in {@code declaredIncludeSrcs}).
    */
   public NestedSet<PathFragment> getDeclaredIncludeDirs() {
     return ccCompilationContext.getLooseHdrsDirs();
   }
 
-  /** Return explicitly listed header files. */
+  /** Returns explicitly listed header files. */
   @Override
   public NestedSet<Artifact> getDeclaredIncludeSrcs() {
     return ccCompilationContext.getDeclaredIncludeSrcs();
   }
 
-  /**
-   * Estimate resource consumption when this action is executed locally.
-   */
+  /** Estimates resource consumption when this action is executed locally. */
   public ResourceSet estimateResourceConsumptionLocal() {
     return AbstractAction.DEFAULT_RESOURCE_SET;
   }
@@ -1933,7 +1939,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
   }
 
-  static DetailedExitCode createDetailedExitCode(String message, Code detailedCode) {
+  private static DetailedExitCode createDetailedExitCode(String message, Code detailedCode) {
     return DetailedExitCode.of(createFailureDetail(message, detailedCode));
   }
 

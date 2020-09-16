@@ -57,7 +57,7 @@ android_sdk_repository(
     api_level = 25,
 )
 EOF
-  bazel build @androidsdk//:files >& $TEST_log && fail "Should have failed"
+  bazel build @androidsdk//:files >& $TEST_log && fail "Should have failed" || true
   expect_log "Either the path attribute of android_sdk_repository"
 }
 
@@ -71,7 +71,7 @@ android_sdk_repository(
     path = "$TEST_SRCDIR/some_dir",
 )
 EOF
-  bazel build @androidsdk//:files >& $TEST_log && fail "Should have failed"
+  bazel build @androidsdk//:files >& $TEST_log && fail "Should have failed" || true
   expect_log "Unable to read the Android SDK at $TEST_SRCDIR/some_dir, the path may be invalid." \
     " Is the path in android_sdk_repository() or \$ANDROID_SDK_HOME set correctly?"
 }
@@ -100,6 +100,38 @@ function test_android_sdk_repository_returns_null_if_env_vars_missing() {
   ANDROID_HOME=/does_not_exist_2 bazel build @androidsdk//:files && \
     fail "Build should have failed"
   ANDROID_HOME=$ANDROID_SDK bazel build @androidsdk//:files || "Build failed"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/12069
+function test_android_sdk_repository_present_not_set() {
+  create_new_workspace
+  cat >> WORKSPACE <<EOF
+android_sdk_repository(
+    name = "androidsdk",
+)
+EOF
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+sh_test(
+  name = 'helper',
+  srcs = [ 'helper.sh' ],
+)
+EOF
+
+  cat > a/helper.sh <<EOF
+#!/bin/sh
+exit 0
+EOF
+  chmod +x a/helper.sh
+
+  unset ANDROID_HOME
+  # We should be able to build non-android targets without a valid SDK.
+  bazel build //a:helper || fail "Build failed"
+  # Trying to actually build android code repo should still fail.
+  create_android_binary
+  bazel build //java/bazel:bin && fail "Build should have failed" || true
 }
 
 run_suite "Android integration tests for SDK"

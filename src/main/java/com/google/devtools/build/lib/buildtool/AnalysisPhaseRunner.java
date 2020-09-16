@@ -77,7 +77,7 @@ public final class AnalysisPhaseRunner {
 
     // Target pattern evaluation.
     TargetPatternPhaseValue loadingResult;
-    Profiler.instance().markPhase(ProfilePhase.LOAD);
+    Profiler.instance().markPhase(ProfilePhase.TARGET_PATTERN_EVAL);
     try (SilentCloseable c = Profiler.instance().profile("evaluateTargetPatterns")) {
       loadingResult = evaluateTargetPatterns(env, request, validator);
     }

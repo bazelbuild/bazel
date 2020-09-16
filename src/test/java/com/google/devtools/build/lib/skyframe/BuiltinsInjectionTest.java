@@ -241,7 +241,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
 
     buildDummyWithoutAssertingSuccess();
     // The print() statement is never reached because we fail statically during name resolution in
-    // ASTFileLookupFunction.
+    // BzlCompileFunction.
     assertDoesNotContainEvent("made it to evaluation");
     assertContainsEvent("name 'native' is not defined");
   }
@@ -264,7 +264,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
 
     buildDummyWithoutAssertingSuccess();
     // The print() statement is never reached because we fail statically during name resolution in
-    // ASTFileLookupFunction.
+    // BzlCompileFunction.
     assertDoesNotContainEvent("made it to evaluation");
     assertContainsEvent("name 'overridable_symbol' is not defined");
   }

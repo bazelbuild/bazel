@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.config;
 
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Represents a configuration transition across a dependency edge. */
 @StarlarkBuiltin(

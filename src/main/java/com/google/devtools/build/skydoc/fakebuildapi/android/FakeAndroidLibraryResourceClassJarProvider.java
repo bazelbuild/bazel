@@ -15,12 +15,11 @@
 package com.google.devtools.build.skydoc.fakebuildapi.android;
 
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.rules.android.AndroidLibraryResourceClassJarProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidLibraryResourceClassJarProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.eval.EvalException;
 
-/** Fake implementation of {@link AndroidLibraryResourceClassJarProvider}. */
+/** Fake implementation of AndroidLibraryResourceClassJarProvider. */
 public class FakeAndroidLibraryResourceClassJarProvider
     implements AndroidLibraryResourceClassJarProviderApi<FileApi> {
 

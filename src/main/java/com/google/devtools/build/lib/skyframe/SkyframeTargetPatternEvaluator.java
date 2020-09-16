@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider.PackageBa
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -58,13 +59,13 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
       Collection<String> patterns,
       boolean keepGoing)
       throws TargetParsingException, InterruptedException {
-    String offset = relativeWorkingDirectory.getPathString();
     ImmutableMap.Builder<String, Collection<Target>> resultBuilder = ImmutableMap.builder();
     List<PatternLookup> patternLookups = new ArrayList<>();
     List<SkyKey> allKeys = new ArrayList<>();
     for (String pattern : patterns) {
       Preconditions.checkArgument(!pattern.startsWith("-"));
-      PatternLookup patternLookup = createPatternLookup(offset, eventHandler, pattern, keepGoing);
+      PatternLookup patternLookup =
+          createPatternLookup(relativeWorkingDirectory, eventHandler, pattern, keepGoing);
       if (patternLookup == null) {
         resultBuilder.put(pattern, ImmutableSet.of());
       } else {
@@ -89,8 +90,7 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
           if (!keepGoing) {
             throw e;
           }
-          eventHandler.handle(
-              Event.error("Skipping '" + patternLookup.pattern + "': " + e.getMessage()));
+          eventHandler.handle(createPatternParsingError(e, patternLookup.pattern));
           eventHandler.post(PatternExpandingError.skipped(patternLookup.pattern, e.getMessage()));
           resultBuilder.put(patternLookup.pattern, ImmutableSet.of());
         }
@@ -126,7 +126,7 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
           throw new IllegalStateException(error.toString());
         }
         if (keepGoing) {
-          eventHandler.handle(Event.error("Skipping '" + rawPattern + "': " + errorMessage));
+          eventHandler.handle(createPatternParsingError(targetParsingException, rawPattern));
           eventHandler.post(PatternExpandingError.skipped(rawPattern, errorMessage));
         } else {
           eventHandler.post(PatternExpandingError.failed(patternLookup.pattern, errorMessage));
@@ -139,7 +139,10 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
   }
 
   private PatternLookup createPatternLookup(
-      String offset, ExtendedEventHandler eventHandler, String targetPattern, boolean keepGoing)
+      PathFragment offset,
+      ExtendedEventHandler eventHandler,
+      String targetPattern,
+      boolean keepGoing)
       throws TargetParsingException {
     try {
       TargetPatternKey key =
@@ -155,7 +158,7 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
       if (!keepGoing) {
         throw e;
       }
-      eventHandler.handle(Event.error("Skipping '" + targetPattern + "': " + e.getMessage()));
+      eventHandler.handle(createPatternParsingError(e, targetPattern));
       return null;
     }
   }
@@ -174,6 +177,11 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
         return false;
     }
     throw new AssertionError();
+  }
+
+  private static Event createPatternParsingError(TargetParsingException e, String pattern) {
+    return Event.error("Skipping '" + pattern + "': " + e.getMessage())
+        .withProperty(DetailedExitCode.class, e.getDetailedExitCode());
   }
 
   private abstract static class PatternLookup {

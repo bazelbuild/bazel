@@ -28,6 +28,7 @@ import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 /**
@@ -39,23 +40,24 @@ import java.util.stream.Stream;
  *
  * <p>See {@link CodecRegisterer} for more details.
  */
-public class CodecScanner {
+class CodecScanner {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
-   * Initializes an {@link ObjectCodecRegistry} builder by scanning a given package prefix.
+   * Initializes an {@link ObjectCodecRegistry} builder by scanning classes matching the given
+   * package filter.
    *
-   * @param packagePrefix processes only classes in packages having this prefix
+   * @param packageFilter a filter applied to the package name of each class
    * @see CodecRegisterer
    */
-  static ObjectCodecRegistry.Builder initializeCodecRegistry(String packagePrefix)
+  static ObjectCodecRegistry.Builder initializeCodecRegistry(Predicate<String> packageFilter)
       throws IOException, ReflectiveOperationException {
     logger.atInfo().log("Building ObjectCodecRegistry");
     ArrayList<Class<? extends ObjectCodec<?>>> codecs = new ArrayList<>();
     ArrayList<Class<? extends CodecRegisterer<?>>> registerers = new ArrayList<>();
     ObjectCodecRegistry.Builder builder = ObjectCodecRegistry.newBuilder();
-    getClassInfos(packagePrefix)
+    getClassInfos(packageFilter)
         .forEach(
             classInfo -> {
               if (classInfo.getName().endsWith("Codec")) {
@@ -189,14 +191,15 @@ public class CodecScanner {
     throw new IllegalStateException(registererType + " doesn't directly implement CodecRegisterer");
   }
 
-  /** Return the {@link ClassInfo} objects matching {@code packagePrefix} sorted by name. */
-  private static Stream<ClassInfo> getClassInfos(String packagePrefix) throws IOException {
-    return ClassPath.from(ClassLoader.getSystemClassLoader())
-        .getResources()
-        .stream()
+  /** Return the {@link ClassInfo}s matching {@code packageFilter}, sorted by name. */
+  private static Stream<ClassInfo> getClassInfos(Predicate<String> packageFilter)
+      throws IOException {
+    return ClassPath.from(ClassLoader.getSystemClassLoader()).getResources().stream()
         .filter(r -> r instanceof ClassInfo)
         .map(r -> (ClassInfo) r)
-        .filter(c -> c.getPackageName().startsWith(packagePrefix))
+        .filter(c -> packageFilter.test(c.getPackageName()))
         .sorted(Comparator.comparing(ClassInfo::getName));
   }
+
+  private CodecScanner() {}
 }

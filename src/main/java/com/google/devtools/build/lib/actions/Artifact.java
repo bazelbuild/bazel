@@ -40,9 +40,6 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationContext
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
@@ -59,6 +56,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Starlark;
 
 /**
  * An Artifact represents a file used by the build system, whether it's a source file or a derived
@@ -213,12 +213,15 @@ public abstract class Artifact
     void expand(Artifact artifact, Collection<? super Artifact> output);
 
     /**
-     * Retrieve the expansion of Filesets for the given artifact.
+     * Returns the expansion of Fileset for the given artifact.
      *
      * @param artifact {@code artifact.isFileset()} must be true.
+     * @throws MissingExpansionException if the expander is missing data needed to expand provided
+     *     fileset.
      */
-    default ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact) {
-      throw new UnsupportedOperationException();
+    default ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact)
+        throws MissingExpansionException {
+      throw new MissingExpansionException("Cannot expand fileset " + artifact);
     }
 
     /**
@@ -231,6 +234,17 @@ public abstract class Artifact
     @Nullable
     default ArchivedTreeArtifact getArchivedTreeArtifact(SpecialArtifact treeArtifact) {
       return null;
+    }
+  }
+
+  /**
+   * Exception thrown when attempting to {@linkplain ArtifactExpander expand} an artifact for which
+   * we do not have the necessary data.
+   */
+  public static final class MissingExpansionException extends Exception {
+
+    public MissingExpansionException(String message) {
+      super(message);
     }
   }
 
@@ -260,9 +274,14 @@ public abstract class Artifact
     }
 
     @Override
-    public ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact) {
+    public ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact)
+        throws MissingExpansionException {
       Preconditions.checkState(artifact.isFileset());
-      return Preconditions.checkNotNull(expandedFilesets.get(artifact));
+      ImmutableList<FilesetOutputSymlink> filesetLinks = expandedFilesets.get(artifact);
+      if (filesetLinks == null) {
+        throw new MissingExpansionException("Missing expansion for fileset: " + artifact);
+      }
+      return filesetLinks;
     }
 
     @Override

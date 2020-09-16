@@ -8,6 +8,18 @@ ${util.funcSummary($funcInfo)}
 
 ${funcInfo.docString}
 
+#if (!$funcInfo.getDeprecated().docString.isEmpty())
+**DEPRECATED**
+
+${funcInfo.getDeprecated().docString}
+
+#end
+#if (!$funcInfo.getReturn().docString.isEmpty())
+**RETURNS**
+
+${funcInfo.getReturn().docString}
+
+#end
 **PARAMETERS**
 
 #if (!$funcInfo.getParameterList().isEmpty())

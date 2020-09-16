@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.analysis.test;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.test.AnalysisFailureApi;
-import com.google.devtools.build.lib.syntax.Printer;
+import net.starlark.java.eval.Printer;
 
 /**
  * Encapsulates information about an analysis-phase error which would have occurred during a build.

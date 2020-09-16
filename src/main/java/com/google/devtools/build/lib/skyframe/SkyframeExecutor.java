@@ -137,6 +137,7 @@ import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
@@ -158,12 +159,11 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossReposit
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
 import com.google.devtools.build.lib.skyframe.trimming.TrimmedConfigurationCache;
-import com.google.devtools.build.lib.syntax.StarlarkFile;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.ResourceUsage;
+import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -211,6 +211,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -223,6 +224,8 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.syntax.StarlarkFile;
 
 /**
  * A helper object to support Skyframe-driven execution.
@@ -256,12 +259,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   // the number of cores and use that as the thread-pool size for CPU-bound operations.
   // I just bumped this to 200 to get reasonable execution phase performance; that may cause
   // significant overhead for CPU-bound processes (i.e. analysis). [skyframe-analysis]
-  @VisibleForTesting
   public static final int DEFAULT_THREAD_COUNT =
       // Reduce thread count while running tests of Bazel. Test cases are typically small, and large
       // thread pools vying for a relatively small number of CPU cores may induce non-optimal
       // performance.
-      System.getenv("TEST_TMPDIR") == null ? 200 : 5;
+      TestType.isInTest() ? 5 : 200;
 
   // The limit of how many times we will traverse through an exception chain when catching a
   // target parsing exception.
@@ -277,9 +279,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private final Cache<PackageIdentifier, StarlarkFile> buildFileSyntaxCache =
       newBuildFileSyntaxCache();
 
-  // Cache of parsed bzl files, for use when we're inlining ASTFileLookupFunction in
+  // Cache of parsed bzl files, for use when we're inlining BzlCompileFunction in
   // BzlLoadFunction. See the comments in BzlLoadFunction for motivations and details.
-  private final Cache<ASTFileLookupValue.Key, ASTFileLookupValue> astFileLookupValueCache =
+  private final Cache<BzlCompileValue.Key, BzlCompileValue> bzlCompileCache =
       CacheBuilder.newBuilder().build();
 
   private final AtomicInteger numPackagesLoaded = new AtomicInteger(0);
@@ -487,7 +489,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             buildFilesByPriority,
             externalPackageHelper));
     map.put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction());
-    map.put(SkyFunctions.AST_FILE_LOOKUP, new ASTFileLookupFunction(pkgFactory, getHashFunction()));
+    map.put(
+        SkyFunctions.BZL_COMPILE, // TODO rename
+        new BzlCompileFunction(pkgFactory, getHashFunction()));
     map.put(SkyFunctions.STARLARK_BUILTINS, new StarlarkBuiltinsFunction(pkgFactory));
     map.put(SkyFunctions.BZL_LOAD, newBzlLoadFunction(ruleClassProvider, pkgFactory));
     map.put(SkyFunctions.GLOB, newGlobFunction());
@@ -647,7 +651,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   protected SkyFunction newBzlLoadFunction(
       RuleClassProvider ruleClassProvider, PackageFactory pkgFactory) {
-    return BzlLoadFunction.create(this.pkgFactory, getHashFunction(), astFileLookupValueCache);
+    return BzlLoadFunction.create(this.pkgFactory, getHashFunction(), bzlCompileCache);
   }
 
   protected PerBuildSyscallCache newPerBuildSyscallCache(int concurrencyLevel) {
@@ -959,10 +963,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    */
   private static final ImmutableSet<SkyFunctionName> LOADING_TYPES =
       ImmutableSet.of(
-          SkyFunctions.PACKAGE,
-          SkyFunctions.BZL_LOAD,
-          SkyFunctions.AST_FILE_LOOKUP,
-          SkyFunctions.GLOB);
+          SkyFunctions.PACKAGE, SkyFunctions.BZL_LOAD, SkyFunctions.BZL_COMPILE, SkyFunctions.GLOB);
 
   /** Data that should be discarded in {@link #discardPreExecutionCache}. */
   protected enum DiscardType {
@@ -1381,7 +1382,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     // build), these may have stale entries.
     packageFunctionCache.invalidateAll();
     buildFileSyntaxCache.invalidateAll();
-    astFileLookupValueCache.invalidateAll();
+    bzlCompileCache.invalidateAll();
 
     numPackagesLoaded.set(0);
     if (packageProgress != null) {
@@ -2456,18 +2457,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * underlying evaluation implementation.
    */
   public String prepareAndGetMetadata(
-      Collection<String> patterns, String offset, OptionsProvider options)
+      Collection<String> patterns, PathFragment offset, OptionsProvider options)
       throws AbruptExitException, InterruptedException {
     return buildDriver.meta(ImmutableList.of(getUniverseKey(patterns, offset)), options);
   }
 
-  @Override
-  public SkyKey getUniverseKey(Collection<String> patterns, String offset) {
-    return computeUniverseKey(ImmutableList.copyOf(patterns), offset);
+  public Optional<UniverseScope> maybeGetHardcodedUniverseScope() {
+    return Optional.empty();
   }
 
-  /** Computes the {@link SkyKey} that defines this universe. */
-  public static SkyKey computeUniverseKey(Collection<String> patterns, String offset) {
+  @ForOverride
+  protected SkyKey getUniverseKey(Collection<String> patterns, PathFragment offset) {
     return PrepareDepsOfPatternsValue.key(ImmutableList.copyOf(patterns), offset);
   }
 
@@ -2818,7 +2818,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       throws TargetParsingException, InterruptedException {
     SkyKey key =
         TargetPatternPhaseValue.keyWithoutFilters(
-            ImmutableList.copyOf(targetPatterns), relativeWorkingDirectory.getPathString());
+            ImmutableList.copyOf(targetPatterns), relativeWorkingDirectory);
     return getTargetPatternPhaseValue(eventHandler, targetPatterns, threadCount, keepGoing, key);
   }
 
@@ -2844,7 +2844,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     SkyKey key =
         TargetPatternPhaseValue.key(
             ImmutableList.copyOf(targetPatterns),
-            relativeWorkingDirectory.getPathString(),
+            relativeWorkingDirectory,
             options.compileOneDependency,
             options.buildTestsOnly,
             determineTests,

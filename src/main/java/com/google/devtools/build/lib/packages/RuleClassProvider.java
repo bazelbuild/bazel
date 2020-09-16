@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * The collection of the supported build rules. Provides an StarlarkThread for Starlark rule

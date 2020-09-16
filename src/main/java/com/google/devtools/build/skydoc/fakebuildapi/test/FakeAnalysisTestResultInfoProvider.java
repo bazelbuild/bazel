@@ -16,7 +16,7 @@ package com.google.devtools.build.skydoc.fakebuildapi.test;
 
 import com.google.devtools.build.lib.starlarkbuildapi.test.AnalysisTestResultInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.test.AnalysisTestResultInfoApi.AnalysisTestResultInfoProviderApi;
-import com.google.devtools.build.lib.syntax.Printer;
+import net.starlark.java.eval.Printer;
 
 /**
  * Fake implementation of {@link AnalysisTestResultInfoProviderApi}.

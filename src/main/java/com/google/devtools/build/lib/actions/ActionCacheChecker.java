@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
-import com.google.devtools.build.lib.actions.cache.DigestUtils;
+import com.google.devtools.build.lib.actions.cache.MetadataDigestUtils;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -159,7 +159,7 @@ public class ActionCacheChecker {
     for (Artifact artifact : actionInputs.toList()) {
       mdMap.put(artifact.getExecPathString(), getMetadataMaybe(metadataHandler, artifact));
     }
-    return !Arrays.equals(DigestUtils.fromMetadata(mdMap), entry.getFileDigest());
+    return !Arrays.equals(MetadataDigestUtils.fromMetadata(mdMap), entry.getFileDigest());
   }
 
   private void reportCommand(EventHandler handler, Action action) {
@@ -347,7 +347,8 @@ public class ActionCacheChecker {
     }
     Map<String, String> usedEnvironment =
         computeUsedEnv(action, clientEnv, remoteDefaultPlatformProperties);
-    if (!Arrays.equals(entry.getUsedClientEnvDigest(), DigestUtils.fromEnv(usedEnvironment))) {
+    if (!Arrays.equals(
+        entry.getUsedClientEnvDigest(), MetadataDigestUtils.fromEnv(usedEnvironment))) {
       reportClientEnv(handler, action, usedEnvironment);
       actionCache.accountMiss(MissReason.DIFFERENT_ENVIRONMENT);
       return true;

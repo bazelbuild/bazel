@@ -20,8 +20,8 @@ package com.google.devtools.build.lib.profiler;
 public enum ProfilePhase {
   LAUNCH("launch", "Launch Blaze"),
   INIT("init", "Initialize command"),
-  LOAD("loading", "Load packages"),
-  ANALYZE("analysis", "Analyze dependencies"),
+  TARGET_PATTERN_EVAL("target pattern evaluation", "Evaluate target patterns"),
+  ANALYZE("interleaved loading-and-analysis", "Load and analyze dependencies"),
   LICENSE("license checking", "Analyze licenses"),
   PREPARE("preparation", "Prepare for build"),
   EXECUTE("execution", "Build artifacts"),

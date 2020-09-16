@@ -54,7 +54,39 @@ public class WorkerKeyTest {
     assertThat(WorkerKey.makeWorkerTypeName(false)).isEqualTo("worker");
     assertThat(WorkerKey.makeWorkerTypeName(true)).isEqualTo("multiplex-worker");
     // Hash code contains args, env, execRoot, proxied, and mnemonic.
-    assertThat(workerKey.hashCode()).isEqualTo(1434805936);
+    assertThat(workerKey.hashCode()).isEqualTo(1605714200);
     assertThat(workerKey.getProtocolFormat()).isEqualTo(WorkerProtocolFormat.PROTO);
+  }
+
+  @Test
+  public void testWorkerKeyEquality() {
+    WorkerKey workerKeyWithSameFields =
+        new WorkerKey(
+            workerKey.getArgs(),
+            workerKey.getEnv(),
+            workerKey.getExecRoot(),
+            workerKey.getMnemonic(),
+            workerKey.getWorkerFilesCombinedHash(),
+            workerKey.getWorkerFilesWithHashes(),
+            workerKey.mustBeSandboxed(),
+            workerKey.getProxied(),
+            workerKey.getProtocolFormat());
+    assertThat(workerKey).isEqualTo(workerKeyWithSameFields);
+  }
+
+  @Test
+  public void testWorkerKeyInequality_protocol() {
+    WorkerKey workerKeyWithDifferentProtocol =
+        new WorkerKey(
+            workerKey.getArgs(),
+            workerKey.getEnv(),
+            workerKey.getExecRoot(),
+            workerKey.getMnemonic(),
+            workerKey.getWorkerFilesCombinedHash(),
+            workerKey.getWorkerFilesWithHashes(),
+            workerKey.mustBeSandboxed(),
+            workerKey.getProxied(),
+            WorkerProtocolFormat.JSON);
+    assertThat(workerKey).isNotEqualTo(workerKeyWithDifferentProtocol);
   }
 }

@@ -20,9 +20,9 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidManifestInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidResourcesInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.ValidatedAndroidDataApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Sequence;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Sequence;
 
 /** Fake implementation of {@link AndroidResourcesInfoApi}. */
 public class FakeAndroidResourcesInfo

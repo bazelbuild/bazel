@@ -27,12 +27,17 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.exec.ExecutionPolicy;
+import com.google.devtools.build.lib.server.FailureDetails.DynamicExecution;
+import com.google.devtools.build.lib.server.FailureDetails.DynamicExecution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -222,10 +227,52 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
     }
   }
 
+  /**
+   * Checks if the given spawn has the right execution requirements to indicate whether it can
+   * succeed when running remotely and/or locally depending on the Xcode versions it needs.
+   *
+   * @param options the dynamic execution options that configure this check
+   * @param spawn the spawn to validate
+   * @throws ExecException if the spawn does not contain the expected execution requirements
+   */
+  static void verifyAvailabilityInfo(DynamicExecutionOptions options, Spawn spawn)
+      throws ExecException {
+    if (options.requireAvailabilityInfo
+        && !options.availabilityInfoExempt.contains(spawn.getMnemonic())) {
+      if (spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_DARWIN)
+          && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIREMENTS_SET)) {
+        String message =
+            String.format(
+                "The following spawn was missing Xcode-related execution requirements. Please"
+                    + " let the Bazel team know if you encounter this issue. You can work around"
+                    + " this error by passing --experimental_require_availability_info=false --"
+                    + " at your own risk! This may cause some actions to be executed on the"
+                    + " wrong platform, which can result in build failures.\n"
+                    + "Failing spawn: mnemonic = %s\n"
+                    + "tool files = %s\n"
+                    + "execution platform = %s\n"
+                    + "execution info = %s\n",
+                spawn.getMnemonic(),
+                spawn.getToolFiles(),
+                spawn.getExecutionPlatform(),
+                spawn.getExecutionInfo());
+
+        FailureDetail detail =
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setDynamicExecution(
+                    DynamicExecution.newBuilder().setCode(Code.XCODE_RELATED_PREREQ_UNMET))
+                .build();
+        throw new EnvironmentalExecException(detail);
+      }
+    }
+  }
+
   @Override
   public ImmutableList<SpawnResult> exec(
       final Spawn spawn, final ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
+    DynamicSpawnStrategy.verifyAvailabilityInfo(options, spawn);
     ExecutionPolicy executionPolicy = getExecutionPolicy.apply(spawn);
     if (executionPolicy.canRunLocallyOnly()) {
       return runLocally(spawn, actionExecutionContext, null);

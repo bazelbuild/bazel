@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * An interface for language-specific configurations.

@@ -13,12 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.platform;
 
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.StarlarkIndexable;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkIndexable;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Stores {@link com.google.devtools.build.lib.packages.ExecGroup}s available to a given rule. */
 @StarlarkBuiltin(

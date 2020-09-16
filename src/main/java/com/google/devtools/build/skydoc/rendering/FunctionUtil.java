@@ -17,9 +17,9 @@ package com.google.devtools.build.skydoc.rendering;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkFunction;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionDeprecationInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionParamInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionReturnInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.StarlarkFunctionInfo;
 import com.google.devtools.starlark.common.DocstringUtils;
 import com.google.devtools.starlark.common.DocstringUtils.DocstringInfo;
@@ -28,6 +28,8 @@ import com.google.devtools.starlark.common.DocstringUtils.ParameterDoc;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFunction;
 
 /** Contains a number of utility methods for functions and parameters. */
 public final class FunctionUtil {
@@ -46,8 +48,11 @@ public final class FunctionUtil {
       throws DocstringParseException {
     String functionDescription = "";
     Map<String, String> paramNameToDocMap = Maps.newLinkedHashMap();
+    FunctionReturnInfo retInfo = FunctionReturnInfo.getDefaultInstance();
+    FunctionDeprecationInfo deprInfo = FunctionDeprecationInfo.getDefaultInstance();
 
     String doc = fn.getDocumentation();
+
     if (doc != null) {
       List<DocstringParseError> parseErrors = Lists.newArrayList();
       DocstringInfo docstringInfo = DocstringUtils.parseDocstring(doc, parseErrors);
@@ -62,12 +67,17 @@ public final class FunctionUtil {
       for (ParameterDoc paramDoc : docstringInfo.getParameters()) {
         paramNameToDocMap.put(paramDoc.getParameterName(), paramDoc.getDescription());
       }
+      retInfo = returnInfo(docstringInfo);
+      deprInfo = deprecationInfo(docstringInfo);
     }
     List<FunctionParamInfo> paramsInfo = parameterInfos(fn, paramNameToDocMap);
+
     return StarlarkFunctionInfo.newBuilder()
         .setFunctionName(functionName)
         .setDocString(functionDescription)
         .addAllParameter(paramsInfo)
+        .setReturn(retInfo)
+        .setDeprecated(deprInfo)
         .build();
   }
 
@@ -121,5 +131,13 @@ public final class FunctionUtil {
       infos.add(info);
     }
     return infos.build();
+  }
+
+  private static FunctionReturnInfo returnInfo(DocstringInfo docstringInfo) {
+    return FunctionReturnInfo.newBuilder().setDocString(docstringInfo.getReturns()).build();
+  }
+
+  private static FunctionDeprecationInfo deprecationInfo(DocstringInfo docstringInfo) {
+    return FunctionDeprecationInfo.newBuilder().setDocString(docstringInfo.getDeprecated()).build();
   }
 }

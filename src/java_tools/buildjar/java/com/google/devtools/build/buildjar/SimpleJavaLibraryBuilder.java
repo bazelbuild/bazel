@@ -143,6 +143,7 @@ public class SimpleJavaLibraryBuilder implements Closeable {
   }
 
   public void buildJar(JavaLibraryBuildRequest build) throws IOException {
+    Files.createDirectories(build.getOutputJar().getParent());
     JarCreator jar = new JarCreator(build.getOutputJar());
     JacocoInstrumentationProcessor processor = null;
     try {

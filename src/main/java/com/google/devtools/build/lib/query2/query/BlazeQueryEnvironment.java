@@ -323,7 +323,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       handleError(
           caller,
           "errors were encountered while computing transitive closure",
-          /*detailedExitCode=*/ null);
+          errorObserver.getDetailedExitCode());
     }
   }
 

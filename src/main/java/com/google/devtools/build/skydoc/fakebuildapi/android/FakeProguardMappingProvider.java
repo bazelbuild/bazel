@@ -14,12 +14,11 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.android;
 
-import com.google.devtools.build.lib.rules.android.ProguardMappingProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.ProguardMappingProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.eval.EvalException;
 
-/** Fake implementation of {@link ProguardMappingProvider}. */
+/** Fake implementation of ProguardMappingProvider. */
 public class FakeProguardMappingProvider implements ProguardMappingProviderApi<FileApi> {
 
   @Override

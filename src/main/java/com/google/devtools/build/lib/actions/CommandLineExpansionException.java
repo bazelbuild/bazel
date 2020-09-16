@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.actions;
 
+import javax.annotation.Nullable;
+
 /**
  * Thrown by command line classes during expansion.
  *
@@ -22,8 +24,18 @@ package com.google.devtools.build.lib.actions;
  * string, or a failure in Starlark evaluation of a compact command line.
  */
 public final class CommandLineExpansionException extends Exception {
-  /** @param userVisibleErrorMessage An error string that will be displayed to the user. */
   public CommandLineExpansionException(String userVisibleErrorMessage) {
-    super(userVisibleErrorMessage);
+    this(userVisibleErrorMessage, /*cause=*/ null);
+  }
+
+  /**
+   * Constructs new exception with provided user-facing error message and optional cause.
+   *
+   * @param userVisibleErrorMessage error string that will be displayed to the user.
+   * @param cause optional exception cause used for debugging only -- {@code
+   *     userVisibleErrorMessage} should carry all of the information needed for the user.
+   */
+  public CommandLineExpansionException(String userVisibleErrorMessage, @Nullable Throwable cause) {
+    super(userVisibleErrorMessage, cause);
   }
 }
