@@ -19,15 +19,12 @@ public class GoogleAuthCallCredentialsProvider implements CallCredentialsProvide
   public GoogleAuthCallCredentialsProvider(Credentials credentials) {
     Preconditions.checkNotNull(credentials, "credentials");
     this.credentials = credentials;
-
     callCredentials = MoreCallCredentials.from(credentials);
   }
 
   @Override
   public CallCredentials getCallCredentials() {
-    synchronized (this) {
-      return callCredentials;
-    }
+    return callCredentials;
   }
 
   @Override
@@ -41,7 +38,6 @@ public class GoogleAuthCallCredentialsProvider implements CallCredentialsProvide
       if ((now - lastRefreshTime) > TimeUnit.SECONDS.toMillis(1)) {
         lastRefreshTime = now;
         credentials.refresh();
-        callCredentials = MoreCallCredentials.from(this.credentials);
       }
     }
   }

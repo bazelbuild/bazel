@@ -19,7 +19,7 @@ import java.io.IOException;
 import javax.annotation.Nullable;
 
 /**
- * Interface for providing {@link CallCredentials}.
+ * Interface for providing {@link CallCredentials}. Implementations must be thread-safe.
  */
 public interface CallCredentialsProvider {
   /**
