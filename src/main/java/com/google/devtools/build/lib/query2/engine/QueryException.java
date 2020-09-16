@@ -21,18 +21,19 @@ import com.google.devtools.build.lib.server.FailureDetails.Query;
 
 /** Exception indicating a failure in Blaze query, aquery, or cquery. */
 public class QueryException extends Exception {
-  /**
-   * Returns a better error message for the query.
-   */
+
+  /** Returns a better error message for the query. */
   static String describeFailedQuery(QueryException e, QueryExpression toplevel) {
     QueryExpression badQuery = e.getFailedExpression();
     if (badQuery == null) {
       return "Evaluation failed: " + e.getMessage();
     }
     return badQuery == toplevel
-        ? "Evaluation of query \"" + toplevel + "\" failed: " + e.getMessage()
-        : "Evaluation of subquery \"" + badQuery
-            + "\" failed (did you want to use --keep_going?): " + e.getMessage();
+        ? "Evaluation of query \"" + toplevel.toTrunctatedString() + "\" failed: " + e.getMessage()
+        : "Evaluation of subquery \""
+            + badQuery.toTrunctatedString()
+            + "\" failed (did you want to use --keep_going?): "
+            + e.getMessage();
   }
 
   private final QueryExpression expression;

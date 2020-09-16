@@ -95,7 +95,9 @@ public final class AqueryCommand implements BlazeCommand {
     try {
       expr = query.isEmpty() ? null : QueryParser.parse(query, functions);
     } catch (QuerySyntaxException e) {
-      String message = "Error while parsing '" + query + "': " + e.getMessage();
+      String message =
+          String.format(
+              "Error while parsing '%s': %s", QueryExpression.truncate(query), e.getMessage());
       env.getReporter().handle(Event.error(message));
       return createFailureResult(message, Code.EXPRESSION_PARSE_FAILURE);
     }
@@ -104,7 +106,7 @@ public final class AqueryCommand implements BlazeCommand {
     try {
       topLevelTargets =
           AqueryCommandUtils.getTopLevelTargets(
-              aqueryOptions.universeScope, expr, queryCurrentSkyframeState, query);
+              aqueryOptions.universeScope, expr, queryCurrentSkyframeState);
     } catch (QueryException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
       return createFailureResult(
