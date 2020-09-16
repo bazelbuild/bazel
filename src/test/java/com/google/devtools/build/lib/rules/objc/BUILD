@@ -5,8 +5,6 @@ package(
     default_visibility = ["//src:__subpackages__"],
 )
 
-exports_files(["LICENSE"])
-
 filegroup(
     name = "srcs",
     testonly = 0,
