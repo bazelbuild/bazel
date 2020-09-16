@@ -70,15 +70,6 @@ final class StarlarkDocumentationCollector {
    * a map from the name of each Starlark module to its documentation.
    */
   static ImmutableMap<String, StarlarkBuiltinDoc> collectModules(Iterable<Class<?>> classes) {
-    // Force class loading of net.starlark.java.eval.Starlark before we do any of our
-    // own processing. Otherwise, we're in trouble since net.starlark.java.eval.Dict
-    // happens to be the first class on our classpath that we proccess via #collectModuleMethods,
-    // but that entails a logical cycle in
-    // net.starlark.java.eval.CallUtils#getCacheValue.
-    // TODO(b/161479826): Address this in a less hacky manner.
-    @SuppressWarnings("unused")
-    Object forceClassLoading = Starlark.UNIVERSE;
-
     Map<String, StarlarkBuiltinDoc> modules = new TreeMap<>();
     // The top level module first.
     // (This is a special case of {@link StarlarkBuiltinDoc} as it has no object name).
