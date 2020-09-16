@@ -28,6 +28,7 @@ java_library(
             ["*.java"],
             exclude = [
                 "NoAndroidSdkStub.java",
+                "CoreLibraryDesugar.java",
                 "Desugar.java",
                 "desugar/*.java",
             ],
