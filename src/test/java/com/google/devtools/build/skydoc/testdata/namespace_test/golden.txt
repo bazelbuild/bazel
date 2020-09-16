@@ -50,6 +50,10 @@ my_namespace.min(<a href="#my_namespace.min-integers">integers</a>)
 
 Returns the minimum of given elements.
 
+### Returns
+
+The minimum integer in the given list.
+
 ### Parameters
 
 <table class="params-table">
@@ -80,6 +84,10 @@ my_namespace.join_strings(<a href="#my_namespace.join_strings-strings">strings</
 </pre>
 
 Joins the given strings with a delimiter.
+
+### Returns
+
+The joined string.
 
 ### Parameters
 
