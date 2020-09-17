@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bazel.rules.BazelRulesModule;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
@@ -28,6 +29,7 @@ import org.junit.Before;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+// TODO(b/132346407): Consider refactoring into a helper object instead of an abstract class
 /** Abstract class for setting up tests that make use of {@link BlazeOptionHandler}. */
 @RunWith(JUnit4.class)
 public abstract class AbstractBlazeOptionHandlerTest {
@@ -42,7 +44,11 @@ public abstract class AbstractBlazeOptionHandlerTest {
   public void initStuff() throws Exception {
     parser =
         OptionsParser.builder()
-            .optionsClasses(TestOptions.class, CommonCommandOptions.class, ClientOptions.class)
+            .optionsClasses(
+                TestOptions.class,
+                CommonCommandOptions.class,
+                ClientOptions.class,
+                CoreOptions.class)
             .allowResidue(true)
             .build();
     String productName = TestConstants.PRODUCT_NAME;
