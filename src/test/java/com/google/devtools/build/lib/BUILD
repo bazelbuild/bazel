@@ -595,14 +595,18 @@ java_test(
 
 java_library(
     name = "ExampleWorker-lib",
-    srcs = glob(["worker/ExampleWorker*.java"]),
+    srcs = glob(["worker/*ExampleWorker*.java"]),
     visibility = [
         "//src/test/shell/integration:__pkg__",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:worker_protocol_java_proto",
+        "//third_party:gson",
         "//third_party:guava",
+        "//third_party/protobuf:protobuf_java",
+        "//third_party/protobuf:protobuf_java_util",
     ],
 )
 
