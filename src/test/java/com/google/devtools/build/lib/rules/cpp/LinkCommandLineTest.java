@@ -113,7 +113,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
             /* supportsInterfaceSharedLibraries= */ false,
             /* existingActionConfigNames= */ ImmutableSet.of());
 
-    return CcToolchainFeaturesTest.buildFeatures(features, actionConfigs)
+    return CcToolchainTestHelper.buildFeatures(features, actionConfigs)
         .getFeatureConfiguration(
             ImmutableSet.of(
                 Link.LinkTargetType.EXECUTABLE.getActionName(),
