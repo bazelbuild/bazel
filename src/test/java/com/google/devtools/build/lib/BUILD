@@ -200,6 +200,8 @@ java_test(
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":AllTests",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:os",
@@ -211,6 +213,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//src/test/java/com/google/devtools/build/lib/vfs:SymlinkAwareFileSystemTest",
+        "//src/test/java/com/google/devtools/build/lib/vfs:testutil",
         "//src/test/java/com/google/devtools/build/lib/vfs/util",
         "//third_party:guava",
         "//third_party:guava-testlib",

@@ -36,13 +36,13 @@ import org.junit.runners.JUnit4;
 /** Tests for the {@link NativePosixFiles} class. */
 @RunWith(JUnit4.class)
 public class NativePosixFilesTest {
-  private FileSystem testFS;
+
   private Path workingDir;
   private Path testFile;
 
   @Before
   public final void createFileSystem() throws Exception  {
-    testFS = new UnixFileSystem(DigestHashFunction.SHA256);
+    FileSystem testFS = new UnixFileSystem(DigestHashFunction.SHA256, /*hashAttributeName=*/ "");
     workingDir = testFS.getPath(new File(TestUtils.tmpDir()).getCanonicalPath());
     testFile = workingDir.getRelative("test");
   }

@@ -50,6 +50,7 @@ java_library(
         ],
         exclude = ALL_WINDOWS_TESTS + [
             "SymlinkAwareFileSystemTest.java",
+            "FileSystemTest.java",
         ],
     ),
     deps = [
@@ -57,8 +58,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
-        "//src/main/java/com/google/devtools/build/lib/unix",
-        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
@@ -72,6 +71,21 @@ java_library(
         "//third_party:junit4",
         "//third_party:truth",
         "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "FileSystemTest_lib",
+    srcs = ["FileSystemTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/unix",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
 
