@@ -350,27 +350,14 @@ class ByteStreamUploader extends AbstractReferenceCounted {
       Context ctx = Context.current();
       ProgressiveBackoff progressiveBackoff = new ProgressiveBackoff(retrier::newBackoff);
       AtomicLong committedOffset = new AtomicLong(0);
-      return Futures.transformAsync(
-          retrier.executeAsync(
-              () -> {
-                if (committedOffset.get() < chunker.getSize()) {
-                  return ctx.call(() -> callAndQueryOnFailure(committedOffset, progressiveBackoff));
-                }
-                return Futures.immediateFuture(null);
-              },
-              progressiveBackoff),
-          (result) -> {
-            long committedSize = committedOffset.get();
-            long expected = chunker.getSize();
-            if (committedSize != expected) {
-              String message =
-                  format(
-                      "write incomplete: committed_size %d for %d total", committedSize, expected);
-              return Futures.immediateFailedFuture(new IOException(message));
+      return retrier.executeAsync(
+          () -> {
+            if (committedOffset.get() < chunker.getSize()) {
+              return ctx.call(() -> callAndQueryOnFailure(committedOffset, progressiveBackoff));
             }
             return Futures.immediateFuture(null);
           },
-          MoreExecutors.directExecutor());
+          progressiveBackoff);
     }
 
     private ByteStreamFutureStub bsFutureStub() {
@@ -499,6 +486,15 @@ class ByteStreamUploader extends AbstractReferenceCounted {
             @Override
             public void onClose(Status status, Metadata trailers) {
               if (status.isOk()) {
+                long committedSize = committedOffset.get();
+                long expected = chunker.getSize();
+                if (committedSize != expected) {
+                  String message = format("write incomplete: committed_size %d for %d total", committedSize, expected);
+                  uploadResult.setException(new IOException(message));
+                } else {
+                  uploadResult.set(null);
+                }
+              } else if (status.getCode() == Status.Code.ALREADY_EXISTS) {
                 uploadResult.set(null);
               } else {
                 uploadResult.setException(status.asRuntimeException());
