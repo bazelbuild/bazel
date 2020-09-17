@@ -88,7 +88,6 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
         .ancestors(
             AndroidRuleClasses.AndroidBinaryBaseRule.class,
             BazelJavaRuleClasses.JavaBaseRule.class,
-            BazelSdkToolchainRule.class,
             CcToolchainRequiringRule.class)
         .factoryClass(BazelAndroidBinary.class)
         .build();

@@ -69,11 +69,6 @@ public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
     this.values = copyValues(values);
   }
 
-  public ToolchainInfo(Map<String, Object> values) {
-    super(PROVIDER, Location.BUILTIN);
-    this.values = copyValues(values);
-  }
-
   /**
    * Preprocesses a map of field values to convert the field names and field values to
    * Starlark-acceptable names and types.
