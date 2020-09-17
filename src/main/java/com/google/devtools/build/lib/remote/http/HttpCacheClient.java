@@ -616,8 +616,9 @@ public final class HttpCacheClient implements RemoteCacheClient {
                               } catch (IOException e) {
                                 result.setException(e);
                               }
+                            } else {
+                              result.setException(cause);
                             }
-                            result.setException(cause);
                           }
                         });
               });
