@@ -223,7 +223,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     useConfiguration(
         "--javabase=//a:jvm", "--extra_toolchains=//a:all", "--platforms=//a:platform");
     // TODO(b/129637690): the runtime shouldn't be resolved in the host config
-    ConfiguredTarget genrule = getHostConfiguredTarget("//a:gen");
+    ConfiguredTarget genrule = getConfiguredTarget("//a:gen");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
     StructImpl myInfo = getMyInfoFromTarget(ct);
     String javaHomeExecPath = (String) myInfo.getValue("java_home_exec_path");

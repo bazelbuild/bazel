@@ -12,7 +12,7 @@ package(
 # Exports the canonical javac bootclasspath artifact locations
 genrule(
     name = "javac-bootclasspath-locations",
-    srcs = ["//tools/jdk:platformclasspath"],
+    srcs = ["@bazel_tools//tools/jdk:platformclasspath"],
     outs = ["JavacBootclasspathLocations.java"],
     cmd = "$(location javac-bootclasspath-locations.sh) $@ $(GENDIR) $(SRCS)",
     tools = ["javac-bootclasspath-locations.sh"],
@@ -25,7 +25,7 @@ java_library(
         "JavacBootclasspath.java",
         ":javac-bootclasspath-locations",
     ],
-    data = ["//tools/jdk:platformclasspath"],
+    data = ["@bazel_tools//tools/jdk:platformclasspath"],
     visibility = ["//visibility:public"],
     deps = ["//third_party:guava"],
 )

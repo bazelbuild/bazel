@@ -78,6 +78,9 @@ add_to_bazelrc "build --java_toolchain=${JAVA_TOOLCHAIN}"
 add_to_bazelrc "build --host_java_toolchain=${JAVA_TOOLCHAIN}"
 add_to_bazelrc "build --javabase=${JAVA_RUNTIME}"
 add_to_bazelrc "build --host_javabase=${JAVA_RUNTIME}"
+add_to_bazelrc "build --java_language_version=14"
+add_to_bazelrc "build --java_runtime_version=14"
+add_to_bazelrc "build --tool_java_runtime_version=14"
 
 function set_up() {
     cat >>WORKSPACE <<EOF

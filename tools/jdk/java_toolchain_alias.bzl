@@ -35,31 +35,41 @@ def _java_runtime_alias(ctx):
 
 java_runtime_alias = rule(
     implementation = _java_runtime_alias,
-    toolchains = ["@bazel_tools//tools/jdk:runtime_toolchain_type"],
+    toolchains = [
+        "@bazel_tools//tools/jdk:runtime_toolchain_type",
+    ],
     attrs = {
         "_java_runtime": attr.label(
             default = Label("@bazel_tools//tools/jdk:legacy_current_java_runtime"),
         ),
     },
+    incompatible_use_toolchain_transition = True,
 )
 
 def _java_host_runtime_alias(ctx):
     """An experimental implementation of java_host_runtime_alias using toolchain resolution."""
+    if java_common.is_java_toolchain_resolution_enabled_do_not_use(ctx = ctx):
+        toolchain = ctx.toolchains["@bazel_tools//tools/jdk:runtime_toolchain_type"]
+    else:
+        toolchain = ctx.attr._runtime[java_common.JavaRuntimeInfo]
+
     runtime = ctx.attr._runtime
     return [
-        runtime[java_common.JavaRuntimeInfo],
-        runtime[platform_common.TemplateVariableInfo],
-        # Create a new DefaultInfo instead of propagating runtime[DefaultInfo]
-        # directly.
+        toolchain,
+        platform_common.TemplateVariableInfo({
+            "JAVA": str(toolchain.java_executable_exec_path),
+            "JAVABASE": str(toolchain.java_home),
+        }),
+        # See b/65239471 for related discussion of handling toolchain runfiles/data.
         DefaultInfo(
-            files = runtime[DefaultInfo].files,
-            data_runfiles = runtime[DefaultInfo].data_runfiles,
-            default_runfiles = runtime[DefaultInfo].default_runfiles,
+            runfiles = ctx.runfiles(transitive_files = toolchain.files),
+            files = toolchain.files,
         ),
     ]
 
 java_host_runtime_alias = rule(
     implementation = _java_host_runtime_alias,
+    toolchains = ["@bazel_tools//tools/jdk:runtime_toolchain_type"],
     attrs = {
         "_runtime": attr.label(
             default = Label("@bazel_tools//tools/jdk:current_java_runtime"),
@@ -67,7 +77,7 @@ java_host_runtime_alias = rule(
                 java_common.JavaRuntimeInfo,
                 platform_common.TemplateVariableInfo,
             ],
-            cfg = "host",
+            cfg = "exec",
         ),
     },
 )

@@ -29,37 +29,13 @@ toolchain_type(name = "toolchain_type")
 # Used to distinguish toolchains used for Java execution, ie the JavaRuntimeInfo.
 toolchain_type(name = "runtime_toolchain_type")
 
-toolchain(
-    name = "dummy_java_toolchain",
-    toolchain = ":dummy_toolchain",
-    toolchain_type = ":toolchain_type",
-)
-
-cc_binary(name = "dummy_binary")
-
-java_toolchain(
-    name = "dummy_toolchain",
-    genclass = [":dummy_binary"],
-    ijar = [":dummy_binary"],
-    javabuilder = [":dummy_binary"],
-    singlejar = [":dummy_binary"],
-)
-
-toolchain(
-    name = "dummy_java_runtime_toolchain",
-    toolchain = ":dummy_java_runtime",
-    toolchain_type = ":runtime_toolchain_type",
-)
-
-java_runtime(name = "dummy_java_runtime")
-
-# Points to toolchain[":runtime_toolchain_type"] (was :legacy_current_java_runtime)
+# Points to either :runtime_toolchain_type or :legacy_current_java_runtime
 java_runtime_alias(name = "current_java_runtime")
 
-# Host configuration of ":current_java_runtime"
+# Points to :current_java_runtime with host transition
 java_host_runtime_alias(name = "current_host_java_runtime")
 
-# Points to toolchain[":toolchain_type"] (was :legacy_current_java_toolchain)
+# Points to either :toolchain_type or :legacy_current_java_toolchain
 java_toolchain_alias(name = "current_java_toolchain")
 
 # This exists to support the migration to toolchain resolution.
@@ -83,15 +59,6 @@ java_runtime(
 filegroup(
     name = "BUILD-jdk",
     srcs = [":BUILD"],
-)
-
-# This is necessary to get the *host* Java runtime. Depending on
-# //tools/jdk:current_java_runtime from an attribute with the host transition
-# does not work because the dependency is determined based on the configuration
-# *before* the transition.
-alias(
-    name = "java_runtime_alias",
-    actual = "@bazel_tools//tools/jdk:current_java_runtime",
 )
 
 # These individual jni_* targets are exposed for legacy reasons.
@@ -133,6 +100,7 @@ java_runtime_files(
 # an example of using Bazel to build a Java program that calls a C function.
 #
 # TODO(ilist): use //src:condition:linux when released in Bazel
+# Required by: "//src/main/native..."
 cc_library(
     name = "jni",
     hdrs = [":jni_header"] + select({
@@ -188,7 +156,7 @@ config_setting(
 # must be platform-independent. Thus, we create a little filegroup that
 # contains the appropriate platform-dependent file.
 alias(
-    name = "ijar",
+   name = "ijar",
     actual = select({
         ":remote": "@remote_java_tools//:ijar_cc_binary",
         "//conditions:default": ":ijar_prebuilt_binary_or_cc_binary",
@@ -220,6 +188,7 @@ alias(
 # the native singlejar is used on windows), this file group can be reused since
 # on Windows, executables end in ".exe", but the label we reach it through
 # must be platform-independent.
+# Required by: Android, scala
 alias(
     name = "singlejar",
     actual = select({
@@ -249,6 +218,7 @@ alias(
 
 exports_files(["BUILD.java_tools"])
 
+# Required by: default_java_toolchain, used by tests
 alias(
     name = "genclass",
     actual = "@remote_java_tools//:GenClass",
@@ -264,6 +234,7 @@ alias(
     actual = "@remote_java_tools//:SingleJar",
 )
 
+# Required by: default_java_toolchain, used by tests
 alias(
     name = "turbine",
     actual = "@remote_java_tools//:Turbine",
@@ -274,6 +245,7 @@ alias(
     actual = "@remote_java_tools//:Turbine",
 )
 
+# Required by: default_java_toolchain, used by tests
 alias(
     name = "turbine_direct",
     actual = "@remote_java_tools//:TurbineDirect",
@@ -284,36 +256,43 @@ alias(
     actual = "@remote_java_tools//:TurbineDirect",
 )
 
+# Required by: default_java_toolchain, used by tests
 alias(
     name = "javabuilder",
     actual = "@remote_java_tools//:JavaBuilder",
 )
 
+# Required by: default_java_toolchain, used by tests
 alias(
     name = "JavaBuilder_deploy.jar",
     actual = "@remote_java_tools//:JavaBuilder",
 )
 
+# Required by: 1 test directly, default_java_toolchain, used by tests
 alias(
     name = "vanillajavabuilder",
     actual = "@remote_java_tools//:VanillaJavaBuilder",
 )
 
+# Required by: default_java_toolchain, used by tests
 alias(
     name = "javac_jar",
     actual = "@remote_java_tools//:javac_jar",
 )
 
+# Required by: default_java_toolchain, used by tests
 alias(
     name = "jdk_compiler_jar",
     actual = "@remote_java_tools//:jdk_compiler_jar",
 )
 
+# Required by: default_java_toolchain, used by tests
 alias(
     name = "java_compiler_jar",
     actual = "@remote_java_tools//:java_compiler_jar",
 )
 
+# Required by: Bazel java_test, java_binary rule
 alias(
     name = "JacocoCoverageRunner",
     actual = "@remote_java_tools//:jacoco_coverage_runner",
@@ -324,33 +303,22 @@ alias(
     actual = "@remote_java_tools//:jacoco_coverage_runner",
 )
 
+# Required by: Bazel java_test rule
 java_import(
     name = "TestRunner",
     jars = ["@remote_java_tools//:Runner"],
 )
 
+# Required by: Android, scala
 alias(
     name = "TestRunner_deploy.jar",
     actual = "@remote_java_tools//:Runner",
 )
 
+# Required by: Android: @bazel_tools//tools/android:build_java8_legacy_dex
 alias(
     name = "proguard",
     actual = "@remote_java_tools//:proguard",
-)
-
-BOOTCLASS_JARS = [
-    "rt.jar",
-    "resources.jar",
-    "jsse.jar",
-    "jce.jar",
-    "charsets.jar",
-]
-
-# TODO(cushon): this isn't compatible with JDK 9
-alias(
-    name = "bootclasspath",
-    actual = "@local_jdk//:bootclasspath",
 )
 
 filegroup(
@@ -364,26 +332,18 @@ java_import(
     neverlink = 1,
 )
 
-alias(
-    name = "jre",
-    actual = "@local_jdk//:jre",
-)
-
+# Required by: legacy targets
 alias(
     name = "jdk",
     actual = "@local_jdk//:jdk",
 )
 
-alias(
-    name = "host_jdk",
-    actual = ":remote_jdk11",
-)
-
+# TODO cleaner definition using toolchains
 bootclasspath(
     name = "platformclasspath",
     src = "DumpPlatformClassPath.java",
-    host_javabase = "current_java_runtime",
-    target_javabase = "current_java_runtime",
+    host_javabase = ":current_java_runtime",
+    target_javabase = ":current_java_runtime",
 )
 
 default_java_toolchain(
@@ -395,6 +355,7 @@ default_java_toolchain(
 
 # Default to the Java 8 language level.
 # TODO(cushon): consider if/when we should increment this?
+# Required by ":toolchain"
 default_java_toolchain(
     name = "legacy_toolchain",
     configuration = DEFAULT_TOOLCHAIN_CONFIGURATION,
@@ -402,30 +363,19 @@ default_java_toolchain(
     target_version = "8",
 )
 
+# Required by: legacy targets
 default_java_toolchain(
     name = "toolchain",
     configuration = DEFAULT_TOOLCHAIN_CONFIGURATION,
 )
 
+# Required by: legacy targets
 alias(
     name = "remote_toolchain",
     actual = ":toolchain",
 )
 
-# The 'vanilla' toolchain is an unsupported alternative to the default.
-#
-# It does not provider any of the following features:
-#   * Error Prone
-#   * Strict Java Deps
-#   * Header Compilation
-#   * Reduced Classpath Optimization
-#
-# It uses the version of javac from the `--host_javabase` instead of the
-# embedded javac, which may not be source- or bug-compatible with the embedded
-# javac.
-#
-# However it does allow using a wider range of `--host_javabase`s, including
-# versions newer than the current embedded JDK.
+# Required by: 1 test
 default_java_toolchain(
     name = "toolchain_vanilla",
     configuration = VANILLA_TOOLCHAIN_CONFIGURATION,
@@ -531,6 +481,7 @@ test_suite(
 )
 
 # A JDK 11 for use as a --host_javabase.
+# Required by: legacy targets
 alias(
     name = "remote_jdk11",
     actual = select(
@@ -547,3 +498,229 @@ alias(
     ),
     visibility = ["//visibility:public"],
 )
+
+# Java toolchains
+
+[config_setting(
+    name = "java_language_version_%s" % VER,
+    values = {"java_language_version": VER},
+) for VER in ("8", "9", "10", "11", "14")]
+
+TOOLCHAINS = {
+    "linux": "@remote_java_tools_linux",
+    "windows": "@remote_java_tools_windows",
+    "darwin": "@remote_java_tools_darwin",
+}
+
+RELEASES = ("8", "9", "10", "11")
+
+# This does the same as default_javatoolchain, but without selects
+# The definition of default_javatoolchain is slightly different than the one in toolchain distribution
+
+[
+    java_toolchain(
+        name = "toolchain_java_%s_%s" % (os, release),
+        bootclasspath = [":platformclasspath"],
+        forcibly_disable_header_compilation = 0,
+        genclass = ["%s//:GenClass" % repo],
+        header_compiler = ["%s//:Turbine" % repo],
+        header_compiler_direct = ["%s//:TurbineDirect" % repo],
+        ijar = ["%s//:ijar" % repo],  # TODO has selects
+        jacocorunner = "%s//:jacoco_coverage_runner_filegroup" % repo,
+        javabuilder = ["%s//:JavaBuilder" % repo],
+        javac = ["%s//:javac_jar" % repo],
+        javac_supports_workers = 1,
+        jvm_opts = [
+            # Allow JavaBuilder to access internal javac APIs.
+            "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+            "--add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+
+            # override the javac in the JDK.
+            "--patch-module=java.compiler=$(location %s//:java_compiler_jar)" % repo,
+            "--patch-module=jdk.compiler=$(location %s//:jdk_compiler_jar)" % repo,
+
+            # quiet warnings from com.google.protobuf.UnsafeUtil,
+            # see: https://github.com/google/protobuf/issues/3781
+            # and: https://github.com/bazelbuild/bazel/issues/5599
+            "--add-opens=java.base/java.nio=ALL-UNNAMED",
+            "--add-opens=java.base/java.lang=ALL-UNNAMED",
+        ],
+        misc = [
+            "-XDskipDuplicateBridges=true",
+            "-g",
+            "-parameters",
+        ],
+        singlejar = ["%s//:singlejar" % repo],  # TODO has selects
+        source_version = release,
+        target_version = release,
+        tools = [
+            "%s//:java_compiler_jar" % repo,
+            "%s//:jdk_compiler_jar" % repo,
+        ],
+    )
+    for os, repo in TOOLCHAINS.items()
+    for release in RELEASES
+]
+
+[
+    java_toolchain(
+        name = "toolchain_java_%s_%s" % (os, release),
+        bootclasspath = [":platformclasspath"],
+        forcibly_disable_header_compilation = 0,
+        genclass = ["%s//:GenClass" % repo],
+        header_compiler = ["%s//:Turbine" % repo],
+        header_compiler_direct = ["%s//:TurbineDirect" % repo],
+        ijar = ["%s//:ijar" % repo],  # TODO has selects
+        jacocorunner = "%s//:jacoco_coverage_runner_filegroup" % repo,
+        javabuilder = ["%s//:JavaBuilder" % repo],
+        javac_supports_workers = 1,
+        jvm_opts = [
+            # Allow JavaBuilder to access internal javac APIs.
+            "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+            "--add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+
+            # quiet warnings from com.google.protobuf.UnsafeUtil,
+            # see: https://github.com/google/protobuf/issues/3781
+            # and: https://github.com/bazelbuild/bazel/issues/5599
+            "--add-opens=java.base/java.nio=ALL-UNNAMED",
+            "--add-opens=java.base/java.lang=ALL-UNNAMED",
+        ],
+        misc = [
+            "-XDskipDuplicateBridges=true",
+            "-g",
+            "-parameters",
+        ],
+        singlejar = ["%s//:singlejar" % repo],  # TODO has selects
+        source_version = release,
+        target_version = release,
+    )
+    for os, repo in TOOLCHAINS.items()
+    for release in ("14",)
+]
+
+OS_TOOLCHAIN_MAP = {
+    "linux": "toolchain_java_linux",
+    "freebsd": "toolchain_java_linux",
+    "openbsd": "toolchain_java_linux",  #TODO different jvm_opts
+    "windows": "toolchain_java_windows",
+    "macos": "toolchain_java_darwin",
+}
+
+[
+    toolchain(
+        name = "remote_java_tools_%s" % os,
+        exec_compatible_with = [
+            "@platforms//os:%s" % os,
+            "@platforms//cpu:x86_64",
+        ],
+        toolchain = select({
+            "java_language_version_8": "%s_8" % toolchain_label,
+            "java_language_version_9": "%s_9" % toolchain_label,
+            "java_language_version_10": "%s_10" % toolchain_label,
+            "java_language_version_11": "%s_11" % toolchain_label,
+            "java_language_version_14": "%s_14" % toolchain_label,
+            "//conditions:default": "%s_8" % toolchain_label,
+        }),
+        toolchain_type = ":toolchain_type",
+    )
+    for os, toolchain_label in OS_TOOLCHAIN_MAP.items()
+]
+
+# Java Runtime toolchains
+
+[config_setting(
+    name = "java_runtime_version_%s" % VER,
+    values = {"java_runtime_version": VER},
+) for VER in ("8", "9", "10", "11", "14")]
+
+#toolchain(
+#    name = "local_runtime",
+#    target_compatible_with = [
+#        "@bazel_tools//platforms:located_on_target_and_host",
+#    ],
+#    toolchain = ":jdk",
+#    toolchain_type = ":runtime_toolchain_type",
+#)
+
+config_setting(
+    name = "local_jdk",
+    constraint_values = ["@bazel_tools//platforms:located_on_target_and_host"],
+)
+
+JDKS = {
+    "linux": [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    "macos": [
+        "@platforms//os:macos",
+        "@platforms//cpu:x86_64",
+    ],
+    "win": [
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_64",
+    ],
+}
+
+JDKS11_ONLY = {
+    "remotejdk11_linux_aarch64": [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+    "remotejdk11_linux_ppc64le": [
+        "@platforms//os:linux",
+        "@platforms//cpu:ppc",
+    ],
+    "remotejdk11_linux_s390x": [
+        "@platforms//os:linux",
+        "@platforms//cpu:s390x",
+    ],
+}
+
+[
+    (
+        toolchain(
+            name = "remotejdk_%s" % os,
+            exec_compatible_with = constraints,
+            toolchain =
+                select({
+                    "java_runtime_version_8": "@remotejdk11_%s//:jdk" % os,
+                    "java_runtime_version_9": "@remotejdk11_%s//:jdk" % os,
+                    "java_runtime_version_10": "@remotejdk11_%s//:jdk" % os,
+                    "java_runtime_version_11": "@remotejdk11_%s//:jdk" % os,
+                    "java_runtime_version_14": "@remotejdk14_%s//:jdk" % os,
+                    "local_jdk": ":jdk",
+                    "//conditions:default": "@remotejdk11_%s//:jdk" % os,
+                }),
+            toolchain_type = ":runtime_toolchain_type",
+        ),
+    )
+    for os, constraints in JDKS.items()
+]
+
+[
+    (
+        toolchain(
+            name = toolchain_name,
+            exec_compatible_with = constraints,
+            toolchain = select({
+                "local_jdk": ":jdk",
+                "//conditions:default": "@%s//:jdk" % toolchain_name,
+            }),
+            toolchain_type = ":runtime_toolchain_type",
+        ),
+    )
+    for toolchain_name, constraints in JDKS11_ONLY.items()
+]

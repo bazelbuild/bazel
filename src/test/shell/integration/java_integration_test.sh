@@ -262,6 +262,11 @@ java_runtime(
     name='runtime',
     java_home='$javabase',
 )
+toolchain(
+   name='target_runtime_toolchain',
+   toolchain=':runtime',
+   toolchain_type='@bazel_tools//tools/jdk:runtime_toolchain_type'
+)
 EOF
 
   create_java_test_platforms

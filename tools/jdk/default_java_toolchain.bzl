@@ -227,11 +227,11 @@ _bootclasspath = rule(
     implementation = _bootclasspath_impl,
     attrs = {
         "host_javabase": attr.label(
-            cfg = "host",
+            cfg = "exec",
             providers = [java_common.JavaRuntimeInfo],
         ),
         "src": attr.label(
-            cfg = "host",
+            cfg = "exec",
             allow_single_file = True,
         ),
         "target_javabase": attr.label(
