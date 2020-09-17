@@ -339,11 +339,13 @@ function setup_android_sdk_support() {
   local android=$(dirname $android_jar)
   local platforms=$(dirname $android)
   ANDROID_SDK=$(dirname $platforms)
+
 cat >> WORKSPACE <<EOF
 android_sdk_repository(
     name = "androidsdk",
     path = "$ANDROID_SDK",
 )
+register_toolchains("//tools/android:all")
 EOF
 }
 
