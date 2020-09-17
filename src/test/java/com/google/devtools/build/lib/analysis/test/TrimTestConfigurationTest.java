@@ -731,7 +731,7 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
   }
 
   @Test
-  public void flagOnNonTestTargetWithTestDependencies_FailsAnalysis() throws Exception {
+  public void flagOnNonTestTargetWithTestDependencies_IsPermitted() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "test/BUILD",
@@ -746,10 +746,8 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         "    name = 'starlark_test',",
         ")");
     useConfiguration("--trim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeA");
-    assertThrows(ViewCreationFailedException.class, () -> update("//test:starlark_dep"));
-    assertContainsEvent(
-        "all rules of type starlark_test require the presence of all of "
-            + "[TestConfiguration], but these were all disabled");
+    update("//test:starlark_dep");
+    assertThat(getAnalysisResult().getTargetsToBuild()).isNotEmpty();
   }
 
   @Test

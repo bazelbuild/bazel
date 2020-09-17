@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithCallback;
@@ -158,6 +159,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     String toolsRepository = env.getToolsRepository();
     return new RuleClass.Builder("$test_base_rule", RuleClassType.ABSTRACT, true, baseRule)
         .requiresConfigurationFragments(TestConfiguration.class)
+        // TestConfiguration only needed to create TestAction and TestProvider
+        // Only necessary at top-level and can be skipped if trimmed.
+        .setMissingFragmentPolicy(TestConfiguration.class, MissingFragmentPolicy.IGNORE)
         .add(
             attr("size", STRING)
                 .value("medium")

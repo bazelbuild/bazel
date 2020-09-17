@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.test.TestActionBuilder;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestEnvironmentInfo;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
@@ -158,8 +159,10 @@ public final class RuleConfiguredTargetBuilder {
       addNativeDeclaredProvider(InstrumentedFilesCollector.forwardAll(ruleContext));
     }
     // Create test action and artifacts if target was successfully initialized
-    // and is a test.
-    if (TargetUtils.isTestRule(ruleContext.getTarget())) {
+    // and is a test. Also, as an extreme hack, only bother doing this if the TestConfiguration
+    // is actually present.
+    if (TargetUtils.isTestRule(ruleContext.getTarget())
+        && ruleContext.getConfiguration().hasFragment(TestConfiguration.class)) {
       if (runfilesSupport != null) {
         add(TestProvider.class, initializeTestProvider(filesToRunProvider));
       } else {
