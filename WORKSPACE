@@ -98,12 +98,12 @@ http_archive(
     patch_args = ["-p1"],
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    patches = ["//third_party/protobuf:3.11.3.patch"],
-    sha256 = "cf754718b0aa945b00550ed7962ddc167167bd922b842199eeb6505e6f344852",
-    strip_prefix = "protobuf-3.11.3",
+    patches = ["//third_party/protobuf:3.13.0.patch"],
+    sha256 = "9b4ee22c250fe31b16f1a24d61467e40780a3fbb9b91c3b65be2a376ed913a1a",
+    strip_prefix = "protobuf-3.13.0",
     urls = [
-        "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.11.3.tar.gz",
-        "https://github.com/protocolbuffers/protobuf/archive/v3.11.3.tar.gz",
+        "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.13.0.tar.gz",
+        "https://github.com/protocolbuffers/protobuf/archive/v3.13.0.tar.gz",
     ],
 )
 
@@ -172,7 +172,7 @@ distdir_tar(
         # bazelbuild/rules_proto
         "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
         # protocolbuffers/protobuf
-        "v3.11.3.tar.gz",
+        "v3.13.0.tar.gz",
         # grpc/grpc
         "v1.32.0.tar.gz",
         # c-ares/c-ares
@@ -213,7 +213,7 @@ distdir_tar(
         # bazelbuild/rules_proto
         "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz": "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
         # protocolbuffers/protobuf
-        "v3.11.3.tar.gz": "cf754718b0aa945b00550ed7962ddc167167bd922b842199eeb6505e6f344852",
+        "v3.13.0.tar.gz": "9b4ee22c250fe31b16f1a24d61467e40780a3fbb9b91c3b65be2a376ed913a1a",
         # grpc/grpc
         "v1.32.0.tar.gz": "f880ebeb2ccf0e47721526c10dd97469200e40b5f101a0d9774eb69efa0bd07a",
         # c-ares/c-ares
@@ -293,9 +293,9 @@ distdir_tar(
             "https://github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
         ],
         # protocolbuffers/protobuf
-        "v3.11.3.tar.gz": [
-            "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.11.3.tar.gz",
-            "https://github.com/protocolbuffers/protobuf/archive/v3.11.3.tar.gz",
+        "v3.13.0.tar.gz": [
+            "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.13.0.tar.gz",
+            "https://github.com/protocolbuffers/protobuf/archive/v3.13.0.tar.gz",
         ],
         # grpc/grpc
         "v1.32.0.tar.gz": [
@@ -555,7 +555,7 @@ distdir_tar(
         # bazelbuild/rules_proto
         "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
         # protocolbuffers/protobuf
-        "v3.11.3.tar.gz",
+        "v3.13.0.tar.gz",
         # grpc/grpc
         "v1.32.0.tar.gz",
         # c-ares/c-ares
@@ -589,7 +589,7 @@ distdir_tar(
         # bazelbuild/rules_proto
         "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz": "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
         # protocolbuffers/protobuf
-        "v3.11.3.tar.gz": "cf754718b0aa945b00550ed7962ddc167167bd922b842199eeb6505e6f344852",
+        "v3.13.0.tar.gz": "9b4ee22c250fe31b16f1a24d61467e40780a3fbb9b91c3b65be2a376ed913a1a",
         # grpc/grpc
         "v1.32.0.tar.gz": "f880ebeb2ccf0e47721526c10dd97469200e40b5f101a0d9774eb69efa0bd07a",
         # c-ares/c-ares
@@ -639,9 +639,9 @@ distdir_tar(
             "https://github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
         ],
         # protocolbuffers/protobuf
-        "v3.11.3.tar.gz": [
-            "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.11.3.tar.gz",
-            "https://github.com/protocolbuffers/protobuf/archive/v3.11.3.tar.gz",
+        "v3.13.0.tar.gz": [
+            "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.13.0.tar.gz",
+            "https://github.com/protocolbuffers/protobuf/archive/v3.13.0.tar.gz",
         ],
         # grpc/grpc
         "v1.32.0.tar.gz": [
