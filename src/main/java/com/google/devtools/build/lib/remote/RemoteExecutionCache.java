@@ -26,12 +26,9 @@ import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree.PathOrBytes;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -41,21 +38,6 @@ public class RemoteExecutionCache extends RemoteCache {
   public RemoteExecutionCache(
       RemoteCacheClient protocolImpl, RemoteOptions options, DigestUtil digestUtil) {
     super(protocolImpl, options, digestUtil);
-  }
-
-  private void uploadMissing(Map<Digest, Path> files, Map<Digest, ByteString> blobs)
-      throws IOException, InterruptedException {
-    List<ListenableFuture<Void>> uploads = new ArrayList<>();
-
-    for (Map.Entry<Digest, Path> entry : files.entrySet()) {
-      uploads.add(cacheProtocol.uploadFile(entry.getKey(), entry.getValue()));
-    }
-
-    for (Map.Entry<Digest, ByteString> entry : blobs.entrySet()) {
-      uploads.add(cacheProtocol.uploadBlob(entry.getKey(), entry.getValue()));
-    }
-
-    waitForBulkTransfer(uploads, /* cancelRemainingOnInterrupt=*/ false);
   }
 
   /**
@@ -76,28 +58,27 @@ public class RemoteExecutionCache extends RemoteCache {
         Iterables.concat(merkleTree.getAllDigests(), additionalInputs.keySet());
     ImmutableSet<Digest> missingDigests =
         getFromFuture(cacheProtocol.findMissingDigests(allDigests));
-    Map<Digest, Path> filesToUpload = new HashMap<>();
-    Map<Digest, ByteString> blobsToUpload = new HashMap<>();
+    List<ListenableFuture<?>> uploadFutures = new ArrayList<>();
     for (Digest missingDigest : missingDigests) {
       Directory node = merkleTree.getDirectoryByDigest(missingDigest);
       if (node != null) {
-        blobsToUpload.put(missingDigest, node.toByteString());
+        uploadFutures.add(cacheProtocol.uploadBlob(missingDigest, node.toByteString()));
         continue;
       }
 
       PathOrBytes file = merkleTree.getFileByDigest(missingDigest);
       if (file != null) {
         if (file.getBytes() != null) {
-          blobsToUpload.put(missingDigest, file.getBytes());
+          uploadFutures.add(cacheProtocol.uploadBlob(missingDigest, file.getBytes()));
           continue;
         }
-        filesToUpload.put(missingDigest, file.getPath());
+        uploadFutures.add(cacheProtocol.uploadFile(missingDigest, file.getPath()));
         continue;
       }
 
       Message message = additionalInputs.get(missingDigest);
       if (message != null) {
-        blobsToUpload.put(missingDigest, message.toByteString());
+        uploadFutures.add(cacheProtocol.uploadBlob(missingDigest, message.toByteString()));
         continue;
       }
 
@@ -107,6 +88,6 @@ public class RemoteExecutionCache extends RemoteCache {
               missingDigest));
     }
 
-    uploadMissing(filesToUpload, blobsToUpload);
+    waitForBulkTransfer(uploadFutures, /* cancelRemainingOnInterrupt=*/ false);
   }
 }
