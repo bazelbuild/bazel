@@ -173,6 +173,9 @@ public interface AndroidConfigurationApi extends StarlarkValue {
       documented = false)
   boolean getExportsManifestDefault();
 
+  @StarlarkMethod(name = "manifest_merger", structField = true, doc = "", documented = false)
+  String getManifestMergerValue();
+
   @StarlarkMethod(
       name = "omit_resources_info_provider_from_android_binary",
       structField = true,
