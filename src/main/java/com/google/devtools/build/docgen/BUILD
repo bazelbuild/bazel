@@ -11,6 +11,7 @@ java_library(
     srcs = glob(["**/*.java"]),
     resources = [":template_files"],
     deps = [
+        "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
@@ -46,7 +47,6 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
-        "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:builtin_java_proto",
         "//third_party:apache_velocity",
         "//third_party:guava",
@@ -89,6 +89,7 @@ filegroup(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//src/main/java/com/google/devtools/build/docgen/annot:srcs",
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi:srcs",
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/android:srcs",
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/apple:srcs",

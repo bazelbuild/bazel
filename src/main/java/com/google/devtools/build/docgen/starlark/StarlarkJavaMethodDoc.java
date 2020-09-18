@@ -50,6 +50,7 @@ public final class StarlarkJavaMethodDoc extends StarlarkMethodDoc {
     this.deprecated = method.isAnnotationPresent(StarlarkDeprecated.class);
   }
 
+  @Override
   public Method getMethod() {
     return method;
   }

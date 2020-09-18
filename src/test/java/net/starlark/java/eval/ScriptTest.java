@@ -24,14 +24,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import net.starlark.java.annot.Param;
-import net.starlark.java.annot.StarlarkGlobalLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.SyntaxError;
 
 /** Script-based tests of Starlark evaluator. */
-@StarlarkGlobalLibrary
 public final class ScriptTest {
 
   // Tests for Starlark.

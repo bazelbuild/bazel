@@ -16,6 +16,7 @@ package com.google.devtools.build.docgen;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.docgen.annot.DocumentMethods;
 import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkConstructorMethodDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkJavaMethodDoc;
@@ -28,7 +29,6 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkConstructor;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
-import net.starlark.java.annot.StarlarkGlobalLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -86,19 +86,36 @@ final class StarlarkDocumentationCollector {
     }
 
     // 2. Add all object methods and global functions.
+    //
+    //    Also, explicitly process the Starlark interpreter's MethodLibrary
+    //    class, which defines None, len, range, etc.
+    //    TODO(adonovan): do this without peeking into the implementation,
+    //    e.g. by looking at Starlark.UNIVERSE, something like this:
+    //
+    //    for (Map<String, Object> e : Starlark.UNIVERSE.entrySet()) {
+    //      if (e.getValue() instanceof BuiltinCallable) {
+    //        BuiltinCallable fn = (BuiltinCallable) e.getValue();
+    //        topLevelModuleDoc.addMethod(
+    //          new StarlarkJavaMethodDoc("", fn.getJavaMethod(), fn.getAnnotation()));
+    //      }
+    //    }
+    //
+    //    Note that BuiltinCallable doesn't actually have getJavaMethod.
+    //
     for (Class<?> candidateClass : classes) {
       if (candidateClass.isAnnotationPresent(StarlarkBuiltin.class)) {
         collectModuleMethods(candidateClass, modules);
       }
-      if (candidateClass.isAnnotationPresent(StarlarkGlobalLibrary.class)) {
-        collectGlobalLibraryMethods(candidateClass, modules);
+      if (candidateClass.isAnnotationPresent(DocumentMethods.class)
+          || candidateClass.getName().equals("net.starlark.java.eval.MethodLibrary")) {
+        collectDocumentedMethods(candidateClass, modules);
       }
     }
 
     // 3. Add all constructors.
     for (Class<?> candidateClass : classes) {
       if (candidateClass.isAnnotationPresent(StarlarkBuiltin.class)
-          || candidateClass.isAnnotationPresent(StarlarkGlobalLibrary.class)) {
+          || candidateClass.isAnnotationPresent(DocumentMethods.class)) {
         collectConstructorMethods(candidateClass, modules);
       }
     }
@@ -205,12 +222,10 @@ final class StarlarkDocumentationCollector {
 
   /**
    * Adds {@link StarlarkJavaMethodDoc} entries to the top level module, one for
-   * each @StarlarkMethod method defined in the given @StarlarkGlobalLibrary class {@code
-   * moduleClass}.
+   * each @StarlarkMethod method defined in the given @DocumentMethods class {@code moduleClass}.
    */
-  private static void collectGlobalLibraryMethods(
+  private static void collectDocumentedMethods(
       Class<?> moduleClass, Map<String, StarlarkBuiltinDoc> modules) {
-    Preconditions.checkArgument(moduleClass.isAnnotationPresent(StarlarkGlobalLibrary.class));
     StarlarkBuiltinDoc topLevelModuleDoc = getTopLevelModuleDoc(modules);
 
     for (Map.Entry<Method, StarlarkMethod> entry :
@@ -289,7 +304,7 @@ final class StarlarkDocumentationCollector {
             "Could not determine module name for constructor defined in " + moduleClass);
       }
       return moduleName;
-    } else if (moduleClass.isAnnotationPresent(StarlarkGlobalLibrary.class)) {
+    } else if (moduleClass.isAnnotationPresent(DocumentMethods.class)) {
       return "";
     } else {
       throw new IllegalArgumentException(moduleClass + " has no valid annotation");

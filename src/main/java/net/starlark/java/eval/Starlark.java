@@ -672,10 +672,8 @@ public final class Starlark {
 
   /**
    * Adds to the environment {@code env} all Starlark methods of value {@code v}, filtered by the
-   * given semantics. The class of {@code v} must have or inherit a {@link StarlarkBuiltin} or
-   * {@code StarlarkGlobalLibrary} annotation. Starlark methods are Java methods of {@code v} with a
-   * {@link StarlarkMethod} annotation whose {@code structField} and {@code selfCall} flags are both
-   * false.
+   * given semantics. Starlark methods are Java methods of {@code v} with a {@link StarlarkMethod}
+   * annotation whose {@code structField} and {@code selfCall} flags are both false.
    *
    * @throws IllegalArgumentException if any method annotation's {@link StarlarkMethod#structField}
    *     flag is true.
@@ -683,11 +681,6 @@ public final class Starlark {
   public static void addMethods(
       ImmutableMap.Builder<String, Object> env, Object v, StarlarkSemantics semantics) {
     Class<?> cls = v.getClass();
-    if (!StarlarkInterfaceUtils.hasStarlarkGlobalLibrary(cls)
-        && StarlarkInterfaceUtils.getStarlarkBuiltin(cls) == null) {
-      throw new IllegalArgumentException(
-          cls.getName() + " is annotated with neither @StarlarkGlobalLibrary nor @StarlarkBuiltin");
-    }
     // TODO(adonovan): rather than silently skip the selfCall method, reject it.
     for (Map.Entry<String, MethodDescriptor> e :
         CallUtils.getAnnotatedMethods(semantics, cls).entrySet()) {

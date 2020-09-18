@@ -15,6 +15,7 @@ package com.google.devtools.build.docgen.starlark;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
@@ -103,14 +104,16 @@ public final class StarlarkBuiltinDoc extends StarlarkDoc {
       }
     }
     javaMethods.put(shortName, method);
-    // If the method is overloaded, getName() now returns a longer, unique name including
-    // the names of the parameters.
-    String uniqueName = method.getName();
-    Preconditions.checkState(
-        !methodMap.containsKey(uniqueName),
-        "There are multiple overloads of %s with the same signature!",
-        uniqueName);
-    methodMap.put(uniqueName, method);
+
+    // If the method is overloaded, getName() now returns a longer,
+    // unique name including the names of the parameters.
+    StarlarkMethodDoc prev = methodMap.put(method.getName(), method);
+    if (prev != null && !prev.getMethod().equals(method.getMethod())) {
+      throw new IllegalStateException(
+          String.format(
+              "Starlark type '%s' (%s) has distinct overloads of %s: %s, %s",
+              module.name(), classObject, method.getName(), method.getMethod(), prev.getMethod()));
+    }
   }
 
   public boolean javaMethodsNotCollected() {
@@ -125,7 +128,7 @@ public final class StarlarkBuiltinDoc extends StarlarkDoc {
     return returnedMethods.addAll(javaMethods.values()).build();
   }
 
-  public Collection<StarlarkMethodDoc> getMethods() {
+  public ImmutableCollection<? extends StarlarkMethodDoc> getMethods() {
     ImmutableList.Builder<StarlarkMethodDoc> methods = ImmutableList.builder();
     if (javaConstructor != null) {
       methods.add(javaConstructor);

@@ -127,7 +127,7 @@ public class StarlarkInterfaceUtils {
    */
   @Nullable
   public static StarlarkMethod getStarlarkMethod(Class<?> classObj, Method method) {
-    StarlarkMethod callable = getCallableOnClassMatchingSignature(classObj, method);
+    StarlarkMethod callable = getAnnotationOnClassMatchingSignature(classObj, method);
     if (callable != null) {
       return callable;
     }
@@ -165,7 +165,7 @@ public class StarlarkInterfaceUtils {
    * in inexact match, but an "assignable" match.
    */
   @Nullable
-  private static StarlarkMethod getCallableOnClassMatchingSignature(
+  private static StarlarkMethod getAnnotationOnClassMatchingSignature(
       Class<?> classObj, Method signatureToMatch) {
     // TODO(b/79877079): This method validates several invariants of @StarlarkMethod. These
     // invariants should be verified in annotation processor or in test, and left out of this

@@ -1,4 +1,4 @@
-// Copyright 2018 The Bazel Authors. All rights reserved.
+// Copyright 2020 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,14 +11,22 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package net.starlark.java.annot;
+package com.google.devtools.build.docgen.annot;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/** An obsolete annotation used to mark classes that may have StarlarkMethod annotations. */
+/**
+ * A annotation applied to a class that indicates to docgen that the class's {@link
+ * net.starlark.java.annot.StarlarkMethod}-annotated methods should be included in docgen's output
+ * as standalone functions.
+ *
+ * <p>It is not necessary to apply this annotation to a class already annotated with {@link
+ * net.starlark.java.annot.StarlarkBuiltin}; docgen will automatically document such classes as
+ * built-in data types with Starlark methods defined by the annotated Java methods.
+ */
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface StarlarkGlobalLibrary {}
+public @interface DocumentMethods {}

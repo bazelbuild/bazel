@@ -51,6 +51,7 @@ public final class StarlarkConstructorMethodDoc extends StarlarkMethodDoc {
     return deprecated;
   }
 
+  @Override
   public Method getMethod() {
     return method;
   }

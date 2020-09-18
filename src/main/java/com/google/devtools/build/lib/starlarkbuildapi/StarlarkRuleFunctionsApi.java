@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
+import com.google.devtools.build.docgen.annot.DocumentMethods;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkConfigApi.BuildSettingApi;
@@ -21,7 +22,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkConstructor;
-import net.starlark.java.annot.StarlarkGlobalLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -35,7 +35,7 @@ import net.starlark.java.eval.StarlarkThread;
  * Interface for a global Starlark library containing rule-related helper and registration
  * functions.
  */
-@StarlarkGlobalLibrary
+@DocumentMethods
 public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
 
   String EXEC_COMPATIBLE_WITH_PARAM = "exec_compatible_with";

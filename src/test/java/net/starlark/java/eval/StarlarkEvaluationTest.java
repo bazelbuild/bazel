@@ -27,7 +27,6 @@ import java.util.Map;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkGlobalLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
@@ -39,7 +38,6 @@ import org.junit.runners.JUnit4;
 /** Tests of Starlark evaluation. */
 // There is no clear distinction between this and EvaluationTest.
 // TODO(adonovan): reorganize.
-@StarlarkGlobalLibrary // required for @StarlarkMethod-annotated methods
 @RunWith(JUnit4.class)
 public final class StarlarkEvaluationTest {
 

@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.repository;
 
+import com.google.devtools.build.docgen.annot.DocumentMethods;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import net.starlark.java.annot.Param;
-import net.starlark.java.annot.StarlarkGlobalLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -28,7 +28,7 @@ import net.starlark.java.eval.StarlarkThread;
  * The Starlark module containing the definition of {@code repository_rule} function to define a
  * Starlark remote repository.
  */
-@StarlarkGlobalLibrary
+@DocumentMethods
 public interface RepositoryModuleApi {
 
   @StarlarkMethod(
