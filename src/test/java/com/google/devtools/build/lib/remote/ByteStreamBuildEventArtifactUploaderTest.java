@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
@@ -167,7 +168,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channel);
     ByteStreamUploader uploader =
-        new ByteStreamUploader("instance", refCntChannel, null, 3, retrier);
+        new ByteStreamUploader(
+            "instance", refCntChannel, CallCredentialsProvider.NO_CREDENTIALS, 3, retrier);
     ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(uploader);
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
@@ -252,7 +254,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channel);
     ByteStreamUploader uploader =
-        new ByteStreamUploader("instance", refCntChannel, null, 3, retrier);
+        new ByteStreamUploader(
+            "instance", refCntChannel, CallCredentialsProvider.NO_CREDENTIALS, 3, retrier);
     ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(uploader);
 
     ExecutionException e =
