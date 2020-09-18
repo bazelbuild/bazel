@@ -841,10 +841,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         (UmbrellaHeaderAction) getGeneratingAction(umbrellaHeader);
     Artifact headers = getFirstArtifactEndingWith(provider.header(), "header_files");
 
-    // Test that the module map action contains the header tree artifact as both the public header
-    // and part of the action inputs.
+    // Test that the module map action contains the header tree artifact as public header.
     assertThat(moduleMapAction.getPublicHeaders()).contains(headers);
-    assertThat(moduleMapAction.getInputs().toList()).contains(headers);
 
     ActionExecutionContext dummyActionExecutionContext =
         new ActionExecutionContext(

@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -26,6 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -82,10 +82,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
       boolean externDependencies) {
     super(
         owner,
-        NestedSetBuilder.<Artifact>stableOrder()
-            .addAll(Iterables.filter(privateHeaders, Artifact::isTreeArtifact))
-            .addAll(Iterables.filter(publicHeaders, Artifact::isTreeArtifact))
-            .build(),
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         cppModuleMap.getArtifact(),
         /*makeExecutable=*/ false);
     this.cppModuleMap = cppModuleMap;
