@@ -66,10 +66,6 @@ public class RemoteExecutionCache extends RemoteCache {
 
     List<ListenableFuture<Void>> uploadFutures = new ArrayList<>();
     for (Digest missingDigest : missingDigests) {
-      if (!missingDigests.contains(missingDigest)) {
-        continue;
-      }
-
       uploadFutures.add(uploadBlob(missingDigest, merkleTree, additionalInputs));
     }
 
