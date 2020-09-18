@@ -92,10 +92,13 @@ public class NetrcParser {
     private void processLine() throws IOException {
       String line = bufferedReader.readLine();
       if (line == null) { return; }
-      List<Token> newTokens = Arrays.stream(line.split("\\s+"))
-          .filter(s -> !Strings.isNullOrEmpty(s)).map(
-              Token::item).collect(Collectors.toList());
-      tokens.addAll(newTokens);
+      // Comments start with #. Ignore these lines.
+      if (!line.startsWith("#")) {
+        List<Token> newTokens = Arrays.stream(line.split("\\s+"))
+            .filter(s -> !Strings.isNullOrEmpty(s)).map(
+                Token::item).collect(Collectors.toList());
+        tokens.addAll(newTokens);
+      }
       tokens.add(Token.newline());
     }
 
@@ -141,6 +144,10 @@ public class NetrcParser {
               credentialMap.put(machine, builder.build());
               break;
             }
+            case MACDEF: {
+              skipMacdef(tokenStream);
+              break;
+            }
             case DEFAULT: {
               Credential.Builder builder = Credential.builder("default");
               parseCredentialForMachine(tokenStream, builder);
@@ -149,12 +156,10 @@ public class NetrcParser {
               done = true;
               break;
             }
-            case MACDEF: {
-              skipMacdef(tokenStream);
-              break;
-            }
             default: {
-              throw new IOException("Unexpected token: " + item);
+              throw new IOException(String
+                  .format("Unexpected token: %s (expecting %s, %s or %s)", item, MACHINE, MACDEF,
+                      DEFAULT));
             }
           }
         }
@@ -204,14 +209,16 @@ public class NetrcParser {
             case ACCOUNT:
               builder.setAccount(nextItem(tokenStream));
               break;
-            case MACDEF:
             case MACHINE:
+            case MACDEF:
             case DEFAULT:
               tokenStream.addFirst(token);
               done = true;
               break;
             default:
-              throw new IOException("Unexpected item: " + item);
+              throw new IOException(String
+                  .format("Unexpected item: %s (expecting %s, %s, %s, %s, %s or %s)", item, LOGIN,
+                      PASSWORD, ACCOUNT, MACHINE, MACDEF, DEFAULT));
           }
         }
         case NEWLINE: {

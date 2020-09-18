@@ -53,8 +53,13 @@ public class Netrc {
 
   @AutoValue
   public static abstract class Credential {
+
     public static Builder builder(String machine) {
-      return new AutoValue_Netrc_Credential.Builder().setMachine(machine);
+      return new AutoValue_Netrc_Credential.Builder()
+          .setMachine(machine)
+          .setLogin("")
+          .setPassword("")
+          .setAccount("");
     }
 
     @AutoValue.Builder
@@ -75,11 +80,8 @@ public class Netrc {
     }
 
     abstract String machine();
-    @Nullable
     abstract String login();
-    @Nullable
     abstract String password();
-    @Nullable
     abstract String account();
   }
 }

@@ -198,6 +198,10 @@ public final class GoogleAuthUtils {
   public static CallCredentialsProvider newCallCredentialsProvider(AuthAndTLSOptions options)
       throws IOException {
     Credentials creds = newCredentials(options);
+    return newCallCredentialsProvider(creds);
+  }
+
+  public static CallCredentialsProvider newCallCredentialsProvider(@Nullable Credentials creds) {
     if (creds != null) {
       return new GoogleAuthCallCredentialsProvider(creds);
     }
@@ -208,10 +212,7 @@ public final class GoogleAuthUtils {
   public static CallCredentialsProvider newCallCredentialsProvider(
       @Nullable InputStream credentialsFile, List<String> authScope) throws IOException {
     Credentials creds = newCredentials(credentialsFile, authScope);
-    if (creds != null) {
-      return new GoogleAuthCallCredentialsProvider(creds);
-    }
-    return CallCredentialsProvider.NO_CREDENTIALS;
+    return newCallCredentialsProvider(creds);
   }
 
   /**

@@ -221,4 +221,15 @@ public class NetrcParserTest {
       NetrcParser.parseAndClose(inputStream);
     });
   }
+
+  @Test
+  public void shouldIgnoreComment() throws IOException {
+    String content = "# this is comment";
+    InputStream inputStream = new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8));
+
+    Netrc netrc = NetrcParser.parseAndClose(inputStream);
+
+    assertThat(netrc.getDefaultCredential()).isNull();
+    assertThat(netrc.getCredentials()).isEmpty();
+  }
 }

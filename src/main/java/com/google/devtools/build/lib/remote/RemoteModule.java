@@ -19,6 +19,7 @@ import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.auth.Credentials;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
@@ -43,6 +44,9 @@ import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
+import com.google.devtools.build.lib.authandtls.Netrc;
+import com.google.devtools.build.lib.authandtls.NetrcCredentials;
+import com.google.devtools.build.lib.authandtls.NetrcParser;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
@@ -251,6 +255,17 @@ public final class RemoteModule extends BlazeModule {
       Credentials creds;
       try {
         creds = GoogleAuthUtils.newCredentials(authAndTlsOptions);
+
+        // Fallback to .netrc if it exists
+        if (creds == null) {
+          creds = newCredentialsFromNetrc(env);
+
+          if (creds != null && Ascii.toLowerCase(remoteOptions.remoteCache).startsWith("http://")) {
+            env.getReporter().handle(Event.warn(
+                "Username and password from .netrc is transmitted in plaintext."
+                    + " Please consider using a HTTPS endpoint."));
+          }
+        }
       } catch (IOException e) {
         handleInitFailure(env, e, Code.CREDENTIALS_INIT_FAILURE);
         return;
@@ -383,6 +398,12 @@ public final class RemoteModule extends BlazeModule {
     CallCredentialsProvider callCredentialsProvider;
     try {
       callCredentialsProvider = GoogleAuthUtils.newCallCredentialsProvider(authAndTlsOptions);
+
+      // Fallback to .netrc if it exists
+      if (callCredentialsProvider == CallCredentialsProvider.NO_CREDENTIALS) {
+        callCredentialsProvider = GoogleAuthUtils
+            .newCallCredentialsProvider(newCredentialsFromNetrc(env));
+      }
     } catch (IOException e) {
       handleInitFailure(env, e, Code.CREDENTIALS_INIT_FAILURE);
       return;
@@ -926,5 +947,24 @@ public final class RemoteModule extends BlazeModule {
   @VisibleForTesting
   RemoteActionContextProvider getActionContextProvider() {
     return actionContextProvider;
+  }
+
+  private Credentials newCredentialsFromNetrc(CommandEnvironment env) throws IOException {
+    String netrcFileString = env.getClientEnv().get("NETRC");
+    if (netrcFileString == null) {
+      netrcFileString = env.getClientEnv().get("HOME") + "/.netrc";
+    }
+    Path netrcFile = env.getRuntime().getFileSystem().getPath(netrcFileString);
+    if (netrcFile.exists()) {
+      try {
+        Netrc netrc = NetrcParser.parseAndClose(netrcFile.getInputStream());
+        return new NetrcCredentials(netrc);
+      } catch (IOException e) {
+        throw new IOException(
+            "Failed to parse " + netrcFile.getPathString() + ": " + e.getMessage());
+      }
+    } else {
+      return null;
+    }
   }
 }
