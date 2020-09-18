@@ -2302,6 +2302,59 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     assertThat((Sequence) innerInfo.getValue("copts")).containsExactly("cowabunga");
   }
 
+  // Regression test for b/168715549 which exposed a bug when an analysistest transition
+  // set an option to the same value it already had in the configuration, depended on a c++ rule,
+  // and was built at the same time as the same cc rule not under transition. Basically it's
+  // ensuring that analysistests are never treated as no-op transitions (which don't update the
+  // output directory).
+  @Test
+  public void testAnalysisTestTransitionOnAndWithCcRuleHasNoActionConflicts() throws Exception {
+    scratch.file(
+        "test/extension.bzl",
+        "test_transition = analysis_test_transition(",
+        "  settings = {'//command_line_option:compilation_mode': 'fastbuild'}",
+        ")",
+        "def _test_impl(ctx):",
+        "  return [AnalysisTestResultInfo(success = True, message = 'message contents')]",
+        "my_analysis_test = rule(",
+        "  implementation = _test_impl,",
+        "  attrs = {",
+        "    'target_under_test': attr.label(cfg = test_transition),",
+        "  },",
+        "  test = True,",
+        "  analysis_test = True",
+        ")",
+        "def _impl(ctx):",
+        "  # in order to depend on the analysistest, we need to return an executable",
+        "  output = ctx.outputs.out",
+        "  ctx.actions.write(output = output, content = 'hello', is_executable=True)",
+        "  return [DefaultInfo(executable = output)]",
+        "parent_test = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'one': attr.label(),",
+        "    'two': attr.label(),",
+        "  },",
+        "  outputs = {\"out\": \"%{name}.txt\"},",
+        "  test = True",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:extension.bzl', 'my_analysis_test', 'parent_test')",
+        "cc_library(name = 'dep')",
+        "my_analysis_test(",
+        "  name = 'test',",
+        "  target_under_test = ':dep',",
+        ")",
+        "parent_test(",
+        "  name = 'parent',",
+        "  one = ':dep',",
+        "  two = ':test',",
+        ")");
+    useConfiguration("--compilation_mode=fastbuild");
+    getConfiguredTarget("//test:parent");
+  }
+
   @Test
   public void testAnalysisTestTransitionOnNonAnalysisTest() throws Exception {
     scratch.file(
