@@ -375,20 +375,20 @@ public final class HttpCacheClient implements RemoteCacheClient {
 
               try {
                 Channel ch = channelAcquired.getNow();
-                ChannelPipeline p = ch.pipeline();
+                ChannelPipeline pipeline = ch.pipeline();
 
-                if (!isChannelPipelineEmpty(p)) {
+                if (!isChannelPipelineEmpty(pipeline)) {
                   channelReady.setFailure(
                       new IllegalStateException("Channel pipeline is not empty."));
                   return;
                 }
-                p.addFirst(
+                pipeline.addFirst(
                     "timeout-handler",
                     new IdleTimeoutHandler(timeoutSeconds, ReadTimeoutException.INSTANCE));
-                p.addLast(new HttpClientCodec());
-                p.addLast("inflater", new HttpContentDecompressor());
+                pipeline.addLast(new HttpClientCodec());
+                pipeline.addLast("inflater", new HttpContentDecompressor());
                 synchronized (credentialsLock) {
-                  p.addLast(new HttpDownloadHandler(creds, extraHttpHeaders));
+                  pipeline.addLast(new HttpDownloadHandler(creds, extraHttpHeaders));
                 }
 
                 if (!ch.eventLoop().inEventLoop()) {
