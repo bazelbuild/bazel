@@ -342,7 +342,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
       help =
-          "Specifies the set of environment variables available to actions performed using target configuration. "
+          "Specifies the set of environment variables available to actions with target configuration. "
               + "Variables can be either specified by name, in which case the value will be "
               + "taken from the invocation environment, or by the name=value pair which sets "
               + "the value independent of the invocation environment. This option can be used "
@@ -358,7 +358,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
           effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
           help =
-                  "Specifies the set of environment variables available to actions performed using host configuration. "
+                  "Specifies the set of environment variables available to actions with host configuration. "
                           + "Variables can be either specified by name, in which case the value will be "
                           + "taken from the invocation environment, or by the name=value pair which sets "
                           + "the value independent of the invocation environment. This option can be used "
