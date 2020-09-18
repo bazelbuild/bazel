@@ -55,7 +55,7 @@ public class StarlarkDocumentationTest {
   @Test
   public void testStarlarkRuleClassBuiltInItemsAreDocumented() throws Exception {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-    StarlarkModules.addStarlarkGlobalsToBuilder(env);
+    StarlarkModules.addPredeclared(env);
     checkStarlarkTopLevelEnvItemsAreDocumented(env.build());
   }
 

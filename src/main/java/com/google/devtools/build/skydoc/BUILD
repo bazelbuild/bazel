@@ -12,22 +12,12 @@ package(
     default_visibility = ["//src:__subpackages__"],
 )
 
-licenses(["notice"])  # Apache 2.0
+licenses(["notice"])
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi:srcs",
-        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/android:srcs",
-        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/apple:srcs",
-        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/config:srcs",
-        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/cpp:srcs",
-        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/java:srcs",
-        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/platform:srcs",
-        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/proto:srcs",
-        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/python:srcs",
-        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/repository:srcs",
-        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/test:srcs",
         "//src/main/java/com/google/devtools/build/skydoc/renderer:srcs",
         "//src/main/java/com/google/devtools/build/skydoc/rendering:srcs",
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:srcs",
@@ -76,16 +66,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/test",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi",
-        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/android",
-        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/apple",
-        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/config",
-        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/cpp",
-        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/java",
-        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/platform",
-        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/proto",
-        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/python",
-        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/repository",
-        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/test",
         "//src/main/java/com/google/devtools/build/skydoc/rendering",
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:stardoc_output_java_proto",
         "//src/main/java/com/google/devtools/common/options",
