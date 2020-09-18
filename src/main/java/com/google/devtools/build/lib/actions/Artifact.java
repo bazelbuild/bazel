@@ -293,8 +293,9 @@ public abstract class Artifact
   /** A Predicate that evaluates to true if the Artifact is not a middleman artifact. */
   public static final Predicate<Artifact> MIDDLEMAN_FILTER = input -> !input.isMiddlemanArtifact();
 
+  protected final ArtifactRoot root;
+
   private final int hashCode;
-  private final ArtifactRoot root;
   private final PathFragment execPath;
 
   private Artifact(ArtifactRoot root, PathFragment execPath) {
@@ -610,10 +611,23 @@ public abstract class Artifact
   }
 
   /**
-   * Returns the relative path to this artifact relative to its root. (Useful when deriving output
-   * filenames from input files, etc.)
+   * Returns the relative path to this artifact relative to its root. It makes no guarantees as to
+   * the semantic meaning or the completeness of the returned path value. In other words, no
+   * assumptions should be made in terms of where the root portion of the path ends, and the
+   * returned value almost always needs to be used in conjunction with its root.
+   *
+   * <p>{#link Artifact#getPackagePath()} is more versatile for general use cases.
    */
   public abstract PathFragment getRootRelativePath();
+
+  /**
+   * Returns the fully-qualified package path to this artifact. By "fully-qualified", it means the
+   * returned path is prefixed with "external/<repository name>" if this artifact is in an external
+   * repository.
+   */
+  public PathFragment getPackagePath() {
+    return getRootRelativePath();
+  }
 
   /** Returns this.getExecPath().getPathString(). */
   @Override
@@ -623,6 +637,10 @@ public abstract class Artifact
 
   public final String getRootRelativePathString() {
     return getRootRelativePath().getPathString();
+  }
+
+  public final String getPackagePathString() {
+    return getPackagePath().getPathString();
   }
 
   @Override
@@ -734,7 +752,8 @@ public abstract class Artifact
    * runfiles tree. For local targets, it returns the rootRelativePath.
    */
   public final PathFragment getRunfilesPath() {
-    PathFragment relativePath = getRootRelativePath();
+    PathFragment relativePath = getPackagePath();
+    // We can't use root.isExternalSource() here since it needs to handle derived artifacts too.
     if (relativePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
       // Turn external/repo/foo into ../repo/foo.
       relativePath = relativePath.relativeTo(LabelConstants.EXTERNAL_PATH_PREFIX);
@@ -835,11 +854,11 @@ public abstract class Artifact
 
     @Override
     public PathFragment getRootRelativePath() {
-      // flag-less way of checking of the root is <execroot>/.., or sibling of __main__.
-      if (getExecPath().startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX)) {
-        return LabelConstants.EXTERNAL_PATH_PREFIX.getRelative(getExecPath().subFragment(1));
-      }
+      return root.isExternalSourceRoot() ? getExecPath().subFragment(1) : getExecPath();
+    }
 
+    @Override
+    public PathFragment getPackagePath() {
       return getExecPath();
     }
 
@@ -1260,6 +1279,9 @@ public abstract class Artifact
   public static final Function<Artifact, String> ROOT_RELATIVE_PATH_STRING =
       artifact -> artifact.getRootRelativePath().getPathString();
 
+  public static final Function<Artifact, String> PACKAGE_PATH_STRING =
+      artifact -> artifact.getPackagePath().getPathString();
+
   /**
    * Converts a collection of artifacts into execution-time path strings, and
    * adds those to a given collection. Middleman artifacts are ignored by this
@@ -1308,6 +1330,24 @@ public abstract class Artifact
   public static Iterable<String> toExecPaths(Iterable<Artifact> artifacts) {
     return Iterables.transform(
         Iterables.filter(artifacts, MIDDLEMAN_FILTER), ActionInput::getExecPathString);
+  }
+
+  /**
+   * Lazily converts artifacts into package path strings. Middleman artifacts are ignored by this
+   * method.
+   */
+  public static Iterable<String> toPackagePaths(NestedSet<Artifact> artifacts) {
+    return toPackagePaths(artifacts.toList());
+  }
+
+  /**
+   * Lazily converts artifacts into package path strings. Middleman artifacts are ignored by this
+   * method.
+   */
+  public static Iterable<String> toPackagePaths(Iterable<Artifact> artifacts) {
+    return Iterables.transform(
+        Iterables.filter(artifacts, MIDDLEMAN_FILTER),
+        artifact -> artifact.getPackagePath().getPathString());
   }
 
   /**

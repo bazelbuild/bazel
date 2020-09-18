@@ -63,7 +63,7 @@ public final class LocationExpander {
   private static final boolean EXACTLY_ONE = false;
   private static final boolean ALLOW_MULTIPLE = true;
 
-  private static final boolean USE_ROOT_PATHS = false;
+  private static final boolean USE_PACKAGE_PATHS = false;
   private static final boolean USE_EXEC_PATHS = true;
 
   private final RuleErrorConsumer ruleErrorConsumer;
@@ -95,7 +95,7 @@ public final class LocationExpander {
    * @param ruleContext BUILD rule
    * @param labelMap A mapping of labels to build artifacts.
    * @param execPaths If true, this expander will expand $(location)/$(locations) using
-   *     Artifact.getExecPath(); otherwise with Artifact.getRootRelativePath().
+   *     Artifact.getExecPath(); otherwise with Artifact.getPackagePath().
    * @param allowData If true, this expander will expand locations from the `data` attribute;
    *     otherwise it will not.
    */
@@ -115,9 +115,9 @@ public final class LocationExpander {
   }
 
   /**
-   * Creates an expander that expands $(location)/$(locations) using Artifact.getRootRelativePath().
+   * Creates an expander that expands $(location)/$(locations) using Artifact.getPackagePath().
    *
-   * <p>The expander expands $(rootpath)/$(rootpaths) using Artifact.getRootRelativePath(), and
+   * <p>The expander expands $(rootpath)/$(rootpaths) using Artifact.getPackagePath(), and
    * $(execpath)/$(execpaths) using Artifact.getExecPath().
    *
    * @param ruleContext BUILD rule
@@ -129,7 +129,7 @@ public final class LocationExpander {
   /**
    * Creates an expander that expands $(location)/$(locations) using Artifact.getExecPath().
    *
-   * <p>The expander expands $(rootpath)/$(rootpaths) using Artifact.getRootRelativePath(), and
+   * <p>The expander expands $(rootpath)/$(rootpaths) using Artifact.getPackagePath(), and
    * $(execpath)/$(execpaths) using Artifact.getExecPath().
    *
    * @param ruleContext BUILD rule
@@ -143,7 +143,7 @@ public final class LocationExpander {
   /**
    * Creates an expander that expands $(location)/$(locations) using Artifact.getExecPath().
    *
-   * <p>The expander expands $(rootpath)/$(rootpaths) using Artifact.getRootRelativePath(), and
+   * <p>The expander expands $(rootpath)/$(rootpaths) using Artifact.getPackagePath(), and
    * $(execpath)/$(execpaths) using Artifact.getExecPath().
    *
    * @param ruleContext BUILD rule
@@ -301,18 +301,16 @@ public final class LocationExpander {
     }
 
     /**
-     * Extracts list of all executables associated with given collection of label
-     * artifacts.
+     * Extracts list of all executables associated with given collection of label artifacts.
      *
      * @param artifacts to get the paths of
-     * @param takeExecPath if false, the root relative path will be taken
+     * @param takeExecPath if false, the package path will be taken
      * @return all associated executable paths
      */
     private Set<String> getPaths(Collection<Artifact> artifacts, boolean takeExecPath) {
       TreeSet<String> paths = Sets.newTreeSet();
       for (Artifact artifact : artifacts) {
-        PathFragment execPath =
-            takeExecPath ? artifact.getExecPath() : artifact.getRootRelativePath();
+        PathFragment execPath = takeExecPath ? artifact.getExecPath() : artifact.getPackagePath();
         if (execPath != null) {  // omit middlemen etc
           paths.add(execPath.getCallablePathString());
         }
@@ -334,8 +332,9 @@ public final class LocationExpander {
     return new ImmutableMap.Builder<String, LocationFunction>()
         .put("location", new LocationFunction(root, locationMap, execPaths, EXACTLY_ONE))
         .put("locations", new LocationFunction(root, locationMap, execPaths, ALLOW_MULTIPLE))
-        .put("rootpath", new LocationFunction(root, locationMap, USE_ROOT_PATHS, EXACTLY_ONE))
-        .put("rootpaths", new LocationFunction(root, locationMap, USE_ROOT_PATHS, ALLOW_MULTIPLE))
+        .put("rootpath", new LocationFunction(root, locationMap, USE_PACKAGE_PATHS, EXACTLY_ONE))
+        .put(
+            "rootpaths", new LocationFunction(root, locationMap, USE_PACKAGE_PATHS, ALLOW_MULTIPLE))
         .put("execpath", new LocationFunction(root, locationMap, USE_EXEC_PATHS, EXACTLY_ONE))
         .put("execpaths", new LocationFunction(root, locationMap, USE_EXEC_PATHS, ALLOW_MULTIPLE))
         .build();
