@@ -357,8 +357,14 @@ class ByteStreamUploader extends AbstractReferenceCounted {
           Exception.class,
           (e) -> {
             Status status = Status.fromThrowable(e);
-            if (status != null && status.getCode() == Code.UNAUTHENTICATED) {
-              callCredentialsProvider.refresh();
+            if (status != null && (status.getCode() == Code.UNAUTHENTICATED
+                || status.getCode() == Code.PERMISSION_DENIED)) {
+              try {
+                callCredentialsProvider.refresh();
+              } catch (IOException ioe) {
+                e.addSuppressed(ioe);
+                return Futures.immediateFailedFuture(e);
+              }
               return callAndQueryOnFailureWithRetrier(ctx, committedOffset, progressiveBackoff);
             } else {
               return Futures.immediateFailedFuture(e);
