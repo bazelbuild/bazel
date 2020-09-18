@@ -25,11 +25,12 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.spelling.SpellChecker;
 
 /**
- * A BuiltinCallable is a callable Starlark value that reflectively invokes a
- * StarlarkMethod-annotated method of a Java object.
+ * A BuiltinCallable is a callable Starlark value that reflectively invokes a {@link
+ * StarlarkMethod}-annotated method of a Java object that implements {@link StarlarkValue} or has a
+ * {@link StarlarkGlobalLibrary} annotation. BuiltinCallables are not produced for Java methods for
+ * which {@link StarlarkMethod#structField} is true.
  */
-// TODO(adonovan): make this private. Most users would be content with StarlarkCallable; the rest
-// need only a means of querying the function's parameters.
+// TODO(adonovan): rename AnnotatedMethod?
 public final class BuiltinCallable implements StarlarkCallable {
 
   private final Object obj;
@@ -37,17 +38,18 @@ public final class BuiltinCallable implements StarlarkCallable {
   @Nullable private final MethodDescriptor desc;
 
   /**
-   * Constructs a BuiltinCallable for a StarlarkCallable-annotated method of the given name (as seen
+   * Constructs a BuiltinCallable for a StarlarkMethod-annotated method of the given name (as seen
    * by Starlark, not Java).
    */
-  // TODO(adonovan): eliminate calls to this constructor from tests; use getattr instead.
   BuiltinCallable(Object obj, String methodName) {
-    this(obj, methodName, /*desc=*/ null);
+    this.obj = obj;
+    this.methodName = methodName;
+    this.desc = null; // computed later
   }
 
   /**
-   * Constructs a BuiltinCallable for a StarlarkCallable-annotated method of the given name (as seen
-   * by Starlark, not Java).
+   * Constructs a BuiltinCallable for a StarlarkMethod-annotated method (not field) of the given
+   * name (as seen by Starlark, not Java).
    *
    * <p>This constructor should be used only for ephemeral BuiltinCallable values created
    * transiently during a call such as {@code x.f()}, when the caller has already looked up the
@@ -56,6 +58,7 @@ public final class BuiltinCallable implements StarlarkCallable {
    * operation differ from those of the thread used in the call.
    */
   BuiltinCallable(Object obj, String methodName, MethodDescriptor desc) {
+    Preconditions.checkArgument(!desc.isStructField());
     this.obj = obj;
     this.methodName = methodName;
     this.desc = desc;
@@ -64,26 +67,26 @@ public final class BuiltinCallable implements StarlarkCallable {
   @Override
   public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
       throws EvalException, InterruptedException {
-    MethodDescriptor desc =
-        this.desc != null ? this.desc : getMethodDescriptor(thread.getSemantics());
-    Preconditions.checkArgument(
-        !desc.isStructField(),
-        "struct field methods should be handled by DotExpression separately");
+    MethodDescriptor desc = getMethodDescriptor(thread.getSemantics());
     Object[] vector = getArgumentVector(thread, desc, positional, named);
     return desc.call(
         obj instanceof String ? StringModule.INSTANCE : obj, vector, thread.mutability());
   }
 
   private MethodDescriptor getMethodDescriptor(StarlarkSemantics semantics) {
-    return CallUtils.getAnnotatedMethod(semantics, obj.getClass(), methodName);
+    MethodDescriptor desc = this.desc;
+    if (desc == null) {
+      desc = CallUtils.getAnnotatedMethods(semantics, obj.getClass()).get(methodName);
+      Preconditions.checkArgument(
+          !desc.isStructField(),
+          "BuilinCallable constructed for MethodDescriptor(structField=True)");
+    }
+    return desc;
   }
 
   /**
    * Returns the StarlarkMethod annotation of this Starlark-callable Java method.
-   *
-   * @deprecated This method is intended only for docgen, and uses the default semantics.
    */
-  @Deprecated
   public StarlarkMethod getAnnotation() {
     return getMethodDescriptor(StarlarkSemantics.DEFAULT).getAnnotation();
   }
@@ -95,7 +98,16 @@ public final class BuiltinCallable implements StarlarkCallable {
 
   @Override
   public void repr(Printer printer) {
-    printer.append("<built-in function " + methodName + ">");
+    if (obj instanceof StarlarkValue || obj instanceof String) {
+      printer
+          .append("<built-in method ")
+          .append(methodName)
+          .append(" of ")
+          .append(Starlark.type(obj))
+          .append(" value>");
+    } else {
+      printer.append("<built-in function ").append(methodName).append(">");
+    }
   }
 
   @Override
@@ -109,7 +121,7 @@ public final class BuiltinCallable implements StarlarkCallable {
    *
    * @param thread the Starlark thread for the call
    * @param loc the location of the call expression, or BUILTIN for calls from Java
-   * @param desc descriptor for the StarlarkCallable-annotated method
+   * @param desc descriptor for the StarlarkMethod-annotated method
    * @param positional a list of positional arguments
    * @param named a list of named arguments, as alternating Strings/Objects. May contain dups.
    * @return the array of arguments which may be passed to {@link MethodDescriptor#call}

@@ -1478,7 +1478,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
       getConfiguredTarget("//pkg:BUILD");
       // Prelude can access native.glob (though only a BUILD thread can call it).
-      assertContainsEvent("<built-in function glob>");
+      assertContainsEvent("<built-in method glob of native value>");
     }
 
     @Test

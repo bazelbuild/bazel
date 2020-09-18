@@ -182,7 +182,7 @@ final class StarlarkDocumentationCollector {
 
       if (moduleClass == moduleDoc.getClassObject()) {
         for (Map.Entry<Method, StarlarkMethod> entry :
-            Starlark.getAnnotatedMethods(moduleClass).entrySet()) {
+            Starlark.getMethodAnnotations(moduleClass).entrySet()) {
           // Only collect methods not annotated with @StarlarkConstructor.
           // Methods with @StarlarkConstructor are added later.
           if (!entry.getKey().isAnnotationPresent(StarlarkConstructor.class)) {
@@ -214,7 +214,7 @@ final class StarlarkDocumentationCollector {
     StarlarkBuiltinDoc topLevelModuleDoc = getTopLevelModuleDoc(modules);
 
     for (Map.Entry<Method, StarlarkMethod> entry :
-        Starlark.getAnnotatedMethods(moduleClass).entrySet()) {
+        Starlark.getMethodAnnotations(moduleClass).entrySet()) {
       // Only add non-constructor global library methods. Constructors are added later.
       if (!entry.getKey().isAnnotationPresent(StarlarkConstructor.class)) {
         topLevelModuleDoc.addMethod(
@@ -266,12 +266,11 @@ final class StarlarkDocumentationCollector {
       collectConstructor(modules, moduleClass, selfCallConstructor);
     }
 
-    for (Map.Entry<Method, StarlarkMethod> entry :
-        Starlark.getAnnotatedMethods(moduleClass).entrySet()) {
-      if (entry.getKey().isAnnotationPresent(StarlarkConstructor.class)) {
-        collectConstructor(modules, moduleClass, entry.getKey());
+    for (Method method : Starlark.getMethodAnnotations(moduleClass).keySet()) {
+      if (method.isAnnotationPresent(StarlarkConstructor.class)) {
+        collectConstructor(modules, moduleClass, method);
       }
-      Class<?> returnClass = entry.getKey().getReturnType();
+      Class<?> returnClass = method.getReturnType();
       Method returnClassConstructor = getSelfCallConstructorMethod(returnClass);
       if (returnClassConstructor != null) {
         collectConstructor(modules, moduleClass, returnClassConstructor);

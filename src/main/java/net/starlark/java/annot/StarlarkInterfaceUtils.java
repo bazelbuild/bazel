@@ -19,6 +19,7 @@ import java.lang.reflect.Method;
 import javax.annotation.Nullable;
 
 /** Helpers for accessing Starlark interface annotations. */
+// TODO(adonovan): make this private, and move methods to Starlark{Builtin,Method}.
 public class StarlarkInterfaceUtils {
 
   /**
