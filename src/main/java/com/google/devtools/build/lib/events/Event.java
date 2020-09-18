@@ -20,6 +20,7 @@ import static java.util.Comparator.comparing;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.Arrays;
@@ -190,6 +191,16 @@ public final class Event implements Serializable {
     return getProperty(FileOutErr.class) != null;
   }
 
+  /**
+   * Gets the path to the stdout associated with this event (which the caller must not access), or
+   * null if there is no such path.
+   */
+  @Nullable
+  public PathFragment getStdOutPathFragment() {
+    FileOutErr outErr = getProperty(FileOutErr.class);
+    return outErr == null ? null : outErr.getOutputPathFragment();
+  }
+
   /** Gets the size of the stdout associated with this event without reading it. */
   public long getStdOutSize() throws IOException {
     FileOutErr outErr = getProperty(FileOutErr.class);
@@ -204,6 +215,16 @@ public final class Event implements Serializable {
       return null;
     }
     return outErr.outAsBytes();
+  }
+
+  /**
+   * Gets the path to the stderr associated with this event (which the caller must not access), or
+   * null if there is no such path.
+   */
+  @Nullable
+  public PathFragment getStdErrPathFragment() {
+    FileOutErr outErr = getProperty(FileOutErr.class);
+    return outErr == null ? null : outErr.getErrorPathFragment();
   }
 
   /** Gets the size of the stderr associated with this event without reading it. */
