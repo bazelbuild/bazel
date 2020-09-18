@@ -137,7 +137,6 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
         new IgnoredPackagePrefixesFunction(
             PathFragment.create(IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING)));
     RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
-    skyFunctions.put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider));
     skyFunctions.put(
         WorkspaceFileValue.WORKSPACE_FILE,
         new WorkspaceFileFunction(

@@ -84,7 +84,6 @@ java_library(
         "ToplevelStarlarkAspectFunction.java",
         "TransitiveTargetFunction.java",
         "TrimmedConfigurationProgressReceiver.java",
-        "WorkspaceASTFunction.java",
         "WorkspaceFileFunction.java",
         "actiongraph/ActionGraphDump.java",
         "actiongraph/v2/ActionGraphDump.java",
@@ -217,7 +216,6 @@ java_library(
         ":tree_artifact_value",
         ":unloaded_toolchain_context",
         ":unloaded_toolchain_context_impl",
-        ":workspace_ast_value",
         ":workspace_name_function",
         ":workspace_name_value",
         ":workspace_status_function",
@@ -2727,20 +2725,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:auto_value",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "workspace_ast_value",
-    srcs = ["WorkspaceASTValue.java"],
-    deps = [
-        ":sky_functions",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
     ],
 )

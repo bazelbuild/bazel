@@ -717,7 +717,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     validPackageWithoutErrors(PackageValue.key(PackageIdentifier.parse("@//p")));
   }
 
-  // See WorkspaceASTFunctionTest for tests that exercise load('@repo...').
+  // See WorkspaceFileFunctionTest for tests that exercise load('@repo...').
 
   @Test
   public void testLoadBadLabel() throws Exception {
