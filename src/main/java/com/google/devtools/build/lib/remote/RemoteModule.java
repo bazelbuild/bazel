@@ -952,8 +952,15 @@ public final class RemoteModule extends BlazeModule {
   private Credentials newCredentialsFromNetrc(CommandEnvironment env) throws IOException {
     String netrcFileString = env.getClientEnv().get("NETRC");
     if (netrcFileString == null) {
-      netrcFileString = env.getClientEnv().get("HOME") + "/.netrc";
+      String home = env.getClientEnv().get("HOME");
+      if (home != null) {
+        netrcFileString = home + "/.netrc";
+      }
     }
+    if (netrcFileString == null) {
+      return null;
+    }
+
     Path netrcFile = env.getRuntime().getFileSystem().getPath(netrcFileString);
     if (netrcFile.exists()) {
       try {
