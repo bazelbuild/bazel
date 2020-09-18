@@ -299,8 +299,8 @@ public final class HttpCacheClient implements RemoteCacheClient {
               }
 
               try {
-                Channel ch = channelAcquired.getNow();
-                ChannelPipeline pipeline = ch.pipeline();
+                Channel channel = channelAcquired.getNow();
+                ChannelPipeline pipeline = channel.pipeline();
 
                 if (!isChannelPipelineEmpty(pipeline)) {
                   channelReady.setFailure(
@@ -324,15 +324,15 @@ public final class HttpCacheClient implements RemoteCacheClient {
                   pipeline.addLast(new HttpUploadHandler(creds, extraHttpHeaders));
                 }
 
-                if (!ch.eventLoop().inEventLoop()) {
+                if (!channel.eventLoop().inEventLoop()) {
                   // If addLast is called outside an event loop, then it doesn't complete until the
                   // event loop is run again. In that case, a message sent to the last handler gets
                   // delivered to the last non-pending handler, which will most likely end up
                   // throwing UnsupportedMessageTypeException. Therefore, we only complete the
                   // promise in the event loop.
-                  ch.eventLoop().execute(() -> channelReady.setSuccess(ch));
+                  channel.eventLoop().execute(() -> channelReady.setSuccess(channel));
                 } else {
-                  channelReady.setSuccess(ch);
+                  channelReady.setSuccess(channel);
                 }
               } catch (Throwable t) {
                 channelReady.setFailure(t);
@@ -374,8 +374,8 @@ public final class HttpCacheClient implements RemoteCacheClient {
               }
 
               try {
-                Channel ch = channelAcquired.getNow();
-                ChannelPipeline pipeline = ch.pipeline();
+                Channel channel = channelAcquired.getNow();
+                ChannelPipeline pipeline = channel.pipeline();
 
                 if (!isChannelPipelineEmpty(pipeline)) {
                   channelReady.setFailure(
@@ -391,15 +391,15 @@ public final class HttpCacheClient implements RemoteCacheClient {
                   pipeline.addLast(new HttpDownloadHandler(creds, extraHttpHeaders));
                 }
 
-                if (!ch.eventLoop().inEventLoop()) {
+                if (!channel.eventLoop().inEventLoop()) {
                   // If addLast is called outside an event loop, then it doesn't complete until the
                   // event loop is run again. In that case, a message sent to the last handler gets
                   // delivered to the last non-pending handler, which will most likely end up
                   // throwing UnsupportedMessageTypeException. Therefore, we only complete the
                   // promise in the event loop.
-                  ch.eventLoop().execute(() -> channelReady.setSuccess(ch));
+                  channel.eventLoop().execute(() -> channelReady.setSuccess(channel));
                 } else {
-                  channelReady.setSuccess(ch);
+                  channelReady.setSuccess(channel);
                 }
               } catch (Throwable t) {
                 channelReady.setFailure(t);
@@ -487,13 +487,13 @@ public final class HttpCacheClient implements RemoteCacheClient {
     SettableFuture<Void> outerF = SettableFuture.create();
     acquireDownloadChannel()
         .addListener(
-            (Future<Channel> chP) -> {
-              if (!chP.isSuccess()) {
-                outerF.setException(chP.cause());
+            (Future<Channel> channelPromise) -> {
+              if (!channelPromise.isSuccess()) {
+                outerF.setException(channelPromise.cause());
                 return;
               }
 
-              Channel ch = chP.getNow();
+              Channel ch = channelPromise.getNow();
               ch.writeAndFlush(downloadCmd)
                   .addListener(
                       (f) -> {
@@ -533,13 +533,13 @@ public final class HttpCacheClient implements RemoteCacheClient {
   private void getAfterCredentialRefresh(DownloadCommand cmd, SettableFuture<Void> outerF) {
     acquireDownloadChannel()
         .addListener(
-            (Future<Channel> chP) -> {
-              if (!chP.isSuccess()) {
-                outerF.setException(chP.cause());
+            (Future<Channel> channelPromise) -> {
+              if (!channelPromise.isSuccess()) {
+                outerF.setException(channelPromise.cause());
                 return;
               }
 
-              Channel ch = chP.getNow();
+              Channel ch = channelPromise.getNow();
               ch.writeAndFlush(cmd)
                   .addListener(
                       (f) -> {
@@ -635,13 +635,13 @@ public final class HttpCacheClient implements RemoteCacheClient {
   private void uploadAfterCredentialRefresh(UploadCommand upload, SettableFuture<Void> result) {
     acquireUploadChannel()
         .addListener(
-            (Future<Channel> chP) -> {
-              if (!chP.isSuccess()) {
-                result.setException(chP.cause());
+            (Future<Channel> channelPromise) -> {
+              if (!channelPromise.isSuccess()) {
+                result.setException(channelPromise.cause());
                 return;
               }
 
-              Channel ch = chP.getNow();
+              Channel ch = channelPromise.getNow();
               ch.writeAndFlush(upload)
                   .addListener(
                       (f) -> {
@@ -695,7 +695,11 @@ public final class HttpCacheClient implements RemoteCacheClient {
       throws IOException, InterruptedException {
     ByteString serialized = actionResult.toByteString();
     ListenableFuture<Void> uploadFuture =
-            uploadAsync(actionKey.getDigest().getHash(), serialized.size(), serialized.newInput(), false);
+        uploadAsync(
+            actionKey.getDigest().getHash(),
+            serialized.size(),
+            serialized.newInput(),
+            /* casUpload= */ false);
     try {
       uploadFuture.get();
     } catch (ExecutionException e) {
