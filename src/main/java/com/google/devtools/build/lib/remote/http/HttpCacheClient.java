@@ -290,54 +290,54 @@ public final class HttpCacheClient implements RemoteCacheClient {
   private Promise<Channel> acquireUploadChannel() {
     Promise<Channel> channelReady = eventLoop.next().newPromise();
     channelPool
-            .acquire()
-            .addListener(
-                    (Future<Channel> channelAcquired) -> {
-                      if (!channelAcquired.isSuccess()) {
-                        channelReady.setFailure(channelAcquired.cause());
-                        return;
-                      }
+        .acquire()
+        .addListener(
+            (Future<Channel> channelAcquired) -> {
+              if (!channelAcquired.isSuccess()) {
+                channelReady.setFailure(channelAcquired.cause());
+                return;
+              }
 
-                      try {
-                        Channel ch = channelAcquired.getNow();
-                        ChannelPipeline p = ch.pipeline();
+              try {
+                Channel ch = channelAcquired.getNow();
+                ChannelPipeline pipeline = ch.pipeline();
 
-                        if (!isChannelPipelineEmpty(p)) {
-                          channelReady.setFailure(
-                                  new IllegalStateException("Channel pipeline is not empty."));
-                          return;
-                        }
+                if (!isChannelPipelineEmpty(pipeline)) {
+                  channelReady.setFailure(
+                      new IllegalStateException("Channel pipeline is not empty."));
+                  return;
+                }
 
-                        p.addFirst(
-                                "timeout-handler",
-                                new IdleTimeoutHandler(timeoutSeconds, WriteTimeoutException.INSTANCE));
-                        p.addLast(new HttpResponseDecoder());
-                        // The 10KiB limit was chosen arbitrarily. We only expect HTTP servers to respond
-                        // with an error message in the body, and that should always be less than 10KiB. If
-                        // the response is larger than 10KiB, HttpUploadHandler will catch the
-                        // TooLongFrameException that HttpObjectAggregator throws and convert it to an
-                        // IOException.
-                        p.addLast(new HttpObjectAggregator(10 * 1024));
-                        p.addLast(new HttpRequestEncoder());
-                        p.addLast(new ChunkedWriteHandler());
-                        synchronized (credentialsLock) {
-                          p.addLast(new HttpUploadHandler(creds, extraHttpHeaders));
-                        }
+                pipeline.addFirst(
+                        "timeout-handler",
+                        new IdleTimeoutHandler(timeoutSeconds, WriteTimeoutException.INSTANCE));
+                pipeline.addLast(new HttpResponseDecoder());
+                // The 10KiB limit was chosen arbitrarily. We only expect HTTP servers to respond
+                // with an error message in the body, and that should always be less than 10KiB. If
+                // the response is larger than 10KiB, HttpUploadHandler will catch the
+                // TooLongFrameException that HttpObjectAggregator throws and convert it to an
+                // IOException.
+                pipeline.addLast(new HttpObjectAggregator(10 * 1024));
+                pipeline.addLast(new HttpRequestEncoder());
+                pipeline.addLast(new ChunkedWriteHandler());
+                synchronized (credentialsLock) {
+                  pipeline.addLast(new HttpUploadHandler(creds, extraHttpHeaders));
+                }
 
-                        if (!ch.eventLoop().inEventLoop()) {
-                          // If addLast is called outside an event loop, then it doesn't complete until the
-                          // event loop is run again. In that case, a message sent to the last handler gets
-                          // delivered to the last non-pending handler, which will most likely end up
-                          // throwing UnsupportedMessageTypeException. Therefore, we only complete the
-                          // promise in the event loop.
-                          ch.eventLoop().execute(() -> channelReady.setSuccess(ch));
-                        } else {
-                          channelReady.setSuccess(ch);
-                        }
-                      } catch (Throwable t) {
-                        channelReady.setFailure(t);
-                      }
-                    });
+                if (!ch.eventLoop().inEventLoop()) {
+                  // If addLast is called outside an event loop, then it doesn't complete until the
+                  // event loop is run again. In that case, a message sent to the last handler gets
+                  // delivered to the last non-pending handler, which will most likely end up
+                  // throwing UnsupportedMessageTypeException. Therefore, we only complete the
+                  // promise in the event loop.
+                  ch.eventLoop().execute(() -> channelReady.setSuccess(ch));
+                } else {
+                  channelReady.setSuccess(ch);
+                }
+              } catch (Throwable t) {
+                channelReady.setFailure(t);
+              }
+            });
     return channelReady;
   }
 
@@ -572,7 +572,8 @@ public final class HttpCacheClient implements RemoteCacheClient {
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
-  private ListenableFuture<Void> uploadAsync(String key, long length, InputStream in, boolean casUpload) {
+  private ListenableFuture<Void> uploadAsync(
+      String key, long length, InputStream in, boolean casUpload) {
     InputStream wrappedIn =
         new FilterInputStream(in) {
           @Override
@@ -587,13 +588,13 @@ public final class HttpCacheClient implements RemoteCacheClient {
       SettableFuture<Void> result = SettableFuture.create();
       acquireUploadChannel()
           .addListener(
-              (Future<Channel> chP) -> {
-                if (!chP.isSuccess()) {
-                  result.setException(chP.cause());
+              (Future<Channel> channelPromise) -> {
+                if (!channelPromise.isSuccess()) {
+                  result.setException(channelPromise.cause());
                   return;
                 }
 
-                Channel ch = chP.getNow();
+                Channel ch = channelPromise.getNow();
                 ch.writeAndFlush(upload)
                     .addListener(
                         (f) ->{
@@ -605,8 +606,8 @@ public final class HttpCacheClient implements RemoteCacheClient {
                             if (cause instanceof HttpException) {
                               HttpResponse response = ((HttpException) cause).response();
                               try {
-                                // If the error is due to an expired auth token and we can reset the input stream,
-                                // then try again.
+                                // If the error is due to an expired auth token and we can reset
+                                // the input stream, then try again.
                                 if (authTokenExpired(response) && reset(in)) {
                                   refreshCredentials();
                                   uploadAfterCredentialRefresh(upload, result);
@@ -657,7 +658,8 @@ public final class HttpCacheClient implements RemoteCacheClient {
   @Override
   public ListenableFuture<Void> uploadFile(Digest digest, Path file) {
     try {
-      return uploadAsync(digest.getHash(), digest.getSizeBytes(), file.getInputStream(), true);
+      return uploadAsync(
+          digest.getHash(), digest.getSizeBytes(), file.getInputStream(), /* casUpload= */ true);
     } catch (IOException e) {
       // Can be thrown from file.getInputStream.
       return Futures.immediateFailedFuture(e);
@@ -666,7 +668,8 @@ public final class HttpCacheClient implements RemoteCacheClient {
 
   @Override
   public ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
-    return uploadAsync(digest.getHash(), digest.getSizeBytes(), data.newInput(), true);
+    return uploadAsync(
+        digest.getHash(), digest.getSizeBytes(), data.newInput(), /* casUpload= */ true);
   }
 
   @Override
