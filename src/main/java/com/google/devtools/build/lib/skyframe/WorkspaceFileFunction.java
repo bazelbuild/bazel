@@ -119,10 +119,14 @@ public class WorkspaceFileFunction implements SkyFunction {
 
     FileOptions options =
         FileOptions.builder()
-            // These three options follow BUILD norms, but should probably be flipped.
-            .allowToplevelRebinding(true)
+            // Repository declarations in WORKSPACE have side effects on
+            // the set of valid load labels, so load statements cannot all
+            // be migrated to the top of the file.
             .requireLoadStatementsFirst(false)
-            .recordScope(false)
+            // Top-level rebinding is permitted because historically
+            // WORKSPACE files followed BUILD norms, but this should
+            // probably be flipped.
+            .allowToplevelRebinding(true)
             .restrictStringEscapes(
                 starlarkSemantics.getBool(
                     BuildLanguageOptions.INCOMPATIBLE_RESTRICT_STRING_ESCAPES))
