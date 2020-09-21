@@ -150,8 +150,8 @@ public class ByteStreamUploaderTest {
         new ByteStreamUploader(
             INSTANCE_NAME,
             new ReferenceCountedChannel(channel),
-            CallCredentialsProvider.NO_CREDENTIALS, /* timeout seconds */
-            60,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
             retrier);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
@@ -571,8 +571,8 @@ public class ByteStreamUploaderTest {
         new ByteStreamUploader(
             INSTANCE_NAME,
             new ReferenceCountedChannel(channel),
-            CallCredentialsProvider.NO_CREDENTIALS, /* timeout seconds */
-            60,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
             retrier);
 
     int numUploads = 10;
@@ -609,8 +609,8 @@ public class ByteStreamUploaderTest {
         new ByteStreamUploader(
             INSTANCE_NAME,
             new ReferenceCountedChannel(channel),
-            CallCredentialsProvider.NO_CREDENTIALS, /* timeout seconds */
-            60,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
             retrier);
 
     List<String> toUpload = ImmutableList.of("aaaaaaaaaa", "bbbbbbbbbb", "cccccccccc");
@@ -726,8 +726,8 @@ public class ByteStreamUploaderTest {
                 InProcessChannelBuilder.forName("Server for " + this.getClass())
                     .intercept(MetadataUtils.newAttachHeadersInterceptor(metadata))
                     .build()),
-            CallCredentialsProvider.NO_CREDENTIALS, /* timeout seconds */
-            60,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
             retrier);
 
     byte[] blob = new byte[CHUNK_SIZE];
@@ -789,8 +789,8 @@ public class ByteStreamUploaderTest {
         new ByteStreamUploader(
             INSTANCE_NAME,
             new ReferenceCountedChannel(channel),
-            CallCredentialsProvider.NO_CREDENTIALS, /* timeout seconds */
-            60,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
             retrier);
 
     byte[] blob = new byte[CHUNK_SIZE * 10];
@@ -857,8 +857,8 @@ public class ByteStreamUploaderTest {
         new ByteStreamUploader(
             INSTANCE_NAME,
             new ReferenceCountedChannel(channel),
-            CallCredentialsProvider.NO_CREDENTIALS, /* timeout seconds */
-            60,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
             retrier);
 
     byte[] blob = new byte[CHUNK_SIZE];
@@ -892,8 +892,8 @@ public class ByteStreamUploaderTest {
         new ByteStreamUploader(
             INSTANCE_NAME,
             new ReferenceCountedChannel(channel),
-            CallCredentialsProvider.NO_CREDENTIALS, /* timeout seconds */
-            60,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
             retrier);
 
     CountDownLatch cancellations = new CountDownLatch(2);
@@ -959,8 +959,8 @@ public class ByteStreamUploaderTest {
         new ByteStreamUploader(
             INSTANCE_NAME,
             new ReferenceCountedChannel(channel),
-            CallCredentialsProvider.NO_CREDENTIALS, /* timeout seconds */
-            60,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
             retrier);
 
     serviceRegistry.addService(new ByteStreamImplBase() {
@@ -997,10 +997,10 @@ public class ByteStreamUploaderTest {
         TestUtils.newRemoteRetrier(() -> mockBackoff, (e) -> true, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
-            /* instanceName */ null,
+            /* instanceName= */ null,
             new ReferenceCountedChannel(channel),
-            CallCredentialsProvider.NO_CREDENTIALS, /* timeout seconds */
-            60,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
             retrier);
 
     serviceRegistry.addService(new ByteStreamImplBase() {
@@ -1044,10 +1044,10 @@ public class ByteStreamUploaderTest {
             () -> new FixedBackoff(1, 0), /* No Status is retriable. */ (e) -> false, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
-            /* instanceName */ null,
+            /* instanceName= */ null,
             new ReferenceCountedChannel(channel),
-            CallCredentialsProvider.NO_CREDENTIALS, /* timeout seconds */
-            60,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
             retrier);
 
     AtomicInteger numCalls = new AtomicInteger();
@@ -1084,8 +1084,8 @@ public class ByteStreamUploaderTest {
         new ByteStreamUploader(
             INSTANCE_NAME,
             new ReferenceCountedChannel(channel),
-            CallCredentialsProvider.NO_CREDENTIALS, /* timeout seconds */
-            60,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
             retrier);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
@@ -1165,8 +1165,8 @@ public class ByteStreamUploaderTest {
         new ByteStreamUploader(
             INSTANCE_NAME,
             new ReferenceCountedChannel(channel),
-            CallCredentialsProvider.NO_CREDENTIALS, /* timeout seconds */
-            60,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
             retrier);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
@@ -1248,8 +1248,8 @@ public class ByteStreamUploaderTest {
         new ByteStreamUploader(
             INSTANCE_NAME,
             new ReferenceCountedChannel(channel),
-            callCredentialsProvider, /* timeout seconds */
-            60,
+            callCredentialsProvider,
+            /* callTimeoutSecs= */ 60,
             retrier);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
@@ -1312,8 +1312,8 @@ public class ByteStreamUploaderTest {
         new ByteStreamUploader(
             INSTANCE_NAME,
             new ReferenceCountedChannel(channel),
-            callCredentialsProvider, /* timeout seconds */
-            60,
+            callCredentialsProvider,
+            /* callTimeoutSecs= */ 60,
             retrier);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
