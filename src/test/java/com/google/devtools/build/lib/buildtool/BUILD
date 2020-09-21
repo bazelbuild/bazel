@@ -14,6 +14,8 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
+# TODO(b/19011399): Remove any manual tags used to disable the tests on bazel.
+
 java_test(
     name = "JobsConverterTest",
     srcs = [
