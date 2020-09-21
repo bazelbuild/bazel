@@ -134,7 +134,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @Nullable private final Artifact grepIncludes;
   private final boolean shareable;
   private final boolean shouldScanIncludes;
-  private final boolean shouldPruneModules;
   private final boolean usePic;
   private final boolean useHeaderModules;
   private final boolean needsDotdInputPruning;
@@ -236,7 +235,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       CppConfiguration cppConfiguration,
       boolean shareable,
       boolean shouldScanIncludes,
-      boolean shouldPruneModules,
       boolean usePic,
       boolean useHeaderModules,
       NestedSet<Artifact> mandatoryInputs,
@@ -265,7 +263,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
             .build(),
         CollectionUtils.asSetWithoutNulls(outputFile, dotdFile, gcnoFile, dwoFile, ltoIndexingFile),
         env);
-    Preconditions.checkArgument(!shouldPruneModules || shouldScanIncludes);
     this.outputFile = Preconditions.checkNotNull(outputFile);
     this.sourceFile = sourceFile;
     this.shareable = shareable;
@@ -276,7 +273,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.inputsForInvalidation = inputsForInvalidation;
     this.additionalPrunableHeaders = additionalPrunableHeaders;
     this.shouldScanIncludes = shouldScanIncludes;
-    this.shouldPruneModules = shouldPruneModules;
     this.usePic = usePic;
     this.useHeaderModules = useHeaderModules;
     this.ccCompilationContext = ccCompilationContext;
@@ -336,7 +332,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   private boolean shouldScanDotdFiles() {
-    return !useHeaderModules || !shouldPruneModules;
+    return !useHeaderModules || !shouldScanIncludes;
   }
 
   public boolean useInMemoryDotdFiles() {
@@ -1245,7 +1241,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       // Ideally the same thing would be done in both cases, but as is, we just overestimate modules
       // in the latter case using the inputs from the action cache.
       // Note that this breaks the invariant that Actions are immutable after the analysis phase.
-      if (shouldPruneModules && topLevelModules != null) {
+      if (shouldScanIncludes && topLevelModules != null) {
         return calculateModuleVariable(topLevelModules);
       } else {
         return calculateModuleVariable(getInputs());

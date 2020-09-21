@@ -276,7 +276,6 @@ public class CppCompileActionBuilder {
             cppConfiguration,
             shareable,
             shouldScanIncludes,
-            shouldPruneModules(),
             usePic,
             useHeaderModules,
             realMandatoryInputs,
@@ -317,7 +316,7 @@ public class CppCompileActionBuilder {
     NestedSetBuilder<Artifact> realMandatoryInputsBuilder = NestedSetBuilder.compileOrder();
     realMandatoryInputsBuilder.addTransitive(mandatoryInputsBuilder.build());
     realMandatoryInputsBuilder.addAll(getBuiltinIncludeFiles());
-    if (useHeaderModules() && !shouldPruneModules()) {
+    if (useHeaderModules() && !shouldScanIncludes) {
       realMandatoryInputsBuilder.addTransitive(ccCompilationContext.getTransitiveModules(usePic));
     }
     ccCompilationContext.addAdditionalInputs(realMandatoryInputsBuilder);
@@ -346,10 +345,6 @@ public class CppCompileActionBuilder {
         && (sourceFile.isFileType(CppFileTypes.CPP_SOURCE)
             || sourceFile.isFileType(CppFileTypes.CPP_HEADER)
             || sourceFile.isFileType(CppFileTypes.CPP_MODULE_MAP));
-  }
-
-  private boolean shouldPruneModules() {
-    return shouldScanIncludes && useHeaderModules();
   }
 
   /**
