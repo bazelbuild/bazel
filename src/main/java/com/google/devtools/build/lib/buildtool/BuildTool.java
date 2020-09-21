@@ -433,7 +433,10 @@ public class BuildTool {
     } catch (TargetParsingException e) {
       detailedExitCode = e.getDetailedExitCode();
       reportExceptionError(e);
-    } catch (LoadingFailedException | ViewCreationFailedException e) {
+    } catch (LoadingFailedException e) {
+      detailedExitCode = e.getDetailedExitCode();
+      reportExceptionError(e);
+    } catch (ViewCreationFailedException e) {
       detailedExitCode = DetailedExitCode.justExitCode(ExitCode.PARSING_FAILURE);
       reportExceptionError(e);
     } catch (ExitException e) {
