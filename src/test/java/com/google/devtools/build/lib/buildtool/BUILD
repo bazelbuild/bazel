@@ -1,4 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 
 package(
     default_testonly = 1,
@@ -13,8 +14,6 @@ filegroup(
     ],
     visibility = ["//src:__subpackages__"],
 )
-
-# TODO(b/19011399): Remove any manual tags used to disable the tests on bazel.
 
 java_test(
     name = "JobsConverterTest",
@@ -575,7 +574,6 @@ java_library(
     name = "IoHookTestCase",
     srcs = ["IoHookTestCase.java"],
     deps = [
-        "//java/com/google/devtools/build/lib/google/vfs:google-hash-functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:mutable_supplier",
         "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -615,5 +613,51 @@ test_suite(
     name = "all_windows_tests",
     tests = [
         ":windows_tests",
+    ],
+)
+
+# TODO(b/19011399): Remove any manual tags used to disable the tests on bazel,
+#  and enable manual tests inside Google if appropriate.
+# Keep in sync with Copybara transformation that makes these tests manual.
+
+build_test(
+    name = "all_manual_tests",
+    targets = [
+        ":ActionListenerIntegrationTest",
+        ":AqueryBuildToolTest",
+        ":BogusExecutionTimeTest",
+        ":BuildResultTestCase",
+        ":CompileAfterOptionChangeTest",
+        ":CompileOneDependencyIntegrationTest",
+        ":ContextProviderInitializationTest",
+        ":CorruptedActionCacheTest",
+        ":CustomRealFilesystemBuildIntegrationTest",
+        ":DanglingSymlinkTest",
+        ":DirectoryArtifactWarningTest",
+        ":EditDuringBuildTest",
+        ":EnvironmentRestrictedBuildTest",
+        ":ExecutionPhaseContainingPackageLookupTest",
+        ":GenQueryIntegrationTest",
+        ":IncludeValidationTest",
+        ":InconsistentFilesystemTest",
+        ":LabelCrossesPackageBoundaryTest",
+        ":MiscAnalysisTest",
+        ":MissingInputActionTest",
+        ":ModifyBuildFileTest",
+        ":NoOutputActionTest",
+        ":OutputArtifactConflictTest",
+        ":PackageGroupIntegrationTest",
+        ":ProgressReportingTest",
+        ":QueryIntegrationTest",
+        ":SymlinkDependencyAnalysisTest",
+        # Disabled in Google.
+        "//src/test/java/com/google/devtools/build/lib/bazel/rules/android:BazelAndroidTests",
+        # Disabled in Google.
+        "//src/test/java/com/google/devtools/build/lib/bazel/rules/python:PythonTests",
+        # Disabled in Google.
+        "//src/test/java/com/google/devtools/build/lib/bazel/rules/sh:ShTests",
+        # Disabled in Google.
+        "//src/test/java/com/google/devtools/build/lib/packages:BazelDocumentationTests",
+        "//src/test/java/com/google/devtools/build/lib/rules/android:AndroidDataBindingV2Test",
     ],
 )
