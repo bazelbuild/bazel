@@ -108,15 +108,6 @@ public class StarlarkInterfaceUtils {
   }
 
   /**
-   * Searches {@code classObj}'s class hierarchy and for a superclass or interface that is annotated
-   * with {@link StarlarkGlobalLibrary} (including possibly {@code classObj} itself), and returns
-   * true if one is found.
-   */
-  public static boolean hasStarlarkGlobalLibrary(Class<?> classObj) {
-    return findAnnotatedAncestor(classObj, StarlarkGlobalLibrary.class) != null;
-  }
-
-  /**
    * Returns the {@link StarlarkMethod} annotation for the given method, if it exists, and null
    * otherwise.
    *

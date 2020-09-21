@@ -26,9 +26,9 @@ import net.starlark.java.spelling.SpellChecker;
 
 /**
  * A BuiltinCallable is a callable Starlark value that reflectively invokes a {@link
- * StarlarkMethod}-annotated method of a Java object that implements {@link StarlarkValue} or has a
- * {@link StarlarkGlobalLibrary} annotation. BuiltinCallables are not produced for Java methods for
- * which {@link StarlarkMethod#structField} is true.
+ * StarlarkMethod}-annotated method of a Java object. The Java object may or may not itself be a
+ * Starlark value. BuiltinCallables are not produced for Java methods for which {@link
+ * StarlarkMethod#structField} is true.
  */
 // TODO(adonovan): rename AnnotatedMethod?
 public final class BuiltinCallable implements StarlarkCallable {
