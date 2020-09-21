@@ -79,7 +79,9 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -226,13 +228,13 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           new ConfiguredValueCreationException(e.getMessage(), label, configuration));
     }
     if (pkg.containsErrors()) {
-      transitiveRootCauses.add(
-          new LoadingFailedCause(label, new NoSuchTargetException(target).getMessage()));
+      FailureDetail failureDetail = pkg.contextualizeFailureDetailForTarget(target);
+      transitiveRootCauses.add(new LoadingFailedCause(label, DetailedExitCode.of(failureDetail)));
     }
     if (transitivePackagesForPackageRootResolution != null) {
       transitivePackagesForPackageRootResolution.add(pkg);
     }
-    if (target.isConfigurable() != (configuredTargetKey.getConfigurationKey() != null)) {
+    if (target.isConfigurable() == (configuredTargetKey.getConfigurationKey() == null)) {
       // We somehow ended up in a target that requires a non-null configuration as a dependency of
       // one that requires a null configuration or the other way round. This is always an error, but
       // we need to analyze the dependencies of the latter target to realize that. Short-circuit the

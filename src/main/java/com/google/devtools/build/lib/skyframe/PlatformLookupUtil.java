@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.ValueOrException;
@@ -225,6 +226,11 @@ public class PlatformLookupUtil {
 
     InvalidPlatformException(Label label, String error) {
       super(formatError(label, error));
+    }
+
+    @Override
+    protected Code getDetailedCode() {
+      return Code.INVALID_PLATFORM_VALUE;
     }
 
     private static String formatError(Label label, String error) {

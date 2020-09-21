@@ -393,7 +393,7 @@ public final class AspectFunction implements SkyFunction {
         } catch (ToolchainException e) {
           // TODO(katre): better error handling
           throw new AspectCreationException(
-              e.getMessage(), new LabelCause(key.getLabel(), e.getMessage()));
+              e.getMessage(), new LabelCause(key.getLabel(), e.getDetailedExitCode()));
         }
       }
       if (env.valuesMissing()) {
@@ -498,7 +498,7 @@ public final class AspectFunction implements SkyFunction {
     } catch (ToolchainException e) {
       throw new AspectFunctionException(
           new AspectCreationException(
-              e.getMessage(), new LabelCause(key.getLabel(), e.getMessage())));
+              e.getMessage(), new LabelCause(key.getLabel(), e.getDetailedExitCode())));
     }
   }
 

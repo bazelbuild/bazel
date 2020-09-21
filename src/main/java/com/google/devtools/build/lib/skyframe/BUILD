@@ -2551,6 +2551,12 @@ java_library(
 java_library(
     name = "toolchain_exception",
     srcs = ["ToolchainException.java"],
+    deps = [
+        ":detailed_exceptions",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
+    ],
 )
 
 java_library(

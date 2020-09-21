@@ -79,6 +79,7 @@ import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingFileArtifa
 import com.google.devtools.build.lib.skyframe.ArtifactNestedSetFunction.ArtifactNestedSetEvalException;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionPostprocessing;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -951,7 +952,7 @@ public class ActionExecutionFunction implements SkyFunction {
             String.format(
                 "%s: %s",
                 actionForError.getOwner().getLabel(),
-                ArtifactFunction.makeMissingInputFileMessage(input, e)),
+                ArtifactFunction.makeIOExceptionInputFileMessage(input, e)),
             actionForError,
             null);
         // We don't create a specific cause for the artifact as we do in #handleMissingFile because
@@ -1208,9 +1209,9 @@ public class ActionExecutionFunction implements SkyFunction {
         }
         if (mandatory) {
           missingArtifactCauses.add(
-              handleMissingFile(
+              createLabelCause(
                   input,
-                  ArtifactFunction.makeMissingInputFileMessage(input, e),
+                  ArtifactFunction.makeIOExceptionSourceInputFileValue(input, e),
                   action.getOwner().getLabel()));
           continue;
         }
@@ -1236,7 +1237,7 @@ public class ActionExecutionFunction implements SkyFunction {
       if (value instanceof MissingFileArtifactValue) {
         if (mandatory) {
           missingArtifactCauses.add(
-              handleMissingFile(
+              createLabelCause(
                   input, (MissingFileArtifactValue) value, action.getOwner().getLabel()));
           continue;
         } else {
@@ -1378,23 +1379,18 @@ public class ActionExecutionFunction implements SkyFunction {
         topLevelFilesets);
   }
 
-  static LabelCause handleMissingFile(
+  static LabelCause createLabelCause(
       Artifact input, MissingFileArtifactValue missingValue, Label labelInCaseOfBug) {
-    return handleMissingFile(input, missingValue.getException().getMessage(), labelInCaseOfBug);
-  }
-
-  private static LabelCause handleMissingFile(
-      Artifact input, String missingMessage, Label labelInCaseOfBug) {
     Label inputLabel = input.getOwner();
     if (inputLabel == null) {
       BugReport.sendBugReport(
           new IllegalStateException(
               String.format(
                   "Artifact %s with missing value %s should have owner (%s)",
-                  input, missingMessage, labelInCaseOfBug)));
+                  input, missingValue.getMessage(), labelInCaseOfBug)));
       inputLabel = labelInCaseOfBug;
     }
-    return new LabelCause(inputLabel, missingMessage);
+    return new LabelCause(inputLabel, missingValue.getDetailedExitCode());
   }
 
   @Override
@@ -1620,7 +1616,7 @@ public class ActionExecutionFunction implements SkyFunction {
     }
 
     void accumulateMissingFileArtifactValue(Artifact input, MissingFileArtifactValue value) {
-      missingArtifactCauses.add(handleMissingFile(input, value, action.getOwner().getLabel()));
+      missingArtifactCauses.add(createLabelCause(input, value, action.getOwner().getLabel()));
     }
 
     /** @throws ActionExecutionException if there is any accumulated exception from the inputs. */
@@ -1682,9 +1678,9 @@ public class ActionExecutionFunction implements SkyFunction {
 
       if (isMandatory(input)) {
         missingArtifactCauses.add(
-            handleMissingFile(
+            createLabelCause(
                 input,
-                ArtifactFunction.makeMissingInputFileMessage(input, e),
+                ArtifactFunction.makeIOExceptionSourceInputFileValue(input, e),
                 action.getOwner().getLabel()));
       }
     }
@@ -1692,14 +1688,17 @@ public class ActionExecutionFunction implements SkyFunction {
 
   private static ActionExecutionException createMissingInputsException(
       Action action, List<LabelCause> missingArtifactCauses) {
-    String message = missingArtifactCauses.size() + " input file(s) do not exist";
-    Code detailedCode = Code.ACTION_INPUT_FILES_MISSING;
+    DetailedExitCode prioritizedDetailedExitCode =
+        missingArtifactCauses.stream()
+            .map(LabelCause::getDetailedExitCode)
+            .max(DetailedExitCodeComparator.INSTANCE)
+            .get();
     return new ActionExecutionException(
-        message,
+        missingArtifactCauses.size() + " input file(s) do not exist",
         action,
         NestedSetBuilder.wrap(Order.STABLE_ORDER, missingArtifactCauses),
         /*catastrophe=*/ false,
-        createDetailedExitCode(message, detailedCode));
+        prioritizedDetailedExitCode);
   }
 
   private static DetailedExitCode createDetailedExitCode(String message, Code detailedCode) {

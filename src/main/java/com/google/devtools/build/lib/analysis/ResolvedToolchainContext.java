@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ToolchainException;
 import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
@@ -208,6 +209,11 @@ public abstract class ResolvedToolchainContext implements ToolchainContextApi, T
                   + ToolchainInfo.STARLARK_NAME,
               toolchainType.typeLabel(),
               resolvedTargetLabel));
+    }
+
+    @Override
+    protected Code getDetailedCode() {
+      return Code.MISSING_PROVIDER;
     }
   }
 }
