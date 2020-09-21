@@ -135,6 +135,42 @@ tasks:
       - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     test_targets:
       - "//src/test/shell/bazel:cc_integration_test"
+  ubuntu2004:
+    shards: 4
+    shell_commands:
+      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
+        android_ndk_repository/android_ndk_repository/' WORKSPACE
+      - rm -f WORKSPACE.bak
+      - rm -rf $HOME/bazeltest
+      - mkdir $HOME/bazeltest
+    build_flags:
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
+    build_targets:
+      - "//src:bazel"
+      - "//src:bazel_jdk_minimal"
+      - "//src:test_repos"
+    test_flags:
+      - "--sandbox_default_allow_network=false"
+      - "--sandbox_writable_path=$HOME/bazeltest"
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      # Configure and enable tests that require access to the network.
+      - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
+    test_targets:
+      - "//scripts/..."
+      - "//src/java_tools/..."
+      - "//src/test/..."
+      - "//src/tools/execlog/..."
+      - "//src/tools/singlejar/..."
+      - "//src/tools/workspacelog/..."
+      - "//third_party/ijar/..."
+      - "//tools/android/..."
+      - "//tools/aquery_differ/..."
+      - "//tools/python/..."
+      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
+      - "-//src/java_tools/import_deps_checker/..."
   macos:
     shards: 5
     shell_commands:
