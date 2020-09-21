@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.query2.aquery.ActionGraphProtoV2OutputForma
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
+import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
@@ -153,7 +154,8 @@ public class BuildTool {
         if (!"build".equals(request.getCommandName()) && !"test".equals(request.getCommandName())) {
           throw new InvalidConfigurationException(
               "The experimental setting to select multiple CPUs is only supported for 'build' and "
-              + "'test' right now!");
+                  + "'test' right now!",
+              BuildConfiguration.Code.MULTI_CPU_PREREQ_UNMET);
         }
       }
 
@@ -443,7 +445,7 @@ public class BuildTool {
       detailedExitCode = DetailedExitCode.success();
       reportExceptionError(e);
     } catch (InvalidConfigurationException e) {
-      detailedExitCode = DetailedExitCode.justExitCode(ExitCode.COMMAND_LINE_ERROR);
+      detailedExitCode = e.getDetailedExitCode();
       reportExceptionError(e);
       // TODO(gregce): With "global configurations" we cannot tie a configuration creation failure
       // to a single target and have to halt the entire build. Once configurations are genuinely
@@ -570,7 +572,7 @@ public class BuildTool {
    * settings that conflict.
    */
   @VisibleForTesting
-  public void validateOptions(BuildRequest request) throws InvalidConfigurationException {
+  public void validateOptions(BuildRequest request) {
     for (String issue : request.validateOptions()) {
       getReporter().handle(Event.warn(issue));
     }

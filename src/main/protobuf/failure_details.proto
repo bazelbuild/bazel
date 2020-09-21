@@ -545,15 +545,20 @@ message CanonicalizeFlags {
 // instead generally belong in the category for the subsystem whose flag values
 // participate in the constraint.
 message BuildConfiguration {
-  // TODO(mschaller): many more codes should be added to represent different
-  // configuration-related failure modes. See InvalidConfigurationException.
   enum Code {
-    BUILD_CONFIGURATION_UNKNOWN = 0 [(metadata) = { exit_code: 2 }];
+    BUILD_CONFIGURATION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     PLATFORM_MAPPING_EVALUATION_FAILURE = 1 [(metadata) = { exit_code: 2 }];
     PLATFORM_MAPPINGS_FILE_IS_DIRECTORY = 2 [(metadata) = { exit_code: 1 }];
     PLATFORM_MAPPINGS_FILE_NOT_FOUND = 3 [(metadata) = { exit_code: 1 }];
     TOP_LEVEL_CONFIGURATION_CREATION_FAILURE = 4
         [(metadata) = { exit_code: 1 }];
+    INVALID_CONFIGURATION = 5 [(metadata) = { exit_code: 2 }];
+    INVALID_BUILD_OPTIONS = 6 [(metadata) = { exit_code: 2 }];
+    MULTI_CPU_PREREQ_UNMET = 7 [(metadata) = { exit_code: 2 }];
+    HEURISTIC_INSTRUMENTATION_FILTER_INVALID = 8
+        [(metadata) = { exit_code: 2 }];
+    CYCLE = 9 [(metadata) = { exit_code: 2 }];
+    CONFLICTING_CONFIGURATIONS = 10 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;

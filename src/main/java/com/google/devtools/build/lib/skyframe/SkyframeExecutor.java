@@ -1516,7 +1516,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         ErrorSensingEventHandler.withoutPropertyValueTracking(eventHandler);
     topLevelTargetConfigs.forEach(config -> config.reportInvalidOptions(nosyEventHandler));
     if (nosyEventHandler.hasErrors()) {
-      throw new InvalidConfigurationException("Build options are invalid");
+      throw new InvalidConfigurationException(
+          "Build options are invalid", Code.INVALID_BUILD_OPTIONS);
     }
     return new BuildConfigurationCollection(topLevelTargetConfigs, hostConfig);
   }
@@ -1952,12 +1953,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       Throwable e = error.getException();
       // Wrap loading failed exceptions
       if (e instanceof NoSuchThingException) {
-        e = new InvalidConfigurationException(e);
+        e = new InvalidConfigurationException(((NoSuchThingException) e).getDetailedExitCode(), e);
       } else if (e == null && !error.getCycleInfo().isEmpty()) {
         getCyclesReporter().reportCycles(error.getCycleInfo(), firstError.getKey(), eventHandler);
         e =
             new InvalidConfigurationException(
-                "cannot load build configuration because of this cycle");
+                "cannot load build configuration because of this cycle", Code.CYCLE);
       }
       if (e != null) {
         Throwables.throwIfInstanceOf(e, InvalidConfigurationException.class);
@@ -2135,7 +2136,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           depFragments,
           BuildOptions.diffForReconstruction(defaultBuildOptions, toOption));
     } catch (OptionsParsingException e) {
-      throw new InvalidConfigurationException(e);
+      throw new InvalidConfigurationException(Code.INVALID_BUILD_OPTIONS, e);
     }
   }
 
@@ -2962,9 +2963,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), key, eventHandler);
         e =
             new InvalidConfigurationException(
-                "cannot load build configuration because of this cycle");
+                "cannot load build configuration because of this cycle", Code.CYCLE);
       } else if (e instanceof NoSuchThingException) {
-        e = new InvalidConfigurationException(e);
+        e = new InvalidConfigurationException(((NoSuchThingException) e).getDetailedExitCode(), e);
       }
       if (e != null) {
         Throwables.throwIfInstanceOf(e, InvalidConfigurationException.class);
