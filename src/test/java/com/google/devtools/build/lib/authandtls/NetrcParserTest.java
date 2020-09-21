@@ -33,11 +33,11 @@ import org.junit.runners.JUnit4;
 public class NetrcParserTest {
 
   private final static String fooMachine = "foo.example.org";
-  private final static Credential fooCredential = Credential.builder("foo.example.org")
+  private final static Credential fooCredential = Credential.builder(fooMachine)
       .setLogin("foouser")
       .setPassword("foopass").build();
   private final static String barMachine = "bar.example.org";
-  private final static Credential barCredential = Credential.builder("bar.example.org")
+  private final static Credential barCredential = Credential.builder(barMachine)
       .setLogin("baruser")
       .setPassword("barpass").build();
   private final static Credential defaultCredential = Credential.builder("default")
