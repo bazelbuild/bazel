@@ -192,7 +192,7 @@ public final class AnalysisUtils {
       ExtendedEventHandler eventHandler,
       ConfiguredRuleClassProvider ruleClassProvider,
       ConfigurationsCollector configurationsCollector)
-      throws InvalidConfigurationException {
+      throws InvalidConfigurationException, InterruptedException {
     // We use a hash set here to remove duplicate nodes; this can happen for input files and package
     // groups.
     LinkedHashSet<TargetAndConfiguration> nodes = new LinkedHashSet<>(targets.size());

@@ -49,7 +49,7 @@ public class ComposingTransitionFactoryTest {
   }
 
   @Test
-  public void compose_patch_patch() {
+  public void compose_patch_patch() throws Exception {
     // Same flag, will overwrite.
     TransitionFactory<StubData> composed =
         ComposingTransitionFactory.of(
@@ -72,7 +72,7 @@ public class ComposingTransitionFactoryTest {
   }
 
   @Test
-  public void compose_patch_split() {
+  public void compose_patch_split() throws Exception {
     // Different flags, will combine.
     TransitionFactory<StubData> composed =
         ComposingTransitionFactory.of(
@@ -100,7 +100,7 @@ public class ComposingTransitionFactoryTest {
   }
 
   @Test
-  public void compose_split_patch() {
+  public void compose_split_patch() throws Exception {
     // Different flags, will combine.
     TransitionFactory<StubData> composed =
         ComposingTransitionFactory.of(

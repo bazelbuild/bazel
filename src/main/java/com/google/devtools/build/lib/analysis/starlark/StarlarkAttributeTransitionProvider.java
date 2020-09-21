@@ -105,7 +105,7 @@ public class StarlarkAttributeTransitionProvider
      */
     @Override
     public final Map<String, BuildOptions> split(
-        BuildOptionsView buildOptionsView, EventHandler eventHandler) {
+        BuildOptionsView buildOptionsView, EventHandler eventHandler) throws InterruptedException {
       // Starlark transitions already have logic to enforce they only access declared inputs and
       // outputs. Rather than complicate BuildOptionsView with more access points to BuildOptions,
       // we just use the original BuildOptions and trust the transition's enforcement logic.
@@ -113,13 +113,6 @@ public class StarlarkAttributeTransitionProvider
       try {
         return applyAndValidate(
             buildOptions, starlarkDefinedConfigTransition, attrObject, eventHandler);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        eventHandler.handle(
-            Event.error(
-                starlarkDefinedConfigTransition.getLocationForErrorReporting(),
-                "Starlark transition interrupted during attribute transition implementation"));
-        return ImmutableMap.of("error", buildOptions.clone());
       } catch (EvalException e) {
         eventHandler.handle(
             Event.error(

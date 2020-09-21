@@ -1984,7 +1984,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   @Override
   public ConfigurationsResult getConfigurations(
       ExtendedEventHandler eventHandler, BuildOptions fromOptions, Iterable<DependencyKey> keys)
-      throws InvalidConfigurationException {
+      throws InvalidConfigurationException, InterruptedException {
     ConfigurationsResult.Builder builder = ConfigurationsResult.newBuilder();
     Set<DependencyKey> depsToEvaluate = new HashSet<>();
 

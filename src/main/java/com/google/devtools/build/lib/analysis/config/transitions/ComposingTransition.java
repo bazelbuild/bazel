@@ -65,7 +65,8 @@ public class ComposingTransition implements ConfigurationTransition {
   }
 
   @Override
-  public Map<String, BuildOptions> apply(BuildOptionsView buildOptions, EventHandler eventHandler) {
+  public Map<String, BuildOptions> apply(BuildOptionsView buildOptions, EventHandler eventHandler)
+      throws InterruptedException {
     ImmutableMap.Builder<String, BuildOptions> toOptions = ImmutableMap.builder();
     Map<String, BuildOptions> transition1Output =
         transition1.apply(
