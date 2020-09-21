@@ -25,6 +25,10 @@ import build.bazel.remote.execution.v2.DigestFunction.Value;
 import build.bazel.remote.execution.v2.ExecutionCapabilities;
 import build.bazel.remote.execution.v2.GetCapabilitiesRequest;
 import build.bazel.remote.execution.v2.ServerCapabilities;
+import com.google.auth.Credentials;
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -46,6 +50,7 @@ import com.google.devtools.build.lib.runtime.commands.BuildCommand;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
@@ -58,7 +63,12 @@ import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
 import java.io.IOException;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -441,5 +451,92 @@ public class RemoteModuleTest {
       cacheServer.shutdownNow();
       cacheServer.awaitTermination();
     }
+  }
+
+  @Test
+  public void testNetrc_shouldWorkWithEmptyClientEnv() throws Exception {
+    Map<String, String> clientEnv = ImmutableMap.of();
+    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
+
+    Credentials credentials = RemoteModule.newCredentialsFromNetrc(clientEnv, fileSystem);
+
+    assertThat(credentials).isNull();
+  }
+
+  @Test
+  public void testNetrc_shouldIgnoreNetrcIfNotExist() throws Exception {
+    String home = "/home/foo";
+    Map<String, String> clientEnv = ImmutableMap.of("HOME", home);
+    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
+
+    Credentials credentials = RemoteModule.newCredentialsFromNetrc(clientEnv, fileSystem);
+
+    assertThat(credentials).isNull();
+  }
+
+  @Test
+  public void testNetrc_shouldUseNetrcFromHome() throws Exception {
+    String home = "/home/foo";
+    Map<String, String> clientEnv = ImmutableMap.of("HOME", home);
+    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Scratch scratch = new Scratch(fileSystem);
+    scratch.file(home + "/.netrc", "machine foo.example.org login foouser password foopass");
+
+    Credentials credentials = RemoteModule.newCredentialsFromNetrc(clientEnv, fileSystem);
+
+    assertThat(credentials).isNotNull();
+    assertThat(credentials.getRequestMetadata(URI.create("https://foo.example.org")))
+        .isEqualTo(requestMetadata("foouser", "foopass"));
+  }
+
+  @Test
+  public void testNetrc_shouldUseNetrcFromNetrc() throws Exception {
+    String home = "/home/foo";
+    String netrc = "/.netrc";
+    Map<String, String> clientEnv = ImmutableMap.of("HOME", home, "NETRC", netrc);
+    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Scratch scratch = new Scratch(fileSystem);
+    scratch.file(home + "/.netrc", "machine foo.example.org login foouser password foopass");
+    scratch.file(netrc, "machine foo.example.org login baruser password barpass");
+
+    Credentials credentials = RemoteModule.newCredentialsFromNetrc(clientEnv, fileSystem);
+
+    assertThat(credentials).isNotNull();
+    assertThat(credentials.getRequestMetadata(URI.create("https://foo.example.org")))
+        .isEqualTo(requestMetadata("baruser", "barpass"));
+  }
+
+  @Test
+  public void testNetrc_shouldIgnoreIfNetrcFromNetrcNotExist() throws Exception {
+    String home = "/home/foo";
+    String netrc = "/.netrc";
+    Map<String, String> clientEnv = ImmutableMap.of("HOME", home, "NETRC", netrc);
+    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Scratch scratch = new Scratch(fileSystem);
+    scratch.file(home + "/.netrc", "machine foo.example.org login foouser password foopass");
+
+    Credentials credentials = RemoteModule.newCredentialsFromNetrc(clientEnv, fileSystem);
+
+    assertThat(credentials).isNull();
+  }
+
+  private static String basicAuthenticationToken(String username, String password) {
+    StringBuilder sb = new StringBuilder();
+    if (!Strings.isNullOrEmpty(username)) {
+      sb.append(username);
+    }
+    sb.append(":");
+    if (!Strings.isNullOrEmpty(password)) {
+      sb.append(password);
+    }
+    return "Basic " + Base64.getEncoder()
+        .encodeToString(sb.toString().getBytes(StandardCharsets.UTF_8));
+  }
+
+  private static Map<String, List<String>> requestMetadata(String username, String password) {
+    return ImmutableMap.of(
+        "Authorization",
+        ImmutableList.of(basicAuthenticationToken(username, password))
+    );
   }
 }

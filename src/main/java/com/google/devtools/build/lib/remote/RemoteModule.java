@@ -87,6 +87,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
@@ -98,6 +99,7 @@ import io.grpc.ManagedChannel;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executors;
@@ -258,7 +260,7 @@ public final class RemoteModule extends BlazeModule {
 
         // Fallback to .netrc if it exists
         if (creds == null) {
-          creds = newCredentialsFromNetrc(env);
+          creds = newCredentialsFromNetrc(env.getClientEnv(), env.getRuntime().getFileSystem());
 
           if (creds != null && Ascii.toLowerCase(remoteOptions.remoteCache).startsWith("http://")) {
             env.getReporter().handle(Event.warn(
@@ -402,7 +404,8 @@ public final class RemoteModule extends BlazeModule {
       // Fallback to .netrc if it exists
       if (callCredentialsProvider == CallCredentialsProvider.NO_CREDENTIALS) {
         callCredentialsProvider = GoogleAuthUtils
-            .newCallCredentialsProvider(newCredentialsFromNetrc(env));
+            .newCallCredentialsProvider(
+                newCredentialsFromNetrc(env.getClientEnv(), env.getRuntime().getFileSystem()));
       }
     } catch (IOException e) {
       handleInitFailure(env, e, Code.CREDENTIALS_INIT_FAILURE);
@@ -949,10 +952,12 @@ public final class RemoteModule extends BlazeModule {
     return actionContextProvider;
   }
 
-  private Credentials newCredentialsFromNetrc(CommandEnvironment env) throws IOException {
-    String netrcFileString = env.getClientEnv().get("NETRC");
+  @VisibleForTesting
+  static Credentials newCredentialsFromNetrc(Map<String, String> clientEnv,
+      FileSystem fileSystem) throws IOException {
+    String netrcFileString = clientEnv.get("NETRC");
     if (netrcFileString == null) {
-      String home = env.getClientEnv().get("HOME");
+      String home = clientEnv.get("HOME");
       if (home != null) {
         netrcFileString = home + "/.netrc";
       }
@@ -961,7 +966,7 @@ public final class RemoteModule extends BlazeModule {
       return null;
     }
 
-    Path netrcFile = env.getRuntime().getFileSystem().getPath(netrcFileString);
+    Path netrcFile = fileSystem.getPath(netrcFileString);
     if (netrcFile.exists()) {
       try {
         Netrc netrc = NetrcParser.parseAndClose(netrcFile.getInputStream());
