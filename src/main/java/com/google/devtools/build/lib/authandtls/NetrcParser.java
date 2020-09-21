@@ -31,7 +31,12 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
-/** A parser used to parse .netrc content */
+/**
+ * A parser used to parse .netrc content.
+ *
+ * @see <a href="https://man.cx/netrc(4)">netrc − file for ftp remote login data</a>
+ *
+ */
 public class NetrcParser {
   private final static String MACHINE = "machine";
   private final static String MACDEF = "macdef";

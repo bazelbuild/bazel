@@ -20,8 +20,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import javax.annotation.Nullable;
 
+/** The content of a .netrc file. */
 public class Netrc {
-
   @Nullable
   private final Credential defaultCredential;
   private final ImmutableMap<String, Credential> credentials;
