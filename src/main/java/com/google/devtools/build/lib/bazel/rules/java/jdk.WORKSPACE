@@ -203,10 +203,10 @@ maybe(
 maybe(
     http_archive,
     name = "remote_java_tools_linux",
-    sha256 = "0be37f4227590ecb6bc929a6a7e427c65e6239363e4c3b28b1a211718b9636c9",
+    sha256 = "69e65353c2cd65780abcbcce4daae973599298273b0f8b4d469eed822cb220d1",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v9.0/java_tools_javac11_linux-v9.0.zip",
-        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v9.0/java_tools_javac11_linux-v9.0.zip",
+        "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac11/v10.0/java_tools_javac11_linux-v10.0-rc1.zip",
+        "https://github.com/bazelbuild/java_tools/release_candidates/download/javac11_v10.0/java_tools_javac11_linux-v10.0-rc1.zip",
     ],
 )
 
@@ -214,10 +214,10 @@ maybe(
 maybe(
     http_archive,
     name = "remote_java_tools_windows",
-    sha256 = "14b679e3bf6a7b4aec36dc33f15ad0027aef43f1bc92e1e2f5abf3a93c156bb5",
+    sha256 = "d2f62af8daa0a3d55789b605f6582e37038329c64843337c71e64515468e55c4",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v9.0/java_tools_javac11_windows-v9.0.zip",
-        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v9.0/java_tools_javac11_windows-v9.0.zip",
+        "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac11/v10.0/java_tools_javac11_windows-v10.0-rc1.zip",
+        "https://github.com/bazelbuild/java_tools/release_candidates/download/javac11_v10.0/java_tools_javac11_windows-v10.0-rc1.zip",
     ],
 )
 
@@ -225,10 +225,10 @@ maybe(
 maybe(
     http_archive,
     name = "remote_java_tools_darwin",
-    sha256 = "567f5fe77e0c561b454930dea412899543849510f48f9c092dfcff8192b4086f",
+    sha256 = "64e5de2175dfccb96831573946b80d106edf3801d9db38b564514bf3581d466b",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v9.0/java_tools_javac11_darwin-v9.0.zip",
-        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v9.0/java_tools_javac11_darwin-v9.0.zip",
+        "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac11/v10.0/java_tools_javac11_darwin-v10.0-rc1.zip",
+        "https://github.com/bazelbuild/java_tools/release_candidates/download/javac11_v10.0/java_tools_javac11_darwin-v10.0-rc1.zip",
     ],
 )
 
