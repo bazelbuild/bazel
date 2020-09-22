@@ -15,6 +15,7 @@
 package net.starlark.java.eval;
 
 import com.google.common.base.Ascii;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
@@ -171,13 +172,15 @@ class MethodLibrary {
         @Override
         public int compare(Object x, Object y) {
           try {
-            return EvalUtils.STARLARK_COMPARATOR.compare(callKeyFunc(x), callKeyFunc(y));
+            x = callKeyFunc(x);
+            y = callKeyFunc(y);
           } catch (InterruptedException | EvalException e) {
             if (this.e == null) {
               this.e = e;
             }
-            return 0;
+            return 0; // may cause Arrays.sort to fail; see below
           }
+          return EvalUtils.STARLARK_COMPARATOR.compare(x, y); // throws ComparisonException
         }
 
         Object callKeyFunc(Object x) throws EvalException, InterruptedException {
@@ -190,12 +193,27 @@ class MethodLibrary {
         Arrays.sort(array, comp);
       } catch (EvalUtils.ComparisonException e) {
         throw Starlark.errorf("%s", e.getMessage());
+      } catch (IllegalArgumentException ex) {
+        // Arrays.sort failed because comp violated the Comparator contract.
+
+        if (comp.e == null) {
+          // There was no exception from callKeyFunc.
+          // The instability must be due to
+          // - an impure (e.g. time-varying) key function, or
+          // - STARLARK_COMPARATOR not being a total order for these values.
+          // Report an evaluation error.
+          throw Starlark.errorf("sort: unstable comparison (inconsistent key function?)");
+        }
+
+        // The key function encountered an evaluation error
+        // or thread interrupt, causing the comparison to
+        // spuriously return 0.
+        // Fall through, and propagate the error.
       }
 
+      // Sort completed, possibly with deferred errors.
       if (comp.e != null) {
-        if (comp.e instanceof InterruptedException) {
-          throw (InterruptedException) comp.e;
-        }
+        Throwables.throwIfInstanceOf(comp.e, InterruptedException.class);
         throw (EvalException) comp.e;
       }
     } else {
