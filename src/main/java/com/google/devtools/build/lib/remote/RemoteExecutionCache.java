@@ -38,7 +38,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /** A {@link RemoteCache} with additional functionality needed for remote execution. */
 public class RemoteExecutionCache extends RemoteCache {
-  private final ConcurrentHashMap<Digest, ListenableFuture<Void>> uploadFutures = new ConcurrentHashMap<>();
 
   public RemoteExecutionCache(
       RemoteCacheClient protocolImpl, RemoteOptions options, DigestUtil digestUtil) {
