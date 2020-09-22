@@ -40,14 +40,14 @@ public @interface Param {
    *
    * <p>If the function implementation needs to distinguish the case where the caller does not
    * supply a value for this parameter, you can set the default to the magic string "unbound", which
-   * maps to the sentinal object {@link com.google.devtools.build.lib.syntax.Starlark#UNBOUND}
-   * (which can't appear in normal Starlark code).
+   * maps to the sentinal object {@link net.starlark.java.eval.Starlark#UNBOUND} (which can't appear
+   * in normal Starlark code).
    */
   String defaultValue() default "";
 
   /**
    * Type of the parameter, e.g. {@link String}.class or {@link
-   * com.google.devtools.build.lib.syntax.Sequence}.class.
+   * net.starlark.java.eval.Sequence}.class.
    */
   Class<?> type() default Object.class;
 
@@ -59,10 +59,9 @@ public @interface Param {
   ParamType[] allowedTypes() default {};
 
   /**
-   * When {@link #type()} is a generic type (e.g., {@link
-   * com.google.devtools.build.lib.syntax.Sequence}), specify the type parameter (e.g. {@link
-   * String}.class} along with {@link com.google.devtools.build.lib.syntax.Sequence} for {@link
-   * #type()} to specify a list of strings).
+   * When {@link #type()} is a generic type (e.g., {@link net.starlark.java.eval.Sequence}), specify
+   * the type parameter (e.g. {@link String}.class} along with {@link
+   * net.starlark.java.eval.Sequence} for {@link #type()} to specify a list of strings).
    *
    * <p>This is only used for documentation generation. The actual generic type is not checked at
    * runtime, so the Java method signature should use a generic type of Object and cast

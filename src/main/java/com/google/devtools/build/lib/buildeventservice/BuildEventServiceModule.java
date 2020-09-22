@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.network.ConnectivityStatusProvider;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory;
 import com.google.devtools.build.lib.runtime.BuildEventStreamer;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CountingArtifactGroupNamer;
@@ -101,6 +102,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   private AuthAndTLSOptions authTlsOptions;
   private BuildEventStreamOptions besStreamOptions;
   private boolean isRunsPerTestOverTheLimit;
+  private BuildEventArtifactUploaderFactory uploaderFactoryToCleanup;
 
   /**
    * Holds the close futures for the upload of each transport with timeouts attached to them using
@@ -314,25 +316,30 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
             : "local";
 
     CountingArtifactGroupNamer artifactGroupNamer = new CountingArtifactGroupNamer();
-    ThrowingBuildEventArtifactUploaderSupplier uploaderSupplier =
-        new ThrowingBuildEventArtifactUploaderSupplier(
-            () ->
-                cmdEnv
-                    .getRuntime()
-                    .getBuildEventArtifactUploaderFactoryMap()
-                    .select(buildEventUploadStrategy)
-                    .create(cmdEnv));
 
     // We need to wait for the previous invocation before we check the whitelist of commands to
     // allow completing previous runs using BES, for example:
     //   bazel build (..run with async BES..)
     //   bazel info <-- Doesn't run with BES unless we wait before checking the whitelist.
-    waitForPreviousInvocation("shutdown".equals(cmdEnv.getCommandName()));
+    boolean commandIsShutdown = "shutdown".equals(cmdEnv.getCommandName());
+    waitForPreviousInvocation(commandIsShutdown);
+    if (commandIsShutdown && uploaderFactoryToCleanup != null) {
+      uploaderFactoryToCleanup.shutdown();
+    }
 
     if (!whitelistedCommands(besOptions).contains(cmdEnv.getCommandName())) {
       // Exit early if the running command isn't supported.
       return;
     }
+
+    BuildEventArtifactUploaderFactory uploaderFactory =
+        cmdEnv
+            .getRuntime()
+            .getBuildEventArtifactUploaderFactoryMap()
+            .select(buildEventUploadStrategy);
+    ThrowingBuildEventArtifactUploaderSupplier uploaderSupplier =
+        new ThrowingBuildEventArtifactUploaderSupplier(() -> uploaderFactory.create(cmdEnv));
+    this.uploaderFactoryToCleanup = uploaderFactory;
 
     try {
       bepTransports = createBepTransports(cmdEnv, uploaderSupplier, artifactGroupNamer);
@@ -415,6 +422,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     if (streamer != null) {
       googleLogger.atWarning().log("Attempting to close BES streamer on crash");
       forceShutdownBuildEventStreamer();
+      uploaderFactoryToCleanup.shutdown();
     }
   }
 
@@ -434,6 +442,9 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
           "Encountered Exception when closing BEP transports in Blaze's shutting down sequence");
     } finally {
       cancelAndResetPendingUploads();
+      if (uploaderFactoryToCleanup != null) {
+        uploaderFactoryToCleanup.shutdown();
+      }
     }
   }
 

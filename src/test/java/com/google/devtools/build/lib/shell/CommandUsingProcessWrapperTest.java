@@ -39,8 +39,8 @@ public final class CommandUsingProcessWrapperTest {
   private FileSystem testFS;
 
   @Before
-  public final void createFileSystem() throws Exception {
-    testFS = new UnixFileSystem(DigestHashFunction.SHA256);
+  public final void createFileSystem() {
+    testFS = new UnixFileSystem(DigestHashFunction.SHA256, /*hashAttributeName=*/ "");
   }
 
   private ProcessWrapper getProcessWrapper() {

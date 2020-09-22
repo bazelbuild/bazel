@@ -482,4 +482,17 @@ public class BlazeServerStartupOptions extends OptionsBase {
               + "Requires Windows developer mode to be enabled and Windows 10 version 1703 or "
               + "greater.")
   public boolean enableWindowsSymlinks;
+
+  @Option(
+      name = "unix_digest_hash_attribute_name",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "The name of an extended attribute that can be placed on files to store a precomputed "
+              + "copy of the file's hash, corresponding with --digest_function. This option "
+              + "can be used to reduce disk I/O and CPU load caused by hash computation. This "
+              + "extended attribute is checked on all source files and output files, meaning "
+              + "that it causes a significant number of invocations of the getxattr() system call.")
+  public String unixDigestHashAttributeName;
 }

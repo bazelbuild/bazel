@@ -36,6 +36,9 @@ public abstract class StarlarkMethodDoc extends StarlarkDoc {
     return "";
   }
 
+  /** Returns the annotated Java method. */
+  public abstract Method getMethod();
+
   /** Returns a string containing a name for the method's return type. */
   public String getReturnType() {
     return "";

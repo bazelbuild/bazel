@@ -195,14 +195,23 @@ public final class GoogleAuthUtils {
     return null;
   }
 
+  public static CallCredentialsProvider newCallCredentialsProvider(AuthAndTLSOptions options)
+      throws IOException {
+    Credentials creds = newCredentials(options);
+    if (creds != null) {
+      return new GoogleAuthCallCredentialsProvider(creds);
+    }
+    return CallCredentialsProvider.NO_CREDENTIALS;
+  }
+
   @VisibleForTesting
-  public static CallCredentials newCallCredentials(
+  public static CallCredentialsProvider newCallCredentialsProvider(
       @Nullable InputStream credentialsFile, List<String> authScope) throws IOException {
     Credentials creds = newCredentials(credentialsFile, authScope);
     if (creds != null) {
-      return MoreCallCredentials.from(creds);
+      return new GoogleAuthCallCredentialsProvider(creds);
     }
-    return null;
+    return CallCredentialsProvider.NO_CREDENTIALS;
   }
 
   /**

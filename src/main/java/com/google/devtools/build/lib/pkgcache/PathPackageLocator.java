@@ -133,7 +133,7 @@ public class PathPackageLocator implements Serializable {
       for (BuildFileName buildFileName : buildFilesByPriority) {
         Path buildFile =
             outputBase
-                .getRelative(packageIdentifier.getSourceRoot())
+                .getRelative(packageIdentifier.getPackagePath())
                 .getRelative(buildFileName.getFilenameFragment());
         try {
           FileStatus stat = cache.get().statIfFound(buildFile, Symlinks.FOLLOW);

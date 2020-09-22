@@ -55,6 +55,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
@@ -210,10 +211,12 @@ public class GrpcCacheClientTest {
     Scratch scratch = new Scratch();
     scratch.file(authTlsOptions.googleCredentials, new JacksonFactory().toString(json));
 
-    CallCredentials creds;
+    CallCredentialsProvider callCredentialsProvider;
     try (InputStream in = scratch.resolve(authTlsOptions.googleCredentials).getInputStream()) {
-      creds = GoogleAuthUtils.newCallCredentials(in, authTlsOptions.googleAuthScopes);
+      callCredentialsProvider =
+          GoogleAuthUtils.newCallCredentialsProvider(in, authTlsOptions.googleAuthScopes);
     }
+    CallCredentials creds = callCredentialsProvider.getCallCredentials();
 
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
@@ -229,7 +232,7 @@ public class GrpcCacheClientTest {
         new ByteStreamUploader(
             remoteOptions.remoteInstanceName,
             channel.retain(),
-            creds,
+            callCredentialsProvider,
             remoteOptions.remoteTimeout.getSeconds(),
             retrier);
     return new GrpcCacheClient(

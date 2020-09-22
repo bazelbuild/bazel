@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -111,7 +112,8 @@ public class FileOutErr extends OutErr {
   }
 
   /**
-   * Returns the {@link Path} this OutErr uses to buffer stdout
+   * Returns the path this OutErr uses to buffer stdout, marking the file as "accessed" because the
+   * caller has unrestricted access to the underlying file.
    *
    * <p>The user must ensure that no other process is writing to the files at time of creation.
    *
@@ -121,18 +123,39 @@ public class FileOutErr extends OutErr {
     return getFileOutputStream().getFile();
   }
 
+  /**
+   * Returns the path this OutErr uses to buffer stdout without marking the file as "accessed".
+   *
+   * <p>The user must ensure that no other process is writing to the files at time of creation.
+   *
+   * @return the path object with the contents of stdout
+   */
+  public PathFragment getOutputPathFragment() {
+    return getFileOutputStream().getFileUnsafe().asFragment();
+  }
+
   /** Returns the length of the stdout contents. */
   public long outSize() throws IOException {
     return getFileOutputStream().getRecordedOutputSize();
   }
 
   /**
-   * Returns the {@link Path} this OutErr uses to buffer stderr.
+   * Returns the path this OutErr uses to buffer stderr, marking the file as "accessed" because the
+   * caller has unrestricted access to the underlying file.
    *
    * @return the path object with the contents of stderr
    */
   public Path getErrorPath() {
     return getFileErrorStream().getFile();
+  }
+
+  /**
+   * Returns the path this OutErr uses to buffer stderr without marking the file as "accessed".
+   *
+   * @return the path object with the contents of stderr
+   */
+  public PathFragment getErrorPathFragment() {
+    return getFileErrorStream().getFileUnsafe().asFragment();
   }
 
   public byte[] outAsBytes() {

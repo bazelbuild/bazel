@@ -108,7 +108,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -293,7 +292,6 @@ public abstract class BuildIntegrationTestCase {
     return FileSystems.getNativeFileSystem(getDigestHashFunction());
   }
 
-  @ForOverride
   protected DigestHashFunction getDigestHashFunction() {
     return DigestHashFunction.SHA256;
   }

@@ -19,6 +19,7 @@ import java.lang.reflect.Method;
 import javax.annotation.Nullable;
 
 /** Helpers for accessing Starlark interface annotations. */
+// TODO(adonovan): make this private, and move methods to Starlark{Builtin,Method}.
 public class StarlarkInterfaceUtils {
 
   /**
@@ -107,15 +108,6 @@ public class StarlarkInterfaceUtils {
   }
 
   /**
-   * Searches {@code classObj}'s class hierarchy and for a superclass or interface that is annotated
-   * with {@link StarlarkGlobalLibrary} (including possibly {@code classObj} itself), and returns
-   * true if one is found.
-   */
-  public static boolean hasStarlarkGlobalLibrary(Class<?> classObj) {
-    return findAnnotatedAncestor(classObj, StarlarkGlobalLibrary.class) != null;
-  }
-
-  /**
    * Returns the {@link StarlarkMethod} annotation for the given method, if it exists, and null
    * otherwise.
    *
@@ -126,7 +118,7 @@ public class StarlarkInterfaceUtils {
    */
   @Nullable
   public static StarlarkMethod getStarlarkMethod(Class<?> classObj, Method method) {
-    StarlarkMethod callable = getCallableOnClassMatchingSignature(classObj, method);
+    StarlarkMethod callable = getAnnotationOnClassMatchingSignature(classObj, method);
     if (callable != null) {
       return callable;
     }
@@ -164,7 +156,7 @@ public class StarlarkInterfaceUtils {
    * in inexact match, but an "assignable" match.
    */
   @Nullable
-  private static StarlarkMethod getCallableOnClassMatchingSignature(
+  private static StarlarkMethod getAnnotationOnClassMatchingSignature(
       Class<?> classObj, Method signatureToMatch) {
     // TODO(b/79877079): This method validates several invariants of @StarlarkMethod. These
     // invariants should be verified in annotation processor or in test, and left out of this

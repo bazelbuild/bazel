@@ -110,33 +110,33 @@ public abstract class JavaHelper {
   public static PathFragment getJavaResourcePath(
       JavaSemantics semantics, RuleContext ruleContext, Artifact resource)
       throws InterruptedException {
-    PathFragment rootRelativePath = resource.getRootRelativePath();
+    PathFragment resourcePath = resource.getPackagePath();
     StarlarkSemantics starlarkSemantics =
         ruleContext.getAnalysisEnvironment().getStarlarkSemantics();
 
     if (!ruleContext.getLabel().getWorkspaceRoot(starlarkSemantics).isEmpty()) {
       PathFragment workspace =
           PathFragment.create(ruleContext.getLabel().getWorkspaceRoot(starlarkSemantics));
-      rootRelativePath = rootRelativePath.relativeTo(workspace);
+      resourcePath = resourcePath.relativeTo(workspace);
     }
 
     if (!ruleContext.attributes().has("resource_strip_prefix", Type.STRING)
         || !ruleContext.attributes().isAttributeValueExplicitlySpecified("resource_strip_prefix")) {
-      return semantics.getDefaultJavaResourcePath(rootRelativePath);
+      return semantics.getDefaultJavaResourcePath(resourcePath);
     }
 
     PathFragment prefix =
         PathFragment.create(ruleContext.attributes().get("resource_strip_prefix", Type.STRING));
 
-    if (!rootRelativePath.startsWith(prefix)) {
+    if (!resourcePath.startsWith(prefix)) {
       ruleContext.attributeError(
           "resource_strip_prefix",
           String.format(
-              "Resource file '%s' is not under the specified prefix to strip", rootRelativePath));
-      return rootRelativePath;
+              "Resource file '%s' is not under the specified prefix to strip", resourcePath));
+      return resourcePath;
     }
 
-    return rootRelativePath.relativeTo(prefix);
+    return resourcePath.relativeTo(prefix);
   }
 
   /**

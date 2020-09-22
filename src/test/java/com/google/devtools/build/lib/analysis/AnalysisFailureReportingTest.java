@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Collection;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -69,11 +70,17 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//foo");
     assertThat(result.hasError()).isTrue();
     Label topLevel = Label.parseAbsoluteUnchecked("//foo");
+
     assertThat(collector.events.keySet()).containsExactly(topLevel);
-    assertThat(collector.events.get(topLevel))
-        .containsExactly(
-            new LoadingFailedCause(
-                topLevel, "Target '//foo:foo' contains an error and its package is in error"));
+
+    Collection<Cause> topLevelCauses = collector.events.get(topLevel);
+    assertThat(topLevelCauses).hasSize(1);
+
+    Cause cause = Iterables.getOnlyElement(topLevelCauses);
+    assertThat(cause).isInstanceOf(LoadingFailedCause.class);
+    assertThat(cause.getLabel()).isEqualTo(topLevel);
+    assertThat(((LoadingFailedCause) cause).getMessage())
+        .isEqualTo("Target '//foo:foo' contains an error and its package is in error");
   }
 
   @Test

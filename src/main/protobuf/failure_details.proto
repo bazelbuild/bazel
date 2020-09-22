@@ -143,6 +143,7 @@ message FailureDetail {
     Worker worker = 173;
     Analysis analysis = 174;
     PackageLoading package_loading = 175;
+    Toolchain toolchain = 177;
   }
 
   reserved 102; // For internal use
@@ -378,7 +379,8 @@ message Execution {
     PERSISTENT_ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE = 6
         [(metadata) = { exit_code: 36 }];
     LOCAL_OUTPUT_DIRECTORY_SYMLINK_FAILURE = 7 [(metadata) = { exit_code: 36 }];
-    ACTION_INPUT_FILES_MISSING = 8 [(metadata) = { exit_code: 1 }];
+    reserved 8;  // was ACTION_INPUT_FILES_MISSING, now mostly
+                 // SOURCE_INPUT_MISSING
     LOCAL_TEMPLATE_EXPANSION_FAILURE = 9 [(metadata) = { exit_code: 36 }];
     INPUT_DIRECTORY_CHECK_IO_EXCEPTION = 10 [(metadata) = { exit_code: 36 }];
     EXTRA_ACTION_OUTPUT_CREATION_FAILURE = 11 [(metadata) = { exit_code: 36 }];
@@ -416,6 +418,7 @@ message Execution {
     SOURCE_INPUT_MISSING = 36 [(metadata) = { exit_code: 1 }];
     UNEXPECTED_EXCEPTION = 37 [(metadata) = { exit_code: 1 }];
     reserved 38;
+    SOURCE_INPUT_IO_EXCEPTION = 39 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -545,15 +548,20 @@ message CanonicalizeFlags {
 // instead generally belong in the category for the subsystem whose flag values
 // participate in the constraint.
 message BuildConfiguration {
-  // TODO(mschaller): many more codes should be added to represent different
-  // configuration-related failure modes. See InvalidConfigurationException.
   enum Code {
-    BUILD_CONFIGURATION_UNKNOWN = 0 [(metadata) = { exit_code: 2 }];
+    BUILD_CONFIGURATION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     PLATFORM_MAPPING_EVALUATION_FAILURE = 1 [(metadata) = { exit_code: 2 }];
     PLATFORM_MAPPINGS_FILE_IS_DIRECTORY = 2 [(metadata) = { exit_code: 1 }];
     PLATFORM_MAPPINGS_FILE_NOT_FOUND = 3 [(metadata) = { exit_code: 1 }];
     TOP_LEVEL_CONFIGURATION_CREATION_FAILURE = 4
         [(metadata) = { exit_code: 1 }];
+    INVALID_CONFIGURATION = 5 [(metadata) = { exit_code: 2 }];
+    INVALID_BUILD_OPTIONS = 6 [(metadata) = { exit_code: 2 }];
+    MULTI_CPU_PREREQ_UNMET = 7 [(metadata) = { exit_code: 2 }];
+    HEURISTIC_INSTRUMENTATION_FILTER_INVALID = 8
+        [(metadata) = { exit_code: 2 }];
+    CYCLE = 9 [(metadata) = { exit_code: 2 }];
+    CONFLICTING_CONFIGURATIONS = 10 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
@@ -1092,6 +1100,8 @@ message Analysis {
     //   resolved loading-phase codes.
     GENERIC_LOADING_PHASE_FAILURE = 2 [(metadata) = { exit_code: 1 }];
     NOT_ALL_TARGETS_ANALYZED = 3 [(metadata) = { exit_code: 1 }];
+    CYCLE = 4 [(metadata) = { exit_code: 1 }];
+    PARAMETERIZED_TOP_LEVEL_ASPECT_INVALID = 5 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -1140,6 +1150,21 @@ message Blueprint {
   enum Code {
     BLUEPRINT_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     UNSUPPORTED_COMMAND = 1 [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+message Toolchain {
+  enum Code {
+    TOOLCHAIN_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    MISSING_PROVIDER = 1 [(metadata) = { exit_code: 1 }];
+    INVALID_CONSTRAINT_VALUE = 2 [(metadata) = { exit_code: 1 }];
+    INVALID_PLATFORM_VALUE = 3 [(metadata) = { exit_code: 1 }];
+    INVALID_TOOLCHAIN = 4 [(metadata) = { exit_code: 1 }];
+    NO_MATCHING_EXECUTION_PLATFORM = 5 [(metadata) = { exit_code: 1 }];
+    NO_MATCHING_TOOLCHAIN = 6 [(metadata) = { exit_code: 1 }];
+    INVALID_TOOLCHAIN_TYPE = 7 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;

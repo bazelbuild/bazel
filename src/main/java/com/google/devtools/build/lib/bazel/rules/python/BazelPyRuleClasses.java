@@ -236,6 +236,7 @@ public final class BazelPyRuleClasses {
               attr("$py_toolchain_type", NODEP_LABEL)
                   .value(env.getToolsLabel("//tools/python:toolchain_type")))
           .addRequiredToolchains(env.getToolsLabel("//tools/python:toolchain_type"))
+          .useToolchainTransition(true)
           .build();
     }
 

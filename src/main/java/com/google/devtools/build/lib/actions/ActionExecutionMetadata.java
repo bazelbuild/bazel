@@ -99,7 +99,7 @@ public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
    * contents are equal to their inputs' contents, and a symlink action does not consume its inputs'
    * contents.
    *
-   * <p>This property is relevant for action rewinding.
+   * <p>This property is relevant for action rewinding and top-level output fetching.
    */
   default boolean mayInsensitivelyPropagateInputs() {
     return false;

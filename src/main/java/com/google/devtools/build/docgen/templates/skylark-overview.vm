@@ -67,11 +67,6 @@ A list of all modules and globals that are available:
 
       <a href="${module.name}.html">${module.name}</a>
 
-
-    #if (${module.deprecated})
-    (Deprecated)
-    #end
-
     </li>
 
 #end
@@ -95,9 +90,6 @@ A list of all modules and globals that are available:
 
       <a href="${module.name}.html">${module.title}</a>
 
-      #if (${module.deprecated})
-      (Deprecated)
-      #end
     </li>
 
   #end

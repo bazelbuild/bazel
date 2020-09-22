@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.Attribute.ValidityPredicate;
-import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory;
@@ -122,7 +121,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         AdvertisedProviderSet.EMPTY,
         null,
         ImmutableSet.<Class<?>>of(),
-        MissingFragmentPolicy.FAIL_ANALYSIS,
         true,
         attr("my-string-attr", STRING).mandatory().build(),
         attr("my-label-attr", LABEL)
@@ -157,7 +155,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         AdvertisedProviderSet.EMPTY,
         null,
         ImmutableSet.<Class<?>>of(),
-        MissingFragmentPolicy.FAIL_ANALYSIS,
         true,
         attributes.toArray(new Attribute[0]));
   }
@@ -285,7 +282,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             AdvertisedProviderSet.EMPTY,
             null,
             ImmutableSet.<Class<?>>of(),
-            MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
             attr("list1", LABEL_LIST).mandatory().legacyAllowAnyFileType().build(),
             attr("list2", LABEL_LIST).mandatory().legacyAllowAnyFileType().build(),
@@ -330,7 +326,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             AdvertisedProviderSet.EMPTY,
             null,
             ImmutableSet.<Class<?>>of(),
-            MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
             attr("visibility", LABEL_LIST).legacyAllowAnyFileType().build());
     Map<String, Object> attributeValues = new HashMap<>();
@@ -427,7 +422,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             AdvertisedProviderSet.EMPTY,
             null,
             ImmutableSet.<Class<?>>of(),
-            MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
             attr("name", STRING).build(),
             attr("outs", OUTPUT_LIST).build());
@@ -466,7 +460,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             AdvertisedProviderSet.EMPTY,
             null,
             ImmutableSet.<Class<?>>of(),
-            MissingFragmentPolicy.FAIL_ANALYSIS,
             true);
 
     Rule rule = createRule(ruleClass, "myRule", ImmutableMap.of(), testRuleLocation, NO_STACK);
@@ -500,7 +493,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         AdvertisedProviderSet.EMPTY,
         null,
         ImmutableSet.<Class<?>>of(),
-        MissingFragmentPolicy.FAIL_ANALYSIS,
         true,
         attr("condition", BOOLEAN).value(false).build(),
         attr("declared1", BOOLEAN).value(false).build(),
@@ -667,7 +659,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             AdvertisedProviderSet.EMPTY,
             null,
             ImmutableSet.<Class<?>>of(),
-            MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
             attr("name", STRING).build(),
             attr("outs", OUTPUT_LIST).build());
@@ -708,7 +699,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             AdvertisedProviderSet.EMPTY,
             null,
             ImmutableSet.<Class<?>>of(),
-            MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
             attr("a", STRING_LIST).mandatory().build(),
             attr("b", STRING_LIST).mandatory().build(),
@@ -863,7 +853,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
       AdvertisedProviderSet advertisedProviders,
       @Nullable StarlarkFunction configuredTargetFunction,
       Set<Class<?>> allowedConfigurationFragments,
-      MissingFragmentPolicy missingFragmentPolicy,
       boolean supportsConstraintChecking,
       Attribute... attributes) {
     return new RuleClass(
@@ -895,7 +884,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         /*ruleDefinitionEnvironmentDigest=*/ null,
         new ConfigurationFragmentPolicy.Builder()
             .requiresConfigurationFragments(allowedConfigurationFragments)
-            .setMissingFragmentPolicy(missingFragmentPolicy)
             .build(),
         supportsConstraintChecking,
         ThirdPartyLicenseExistencePolicy.USER_CONTROLLABLE,
@@ -926,7 +914,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         AdvertisedProviderSet.EMPTY,
         null,
         ImmutableSet.<Class<?>>of(DummyFragment.class),
-        MissingFragmentPolicy.FAIL_ANALYSIS,
         true,
         attr("attr", STRING).build());
   }

@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.skyframe.PrepareAnalysisPhaseValue.PrepareAnalysisPhaseKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -142,7 +143,8 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
         .forEach(config -> config.reportInvalidOptions(nosyEventHandler));
     if (nosyEventHandler.hasErrors()) {
       throw new PrepareAnalysisPhaseFunctionException(
-          new InvalidConfigurationException("Build options are invalid"));
+          new InvalidConfigurationException(
+              "Build options are invalid", Code.INVALID_BUILD_OPTIONS));
     }
 
     // We get the list of labels from the TargetPatternPhaseValue, so we are reasonably certain that

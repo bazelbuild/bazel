@@ -96,7 +96,6 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//src/test/java/com/google/devtools/build/lib/vfs/util",
-        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

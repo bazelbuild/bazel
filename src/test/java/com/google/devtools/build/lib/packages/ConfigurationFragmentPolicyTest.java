@@ -48,17 +48,18 @@ public final class ConfigurationFragmentPolicyTest {
   public void testMissingFragmentPolicy() throws Exception {
     ConfigurationFragmentPolicy policy =
         new ConfigurationFragmentPolicy.Builder()
-            .setMissingFragmentPolicy(MissingFragmentPolicy.IGNORE)
+            .setMissingFragmentPolicy(Integer.class, MissingFragmentPolicy.IGNORE)
             .build();
 
-    assertThat(policy.getMissingFragmentPolicy()).isEqualTo(MissingFragmentPolicy.IGNORE);
+    assertThat(policy.getMissingFragmentPolicy(Integer.class))
+        .isEqualTo(MissingFragmentPolicy.IGNORE);
 
     ConfigurationFragmentPolicy otherPolicy =
         new ConfigurationFragmentPolicy.Builder()
-            .setMissingFragmentPolicy(MissingFragmentPolicy.CREATE_FAIL_ACTIONS)
+            .setMissingFragmentPolicy(String.class, MissingFragmentPolicy.CREATE_FAIL_ACTIONS)
             .build();
 
-    assertThat(otherPolicy.getMissingFragmentPolicy())
+    assertThat(otherPolicy.getMissingFragmentPolicy(String.class))
         .isEqualTo(MissingFragmentPolicy.CREATE_FAIL_ACTIONS);
   }
 

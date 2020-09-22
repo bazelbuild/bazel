@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FilesToRunProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
@@ -21,7 +22,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollect
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkValue;
@@ -253,7 +253,7 @@ public interface AndroidSdkProviderApi<
               type = StarlarkValue.class),
         },
         selfCall = true)
-    @StarlarkConstructor(objectType = AndroidSdkProviderApi.class)
+    @StarlarkConstructor
     AndroidSdkProviderApi<FileT, FilesToRunProviderT, TransT> createInfo(
         String buildToolsVersion,
         FileT frameworkAidl,

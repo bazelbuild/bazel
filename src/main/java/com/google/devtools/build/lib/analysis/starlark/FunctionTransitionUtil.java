@@ -34,7 +34,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.lang.reflect.Field;
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -239,7 +239,7 @@ public class FunctionTransitionUtil {
       throws EvalException {
     BuildOptions buildOptions = buildOptionsToTransition.clone();
     // The names and values of options that are different after this transition.
-    HashMap<String, Object> convertedNewValues = new HashMap<>();
+    Set<String> convertedNewValues = new HashSet<>();
     for (Map.Entry<String, Object> entry : newValues.entrySet()) {
       String optionName = entry.getKey();
       Object optionValue = entry.getValue();
@@ -258,7 +258,7 @@ public class FunctionTransitionUtil {
                   .merge(buildOptions)
                   .addStarlarkOption(Label.parseAbsoluteUnchecked(optionName), optionValue)
                   .build();
-          convertedNewValues.put(optionName, optionValue);
+          convertedNewValues.add(optionName);
         }
       } else {
         optionName = optionName.substring(COMMAND_LINE_OPTION_PREFIX.length());
@@ -314,7 +314,7 @@ public class FunctionTransitionUtil {
               || (oldValue != null && convertedValue == null)
               || (oldValue != null && !oldValue.equals(convertedValue))) {
             field.set(options, convertedValue);
-            convertedNewValues.put(entry.getKey(), convertedValue);
+            convertedNewValues.add(entry.getKey());
           }
 
         } catch (IllegalArgumentException e) {
@@ -334,9 +334,12 @@ public class FunctionTransitionUtil {
     buildConfigOptions = buildOptions.get(CoreOptions.class);
 
     if (starlarkTransition.isForAnalysisTesting()) {
+      // We need to record every time we change a configuration option.
+      // see {@link #updateOutputDirectoryNameFragment} for usage.
+      convertedNewValues.add("//command_line_option:evaluating for analysis test");
       buildConfigOptions.evaluatingForAnalysisTest = true;
     }
-    updateOutputDirectoryNameFragment(convertedNewValues.keySet(), optionInfoMap, buildOptions);
+    updateOutputDirectoryNameFragment(convertedNewValues, optionInfoMap, buildOptions);
 
     return buildOptions;
   }
