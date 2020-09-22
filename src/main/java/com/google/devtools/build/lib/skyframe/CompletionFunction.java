@@ -244,7 +244,7 @@ public final class CompletionFunction<
         missingCount++;
         handleMissingFile(
             input,
-            ArtifactFunction.makeMissingSourceInputFileValue(input, e),
+            ArtifactFunction.makeIOExceptionSourceInputFileValue(input, e),
             rootCausesBuilder,
             env,
             value,
@@ -324,7 +324,7 @@ public final class CompletionFunction<
       KeyT key)
       throws InterruptedException {
     LabelCause cause =
-        ActionExecutionFunction.handleMissingFile(
+        ActionExecutionFunction.createLabelCause(
             input, artifactValue, key.actionLookupKey().getLabel());
     rootCausesBuilder.add(cause);
     env.getListener().handle(completor.getRootCauseError(value, key, cause, env));

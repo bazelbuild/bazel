@@ -355,16 +355,4 @@ public final class StarlarkMethodProcessorTest {
             "Expected type 'Object' but got type 'java.lang.String' "
                 + "for noneable parameter 'aParameter'.");
   }
-
-  @Test
-  public void testDoesntImplementStarlarkValue() throws Exception {
-    assertAbout(javaSource())
-        .that(getFile("DoesntImplementStarlarkValue.java"))
-        .processedWith(new StarlarkMethodProcessor())
-        .failsToCompile()
-        .withErrorContaining(
-            "method x has StarlarkMethod annotation but enclosing class"
-                + " DoesntImplementStarlarkValue does not implement StarlarkValue nor has"
-                + " StarlarkGlobalLibrary annotation");
-  }
 }

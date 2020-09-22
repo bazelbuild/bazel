@@ -228,16 +228,6 @@ public class AspectDefinitionTest {
   }
 
   @Test
-  public void testMissingFragmentPolicy_propagatedToConfigurationFragmentPolicy() throws Exception {
-    AspectDefinition missingFragments = new AspectDefinition.Builder(TEST_ASPECT_CLASS)
-        .setMissingFragmentPolicy(MissingFragmentPolicy.IGNORE)
-        .build();
-    assertThat(missingFragments.getConfigurationFragmentPolicy()).isNotNull();
-    assertThat(missingFragments.getConfigurationFragmentPolicy().getMissingFragmentPolicy())
-        .isEqualTo(MissingFragmentPolicy.IGNORE);
-  }
-
-  @Test
   public void testRequiresConfigurationFragments_propagatedToConfigurationFragmentPolicy()
       throws Exception {
     AspectDefinition requiresFragments = new AspectDefinition.Builder(TEST_ASPECT_CLASS)
@@ -252,6 +242,20 @@ public class AspectDefinitionTest {
   private static class FooFragment extends Fragment {}
 
   private static class BarFragment extends Fragment {}
+
+  @Test
+  public void testMissingFragmentPolicy_propagatedToConfigurationFragmentPolicy() throws Exception {
+    AspectDefinition missingFragments =
+        new AspectDefinition.Builder(TEST_ASPECT_CLASS)
+            .setMissingFragmentPolicy(FooFragment.class, MissingFragmentPolicy.IGNORE)
+            .build();
+    assertThat(missingFragments.getConfigurationFragmentPolicy()).isNotNull();
+    assertThat(
+            missingFragments
+                .getConfigurationFragmentPolicy()
+                .getMissingFragmentPolicy(FooFragment.class))
+        .isEqualTo(MissingFragmentPolicy.IGNORE);
+  }
 
   @Test
   public void testRequiresHostConfigurationFragments_propagatedToConfigurationFragmentPolicy()

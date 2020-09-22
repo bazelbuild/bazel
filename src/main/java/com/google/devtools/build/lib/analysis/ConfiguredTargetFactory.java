@@ -329,20 +329,26 @@ public final class ConfiguredTargetFactory {
       return erroredConfiguredTarget(ruleContext);
     }
 
-    MissingFragmentPolicy missingFragmentPolicy =
-        configurationFragmentPolicy.getMissingFragmentPolicy();
-
     try {
-      if (missingFragmentPolicy != MissingFragmentPolicy.IGNORE
-          && !configuration.hasAllFragments(
-              configurationFragmentPolicy.getRequiredConfigurationFragments())) {
-        if (missingFragmentPolicy == MissingFragmentPolicy.FAIL_ANALYSIS) {
-          ruleContext.ruleError(
-              missingFragmentError(
-                  ruleContext, configurationFragmentPolicy, configuration.checksum()));
-          return null;
+      boolean creatingFailActions = false;
+      for (Class<?> fragmentClass :
+          configurationFragmentPolicy.getRequiredConfigurationFragments()) {
+        if (!configuration.hasFragment(fragmentClass.asSubclass(Fragment.class))) {
+          MissingFragmentPolicy missingFragmentPolicy =
+              configurationFragmentPolicy.getMissingFragmentPolicy(fragmentClass);
+          if (missingFragmentPolicy != MissingFragmentPolicy.IGNORE) {
+            if (missingFragmentPolicy == MissingFragmentPolicy.FAIL_ANALYSIS) {
+              ruleContext.ruleError(
+                  missingFragmentError(
+                      ruleContext, configurationFragmentPolicy, configuration.checksum()));
+              return null;
+            }
+            // Otherwise missingFragmentPolicy == MissingFragmentPolicy.CREATE_FAIL_ACTIONS:
+            creatingFailActions = true;
+          }
         }
-        // Otherwise missingFragmentPolicy == MissingFragmentPolicy.CREATE_FAIL_ACTIONS:
+      }
+      if (creatingFailActions) {
         return createFailConfiguredTarget(ruleContext);
       }
       if (rule.getRuleClassObject().isStarlark()) {

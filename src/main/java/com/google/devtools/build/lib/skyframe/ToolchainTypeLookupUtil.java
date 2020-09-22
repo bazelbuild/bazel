@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
+import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.ValueOrException3;
@@ -149,6 +150,11 @@ public class ToolchainTypeLookupUtil {
 
     InvalidToolchainTypeException(Label label, String error) {
       super(formatError(label, error));
+    }
+
+    @Override
+    protected Code getDetailedCode() {
+      return Code.INVALID_TOOLCHAIN_TYPE;
     }
 
     private static String formatError(Label label, String error) {

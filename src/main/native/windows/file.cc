@@ -29,6 +29,10 @@
 
 #include "src/main/native/windows/util.h"
 
+#ifndef IO_REPARSE_TAG_PROJFS
+#define IO_REPARSE_TAG_PROJFS 0x9000001C
+#endif
+
 namespace bazel {
 namespace windows {
 

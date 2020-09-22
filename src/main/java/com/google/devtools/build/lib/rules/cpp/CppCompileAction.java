@@ -134,7 +134,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @Nullable private final Artifact grepIncludes;
   private final boolean shareable;
   private final boolean shouldScanIncludes;
-  private final boolean shouldPruneModules;
   private final boolean usePic;
   private final boolean useHeaderModules;
   private final boolean needsDotdInputPruning;
@@ -236,7 +235,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       CppConfiguration cppConfiguration,
       boolean shareable,
       boolean shouldScanIncludes,
-      boolean shouldPruneModules,
       boolean usePic,
       boolean useHeaderModules,
       NestedSet<Artifact> mandatoryInputs,
@@ -265,7 +263,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
             .build(),
         CollectionUtils.asSetWithoutNulls(outputFile, dotdFile, gcnoFile, dwoFile, ltoIndexingFile),
         env);
-    Preconditions.checkArgument(!shouldPruneModules || shouldScanIncludes);
     this.outputFile = Preconditions.checkNotNull(outputFile);
     this.sourceFile = sourceFile;
     this.shareable = shareable;
@@ -276,7 +273,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.inputsForInvalidation = inputsForInvalidation;
     this.additionalPrunableHeaders = additionalPrunableHeaders;
     this.shouldScanIncludes = shouldScanIncludes;
-    this.shouldPruneModules = shouldPruneModules;
     this.usePic = usePic;
     this.useHeaderModules = useHeaderModules;
     this.ccCompilationContext = ccCompilationContext;
@@ -331,12 +327,13 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    *
    * <p>This does *not* have anything to do with "hdrs_check".
    */
-  public boolean shouldScanIncludes() {
+  @VisibleForTesting
+  boolean shouldScanIncludes() {
     return shouldScanIncludes;
   }
 
   private boolean shouldScanDotdFiles() {
-    return !useHeaderModules || !shouldPruneModules;
+    return !useHeaderModules || !shouldScanIncludes;
   }
 
   public boolean useInMemoryDotdFiles() {
@@ -401,28 +398,18 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         .build();
   }
 
-  /**
-   * Returns the results of include scanning or, when that is null, all prunable headers.
-   *
-   * <p>This is necessary because the inputs that can be pruned by .d file parsing must be returned
-   * from {@link #discoverInputs(ActionExecutionContext)} and they cannot be in {@link
-   * #mandatoryInputs}. Thus, even with include scanning turned off, we pretend that we "discover"
-   * these headers.
-   */
+  /** Returns the results of include scanning. */
   private NestedSet<Artifact> findUsedHeaders(
       ActionExecutionContext actionExecutionContext, IncludeScanningHeaderData headerData)
       throws ActionExecutionException, InterruptedException {
+    Preconditions.checkState(
+        shouldScanIncludes, "findUsedHeades() called although include scanning is disabled");
     try {
       try {
         ListenableFuture<List<Artifact>> future =
             actionExecutionContext
                 .getContext(CppIncludeScanningContext.class)
                 .findAdditionalInputs(this, actionExecutionContext, includeProcessing, headerData);
-        if (future == null) {
-          return NestedSetBuilder.fromNestedSet(ccCompilationContext.getDeclaredIncludeSrcs())
-              .addTransitive(additionalPrunableHeaders)
-              .build();
-        }
         return NestedSetBuilder.wrap(Order.STABLE_ORDER, future.get());
       } catch (ExecutionException e) {
         Throwables.throwIfInstanceOf(e.getCause(), ExecException.class);
@@ -542,6 +529,25 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       }
       commandLineKey = computeCommandLineKey(options);
       List<PathFragment> systemIncludeDirs = getSystemIncludeDirs(options);
+      boolean siblingLayout =
+          actionExecutionContext
+              .getOptions()
+              .getOptions(BuildLanguageOptions.class)
+              .experimentalSiblingRepositoryLayout;
+      if (!shouldScanIncludes) {
+        // When not actually doing include scanning, add all prunable headers to additionalInputs.
+        // This is necessary because the inputs that can be pruned by .d file parsing must be
+        // returned from discoverInputs() and they cannot be in mandatoryInputs. Thus, even with
+        // include scanning turned off, we pretend that we "discover" these headers.
+        additionalInputs =
+            NestedSetBuilder.fromNestedSet(ccCompilationContext.getDeclaredIncludeSrcs())
+                .addTransitive(additionalPrunableHeaders)
+                .build();
+        if (needsIncludeValidation) {
+          verifyActionIncludePaths(systemIncludeDirs, siblingLayout);
+        }
+        return additionalInputs;
+      }
       List<CcCompilationContext.HeaderInfo> headerInfo =
           ccCompilationContext.getTransitiveHeaderInfos();
       IncludeScanningHeaderData.Builder includeScanningHeaderData =
@@ -553,6 +559,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       if (includeScanningHeaderData == null) {
         return null;
       }
+      // In theory, we could verify include paths even earlier, but we want to avoid the restart
+      // above necessitating a double-execution.
+      if (needsIncludeValidation) {
+        verifyActionIncludePaths(systemIncludeDirs, siblingLayout);
+      }
       additionalInputs =
           findUsedHeaders(
               actionExecutionContext,
@@ -560,20 +571,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
                   .setSystemIncludeDirs(systemIncludeDirs)
                   .setCmdlineIncludes(getCmdlineIncludes(options))
                   .build());
-      if (needsIncludeValidation) {
-        verifyActionIncludePaths(
-            systemIncludeDirs,
-            actionExecutionContext
-                .getOptions()
-                .getOptions(BuildLanguageOptions.class)
-                .experimentalSiblingRepositoryLayout);
-      }
 
-      if (!shouldScanIncludes) {
-        return additionalInputs;
-      }
-
-      if (!shouldScanDotdFiles()) {
+      if (useHeaderModules) {
         // If we aren't looking at .d files later, remove undeclared inputs now.
         additionalInputs =
             filterDiscoveredHeaders(actionExecutionContext, additionalInputs, headerInfo);
@@ -1245,7 +1244,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       // Ideally the same thing would be done in both cases, but as is, we just overestimate modules
       // in the latter case using the inputs from the action cache.
       // Note that this breaks the invariant that Actions are immutable after the analysis phase.
-      if (shouldPruneModules && topLevelModules != null) {
+      if (shouldScanIncludes && topLevelModules != null) {
         return calculateModuleVariable(topLevelModules);
       } else {
         return calculateModuleVariable(getInputs());
@@ -1479,9 +1478,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     // Intentionally not adding {@link CppCompileAction#inputsForInvalidation}, those are not needed
     // for execution.
     NestedSetBuilder<ActionInput> inputsBuilder =
-        NestedSetBuilder.<ActionInput>stableOrder()
-            .addTransitive(getMandatoryInputs())
-            .addTransitive(getAdditionalInputs());
+        NestedSetBuilder.<ActionInput>stableOrder().addTransitive(getMandatoryInputs());
+    if (discoversInputs()) {
+      inputsBuilder.addTransitive(getAdditionalInputs());
+    }
     if (getParamFileActionInput() != null) {
       inputsBuilder.add(getParamFileActionInput());
     }
@@ -1650,6 +1650,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   public NestedSet<Artifact> getInputFilesForExtraAction(
       ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
+    if (!shouldScanIncludes) {
+      return NestedSetBuilder.fromNestedSet(ccCompilationContext.getDeclaredIncludeSrcs())
+          .addTransitive(additionalPrunableHeaders)
+          .build();
+    }
     try {
       IncludeScanningHeaderData.Builder includeScanningHeaderData =
           ccCompilationContext.createIncludeScanningHeaderData(
@@ -1660,14 +1665,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       if (includeScanningHeaderData == null) {
         return null;
       }
-      NestedSet<Artifact> discoveredInputs =
-          findUsedHeaders(
-              actionExecutionContext,
-              includeScanningHeaderData
-                  .setSystemIncludeDirs(getSystemIncludeDirs())
-                  .setCmdlineIncludes(getCmdlineIncludes(getCompilerOptions()))
-                  .build());
-      return discoveredInputs;
+      return findUsedHeaders(
+          actionExecutionContext,
+          includeScanningHeaderData
+              .setSystemIncludeDirs(getSystemIncludeDirs())
+              .setCmdlineIncludes(getCmdlineIncludes(getCompilerOptions()))
+              .build());
     } catch (CommandLineExpansionException e) {
       String message =
           String.format(

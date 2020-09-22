@@ -33,8 +33,8 @@ public final class FileSystems {
     try {
       return Class.forName(TestConstants.TEST_REAL_UNIX_FILE_SYSTEM)
           .asSubclass(FileSystem.class)
-          .getDeclaredConstructor(DigestHashFunction.class)
-          .newInstance(digestHashFunction);
+          .getDeclaredConstructor(DigestHashFunction.class, String.class)
+          .newInstance(digestHashFunction, TestConstants.TEST_UNIX_HASH_ATTRIBUTE);
     } catch (Exception e) {
       throw new IllegalStateException(e);
     }

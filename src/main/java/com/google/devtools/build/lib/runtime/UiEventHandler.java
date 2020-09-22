@@ -383,7 +383,8 @@ public class UiEventHandler implements EventHandler {
   }
 
   @Nullable
-  private byte[] getContentIfSmallEnough(String name, long size, Supplier<byte[]> getContent) {
+  private byte[] getContentIfSmallEnough(
+      String name, long size, Supplier<byte[]> getContent, Supplier<PathFragment> getPath) {
     if (size == 0) {
       // Avoid any possible I/O when we know it'll be empty anyway.
       return null;
@@ -392,7 +393,10 @@ public class UiEventHandler implements EventHandler {
     if (size < maxStdoutErrBytes) {
       return getContent.get();
     } else {
-      return (name + " exceeds maximum size of " + maxStdoutErrBytes + " bytes; skipping")
+      return String.format(
+              "%s (%s) exceeds maximum size of --experimental_ui_max_stdouterr_bytes=%d bytes;"
+                  + " skipping\n",
+              name, getPath.get(), maxStdoutErrBytes)
           .getBytes(StandardCharsets.ISO_8859_1);
     }
   }
@@ -408,8 +412,12 @@ public class UiEventHandler implements EventHandler {
       byte[] stdout = null;
       byte[] stderr = null;
       if (event.hasStdoutStderr()) {
-        stdout = getContentIfSmallEnough("stdout", event.getStdOutSize(), event::getStdOut);
-        stderr = getContentIfSmallEnough("stderr", event.getStdErrSize(), event::getStdErr);
+        stdout =
+            getContentIfSmallEnough(
+                "stdout", event.getStdOutSize(), event::getStdOut, event::getStdOutPathFragment);
+        stderr =
+            getContentIfSmallEnough(
+                "stderr", event.getStdErrSize(), event::getStdErr, event::getStdErrPathFragment);
       }
 
       if (debugAllEvents) {

@@ -32,6 +32,12 @@ public interface BuildEventArtifactUploaderFactory {
       throws InvalidPackagePathSymlinkException;
 
   /**
+   * If the factory reuses a BuildEventArtifactUploader across commands, tear down that uploader now
+   * to prepare for <em>blaze</em> shutdown.
+   */
+  default void shutdown() {}
+
+  /**
    * Exception thrown when initializing the BuildEventArtifactUploader fails due to the package path
    * following invalid symlinks.
    */

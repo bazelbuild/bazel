@@ -59,12 +59,6 @@ public class IncludeScanning implements IncludeProcessing {
       ActionExecutionContext actionExecutionContext,
       IncludeScanningHeaderData includeScanningHeaderData)
       throws ExecException, InterruptedException {
-    // Return null when no include scanning occurs, as opposed to an empty set, to distinguish from
-    // the case where includes are scanned but none are found.
-    if (!action.shouldScanIncludes()) {
-      return null;
-    }
-
     Preconditions.checkNotNull(includeScannerSupplier, action);
 
     Set<Artifact> includes = Sets.newConcurrentHashSet();

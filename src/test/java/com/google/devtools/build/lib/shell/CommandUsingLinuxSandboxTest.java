@@ -42,8 +42,8 @@ public final class CommandUsingLinuxSandboxTest {
   private Path runfilesDir;
 
   @Before
-  public final void createFileSystem() throws Exception {
-    testFS = new UnixFileSystem(DigestHashFunction.SHA256);
+  public final void createFileSystem() {
+    testFS = new UnixFileSystem(DigestHashFunction.SHA256, /*hashAttributeName=*/ "");
     runfilesDir = testFS.getPath(BlazeTestUtils.runfilesDir());
   }
 

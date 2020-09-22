@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
-import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -61,7 +60,6 @@ import com.google.devtools.build.lib.runtime.commands.info.UsedHeapSizeAfterGcIn
 import com.google.devtools.build.lib.runtime.commands.info.UsedHeapSizeInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.WorkspaceInfoItem;
 import com.google.devtools.build.lib.server.FailureDetails;
-import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -170,18 +168,7 @@ public class InfoCommand implements BlazeCommand {
                         /*keepGoing=*/ true);
               } catch (InvalidConfigurationException e) {
                 env.getReporter().handle(Event.error(e.getMessage()));
-                throw new AbruptExitRuntimeException(
-                    DetailedExitCode.of(
-                        ExitCode.COMMAND_LINE_ERROR,
-                        FailureDetail.newBuilder()
-                            .setMessage(Strings.nullToEmpty(e.getMessage()))
-                            .setBuildConfiguration(
-                                FailureDetails.BuildConfiguration.newBuilder()
-                                    .setCode(
-                                        e.getDetailedCode() == null
-                                            ? Code.BUILD_CONFIGURATION_UNKNOWN
-                                            : e.getDetailedCode()))
-                            .build()));
+                throw new AbruptExitRuntimeException(e.getDetailedExitCode());
               } catch (AbruptExitException e) {
                 throw new AbruptExitRuntimeException(e.getDetailedExitCode());
               } catch (InterruptedException e) {

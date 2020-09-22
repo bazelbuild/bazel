@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package net.starlark.java.annot;
+package com.google.devtools.build.docgen.annot;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -19,13 +19,11 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * An annotation to mark a class whose methods are global (top-level) Starlark functions.
- *
- * <p>A class or interface annotated with this annotation indicates that all of its methods which
- * are annotated with {@link StarlarkMethod} should be treated as global top-level functions.
- *
- * <p>Global libraries should be stateless, and must have a public zero-arg constructor.
+ * An marker annotation used on a {@link net.starlark.java.annot.StarlarkMethod}-annotated method
+ * that causes docgen to document it as a constructor function for the Starlark data type denoted by
+ * the method's return type. The Starlark data type is obtained from the class using {@link
+ * net.starlark.java.annot.StarlarkInterfaceUtils#getStarlarkBuiltin}.
  */
-@Target({ElementType.TYPE})
+@Target({ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface StarlarkGlobalLibrary {}
+public @interface StarlarkConstructor {}

@@ -193,7 +193,7 @@ public class BuildViewForTesting {
   @VisibleForTesting
   public BuildConfiguration getConfigurationForTesting(
       Target target, BuildConfiguration config, ExtendedEventHandler eventHandler)
-      throws InvalidConfigurationException {
+      throws InvalidConfigurationException, InterruptedException {
     List<TargetAndConfiguration> node =
         ImmutableList.of(new TargetAndConfiguration(target, config));
     Collection<TargetAndConfiguration> configs =

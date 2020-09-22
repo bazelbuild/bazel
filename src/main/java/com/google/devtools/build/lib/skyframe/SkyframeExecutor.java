@@ -99,6 +99,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -567,7 +568,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         SkyFunctions.BUILD_CONFIGURATION,
         new BuildConfigurationFunction(directories, ruleClassProvider, defaultBuildOptions));
     map.put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction());
-    map.put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider));
     map.put(
         WorkspaceFileValue.WORKSPACE_FILE,
         new WorkspaceFileFunction(
@@ -1424,16 +1424,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   protected ImmutableMap<Root, ArtifactRoot> createSourceArtifactRootMapOnNewPkgLocator(
       PathPackageLocator oldLocator, PathPackageLocator pkgLocator) {
-    // TODO(bazel-team): The output base is a legitimate "source root" because external repositories
-    // stage their sources under output_base/external. The root here should really be
-    // output_base/external, but for some reason it isn't.
-    return Stream.concat(
-            pkgLocator.getPathEntries().stream(),
-            Stream.of(Root.absoluteRoot(fileSystem), Root.fromPath(directories.getOutputBase())))
+    ImmutableMap.Builder<Root, ArtifactRoot> builder = ImmutableMap.builder();
+    Stream.concat(pkgLocator.getPathEntries().stream(), Stream.of(Root.absoluteRoot(fileSystem)))
         .distinct()
-        .collect(
-            ImmutableMap.toImmutableMap(
-                java.util.function.Function.identity(), ArtifactRoot::asSourceRoot));
+        .forEach(r -> builder.put(r, ArtifactRoot.asSourceRoot(r)));
+    Root externalRoot =
+        Root.fromPath(
+            directories.getOutputBase().getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION));
+    builder.put(externalRoot, ArtifactRoot.asExternalSourceRoot(externalRoot));
+
+    return builder.build();
   }
 
   public SkyframeBuildView getSkyframeBuildView() {
@@ -1516,7 +1516,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         ErrorSensingEventHandler.withoutPropertyValueTracking(eventHandler);
     topLevelTargetConfigs.forEach(config -> config.reportInvalidOptions(nosyEventHandler));
     if (nosyEventHandler.hasErrors()) {
-      throw new InvalidConfigurationException("Build options are invalid");
+      throw new InvalidConfigurationException(
+          "Build options are invalid", Code.INVALID_BUILD_OPTIONS);
     }
     return new BuildConfigurationCollection(topLevelTargetConfigs, hostConfig);
   }
@@ -1952,12 +1953,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       Throwable e = error.getException();
       // Wrap loading failed exceptions
       if (e instanceof NoSuchThingException) {
-        e = new InvalidConfigurationException(e);
+        e = new InvalidConfigurationException(((NoSuchThingException) e).getDetailedExitCode(), e);
       } else if (e == null && !error.getCycleInfo().isEmpty()) {
         getCyclesReporter().reportCycles(error.getCycleInfo(), firstError.getKey(), eventHandler);
         e =
             new InvalidConfigurationException(
-                "cannot load build configuration because of this cycle");
+                "cannot load build configuration because of this cycle", Code.CYCLE);
       }
       if (e != null) {
         Throwables.throwIfInstanceOf(e, InvalidConfigurationException.class);
@@ -1983,7 +1984,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   @Override
   public ConfigurationsResult getConfigurations(
       ExtendedEventHandler eventHandler, BuildOptions fromOptions, Iterable<DependencyKey> keys)
-      throws InvalidConfigurationException {
+      throws InvalidConfigurationException, InterruptedException {
     ConfigurationsResult.Builder builder = ConfigurationsResult.newBuilder();
     Set<DependencyKey> depsToEvaluate = new HashSet<>();
 
@@ -2135,7 +2136,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           depFragments,
           BuildOptions.diffForReconstruction(defaultBuildOptions, toOption));
     } catch (OptionsParsingException e) {
-      throw new InvalidConfigurationException(e);
+      throw new InvalidConfigurationException(Code.INVALID_BUILD_OPTIONS, e);
     }
   }
 
@@ -2962,9 +2963,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), key, eventHandler);
         e =
             new InvalidConfigurationException(
-                "cannot load build configuration because of this cycle");
+                "cannot load build configuration because of this cycle", Code.CYCLE);
       } else if (e instanceof NoSuchThingException) {
-        e = new InvalidConfigurationException(e);
+        e = new InvalidConfigurationException(((NoSuchThingException) e).getDetailedExitCode(), e);
       }
       if (e != null) {
         Throwables.throwIfInstanceOf(e, InvalidConfigurationException.class);

@@ -14,6 +14,7 @@
 package net.starlark.java.annot;
 
 /** A category of a Java type exposed to Starlark */
+// TODO(adonovan): abolish this type, a Bazelism. Use a heuristic in docgen.
 public enum StarlarkDocumentationCategory {
   CONFIGURATION_FRAGMENT("Configuration Fragments",
       "Configuration fragments give rules access to "
@@ -41,7 +42,6 @@ public enum StarlarkDocumentationCategory {
 
   private final String title;
   private final String description;
-
 
   StarlarkDocumentationCategory(String title, String description) {
     this.title = title;

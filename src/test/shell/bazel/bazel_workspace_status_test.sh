@@ -19,32 +19,6 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-function test_workspace_status_invalidation() {
-  create_new_workspace
-
-  local ok=$TEST_TMPDIR/ok.sh
-  local bad=$TEST_TMPDIR/bad.sh
-  cat > $ok <<EOF
-#!/bin/bash
-exit 0
-EOF
-  cat >$bad <<EOF
-#!/bin/bash
-exit 1
-EOF
-  chmod +x $ok $bad
-
-  mkdir -p a
-  cat > a/BUILD <<'EOF'
-genrule(name="a", srcs=[], outs=["a.out"], stamp=1, cmd="touch $@")
-EOF
-
-  bazel build --stamp //a --workspace_status_command=$bad \
-    && fail "build succeeded"
-  bazel build --stamp //a --workspace_status_command=$ok \
-    || fail "build failed"
-}
-
 function test_workspace_status_parameters() {
   create_new_workspace
 

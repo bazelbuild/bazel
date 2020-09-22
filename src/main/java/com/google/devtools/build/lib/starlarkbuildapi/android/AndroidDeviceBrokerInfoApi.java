@@ -13,11 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 
@@ -56,7 +56,7 @@ public interface AndroidDeviceBrokerInfoApi extends StructApi {
                       + "devices")
         },
         selfCall = true)
-    @StarlarkConstructor(objectType = AndroidDeviceBrokerInfoApi.class)
+    @StarlarkConstructor
     AndroidDeviceBrokerInfoApi createInfo(String type) throws EvalException;
   }
 }

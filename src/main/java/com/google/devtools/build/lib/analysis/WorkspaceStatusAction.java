@@ -19,9 +19,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.WorkspaceStatus;
+import com.google.devtools.build.lib.server.FailureDetails.WorkspaceStatus.Code;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -191,9 +196,15 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
     Map<String, String> createDummyWorkspaceStatus(DummyEnvironment env);
   }
 
+  private final String workspaceStatusDescription;
+
   protected WorkspaceStatusAction(
-      ActionOwner owner, NestedSet<Artifact> inputs, ImmutableSet<Artifact> outputs) {
+      ActionOwner owner,
+      NestedSet<Artifact> inputs,
+      ImmutableSet<Artifact> outputs,
+      String workspaceStatusDescription) {
     super(owner, inputs, outputs);
+    this.workspaceStatusDescription = workspaceStatusDescription;
   }
 
   /**
@@ -207,4 +218,18 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
    * build changes, e.g. the name of the user running the build or the hostname.
    */
   public abstract Artifact getStableStatus();
+
+  protected ActionExecutionException createExecutionException(Exception e, Code detailedCode) {
+    String message = "Failed to determine " + workspaceStatusDescription + ": " + e.getMessage();
+    DetailedExitCode code = createDetailedExitCode(message, detailedCode);
+    return new ActionExecutionException(message, e, this, false, code);
+  }
+
+  protected static DetailedExitCode createDetailedExitCode(String message, Code detailedCode) {
+    return DetailedExitCode.of(
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setWorkspaceStatus(WorkspaceStatus.newBuilder().setCode(detailedCode))
+            .build());
+  }
 }

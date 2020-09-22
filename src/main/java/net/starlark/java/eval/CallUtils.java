@@ -83,11 +83,12 @@ final class CallUtils {
   }
 
   // Information derived from a StarlarkMethod-annotated class and a StarlarkSemantics.
-  // methods is a superset of fields.
   private static class CacheValue {
     @Nullable MethodDescriptor selfCall;
-    ImmutableMap<String, MethodDescriptor> fields; // sorted by Java method name
-    ImmutableMap<String, MethodDescriptor> methods; // sorted by Java method name
+    // All StarlarkMethod-annotated Java methods, sans selfCall, sorted by Java method name.
+    ImmutableMap<String, MethodDescriptor> methods;
+    // Subset of CacheValue.methods for which structField=True, sorted by Java method name.
+    ImmutableMap<String, MethodDescriptor> fields;
   }
 
   // A cache of information derived from a StarlarkMethod-annotated class and a StarlarkSemantics.
@@ -152,17 +153,12 @@ final class CallUtils {
   }
 
   /**
-   * Returns a map of methods and corresponding StarlarkMethod annotations of the methods of the
-   * objClass class reachable from Starlark. Elements are sorted by Java method name (which is not
-   * necessarily the same as Starlark attribute name).
+   * Returns the set of all StarlarkMethod-annotated Java methods (excluding the self-call method)
+   * of the specified class.
    */
-  static ImmutableMap<Method, StarlarkMethod> getAnnotatedMethods(Class<?> objClass) {
-    ImmutableMap.Builder<Method, StarlarkMethod> result = ImmutableMap.builder();
-    for (MethodDescriptor desc :
-        getCacheValue(objClass, StarlarkSemantics.DEFAULT).methods.values()) {
-      result.put(desc.getMethod(), desc.getAnnotation());
-    }
-    return result.build();
+  static ImmutableMap<String, MethodDescriptor> getAnnotatedMethods(
+      StarlarkSemantics semantics, Class<?> objClass) {
+    return getCacheValue(objClass, semantics).methods;
   }
 
   /**
@@ -181,21 +177,6 @@ final class CallUtils {
   /** Returns the names of the Starlark fields of {@code x} under the specified semantics. */
   static ImmutableSet<String> getAnnotatedFieldNames(StarlarkSemantics semantics, Object x) {
     return getCacheValue(x.getClass(), semantics).fields.keySet();
-  }
-
-  /** Returns the StarlarkMethod-annotated method of objClass with the given name. */
-  static MethodDescriptor getAnnotatedMethod(
-      StarlarkSemantics semantics, Class<?> objClass, String methodName) {
-    return getCacheValue(objClass, semantics).methods.get(methodName);
-  }
-
-  /**
-   * Returns a set of the Starlark name of all Starlark callable methods for object of type {@code
-   * objClass}.
-   */
-  static ImmutableSet<String> getAnnotatedMethodNames(
-      StarlarkSemantics semantics, Class<?> objClass) {
-    return getCacheValue(objClass, semantics).methods.keySet();
   }
 
   /**

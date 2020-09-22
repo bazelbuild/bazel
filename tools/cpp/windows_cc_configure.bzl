@@ -558,11 +558,12 @@ def _find_missing_llvm_tools(repository_ctx, llvm_path):
 
 def _get_clang_version(repository_ctx, clang_cl):
     result = repository_ctx.execute([clang_cl, "-v"])
-    if result.return_code != 0:
-        auto_configure_fail("Failed to get clang version by running \"%s -v\"" % clang_cl)
+    first_line = result.stderr.strip().splitlines()[0]
 
-    # Stderr should look like "clang version X.X.X ..."
-    return result.stderr.strip().split(" ")[2]
+    # The first line of stderr should look like "clang version X.X.X"
+    if result.return_code != 0 or not first_line.startswith("clang version "):
+        auto_configure_fail("Failed to get clang version by running \"%s -v\"" % clang_cl)
+    return first_line.split(" ")[2]
 
 def _get_msys_mingw_vars(repository_ctx):
     """Get the variables we need to populate the msys/mingw toolchains."""

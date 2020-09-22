@@ -17,7 +17,6 @@ import static com.google.common.base.StandardSystemProperty.USER_NAME;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.joining;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -49,8 +48,6 @@ import com.google.devtools.build.lib.server.FailureDetails.WorkspaceStatus.Code;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.CommandException;
-import com.google.devtools.build.lib.shell.CommandResult;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -60,7 +57,9 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsBase;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.TreeMap;
@@ -74,21 +73,19 @@ import javax.annotation.Nullable;
  * invalidate the node representing the workspace status action.
  */
 public class BazelWorkspaceStatusModule extends BlazeModule {
-  @AutoCodec
-  @AutoCodec.VisibleForSerialization
   static class BazelWorkspaceStatusAction extends WorkspaceStatusAction {
     private final Artifact stableStatus;
     private final Artifact volatileStatus;
     private final String username;
     private final String hostname;
 
-    @AutoCodec.VisibleForSerialization
     BazelWorkspaceStatusAction(
         Artifact stableStatus, Artifact volatileStatus, String username, String hostname) {
       super(
           ActionOwner.SYSTEM_ACTION_OWNER,
           NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          ImmutableSet.of(stableStatus, volatileStatus));
+          ImmutableSet.of(stableStatus, volatileStatus),
+          "workspace status");
       this.stableStatus = stableStatus;
       this.volatileStatus = volatileStatus;
       this.username = username;
@@ -108,32 +105,21 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
                   Event.progress(
                       "Getting additional workspace status by running "
                           + options.workspaceStatusCommand));
-          CommandResult result = getWorkspaceStatusCommand.execute();
-          if (result.getTerminationStatus().success()) {
-            return new String(result.getStdout(), UTF_8);
+          ByteArrayOutputStream stdoutStream = new ByteArrayOutputStream();
+          try (OutputStream errStream =
+              actionExecutionContext.getFileOutErr().getErrorPath().getOutputStream()) {
+            getWorkspaceStatusCommand.execute(stdoutStream, errStream);
+          } catch (IOException e) {
+            throw createExecutionException(e, Code.STDERR_IO_EXCEPTION);
           }
-          throw new BadExitStatusException(
-              getWorkspaceStatusCommand,
-              result,
-              "workspace status command failed: " + result.getTerminationStatus());
+          return new String(stdoutStream.toByteArray(), UTF_8);
         }
       } catch (BadExitStatusException e) {
-        String errorMessage = e.getMessage();
-        try {
-          actionExecutionContext.getFileOutErr().getOutputStream().write(e.getResult().getStdout());
-          actionExecutionContext.getFileOutErr().getErrorStream().write(e.getResult().getStderr());
-        } catch (IOException e2) {
-          errorMessage = errorMessage + " and could not get stdout/stderr: " + e2.getMessage();
-        }
-        throw new ActionExecutionException(
-            errorMessage, e, this, true, createDetailedCode(errorMessage, Code.NON_ZERO_EXIT));
+        throw createExecutionException(e, Code.NON_ZERO_EXIT);
+      } catch (AbnormalTerminationException e) {
+        throw createExecutionException(e, Code.ABNORMAL_TERMINATION);
       } catch (CommandException e) {
-        Code detailedCode =
-            e instanceof AbnormalTerminationException
-                ? Code.ABNORMAL_TERMINATION
-                : Code.EXEC_FAILED;
-        throw new ActionExecutionException(
-            e, this, true, createDetailedCode(Strings.nullToEmpty(e.getMessage()), detailedCode));
+        throw createExecutionException(e, Code.EXEC_FAILED);
       }
       return "";
     }

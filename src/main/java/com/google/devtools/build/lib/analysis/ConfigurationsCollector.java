@@ -29,5 +29,5 @@ public interface ConfigurationsCollector {
    */
   ConfigurationsResult getConfigurations(
       ExtendedEventHandler eventHandler, BuildOptions fromOptions, Iterable<DependencyKey> keys)
-      throws InvalidConfigurationException;
+      throws InvalidConfigurationException, InterruptedException;
 }

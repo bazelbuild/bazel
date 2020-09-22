@@ -94,10 +94,4 @@ public final class StarlarkParamDoc extends StarlarkDoc {
     }
     return prefixWarning + StarlarkDocUtils.substituteVariables(param.doc());
   }
-
-  @Override
-  public boolean isDeprecated() {
-    // TODO(cparsons): Implement for deprecated parameters.
-    return false;
-  }
 }

@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.starlarkbuildapi;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDeprecated;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -28,7 +27,6 @@ import net.starlark.java.eval.StarlarkValue;
     name = "cmd_helper",
     category = StarlarkDocumentationCategory.TOP_LEVEL_TYPE,
     doc = "Deprecated. Module for creating memory efficient command lines.")
-@StarlarkDeprecated
 public interface StarlarkCommandLineApi extends StarlarkValue {
 
   @StarlarkMethod(

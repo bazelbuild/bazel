@@ -18,6 +18,8 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.docgen.annot.DocumentMethods;
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkConstructorMethodDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkMethodDoc;
@@ -33,8 +35,6 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
-import net.starlark.java.annot.StarlarkGlobalLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Sequence;
@@ -55,7 +55,7 @@ public class StarlarkDocumentationTest {
   @Test
   public void testStarlarkRuleClassBuiltInItemsAreDocumented() throws Exception {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-    StarlarkModules.addStarlarkGlobalsToBuilder(env);
+    StarlarkModules.addPredeclared(env);
     checkStarlarkTopLevelEnvItemsAreDocumented(env.build());
   }
 
@@ -198,7 +198,7 @@ public class StarlarkDocumentationTest {
    * StarlarkDocumentationTest checks all of the classes under a wide classpath and ensures this one
    * shows up.
    */
-  @StarlarkGlobalLibrary
+  @DocumentMethods
   @SuppressWarnings("unused")
   private static class MockGlobalLibrary {
     @StarlarkMethod(
@@ -322,7 +322,7 @@ public class StarlarkDocumentationTest {
     }
 
     @StarlarkMethod(name = "makeMockClassA", selfCall = true, doc = "makeMockClassA")
-    @StarlarkConstructor(objectType = MockClassA.class, receiverNameForDoc = "MockClassA")
+    @StarlarkConstructor
     public MockClassA makeMockClassA() {
       return new MockClassA();
     }
@@ -425,7 +425,7 @@ public class StarlarkDocumentationTest {
   public void testStarlarkContainerReturnTypesWithoutAnnotations() throws Exception {
     Map<String, StarlarkBuiltinDoc> objects = collect(MockClassWithContainerReturnValues.class);
     assertThat(objects).containsKey("MockClassWithContainerReturnValues");
-    Collection<StarlarkMethodDoc> methods =
+    Collection<? extends StarlarkMethodDoc> methods =
         objects.get("MockClassWithContainerReturnValues").getMethods();
 
     List<String> signatures =
@@ -461,7 +461,8 @@ public class StarlarkDocumentationTest {
                 PointsToCommonNameAndUndocumentedModule.class,
                 MockClassCommonNameOne.class,
                 MockClassCommonNameUndocumented.class));
-    Collection<StarlarkMethodDoc> methods = objects.get("MockClassCommonName").getMethods();
+    Collection<? extends StarlarkMethodDoc> methods =
+        objects.get("MockClassCommonName").getMethods();
     List<String> methodNames =
         methods.stream().map(m -> m.getName()).collect(Collectors.toList());
     assertThat(methodNames).containsExactly("one");
@@ -475,7 +476,8 @@ public class StarlarkDocumentationTest {
                 PointsToCommonNameOneWithSubclass.class,
                 MockClassCommonNameOne.class,
                 SubclassOfMockClassCommonNameOne.class));
-    Collection<StarlarkMethodDoc> methods = objects.get("MockClassCommonName").getMethods();
+    Collection<? extends StarlarkMethodDoc> methods =
+        objects.get("MockClassCommonName").getMethods();
     List<String> methodNames =
         methods.stream().map(m -> m.getName()).collect(Collectors.toList());
     assertThat(methodNames).containsExactly("one", "two");
@@ -485,7 +487,7 @@ public class StarlarkDocumentationTest {
   public void testDocumentSelfcallConstructor() {
     Map<String, StarlarkBuiltinDoc> objects =
         collect(ImmutableList.of(MockClassA.class, MockClassWithSelfCallConstructor.class));
-    Collection<StarlarkMethodDoc> methods = objects.get("MockClassA").getMethods();
+    Collection<? extends StarlarkMethodDoc> methods = objects.get("MockClassA").getMethods();
     StarlarkMethodDoc firstMethod = methods.iterator().next();
     assertThat(firstMethod).isInstanceOf(StarlarkConstructorMethodDoc.class);
 

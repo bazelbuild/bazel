@@ -76,6 +76,7 @@ import com.google.devtools.build.lib.server.FailureDetails.RunCommand.Code;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.OS;
@@ -571,11 +572,7 @@ public class RunCommand implements BlazeCommand  {
   private static BlazeCommandResult reportAndCreateFailureResult(
       CommandEnvironment env, String message, Code detailedCode) {
     env.getReporter().handle(Event.error(message));
-    return BlazeCommandResult.failureDetail(
-        FailureDetail.newBuilder()
-            .setMessage(message)
-            .setRunCommand(FailureDetails.RunCommand.newBuilder().setCode(detailedCode))
-            .build());
+    return BlazeCommandResult.failureDetail(createFailureDetail(message, detailedCode));
   }
 
   /**
@@ -672,13 +669,14 @@ public class RunCommand implements BlazeCommand  {
           makeErrorMessageForNotHavingASingleTarget(
               targetPatternStrings.get(0),
               Iterables.transform(targets, t -> t.getLabel().toString())),
-          keepGoing);
+          keepGoing,
+          Code.TOO_MANY_TARGETS_SPECIFIED);
       singleTargetWarningWasOutput = true;
     }
     for (Target target : targets) {
-      String targetError = validateTarget(target);
-      if (targetError != null) {
-        warningOrException(reporter, targetError, keepGoing);
+      if (!isExecutable(target)) {
+        warningOrException(
+            reporter, notExecutableError(target), keepGoing, Code.TARGET_NOT_EXECUTABLE);
       }
 
       if (currentRunUnder != null && target.getLabel().equals(currentRunUnder.getLabel())) {
@@ -694,7 +692,8 @@ public class RunCommand implements BlazeCommand  {
               makeErrorMessageForNotHavingASingleTarget(
                   targetPatternStrings.get(0),
                   Iterables.transform(targets, t -> t.getLabel().toString())),
-              keepGoing);
+              keepGoing,
+              Code.TOO_MANY_TARGETS_SPECIFIED);
         }
         return;
       }
@@ -704,30 +703,27 @@ public class RunCommand implements BlazeCommand  {
       targetToRun = runUnderTarget;
     }
     if (targetToRun == null) {
-      warningOrException(reporter, NO_TARGET_MESSAGE, keepGoing);
+      warningOrException(reporter, NO_TARGET_MESSAGE, keepGoing, Code.NO_TARGET_SPECIFIED);
     }
   }
 
-  // If keepGoing, print a warning and return the given collection.
-  // Otherwise, throw InvalidTargetException.
-  private void warningOrException(Reporter reporter, String message,
-      boolean keepGoing) throws LoadingFailedException {
+  /**
+   * If keepGoing, print a warning and return the given collection. Otherwise, throw
+   * InvalidTargetException.
+   */
+  private void warningOrException(
+      Reporter reporter, String message, boolean keepGoing, Code detailedCode)
+      throws LoadingFailedException {
     if (keepGoing) {
       reporter.handle(Event.warn(message + ". Will continue anyway"));
     } else {
-      throw new LoadingFailedException(message);
+      throw new LoadingFailedException(
+          message, DetailedExitCode.of(createFailureDetail(message, detailedCode)));
     }
   }
 
   private static String notExecutableError(Target target) {
     return "Cannot run target " + target.getLabel() + ": Not executable";
-  }
-
-  /** Returns null if the target is a runnable rule, or an appropriate error message otherwise. */
-  private static String validateTarget(Target target) {
-    return isExecutable(target)
-        ? null
-        : notExecutableError(target);
   }
 
   /**
@@ -754,10 +750,9 @@ public class RunCommand implements BlazeCommand  {
       throw new IllegalStateException("Failed to find a target to validate", e);
     }
 
-    String targetError = validateTarget(target);
-
-    if (targetError != null) {
-      return reportAndCreateFailureResult(env, targetError, Code.TARGET_NOT_EXECUTABLE);
+    if (!isExecutable(target)) {
+      return reportAndCreateFailureResult(
+          env, notExecutableError(target), Code.TARGET_NOT_EXECUTABLE);
     }
 
     Artifact executable =
@@ -835,6 +830,13 @@ public class RunCommand implements BlazeCommand  {
         truncateTargetNameList ? "[TRUNCATED]" : "");
   }
 
+  private static FailureDetail createFailureDetail(String message, Code detailedCode) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setRunCommand(FailureDetails.RunCommand.newBuilder().setCode(detailedCode))
+        .build();
+  }
+
   private static class RunfilesException extends Exception {
     private final FailureDetails.RunCommand.Code detailedCode;
 
@@ -844,10 +846,7 @@ public class RunCommand implements BlazeCommand  {
     }
 
     private FailureDetail createFailureDetail() {
-      return FailureDetail.newBuilder()
-          .setMessage(getMessage())
-          .setRunCommand(FailureDetails.RunCommand.newBuilder().setCode(detailedCode))
-          .build();
+      return RunCommand.createFailureDetail(getMessage(), detailedCode);
     }
   }
 }

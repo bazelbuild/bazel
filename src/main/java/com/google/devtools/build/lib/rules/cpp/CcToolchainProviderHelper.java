@@ -336,7 +336,8 @@ public class CcToolchainProviderHelper {
     if (packageEndIndex != -1 && s.startsWith(PACKAGE_START)) {
       String packageString = s.substring(PACKAGE_START.length(), packageEndIndex);
       try {
-        pathPrefix = PackageIdentifier.parse(packageString).getSourceRoot();
+        // TODO(jungjw): This should probably be getExecPath.
+        pathPrefix = PackageIdentifier.parse(packageString).getPackagePath();
       } catch (LabelSyntaxException e) {
         throw new InvalidConfigurationException("The package '" + packageString + "' is not valid");
       }

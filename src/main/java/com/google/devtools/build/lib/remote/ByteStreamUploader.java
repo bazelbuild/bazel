@@ -33,9 +33,9 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ProgressiveBackoff;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
-import io.grpc.CallCredentials;
 import io.grpc.CallOptions;
 import io.grpc.Channel;
 import io.grpc.ClientCall;
@@ -74,7 +74,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
 
   private final String instanceName;
   private final ReferenceCountedChannel channel;
-  private final CallCredentials callCredentials;
+  private final CallCredentialsProvider callCredentialsProvider;
   private final long callTimeoutSecs;
   private final RemoteRetrier retrier;
 
@@ -96,8 +96,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
    * @param instanceName the instance name to be prepended to resource name of the {@code Write}
    *     call. See the {@code ByteStream} service definition for details
    * @param channel the {@link io.grpc.Channel} to use for calls
-   * @param callCredentials the credentials to use for authentication. May be {@code null}, in which
-   *     case no authentication is performed
+   * @param callCredentialsProvider the credentials provider to use for authentication.
    * @param callTimeoutSecs the timeout in seconds after which a {@code Write} gRPC call must be
    *     complete. The timeout resets between retries
    * @param retrier the {@link RemoteRetrier} whose backoff strategy to use for retry timings.
@@ -105,14 +104,14 @@ class ByteStreamUploader extends AbstractReferenceCounted {
   public ByteStreamUploader(
       @Nullable String instanceName,
       ReferenceCountedChannel channel,
-      @Nullable CallCredentials callCredentials,
+      CallCredentialsProvider callCredentialsProvider,
       long callTimeoutSecs,
       RemoteRetrier retrier) {
     checkArgument(callTimeoutSecs > 0, "callTimeoutSecs must be gt 0.");
 
     this.instanceName = instanceName;
     this.channel = channel;
-    this.callCredentials = callCredentials;
+    this.callCredentialsProvider = callCredentialsProvider;
     this.callTimeoutSecs = callTimeoutSecs;
     this.retrier = retrier;
   }
@@ -267,7 +266,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
     }
   }
 
-  private static String uploadResourceName(
+  private static String buildUploadResourceName(
       String instanceName, UUID uuid, HashCode hash, long size) {
     String resourceName = format("uploads/%s/blobs/%s/%d", uuid, hash, size);
     if (!Strings.isNullOrEmpty(instanceName)) {
@@ -276,7 +275,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
     return resourceName;
   }
 
-  /** Starts a file upload an returns a future representing the upload. */
+  /** Starts a file upload and returns a future representing the upload. */
   private ListenableFuture<Void> startAsyncUpload(HashCode hash, Chunker chunker) {
     try {
       chunker.reset();
@@ -285,9 +284,10 @@ class ByteStreamUploader extends AbstractReferenceCounted {
     }
 
     UUID uploadId = UUID.randomUUID();
-    String resourceName = uploadResourceName(instanceName, uploadId, hash, chunker.getSize());
+    String resourceName = buildUploadResourceName(instanceName, uploadId, hash, chunker.getSize());
     AsyncUpload newUpload =
-        new AsyncUpload(channel, callCredentials, callTimeoutSecs, retrier, resourceName, chunker);
+        new AsyncUpload(
+            channel, callCredentialsProvider, callTimeoutSecs, retrier, resourceName, chunker);
     ListenableFuture<Void> currUpload = newUpload.start();
     currUpload.addListener(
         () -> {
@@ -323,7 +323,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
   private static class AsyncUpload {
 
     private final Channel channel;
-    private final CallCredentials callCredentials;
+    private final CallCredentialsProvider callCredentialsProvider;
     private final long callTimeoutSecs;
     private final Retrier retrier;
     private final String resourceName;
@@ -333,13 +333,13 @@ class ByteStreamUploader extends AbstractReferenceCounted {
 
     AsyncUpload(
         Channel channel,
-        CallCredentials callCredentials,
+        CallCredentialsProvider callCredentialsProvider,
         long callTimeoutSecs,
         Retrier retrier,
         String resourceName,
         Chunker chunker) {
       this.channel = channel;
-      this.callCredentials = callCredentials;
+      this.callCredentialsProvider = callCredentialsProvider;
       this.callTimeoutSecs = callTimeoutSecs;
       this.retrier = retrier;
       this.resourceName = resourceName;
@@ -350,15 +350,34 @@ class ByteStreamUploader extends AbstractReferenceCounted {
       Context ctx = Context.current();
       ProgressiveBackoff progressiveBackoff = new ProgressiveBackoff(retrier::newBackoff);
       AtomicLong committedOffset = new AtomicLong(0);
-      return Futures.transformAsync(
-          retrier.executeAsync(
-              () -> {
-                if (committedOffset.get() < chunker.getSize()) {
-                  return ctx.call(() -> callAndQueryOnFailure(committedOffset, progressiveBackoff));
+
+      ListenableFuture<Void> callFuture =
+          callAndQueryOnFailureWithRetrier(ctx, committedOffset, progressiveBackoff);
+
+      callFuture =
+          Futures.catchingAsync(
+              callFuture,
+              Exception.class,
+              (e) -> {
+                Status status = Status.fromThrowable(e);
+                if (status != null
+                    && (status.getCode() == Code.UNAUTHENTICATED
+                        || status.getCode() == Code.PERMISSION_DENIED)) {
+                  try {
+                    callCredentialsProvider.refresh();
+                  } catch (IOException ioe) {
+                    e.addSuppressed(ioe);
+                    return Futures.immediateFailedFuture(e);
+                  }
+                  return callAndQueryOnFailureWithRetrier(ctx, committedOffset, progressiveBackoff);
+                } else {
+                  return Futures.immediateFailedFuture(e);
                 }
-                return Futures.immediateFuture(null);
               },
-              progressiveBackoff),
+              MoreExecutors.directExecutor());
+
+      return Futures.transformAsync(
+          callFuture,
           (result) -> {
             long committedSize = committedOffset.get();
             long expected = chunker.getSize();
@@ -376,8 +395,20 @@ class ByteStreamUploader extends AbstractReferenceCounted {
     private ByteStreamFutureStub bsFutureStub() {
       return ByteStreamGrpc.newFutureStub(channel)
           .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
-          .withCallCredentials(callCredentials)
+          .withCallCredentials(callCredentialsProvider.getCallCredentials())
           .withDeadlineAfter(callTimeoutSecs, SECONDS);
+    }
+
+    private ListenableFuture<Void> callAndQueryOnFailureWithRetrier(
+        Context ctx, AtomicLong committedOffset, ProgressiveBackoff progressiveBackoff) {
+      return retrier.executeAsync(
+          () -> {
+            if (committedOffset.get() < chunker.getSize()) {
+              return ctx.call(() -> callAndQueryOnFailure(committedOffset, progressiveBackoff));
+            }
+            return Futures.immediateFuture(null);
+          },
+          progressiveBackoff);
     }
 
     private ListenableFuture<Void> callAndQueryOnFailure(
@@ -456,7 +487,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
     private ListenableFuture<Void> call(AtomicLong committedOffset) {
       CallOptions callOptions =
           CallOptions.DEFAULT
-              .withCallCredentials(callCredentials)
+              .withCallCredentials(callCredentialsProvider.getCallCredentials())
               .withDeadlineAfter(callTimeoutSecs, SECONDS);
       call = channel.newCall(ByteStreamGrpc.getWriteMethod(), callOptions);
 

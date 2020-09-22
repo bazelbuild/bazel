@@ -299,7 +299,7 @@ public final class Runfiles implements RunfilesApi {
     Set<PathFragment> manifestKeys =
         Streams.concat(
                 symlinks.toList().stream().map(SymlinkEntry::getPath),
-                getArtifacts().toList().stream().map(Artifact::getRootRelativePath))
+                getArtifacts().toList().stream().map(Artifact::getPackagePath))
             .collect(ImmutableSet.toImmutableSet());
     Iterable<PathFragment> emptyKeys = emptyFilesSupplier.getExtraPaths(manifestKeys);
     return NestedSetBuilder.<String>stableOrder()
@@ -385,7 +385,7 @@ public final class Runfiles implements RunfilesApi {
     Map<PathFragment, Artifact> manifest = getSymlinksAsMap(checker);
     // Add artifacts (committed to inclusion on construction of runfiles).
     for (Artifact artifact : getArtifacts().toList()) {
-      checker.put(manifest, artifact.getRootRelativePath(), artifact);
+      checker.put(manifest, artifact.getPackagePath(), artifact);
     }
 
     manifest = filterListForObscuringSymlinks(eventHandler, location, manifest);
@@ -523,7 +523,7 @@ public final class Runfiles implements RunfilesApi {
     // That is because the runfiles tree cannot contain the same artifact for different
     // configurations, because it only uses root-relative paths.
     for (Artifact artifact : artifacts.toList()) {
-      result.put(artifact.getRootRelativePath(), artifact);
+      result.put(artifact.getPackagePath(), artifact);
     }
     return result;
   }
@@ -1074,7 +1074,7 @@ public final class Runfiles implements RunfilesApi {
     }
 
     for (Artifact artifact : getArtifacts().toList()) {
-      fp.addPath(artifact.getRootRelativePath());
+      fp.addPath(artifact.getPackagePath());
       fp.addPath(artifact.getExecPath());
     }
 

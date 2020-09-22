@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
@@ -99,7 +100,7 @@ public final class AnalysisPhaseRunner {
           buildOptions.get(CoreOptions.class).instrumentationFilter =
               new RegexFilter.RegexFilterConverter().convert(instrumentationFilter);
         } catch (OptionsParsingException e) {
-          throw new InvalidConfigurationException(e);
+          throw new InvalidConfigurationException(Code.HEURISTIC_INSTRUMENTATION_FILTER_INVALID, e);
         }
       }
     }
@@ -128,7 +129,7 @@ public final class AnalysisPhaseRunner {
       }
 
       for (BlazeModule module : env.getRuntime().getBlazeModules()) {
-        module.afterAnalysis(env, request, buildOptions, analysisResult.getTargetsToBuild());
+        module.afterAnalysis(env, request, buildOptions, analysisResult);
       }
 
       reportTargets(env, analysisResult);

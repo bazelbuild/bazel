@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.test;
 
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -73,9 +73,7 @@ public interface AnalysisTestResultInfoApi extends StarlarkValue {
                       + "success/failure.")
         },
         selfCall = true)
-    @StarlarkConstructor(
-        objectType = AnalysisTestResultInfoApi.class,
-        receiverNameForDoc = "AnalysisTestResultInfo")
+    @StarlarkConstructor
     AnalysisTestResultInfoApi testResultInfo(Boolean success, String message);
   }
 }

@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionExcep
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
-import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
@@ -72,7 +71,6 @@ import com.google.devtools.build.lib.actions.SpawnResult.MetadataLog;
 import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
-import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -406,13 +404,21 @@ public final class SkyframeActionExecutor {
       ActionPostprocessing postprocessing,
       boolean hasDiscoveredInputs)
       throws ActionExecutionException, InterruptedException {
-    MetadataAggregator metadataAggregator;
     if (actionFileSystem != null) {
-      metadataAggregator = new MetadataAggregator(metadataHandler);
       updateActionFileSystemContext(
-          action, actionFileSystem, env, metadataAggregator, expandedFilesets);
-    } else {
-      metadataAggregator = null;
+          action,
+          actionFileSystem,
+          env,
+          (artifact, metadata) -> {
+            // Inject metadata for files, since they can be created by actions using manual writes
+            // (as opposed to within spawns), in which case, we would otherwise not inject them to
+            // the output store. Action file system needs them to be present in the output store in
+            // order for the files to be readable.
+            if (!artifact.isChildOfDeclaredDirectory()) {
+              metadataHandler.injectFile(artifact, metadata);
+            }
+          },
+          expandedFilesets);
     }
 
     ActionExecutionContext actionExecutionContext =
@@ -452,8 +458,7 @@ public final class SkyframeActionExecutor {
                         actionStartTime,
                         actionExecutionContext,
                         actionLookupData,
-                        postprocessing,
-                        metadataAggregator)));
+                        postprocessing)));
 
     SharedActionCallback callback =
         getSharedActionCallback(env.getListener(), hasDiscoveredInputs, action, actionLookupData);
@@ -865,7 +870,6 @@ public final class SkyframeActionExecutor {
     private final ActionLookupData actionLookupData;
     private final ActionExecutionStatusReporter statusReporter;
     private final ActionPostprocessing postprocessing;
-    @Nullable private final MetadataAggregator metadataAggregator;
 
     ActionRunner(
         Action action,
@@ -873,8 +877,7 @@ public final class SkyframeActionExecutor {
         long actionStartTime,
         ActionExecutionContext actionExecutionContext,
         ActionLookupData actionLookupData,
-        ActionPostprocessing postprocessing,
-        @Nullable MetadataAggregator metadataAggregator) {
+        ActionPostprocessing postprocessing) {
       this.action = action;
       this.metadataHandler = metadataHandler;
       this.actionStartTime = actionStartTime;
@@ -882,7 +885,6 @@ public final class SkyframeActionExecutor {
       this.actionLookupData = actionLookupData;
       this.statusReporter = statusReporterRef.get();
       this.postprocessing = postprocessing;
-      this.metadataAggregator = metadataAggregator;
     }
 
     @SuppressWarnings("LogAndThrow") // Thrown exception shown in user output, not info logs.
@@ -1103,10 +1105,6 @@ public final class SkyframeActionExecutor {
       try {
         Preconditions.checkState(action.inputsDiscovered(),
             "Action %s successfully executed, but inputs still not known", action);
-
-        if (metadataAggregator != null) {
-          metadataAggregator.finish();
-        }
 
         if (!checkOutputs(action, metadataHandler)) {
           throw toActionExecutionException(
@@ -1758,33 +1756,6 @@ public final class SkyframeActionExecutor {
     public ActionInput getInput(String execPath) {
       ActionInput input = perActionCache.getInput(execPath);
       return input != null ? input : perBuildFileCache.getInput(execPath);
-    }
-  }
-
-  /**
-   * Assists with aggregation of tree artifacts for an action file system which is only aware of
-   * individual outputs.
-   */
-  private static final class MetadataAggregator implements MetadataConsumer {
-    private final TreeArtifactValue.MultiBuilder treeArtifacts =
-        TreeArtifactValue.newConcurrentMultiBuilder();
-    private final MetadataInjector metadataInjector;
-
-    MetadataAggregator(MetadataInjector metadataInjector) {
-      this.metadataInjector = metadataInjector;
-    }
-
-    @Override
-    public void accept(Artifact output, FileArtifactValue metadata) {
-      if (output.isChildOfDeclaredDirectory()) {
-        treeArtifacts.putChild((TreeFileArtifact) output, metadata);
-      } else {
-        metadataInjector.injectFile(output, metadata);
-      }
-    }
-
-    void finish() {
-      treeArtifacts.injectTo(metadataInjector);
     }
   }
 }

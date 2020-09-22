@@ -80,8 +80,12 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Root;
@@ -708,12 +712,19 @@ public final class SkyframeBuildView {
         }
         rootCauses = ctCause.getRootCauses();
       } else if (!errorInfo.getCycleInfo().isEmpty()) {
-        Label analysisRootCause = maybeGetConfiguredTargetCycleCulprit(
-            topLevelLabel, errorInfo.getCycleInfo());
+        Label analysisRootCause =
+            maybeGetConfiguredTargetCycleCulprit(topLevelLabel, errorInfo.getCycleInfo());
         rootCauses =
             analysisRootCause != null
                 ? NestedSetBuilder.create(
-                    Order.STABLE_ORDER, new LabelCause(analysisRootCause, "Dependency cycle"))
+                    Order.STABLE_ORDER,
+                    new LabelCause(
+                        analysisRootCause,
+                        DetailedExitCode.of(
+                            FailureDetail.newBuilder()
+                                .setMessage("Dependency cycle")
+                                .setAnalysis(Analysis.newBuilder().setCode(Code.CYCLE))
+                                .build())))
                 // TODO(ulfjack): We need to report the dependency cycle here. How?
                 : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       } else if (cause instanceof ActionConflictException) {

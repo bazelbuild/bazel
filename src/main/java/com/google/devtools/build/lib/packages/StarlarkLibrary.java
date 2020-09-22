@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 import static com.google.devtools.build.lib.packages.PackageFactory.getContext;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.docgen.annot.DocumentMethods;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -27,7 +28,6 @@ import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import java.util.List;
 import java.util.Set;
 import net.starlark.java.annot.Param;
-import net.starlark.java.annot.StarlarkGlobalLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -62,7 +62,7 @@ public final class StarlarkLibrary {
     return env.build();
   }
 
-  @StarlarkGlobalLibrary
+  @DocumentMethods
   private static class CommonLibrary {
 
     @StarlarkMethod(
@@ -208,7 +208,7 @@ public final class StarlarkLibrary {
     return env.build();
   }
 
-  @StarlarkGlobalLibrary
+  @DocumentMethods
   private static class BuildLibrary {
     @StarlarkMethod(
         name = "environment_group",

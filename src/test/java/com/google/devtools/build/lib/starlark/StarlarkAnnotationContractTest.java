@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.starlark;
 
 import com.google.devtools.build.lib.util.Classpath;
-import java.lang.reflect.Method;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkInterfaceUtils;
 import net.starlark.java.annot.StarlarkMethod;
@@ -55,30 +54,6 @@ public class StarlarkAnnotationContractTest {
   public void testResolvableStarlarkBuiltins() throws Exception {
     for (Class<?> candidateClass : Classpath.findClasses(MODULES_PACKAGE_PREFIX)) {
       StarlarkInterfaceUtils.getStarlarkBuiltin(candidateClass);
-    }
-  }
-
-  /**
-   * Verifies that no class or interface has a method annotated with {@link StarlarkMethod} unless
-   * that class or interface is annotated with either {@link StarlarkGlobalLibrary} or with {@link
-   * StarlarkBuiltin}.
-   */
-  @Test
-  public void testStarlarkCallableScope() throws Exception {
-    for (Class<?> candidateClass : Classpath.findClasses(MODULES_PACKAGE_PREFIX)) {
-      if (StarlarkInterfaceUtils.getStarlarkBuiltin(candidateClass) == null
-          && !StarlarkInterfaceUtils.hasStarlarkGlobalLibrary(candidateClass)) {
-        for (Method method : candidateClass.getMethods()) {
-          StarlarkMethod callable = StarlarkInterfaceUtils.getStarlarkMethod(method);
-          if (callable != null && method.getDeclaringClass() == candidateClass) {
-            throw new AssertionError(
-                String.format(
-                    "Class %s has a StarlarkMethod method %s but is neither a @StarlarkBuiltin"
-                        + " nor a @StarlarkGlobalLibrary",
-                    candidateClass, method.getName()));
-          }
-        }
-      }
     }
   }
 }

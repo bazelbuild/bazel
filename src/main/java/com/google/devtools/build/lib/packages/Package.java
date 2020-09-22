@@ -551,6 +551,36 @@ public class Package {
     return failureDetail;
   }
 
+  /**
+   * Returns a {@link FailureDetail} attributing a target error to the package's {@link
+   * FailureDetail}, or a generic {@link Code#TARGET_MISSING} failure detail if the package has
+   * none.
+   *
+   * <p>May only be called when {@link #containsErrors()} is true and with a target whose package is
+   * this one.
+   */
+  public FailureDetail contextualizeFailureDetailForTarget(Target target) {
+    Preconditions.checkState(
+        target.getPackage().getPackageIdentifier().equals(packageIdentifier),
+        "contextualizeFailureDetailForTarget called for target not in package. target=%s,"
+            + " package=%s",
+        target,
+        this);
+    Preconditions.checkState(
+        containsErrors,
+        "contextualizeFailureDetailForTarget called for package not in error. target=%s",
+        target);
+    String prefix =
+        "Target '" + target.getLabel() + "' contains an error and its package is in error";
+    if (failureDetail == null) {
+      return FailureDetail.newBuilder()
+          .setMessage(prefix)
+          .setPackageLoading(PackageLoading.newBuilder().setCode(Code.TARGET_MISSING))
+          .build();
+    }
+    return failureDetail.toBuilder().setMessage(prefix + ": " + failureDetail.getMessage()).build();
+  }
+
   /** Returns an (immutable, ordered) view of all the targets belonging to this package. */
   public ImmutableSortedKeyMap<String, Target> getTargets() {
     return targets;

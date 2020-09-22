@@ -87,6 +87,7 @@ public class TestConstants {
       "com.google.devtools.build.lib.bazel.rules.BazelStrategyModule";
   public static final String TEST_REAL_UNIX_FILE_SYSTEM =
       "com.google.devtools.build.lib.unix.UnixFileSystem";
+  public static final String TEST_UNIX_HASH_ATTRIBUTE = "";
 
   public static final ImmutableList<String> IGNORED_MESSAGE_PREFIXES = ImmutableList.<String>of();
 

@@ -42,7 +42,6 @@ import javax.tools.Diagnostic;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkGlobalLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 
 /**
@@ -52,7 +51,6 @@ import net.starlark.java.annot.StarlarkMethod;
  */
 @SupportedAnnotationTypes({
   "net.starlark.java.annot.StarlarkMethod",
-  "net.starlark.java.annot.StarlarkGlobalLibrary",
   "net.starlark.java.annot.StarlarkBuiltin"
 })
 public class StarlarkMethodProcessor extends AbstractProcessor {
@@ -104,14 +102,6 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
             cls.getSimpleName());
       }
     }
-
-    // TODO(adonovan): reject a StarlarkMethod-annotated method whose class doesn't have (or
-    // inherit) a StarlarkBuiltin documentation annotation.
-
-    // Only StarlarkGlobalLibrary-annotated classes, and those that implement StarlarkValue,
-    // are allowed StarlarkMethod-annotated methods.
-    Set<Element> okClasses =
-        new HashSet<>(roundEnv.getElementsAnnotatedWith(StarlarkGlobalLibrary.class));
 
     for (Element element : roundEnv.getElementsAnnotatedWith(StarlarkMethod.class)) {
       // Only methods are annotated with StarlarkMethod.
@@ -190,17 +180,6 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
               method.getSimpleName(),
               ret);
         }
-      }
-
-      // Check that the method's class is StarlarkGlobalLibrary-annotated,
-      // or implements StarlarkValue, or an error has already been reported.
-      if (okClasses.add(cls) && !types.isAssignable(cls.asType(), starlarkValueType)) {
-        errorf(
-            cls,
-            "method %s has StarlarkMethod annotation but enclosing class %s does not implement"
-                + " StarlarkValue nor has StarlarkGlobalLibrary annotation",
-            method.getSimpleName(),
-            cls.getSimpleName());
       }
     }
 

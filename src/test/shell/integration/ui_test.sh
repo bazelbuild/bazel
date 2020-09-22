@@ -563,13 +563,13 @@ EOF
       //outs:short-stdout-long-stderr \
       >"${TEST_log}" 2>&1 || fail "build failed"
   expect_log 'abc'
-  expect_log 'stderr exceeds maximum size'
+  expect_log 'stderr .*/actions/stderr-.* exceeds maximum size'
 
   bazel build --experimental_ui_max_stdouterr_bytes=5 \
       //outs:long-stdout-short-stderr \
       >"${TEST_log}" 2>&1 || fail "build failed"
   expect_log 'abc'
-  expect_log 'stdout exceeds maximum size'
+  expect_log 'stdout .*/actions/stdout-.* exceeds maximum size'
 }
 
 function test_max_stdouterr_bytes_is_for_individual_outputs() {

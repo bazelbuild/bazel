@@ -1319,3 +1319,11 @@ sh_test(
     data = [":test-deps"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
+
+sh_test(
+    name = "unix_digest_hash_attribute_name_test",
+    srcs = ["unix_digest_hash_attribute_name_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
