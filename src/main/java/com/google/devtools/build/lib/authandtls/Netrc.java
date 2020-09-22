@@ -83,5 +83,15 @@ public class Netrc {
     abstract String login();
     abstract String password();
     abstract String account();
+
+    @Override
+    public String toString() {
+      return "Credential{"
+          + "machine=" + machine() + ", "
+          + "login=" + login() + ", "
+          + "password=<password>" + ", "
+          + "account=" + account()
+          + "}";
+    }
   }
 }

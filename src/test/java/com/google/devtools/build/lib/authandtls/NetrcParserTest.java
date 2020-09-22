@@ -232,4 +232,9 @@ public class NetrcParserTest {
     assertThat(netrc.getDefaultCredential()).isNull();
     assertThat(netrc.getCredentials()).isEmpty();
   }
+
+  @Test
+  public void shouldNotLeakPasswordFromToString() {
+    assertThat(fooCredential.toString()).doesNotContain(fooCredential.password());
+  }
 }
