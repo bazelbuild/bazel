@@ -162,7 +162,7 @@ skydoc_test(
     input_file = "testdata/filter_rules_test/input.bzl",
     symbol_names = [
         "my_rule",
-        "whitelisted_dep_rule",
+        "allowlisted_dep_rule",
     ],
     deps = [
         "testdata/filter_rules_test/dep.bzl",
@@ -194,7 +194,7 @@ skydoc_test(
 )
 
 skydoc_test(
-    name = "namespace_test_with_whitelist",
+    name = "namespace_test_with_allowlist",
     golden_file = "testdata/namespace_test/golden.txt",
     input_file = "testdata/namespace_test/input.bzl",
     symbol_names = [
@@ -209,9 +209,9 @@ skydoc_test(
 )
 
 skydoc_test(
-    name = "multi_level_namespace_test_with_whitelist",
-    golden_file = "testdata/multi_level_namespace_test_with_whitelist/golden.txt",
-    input_file = "testdata/multi_level_namespace_test_with_whitelist/input.bzl",
+    name = "multi_level_namespace_test_with_allowlist",
+    golden_file = "testdata/multi_level_namespace_test_with_allowlist/golden.txt",
+    input_file = "testdata/multi_level_namespace_test_with_allowlist/input.bzl",
     symbol_names = [
         "my_namespace",
         "other_namespace.foo.nothing",

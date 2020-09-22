@@ -1,5 +1,5 @@
-"""A test that verifies documenting a multi-leveled namespace of functions with whitelist symbols.
-The whitelist symbols should cause everything in my_namespace to to be documented, but only a
+"""A test that verifies documenting a multi-leveled namespace of functions with allowlist symbols.
+The allowlist symbols should cause everything in my_namespace to to be documented, but only a
 specific symbol in other_namespace to be documented."""
 
 def _min(integers):

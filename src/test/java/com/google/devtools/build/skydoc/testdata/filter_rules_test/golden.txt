@@ -46,12 +46,12 @@ This is my rule. It does stuff.
 </table>
 
 
-<a name="#whitelisted_dep_rule"></a>
+<a name="#allowlisted_dep_rule"></a>
 
-## whitelisted_dep_rule
+## allowlisted_dep_rule
 
 <pre>
-whitelisted_dep_rule(<a href="#whitelisted_dep_rule-name">name</a>, <a href="#whitelisted_dep_rule-first">first</a>, <a href="#whitelisted_dep_rule-second">second</a>)
+allowlisted_dep_rule(<a href="#allowlisted_dep_rule-name">name</a>, <a href="#allowlisted_dep_rule-first">first</a>, <a href="#allowlisted_dep_rule-second">second</a>)
 </pre>
 
 This is the dep rule. It does stuff.
@@ -64,7 +64,7 @@ This is the dep rule. It does stuff.
     <col class="col-description" />
   </colgroup>
   <tbody>
-    <tr id="whitelisted_dep_rule-name">
+    <tr id="allowlisted_dep_rule-name">
       <td><code>name</code></td>
       <td>
         <a href="https://bazel.build/docs/build-ref.html#name">Name</a>; required
@@ -73,7 +73,7 @@ This is the dep rule. It does stuff.
         </p>
       </td>
     </tr>
-    <tr id="whitelisted_dep_rule-first">
+    <tr id="allowlisted_dep_rule-first">
       <td><code>first</code></td>
       <td>
         <a href="https://bazel.build/docs/build-ref.html#labels">Label</a>; required
@@ -82,7 +82,7 @@ This is the dep rule. It does stuff.
         </p>
       </td>
     </tr>
-    <tr id="whitelisted_dep_rule-second">
+    <tr id="allowlisted_dep_rule-second">
       <td><code>second</code></td>
       <td>
         <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: String -> String</a>; required
