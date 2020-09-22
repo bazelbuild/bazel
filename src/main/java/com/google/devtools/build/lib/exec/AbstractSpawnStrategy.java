@@ -72,10 +72,12 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
 
   private final SpawnInputExpander spawnInputExpander;
   private final SpawnRunner spawnRunner;
+  private final boolean verboseFailures;
 
-  public AbstractSpawnStrategy(Path execRoot, SpawnRunner spawnRunner) {
+  protected AbstractSpawnStrategy(Path execRoot, SpawnRunner spawnRunner, boolean verboseFailures) {
     this.spawnInputExpander = new SpawnInputExpander(execRoot, false);
     this.spawnRunner = spawnRunner;
+    this.verboseFailures = verboseFailures;
   }
 
   /**
@@ -179,7 +181,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
           !Strings.isNullOrEmpty(resultMessage)
               ? resultMessage
               : CommandFailureUtils.describeCommandFailure(
-                  actionExecutionContext.getVerboseFailures(),
+                  verboseFailures,
                   spawn.getArguments(),
                   spawn.getEnvironment(),
                   cwd,

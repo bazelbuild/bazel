@@ -65,8 +65,7 @@ public class LostInputsExecException extends ExecException {
   }
 
   @Override
-  public ActionExecutionException toActionExecutionException(
-      String messagePrefix, boolean verboseFailures, Action action) {
+  public ActionExecutionException toActionExecutionException(String messagePrefix, Action action) {
     String message = String.format("%s failed: %s", messagePrefix, getMessage());
     DetailedExitCode code =
         DetailedExitCode.of(

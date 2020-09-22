@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.vfs.Path;
 
 /** Strategy that uses sandboxing to execute a process. */
 final class ProcessWrapperSandboxedStrategy extends AbstractSpawnStrategy {
-  ProcessWrapperSandboxedStrategy(Path execRoot, SpawnRunner spawnRunner) {
-    super(execRoot, spawnRunner);
+  ProcessWrapperSandboxedStrategy(Path execRoot, SpawnRunner spawnRunner, boolean verboseFailures) {
+    super(execRoot, spawnRunner, verboseFailures);
   }
 
   @Override

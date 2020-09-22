@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.vfs.Path;
 
 /** Strategy that uses Docker to execute a process. */
 public final class DockerSandboxedStrategy extends AbstractSpawnStrategy {
-  DockerSandboxedStrategy(Path execRoot, SpawnRunner spawnRunner) {
-    super(execRoot, spawnRunner);
+  DockerSandboxedStrategy(Path execRoot, SpawnRunner spawnRunner, boolean verboseFailures) {
+    super(execRoot, spawnRunner, verboseFailures);
   }
 
   @Override

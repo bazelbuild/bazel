@@ -54,11 +54,6 @@ public class DummyExecutor implements Executor {
   }
 
   @Override
-  public boolean getVerboseFailures() {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
   public <T extends ActionContext> T getContext(Class<T> type) {
     throw new UnsupportedOperationException();
   }
