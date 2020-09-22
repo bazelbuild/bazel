@@ -35,6 +35,7 @@ import javax.annotation.Nullable;
  * A parser used to parse .netrc content.
  *
  * @see <a href="https://man.cx/netrc(4)">netrc − file for ftp remote login data</a>
+ * @see <a href="https://github.com/bazelbuild/bazel/blob/master/tools/build_defs/repo/utils.bzl#L203-L204">Starlark netrc parser</a>
  *
  */
 public class NetrcParser {
