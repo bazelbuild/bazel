@@ -20,6 +20,7 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
@@ -58,36 +59,39 @@ public class RemoteExecutionCache extends RemoteCache {
         Iterables.concat(merkleTree.getAllDigests(), additionalInputs.keySet());
     ImmutableSet<Digest> missingDigests =
         getFromFuture(cacheProtocol.findMissingDigests(allDigests));
-    List<ListenableFuture<?>> uploadFutures = new ArrayList<>();
+
+    List<ListenableFuture<Void>> uploadFutures = new ArrayList<>();
     for (Digest missingDigest : missingDigests) {
-      Directory node = merkleTree.getDirectoryByDigest(missingDigest);
-      if (node != null) {
-        uploadFutures.add(cacheProtocol.uploadBlob(missingDigest, node.toByteString()));
-        continue;
-      }
-
-      PathOrBytes file = merkleTree.getFileByDigest(missingDigest);
-      if (file != null) {
-        if (file.getBytes() != null) {
-          uploadFutures.add(cacheProtocol.uploadBlob(missingDigest, file.getBytes()));
-          continue;
-        }
-        uploadFutures.add(cacheProtocol.uploadFile(missingDigest, file.getPath()));
-        continue;
-      }
-
-      Message message = additionalInputs.get(missingDigest);
-      if (message != null) {
-        uploadFutures.add(cacheProtocol.uploadBlob(missingDigest, message.toByteString()));
-        continue;
-      }
-
-      throw new IOException(
-          format(
-              "findMissingDigests returned a missing digest that has not been requested: %s",
-              missingDigest));
+      uploadFutures.add(uploadBlob(missingDigest, merkleTree, additionalInputs));
     }
 
     waitForBulkTransfer(uploadFutures, /* cancelRemainingOnInterrupt=*/ false);
+  }
+
+  private ListenableFuture<Void> uploadBlob(
+      Digest digest, MerkleTree merkleTree, Map<Digest, Message> additionalInputs) {
+    Directory node = merkleTree.getDirectoryByDigest(digest);
+    if (node != null) {
+      return cacheProtocol.uploadBlob(digest, node.toByteString());
+    }
+
+    PathOrBytes file = merkleTree.getFileByDigest(digest);
+    if (file != null) {
+      if (file.getBytes() != null) {
+        return cacheProtocol.uploadBlob(digest, file.getBytes());
+      }
+      return cacheProtocol.uploadFile(digest, file.getPath());
+    }
+
+    Message message = additionalInputs.get(digest);
+    if (message != null) {
+      return cacheProtocol.uploadBlob(digest, message.toByteString());
+    }
+
+    return Futures.immediateFailedFuture(
+        new IOException(
+            format(
+                "findMissingDigests returned a missing digest that has not been requested: %s",
+                digest)));
   }
 }
