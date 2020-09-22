@@ -598,7 +598,8 @@ final class ActionMetadataHandler implements MetadataHandler {
           tsgm);
     }
 
-    if (artifact.isSymlink()) {
+    // Short-circuit -- lstat all symlinks, regardless.
+    if (artifact.isSymlink() || statNoFollow.isSymbolicLink()) {
       return FileArtifactValue.createForUnresolvedSymlink(pathNoFollow);
     }
 
