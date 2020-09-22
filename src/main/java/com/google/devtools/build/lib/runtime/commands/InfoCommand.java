@@ -199,7 +199,7 @@ public class InfoCommand implements BlazeCommand {
         env.getReporter()
             .handle(
                 Event.warn(
-                    "Blaze info does not support starlark options. Ignoring options: "
+                    "info command does not support starlark options. Ignoring options: "
                         + removedStarlarkOptions));
       }
 
