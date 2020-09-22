@@ -476,7 +476,7 @@ public class Desugar {
           classpathProvider,
           options.inputJars.get(i),
           options.outputJars.get(i),
-          options.desugaredLibConfig);
+          options.desugarCoreLibs ? options.desugaredLibConfig : null);
     }
   }
 
