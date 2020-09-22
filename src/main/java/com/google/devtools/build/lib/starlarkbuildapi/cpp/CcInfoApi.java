@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -87,7 +87,7 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
               })
         },
         selfCall = true)
-    @StarlarkConstructor(objectType = CcInfoApi.class, receiverNameForDoc = NAME)
+    @StarlarkConstructor
     CcInfoApi<FileT> createInfo(Object ccCompilationContext, Object ccLinkingInfo)
         throws EvalException;
   }

@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.annot.DocumentMethods;
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkConstructorMethodDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkJavaMethodDoc;
@@ -27,8 +28,8 @@ import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkInterfaceUtils;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -238,30 +239,19 @@ final class StarlarkDocumentationCollector {
     }
   }
 
-  private static void collectConstructor(
-      Map<String, StarlarkBuiltinDoc> modules, Class<?> moduleClass, Method method) {
-    StarlarkConstructor constructorAnnotation =
-        Preconditions.checkNotNull(method.getAnnotation(StarlarkConstructor.class));
-    StarlarkMethod callable =
-        Preconditions.checkNotNull(method.getAnnotation(StarlarkMethod.class));
-    Class<?> objectClass = constructorAnnotation.objectType();
-    StarlarkBuiltin objectModule = objectClass.getAnnotation(StarlarkBuiltin.class);
-    if (objectModule == null || !objectModule.documented()) {
+  private static void collectConstructor(Map<String, StarlarkBuiltinDoc> modules, Method method) {
+    Preconditions.checkNotNull(method.getAnnotation(StarlarkConstructor.class));
+
+    StarlarkBuiltin builtinType = StarlarkInterfaceUtils.getStarlarkBuiltin(method.getReturnType());
+    if (builtinType == null || !builtinType.documented()) {
       // The class of the constructed object type has no documentation, so no place to add
       // constructor information.
       return;
     }
-    StarlarkBuiltinDoc module = modules.get(objectModule.name());
-
-    String fullyQualifiedName;
-    if (!constructorAnnotation.receiverNameForDoc().isEmpty()) {
-      fullyQualifiedName = constructorAnnotation.receiverNameForDoc();
-    } else {
-      String originatingModuleName = getModuleNameForConstructorPrefix(moduleClass, modules);
-      fullyQualifiedName = getFullyQualifiedName(originatingModuleName, callable);
-    }
-
-    module.setConstructor(new StarlarkConstructorMethodDoc(fullyQualifiedName, method, callable));
+    StarlarkMethod methodAnnot =
+        Preconditions.checkNotNull(method.getAnnotation(StarlarkMethod.class));
+    StarlarkBuiltinDoc doc = modules.get(builtinType.name());
+    doc.setConstructor(new StarlarkConstructorMethodDoc(builtinType.name(), method, methodAnnot));
   }
 
   /**
@@ -278,42 +268,18 @@ final class StarlarkDocumentationCollector {
       Class<?> moduleClass, Map<String, StarlarkBuiltinDoc> modules) {
     Method selfCallConstructor = getSelfCallConstructorMethod(moduleClass);
     if (selfCallConstructor != null) {
-      collectConstructor(modules, moduleClass, selfCallConstructor);
+      collectConstructor(modules, selfCallConstructor);
     }
 
     for (Method method : Starlark.getMethodAnnotations(moduleClass).keySet()) {
       if (method.isAnnotationPresent(StarlarkConstructor.class)) {
-        collectConstructor(modules, moduleClass, method);
+        collectConstructor(modules, method);
       }
       Class<?> returnClass = method.getReturnType();
       Method returnClassConstructor = getSelfCallConstructorMethod(returnClass);
       if (returnClassConstructor != null) {
-        collectConstructor(modules, moduleClass, returnClassConstructor);
+        collectConstructor(modules, returnClassConstructor);
       }
     }
-  }
-
-  private static String getModuleNameForConstructorPrefix(
-      Class<?> moduleClass, Map<String, StarlarkBuiltinDoc> modules) {
-    if (moduleClass.isAnnotationPresent(StarlarkBuiltin.class)) {
-      String moduleName = moduleClass.getAnnotation(StarlarkBuiltin.class).name();
-      StarlarkBuiltinDoc moduleDoc = Preconditions.checkNotNull(modules.get(moduleName));
-
-      if (moduleClass != moduleDoc.getClassObject()) {
-        throw new IllegalStateException(
-            "Could not determine module name for constructor defined in " + moduleClass);
-      }
-      return moduleName;
-    } else if (moduleClass.isAnnotationPresent(DocumentMethods.class)) {
-      return "";
-    } else {
-      throw new IllegalArgumentException(moduleClass + " has no valid annotation");
-    }
-  }
-
-  private static String getFullyQualifiedName(String objectName, StarlarkMethod callable) {
-    String objectDotExpressionPrefix = objectName.isEmpty() ? "" : objectName + ".";
-    String methodName = callable.name();
-    return objectDotExpressionPrefix + methodName;
   }
 }

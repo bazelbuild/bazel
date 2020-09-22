@@ -12,5 +12,8 @@ filegroup(
 
 java_library(
     name = "annot",
-    srcs = ["DocumentMethods.java"],
+    srcs = [
+        "DocumentMethods.java",
+        "StarlarkConstructor.java",
+    ],
 )

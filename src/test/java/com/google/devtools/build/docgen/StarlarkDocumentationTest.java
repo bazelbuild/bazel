@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocumentMethods;
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkConstructorMethodDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkMethodDoc;
@@ -34,7 +35,6 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Sequence;
@@ -322,7 +322,7 @@ public class StarlarkDocumentationTest {
     }
 
     @StarlarkMethod(name = "makeMockClassA", selfCall = true, doc = "makeMockClassA")
-    @StarlarkConstructor(objectType = MockClassA.class, receiverNameForDoc = "MockClassA")
+    @StarlarkConstructor
     public MockClassA makeMockClassA() {
       return new MockClassA();
     }

@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.starlarkbuildapi.config;
 
 import com.google.devtools.build.docgen.annot.DocumentMethods;
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import net.starlark.java.annot.Param;
-import net.starlark.java.annot.StarlarkConstructor;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -95,7 +95,7 @@ public interface ConfigGlobalLibraryApi {
                     + "a superset of the key set of the dictionary returned by this transition."),
       },
       useStarlarkThread = true)
-  @StarlarkConstructor(objectType = ConfigurationTransitionApi.class)
+  @StarlarkConstructor
   ConfigurationTransitionApi transition(
       StarlarkCallable implementation,
       Sequence<?> inputs, // <String> expected
