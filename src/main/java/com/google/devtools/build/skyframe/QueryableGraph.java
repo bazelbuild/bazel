@@ -165,6 +165,9 @@ public interface QueryableGraph {
     /** The node is being looked up to service {@link WalkableGraph#getValueAndRdeps}. */
     WALKABLE_GRAPH_VALUE_AND_RDEPS,
 
+    /** Some other reason than one of the above that needs the node's value and deps. */
+    OTHER_NEEDING_VALUE_AND_DEPS,
+
     /** Some other reason than one of the above. */
     OTHER;
 
