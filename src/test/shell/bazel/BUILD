@@ -1219,7 +1219,7 @@ sh_test(
     size = "large",
     srcs = ["jdeps_test.sh"],
     data = [
-        ":jdeps_class_blacklist.txt",
+        ":jdeps_class_denylist.txt",
         ":test-deps",
         "//src:embedded_jdk_allmodules",
         "//src:jdeps_modules.golden",
