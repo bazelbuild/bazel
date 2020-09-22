@@ -25,7 +25,6 @@ import java.util.Locale;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDeprecated;
 import net.starlark.java.annot.StarlarkMethod;
 
 /**
@@ -38,7 +37,6 @@ public final class StarlarkBuiltinDoc extends StarlarkDoc {
   private final Multimap<String, StarlarkJavaMethodDoc> javaMethods;
   private TreeMap<String, StarlarkMethodDoc> methodMap;
   private final String title;
-  private final boolean deprecated;
   @Nullable private StarlarkConstructorMethodDoc javaConstructor;
 
   public StarlarkBuiltinDoc(StarlarkBuiltin module, Class<?> classObject) {
@@ -48,7 +46,6 @@ public final class StarlarkBuiltinDoc extends StarlarkDoc {
     this.classObject = classObject;
     this.methodMap = new TreeMap<>(Collator.getInstance(Locale.US));
     this.javaMethods = HashMultimap.<String, StarlarkJavaMethodDoc>create();
-    this.deprecated = classObject.isAnnotationPresent(StarlarkDeprecated.class);
     if (module.title().isEmpty()) {
       this.title = module.name();
     } else {
@@ -68,11 +65,6 @@ public final class StarlarkBuiltinDoc extends StarlarkDoc {
 
   public String getTitle() {
     return title;
-  }
-
-  @Override
-  public boolean isDeprecated() {
-    return deprecated;
   }
 
   public StarlarkBuiltin getAnnotation() {
