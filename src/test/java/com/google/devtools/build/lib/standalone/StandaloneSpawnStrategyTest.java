@@ -151,7 +151,8 @@ public class StandaloneSpawnStrategyTest {
                 (env, binTools1, fallbackTmpDir) -> ImmutableMap.copyOf(env),
                 binTools,
                 /*processWrapper=*/ null,
-                Mockito.mock(RunfilesTreeUpdater.class)));
+                Mockito.mock(RunfilesTreeUpdater.class)),
+            /*verboseFailures=*/ false);
     this.executor =
         new TestExecutorBuilder(fileSystem, directories, binTools)
             .addStrategy(strategy, "standalone")
@@ -313,8 +314,7 @@ public class StandaloneSpawnStrategyTest {
   @Test
   public void testVerboseFailures() {
     ExecException e = assertThrows(ExecException.class, () -> run(createSpawn(getFalseCommand())));
-    ActionExecutionException actionExecutionException =
-        e.toActionExecutionException("", /* verboseFailures= */ true, null);
+    ActionExecutionException actionExecutionException = e.toActionExecutionException("", null);
     assertWithMessage("got: " + actionExecutionException.getMessage())
         .that(actionExecutionException.getMessage().contains("failed: error executing command"))
         .isTrue();

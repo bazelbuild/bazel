@@ -36,8 +36,7 @@ public class UserExecException extends ExecException {
   }
 
   @Override
-  public ActionExecutionException toActionExecutionException(
-      String messagePrefix, boolean verboseFailures, Action action) {
+  public ActionExecutionException toActionExecutionException(String messagePrefix, Action action) {
     String message = String.format("%s failed: %s", messagePrefix, getMessage());
     FailureDetail failureDetailWithPrefix = failureDetail.toBuilder().setMessage(message).build();
     return new ActionExecutionException(

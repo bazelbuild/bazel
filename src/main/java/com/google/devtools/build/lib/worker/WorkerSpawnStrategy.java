@@ -22,8 +22,9 @@ import com.google.devtools.build.lib.vfs.Path;
  */
 public final class WorkerSpawnStrategy extends AbstractSpawnStrategy {
 
-  public WorkerSpawnStrategy(Path execRoot, WorkerSpawnRunner spawnRunner) {
-    super(execRoot, spawnRunner);
+  public WorkerSpawnStrategy(
+      Path execRoot, WorkerSpawnRunner spawnRunner, boolean verboseFailures) {
+    super(execRoot, spawnRunner, verboseFailures);
   }
 
   @Override

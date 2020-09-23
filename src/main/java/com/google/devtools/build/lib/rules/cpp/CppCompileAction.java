@@ -427,7 +427,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     } catch (ExecException e) {
       throw e.toActionExecutionException(
           "Include scanning of rule '" + getOwner().getLabel() + "'",
-          actionExecutionContext.getVerboseFailures(),
           this);
     }
   }
@@ -1843,7 +1842,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         copyTempOutErrToActionOutErr();
         throw e.toActionExecutionException(
             "C++ compilation of rule '" + getOwner().getLabel() + "'",
-            actionExecutionContext.getVerboseFailures(),
             CppCompileAction.this);
       } catch (InterruptedException e) {
         copyTempOutErrToActionOutErr();
@@ -1935,7 +1933,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
                   e, createFailureDetail("OutErr copy failure", Code.COPY_OUT_ERR_FAILURE))
               .toActionExecutionException(
                   getRawProgressMessage(),
-                  actionExecutionContext.getVerboseFailures(),
                   CppCompileAction.this);
         }
       }
