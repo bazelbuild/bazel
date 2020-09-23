@@ -57,6 +57,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
 #include <string>
 #include <vector>
 
@@ -130,6 +131,8 @@ static void SpawnPid1() {
   const int kStackSize = 1024 * 1024;
   std::vector<char> child_stack(kStackSize);
 
+  PRINT_DEBUG("calling pipe(2)...");
+
   int sync_pipe[2];
   if (pipe(sync_pipe) < 0) {
     DIE("pipe");
@@ -147,6 +150,8 @@ static void SpawnPid1() {
   // We use clone instead of unshare, because unshare sometimes fails with
   // EINVAL due to a race condition in the Linux kernel (see
   // https://lkml.org/lkml/2015/7/28/833).
+  PRINT_DEBUG("calling clone(2)...");
+
   global_child_pid =
       clone(Pid1Main, child_stack.data() + kStackSize, clone_flags, sync_pipe);
   if (global_child_pid < 0) {
@@ -169,6 +174,8 @@ static void SpawnPid1() {
   if (close(sync_pipe[0]) < 0) {
     DIE("close");
   }
+
+  PRINT_DEBUG("done manipulating pipes");
 }
 
 static int WaitForPid1() {
@@ -277,14 +284,21 @@ int main(int argc, char *argv[]) {
 
   CloseFds();
 
+  // Spawn the child that will fork the sandboxed progam with fresh namespaces
+  // etc.
   SpawnPid1();
 
+  // Set up signal handlers to manipulate the child as desired.
   SetupSignalHandlers();
 
+  // If we've been asked to automatically time out after a certain amount of
+  // time, arrange for SIGALRM to handle the timeout and then set up an interval
+  // timer that will raise SIGALRM.
   if (opt.timeout_secs > 0) {
     InstallSignalHandler(SIGALRM, OnTimeoutOrTerm);
     SetTimeout(opt.timeout_secs);
   }
 
+  // Wait for the child to finish.
   return WaitForPid1();
 }

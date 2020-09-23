@@ -397,6 +397,7 @@ static void SetupSignalHandlers() {
 }
 
 static void SpawnChild() {
+  PRINT_DEBUG("calling fork...");
   global_child_pid = fork();
 
   if (global_child_pid < 0) {
@@ -425,6 +426,8 @@ static void SpawnChild() {
     if (execvp(opt.args[0], opt.args.data()) < 0) {
       DIE("execvp(%s, %p)", opt.args[0], opt.args.data());
     }
+  } else {
+    PRINT_DEBUG("child started with PID %d", global_child_pid);
   }
 }
 
@@ -465,6 +468,8 @@ static int WaitForChild() {
 }
 
 int Pid1Main(void *sync_pipe_param) {
+  PRINT_DEBUG("Pid1Main started");
+
   if (getpid() != 1) {
     DIE("Using PID namespaces, but we are not PID 1");
   }
