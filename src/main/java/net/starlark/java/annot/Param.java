@@ -70,9 +70,21 @@ public @interface Param {
   Class<?> generic1() default Object.class;
 
   /**
-   * If true, this parameter can be passed the "None" value in addition to whatever types it allows.
-   * If false, this parameter cannot be passed "None", no matter the types it allows.
+   * Indicates whether this parameter accepts {@code None} as a value, its allowed types
+   * notwithstanding.
+   *
+   * <p>If true, {@code None} is accepted as a valid input in addition to the types mentioned by
+   * {@link #type} or {@link #allowedTypes}. In this case, the Java type of the corresponding method
+   * parameter must be {@code Object}.
+   *
+   * <p>If false, this parameter cannot be passed {@code None}, even if it would otherwise be
+   * allowed by {@code type} or {@code allowedTypes}.
    */
+  // TODO(starlark-team): Allow None as a value when noneable is false and the type is Object. But
+  // look out for unwanted user-visible changes in the signatures of builtins.
+  // TODO(140932420): Consider simplifying noneable by converting None to null, so that the Java
+  // type need not be Object. But note that we still have the same problem for params whose default
+  // value is the special "unbound" sentinel.
   boolean noneable() default false;
 
   /**
