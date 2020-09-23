@@ -23,7 +23,7 @@
 #   jdeps_modules.golden since every additional dependency will contribute to
 #   Bazel's binary size
 # - with an NPE: jdeps crashes on a few class files, add new crashing class
-#   files to jdeps_class_blacklist.txt
+#   files to jdeps_class_denylist.txt
 
 # --- begin runfiles.bash initialization ---
 # Copy-pasted from Bazel's Bash runfiles library (tools/bash/runfiles/runfiles.bash).
@@ -61,7 +61,7 @@ function test_jdeps() {
   fi
   cp $(rlocation io_bazel/src/allmodules_jdk.tar.gz) .
   tar xf allmodules_jdk.tar.gz || fail "Failed to extract JDK."
-  blacklist=$(rlocation io_bazel/src/test/shell/bazel/jdeps_class_blacklist.txt)
+  denylist=$(rlocation io_bazel/src/test/shell/bazel/jdeps_class_denylist.txt)
   deploy_jar=$(rlocation io_bazel/src/main/java/com/google/devtools/build/lib/bazel/BazelServer_deploy.jar)
   cd ../bazeljar
   unzip "$deploy_jar" || fail "Failed to extract Bazel's server.jar"
@@ -69,12 +69,12 @@ function test_jdeps() {
   # TODO(twerth): Replace --list-reduced-deps with --print-module-deps when
   # switching to JDK10.
   # If jdeps fails with a NPE, just add the class file to the list in
-  # src/test/shell/bazel/jdeps_class_blacklist.txt.
+  # src/test/shell/bazel/jdeps_class_denylist.txt.
   find . -type f -iname \*class | \
-    grep -vFf "$blacklist" | \
+    grep -vFf "$denylist" | \
     xargs ../jdk/reduced/bin/jdeps --list-reduced-deps | \
     grep -v "unnamed module" > ../jdeps \
-    || fail "Failed to run jdeps on non blacklisted class files."
+    || fail "Failed to run jdeps on non denylisted class files."
   cd ..
 
   # Make the list sorted and unique and compare it with expected results.

@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
@@ -193,12 +194,17 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
     outputGroupCollector.put(OutputGroupInfo.VALIDATION, headerTokens.build());
 
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
-
+    ApplePlatform platform = null;
+    try {
+      platform = appleConfiguration.getMultiArchPlatform(platformType);
+    } catch (IllegalArgumentException e) {
+      ruleContext.throwWithRuleError(e);
+    }
     new LipoSupport(ruleContext)
         .registerCombineArchitecturesAction(
             librariesToLipo.build(),
             ruleIntermediateArtifacts.combinedArchitectureArchive(),
-            appleConfiguration.getMultiArchPlatform(platformType));
+            platform);
 
     RuleConfiguredTargetBuilder targetBuilder =
         ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build());

@@ -473,7 +473,6 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
       } catch (ExecException e) {
         throw e.toActionExecutionException(
             "Linking of rule '" + getOwner().getLabel() + "'",
-            actionExecutionContext.getVerboseFailures(),
             CppLinkAction.this);
       }
     }

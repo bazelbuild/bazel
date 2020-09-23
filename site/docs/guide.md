@@ -725,7 +725,7 @@ the use of a long-running server process doesn't interfere with proper
 versioning.
 
 
-<a id="bazelrc></a>
+<a id="bazelrc"></a>
 
 ## `.bazelrc`, the Bazel configuration file
 
@@ -938,7 +938,7 @@ that use other build systems. Place a file called
 and add the directories you want Bazel to ignore, one per
 line. Entries are relative to the workspace root.
 
-<a id="global_bazelrc"</a>
+<a id="global_bazelrc"></a>
 
 ### The global bazelrc file
 

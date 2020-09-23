@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
@@ -282,6 +283,8 @@ public final class SandboxModule extends BlazeModule {
     boolean linuxSandboxSupported = LinuxSandboxedSpawnRunner.isSupported(cmdEnv);
     boolean darwinSandboxSupported = DarwinSandboxedSpawnRunner.isSupported(cmdEnv);
 
+    boolean verboseFailures =
+        checkNotNull(cmdEnv.getOptions().getOptions(ExecutionOptions.class)).verboseFailures;
     // This works on most platforms, but isn't the best choice, so we put it first and let later
     // platform-specific sandboxing strategies become the default.
     if (processWrapperSupported) {
@@ -297,7 +300,7 @@ public final class SandboxModule extends BlazeModule {
                   treeDeleter));
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
-          new ProcessWrapperSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner),
+          new ProcessWrapperSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, verboseFailures),
           "sandboxed",
           "processwrapper-sandbox");
     }
@@ -324,7 +327,8 @@ public final class SandboxModule extends BlazeModule {
                     treeDeleter));
         spawnRunners.add(spawnRunner);
         builder.registerStrategy(
-            new DockerSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner), "docker");
+            new DockerSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, verboseFailures),
+            "docker");
       }
     } else if (options.dockerVerbose) {
       cmdEnv.getReporter().handle(Event.info(
@@ -347,7 +351,7 @@ public final class SandboxModule extends BlazeModule {
                   treeDeleter));
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
-          new LinuxSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner),
+          new LinuxSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, verboseFailures),
           "sandboxed",
           "linux-sandbox");
     }
@@ -366,7 +370,7 @@ public final class SandboxModule extends BlazeModule {
                   treeDeleter));
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
-          new DarwinSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner),
+          new DarwinSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, verboseFailures),
           "sandboxed",
           "darwin-sandbox");
     }
@@ -379,7 +383,7 @@ public final class SandboxModule extends BlazeModule {
                   helpers, cmdEnv, timeoutKillDelay, windowsSandboxPath));
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
-          new WindowsSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner),
+          new WindowsSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, verboseFailures),
           "sandboxed",
           "windows-sandbox");
     }

@@ -99,6 +99,17 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     }
 
     /**
+     * Removes all of collected data for a given tree artifact.
+     *
+     * <p>No-op if there is no data for a given tree artifact.
+     */
+    public MultiBuilder remove(SpecialArtifact treeArtifact) {
+      checkArgument(treeArtifact.isTreeArtifact(), "Not a tree artifact: %s", treeArtifact);
+      map.remove(treeArtifact);
+      return this;
+    }
+
+    /**
      * For each unique parent seen by this builder, passes the aggregated metadata to {@link
      * TreeArtifactInjector#injectTree}.
      */
@@ -189,8 +200,11 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
   }
 
   @VisibleForTesting
-  public boolean hasArchivedArtifactForTesting() {
-    return archivedRepresentation != null;
+  @Nullable
+  public ArchivedTreeArtifact getArchivedArtifactForTesting() {
+    return archivedRepresentation != null
+        ? archivedRepresentation.archivedTreeFileArtifact()
+        : null;
   }
 
   ImmutableMap<TreeFileArtifact, FileArtifactValue> getChildValues() {

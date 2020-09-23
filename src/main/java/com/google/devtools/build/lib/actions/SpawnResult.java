@@ -235,7 +235,6 @@ public interface SpawnResult {
   String getDetailMessage(
       String messagePrefix,
       String message,
-      boolean verboseFailures,
       boolean catastrophe,
       boolean forciblyRunRemotely);
 
@@ -368,15 +367,12 @@ public interface SpawnResult {
     public String getDetailMessage(
         String messagePrefix,
         String message,
-        boolean verboseFailures,
         boolean catastrophe,
         boolean forciblyRunRemotely) {
       TerminationStatus status = new TerminationStatus(
           exitCode(), status() == Status.TIMEOUT);
       String reason = " (" + status.toShortString() + ")"; // e.g " (Exit 1)"
-      // Include the command line as error message if --verbose_failures is enabled or
-      // the command line didn't exit normally.
-      String explanation = verboseFailures || !status.exited() ? ": " + message : "";
+      String explanation = Strings.isNullOrEmpty(message) ? "" : ": " + message;
 
       if (!status().isConsideredUserError()) {
         String errorDetail = status().name().toLowerCase(Locale.US)

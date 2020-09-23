@@ -22,8 +22,8 @@ import com.google.devtools.build.lib.vfs.Path;
  * strategy also support offloading the work to a remote worker.
  */
 final class RemoteSpawnStrategy extends AbstractSpawnStrategy {
-  RemoteSpawnStrategy(Path execRoot, SpawnRunner spawnRunner) {
-    super(execRoot, spawnRunner);
+  RemoteSpawnStrategy(Path execRoot, SpawnRunner spawnRunner, boolean verboseFailures) {
+    super(execRoot, spawnRunner, verboseFailures);
   }
 
   @Override
