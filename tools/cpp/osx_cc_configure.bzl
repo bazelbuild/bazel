@@ -157,15 +157,15 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
         write_builtin_include_directory_paths(repository_ctx, cc, escaped_include_paths)
         escaped_cxx_include_directories = []
         for path in escaped_include_paths:
-            escaped_cxx_include_directories.append(("        \"%s\"," % path))
+            escaped_cxx_include_directories.append(("            \"%s\"," % path))
         if xcodeloc_err:
-            escaped_cxx_include_directories.append("# Error: " + xcodeloc_err + "\n")
+            escaped_cxx_include_directories.append("            # Error: " + xcodeloc_err)
         repository_ctx.template(
             "BUILD",
             paths["@bazel_tools//tools/osx/crosstool:BUILD.tpl"],
             {
                 "%{cxx_builtin_include_directories}": "\n".join(escaped_cxx_include_directories),
-                "%{tool_paths_overrides}": ",\n        ".join(
+                "%{tool_paths_overrides}": ",\n            ".join(
                     ['"%s": "%s"' % (k, v) for k, v in tool_paths.items()],
                 ),
             },
