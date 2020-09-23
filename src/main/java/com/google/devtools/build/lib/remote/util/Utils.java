@@ -15,7 +15,9 @@ package com.google.devtools.build.lib.remote.util;
 
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -26,6 +28,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
@@ -40,6 +43,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 import javax.annotation.Nullable;
@@ -194,6 +198,58 @@ public class Utils {
 
     public ByteString getContents() {
       return contents;
+    }
+  }
+
+  public static <V> ListenableFuture<V> refreshIfUnauthenticatedAsync(
+      AsyncCallable<V> call, CallCredentialsProvider callCredentialsProvider) {
+    try {
+      return Futures.catchingAsync(
+          call.call(),
+          Exception.class,
+          (e) -> {
+            io.grpc.Status status = io.grpc.Status.fromThrowable(e);
+            if (status != null
+                && (status.getCode() == io.grpc.Status.Code.UNAUTHENTICATED
+                || status.getCode() == io.grpc.Status.Code.PERMISSION_DENIED)) {
+              try {
+                callCredentialsProvider.refresh();
+                return call.call();
+              } catch (Exception ex) {
+                e.addSuppressed(ex);
+              }
+            }
+
+            return Futures.immediateFailedFuture(e);
+          },
+          MoreExecutors.directExecutor()
+      );
+    } catch (Exception e) {
+      return Futures.immediateFailedFuture(e);
+    }
+  }
+
+  public static <V> V refreshIfUnauthenticated(Callable<V> call,
+      CallCredentialsProvider callCredentialsProvider) throws IOException, InterruptedException {
+    try {
+      return call.call();
+    } catch (Exception e) {
+      io.grpc.Status status = io.grpc.Status.fromThrowable(e);
+      if (status != null
+          && (status.getCode() == io.grpc.Status.Code.UNAUTHENTICATED
+          || status.getCode() == io.grpc.Status.Code.PERMISSION_DENIED)) {
+        try {
+          callCredentialsProvider.refresh();
+          return call.call();
+        } catch (Exception ex) {
+          e.addSuppressed(ex);
+        }
+      }
+
+      Throwables.throwIfInstanceOf(e, IOException.class);
+      Throwables.throwIfInstanceOf(e, InterruptedException.class);
+      Throwables.throwIfUnchecked(e);
+      throw new RuntimeException(e);
     }
   }
 }

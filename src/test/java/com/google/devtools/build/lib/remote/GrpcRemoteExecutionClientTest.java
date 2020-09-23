@@ -259,10 +259,10 @@ public class GrpcRemoteExecutionClientTest {
                 .directExecutor()
                 .build());
     GrpcRemoteExecutor executor =
-        new GrpcRemoteExecutor(channel.retain(), null, retrier, remoteOptions);
+        new GrpcRemoteExecutor(channel.retain(), CallCredentialsProvider.NO_CREDENTIALS, retrier,
+            remoteOptions);
     CallCredentialsProvider callCredentialsProvider =
         GoogleAuthUtils.newCallCredentialsProvider(Options.getDefaults(AuthAndTLSOptions.class));
-    CallCredentials creds = callCredentialsProvider.getCallCredentials();
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             remoteOptions.remoteInstanceName,
@@ -271,7 +271,8 @@ public class GrpcRemoteExecutionClientTest {
             remoteOptions.remoteTimeout.getSeconds(),
             retrier);
     GrpcCacheClient cacheProtocol =
-        new GrpcCacheClient(channel.retain(), creds, remoteOptions, retrier, DIGEST_UTIL, uploader);
+        new GrpcCacheClient(channel.retain(), callCredentialsProvider, remoteOptions, retrier,
+            DIGEST_UTIL, uploader);
     RemoteExecutionCache remoteCache =
         new RemoteExecutionCache(cacheProtocol, remoteOptions, DIGEST_UTIL);
     client =

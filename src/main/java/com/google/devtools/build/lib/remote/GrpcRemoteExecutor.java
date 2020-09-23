@@ -20,9 +20,11 @@ import build.bazel.remote.execution.v2.ExecutionGrpc;
 import build.bazel.remote.execution.v2.ExecutionGrpc.ExecutionBlockingStub;
 import build.bazel.remote.execution.v2.WaitExecutionRequest;
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.longrunning.Operation;
 import com.google.rpc.Status;
 import io.grpc.CallCredentials;
@@ -39,7 +41,7 @@ import javax.annotation.Nullable;
 class GrpcRemoteExecutor {
 
   private final ReferenceCountedChannel channel;
-  private final CallCredentials callCredentials;
+  private final CallCredentialsProvider callCredentialsProvider;
   private final RemoteRetrier retrier;
 
   private final AtomicBoolean closed = new AtomicBoolean();
@@ -47,11 +49,11 @@ class GrpcRemoteExecutor {
 
   public GrpcRemoteExecutor(
       ReferenceCountedChannel channel,
-      @Nullable CallCredentials callCredentials,
+      CallCredentialsProvider callCredentialsProvider,
       RemoteRetrier retrier,
       RemoteOptions options) {
     this.channel = channel;
-    this.callCredentials = callCredentials;
+    this.callCredentialsProvider = callCredentialsProvider;
     this.retrier = retrier;
     this.options = options;
   }
@@ -59,7 +61,7 @@ class GrpcRemoteExecutor {
   private ExecutionBlockingStub execBlockingStub() {
     return ExecutionGrpc.newBlockingStub(channel)
         .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
-        .withCallCredentials(callCredentials);
+        .withCallCredentials(callCredentialsProvider.getCallCredentials());
   }
 
   private void handleStatus(Status statusProto, @Nullable ExecuteResponse resp) {
@@ -141,7 +143,7 @@ class GrpcRemoteExecutor {
     final AtomicBoolean waitExecution =
         new AtomicBoolean(false); // Whether we should call WaitExecution.
     try {
-      return retrier.execute(
+      return Utils.refreshIfUnauthenticated(() -> retrier.execute(
           () -> {
             // Retry calls to Execute()/WaitExecute() "infinitely" if the server terminates one of
             // them status OK and an Operation that does not have done=True set. This is legal
@@ -215,7 +217,7 @@ class GrpcRemoteExecutor {
                 }
               }
             }
-          });
+          }), callCredentialsProvider);
     } catch (StatusRuntimeException e) {
       throw new IOException(e);
     }
