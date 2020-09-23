@@ -1,4 +1,4 @@
-# This is a blacklist of class files that trigger a NPE in jdeps.
+# This is a denylist of class files that trigger a NPE in jdeps.
 ./com/android/sdklib/internal/build/SignedJarBuilder.class
 ./lombok/ast/app/Main$3.class
 ./lombok/ast/javac/JcTreePrinter.class

@@ -172,7 +172,6 @@ public final class TemplateExpansionAction extends AbstractAction {
         } catch (ExecException e) {
           throw e.toActionExecutionException(
               "Error expanding template '" + Label.print(getOwner().getLabel()) + "'",
-              actionExecutionContext.getVerboseFailures(),
               TemplateExpansionAction.this);
         }
         return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));

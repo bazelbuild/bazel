@@ -240,13 +240,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   }
 
   /**
-   * Returns whether failures should have verbose error messages.
-   */
-  public boolean getVerboseFailures() {
-    return executor.getVerboseFailures();
-  }
-
-  /**
    * Returns the command line options of the Blaze command being executed.
    */
   public OptionsProvider getOptions() {

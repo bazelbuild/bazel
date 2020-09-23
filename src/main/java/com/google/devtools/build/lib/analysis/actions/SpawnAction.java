@@ -321,7 +321,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       beforeExecute(actionExecutionContext);
       spawn = getSpawn(actionExecutionContext);
     } catch (ExecException e) {
-      throw toActionExecutionException(e, actionExecutionContext.getVerboseFailures());
+      throw toActionExecutionException(e);
     } catch (CommandLineExpansionException e) {
       throw createDetailedException(e, Code.COMMAND_LINE_EXPANSION_FAILURE);
     }
@@ -342,8 +342,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     return new ActionExecutionException(e, this, /*catastrophe=*/ false, detailedExitCode);
   }
 
-  private ActionExecutionException toActionExecutionException(
-      ExecException e, boolean verboseFailures) {
+  private ActionExecutionException toActionExecutionException(ExecException e) {
     String failMessage;
     if (isShellCommand()) {
       // The possible reasons it could fail are: shell executable not found, shell
@@ -367,7 +366,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     } else {
       failMessage = getRawProgressMessage();
     }
-    return e.toActionExecutionException(failMessage, verboseFailures, this);
+    return e.toActionExecutionException(failMessage, this);
   }
 
   /**
@@ -1405,7 +1404,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         }
         return new SpawnActionContinuation(actionExecutionContext, nextContinuation);
       } catch (ExecException e) {
-        throw toActionExecutionException(e, actionExecutionContext.getVerboseFailures());
+        throw toActionExecutionException(e);
       }
     }
   }

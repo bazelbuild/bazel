@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.util.ExitCode;
  * A specialization of {@link ExecException} that indicates something went wrong when trying to
  * execute a {@link com.google.devtools.build.lib.actions.Spawn}.
  */
+// Non-final only for tests, do not subclass!
 public class SpawnExecException extends ExecException {
   protected final SpawnResult result;
   protected final boolean forciblyRunRemotely;
@@ -63,14 +64,12 @@ public class SpawnExecException extends ExecException {
   }
 
   @Override
-  public ActionExecutionException toActionExecutionException(
-      String messagePrefix, boolean verboseFailures, Action action) {
+  public ActionExecutionException toActionExecutionException(String messagePrefix, Action action) {
     if (messagePrefix == null) {
       messagePrefix = action.describe();
     }
     String message =
-        result.getDetailMessage(
-            messagePrefix, getMessage(), verboseFailures, isCatastrophic(), forciblyRunRemotely);
+        result.getDetailMessage(messagePrefix, getMessage(), isCatastrophic(), forciblyRunRemotely);
     return new ActionExecutionException(
         message, this, action, isCatastrophic(), getDetailedExitCode());
   }

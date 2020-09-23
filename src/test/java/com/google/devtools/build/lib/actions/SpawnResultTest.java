@@ -41,7 +41,7 @@ public final class SpawnResultTest {
             .setExitCode(SpawnResult.POSIX_TIMEOUT_EXIT_CODE)
             .setRunnerName("test")
             .build();
-    assertThat(r.getDetailMessage("", "", false, false, false))
+    assertThat(r.getDetailMessage("", "", false, false))
         .contains("(failed due to timeout after 5.00 seconds.)");
   }
 
@@ -53,8 +53,7 @@ public final class SpawnResultTest {
             .setExitCode(SpawnResult.POSIX_TIMEOUT_EXIT_CODE)
             .setRunnerName("test")
             .build();
-    assertThat(r.getDetailMessage("", "", false, false, false))
-        .contains("(failed due to timeout.)");
+    assertThat(r.getDetailMessage("", "", false, false)).contains("(failed due to timeout.)");
   }
 
   @Test

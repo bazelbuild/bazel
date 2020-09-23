@@ -28,8 +28,7 @@ public final class TestExecException extends ExecException {
   }
 
   @Override
-  public ActionExecutionException toActionExecutionException(
-      String messagePrefix, boolean verboseFailures, Action action) {
+  public ActionExecutionException toActionExecutionException(String messagePrefix, Action action) {
     String message = String.format("%s: %s", messagePrefix + " failed", getMessage());
     DetailedExitCode code =
         DetailedExitCode.of(
