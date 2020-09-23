@@ -1219,16 +1219,11 @@ public final class RuleContext extends TargetContext
   }
 
   public boolean targetPlatformHasConstraint(ConstraintValueInfo constraintValue) {
-    if (toolchainContexts == null
-        || toolchainContexts.getDefaultToolchainContext().targetPlatform() == null) {
+    if (toolchainContexts == null || toolchainContexts.getTargetPlatform() == null) {
       return false;
     }
     // All toolchain contexts should have the same target platform so we access via the default.
-    return toolchainContexts
-        .getDefaultToolchainContext()
-        .targetPlatform()
-        .constraints()
-        .hasConstraintValue(constraintValue);
+    return toolchainContexts.getTargetPlatform().constraints().hasConstraintValue(constraintValue);
   }
 
   public ConstraintSemantics<RuleContext> getConstraintSemantics() {

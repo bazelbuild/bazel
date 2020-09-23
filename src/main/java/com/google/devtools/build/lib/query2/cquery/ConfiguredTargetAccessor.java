@@ -230,6 +230,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
 
     ToolchainCollection.Builder<UnloadedToolchainContext> toolchainContexts =
         ToolchainCollection.builder();
+    BuildConfigurationValue.Key configurationKey = BuildConfigurationValue.key(config);
     try {
       for (Map.Entry<String, ExecGroup> group : execGroups.entrySet()) {
         ExecGroup execGroup = group.getValue();
@@ -237,7 +238,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
             (UnloadedToolchainContext)
                 walkableGraph.getValue(
                     ToolchainContextKey.key()
-                        .configurationKey(BuildConfigurationValue.key(config))
+                        .configurationKey(configurationKey)
                         .requiredToolchainTypeLabels(execGroup.requiredToolchains())
                         .execConstraintLabels(execGroup.execCompatibleWith())
                         .build());
@@ -250,7 +251,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
           (UnloadedToolchainContext)
               walkableGraph.getValue(
                   ToolchainContextKey.key()
-                      .configurationKey(BuildConfigurationValue.key(config))
+                      .configurationKey(configurationKey)
                       .requiredToolchainTypeLabels(requiredToolchains)
                       .execConstraintLabels(execConstraintLabels)
                       .build());

@@ -291,7 +291,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               transitivePackagesForPackageRootResolution,
               unloadedToolchainContexts == null
                   ? null
-                  : unloadedToolchainContexts.getDefaultToolchainContext().targetPlatform(),
+                  : unloadedToolchainContexts.getTargetPlatform(),
               transitiveRootCauses);
       if (env.valuesMissing()) {
         return null;
