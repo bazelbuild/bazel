@@ -261,7 +261,7 @@ public final class RepositoryName implements Serializable {
   public PathFragment getPackagePath() {
     return isDefault() || isMain()
         ? PathFragment.EMPTY_FRAGMENT
-        : LabelConstants.EXTERNAL_REPOSITORY_LOCATION.getRelative(strippedName());
+        : LabelConstants.EXTERNAL_PACKAGE_NAME.getRelative(strippedName());
   }
 
   /**
