@@ -201,6 +201,10 @@ public class Utils {
     }
   }
 
+  /**
+   *  Call an asynchronous code block. If the block throws unauthenticated error, refresh the
+   *  credentials using {@link CallCredentialsProvider} and call it again.
+   */
   public static <V> ListenableFuture<V> refreshIfUnauthenticatedAsync(
       AsyncCallable<V> call, CallCredentialsProvider callCredentialsProvider) {
     try {
@@ -229,6 +233,9 @@ public class Utils {
     }
   }
 
+  /**
+   * Same as {@link #refreshIfUnauthenticatedAsync} but calling a synchronous code block.
+   */
   public static <V> V refreshIfUnauthenticated(Callable<V> call,
       CallCredentialsProvider callCredentialsProvider) throws IOException, InterruptedException {
     try {
