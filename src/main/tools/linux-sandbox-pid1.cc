@@ -359,43 +359,6 @@ static void ForwardSignal(int signum) {
   kill(-global_child_pid, signum);
 }
 
-static void SetupSignalHandlers() {
-  ClearSignalMask();
-
-  for (int signum = 1; signum < NSIG; signum++) {
-    switch (signum) {
-      // Some signals should indeed kill us and not be forwarded to the child,
-      // thus we can use the default handler.
-      case SIGABRT:
-      case SIGBUS:
-      case SIGFPE:
-      case SIGILL:
-      case SIGSEGV:
-      case SIGSYS:
-      case SIGTRAP:
-        break;
-      // It's fine to use the default handler for SIGCHLD, because we use
-      // waitpid() in the main loop to wait for children to die anyway.
-      case SIGCHLD:
-        break;
-      // One does not simply install a signal handler for these two signals
-      case SIGKILL:
-      case SIGSTOP:
-        break;
-      // Ignore SIGTTIN and SIGTTOU, as we hand off the terminal to the child in
-      // SpawnChild().
-      case SIGTTIN:
-      case SIGTTOU:
-        IgnoreSignal(signum);
-        break;
-      // All other signals should be forwarded to the child.
-      default:
-        InstallSignalHandler(signum, ForwardSignal);
-        break;
-    }
-  }
-}
-
 static void SpawnChild() {
   PRINT_DEBUG("calling fork...");
   global_child_pid = fork();
@@ -474,7 +437,12 @@ int Pid1Main(void *sync_pipe_param) {
     DIE("Using PID namespaces, but we are not PID 1");
   }
 
+  // Start with default signal handlers and an empty signal mask.
+  ClearSignalMask();
+
   SetupSelfDestruction(reinterpret_cast<int *>(sync_pipe_param));
+
+  // Sandbox ourselves.
   SetupMountNamespace();
   SetupUserNamespace();
   if (opt.fake_hostname) {
@@ -485,8 +453,17 @@ int Pid1Main(void *sync_pipe_param) {
   MountProc();
   SetupNetworking();
   EnterSandbox();
-  SetupSignalHandlers();
+
+  // Ignore terminal signals; we hand off the terminal to the child in
+  // SpawnChild below.
+  IgnoreSignal(SIGTTIN);
+  IgnoreSignal(SIGTTOU);
+
+  // Fork the child process.
   SpawnChild();
+
+  // Forward requests to shut down gracefully to the child.
+  InstallSignalHandler(SIGTERM, ForwardSignal);
 
   // Note that there's no need to kill any remaining descendant processes; they
   // are in our PID namespace and the kernel will send them SIGKILL

@@ -109,15 +109,19 @@ function test_basic_timeout() {
 }
 
 function test_timeout_exceeded_with_large_kill_delay() {
-  # Run the sandbox with a child that catches signals, waits while, then exits
-  # with a canned code. use a kill delay that gives it a chance to do so.
+  # Run the sandbox under a short timeout with a child that catches signals,
+  # waits while, then exits with a canned code. Use a kill delay that gives it a
+  # chance to do so.
   $linux_sandbox $SANDBOX_DEFAULT_OPTS -T 2 -t 30 -- /bin/bash -c \
-    'trap "echo -n before; sleep 1; echo -n after; exit 17" SIGINT SIGTERM SIGALRM; sleep 1000' &> $TEST_log || code=$?
+    'trap "sleep 1; exit 17" SIGTERM; \
+     sleep 10000' \
+    &> $TEST_log || code=$?
 
-  # It should have been given the chance to get to its "clean shutdown" code,
-  # even despite taking a second.
-  assert_equals 17 "$code"
-  expect_log "^beforeafter$"
+  # Assuming the trap command was run before the timeout, the "clean shutdown"
+  # code should have been allowed to run (returning 17). Otherwise it should
+  # have died immediately with SIGTERM.
+  local expected=( "17" "143" )
+  assert_one_of $expected "$code"
 }
 
 function test_timeout_and_kill_delay_exceeded() {
@@ -126,8 +130,10 @@ function test_timeout_and_kill_delay_exceeded() {
   $linux_sandbox $SANDBOX_DEFAULT_OPTS -T 2 -t 3 -- /bin/bash -c \
     'trap "" SIGTERM; sleep 1000' &> $TEST_log || code=$?
 
-  # Once the timeout expired, the child should have been forcibly killed.
-  assert_equals 137 "$code" # SIGNAL_BASE + SIGKILL = 128 + 9
+  # If the trap command was run before the timeout we should have seen SIGKILL
+  # (after the kill delay); otherwise SIGTERM should have taken out the child.
+  local expected=( "137" "143" )
+  assert_one_of $expected "$code"
 }
 
 function test_sigint_sends_sigterm() {
