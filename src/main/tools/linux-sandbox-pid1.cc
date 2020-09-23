@@ -428,36 +428,39 @@ static void SpawnChild() {
   }
 }
 
-static void WaitForChild() {
-  while (1) {
-    // Check for zombies to be reaped and exit, if our own child exited.
+static int WaitForChild() {
+  while (true) {
+    // Wait for some process to exit. This includes reparented processes in our
+    // PID namespace.
     int status;
-    pid_t killed_pid = waitpid(-1, &status, 0);
-    PRINT_DEBUG("waitpid returned %d", killed_pid);
+    const pid_t pid = TEMP_FAILURE_RETRY(wait(&status));
 
-    if (killed_pid < 0) {
-      // Our PID1 process got a signal that interrupted the waitpid() call and
-      // that was either ignored or forwared to the child. This is expected &
-      // fine, just continue waiting.
-      if (errno == EINTR) {
-        continue;
-      }
-      DIE("waitpid")
-    } else {
-      if (killed_pid == global_child_pid) {
-        // If the child process we spawned earlier terminated, we'll also
-        // terminate. We can simply _exit() here, because the Linux kernel will
-        // kindly SIGKILL all remaining processes in our PID namespace once we
-        // exit.
-        if (WIFSIGNALED(status)) {
-          PRINT_DEBUG("child died due to signal %d", WTERMSIG(status));
-          _exit(128 + WTERMSIG(status));
-        } else {
-          PRINT_DEBUG("child exited with code %d", WEXITSTATUS(status));
-          _exit(WEXITSTATUS(status));
-        }
-      }
+    if (pid < 0) {
+      // We don't expect any errors besides EINTR. In particular, ECHILD should
+      // be impossible because we haven't yet seen global_child_pid exit.
+      DIE("wait");
     }
+
+    PRINT_DEBUG("wait returned pid=%d, status=0x%02x", pid, status);
+
+    // If this isn't our child's PID, there's nothing further to do; we've
+    // successfully reaped a zombie.
+    if (pid != global_child_pid) {
+      continue;
+    }
+
+    // If the child exited due to a signal, log that fact and exit with the same
+    // status.
+    if (WIFSIGNALED(status)) {
+      const int signal = WTERMSIG(status);
+      PRINT_DEBUG("child exited due to signal %d", WTERMSIG(status));
+      return 128 + signal;
+    }
+
+    // Otherwise it must have exited normally.
+    const int exit_code = WEXITSTATUS(status);
+    PRINT_DEBUG("child exited normally with code %d", exit_code);
+    return exit_code;
   }
 }
 
@@ -479,6 +482,9 @@ int Pid1Main(void *sync_pipe_param) {
   EnterSandbox();
   SetupSignalHandlers();
   SpawnChild();
-  WaitForChild();
-  _exit(EXIT_FAILURE);
+
+  // Note that there's no need to kill any remaining descendant processes; they
+  // are in our PID namespace and the kernel will send them SIGKILL
+  // automatically once we exit.
+  return WaitForChild();
 }
