@@ -150,7 +150,14 @@ public class GrpcRemoteDownloaderTest {
     Scratch scratch = new Scratch();
     final Path destination = scratch.resolve("output file path");
     downloader.download(
-        urls, authHeaders, guavaChecksum, canonicalId, destination, eventHandler, clientEnv);
+        urls,
+        authHeaders,
+        guavaChecksum,
+        canonicalId,
+        destination,
+        eventHandler,
+        clientEnv,
+        com.google.common.base.Optional.<String>absent());
 
     try (InputStream in = destination.getInputStream()) {
       return ByteStreams.toByteArray(in);
