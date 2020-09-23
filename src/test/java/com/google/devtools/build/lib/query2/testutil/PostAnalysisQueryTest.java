@@ -215,11 +215,9 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
     assertThat(evalToListOfStrings("deps(//test:my_rule)"))
         .containsAtLeastElementsIn(evalToListOfStrings(explicits));
     assertThat(evalToListOfStrings("deps(//test:my_rule)"))
-        .doesNotContain(
-            /* expected: String, actual: ImmutableList<String> */ evalToListOfStrings(implicits));
+        .containsNoneIn(evalToListOfStrings(implicits));
   }
 
-  @SuppressWarnings("TruthIncompatibleType")
   @Test
   public void testNoImplicitDeps_toolchains() throws Exception {
     MockRule ruleWithImplicitDeps =
@@ -266,8 +264,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
     assertThat(evalToListOfStrings("deps(//test:my_rule)"))
         .containsAtLeastElementsIn(evalToListOfStrings(explicits));
     assertThat(evalToListOfStrings("deps(//test:my_rule)"))
-        .doesNotContain(
-            /* expected: String, actual: ImmutableList<String> */ evalToListOfStrings(implicits));
+        .containsNoneIn(evalToListOfStrings(implicits));
   }
 
   // Regression test for b/148550864
