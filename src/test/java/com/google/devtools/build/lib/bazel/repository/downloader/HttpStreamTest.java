@@ -267,4 +267,45 @@ public class HttpStreamTest {
     }
     return baos.toByteArray();
   }
+
+  @Test
+  public void tarballHasNoFormatAndTypeIsGzipped_doesntAutomaticallyGunzip() throws Exception {
+    byte[] gzData = gzipData(data);
+    when(connection.getURL()).thenReturn(new URL("http://doodle.example/foo"));
+    when(connection.getContentEncoding()).thenReturn("gzip");
+    when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(gzData));
+    try (HttpStream stream =
+        streamFactory.create(
+            connection, AURL, Optional.absent(), reconnector, Optional.of("tgz"))) {
+      assertThat(toByteArray(stream)).isEqualTo(gzData);
+    }
+  }
+
+  @Test
+  public void tarballHasNoFormatAndTypeIsGzippedAndHasMultipleExtensions_doesntAutomaticallyGunzip()
+      throws Exception {
+    // Similar to tarballHasNoFormatAndTypeIsGzipped_doesntAutomaticallyGunzip but also
+    // checks if the private method typeIsGZIP can handle separation of file extensions.
+    byte[] gzData = gzipData(data);
+    when(connection.getURL()).thenReturn(new URL("http://doodle.example/foo"));
+    when(connection.getContentEncoding()).thenReturn("gzip");
+    when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(gzData));
+    try (HttpStream stream =
+        streamFactory.create(
+            connection, AURL, Optional.absent(), reconnector, Optional.of("tar.gz"))) {
+      assertThat(toByteArray(stream)).isEqualTo(gzData);
+    }
+  }
+
+  @Test
+  public void tarballHasNoFormatAndTypeIsNotGzipped_automaticallyGunzip() throws Exception {
+    when(connection.getURL()).thenReturn(new URL("http://doodle.example/foo"));
+    when(connection.getContentEncoding()).thenReturn("gzip");
+    when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(gzipData(data)));
+    try (HttpStream stream =
+        streamFactory.create(
+            connection, AURL, Optional.absent(), reconnector, Optional.of("tar"))) {
+      assertThat(toByteArray(stream)).isEqualTo(data);
+    }
+  }
 }

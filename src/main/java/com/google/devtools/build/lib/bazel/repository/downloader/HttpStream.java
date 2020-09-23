@@ -57,12 +57,22 @@ final class HttpStream extends FilterInputStream {
       this.progressInputStreamFactory = progressInputStreamFactory;
     }
 
-    @SuppressWarnings("resource")
     HttpStream create(
         @WillCloseWhenClosed URLConnection connection,
         URL originalUrl,
         Optional<Checksum> checksum,
         Reconnector reconnector)
+        throws IOException {
+      return create(connection, originalUrl, checksum, reconnector, Optional.<String>absent());
+    }
+
+    @SuppressWarnings("resource")
+    HttpStream create(
+        @WillCloseWhenClosed URLConnection connection,
+        URL originalUrl,
+        Optional<Checksum> checksum,
+        Reconnector reconnector,
+        Optional<String> type)
         throws IOException {
       InputStream stream = new InterruptibleInputStream(connection.getInputStream());
       try {
@@ -81,10 +91,13 @@ final class HttpStream extends FilterInputStream {
 
         // Determine if we need to transparently gunzip. See RFC2616 § 3.5 and § 14.11. Please note
         // that some web servers will send Content-Encoding: gzip even when we didn't request it if
-        // the file is a .gz file.
+        // the file is a .gz file. Therefore we take the type parameter from the rule http_archive
+        // in consideration. If the repository/file that we are downloading is already compressed we
+        // should not decompress it to preserve the desired file format.
         if (GZIP_CONTENT_ENCODING.contains(Strings.nullToEmpty(connection.getContentEncoding()))
             && !GZIPPED_EXTENSIONS.contains(HttpUtils.getExtension(connection.getURL().getPath()))
-            && !GZIPPED_EXTENSIONS.contains(HttpUtils.getExtension(originalUrl.getPath()))) {
+            && !GZIPPED_EXTENSIONS.contains(HttpUtils.getExtension(originalUrl.getPath()))
+            && !typeIsGZIP(type)) {
           stream = new GZIPInputStream(stream, GZIP_BUFFER_BYTES);
         }
 
@@ -116,6 +129,26 @@ final class HttpStream extends FilterInputStream {
         throw e;
       }
       return new HttpStream(stream, connection.getURL());
+    }
+
+    /**
+     * Checks if the given type is GZIP
+     *
+     * @param type extension, e.g. "tar.gz"
+     * @return whether the type is GZIP or not
+     */
+    private static boolean typeIsGZIP(Optional<String> type) {
+      if (type.isPresent()) {
+        String t = type.get();
+
+        if (t.contains(".")) {
+          // We only want to look at the last extension.
+          t = HttpUtils.getExtension(t);
+        }
+
+        return GZIPPED_EXTENSIONS.contains(t);
+      }
+      return false;
     }
   }
 
