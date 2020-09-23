@@ -574,6 +574,79 @@ public final class TreeArtifactValueTest {
                 .build());
   }
 
+  @Test
+  public void multiBuilder_doesNotInjectRemovedValue() {
+    TreeArtifactValue.MultiBuilder builder = TreeArtifactValue.newMultiBuilder();
+    SpecialArtifact parent1 = createTreeArtifact("bin/tree1");
+    TreeFileArtifact parent1Child = TreeFileArtifact.createTreeOutput(parent1, "child");
+    FileArtifactValue parent1ChildMetadata = metadataWithId(1);
+    SpecialArtifact parent2 = createTreeArtifact("bin/tree2");
+    TreeFileArtifact parent2Child = TreeFileArtifact.createTreeOutput(parent2, "child");
+    FileArtifactValue parent2ChildMetadata = metadataWithId(2);
+    Map<SpecialArtifact, TreeArtifactValue> results = new HashMap<>();
+
+    builder
+        .putChild(parent1Child, parent1ChildMetadata)
+        .putChild(parent2Child, parent2ChildMetadata)
+        .remove(parent1)
+        .injectTo(results::put);
+
+    assertThat(results)
+        .containsExactly(
+            parent2,
+            TreeArtifactValue.newBuilder(parent2)
+                .putChild(parent2Child, parent2ChildMetadata)
+                .build());
+  }
+
+  @Test
+  public void multiBuilder_removeMissingTree_doesNothing() {
+    TreeArtifactValue.MultiBuilder builder = TreeArtifactValue.newMultiBuilder();
+    SpecialArtifact missingTree = createTreeArtifact("bin/tree");
+    Map<SpecialArtifact, TreeArtifactValue> results = new HashMap<>();
+
+    builder.remove(missingTree).injectTo(results::put);
+
+    assertThat(results).isEmpty();
+  }
+
+  @Test
+  public void multiBuilder_removeNotATreeArtifact_fails() {
+    TreeArtifactValue.MultiBuilder builder = TreeArtifactValue.newMultiBuilder();
+    SpecialArtifact notATreeArtifact =
+        new SpecialArtifact(
+            root,
+            root.getExecPath().getRelative("bin/artifact"),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER,
+            SpecialArtifactType.FILESET);
+
+    assertThrows(IllegalArgumentException.class, () -> builder.remove(notATreeArtifact));
+  }
+
+  @Test
+  public void multiBuilder_removeAndRecreateValue_injectsValueAfterRemove() {
+    TreeArtifactValue.MultiBuilder builder = TreeArtifactValue.newMultiBuilder();
+    SpecialArtifact parent = createTreeArtifact("bin/tree");
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(parent, "child1");
+    FileArtifactValue child1Metadata = metadataWithId(1);
+    ArchivedTreeArtifact archivedArtifact = createArchivedTreeArtifact(parent);
+    FileArtifactValue archivedArtifactMetadata = metadataWithId(2);
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(parent, "child2");
+    FileArtifactValue child2Metadata = metadataWithId(3);
+    Map<SpecialArtifact, TreeArtifactValue> results = new HashMap<>();
+
+    builder
+        .putChild(child1, child1Metadata)
+        .setArchivedRepresentation(archivedArtifact, archivedArtifactMetadata)
+        .remove(parent)
+        .putChild(child2, child2Metadata)
+        .injectTo(results::put);
+
+    assertThat(results)
+        .containsExactly(
+            parent, TreeArtifactValue.newBuilder(parent).putChild(child2, child2Metadata).build());
+  }
+
   private static ArchivedTreeArtifact createArchivedTreeArtifact(SpecialArtifact specialArtifact) {
     return ArchivedTreeArtifact.create(specialArtifact, BIN_PATH);
   }
