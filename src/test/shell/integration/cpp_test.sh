@@ -320,7 +320,7 @@ outer = rule(
                 "${TOOLS_REPOSITORY}//tools/cpp:current_cc_toolchain",
             ),
         ),
-        "_whitelist_function_transition": attr.label(default = "${TOOLS_REPOSITORY}//tools/whitelists/function_transition_whitelist"),
+        "_allowlist_function_transition": attr.label(default = "${TOOLS_REPOSITORY}//tools/allowlists/function_transition_allowlist"),
     },
 )
 
