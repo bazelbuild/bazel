@@ -97,7 +97,7 @@ public final class LtoBackendArtifacts {
       List<String> userCompileFlags)
       throws RuleErrorException {
     this.bitcodeFile = bitcodeFile;
-    PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getPackagePath());
+    PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getOutputDirRelativePath());
 
     objectFile =
         linkArtifactFactory.create(actionConstructionContext, repositoryName, configuration, obj);
@@ -151,7 +151,7 @@ public final class LtoBackendArtifacts {
       throws RuleErrorException {
     this.bitcodeFile = bitcodeFile;
 
-    PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getPackagePath());
+    PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getOutputDirRelativePath());
     objectFile =
         linkArtifactFactory.create(actionConstructionContext, repositoryName, configuration, obj);
     imports = null;
@@ -265,7 +265,7 @@ public final class LtoBackendArtifacts {
               actionConstructionContext,
               repositoryName,
               configuration,
-              FileSystemUtils.replaceExtension(objectFile.getPackagePath(), ".dwo"));
+              FileSystemUtils.replaceExtension(objectFile.getOutputDirRelativePath(), ".dwo"));
       builder.addOutput(dwoFile);
       buildVariablesBuilder.addStringVariable(
           CompileBuildVariables.PER_OBJECT_DEBUG_INFO_FILE.getVariableName(),

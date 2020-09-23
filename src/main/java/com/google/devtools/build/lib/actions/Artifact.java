@@ -616,7 +616,7 @@ public abstract class Artifact
    * assumptions should be made in terms of where the root portion of the path ends, and the
    * returned value almost always needs to be used in conjunction with its root.
    *
-   * <p>{#link Artifact#getPackagePath()} is more versatile for general use cases.
+   * <p>{#link Artifact#getOutputDirRelativePath()} is more versatile for general use cases.
    */
   public abstract PathFragment getRootRelativePath();
 
@@ -624,9 +624,32 @@ public abstract class Artifact
    * Returns the fully-qualified package path to this artifact. By "fully-qualified", it means the
    * returned path is prefixed with "external/<repository name>" if this artifact is in an external
    * repository.
+   *
+   * <p>Do not call this method just because you need a path prefixed with the "external/<repository
+   * name>" fragment for external repository artifacts. {@link * Artifact#getOutputDirRelativePath}
+   * is the right one to use in almost all cases.
+   *
+   * @deprecated This method is only to be used for $(location) and getOutputDirRelativePath
+   *     implementations.
    */
-  public PathFragment getPackagePath() {
+  @Deprecated
+  public PathFragment getPathForLocationExpansion() {
     return getRootRelativePath();
+  }
+
+  /**
+   * Returns the path to this artifact relative to an output directory, e.g. the bin directory. Note
+   * that this is available on every Artifact type, including source artifacts. As a matter of fact,
+   * one of its most common use cases is to construct a derived artifact's output path out of a
+   * sibling source artifact's by replacing the basename in its output-dir-relative path.
+   *
+   * <p>This is just a wrapper over {@link Artifact#getPathForLocationExpansion} at the moment.
+   * However, since it will be kept in sync with the output directory layout, which is planned for
+   * an overhaul, it must be preferred over {@link Artifact#getPathForLocationExpansion} whenever
+   * possible.
+   */
+  public final PathFragment getOutputDirRelativePath() {
+    return getPathForLocationExpansion();
   }
 
   /** Returns this.getExecPath().getPathString(). */
@@ -639,8 +662,8 @@ public abstract class Artifact
     return getRootRelativePath().getPathString();
   }
 
-  public final String getPackagePathString() {
-    return getPackagePath().getPathString();
+  public final String getOutputDirRelativePathString() {
+    return getOutputDirRelativePath().getPathString();
   }
 
   @Override
@@ -752,7 +775,7 @@ public abstract class Artifact
    * runfiles tree. For local targets, it returns the rootRelativePath.
    */
   public final PathFragment getRunfilesPath() {
-    PathFragment relativePath = getPackagePath();
+    PathFragment relativePath = getOutputDirRelativePath();
     // We can't use root.isExternalSource() here since it needs to handle derived artifacts too.
     if (relativePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
       // Turn external/repo/foo into ../repo/foo.
@@ -858,7 +881,7 @@ public abstract class Artifact
     }
 
     @Override
-    public PathFragment getPackagePath() {
+    public PathFragment getPathForLocationExpansion() {
       return getExecPath();
     }
 
@@ -1279,8 +1302,8 @@ public abstract class Artifact
   public static final Function<Artifact, String> ROOT_RELATIVE_PATH_STRING =
       artifact -> artifact.getRootRelativePath().getPathString();
 
-  public static final Function<Artifact, String> PACKAGE_PATH_STRING =
-      artifact -> artifact.getPackagePath().getPathString();
+  public static final Function<Artifact, String> OUTPUT_DIR_RELATIVE_PATH_STRING =
+      artifact -> artifact.getOutputDirRelativePath().getPathString();
 
   /**
    * Converts a collection of artifacts into execution-time path strings, and
@@ -1333,21 +1356,21 @@ public abstract class Artifact
   }
 
   /**
-   * Lazily converts artifacts into package path strings. Middleman artifacts are ignored by this
-   * method.
+   * Lazily converts artifacts into output-dir-relative path strings. Middleman artifacts are
+   * ignored by this method.
    */
-  public static Iterable<String> toPackagePaths(NestedSet<Artifact> artifacts) {
-    return toPackagePaths(artifacts.toList());
+  public static Iterable<String> toOutputDirRelativePaths(NestedSet<Artifact> artifacts) {
+    return toOutputDirRelativePaths(artifacts.toList());
   }
 
   /**
-   * Lazily converts artifacts into package path strings. Middleman artifacts are ignored by this
-   * method.
+   * Lazily converts artifacts into output-dir-relative path strings. Middleman artifacts are
+   * ignored by this method.
    */
-  public static Iterable<String> toPackagePaths(Iterable<Artifact> artifacts) {
+  public static Iterable<String> toOutputDirRelativePaths(Iterable<Artifact> artifacts) {
     return Iterables.transform(
         Iterables.filter(artifacts, MIDDLEMAN_FILTER),
-        artifact -> artifact.getPackagePath().getPathString());
+        artifact -> artifact.getOutputDirRelativePath().getPathString());
   }
 
   /**
