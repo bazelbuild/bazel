@@ -52,13 +52,14 @@ public class DelegatingDownloader implements Downloader {
       String canonicalId,
       Path destination,
       ExtendedEventHandler eventHandler,
-      Map<String, String> clientEnv)
+      Map<String, String> clientEnv,
+      Optional<String> type)
       throws IOException, InterruptedException {
     Downloader downloader = defaultDelegate;
     if (delegate != null) {
       downloader = delegate;
     }
     downloader.download(
-        urls, authHeaders, checksum, canonicalId, destination, eventHandler, clientEnv);
+        urls, authHeaders, checksum, canonicalId, destination, eventHandler, clientEnv, type);
   }
 }
