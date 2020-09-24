@@ -17,27 +17,26 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkModules; // a bad dependency
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Expression;
-import com.google.devtools.build.lib.syntax.FileOptions;
-import com.google.devtools.build.lib.syntax.Module;
-import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.SyntaxError;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.LinkedList;
 import java.util.List;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Expression;
+import net.starlark.java.syntax.FileOptions;
+import net.starlark.java.syntax.ParserInput;
+import net.starlark.java.syntax.SyntaxError;
 
 /** Helper class for tests that evaluate Starlark code. */
 // TODO(adonovan): stop extending this class. Prefer composition over inheritance.
@@ -75,7 +74,7 @@ public class EvaluationTestCase {
    */
   public final void setSemantics(String... options) throws OptionsParsingException {
     this.semantics =
-        Options.parse(StarlarkSemanticsOptions.class, options).getOptions().toStarlarkSemantics();
+        Options.parse(BuildLanguageOptions.class, options).getOptions().toStarlarkSemantics();
 
     // Re-initialize the thread and module with the new semantics when needed.
     this.thread = null;
@@ -111,14 +110,14 @@ public class EvaluationTestCase {
   /** Joins the lines, parses them as an expression, and evaluates it. */
   public final Object eval(String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
-    return EvalUtils.eval(input, FileOptions.DEFAULT, getModule(), getStarlarkThread());
+    return Starlark.eval(input, FileOptions.DEFAULT, getModule(), getStarlarkThread());
   }
 
   /** Joins the lines, parses them as a file, and executes it. */
   public final void exec(String... lines)
       throws SyntaxError.Exception, EvalException, InterruptedException {
     ParserInput input = ParserInput.fromLines(lines);
-    EvalUtils.exec(input, FileOptions.DEFAULT, getModule(), getStarlarkThread());
+    Starlark.execFile(input, FileOptions.DEFAULT, getModule(), getStarlarkThread());
   }
 
   // A hook for subclasses to alter a newly created thread,
@@ -129,8 +128,6 @@ public class EvaluationTestCase {
   // Implementations may add to the predeclared environment,
   // and return the module's client data value.
   protected Object newModuleHook(ImmutableMap.Builder<String, Object> predeclared) {
-    StarlarkModules.addStarlarkGlobalsToBuilder(
-        predeclared); // TODO(adonovan): break bad dependency
     return null; // no client data
   }
 

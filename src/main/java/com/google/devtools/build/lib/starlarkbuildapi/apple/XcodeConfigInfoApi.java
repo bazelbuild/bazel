@@ -14,15 +14,15 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
 
 /**
  * An interface for an info type containing the set of Apple versions computed from command line
@@ -148,9 +148,7 @@ public interface XcodeConfigInfoApi<
               doc = "The selected Xcode version from this config."),
         },
         selfCall = true)
-    @StarlarkConstructor(
-        objectType = XcodeConfigInfoApi.class,
-        receiverNameForDoc = "XcodeConfigInfo")
+    @StarlarkConstructor
     XcodeConfigInfoApi<?, ?> xcodeConfigInfo(
         String iosSdkVersion,
         String iosMinimumOsVersion,

@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
@@ -44,6 +43,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -72,13 +72,15 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    if (!ruleContext.getAnalysisEnvironment().getStarlarkSemantics().experimentalNinjaActions()) {
+    if (!ruleContext
+        .getAnalysisEnvironment()
+        .getStarlarkSemantics()
+        .getBool(BuildLanguageOptions.EXPERIMENTAL_NINJA_ACTIONS)) {
       throw ruleContext.throwWithRuleError(
           "Usage of ninja_graph is only allowed with --experimental_ninja_actions flag");
     }
-    Artifact mainArtifact = ruleContext.getPrerequisiteArtifact("main", TransitionMode.TARGET);
-    ImmutableList<Artifact> ninjaSrcs =
-        ruleContext.getPrerequisiteArtifacts("ninja_srcs", TransitionMode.TARGET).list();
+    Artifact mainArtifact = ruleContext.getPrerequisiteArtifact("main");
+    ImmutableList<Artifact> ninjaSrcs = ruleContext.getPrerequisiteArtifacts("ninja_srcs").list();
     PathFragment outputRoot =
         PathFragment.create(ruleContext.attributes().get("output_root", Type.STRING));
     PathFragment workingDirectory =

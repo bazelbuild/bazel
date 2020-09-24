@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.LateBoundDefaultApi;
-import com.google.devtools.build.lib.syntax.Printer;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Map;
@@ -35,6 +34,7 @@ import java.util.concurrent.ExecutionException;
 import javax.annotation.concurrent.Immutable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkInterfaceUtils;
+import net.starlark.java.eval.Printer;
 
 /**
  * An implementation of {@link LateBoundDefault} which obtains a late-bound attribute value (of type
@@ -124,7 +124,7 @@ public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundD
 
   @Override
   public void repr(Printer printer) {
-    printer.format("<late-bound default>");
+    printer.append("<late-bound default>");
   }
 
   /** For use by @AutoCodec since the {@link #defaultValue} field is hard for it to process. */

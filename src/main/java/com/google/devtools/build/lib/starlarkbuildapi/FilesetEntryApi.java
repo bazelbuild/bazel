@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.eval.StarlarkValue;
 
 /** A value object used to represent an entry inside a "Fileset" BUILD rule. */
 @StarlarkBuiltin(name = "FilesetEntry", doc = "", documented = false)

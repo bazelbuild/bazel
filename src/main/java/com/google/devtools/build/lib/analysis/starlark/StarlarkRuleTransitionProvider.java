@@ -31,11 +31,11 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /**
  * This class implements {@link TransitionFactory} to provide a starlark-defined transition that
@@ -107,7 +107,8 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<Rule> {
     // TODO(b/121134880): validate that the targets these transitions are applied on don't read any
     // attributes that are then configured by the outputs of these transitions.
     @Override
-    public BuildOptions patch(BuildOptionsView buildOptionsView, EventHandler eventHandler) {
+    public BuildOptions patch(BuildOptionsView buildOptionsView, EventHandler eventHandler)
+        throws InterruptedException {
       Map<String, BuildOptions> result;
       // Starlark transitions already have logic to enforce they only access declared inputs and
       // outputs. Rather than complicate BuildOptionsView with more access points to BuildOptions,
@@ -117,13 +118,6 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<Rule> {
         result =
             applyAndValidate(
                 buildOptions, starlarkDefinedConfigTransition, attrObject, eventHandler);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        eventHandler.handle(
-            Event.error(
-                starlarkDefinedConfigTransition.getLocationForErrorReporting(),
-                "Starlark transition interrupted during rule transition implementation"));
-        return buildOptions.clone();
       } catch (EvalException e) {
         eventHandler.handle(
             Event.error(

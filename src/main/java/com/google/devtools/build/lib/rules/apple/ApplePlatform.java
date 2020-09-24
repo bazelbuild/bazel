@@ -23,11 +23,11 @@ import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.ApplePlatformApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.ApplePlatformTypeApi;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Printer;
 import java.util.HashMap;
 import java.util.Locale;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.syntax.Location;
 
 /** An enum that can be used to distinguish between various apple platforms. */
 @Immutable

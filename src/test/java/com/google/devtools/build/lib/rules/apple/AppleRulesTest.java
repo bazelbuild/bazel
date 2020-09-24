@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
-import com.google.devtools.build.lib.syntax.Sequence;
+import net.starlark.java.eval.Sequence;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;

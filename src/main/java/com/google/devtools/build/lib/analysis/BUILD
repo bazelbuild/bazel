@@ -146,7 +146,6 @@ java_library(
         ":toolchain_collection",
         ":toolchain_context",
         ":top_level_artifact_context",
-        ":transition_mode",
         ":transitive_info_collection",
         ":transitive_info_provider",
         ":transitive_info_provider_effective_class_helper",
@@ -361,7 +360,6 @@ java_library(
         ":toolchain_collection",
         ":toolchain_context",
         ":top_level_artifact_context",
-        ":transition_mode",
         ":transitive_info_collection",
         ":transitive_info_provider",
         ":transitive_info_provider_effective_class_helper",
@@ -399,8 +397,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:test_xml_output_parser_exception",
         "//src/main/java/com/google/devtools/build/lib/graph",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:build_type",
-        "//src/main/java/com/google/devtools/build/lib/packages:type",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:current_rule_tracker",
@@ -425,8 +422,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/test",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
-        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
@@ -440,6 +435,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/annot",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:test_status_java_proto",
@@ -458,8 +455,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
-        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
     ],
 )
@@ -509,7 +506,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:type",
         "//third_party:guava",
     ],
 )
@@ -584,7 +580,6 @@ java_library(
         ":transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:type",
         "//third_party:guava",
     ],
 )
@@ -644,7 +639,7 @@ java_library(
         ":analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:type",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
     ],
 )
@@ -699,7 +694,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration_value",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
+        "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -784,7 +779,7 @@ java_library(
     deps = [
         ":aspect_collection",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
+        "//src/main/java/net/starlark/java/syntax",
     ],
 )
 
@@ -795,7 +790,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
+        "//src/main/java/net/starlark/java/syntax",
         "//third_party:auto_value",
     ],
 )
@@ -819,7 +814,7 @@ java_library(
         ":transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/packages:build_type",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party:guava",
     ],
@@ -987,7 +982,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:toolchain_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:unloaded_toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -1036,7 +1032,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:type",
         "//third_party:flogger",
         "//third_party:guava",
     ],
@@ -1050,8 +1045,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
-        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
     ],
 )
@@ -1061,6 +1056,7 @@ java_library(
     srcs = ["ToolchainCollection.java"],
     deps = [
         ":toolchain_context",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//third_party:auto_value",
         "//third_party:guava",
@@ -1089,11 +1085,6 @@ java_library(
 )
 
 java_library(
-    name = "transition_mode",
-    srcs = ["TransitionMode.java"],
-)
-
-java_library(
     name = "transitive_info_collection",
     srcs = ["TransitiveInfoCollection.java"],
     deps = [
@@ -1102,7 +1093,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
+        "//src/main/java/net/starlark/java/eval",
     ],
 )
 
@@ -1194,9 +1185,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
     ],
 )
@@ -1297,7 +1290,6 @@ java_library(
         ":actions/abstract_file_write_action",
         ":actions/deterministic_writer",
         ":analysis_cluster",
-        ":transition_mode",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
@@ -1348,8 +1340,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -1447,9 +1439,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:string",
+        "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -1563,7 +1555,10 @@ java_library(
 java_library(
     name = "config/compilation_mode",
     srcs = ["config/CompilationMode.java"],
-    deps = ["//src/main/java/com/google/devtools/common/options"],
+    deps = [
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/net/starlark/java/eval",
+    ],
 )
 
 java_library(
@@ -1593,8 +1588,7 @@ java_library(
     srcs = ["config/CoreOptionConverters.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages:build_type",
-        "//src/main/java/com/google/devtools/build/lib/packages:type",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
     ],
@@ -1656,7 +1650,7 @@ java_library(
         ":config/build_options",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
+        "//src/main/java/net/starlark/java/eval",
         "//third_party:jsr305",
     ],
 )
@@ -1708,7 +1702,10 @@ java_library(
     name = "config/invalid_configuration_exception",
     srcs = ["config/InvalidConfigurationException.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -1753,8 +1750,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
-        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
     ],
 )
@@ -1945,8 +1942,6 @@ java_library(
         ":constraints/environment",
         ":rule_definition_environment",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:build_type",
-        "//src/main/java/com/google/devtools/build/lib/packages:type",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//third_party:guava",
     ],
@@ -2030,8 +2025,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
-        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -2044,7 +2039,7 @@ java_library(
         ":starlark/starlark_late_bound_default",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
+        "//src/main/java/net/starlark/java/eval",
     ],
 )
 
@@ -2059,10 +2054,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
-        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
     ],
 )
@@ -2083,7 +2078,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
+        "//src/main/java/net/starlark/java/eval",
     ],
 )
 
@@ -2094,15 +2089,16 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
+        "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
-        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -2114,7 +2110,7 @@ java_library(
     deps = [
         ":analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
+        "//src/main/java/net/starlark/java/eval",
     ],
 )
 
@@ -2127,8 +2123,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
         "//src/main/java/net/starlark/java/annot",
+        "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -2140,9 +2136,8 @@ java_library(
     deps = [
         ":config/execution_transition_factory",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:type",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
+        "//src/main/java/net/starlark/java/eval",
     ],
 )
 
@@ -2154,7 +2149,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/test",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
+        "//src/main/java/net/starlark/java/eval",
     ],
 )
 
@@ -2272,6 +2267,7 @@ java_library(
     srcs = ["test/TestTrimmingTransitionFactory.java"],
     deps = [
         ":config/build_options",
+        ":config/build_options_cache",
         ":config/fragment_options",
         ":config/transitions/no_transition",
         ":config/transitions/patch_transition",

@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Starlark;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /** Static helper class for creating and accessing instances of the legacy "py" struct provider. */
 // TODO(b/153363654): Remove this file.

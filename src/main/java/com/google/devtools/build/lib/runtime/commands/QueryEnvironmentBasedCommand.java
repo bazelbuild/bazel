@@ -174,7 +174,9 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
               env,
               options.getOptions(KeepGoingOption.class).keepGoing,
               !streamResults,
-              getUniverseScope(queryOptions),
+              env.getSkyframeExecutor()
+                  .maybeGetHardcodedUniverseScope()
+                  .orElse(getUniverseScope(queryOptions)),
               options.getOptions(LoadingPhaseThreadsOption.class).threads,
               settings,
               useGraphlessQuery)) {
@@ -200,9 +202,14 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
             if (queryEvalResult.getSuccess()) {
               return BlazeCommandResult.success();
             }
-            // TODO(b/138456686): query + keep_going partial failures require more refactoring for
-            //  detailed failure representations.
-            return BlazeCommandResult.exitCode(ExitCode.PARTIAL_ANALYSIS_FAILURE);
+            // The numerical exit code expected by query users in this case is always 3
+            // (corresponding to ExitCode.PARTIAL_ANALYSIS_FAILURE), which is why the command
+            // result returned here overrides any numerical code associated with the
+            // detailedExitCode in the eval result.
+            return BlazeCommandResult.detailedExitCode(
+                DetailedExitCode.of(
+                    ExitCode.PARTIAL_ANALYSIS_FAILURE,
+                    queryEvalResult.getDetailedExitCode().getFailureDetail()));
           });
     } catch (QueryRuntimeHelperException e) {
       env.getReporter().handle(Event.error(e.getMessage()));

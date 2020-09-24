@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
@@ -44,6 +43,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.util.Pair;
@@ -269,7 +269,7 @@ public class ProtoCompileActionBuilder {
         ruleContext
             .getAnalysisEnvironment()
             .getStarlarkSemantics()
-            .experimentalSiblingRepositoryLayout();
+            .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT);
 
     // Add include maps
     addIncludeMapArguments(
@@ -327,8 +327,7 @@ public class ProtoCompileActionBuilder {
       throws InterruptedException {
     Artifact output = protoInfo.getDirectDescriptorSet();
     ImmutableList<ProtoInfo> protoDeps =
-        ImmutableList.copyOf(
-            ruleContext.getPrerequisites("deps", TransitionMode.TARGET, ProtoInfo.PROVIDER));
+        ImmutableList.copyOf(ruleContext.getPrerequisites("deps", ProtoInfo.PROVIDER));
     NestedSet<Artifact> dependenciesDescriptorSets =
         ProtoCommon.computeDependenciesDescriptorSets(protoDeps);
     if (protoInfo.getDirectProtoSources().isEmpty()) {
@@ -461,8 +460,7 @@ public class ProtoCompileActionBuilder {
       }
     }
 
-    FilesToRunProvider compilerTarget =
-        ruleContext.getExecutablePrerequisite(":proto_compiler", TransitionMode.HOST);
+    FilesToRunProvider compilerTarget = ruleContext.getExecutablePrerequisite(":proto_compiler");
     if (compilerTarget == null) {
       return null;
     }
@@ -471,7 +469,7 @@ public class ProtoCompileActionBuilder {
         ruleContext
             .getAnalysisEnvironment()
             .getStarlarkSemantics()
-            .experimentalSiblingRepositoryLayout();
+            .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT);
 
     result
         .addOutputs(outputs)

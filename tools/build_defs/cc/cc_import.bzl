@@ -192,7 +192,27 @@ def _cc_import_impl(ctx):
         cc_infos.append(dep[CcInfo])
     merged_cc_info = cc_common.merge_cc_infos(cc_infos = cc_infos)
 
-    return [merged_cc_info]
+    runfiles = ctx.runfiles(files = ctx.files.data)
+
+    transitive_runfiles_list = []
+    if ctx.attr.static_library:
+        transitive_runfiles_list.append(ctx.attr.static_library[DefaultInfo].default_runfiles)
+    if ctx.attr.pic_static_library:
+        transitive_runfiles_list.append(ctx.attr.pic_static_library[DefaultInfo].default_runfiles)
+    if ctx.attr.shared_library:
+        transitive_runfiles_list.append(ctx.attr.shared_library[DefaultInfo].default_runfiles)
+    if ctx.attr.interface_library:
+        transitive_runfiles_list.append(ctx.attr.interface_library[DefaultInfo].default_runfiles)
+    for dep in ctx.attr.deps:
+        transitive_runfiles_list.append(dep[DefaultInfo].default_runfiles)
+
+    for maybe_runfiles in transitive_runfiles_list:
+        if maybe_runfiles:
+            runfiles = runfiles.merge(maybe_runfiles)
+
+    default_info = DefaultInfo(runfiles = runfiles)
+
+    return [merged_cc_info, default_info]
 
 cc_import = rule(
     implementation = _cc_import_impl,
@@ -215,6 +235,7 @@ cc_import = rule(
         "linkopts": attr.string_list(),
         "includes": attr.string_list(),
         "deps": attr.label_list(),
+        "data": attr.label_list(allow_files = True),
         "_cc_toolchain": attr.label(default = "@bazel_tools//tools/cpp:current_cc_toolchain"),
     },
     toolchains = ["@rules_cc//cc:toolchain_type"],  # copybara-use-repo-external-label

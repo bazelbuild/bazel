@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -669,7 +669,7 @@ public class CommandEnvironment {
             reporter,
             options.getOptions(PackageOptions.class),
             packageLocator,
-            options.getOptions(StarlarkSemanticsOptions.class),
+            options.getOptions(BuildLanguageOptions.class),
             getCommandId(),
             clientEnv,
             timestampGranularityMonitor,

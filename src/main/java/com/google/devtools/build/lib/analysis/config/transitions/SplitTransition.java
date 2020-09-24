@@ -47,7 +47,8 @@ public interface SplitTransition extends ConfigurationTransition {
    *
    * <p>Returning an empty or null list triggers a {@link RuntimeException}.
    */
-  Map<String, BuildOptions> split(BuildOptionsView buildOptions, EventHandler eventHandler);
+  Map<String, BuildOptions> split(BuildOptionsView buildOptions, EventHandler eventHandler)
+      throws InterruptedException;
 
   /**
    * Returns true iff {@code option} and {@code splitOptions} are equal.
@@ -59,8 +60,8 @@ public interface SplitTransition extends ConfigurationTransition {
   }
 
   @Override
-  default Map<String, BuildOptions> apply(
-      BuildOptionsView buildOptions, EventHandler eventHandler) {
+  default Map<String, BuildOptions> apply(BuildOptionsView buildOptions, EventHandler eventHandler)
+      throws InterruptedException {
     Map<String, BuildOptions> splitOptions = split(buildOptions, eventHandler);
     Verify.verifyNotNull(splitOptions, "Split transition output may not be null");
     Verify.verify(!splitOptions.isEmpty(), "Split transition output may not be empty");

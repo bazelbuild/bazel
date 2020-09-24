@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.query2.query.output;
 
+import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
@@ -68,7 +69,8 @@ class MinrankOutputFormatter extends OutputFormatter {
       Digraph<Target> result,
       OutputStream out,
       AspectResolver aspectResolver,
-      EventHandler eventHandler)
+      EventHandler eventHandler,
+      HashFunction hashFunction)
       throws IOException {
     PrintStream printStream = new PrintStream(out);
     // getRoots() isn't defined for cyclic graphs, so in order to handle

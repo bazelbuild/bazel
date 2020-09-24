@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.lib.skyframe.ConstraintValueLookupUtil.InvalidConstraintValueException;
 import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.RegisteredToolchainsFunction.InvalidToolchainLabelException;
@@ -536,12 +537,22 @@ public class ToolchainResolutionFunction implements SkyFunction {
               .map(key -> key.getLabel().toString())
               .collect(Collectors.joining(", ")));
     }
+
+    @Override
+    protected Code getDetailedCode() {
+      return Code.NO_MATCHING_EXECUTION_PLATFORM;
+    }
   }
 
   /** Exception used when a toolchain type is required but no matching toolchain is found. */
   static final class UnresolvedToolchainsException extends ToolchainException {
     UnresolvedToolchainsException(List<Label> missingToolchainTypes) {
       super(getMessage(missingToolchainTypes));
+    }
+
+    @Override
+    protected Code getDetailedCode() {
+      return Code.NO_MATCHING_TOOLCHAIN;
     }
 
     private static String getMessage(List<Label> missingToolchainTypes) {

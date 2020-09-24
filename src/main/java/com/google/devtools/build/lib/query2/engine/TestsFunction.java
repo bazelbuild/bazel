@@ -23,6 +23,10 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunctio
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Query;
+import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -179,14 +183,19 @@ public class TestsFunction implements QueryFunction {
         // If strict mode is enabled, then give an error for any non-test, non-test-suite target.
         if (strict) {
           for (T otherTarget : partitionResult.otherTargets) {
-            env.reportBuildFileError(
+            String message =
+                String.format(
+                    "The label '%s' in the test_suite '%s' does not refer to a test or test_suite"
+                        + " rule!",
+                    accessor.getLabel(otherTarget), accessor.getLabel(testSuite));
+            env.handleError(
                 expression,
-                "The label '"
-                    + accessor.getLabel(otherTarget)
-                    + "' in the test_suite '"
-                    + accessor.getLabel(testSuite)
-                    + "' does not refer to a test or test_suite "
-                    + "rule!");
+                message,
+                DetailedExitCode.of(
+                    FailureDetail.newBuilder()
+                        .setMessage(message)
+                        .setQuery(Query.newBuilder().setCode(Code.INVALID_LABEL_IN_TEST_SUITE))
+                        .build()));
           }
         }
 

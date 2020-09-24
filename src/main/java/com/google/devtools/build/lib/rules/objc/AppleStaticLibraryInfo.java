@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleStaticLibraryInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.eval.EvalException;
 
 /**
  * Provider containing information regarding multi-architecture Apple static libraries, as is

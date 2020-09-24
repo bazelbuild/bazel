@@ -53,6 +53,7 @@ public final class AndroidNdkCrosstools {
           .put(18, new NdkMajorRevisionR18("7.0.2"))
           .put(19, new NdkMajorRevisionR19("8.0.2"))
           .put(20, new NdkMajorRevisionR19("8.0.7")) // no changes relevant to Bazel
+          .put(21, new NdkMajorRevisionR19("9.0.8")) // no changes relevant to Bazel
           .build();
 
   public static final Map.Entry<Integer, NdkMajorRevision> LATEST_KNOWN_REVISION =

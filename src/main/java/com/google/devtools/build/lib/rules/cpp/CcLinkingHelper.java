@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -42,12 +41,12 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.Link.Picness;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkingInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /**
  * A class to create C/C++ link actions in a way that is consistent with cc_library. Rules that
@@ -174,7 +173,7 @@ public final class CcLinkingHelper {
   public CcLinkingHelper fromCommon(RuleContext ruleContext, CcCommon common) {
     addCcLinkingContexts(
         CppHelper.getLinkingContextsFromDeps(
-            ImmutableList.copyOf(ruleContext.getPrerequisites("deps", TransitionMode.TARGET))));
+            ImmutableList.copyOf(ruleContext.getPrerequisites("deps"))));
     addNonCodeLinkerInputs(common.getLinkerScripts());
     return this;
   }

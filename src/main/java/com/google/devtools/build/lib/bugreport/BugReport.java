@@ -39,7 +39,7 @@ import javax.annotation.Nullable;
  * Utility methods for handling crashes: we log the crash, optionally send a bug report, and then
  * terminate the jvm.
  *
- * <p> Note, code in this class must be extremely robust. There's nothing worse than a crash-handler
+ * <p>Note, code in this class must be extremely robust. There's nothing worse than a crash-handler
  * that itself crashes!
  */
 public abstract class BugReport {
@@ -151,9 +151,9 @@ public abstract class BugReport {
    *
    * <p>Has no effect if another crash has already been handled by {@link BugReport}.
    */
-  public static void handleCrashWithoutSendingBugReport(
+  public static RuntimeException handleCrashWithoutSendingBugReport(
       Throwable throwable, ExitCode exitCode, String... args) {
-    handleCrash(
+    throw handleCrash(
         throwable,
         /*sendBugReport=*/ false,
         DetailedExitCode.of(exitCode, CrashFailureDetails.forThrowable(throwable)),
@@ -166,8 +166,9 @@ public abstract class BugReport {
    *
    * <p>Has no effect if another crash has already been handled by {@link BugReport}.
    */
-  public static void handleCrash(Throwable throwable, ExitCode exitCode, String... args) {
-    handleCrash(
+  public static RuntimeException handleCrash(
+      Throwable throwable, ExitCode exitCode, String... args) {
+    throw handleCrash(
         throwable,
         /*sendBugReport=*/ true,
         DetailedExitCode.of(exitCode, CrashFailureDetails.forThrowable(throwable)),
@@ -209,19 +210,26 @@ public abstract class BugReport {
           if (runtime != null) {
             runtime.cleanUpForCrash(detailedExitCode);
           }
+          // TODO(b/167592709): remove verbose logging when bug resolved.
+          logger.atInfo().log("Finished runtime cleanup");
           CustomExitCodePublisher.maybeWriteExitStatusFile(numericExitCode);
+          logger.atInfo().log("Wrote exit status file");
           CustomFailureDetailPublisher.maybeWriteFailureDetailFile(
               detailedExitCode.getFailureDetail());
+          logger.atInfo().log("Wrote failure detail file");
         } finally {
+          logger.atInfo().log("Entered inner finally block");
           // Avoid shutdown deadlock issues: If an application shutdown hook crashes, it will
           // trigger our Blaze crash handler (this method). Calling System#exit() here, would
           // therefore induce a deadlock. This call would block on the shutdown sequence completing,
           // but the shutdown sequence would in turn be blocked on this thread finishing. Instead,
           // exit fast via halt().
           Runtime.getRuntime().halt(numericExitCode);
+          logger.atSevere().log("Failed to halt (inner block)!");
         }
       }
     } catch (Throwable t) {
+      logger.atSevere().withCause(t).log("Threw while crashing");
       System.err.println(
           "ERROR: A crash occurred while "
               + getProductName()
@@ -234,9 +242,12 @@ public abstract class BugReport {
 
       System.err.println("Exception encountered during BugReport#handleCrash:");
       t.printStackTrace(System.err);
-
+    } finally {
+      logger.atInfo().log("Entered outer finally block");
       Runtime.getRuntime().halt(numericExitCode);
+      logger.atSevere().log("Failed to halt (outer block)!");
     }
+    logger.atSevere().log("Failed to crash in handleCrash");
     throw new IllegalStateException("never get here", throwable);
   }
 
@@ -304,11 +315,11 @@ public abstract class BugReport {
     logger.atSevere().withCause(exception).log("Exception");
     // The preamble is used in the crash watcher, so don't change it
     // unless you know what you're doing.
-    String preamble = getProductName()
-        + (exception instanceof OutOfMemoryError ? " OOMError: " : " crashed with args: ");
+    String preamble =
+        getProductName()
+            + (exception instanceof OutOfMemoryError ? " OOMError: " : " crashed with args: ");
 
-    LoggingUtil.logToRemote(Level.SEVERE, preamble + Joiner.on(' ').join(args), exception,
-        values);
+    LoggingUtil.logToRemote(Level.SEVERE, preamble + Joiner.on(' ').join(args), exception, values);
   }
 
   private static class DefaultBugReporter implements BugReporter {

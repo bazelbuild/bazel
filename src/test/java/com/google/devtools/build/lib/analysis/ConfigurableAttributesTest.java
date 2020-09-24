@@ -478,7 +478,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    out = 'b.out')");
     writeHelloRules(/*includeDefaultCondition=*/true);
     assertThat(getConfiguredTarget("//java/hello:hello")).isNull();
-    assertContainsEvent("//conditions:b is not a valid configuration key for //java/hello:hello");
+    assertContainsEvent("//conditions:b is not a valid select() condition for //java/hello:hello");
     assertDoesNotContainEvent("//conditions:a"); // This one is legitimate..
   }
 
@@ -492,7 +492,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    cmd = select({':fake': ''})",
         ")");
     assertThat(getConfiguredTarget("//foo:g")).isNull();
-    assertContainsEvent("//foo:fake is not a valid configuration key for //foo:g");
+    assertContainsEvent("//foo:fake is not a valid select() condition for //foo:g");
   }
 
   @Test
@@ -1162,9 +1162,6 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    name = 'b',",
         "    constraint_values = [':banana']",
         ")");
-    scratch.file("afile", "acontents");
-    scratch.file("bfile", "bcontents");
-    scratch.file("defaultfile", "defaultcontents");
     scratch.file(
         "check/BUILD",
         "filegroup(name = 'adep', srcs = ['afile'])",
@@ -1182,6 +1179,79 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         ImmutableList.of("--experimental_platforms=//conditions:apple_platform"),
         /*expected:*/ ImmutableList.of("src check/afile"),
         /*not expected:*/ ImmutableList.of("src check/bfile", "src check/defaultfile"));
+  }
+
+  @Test
+  public void selectDirectlyOnConstraints() throws Exception {
+    // Tests select()ing directly on a constraint_value (with no intermediate config_setting).
+    scratch.file(
+        "conditions/BUILD",
+        "constraint_setting(name = 'fruit')",
+        "constraint_value(name = 'apple', constraint_setting = 'fruit')",
+        "constraint_value(name = 'banana', constraint_setting = 'fruit')",
+        "platform(",
+        "    name = 'apple_platform',",
+        "    constraint_values = [':apple'],",
+        ")",
+        "platform(",
+        "    name = 'banana_platform',",
+        "    constraint_values = [':banana'],",
+        ")");
+    scratch.file(
+        "check/defs.bzl",
+        "def _impl(ctx):",
+        "  pass",
+        "simple_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {'srcs': attr.label_list(allow_files = True)}",
+        ")");
+    scratch.file(
+        "check/BUILD",
+        "load('//check:defs.bzl', 'simple_rule')",
+        "filegroup(name = 'adep', srcs = ['afile'])",
+        "filegroup(name = 'bdep', srcs = ['bfile'])",
+        "simple_rule(name = 'hello',",
+        "    srcs = select({",
+        "        '//conditions:apple': [':adep'],",
+        "        '//conditions:banana': [':bdep'],",
+        "    }))");
+    checkRule(
+        "//check:hello",
+        "srcs",
+        ImmutableList.of("--platforms=//conditions:apple_platform"),
+        /*expected:*/ ImmutableList.of("src check/afile"),
+        /*not expected:*/ ImmutableList.of("src check/bfile", "src check/defaultfile"));
+    checkRule(
+        "//check:hello",
+        "srcs",
+        ImmutableList.of("--platforms=//conditions:banana_platform"),
+        /*expected:*/ ImmutableList.of("src check/bfile"),
+        /*not expected:*/ ImmutableList.of("src check/afile", "src check/defaultfile"));
+  }
+
+  @Test
+  public void nonToolchainResolvingTargetsCantSelectDirectlyOnConstraints() throws Exception {
+    // Tests select()ing directly on a constraint_value (with no intermediate config_setting).
+    scratch.file(
+        "conditions/BUILD",
+        "constraint_setting(name = 'fruit')",
+        "constraint_value(name = 'apple', constraint_setting = 'fruit')",
+        "platform(",
+        "    name = 'apple_platform',",
+        "    constraint_values = [':apple'],",
+        ")");
+    scratch.file(
+        "check/BUILD",
+        "filegroup(name = 'adep', srcs = ['afile'])",
+        "filegroup(name = 'hello',",
+        "    srcs = select({",
+        "        '//conditions:apple': [':adep'],",
+        "    })",
+        ")");
+    reporter.removeHandler(failFastHandler);
+    useConfiguration("--platforms=//conditions:apple_platform");
+    assertThat(getConfiguredTarget("//check:hello")).isNull();
+    assertContainsEvent("//conditions:apple is not a valid select() condition for //check:hello");
   }
 
   @Test

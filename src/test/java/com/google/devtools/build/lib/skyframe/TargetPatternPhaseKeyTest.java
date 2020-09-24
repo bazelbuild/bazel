@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue.TargetPatternPhaseKey;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Options;
 import javax.annotation.Nullable;
 import org.junit.Test;
@@ -43,51 +44,105 @@ public class TargetPatternPhaseKeyTest {
   @Test
   public void testEquality() throws Exception {
     new EqualsTester()
-       .addEqualityGroup(of(ImmutableList.of("a"), "offset"))
-       .addEqualityGroup(of(ImmutableList.of("b"), "offset"))
-       .addEqualityGroup(of(ImmutableList.of("b"), ""))
-       .addEqualityGroup(of(ImmutableList.of("c"), ""))
-       .addEqualityGroup(of(ImmutableList.<String>of(), ""))
-       .addEqualityGroup(of(
-           ImmutableList.<String>of(), "", ImmutableList.<String>of(), false, true, null,
-           COMPILE_ONE_DEPENDENCY))
-       .addEqualityGroup(of(
-           ImmutableList.<String>of(), "", ImmutableList.<String>of(), false, false, null,
-           COMPILE_ONE_DEPENDENCY))
-        .addEqualityGroup(of(
-           ImmutableList.<String>of(), "", ImmutableList.<String>of(), true, true, null,
-           COMPILE_ONE_DEPENDENCY))
-        .addEqualityGroup(of(
-            ImmutableList.<String>of(), "", ImmutableList.<String>of(), true, false, null,
-            COMPILE_ONE_DEPENDENCY))
-        .addEqualityGroup(of(
-           ImmutableList.<String>of(), "", ImmutableList.<String>of(), false,
-           true, emptyTestFilter(),
-           BUILD_TESTS_ONLY))
-       .addEqualityGroup(of(
-           ImmutableList.<String>of(), "", ImmutableList.<String>of(), true,
-           true, emptyTestFilter(),
-           BUILD_TESTS_ONLY))
-       .addEqualityGroup(of(
-           ImmutableList.<String>of(), "", ImmutableList.<String>of(), false,
-           true, emptyTestFilter(),
-           DETERMINE_TESTS))
-       .addEqualityGroup(of(
-           ImmutableList.<String>of(), "", ImmutableList.<String>of(), true,
-           true, emptyTestFilter(),
-           DETERMINE_TESTS))
-       .addEqualityGroup(of(
-           ImmutableList.<String>of(), "", ImmutableList.<String>of("a"), false, true,
-           null))
-       .addEqualityGroup(of(
-           ImmutableList.<String>of(), "", ImmutableList.<String>of("a"), true, true,
-           null))
-       .testEquals();
+        .addEqualityGroup(of(ImmutableList.of("a"), PathFragment.create("offset")))
+        .addEqualityGroup(of(ImmutableList.of("b"), PathFragment.create("offset")))
+        .addEqualityGroup(of(ImmutableList.of("b"), PathFragment.EMPTY_FRAGMENT))
+        .addEqualityGroup(of(ImmutableList.of("c"), PathFragment.EMPTY_FRAGMENT))
+        .addEqualityGroup(of(ImmutableList.of(), PathFragment.EMPTY_FRAGMENT))
+        .addEqualityGroup(
+            of(
+                ImmutableList.of(),
+                PathFragment.EMPTY_FRAGMENT,
+                ImmutableList.of(),
+                false,
+                true,
+                null,
+                COMPILE_ONE_DEPENDENCY))
+        .addEqualityGroup(
+            of(
+                ImmutableList.of(),
+                PathFragment.EMPTY_FRAGMENT,
+                ImmutableList.of(),
+                false,
+                false,
+                null,
+                COMPILE_ONE_DEPENDENCY))
+        .addEqualityGroup(
+            of(
+                ImmutableList.of(),
+                PathFragment.EMPTY_FRAGMENT,
+                ImmutableList.of(),
+                true,
+                true,
+                null,
+                COMPILE_ONE_DEPENDENCY))
+        .addEqualityGroup(
+            of(
+                ImmutableList.of(),
+                PathFragment.EMPTY_FRAGMENT,
+                ImmutableList.of(),
+                true,
+                false,
+                null,
+                COMPILE_ONE_DEPENDENCY))
+        .addEqualityGroup(
+            of(
+                ImmutableList.of(),
+                PathFragment.EMPTY_FRAGMENT,
+                ImmutableList.of(),
+                false,
+                true,
+                emptyTestFilter(),
+                BUILD_TESTS_ONLY))
+        .addEqualityGroup(
+            of(
+                ImmutableList.of(),
+                PathFragment.EMPTY_FRAGMENT,
+                ImmutableList.of(),
+                true,
+                true,
+                emptyTestFilter(),
+                BUILD_TESTS_ONLY))
+        .addEqualityGroup(
+            of(
+                ImmutableList.of(),
+                PathFragment.EMPTY_FRAGMENT,
+                ImmutableList.of(),
+                false,
+                true,
+                emptyTestFilter(),
+                DETERMINE_TESTS))
+        .addEqualityGroup(
+            of(
+                ImmutableList.of(),
+                PathFragment.EMPTY_FRAGMENT,
+                ImmutableList.of(),
+                true,
+                true,
+                emptyTestFilter(),
+                DETERMINE_TESTS))
+        .addEqualityGroup(
+            of(
+                ImmutableList.of(),
+                PathFragment.EMPTY_FRAGMENT,
+                ImmutableList.of("a"),
+                false,
+                true,
+                null))
+        .addEqualityGroup(
+            of(
+                ImmutableList.of(),
+                PathFragment.EMPTY_FRAGMENT,
+                ImmutableList.of("a"),
+                true,
+                true,
+                null))
+        .testEquals();
   }
 
   private static TargetPatternPhaseKey of(
       ImmutableList<String> targetPatterns,
-      String offset,
+      PathFragment offset,
       ImmutableList<String> buildTagFilter,
       boolean includeManualTests,
       boolean expandTestSuites,
@@ -101,17 +156,18 @@ public class TargetPatternPhaseKeyTest {
         determineTests, buildTagFilter, includeManualTests, expandTestSuites, testFilter);
   }
 
-  private static TargetPatternPhaseKey of(ImmutableList<String> targetPatterns, String offset) {
-    return of(targetPatterns, offset, ImmutableList.<String>of(), false, true, null);
+  private static TargetPatternPhaseKey of(
+      ImmutableList<String> targetPatterns, PathFragment offset) {
+    return of(targetPatterns, offset, ImmutableList.of(), false, true, null);
   }
 
   private static TestFilter emptyTestFilter() {
     LoadingOptions options = Options.getDefaults(LoadingOptions.class);
-    return TestFilter.forOptions(options, NullEventHandler.INSTANCE, ImmutableSet.<String>of());
+    return TestFilter.forOptions(options, NullEventHandler.INSTANCE, ImmutableSet.of());
   }
 
   @Test
-  public void testNull() throws Exception {
+  public void testNull() {
     new NullPointerTester()
         .testAllPublicConstructors(TargetPatternPhaseKey.class);
   }

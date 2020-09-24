@@ -23,11 +23,11 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.syntax.Dict;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import net.starlark.java.eval.Dict;
 
 /**
  * Implements make variable expansion for make variables that depend on the configuration and the
@@ -50,8 +50,7 @@ public class ConfigurationMakeVariableContext implements TemplateContext {
             .flatMap(
                 attrName ->
                     Streams.stream(
-                        ruleContext.getPrerequisites(
-                            attrName, TransitionMode.DONT_CHECK, TemplateVariableInfo.PROVIDER)))
+                        ruleContext.getPrerequisites(attrName, TemplateVariableInfo.PROVIDER)))
             .collect(Collectors.toList());
     providers.addAll(fromAttributes);
 

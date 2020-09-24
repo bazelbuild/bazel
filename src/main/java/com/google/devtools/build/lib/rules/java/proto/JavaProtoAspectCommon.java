@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.java.proto;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.analysis.TransitionMode.TARGET;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -157,15 +156,14 @@ public class JavaProtoAspectCommon {
   /** Returns the toolchain that specifies how to generate code from {@code .proto} files. */
   public ProtoLangToolchainProvider getProtoToolchainProvider() {
     return checkNotNull(
-        ruleContext.getPrerequisite(protoToolchainAttr, TARGET, ProtoLangToolchainProvider.class));
+        ruleContext.getPrerequisite(protoToolchainAttr, ProtoLangToolchainProvider.class));
   }
 
   /**
    * Returns the toolchain that specifies how to generate Java-lite code from {@code .proto} files.
    */
   static ProtoLangToolchainProvider getLiteProtoToolchainProvider(RuleContext ruleContext) {
-    return ruleContext.getPrerequisite(
-        LITE_PROTO_TOOLCHAIN_ATTR, TARGET, ProtoLangToolchainProvider.class);
+    return ruleContext.getPrerequisite(LITE_PROTO_TOOLCHAIN_ATTR, ProtoLangToolchainProvider.class);
   }
 
   /**

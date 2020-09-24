@@ -15,10 +15,10 @@
 package com.google.devtools.coverageoutputgenerator;
 
 import static com.google.devtools.coverageoutputgenerator.Constants.CC_EXTENSIONS;
+import static java.util.Arrays.asList;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -42,6 +42,10 @@ class Coverage {
   }
 
   static Coverage merge(Coverage... coverages) throws IncompatibleMergeException {
+    return merge(asList(coverages));
+  }
+
+  static Coverage merge(List<Coverage> coverages) throws IncompatibleMergeException {
     Coverage merged = new Coverage();
     for (Coverage c : coverages) {
       for (SourceFileCoverage sourceFile : c.getAllSourceFiles()) {
@@ -52,6 +56,10 @@ class Coverage {
   }
 
   static Coverage mergeUnchecked(Coverage... coverages) {
+    return mergeUnchecked(asList(coverages));
+  }
+
+  static Coverage mergeUnchecked(List<Coverage> coverages) {
     try {
       return merge(coverages);
     } catch (IncompatibleMergeException e) {
@@ -61,7 +69,7 @@ class Coverage {
 
   static Coverage create(SourceFileCoverage... sourceFilesCoverage)
       throws IncompatibleMergeException {
-    return create(Arrays.asList(sourceFilesCoverage));
+    return create(asList(sourceFilesCoverage));
   }
 
   static Coverage create(List<SourceFileCoverage> sourceFilesCoverage)

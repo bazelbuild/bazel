@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import java.util.List;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** Listener for package-loading events. */
 public interface PackageLoadingListener {

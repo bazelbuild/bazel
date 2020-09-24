@@ -20,6 +20,8 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
@@ -192,6 +194,7 @@ public final class CompletionFunction<
     ActionInputMap inputMap = new ActionInputMap(inputDeps.size());
     Map<Artifact, Collection<Artifact>> expandedArtifacts = new HashMap<>();
     Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets = new HashMap<>();
+    Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts = new HashMap<>();
     Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets = new HashMap<>();
 
     int missingCount = 0;
@@ -217,6 +220,7 @@ public final class CompletionFunction<
             ActionInputMapHelper.addToMap(
                 inputMap,
                 expandedArtifacts,
+                archivedTreeArtifacts,
                 expandedFilesets,
                 topLevelFilesets,
                 input,
@@ -240,7 +244,7 @@ public final class CompletionFunction<
         missingCount++;
         handleMissingFile(
             input,
-            ArtifactFunction.makeMissingSourceInputFileValue(input, e),
+            ArtifactFunction.makeIOExceptionSourceInputFileValue(input, e),
             rootCausesBuilder,
             env,
             value,
@@ -270,6 +274,7 @@ public final class CompletionFunction<
       ctx =
           CompletionContext.create(
               expandedArtifacts,
+              archivedTreeArtifacts,
               expandedFilesets,
               key.topLevelArtifactContext().expandFilesets(),
               key.topLevelArtifactContext().fullyResolveFilesetSymlinks(),
@@ -319,7 +324,7 @@ public final class CompletionFunction<
       KeyT key)
       throws InterruptedException {
     LabelCause cause =
-        ActionExecutionFunction.handleMissingFile(
+        ActionExecutionFunction.createLabelCause(
             input, artifactValue, key.actionLookupKey().getLabel());
     rootCausesBuilder.add(cause);
     env.getListener().handle(completor.getRootCauseError(value, key, cause, env));

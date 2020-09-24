@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
@@ -63,6 +62,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -160,7 +160,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
             /* existingActionConfigNames= */ ImmutableSet.of());
 
     try {
-      return CcToolchainFeaturesTest.buildFeatures(features, actionConfigs)
+      return CcToolchainTestHelper.buildFeatures(features, actionConfigs)
           .getFeatureConfiguration(
               ImmutableSet.of(
                   "link_cpp_standard_library",
@@ -178,7 +178,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     RuleContext ruleContext = createDummyRuleContext();
 
     FeatureConfiguration featureConfiguration =
-        CcToolchainFeaturesTest.buildFeatures(
+        CcToolchainTestHelper.buildFeatures(
                 MockCcSupport.EMPTY_EXECUTABLE_ACTION_CONFIG,
                 "feature {",
                 "   name: 'a'",
@@ -207,7 +207,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     RuleContext ruleContext = createDummyRuleContext();
 
     FeatureConfiguration featureConfiguration =
-        CcToolchainFeaturesTest.buildFeatures(
+        CcToolchainTestHelper.buildFeatures(
                 "action_config {",
                 "   config_name: '" + LinkTargetType.EXECUTABLE.getActionName() + "'",
                 "   action_name: '" + LinkTargetType.EXECUTABLE.getActionName() + "'",
@@ -432,7 +432,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     RuleContext ruleContext = createDummyRuleContext();
 
     FeatureConfiguration featureConfiguration =
-        CcToolchainFeaturesTest.buildFeatures(
+        CcToolchainTestHelper.buildFeatures(
                 MockCcSupport.EMPTY_EXECUTABLE_ACTION_CONFIG,
                 "feature {",
                 "   name: 'a'",
@@ -780,7 +780,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     RuleContext ruleContext = createDummyRuleContext();
 
     FeatureConfiguration featureConfiguration =
-        CcToolchainFeaturesTest.buildFeatures(
+        CcToolchainTestHelper.buildFeatures(
                 MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE,
                 "feature {",
                 "   name: 'build_interface_libraries'",

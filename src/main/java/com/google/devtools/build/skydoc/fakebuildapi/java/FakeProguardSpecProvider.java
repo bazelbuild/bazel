@@ -16,7 +16,7 @@ package com.google.devtools.build.skydoc.fakebuildapi.java;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.ProguardSpecProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.eval.EvalException;
 
 /** Fake implementation of {@link ProguardSpecProviderApi} */
 public class FakeProguardSpecProvider implements ProguardSpecProviderApi<FileApi> {

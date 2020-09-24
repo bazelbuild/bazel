@@ -19,32 +19,6 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-function test_workspace_status_invalidation() {
-  create_new_workspace
-
-  local ok=$TEST_TMPDIR/ok.sh
-  local bad=$TEST_TMPDIR/bad.sh
-  cat > $ok <<EOF
-#!/bin/bash
-exit 0
-EOF
-  cat >$bad <<EOF
-#!/bin/bash
-exit 1
-EOF
-  chmod +x $ok $bad
-
-  mkdir -p a
-  cat > a/BUILD <<'EOF'
-genrule(name="a", srcs=[], outs=["a.out"], stamp=1, cmd="touch $@")
-EOF
-
-  bazel build --stamp //a --workspace_status_command=$bad \
-    && fail "build succeeded"
-  bazel build --stamp //a --workspace_status_command=$ok \
-    || fail "build failed"
-}
-
 function test_workspace_status_parameters() {
   create_new_workspace
 
@@ -69,6 +43,39 @@ EOF
   bazel build --stamp //a --workspace_status_command=$cmd || fail "build failed"
   grep -sq "BUILD_SCM_STATUS funky" bazel-out/volatile-status.txt \
     || fail "BUILD_SCM_STATUS not found"
+}
+
+function test_workspace_status_overrides() {
+  create_new_workspace
+
+  local cmd=`mktemp $TEST_TMPDIR/wsc-XXXXXXXX`
+  cat > $cmd <<EOF
+#!/bin/bash
+
+echo BUILD_USER fake_user
+echo BUILD_HOST fake_host
+echo BUILD_EMBED_LABEL fake_label
+echo BUILD_TIMESTAMP 17
+EOF
+  chmod +x $cmd
+
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+    name="a",
+    srcs=[],
+    outs=["a.out"],
+    stamp=1,
+    cmd="touch $@")
+EOF
+
+  bazel build --stamp //a --workspace_status_command=$cmd || fail "build failed"
+  cat bazel-out/volatile-status.txt > "$TEST_log"
+  expect_log "BUILD_TIMESTAMP 17"
+  cat bazel-out/stable-status.txt > "$TEST_log"
+  expect_log "BUILD_USER fake_user"
+  expect_log "BUILD_HOST fake_host"
+  expect_log "BUILD_EMBED_LABEL fake_label"
 }
 
 function test_workspace_status_cpp() {

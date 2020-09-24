@@ -37,17 +37,18 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryModuleApi;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Module;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkCallable;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.Tuple;
 import java.util.Map;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Tuple;
 
 /**
  * The Starlark module containing the definition of {@code repository_rule} function to define a
@@ -77,7 +78,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
 
     builder.addAttribute(attr("$local", BOOLEAN).defaultValue(local).build());
     builder.addAttribute(attr("$configure", BOOLEAN).defaultValue(configure).build());
-    if (thread.getSemantics().experimentalRepoRemoteExec()) {
+    if (thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_REPO_REMOTE_EXEC)) {
       builder.addAttribute(attr("$remotable", BOOLEAN).defaultValue(remotable).build());
       BaseRuleClasses.execPropertiesAttribute(builder);
     }
@@ -209,7 +210,9 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
   @Override
   public void failWithIncompatibleUseCcConfigureFromRulesCc(StarlarkThread thread)
       throws EvalException {
-    if (thread.getSemantics().incompatibleUseCcConfigureFromRulesCc()) {
+    if (thread
+        .getSemantics()
+        .getBool(BuildLanguageOptions.INCOMPATIBLE_USE_CC_CONFIGURE_FROM_RULES_CC)) {
       throw Starlark.errorf(
           "Incompatible flag "
               + "--incompatible_use_cc_configure_from_rules_cc has been flipped. Please use "

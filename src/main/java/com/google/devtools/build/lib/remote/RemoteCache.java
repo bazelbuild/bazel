@@ -206,13 +206,13 @@ public class RemoteCache implements AutoCloseable {
     }
   }
 
-  public static <T> void waitForBulkTransfer(
-      Iterable<ListenableFuture<T>> transfers, boolean cancelRemainingOnInterrupt)
+  public static void waitForBulkTransfer(
+      Iterable<? extends ListenableFuture<?>> transfers, boolean cancelRemainingOnInterrupt)
       throws BulkTransferException, InterruptedException {
     BulkTransferException bulkTransferException = null;
     InterruptedException interruptedException = null;
     boolean interrupted = Thread.currentThread().isInterrupted();
-    for (ListenableFuture<T> transfer : transfers) {
+    for (ListenableFuture<?> transfer : transfers) {
       try {
         if (interruptedException == null) {
           // Wait for all transfers to finish.
@@ -442,6 +442,19 @@ public class RemoteCache implements AutoCloseable {
     if (digest.getSizeBytes() == 0) {
       // Handle empty file locally.
       FileSystemUtils.writeContent(path, new byte[0]);
+      return COMPLETED_SUCCESS;
+    }
+
+    if (!options.remoteDownloadSymlinkTemplate.isEmpty()) {
+      // Don't actually download files from the CAS. Instead, create a
+      // symbolic link that points to a location where CAS objects may
+      // be found. This could, for example, be a FUSE file system.
+      path.createSymbolicLink(
+          path.getRelative(
+              options
+                  .remoteDownloadSymlinkTemplate
+                  .replace("{hash}", digest.getHash())
+                  .replace("{size_bytes}", String.valueOf(digest.getSizeBytes()))));
       return COMPLETED_SUCCESS;
     }
 

@@ -23,15 +23,15 @@ import com.google.devtools.build.lib.starlarkbuildapi.go.GoConfigurationApi;
 import com.google.devtools.build.lib.starlarkbuildapi.go.GoContextInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.go.GoPackageInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.NoneType;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.Tuple;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Tuple;
 
 /**
  * Helper class for the C++ functionality needed from Starlark specifically to implement go_wrap_cc.

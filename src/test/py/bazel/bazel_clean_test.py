@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import re
 import unittest
 from src.test.py.bazel import test_base
 
@@ -60,6 +61,35 @@ class BazelCleanTest(test_base.TestBase):
       self.assertFalse(os.path.exists(
           os.path.join(bazel_genfiles, 'foo/x.out')))
       self.assertFalse(os.path.exists(output_base))
+
+  @unittest.skipIf(not test_base.TestBase.IsLinux(),
+                   'Async clean only supported on Linux')
+  def testBazelAsyncClean(self):
+    self.ScratchFile('WORKSPACE')
+    exit_code, _, stderr = self.RunBazel(['clean', '--async'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    matcher = self._findMatch(' moved to (.*) for deletion', stderr)
+    self.assertTrue(matcher, stderr)
+    first_temp = matcher.group(0)
+    self.assertTrue(first_temp, stderr)
+    # Now do it again (we need to build to recreate exec root).
+    self.RunBazel(['build'])
+    exit_code, _, stderr = self.RunBazel(['clean', '--async'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    matcher = self._findMatch(' moved to (.*) for deletion', stderr)
+    self.assertTrue(matcher, stderr)
+    second_temp = matcher.group(0)
+    self.assertTrue(second_temp, stderr)
+    # Two directories should be different.
+    self.assertNotEqual(second_temp, first_temp, stderr)
+
+  def _findMatch(self, pattern, items):
+    r = re.compile(pattern)
+    for line in items:
+      matcher = r.search(line)
+      if matcher:
+        return matcher
+    return None
 
 
 if __name__ == '__main__':

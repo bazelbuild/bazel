@@ -51,7 +51,7 @@ public class ComposingTransitionTest {
   }
 
   @Test
-  public void compose_patch_patch() {
+  public void compose_patch_patch() throws Exception {
     // Same flag, will overwrite.
     ConfigurationTransition composed =
         ComposingTransition.of(new StubPatch(FLAG_1, "value1"), new StubPatch(FLAG_1, "value2"));
@@ -68,7 +68,7 @@ public class ComposingTransitionTest {
   }
 
   @Test
-  public void compose_patch_split() {
+  public void compose_patch_split() throws Exception {
     // Different flags, will combine.
     ConfigurationTransition composed =
         ComposingTransition.of(
@@ -93,7 +93,7 @@ public class ComposingTransitionTest {
   }
 
   @Test
-  public void compose_split_patch() {
+  public void compose_split_patch() throws Exception {
     // Different flags, will combine.
     ConfigurationTransition composed =
         ComposingTransition.of(

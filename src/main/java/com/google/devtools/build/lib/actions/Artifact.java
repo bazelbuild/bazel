@@ -40,9 +40,6 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationContext
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
@@ -59,6 +56,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Starlark;
 
 /**
  * An Artifact represents a file used by the build system, whether it's a source file or a derived
@@ -213,24 +213,53 @@ public abstract class Artifact
     void expand(Artifact artifact, Collection<? super Artifact> output);
 
     /**
-     * Retrieve the expansion of Filesets for the given artifact.
+     * Returns the expansion of Fileset for the given artifact.
      *
      * @param artifact {@code artifact.isFileset()} must be true.
+     * @throws MissingExpansionException if the expander is missing data needed to expand provided
+     *     fileset.
      */
-    default ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact) {
-      throw new UnsupportedOperationException();
+    default ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact)
+        throws MissingExpansionException {
+      throw new MissingExpansionException("Cannot expand fileset " + artifact);
+    }
+
+    /**
+     * Return an {@link ArchivedTreeArtifact} for a provided {@linkplain SpecialArtifact tree
+     * artifact} if one is available.
+     *
+     * <p>The {@linkplain ArchivedTreeArtifact archived tree artifact} can be used instead of the
+     * tree artifact expansion.
+     */
+    @Nullable
+    default ArchivedTreeArtifact getArchivedTreeArtifact(SpecialArtifact treeArtifact) {
+      return null;
+    }
+  }
+
+  /**
+   * Exception thrown when attempting to {@linkplain ArtifactExpander expand} an artifact for which
+   * we do not have the necessary data.
+   */
+  public static final class MissingExpansionException extends Exception {
+
+    public MissingExpansionException(String message) {
+      super(message);
     }
   }
 
   /** Implementation of {@link ArtifactExpander} */
   public static class ArtifactExpanderImpl implements ArtifactExpander {
     private final Map<Artifact, Collection<Artifact>> expandedInputs;
+    private final Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts;
     private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets;
 
     public ArtifactExpanderImpl(
         Map<Artifact, Collection<Artifact>> expandedInputs,
+        Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets) {
       this.expandedInputs = expandedInputs;
+      this.archivedTreeArtifacts = archivedTreeArtifacts;
       this.expandedFilesets = expandedFilesets;
     }
 
@@ -245,17 +274,28 @@ public abstract class Artifact
     }
 
     @Override
-    public ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact) {
+    public ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact)
+        throws MissingExpansionException {
       Preconditions.checkState(artifact.isFileset());
-      return Preconditions.checkNotNull(expandedFilesets.get(artifact));
+      ImmutableList<FilesetOutputSymlink> filesetLinks = expandedFilesets.get(artifact);
+      if (filesetLinks == null) {
+        throw new MissingExpansionException("Missing expansion for fileset: " + artifact);
+      }
+      return filesetLinks;
+    }
+
+    @Override
+    public ArchivedTreeArtifact getArchivedTreeArtifact(SpecialArtifact treeArtifact) {
+      return archivedTreeArtifacts.get(treeArtifact);
     }
   }
 
   /** A Predicate that evaluates to true if the Artifact is not a middleman artifact. */
   public static final Predicate<Artifact> MIDDLEMAN_FILTER = input -> !input.isMiddlemanArtifact();
 
+  protected final ArtifactRoot root;
+
   private final int hashCode;
-  private final ArtifactRoot root;
   private final PathFragment execPath;
 
   private Artifact(ArtifactRoot root, PathFragment execPath) {
@@ -571,10 +611,46 @@ public abstract class Artifact
   }
 
   /**
-   * Returns the relative path to this artifact relative to its root. (Useful when deriving output
-   * filenames from input files, etc.)
+   * Returns the relative path to this artifact relative to its root. It makes no guarantees as to
+   * the semantic meaning or the completeness of the returned path value. In other words, no
+   * assumptions should be made in terms of where the root portion of the path ends, and the
+   * returned value almost always needs to be used in conjunction with its root.
+   *
+   * <p>{#link Artifact#getOutputDirRelativePath()} is more versatile for general use cases.
    */
   public abstract PathFragment getRootRelativePath();
+
+  /**
+   * Returns the fully-qualified package path to this artifact. By "fully-qualified", it means the
+   * returned path is prefixed with "external/<repository name>" if this artifact is in an external
+   * repository.
+   *
+   * <p>Do not call this method just because you need a path prefixed with the "external/<repository
+   * name>" fragment for external repository artifacts. {@link * Artifact#getOutputDirRelativePath}
+   * is the right one to use in almost all cases.
+   *
+   * @deprecated This method is only to be used for $(location) and getOutputDirRelativePath
+   *     implementations.
+   */
+  @Deprecated
+  public PathFragment getPathForLocationExpansion() {
+    return getRootRelativePath();
+  }
+
+  /**
+   * Returns the path to this artifact relative to an output directory, e.g. the bin directory. Note
+   * that this is available on every Artifact type, including source artifacts. As a matter of fact,
+   * one of its most common use cases is to construct a derived artifact's output path out of a
+   * sibling source artifact's by replacing the basename in its output-dir-relative path.
+   *
+   * <p>This is just a wrapper over {@link Artifact#getPathForLocationExpansion} at the moment.
+   * However, since it will be kept in sync with the output directory layout, which is planned for
+   * an overhaul, it must be preferred over {@link Artifact#getPathForLocationExpansion} whenever
+   * possible.
+   */
+  public final PathFragment getOutputDirRelativePath() {
+    return getPathForLocationExpansion();
+  }
 
   /** Returns this.getExecPath().getPathString(). */
   @Override
@@ -584,6 +660,10 @@ public abstract class Artifact
 
   public final String getRootRelativePathString() {
     return getRootRelativePath().getPathString();
+  }
+
+  public final String getOutputDirRelativePathString() {
+    return getOutputDirRelativePath().getPathString();
   }
 
   @Override
@@ -695,7 +775,8 @@ public abstract class Artifact
    * runfiles tree. For local targets, it returns the rootRelativePath.
    */
   public final PathFragment getRunfilesPath() {
-    PathFragment relativePath = getRootRelativePath();
+    PathFragment relativePath = getOutputDirRelativePath();
+    // We can't use root.isExternalSource() here since it needs to handle derived artifacts too.
     if (relativePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
       // Turn external/repo/foo into ../repo/foo.
       relativePath = relativePath.relativeTo(LabelConstants.EXTERNAL_PATH_PREFIX);
@@ -775,7 +856,7 @@ public abstract class Artifact
    * access for their contents should be safe, even in a distributed context.
    *
    * TODO(shahan): move {@link Artifact#getPath} to this subclass.
-   * */
+   */
   public static final class SourceArtifact extends Artifact {
     private final ArtifactOwner owner;
 
@@ -796,11 +877,11 @@ public abstract class Artifact
 
     @Override
     public PathFragment getRootRelativePath() {
-      // flag-less way of checking of the root is <execroot>/.., or sibling of __main__.
-      if (getExecPath().startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX)) {
-        return LabelConstants.EXTERNAL_PATH_PREFIX.getRelative(getExecPath().subFragment(1));
-      }
+      return root.isExternalSourceRoot() ? getExecPath().subFragment(1) : getExecPath();
+    }
 
+    @Override
+    public PathFragment getPathForLocationExpansion() {
       return getExecPath();
     }
 
@@ -937,6 +1018,100 @@ public abstract class Artifact
       artifact.setGeneratingActionKey(generatingActionKey);
       return (SpecialArtifact)
           context.getDependency(ArtifactResolverSupplier.class).intern(artifact);
+    }
+  }
+
+  /**
+   * Artifact representing a single-file archive with the filesystem tree belonging to a {@linkplain
+   * SpecialArtifact tree artifact}.
+   *
+   * <p>The archive is equivalent to the entire tree artifact -- it contains all of the {@linkplain
+   * TreeFileArtifact children} (and nothing else) of the tree artifact with their filesystem
+   * structure, relative to the {@linkplain SpecialArtifact#getExecPath() tree artifact directory}.
+   */
+  @AutoCodec
+  public static final class ArchivedTreeArtifact extends DerivedArtifact {
+    private static final PathFragment ARCHIVED_ARTIFACTS_DERIVED_TREE_ROOT =
+        PathFragment.create(":archived_tree_artifacts");
+    private final SpecialArtifact treeArtifact;
+
+    public ArchivedTreeArtifact(
+        SpecialArtifact treeArtifact, ArtifactRoot root, PathFragment execPath) {
+      super(root, execPath, treeArtifact.getArtifactOwner());
+      this.treeArtifact = treeArtifact;
+    }
+
+    @Override
+    public SpecialArtifact getParent() {
+      return treeArtifact;
+    }
+
+    /**
+     * Creates an {@link ArchivedTreeArtifact} for a given tree artifact. Returned artifact is
+     * stored in a permanent location, therefore can be shared across actions and builds.
+     *
+     * <p>Example: for a tree artifact of {@code bazel-out/k8-fastbuild/bin/directory} returns an
+     * {@linkplain ArchivedTreeArtifact artifact} of: {@code
+     * bazel-out/:archived_tree_artifacts/k8-fastbuild/bin/directory.zip}.
+     */
+    public static ArchivedTreeArtifact create(
+        SpecialArtifact treeArtifact, PathFragment derivedPathPrefix) {
+      return createWithCustomDerivedTreeRoot(
+          treeArtifact,
+          derivedPathPrefix,
+          ARCHIVED_ARTIFACTS_DERIVED_TREE_ROOT,
+          treeArtifact.getRootRelativePath().replaceName(treeArtifact.getFilename() + ".zip"));
+    }
+
+    /**
+     * Creates an {@link ArchivedTreeArtifact} for a given tree artifact within provided derived
+     * tree directory.
+     *
+     * <p>Example: for a tree artifact with root of {@code bazel-out/k8-fastbuild/bin} returns an
+     * {@linkplain ArchivedTreeArtifact artifact} of: {@code
+     * bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin/{rootRelativePath}} with root of: {@code
+     * bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin}.
+     */
+    public static ArchivedTreeArtifact createWithCustomDerivedTreeRoot(
+        SpecialArtifact treeArtifact,
+        PathFragment derivedPathPrefix,
+        PathFragment customDerivedTreeRoot,
+        PathFragment rootRelativePath) {
+      ArtifactRoot artifactRoot =
+          createRootForArchivedArtifact(
+              treeArtifact.getRoot(), derivedPathPrefix, customDerivedTreeRoot);
+      ArchivedTreeArtifact archivedTreeArtifact =
+          new ArchivedTreeArtifact(
+              treeArtifact, artifactRoot, artifactRoot.getExecPath().getRelative(rootRelativePath));
+
+      archivedTreeArtifact.setGeneratingActionKey(treeArtifact.getGeneratingActionKey());
+      return archivedTreeArtifact;
+    }
+
+    private static ArtifactRoot createRootForArchivedArtifact(
+        ArtifactRoot treeArtifactRoot,
+        PathFragment derivedPathPrefix,
+        PathFragment customDerivedTreeRoot) {
+      Path execRoot = getExecRoot(treeArtifactRoot);
+
+      // bazel-out/k8-fastbuild/bin -> bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin
+      PathFragment rootExecPath =
+          derivedPathPrefix
+              .getRelative(customDerivedTreeRoot)
+              .getRelative(treeArtifactRoot.getExecPath().relativeTo(derivedPathPrefix));
+
+      return ArtifactRoot.asDerivedRoot(execRoot, rootExecPath);
+    }
+
+    private static Path getExecRoot(ArtifactRoot artifactRoot) {
+      // /output_base/execroot/bazel-out/k8-fastbuild/bin
+      Path rootPath = artifactRoot.getRoot().asPath();
+      PathFragment rootPathFragment = rootPath.asFragment();
+      // /output_base/execroot
+      PathFragment execRootPath =
+          rootPathFragment.subFragment(
+              0, rootPathFragment.segmentCount() - artifactRoot.getExecPath().segmentCount());
+      return rootPath.getFileSystem().getPath(execRootPath);
     }
   }
 
@@ -1127,6 +1302,9 @@ public abstract class Artifact
   public static final Function<Artifact, String> ROOT_RELATIVE_PATH_STRING =
       artifact -> artifact.getRootRelativePath().getPathString();
 
+  public static final Function<Artifact, String> OUTPUT_DIR_RELATIVE_PATH_STRING =
+      artifact -> artifact.getOutputDirRelativePath().getPathString();
+
   /**
    * Converts a collection of artifacts into execution-time path strings, and
    * adds those to a given collection. Middleman artifacts are ignored by this
@@ -1175,6 +1353,24 @@ public abstract class Artifact
   public static Iterable<String> toExecPaths(Iterable<Artifact> artifacts) {
     return Iterables.transform(
         Iterables.filter(artifacts, MIDDLEMAN_FILTER), ActionInput::getExecPathString);
+  }
+
+  /**
+   * Lazily converts artifacts into output-dir-relative path strings. Middleman artifacts are
+   * ignored by this method.
+   */
+  public static Iterable<String> toOutputDirRelativePaths(NestedSet<Artifact> artifacts) {
+    return toOutputDirRelativePaths(artifacts.toList());
+  }
+
+  /**
+   * Lazily converts artifacts into output-dir-relative path strings. Middleman artifacts are
+   * ignored by this method.
+   */
+  public static Iterable<String> toOutputDirRelativePaths(Iterable<Artifact> artifacts) {
+    return Iterables.transform(
+        Iterables.filter(artifacts, MIDDLEMAN_FILTER),
+        artifact -> artifact.getOutputDirRelativePath().getPathString());
   }
 
   /**

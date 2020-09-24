@@ -158,7 +158,7 @@ public class ExecutionRequirements {
   public static final String SUPPORTS_MULTIPLEX_WORKERS = "supports-multiplex-workers";
 
   /** Specify the type of worker protocol the worker uses. */
-  public static final String WORKER_PROTOCOL = "worker-protocol";
+  public static final String REQUIRES_WORKER_PROTOCOL = "requires-worker-protocol";
 
   /** Denotes what the type of worker protocol the worker uses. */
   public enum WorkerProtocolFormat {
@@ -241,4 +241,9 @@ public class ExecutionRequirements {
   /** Use this to request eager fetching of a single remote output into local memory. */
   public static final String REMOTE_EXECUTION_INLINE_OUTPUTS = "internal-inline-outputs";
 
+  /**
+   * Request graceful termination of subprocesses on interrupt (that is, an initial {@code SIGTERM}
+   * followed by a {@code SIGKILL} after a grace period).
+   */
+  public static final String GRACEFUL_TERMINATION = "supports-graceful-termination";
 }

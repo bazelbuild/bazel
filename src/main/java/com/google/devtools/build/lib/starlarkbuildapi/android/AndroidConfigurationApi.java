@@ -14,10 +14,10 @@
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Configuration fragment for Android rules. */
 @StarlarkBuiltin(
@@ -172,6 +172,9 @@ public interface AndroidConfigurationApi extends StarlarkValue {
       doc = "",
       documented = false)
   boolean getExportsManifestDefault();
+
+  @StarlarkMethod(name = "manifest_merger", structField = true, doc = "", documented = false)
+  String getManifestMergerValue();
 
   @StarlarkMethod(
       name = "omit_resources_info_provider_from_android_binary",

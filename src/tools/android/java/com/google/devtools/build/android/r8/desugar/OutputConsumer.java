@@ -28,6 +28,7 @@ import com.google.devtools.build.android.desugar.DependencyCollector;
 import com.google.devtools.build.android.r8.DescriptorUtils;
 import com.google.devtools.build.android.r8.Desugar;
 import com.google.devtools.build.android.r8.ZipUtils;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -89,7 +90,8 @@ public class OutputConsumer implements ClassFileConsumer {
 
   @Override
   public void finished(DiagnosticsHandler handler) {
-    try (ZipOutputStream out = new ZipOutputStream(Files.newOutputStream(archive))) {
+    try (ZipOutputStream out =
+        new ZipOutputStream(new BufferedOutputStream(Files.newOutputStream(archive)))) {
       for (ClassFileData classFile : classFiles) {
         ZipUtils.addEntry(classFile.fileName, classFile.data, ZipEntry.STORED, out);
         new DesugaredClassFileDependencyCollector(classFile, dependencyCollector).run();
@@ -175,7 +177,11 @@ public class OutputConsumer implements ClassFileConsumer {
             return;
           }
           if (DescriptorUtils.isCompanionClassBinaryName(owner)) {
-            dependencyCollector.assumeCompanionClass(className, owner);
+            // Don't expect companion classes from the desugared library to be present. They are
+            // considered library classes not program classes.
+            if (!owner.startsWith("j$")) {
+              dependencyCollector.assumeCompanionClass(className, owner);
+            }
           }
         }
       }

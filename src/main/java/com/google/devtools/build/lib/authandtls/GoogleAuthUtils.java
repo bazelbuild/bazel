@@ -41,6 +41,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 /** Utility methods for using {@link AuthAndTLSOptions} with Google Cloud. */
@@ -72,6 +73,10 @@ public final class GoogleAuthUtils {
           newNettyChannelBuilder(targetUrl, proxy)
               .negotiationType(
                   isTlsEnabled(target) ? NegotiationType.TLS : NegotiationType.PLAINTEXT);
+      if (options.grpcKeepaliveTime != null) {
+        builder.keepAliveTime(options.grpcKeepaliveTime.getSeconds(), TimeUnit.SECONDS);
+        builder.keepAliveTimeout(options.grpcKeepaliveTimeout.getSeconds(), TimeUnit.SECONDS);
+      }
       if (interceptors != null) {
         builder.intercept(interceptors);
       }
@@ -190,14 +195,23 @@ public final class GoogleAuthUtils {
     return null;
   }
 
+  public static CallCredentialsProvider newCallCredentialsProvider(AuthAndTLSOptions options)
+      throws IOException {
+    Credentials creds = newCredentials(options);
+    if (creds != null) {
+      return new GoogleAuthCallCredentialsProvider(creds);
+    }
+    return CallCredentialsProvider.NO_CREDENTIALS;
+  }
+
   @VisibleForTesting
-  public static CallCredentials newCallCredentials(
+  public static CallCredentialsProvider newCallCredentialsProvider(
       @Nullable InputStream credentialsFile, List<String> authScope) throws IOException {
     Credentials creds = newCredentials(credentialsFile, authScope);
     if (creds != null) {
-      return MoreCallCredentials.from(creds);
+      return new GoogleAuthCallCredentialsProvider(creds);
     }
-    return null;
+    return CallCredentialsProvider.NO_CREDENTIALS;
   }
 
   /**

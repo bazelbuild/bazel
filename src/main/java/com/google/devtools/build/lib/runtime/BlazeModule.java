@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.runtime;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.SubscriberExceptionHandler;
+import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.TopDownActionCache;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.OutErr;
-import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
@@ -91,7 +90,7 @@ public abstract class BlazeModule {
    */
   public ModuleFileSystem getFileSystem(
       OptionsParsingResult startupOptions, PathFragment realExecRootBase)
-      throws AbruptExitException, DefaultHashFunctionNotSetException {
+      throws AbruptExitException {
     return null;
   }
 
@@ -282,13 +281,13 @@ public abstract class BlazeModule {
    * @param env the command environment
    * @param request the build request
    * @param buildOptions the build's top-level options
-   * @param configuredTargets the build's requested top-level targets as {@link ConfiguredTarget}s
+   * @param analysisResult the build's analysis result
    */
   public void afterAnalysis(
       CommandEnvironment env,
       BuildRequest request,
       BuildOptions buildOptions,
-      Iterable<ConfiguredTarget> configuredTargets)
+      AnalysisResult analysisResult)
       throws InterruptedException, ViewCreationFailedException {}
 
   /**

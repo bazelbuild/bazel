@@ -76,11 +76,11 @@ import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -113,6 +113,7 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /** A bunch of utilities that are useful for tests concerning actions, artifacts, etc. */
 public final class ActionsTestUtil {
@@ -345,7 +346,8 @@ public final class ActionsTestUtil {
 
   public static final Artifact DUMMY_ARTIFACT =
       new Artifact.SourceArtifact(
-          ArtifactRoot.asSourceRoot(Root.absoluteRoot(new InMemoryFileSystem())),
+          ArtifactRoot.asSourceRoot(
+              Root.absoluteRoot(new InMemoryFileSystem(DigestHashFunction.SHA256))),
           PathFragment.create("/dummy"),
           NULL_ARTIFACT_OWNER);
 

@@ -23,11 +23,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import java.util.ArrayList;
@@ -39,6 +34,10 @@ import java.util.RandomAccess;
 import java.util.Set;
 import java.util.logging.Level;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
 
 /**
  * Root of Type symbol hierarchy for values in the build language.
@@ -120,7 +119,7 @@ public abstract class Type<T> {
   @Nullable
   public final T convertOptional(Object x, String what, @Nullable Object context, T defaultValue)
       throws ConversionException {
-    if (EvalUtils.isNullOrNone(x)) {
+    if (Starlark.isNullOrNone(x)) {
       return defaultValue;
     }
     return convert(x, what, context);
@@ -265,7 +264,7 @@ public abstract class Type<T> {
    */
   public static class ConversionException extends EvalException {
     private static String message(Type<?> type, Object value, @Nullable Object what) {
-      Printer.BasePrinter printer = Printer.getPrinter();
+      Printer printer = new Printer();
       printer.append("expected value of type '").append(type.toString()).append("'");
       if (what != null) {
         printer.append(" for ").append(what.toString());
@@ -709,7 +708,7 @@ public abstract class Type<T> {
     @SuppressWarnings("unchecked")
     public List<Object> convert(Object x, Object what, Object context)
         throws ConversionException {
-      // TODO(adonovan): converge on EvalUtils.toIterable.
+      // TODO(adonovan): converge on Starlark.toIterable.
       if (x instanceof Sequence) {
         return ((Sequence) x).getImmutableList();
       } else if (x instanceof List) {

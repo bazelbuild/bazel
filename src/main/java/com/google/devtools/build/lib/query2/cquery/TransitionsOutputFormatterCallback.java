@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -43,7 +45,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.io.OutputStream;
 import java.util.Collection;
@@ -53,6 +54,7 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /**
  * Output formatter that prints {@link ConfigurationTransition} information for rule configured
@@ -109,10 +111,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
               eventHandler, configuredTarget.getConfigurationKey());
       addResult(
           getRuleClassTransition(configuredTarget, target)
-              + configuredTarget.getOriginalLabel()
-              + " ("
-              + (config != null && config.isHostConfiguration() ? "HOST" : config)
-              + ")");
+              + String.format("%s (%s)", configuredTarget.getOriginalLabel(), shortId(config)));
       if (!(configuredTarget instanceof RuleConfiguredTarget)) {
         continue;
       }
@@ -174,16 +173,17 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
                 .concat(dep.getLabel().toString())
                 .concat("#")
                 .concat(dep.getTransition().getName())
-                .concat(" ( -> ")
+                .concat(" -> ")
                 .concat(
                     toOptions.stream()
                         .map(
                             options -> {
                               String checksum = options.computeChecksum();
-                              return checksum.equals(hostConfigurationChecksum) ? "HOST" : checksum;
+                              return checksum.equals(hostConfigurationChecksum)
+                                  ? "HOST"
+                                  : shortId(checksum);
                             })
-                        .collect(Collectors.joining(", ")))
-                .concat(")"));
+                        .collect(joining(", "))));
         if (verbosity == CqueryOptions.Transitions.LITE) {
           continue;
         }

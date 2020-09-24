@@ -39,10 +39,10 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunctio
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -71,6 +71,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -189,7 +190,6 @@ public abstract class GlobFunctionTest {
 
     AnalysisMock analysisMock = AnalysisMock.get();
     RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
-    skyFunctions.put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider));
     skyFunctions.put(
         WorkspaceFileValue.WORKSPACE_FILE,
         new WorkspaceFileFunction(
@@ -676,7 +676,7 @@ public abstract class GlobFunctionTest {
 
   /** Regression test for b/13319874: Directory listing crash. */
   @Test
-  public void testResilienceToFilesystemInconsistencies_DirectoryExistence() throws Exception {
+  public void testResilienceToFilesystemInconsistencies_directoryExistence() throws Exception {
     // Our custom filesystem says "pkgPath/BUILD" exists but "pkgPath" does not exist.
     fs.stubStat(pkgPath, null);
     RootedPath pkgRootedPath = RootedPath.toRootedPath(Root.fromPath(root), pkgPath);
@@ -701,7 +701,7 @@ public abstract class GlobFunctionTest {
   }
 
   @Test
-  public void testResilienceToFilesystemInconsistencies_SubdirectoryExistence() throws Exception {
+  public void testResilienceToFilesystemInconsistencies_subdirectoryExistence() throws Exception {
     // Our custom filesystem says directory "pkgPath/foo/bar" contains a subdirectory "wiz" but a
     // direct stat on "pkgPath/foo/bar/wiz" says it does not exist.
     Path fooBarDir = pkgPath.getRelative("foo/bar");
@@ -725,7 +725,7 @@ public abstract class GlobFunctionTest {
   }
 
   @Test
-  public void testResilienceToFilesystemInconsistencies_SymlinkType() throws Exception {
+  public void testResilienceToFilesystemInconsistencies_symlinkType() throws Exception {
     RootedPath wizRootedPath =
         RootedPath.toRootedPath(Root.fromPath(root), pkgPath.getRelative("foo/bar/wiz"));
     RootedPath fileRootedPath =
@@ -809,7 +809,7 @@ public abstract class GlobFunctionTest {
     private Map<Path, FileStatus> stubbedStats = Maps.newHashMap();
 
     public CustomInMemoryFs(ManualClock manualClock) {
-      super(manualClock);
+      super(manualClock, DigestHashFunction.SHA256);
     }
 
     public void stubStat(Path path, @Nullable FileStatus stubbedResult) {

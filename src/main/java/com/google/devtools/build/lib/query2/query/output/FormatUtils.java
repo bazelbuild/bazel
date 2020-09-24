@@ -19,11 +19,11 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.Comparator;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /**
  * Given a set of query options, returns a BinaryPredicate suitable for passing to {@link

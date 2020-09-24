@@ -33,14 +33,15 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * An abstract implementation of ConfiguredTarget in which all properties are assigned trivial
@@ -129,7 +130,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
 
   @Override
   public Object getValue(StarlarkSemantics semantics, String name) throws EvalException {
-    if (semantics.incompatibleDisableTargetProviderFields()
+    if (semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_TARGET_PROVIDER_FIELDS)
         && !SPECIAL_FIELD_NAMES.contains(name)) {
       throw Starlark.errorf(
           "Accessing providers via the field syntax on structs is "

@@ -16,18 +16,8 @@ package com.google.devtools.build.lib.collect.nestedset;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.Debug;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkList;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
@@ -35,6 +25,16 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkInterfaceUtils;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Debug;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * A Depset is a Starlark value that wraps a {@link NestedSet}.
@@ -151,12 +151,12 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     //
     // TODO(adonovan): use this check instead:
     //   EvalUtils.checkHashable(x);
-    // and delete the StarlarkValue.isImmutable and EvalUtils.isImmutable.
+    // and delete the StarlarkValue.isImmutable and Starlark.isImmutable.
     // Unfortunately this is a breaking change because some users
     // construct depsets whose elements contain lists of strings,
     // which are Starlark-unhashable even if frozen.
     // TODO(adonovan): also remove StarlarkList.hashCode.
-    if (strict && !EvalUtils.isImmutable(x)) {
+    if (strict && !Starlark.isImmutable(x)) {
       // TODO(adonovan): improve this error message to include type(x).
       throw Starlark.errorf("depset elements must not be mutable values");
     }
@@ -322,7 +322,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
   @Override
   public void repr(Printer printer) {
     printer.append("depset(");
-    printer.printList(set.toList(), "[", ", ", "]", null);
+    printer.printList(set.toList(), "[", ", ", "]");
     Order order = getOrder();
     if (order != Order.STABLE_ORDER) {
       printer.append(", order = ");
@@ -449,8 +449,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     // or a StarlarkModule-annotated Starlark value class or one of its subclasses,
     // in which case the result is the annotated class.
     //
-    // TODO(adonovan): consider publishing something like this as Starlark.typeClass
-    // when we clean up the various EvalUtils.getDataType operators.
+    // TODO(adonovan): consider publishing something like this as Starlark.typeClass.
     private static Class<?> getTypeClass(Class<?> cls) {
       if (cls == String.class || cls == Integer.class || cls == Boolean.class) {
         return cls; // fast path for common case
@@ -525,7 +524,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
       throw new EvalException(ex);
     }
 
-    if (semantics.incompatibleDisableDepsetItems()) {
+    if (semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_DEPSET_ITEMS)) {
       if (x != Starlark.NONE) {
         if (direct != Starlark.NONE) {
           throw new EvalException(
@@ -544,7 +543,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
               order,
               Sequence.noneableCast(direct, Object.class, "direct"),
               Sequence.noneableCast(transitive, Depset.class, "transitive"),
-              semantics.incompatibleAlwaysCheckDepsetElements());
+              semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS));
     } else {
       if (x != Starlark.NONE) {
         if (!isEmptyStarlarkList(items)) {
@@ -589,7 +588,10 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     List<Depset> transitiveList = Sequence.noneableCast(transitive, Depset.class, "transitive");
 
     return fromDirectAndTransitive(
-        order, directElements, transitiveList, semantics.incompatibleAlwaysCheckDepsetElements());
+        order,
+        directElements,
+        transitiveList,
+        semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS));
   }
 
   private static boolean isEmptyStarlarkList(Object o) {

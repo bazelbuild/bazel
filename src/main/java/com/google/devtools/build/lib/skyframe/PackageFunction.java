@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.MoreObjects;
 import com.google.common.base.Throwables;
 import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
@@ -51,6 +50,7 @@ import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageExc
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -58,15 +58,9 @@ import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.rules.repository.WorkspaceFileHelper;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FileOptions;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Module;
-import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.StarlarkFile;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
@@ -81,6 +75,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.build.skyframe.ValueOrException2;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -96,6 +91,13 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.syntax.FileOptions;
+import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.ParserInput;
+import net.starlark.java.syntax.StarlarkFile;
 
 /** A SkyFunction for {@link PackageValue}s. */
 public class PackageFunction implements SkyFunction {
@@ -546,9 +548,6 @@ public class PackageFunction implements SkyFunction {
       throw pfeFromLegacyPackageLoading;
     }
 
-    if (pkgBuilder.containsErrors()) {
-      pkgBuilder.setContainsErrors();
-    }
     Package pkg = pkgBuilder.finishBuild();
 
     Event.replayEventsOn(env.getListener(), pkgBuilder.getEvents());
@@ -661,14 +660,6 @@ public class PackageFunction implements SkyFunction {
           .setMessage(e.getMessage())
           .setPackageLoadingCode(PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR)
           .buildCause();
-    } catch (InconsistentFilesystemException e) {
-      throw PackageFunctionException.builder()
-          .setType(PackageFunctionException.Type.NO_SUCH_PACKAGE)
-          .setPackageIdentifier(packageId)
-          .setException(e)
-          .setMessage(e.getMessage())
-          .setPackageLoadingCode(PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR)
-          .buildCause();
     }
     if (bzlLoads == null) {
       return null; // Skyframe deps unavailable
@@ -693,12 +684,10 @@ public class PackageFunction implements SkyFunction {
   @Nullable
   private static List<BzlLoadValue> computeBzlLoadsNoInlining(
       Environment env, List<BzlLoadValue.Key> keys)
-      throws InterruptedException, BzlLoadFailedException, InconsistentFilesystemException {
+      throws InterruptedException, BzlLoadFailedException {
     List<BzlLoadValue> bzlLoads = Lists.newArrayListWithExpectedSize(keys.size());
-    Map<SkyKey, ValueOrException2<BzlLoadFailedException, InconsistentFilesystemException>>
-        starlarkLookupResults =
-            env.getValuesOrThrow(
-                keys, BzlLoadFailedException.class, InconsistentFilesystemException.class);
+    Map<SkyKey, ValueOrException<BzlLoadFailedException>> starlarkLookupResults =
+        env.getValuesOrThrow(keys, BzlLoadFailedException.class);
     for (BzlLoadValue.Key key : keys) {
       bzlLoads.add((BzlLoadValue) starlarkLookupResults.get(key).get());
     }
@@ -713,11 +702,11 @@ public class PackageFunction implements SkyFunction {
   @Nullable
   private static List<BzlLoadValue> computeBzlLoadsWithInlining(
       Environment env, List<BzlLoadValue.Key> keys, BzlLoadFunction bzlLoadFunctionForInlining)
-      throws InterruptedException, BzlLoadFailedException, InconsistentFilesystemException {
+      throws InterruptedException, BzlLoadFailedException {
     List<BzlLoadValue> bzlLoads = Lists.newArrayListWithExpectedSize(keys.size());
     // See the comment about the desire for deterministic graph structure in BzlLoadFunction for the
     // motivation of this approach to exception handling.
-    Exception deferredException = null;
+    BzlLoadFailedException deferredException = null;
     // Compute BzlLoadValue for each key, sharing the same inlining state, i.e. cache of loaded
     // modules. This ensures that each .bzl is loaded only once, regardless of diamond dependencies
     // or cache eviction. (Multiple loads of the same .bzl would screw up identity equality of some
@@ -729,8 +718,10 @@ public class PackageFunction implements SkyFunction {
         // Will complete right away if this key has been seen before in inliningState -- regardless
         // of whether it was evaluated successfully, had missing deps, or was found to be in error.
         skyValue = bzlLoadFunctionForInlining.computeInline(key, env, inliningState);
-      } catch (BzlLoadFailedException | InconsistentFilesystemException e) {
-        deferredException = MoreObjects.firstNonNull(deferredException, e);
+      } catch (BzlLoadFailedException e) {
+        if (deferredException == null) {
+          deferredException = e;
+        }
         continue;
       }
       if (skyValue != null) {
@@ -743,10 +734,7 @@ public class PackageFunction implements SkyFunction {
       // SkyFunctions that are requested and avoid a quadratic number of restarts.
     }
     if (deferredException != null) {
-      Throwables.throwIfInstanceOf(deferredException, BzlLoadFailedException.class);
-      Throwables.throwIfInstanceOf(deferredException, InconsistentFilesystemException.class);
-      throw new IllegalStateException(
-          "caught a checked exception of unexpected type", deferredException);
+      throw deferredException;
     }
     return env.valuesMissing() ? null : bzlLoads;
   }
@@ -867,7 +855,7 @@ public class PackageFunction implements SkyFunction {
     String message =
         ContainingPackageLookupValue.getErrorMessageForLabelCrossingPackageBoundary(
             pkgRoot, label, containingPkgLookupValue);
-    pkgBuilder.addEvent(Event.error(location, message));
+    pkgBuilder.addEvent(Package.error(location, message, Code.LABEL_CROSSES_PACKAGE_BOUNDARY));
     return true;
   }
 
@@ -1225,11 +1213,16 @@ public class PackageFunction implements SkyFunction {
         // Options for processing BUILD files.
         FileOptions options =
             FileOptions.builder()
-                .recordScope(false) // don't mutate BUILD syntax tree due to shared prelude
-                // TODO(adonovan): remove recordScope opt-out
+                // TODO(adonovan): remove recordScope opt-out. But first we need to fix the
+                // preexisting
+                // problem that fileSyntaxCache shares syntax trees which createPackageFromAst
+                // mutates.
+                .recordScope(false) // don't mutate BUILD syntax
                 .requireLoadStatementsFirst(false)
                 .allowToplevelRebinding(true)
-                .restrictStringEscapes(starlarkSemantics.incompatibleRestrictStringEscapes())
+                .restrictStringEscapes(
+                    starlarkSemantics.getBool(
+                        BuildLanguageOptions.INCOMPATIBLE_RESTRICT_STRING_ESCAPES))
                 .build();
         file = StarlarkFile.parse(input, options);
         fileSyntaxCache.put(packageId, file);
@@ -1272,7 +1265,7 @@ public class PackageFunction implements SkyFunction {
               repositoryMapping,
               packageId,
               buildFilePath,
-              file,
+              file, // becomes resolved as a side effect
               bzlLoadResult.preludeModule,
               bzlLoadResult.loadedModules,
               defaultVisibility,

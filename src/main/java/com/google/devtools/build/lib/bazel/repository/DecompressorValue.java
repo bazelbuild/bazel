@@ -16,13 +16,13 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
-import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Set;
+import net.starlark.java.eval.Starlark;
 
 /**
  * The contents of decompressed archive.

@@ -183,6 +183,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     LinuxSandboxUtil.CommandLineBuilder commandLineBuilder =
         LinuxSandboxUtil.commandLineBuilder(linuxSandbox, spawn.getArguments())
+            .addExecutionInfo(spawn.getExecutionInfo())
             .setWritableFilesAndDirectories(writableDirs)
             .setTmpfsDirectories(getTmpfsPaths())
             .setBindMounts(getReadOnlyBindMounts(blazeDirs, sandboxExecRoot))

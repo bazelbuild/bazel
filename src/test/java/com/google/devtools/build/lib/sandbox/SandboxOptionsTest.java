@@ -30,7 +30,7 @@ public final class SandboxOptionsTest {
   private ImmutableMap.Entry<String, String> pathPair;
 
   @Test
-  public void testParsingAdditionalMounts_SinglePathWithoutColonSucess() throws Exception {
+  public void testParsingAdditionalMounts_singlePathWithoutColonSucess() throws Exception {
     String source = "/a/bc/def/gh";
     String target = source;
     String input = source;
@@ -39,7 +39,7 @@ public final class SandboxOptionsTest {
   }
 
   @Test
-  public void testParsingAdditionalMounts_SinglePathWithColonSucess() throws Exception {
+  public void testParsingAdditionalMounts_singlePathWithColonSucess() throws Exception {
     String source = "/a/b:c/def/gh";
     String target = source;
     String input = "/a/b\\:c/def/gh";
@@ -48,7 +48,7 @@ public final class SandboxOptionsTest {
   }
 
   @Test
-  public void testParsingAdditionalMounts_PathPairWithoutColonSucess() throws Exception {
+  public void testParsingAdditionalMounts_pathPairWithoutColonSucess() throws Exception {
     String source = "/a/bc/def/gh";
     String target = "/1/2/3/4/5";
     String input = source + ":" + target;
@@ -57,7 +57,7 @@ public final class SandboxOptionsTest {
   }
 
   @Test
-  public void testParsingAdditionalMounts_PathPairWithColonSucess() throws Exception {
+  public void testParsingAdditionalMounts_pathPairWithColonSucess() throws Exception {
     String source = "/a:/bc:/d:ef/gh";
     String target = ":/1/2/3/4/5";
     String input = "/a\\:/bc\\:/d\\:ef/gh:\\:/1/2/3/4/5";
@@ -66,7 +66,7 @@ public final class SandboxOptionsTest {
   }
 
   @Test
-  public void testParsingAdditionalMounts_TooManyPaths() throws Exception {
+  public void testParsingAdditionalMounts_tooManyPaths() throws Exception {
     String input = "a/bc/def/gh:/1/2/3:x/y/z";
     OptionsParsingException e =
         assertThrows(
@@ -80,7 +80,7 @@ public final class SandboxOptionsTest {
   }
 
   @Test
-  public void testParsingAdditionalMounts_EmptyInput() throws Exception {
+  public void testParsingAdditionalMounts_emptyInput() throws Exception {
     String input = "";
     OptionsParsingException e =
         assertThrows(

@@ -14,16 +14,16 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 
 /** A target that provides C++ libraries to be linked into Android targets. */
 @StarlarkBuiltin(
@@ -66,9 +66,7 @@ public interface AndroidCcLinkParamsProviderApi<
               type = CcInfoApi.class),
         },
         selfCall = true)
-    @StarlarkConstructor(
-        objectType = AndroidCcLinkParamsProviderApi.class,
-        receiverNameForDoc = NAME)
+    @StarlarkConstructor
     public AndroidCcLinkParamsProviderApi<FileT, CcInfoT> createInfo(CcInfoT store)
         throws EvalException;
   }

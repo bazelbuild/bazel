@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.File;
 import java.io.IOException;
@@ -32,6 +31,7 @@ import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import net.starlark.java.eval.Printer;
 
 /** Module providing the collection of the resolved values for the repository rules executed. */
 public final class RepositoryResolvedModule extends BlazeModule {
@@ -79,8 +79,7 @@ public final class RepositoryResolvedModule extends BlazeModule {
         resultBuilder.add(resolved);
       }
       try (Writer writer = Files.newWriter(new File(resolvedFile), StandardCharsets.UTF_8)) {
-        writer.write(
-            EXPORTED_NAME + " = " + getWorkspacePrettyPrinter().repr(resultBuilder.build()));
+        writer.write(EXPORTED_NAME + " = " + new ValuePrinter().repr(resultBuilder.build()));
         writer.close();
       } catch (IOException e) {
         logger.atWarning().withCause(e).log("IO Error writing to file %s", resolvedFile);
@@ -88,26 +87,6 @@ public final class RepositoryResolvedModule extends BlazeModule {
     }
 
     this.resolvedValues = null;
-  }
-
-  /**
-   * Returns a pretty printer that represents values in a form usable in WORKSPACE files.
-   *
-   * <p>In WORKSPACE files, the Label constructor is not available. Fortunately, in all places where
-   * a label is needed, we can pass the canonical string associated with this label.
-   */
-  private static Printer.PrettyPrinter getWorkspacePrettyPrinter() {
-    return new Printer.PrettyPrinter(new StringBuilder()) {
-      @Override
-      public Printer.BasePrinter repr(Object o) {
-        if (o instanceof Label) {
-          this.repr(((Label) o).getCanonicalForm());
-        } else {
-          super.repr(o);
-        }
-        return this;
-      }
-    };
   }
 
   @Subscribe
@@ -119,6 +98,49 @@ public final class RepositoryResolvedModule extends BlazeModule {
   public void resolved(ResolvedEvent event) {
     if (resolvedValues != null) {
       resolvedValues.put(event.getName(), event.getResolvedInformation());
+    }
+  }
+
+  // An printer of repository rule attribute values that inserts properly indented lines between
+  // sequence elements.
+  private static final class ValuePrinter extends Printer {
+    int indent = 0;
+
+    ValuePrinter() {
+      super(new StringBuilder());
+    }
+
+    @Override
+    public Printer repr(Object o) {
+      // In WORKSPACE files, the Label constructor is not available.
+      // Fortunately, in all places where a label is needed,
+      // we can pass the canonical string associated with this label.
+      if (o instanceof Label) {
+        return this.repr(((Label) o).getCanonicalForm());
+      }
+      return super.repr(o);
+    }
+
+    @Override
+    public Printer printList(Iterable<?> list, String before, String separator, String after) {
+      this.append(before);
+      indent++;
+      // If the list is empty, do not split the presentation over several lines.
+      String sep = null;
+      for (Object o : list) {
+        if (sep == null) { // first?
+          sep = separator.trim();
+        } else {
+          this.append(sep);
+        }
+        this.append("\n").append(Strings.repeat("     ", indent)).repr(o);
+      }
+      indent--;
+      // Final indent, if nonempty.
+      if (sep != null) {
+        this.append("\n").append(Strings.repeat("     ", indent));
+      }
+      return this.append(after);
     }
   }
 }

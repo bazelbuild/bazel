@@ -14,19 +14,19 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.javascript;
 
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Info object propagating information about protocol buffer sources. */
 @StarlarkBuiltin(
@@ -43,7 +43,7 @@ public interface JsModuleInfoApi<FileT extends FileApi> extends StructApi {
       name = "label",
       doc = "Returns the label of the target which created this object",
       structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
   Label getLabel();
 
   @StarlarkMethod(
@@ -52,7 +52,7 @@ public interface JsModuleInfoApi<FileT extends FileApi> extends StructApi {
           "Returns the 'js' provider that contains information about this module and all of its"
               + " dependencies.",
       structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
   StarlarkValue getFullPintoSources();
 
   /** Provider class for {@link JsModuleInfoApi} objects. */
@@ -99,8 +99,8 @@ public interface JsModuleInfoApi<FileT extends FileApi> extends StructApi {
               generic1 = JsModuleInfoApi.class),
         },
         selfCall = true,
-        enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
-    @StarlarkConstructor(objectType = JsModuleInfoApi.class, receiverNameForDoc = "JsModuleInfo")
+        enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
+    @StarlarkConstructor
     JsModuleInfoApi<?> jsModuleInfo(
         Label label,
         String wrapper,

@@ -82,4 +82,14 @@ public class CqueryOptions extends CommonQueryOptions {
           "if enabled, proto output will include information about configurations. When disabled,"
               + "cquery proto output format resembles query output format.")
   public boolean protoIncludeConfigurations;
+
+  @Option(
+      name = "starlark:expr",
+      defaultValue = "str(target.label)",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "A Starlark expression to format each configured target in cquery's"
+              + " --output=starlark mode. The configured target is bound to 'target'.")
+  public String expr;
 }

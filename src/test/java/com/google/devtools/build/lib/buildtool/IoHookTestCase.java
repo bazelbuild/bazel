@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.skyframe.MutableSupplier;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -49,10 +48,7 @@ public abstract class IoHookTestCase extends GoogleBuildIntegrationTestCase {
     void handle(PathOp op, Path path) throws IOException;
   }
 
-  private static final FileListener DUMMY_LISTENER = new FileListener() {
-    @Override
-    public void handle(PathOp op, Path path) {}
-  };
+  private static final FileListener DUMMY_LISTENER = (op, path) -> {};
 
   private MutableSupplier<FileListener> listener = new MutableSupplier<>();
 
@@ -63,7 +59,7 @@ public abstract class IoHookTestCase extends GoogleBuildIntegrationTestCase {
   @Override
   protected FileSystem createFileSystem() {
     setListener(DUMMY_LISTENER);
-    return new UnixFileSystem(DigestHashFunction.getDefaultUnchecked()) {
+    return new UnixFileSystem(getDigestHashFunction(), /*hashAttributeName=*/ "") {
       @Override
       protected void chmod(Path path, int chmod) throws IOException {
         listener.get().handle(PathOp.CHMOD, path);

@@ -18,7 +18,6 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.rules.android.AndroidCommon;
 import com.google.devtools.build.lib.rules.android.AndroidDataContext;
@@ -81,8 +80,7 @@ final class DataBindingV1Context implements DataBindingContext {
     JavaPluginInfoProvider javaPluginInfoProvider =
         JavaInfo.getProvider(
             JavaPluginInfoProvider.class,
-            ruleContext.getPrerequisite(
-                DataBinding.DATABINDING_ANNOTATION_PROCESSOR_ATTR, TransitionMode.HOST));
+            ruleContext.getPrerequisite(DataBinding.DATABINDING_ANNOTATION_PROCESSOR_ATTR));
 
     ImmutableList<Artifact> annotationProcessorOutputs =
         DataBinding.getMetadataOutputs(ruleContext, useUpdatedArgs, metadataOutputSuffixes);

@@ -14,15 +14,15 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.syntax.EvalException;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 
 /** A target that provides C++ libraries to be linked into Go targets. */
 @StarlarkBuiltin(
@@ -49,9 +49,7 @@ public interface GoCcLinkParamsInfoApi extends StructApi {
               type = CcLinkingContextApi.class),
         },
         selfCall = true)
-    @StarlarkConstructor(
-        objectType = GoCcLinkParamsInfoApi.class,
-        receiverNameForDoc = "GoCcLinkParamsInfo")
+    @StarlarkConstructor
     public GoCcLinkParamsInfoApi createInfo(CcLinkingContextT ccLinkingContext)
         throws EvalException;
   }

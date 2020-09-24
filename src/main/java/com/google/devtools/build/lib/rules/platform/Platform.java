@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.config.AutoCpuConverter;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
@@ -53,8 +52,7 @@ public class Platform implements RuleConfiguredTargetFactory {
     List<PlatformInfo> parentPlatforms =
         Lists.newArrayList(
             PlatformProviderUtils.platforms(
-                ruleContext.getPrerequisites(
-                    PlatformRule.PARENTS_PLATFORM_ATTR, TransitionMode.DONT_CHECK)));
+                ruleContext.getPrerequisites(PlatformRule.PARENTS_PLATFORM_ATTR)));
 
     if (parentPlatforms.size() > 1) {
       throw ruleContext.throwWithAttributeError(
@@ -74,8 +72,7 @@ public class Platform implements RuleConfiguredTargetFactory {
     // constraint_values attribute tries to add those, this will throw an error.
     platformBuilder.addConstraints(
         PlatformProviderUtils.constraintValues(
-            ruleContext.getPrerequisites(
-                PlatformRule.CONSTRAINT_VALUES_ATTR, TransitionMode.DONT_CHECK)));
+            ruleContext.getPrerequisites(PlatformRule.CONSTRAINT_VALUES_ATTR)));
 
     String remoteExecutionProperties =
         ruleContext.attributes().get(PlatformRule.REMOTE_EXECUTION_PROPS_ATTR, Type.STRING);
@@ -135,8 +132,7 @@ public class Platform implements RuleConfiguredTargetFactory {
     CPU cpu = cpuValues.getFirst();
     Iterable<ConstraintValueInfo> cpuConstraintValues =
         PlatformProviderUtils.constraintValues(
-            ruleContext.getPrerequisites(
-                PlatformRule.CPU_CONSTRAINTS_ATTR, TransitionMode.DONT_CHECK));
+            ruleContext.getPrerequisites(PlatformRule.CPU_CONSTRAINTS_ATTR));
     for (ConstraintValueInfo constraint : cpuConstraintValues) {
       if (cpu.getCanonicalName().equals(constraint.label().getName())) {
         platformBuilder.addConstraint(constraint);
@@ -148,8 +144,7 @@ public class Platform implements RuleConfiguredTargetFactory {
     OS os = cpuValues.getSecond();
     Iterable<ConstraintValueInfo> osConstraintValues =
         PlatformProviderUtils.constraintValues(
-            ruleContext.getPrerequisites(
-                PlatformRule.OS_CONSTRAINTS_ATTR, TransitionMode.DONT_CHECK));
+            ruleContext.getPrerequisites(PlatformRule.OS_CONSTRAINTS_ATTR));
     for (ConstraintValueInfo constraint : osConstraintValues) {
       if (os.getCanonicalName().equals(constraint.label().getName())) {
         platformBuilder.addConstraint(constraint);

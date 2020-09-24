@@ -26,13 +26,13 @@ import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.Arrays;
-import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -41,39 +41,6 @@ import org.mockito.Mockito;
 /** Tests for {@link BlazeRuntime} static methods. */
 @RunWith(JUnit4.class)
 public class BlazeRuntimeTest {
-  @Test
-  public void requestLogStringParsing() {
-    assertThat(BlazeRuntime.getRequestLogString(ImmutableList.of("--client_env=A=B")))
-        .isEqualTo("[--client_env=A=B]");
-    assertThat(BlazeRuntime.getRequestLogString(ImmutableList.of("--client_env=BROKEN")))
-        .isEqualTo("[--client_env=BROKEN]");
-    assertThat(BlazeRuntime.getRequestLogString(ImmutableList.of("--client_env=auth=notprinted")))
-        .isEqualTo("[--client_env=auth=__private_value_removed__]");
-    assertThat(
-            BlazeRuntime.getRequestLogString(ImmutableList.of("--client_env=MY_COOKIE=notprinted")))
-        .isEqualTo("[--client_env=MY_COOKIE=__private_value_removed__]");
-    assertThat(
-            BlazeRuntime.getRequestLogString(
-                ImmutableList.of("--client_env=dont_paSS_ME=notprinted")))
-        .isEqualTo("[--client_env=dont_paSS_ME=__private_value_removed__]");
-    assertThat(BlazeRuntime.getRequestLogString(ImmutableList.of("--client_env=ok=COOKIE")))
-        .isEqualTo("[--client_env=ok=COOKIE]");
-    assertThat(BlazeRuntime.getRequestLogString(
-        ImmutableList.of("--client_env=foo=bar", "--client_env=pass=notprinted")))
-            .isEqualTo("[--client_env=foo=bar, --client_env=pass=__private_value_removed__]");
-
-    List<String> complexCommandLine = ImmutableList.of(
-        "blaze",
-        "build",
-        "--client_env=FOO=BAR",
-        "--client_env=FOOPASS=mypassword",
-        "--package_path=./MY_PASSWORD/foo",
-        "--client_env=SOMEAuThCode=something");
-    assertThat(BlazeRuntime.getRequestLogString(complexCommandLine)).isEqualTo(
-        "[blaze, build, --client_env=FOO=BAR, --client_env=FOOPASS=__private_value_removed__, "
-            + "--package_path=./MY_PASSWORD/foo, "
-            + "--client_env=SOMEAuThCode=__private_value_removed__]");
-  }
 
   @Test
   public void optionSplitting() throws Exception {
@@ -100,7 +67,7 @@ public class BlazeRuntimeTest {
 
   @Test
   public void crashTest() throws Exception {
-    FileSystem fs = new InMemoryFileSystem();
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     ServerDirectories serverDirectories =
         new ServerDirectories(
             fs.getPath("/install"), fs.getPath("/output"), fs.getPath("/output_user"));
@@ -149,5 +116,58 @@ public class BlazeRuntimeTest {
                 .setCrash(Crash.newBuilder().setCode(Code.CRASH_UNKNOWN))
                 .build());
     assertThat(runtime.afterCommand(env, mainThreadCrash).getDetailedExitCode()).isEqualTo(oom);
+  }
+
+  @Test
+  public void addsCommandsFromModules() throws Exception {
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    ServerDirectories serverDirectories =
+        new ServerDirectories(
+            fs.getPath("/install"), fs.getPath("/output"), fs.getPath("/output_user"));
+    BlazeRuntime runtime =
+        new BlazeRuntime.Builder()
+            .addBlazeModule(new FooCommandModule())
+            .addBlazeModule(new BarCommandModule())
+            .setFileSystem(fs)
+            .setProductName("bazel")
+            .setServerDirectories(serverDirectories)
+            .setStartupOptionsProvider(Mockito.mock(OptionsParsingResult.class))
+            .build();
+
+    assertThat(runtime.getCommandMap().keySet()).containsExactly("foo", "bar").inOrder();
+    assertThat(runtime.getCommandMap().get("foo")).isInstanceOf(FooCommandModule.FooCommand.class);
+    assertThat(runtime.getCommandMap().get("bar")).isInstanceOf(BarCommandModule.BarCommand.class);
+  }
+
+  private static class FooCommandModule extends BlazeModule {
+    @Command(name = "foo", shortDescription = "", help = "")
+    private static class FooCommand implements BlazeCommand {
+
+      @Override
+      public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
+        return null;
+      }
+    }
+
+    @Override
+    public void serverInit(OptionsParsingResult startupOptions, ServerBuilder builder) {
+      builder.addCommands(new FooCommand());
+    }
+  }
+
+  private static class BarCommandModule extends BlazeModule {
+    @Command(name = "bar", shortDescription = "", help = "")
+    private static class BarCommand implements BlazeCommand {
+
+      @Override
+      public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
+        return null;
+      }
+    }
+
+    @Override
+    public void serverInit(OptionsParsingResult startupOptions, ServerBuilder builder) {
+      builder.addCommands(new BarCommand());
+    }
   }
 }

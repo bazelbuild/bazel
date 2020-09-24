@@ -24,19 +24,19 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.PlatformInfoApi;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.StringUtilities;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 
 /** Provider for a platform, which is a group of constraints and values. */
 @Immutable
@@ -143,7 +143,8 @@ public class PlatformInfo extends NativeInfo
 
   @Override
   public void repr(Printer printer) {
-    printer.format("PlatformInfo(%s, constraints=%s)", label.toString(), constraints.toString());
+    Printer.format(
+        printer, "PlatformInfo(%s, constraints=%s)", label.toString(), constraints.toString());
   }
 
   /** Returns a new {@link Builder} for creating a fresh {@link PlatformInfo} instance. */

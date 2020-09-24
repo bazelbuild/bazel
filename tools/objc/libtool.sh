@@ -34,6 +34,18 @@ fi
 
 WRAPPER="${MY_LOCATION}/xcrunwrapper.sh"
 
+# Ensure 0 timestamping for hermetic results.
+export ZERO_AR_DATE=1
+
+if [ ! -f "${MY_LOCATION}"/libtool_check_unique ] ; then
+    echo "libtool_check_unique not found. Please file an issue at github.com/bazelbuild/bazel"
+elif "${MY_LOCATION}"/libtool_check_unique "$@"; then
+  # If there are no duplicate .o basenames,
+  # libtool can be invoked with the original arguments.
+  "${WRAPPER}" libtool "$@"
+  exit
+fi
+
 TEMPDIR="$(mktemp -d "${TMPDIR:-/tmp}/libtool.XXXXXXXX")"
 trap "rm -rf \"${TEMPDIR}\"" EXIT
 
@@ -111,11 +123,4 @@ while [[ $# -gt 0 ]]; do
    esac
 done
 
-# Ensure 0 timestamping for hermetic results.
-export ZERO_AR_DATE=1
-
 "${WRAPPER}" libtool "${ARGS[@]}"
-
-# Prevents a pre-Xcode-8 bug in which passing zero-date archive files to ld
-# would cause ld to error.
-touch "$OUTPUTFILE"

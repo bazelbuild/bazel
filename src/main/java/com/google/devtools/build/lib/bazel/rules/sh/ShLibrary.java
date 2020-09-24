@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -37,9 +36,9 @@ public class ShLibrary implements RuleConfiguredTargetFactory {
       throws InterruptedException, RuleErrorException, ActionConflictException {
     NestedSet<Artifact> filesToBuild =
         NestedSetBuilder.<Artifact>stableOrder()
-            .addAll(ruleContext.getPrerequisiteArtifacts("srcs", TransitionMode.TARGET).list())
-            .addAll(ruleContext.getPrerequisiteArtifacts("deps", TransitionMode.TARGET).list())
-            .addAll(ruleContext.getPrerequisiteArtifacts("data", TransitionMode.DONT_CHECK).list())
+            .addAll(ruleContext.getPrerequisiteArtifacts("srcs").list())
+            .addAll(ruleContext.getPrerequisiteArtifacts("deps").list())
+            .addAll(ruleContext.getPrerequisiteArtifacts("data").list())
             .build();
     Runfiles runfiles =
         new Runfiles.Builder(

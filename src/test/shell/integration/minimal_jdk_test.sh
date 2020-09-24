@@ -50,6 +50,8 @@ function test_size_less_than_280MB() {
   size=$(du -s "$ib" | cut -d\	 -f1)
   maxsize=$((1024*280))
   if [ $size -gt $maxsize ]; then
+    echo "$ib was too big:" 1>&2
+    du -a "$ib" 1>&2
     fail "Size of install_base is $size kB, expected it to be less than $maxsize kB."
   fi
 }

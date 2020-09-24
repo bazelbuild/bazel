@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.python;
 
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * DO NOT USE. Skarlark module exposing Python transitions for Python 2 to 3 migration purposes
@@ -41,6 +41,6 @@ public interface PyStarlarkTransitionsApi extends StarlarkValue {
               + " available, or has an invalid value, it succeeds silently without transitions.",
       documented = false,
       structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
   public StarlarkValue getTransition();
 }

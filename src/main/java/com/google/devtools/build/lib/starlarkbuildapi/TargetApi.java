@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkValue;
 
 /** A node in the build dependency graph, identified by a Label. */
 @StarlarkBuiltin(name = "target", doc = "", documented = false)

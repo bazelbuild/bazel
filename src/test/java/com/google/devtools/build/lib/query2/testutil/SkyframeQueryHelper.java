@@ -30,8 +30,8 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMu
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
+import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
@@ -58,6 +59,7 @@ import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -80,7 +82,8 @@ import java.util.UUID;
 /** An implementation of AbstractQueryHelper to support testing bazel query. */
 public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   protected SkyframeExecutor skyframeExecutor;
-  protected FileSystem fileSystem = new InMemoryFileSystem(BlazeClock.instance());
+  protected FileSystem fileSystem =
+      new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
   protected Path rootDirectory;
   protected BlazeDirectories directories;
   private String toolsRepository;
@@ -232,6 +235,9 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     } catch (IOException e) {
       // Should be impossible since AggregateAllOutputFormatterCallback doesn't throw IOException.
       throw new IllegalStateException(e);
+    } catch (QuerySyntaxException e) {
+      // Expect valid query syntax in tests.
+      throw new IllegalArgumentException(e);
     }
     return new ResultAndTargets<>(
         queryEvalResult, new OrderedThreadSafeImmutableSet(env, callback.getResult()));
@@ -253,6 +259,9 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
       } catch (IOException e) {
         // Should be impossible since the callback we passed in above doesn't throw IOException.
         throw new IllegalStateException(e);
+      } catch (QuerySyntaxException e) {
+        // Expect valid query syntax in tests.
+        throw new IllegalArgumentException(e);
       }
     }
     return result;
@@ -284,7 +293,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
           getReporter(),
           packageOptions,
           packageLocator,
-          Options.getDefaults(StarlarkSemanticsOptions.class),
+          Options.getDefaults(BuildLanguageOptions.class),
           UUID.randomUUID(),
           ImmutableMap.<String, String>of(),
           new TimestampGranularityMonitor(BlazeClock.instance()),

@@ -17,15 +17,18 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkCallable;
-import com.google.devtools.build.lib.syntax.StarlarkIterable;
-import com.google.devtools.build.lib.syntax.StarlarkList;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
-import com.google.devtools.build.lib.syntax.Tuple;
+import com.google.devtools.build.lib.packages.StarlarkLibrary;
+import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkIterable;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.Tuple;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -34,7 +37,15 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class DepsetTest {
 
-  private final EvaluationTestCase ev = new EvaluationTestCase();
+  private final EvaluationTestCase ev =
+      new EvaluationTestCase() {
+        @Override
+        protected Object newModuleHook(ImmutableMap.Builder<String, Object> predeclared) {
+          predeclared.put("depset", StarlarkLibrary.COMMON.get("depset"));
+          predeclared.put("struct", StructProvider.STRUCT);
+          return null; // no client data
+        }
+      };
 
   @Test
   public void testConstructor() throws Exception {
@@ -326,6 +337,19 @@ public final class DepsetTest {
     Object value = ev.lookup("x");
     assertThat(value).isInstanceOf(StarlarkList.class);
     assertThat((Iterable<?>) value).containsExactly(2, 4, 6, 3, 5).inOrder();
+  }
+
+  @Test
+  public void testDepsetIsNotIterable() throws Exception {
+    ev.new Scenario()
+        .testIfErrorContains("not iterable", "list(depset(['a', 'b']))")
+        .testIfErrorContains("not iterable", "max(depset([1, 2, 3]))")
+        .testIfErrorContains(
+            "unsupported binary operation: int in depset", "1 in depset([1, 2, 3])")
+        .testIfErrorContains("not iterable", "sorted(depset(['a', 'b']))")
+        .testIfErrorContains("not iterable", "tuple(depset(['a', 'b']))")
+        .testIfErrorContains("not iterable", "[x for x in depset()]")
+        .testIfErrorContains("not iterable", "len(depset(['a']))");
   }
 
   @Test

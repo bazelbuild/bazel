@@ -17,6 +17,9 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -36,7 +39,7 @@ public final class ProcessWrapperTest {
 
   @Before
   public void setUp() {
-    testFS = new InMemoryFileSystem();
+    testFS = new InMemoryFileSystem(DigestHashFunction.SHA256);
   }
 
   private Path makeProcessWrapperBin(String path) throws IOException {
@@ -47,25 +50,24 @@ public final class ProcessWrapperTest {
   }
 
   @Test
-  public void testProcessWrapperCommandLineBuilder_BuildsWithoutOptionalArguments()
+  public void testProcessWrapperCommandLineBuilder_buildsWithoutOptionalArguments()
       throws IOException {
     ImmutableList<String> commandArguments = ImmutableList.of("echo", "hello, world");
 
     ImmutableList<String> expectedCommandLine =
         ImmutableList.<String>builder().add("/some/path").addAll(commandArguments).build();
 
-    ImmutableList<String> extraFlags = ImmutableList.of();
     ProcessWrapper processWrapper =
-        new ProcessWrapper(makeProcessWrapperBin("/some/path"), /*killDelay=*/ null, extraFlags);
+        new ProcessWrapper(
+            makeProcessWrapperBin("/some/path"), /*killDelay=*/ null, /*gracefulSigterm=*/ false);
     List<String> commandLine = processWrapper.commandLineBuilder(commandArguments).build();
 
     assertThat(commandLine).containsExactlyElementsIn(expectedCommandLine).inOrder();
   }
 
   @Test
-  public void testProcessWrapperCommandLineBuilder_BuildsWithOptionalArguments()
+  public void testProcessWrapperCommandLineBuilder_buildsWithOptionalArguments()
       throws IOException {
-    ImmutableList<String> extraFlags = ImmutableList.of("--debug");
     ImmutableList<String> commandArguments = ImmutableList.of("echo", "hello, world");
 
     Duration timeout = Duration.ofSeconds(10);
@@ -82,12 +84,13 @@ public final class ProcessWrapperTest {
             .add("--stdout=" + stdoutPath)
             .add("--stderr=" + stderrPath)
             .add("--stats=" + statisticsPath)
-            .addAll(extraFlags)
+            .add("--graceful_sigterm")
             .addAll(commandArguments)
             .build();
 
     ProcessWrapper processWrapper =
-        new ProcessWrapper(makeProcessWrapperBin("/path/process-wrapper"), killDelay, extraFlags);
+        new ProcessWrapper(
+            makeProcessWrapperBin("/path/process-wrapper"), killDelay, /*gracefulSigterm=*/ true);
 
     List<String> commandLine =
         processWrapper
@@ -99,5 +102,28 @@ public final class ProcessWrapperTest {
             .build();
 
     assertThat(commandLine).containsExactlyElementsIn(expectedCommandLine).inOrder();
+  }
+
+  @Test
+  public void testProcessWrapperCommandLineBuilder_withExecutionInfo() throws IOException {
+    ImmutableList<String> commandArguments = ImmutableList.of("echo", "hello, world");
+
+    ProcessWrapper processWrapper =
+        new ProcessWrapper(
+            makeProcessWrapperBin("/some/path"), /*killDelay=*/ null, /*gracefulSigterm=*/ false);
+    ProcessWrapper.CommandLineBuilder builder = processWrapper.commandLineBuilder(commandArguments);
+
+    ImmutableList<String> expectedWithoutExecutionInfo =
+        ImmutableList.<String>builder().add("/some/path").addAll(commandArguments).build();
+    assertThat(builder.build()).containsExactlyElementsIn(expectedWithoutExecutionInfo).inOrder();
+
+    ImmutableList<String> expectedWithExecutionInfo =
+        ImmutableList.<String>builder()
+            .add("/some/path")
+            .add("--graceful_sigterm")
+            .addAll(commandArguments)
+            .build();
+    builder.addExecutionInfo(ImmutableMap.of(ExecutionRequirements.GRACEFUL_TERMINATION, "1"));
+    assertThat(builder.build()).containsExactlyElementsIn(expectedWithExecutionInfo).inOrder();
   }
 }

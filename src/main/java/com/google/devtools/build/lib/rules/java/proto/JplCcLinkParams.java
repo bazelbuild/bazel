@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.java.proto;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
@@ -39,7 +38,7 @@ public class JplCcLinkParams {
   public static JavaCcLinkParamsProvider createCcLinkingInfo(
       final RuleContext ruleContext, final ImmutableList<TransitiveInfoCollection> protoRuntimes) {
     List<CcInfo> providers = new ArrayList<>();
-    for (TransitiveInfoCollection t : ruleContext.getPrerequisites("deps", TransitionMode.TARGET)) {
+    for (TransitiveInfoCollection t : ruleContext.getPrerequisites("deps")) {
       JavaCcLinkParamsProvider javaCcLinkParamsProvider = t.get(JavaCcLinkParamsProvider.PROVIDER);
       if (javaCcLinkParamsProvider != null) {
         providers.add(javaCcLinkParamsProvider.getCcInfo());

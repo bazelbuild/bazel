@@ -79,6 +79,7 @@ pkg_tar(
     srcs = [
         "@com_google_protobuf//:protobuf_java",
         "@com_google_protobuf//:protobuf_java_util",
+        "@com_google_protobuf//:protobuf_javalite",
     ],
     remap_paths = {
         "..": "derived/jars",

@@ -66,7 +66,7 @@ import org.mockito.MockitoAnnotations;
 public class AbstractSpawnStrategyTest {
   private static class TestedSpawnStrategy extends AbstractSpawnStrategy {
     public TestedSpawnStrategy(Path execRoot, SpawnRunner spawnRunner) {
-      super(execRoot, spawnRunner);
+      super(execRoot, spawnRunner, /*verboseFailures=*/ true);
     }
   }
 
@@ -295,7 +295,7 @@ public class AbstractSpawnStrategyTest {
   }
 
   @Test
-  public void testLogSpawn_DefaultPlatform_getsLogged() throws Exception {
+  public void testLogSpawn_defaultPlatform_getsLogged() throws Exception {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.remoteDefaultPlatformProperties =
         String.join(
@@ -325,7 +325,7 @@ public class AbstractSpawnStrategyTest {
   }
 
   @Test
-  public void testLogSpawn_SpecifiedPlatform_overridesDefault() throws Exception {
+  public void testLogSpawn_specifiedPlatform_overridesDefault() throws Exception {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.remoteDefaultPlatformProperties =
         String.join(

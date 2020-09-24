@@ -14,13 +14,9 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.hash.Hashing;
-import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DigestFunctionConverter;
-import java.lang.reflect.Field;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -32,17 +28,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class DigestHashFunctionGlobalsTest {
   private final DigestFunctionConverter converter = new DigestFunctionConverter();
-
-  @Before
-  public void resetStaticDefault() throws IllegalAccessException, NoSuchFieldException {
-    // The default is effectively a Singleton, and it does not allow itself to be set multiple
-    // times. In order to test this reasonably, though, we reset the value to null,
-    // as it is before setDefault is called.
-
-    Field defaultValue = DigestHashFunction.class.getDeclaredField("defaultHash");
-    defaultValue.setAccessible(true);
-    defaultValue.set(null, null);
-  }
 
   @Test
   public void convertReturnsTheSameValueAsTheConstant() throws Exception {
@@ -79,24 +64,5 @@ public class DigestHashFunctionGlobalsTest {
     assertThat(converter.convert("SHA_384")).isSameInstanceAs(converter.convert("SHA-384"));
     assertThat(converter.convert("Sha_384")).isSameInstanceAs(converter.convert("SHA-384"));
     assertThat(converter.convert("sha_384")).isSameInstanceAs(converter.convert("SHA-384"));
-  }
-
-  @Test
-  public void unsetDefaultThrows() {
-    assertThrows(DefaultHashFunctionNotSetException.class, () -> DigestHashFunction.getDefault());
-  }
-
-  @Test
-  public void setDefaultDoesNotThrow() throws Exception {
-    DigestHashFunction.setDefault(DigestHashFunction.SHA1);
-    DigestHashFunction.getDefault();
-  }
-
-  @Test
-  public void cannotSetDefaultMultipleTimes() throws Exception {
-    DigestHashFunction.setDefault(DigestHashFunction.SHA256);
-    assertThrows(
-        DigestHashFunction.DefaultAlreadySetException.class,
-        () -> DigestHashFunction.setDefault(DigestHashFunction.SHA1));
   }
 }

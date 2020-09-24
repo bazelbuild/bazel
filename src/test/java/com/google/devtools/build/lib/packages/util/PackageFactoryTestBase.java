@@ -30,10 +30,10 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -46,6 +46,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import net.starlark.java.eval.Starlark;
 import org.junit.Before;
 
 /** Base class for PackageFactory tests. */
@@ -108,7 +109,7 @@ public abstract class PackageFactoryTestBase {
   @Before
   public final void initializeFileSystem() throws Exception {
     FileSystem fs =
-        new InMemoryFileSystem() {
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
           @Override
           public Collection<Dirent> readdir(Path path, boolean followSymlinks) throws IOException {
             if (path.equals(throwOnReaddir)) {

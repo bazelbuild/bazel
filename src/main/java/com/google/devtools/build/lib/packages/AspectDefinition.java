@@ -483,11 +483,12 @@ public final class AspectDefinition {
     }
 
     /**
-     * Sets the policy for the case where the configuration is missing required fragments (see
-     * {@link #requiresConfigurationFragments}).
+     * Sets the policy for the case where the configuration is missing the required fragment class
+     * (see {@link #requiresConfigurationFragments}).
      */
-    public Builder setMissingFragmentPolicy(MissingFragmentPolicy missingFragmentPolicy) {
-      configurationFragmentPolicy.setMissingFragmentPolicy(missingFragmentPolicy);
+    public Builder setMissingFragmentPolicy(
+        Class<?> fragmentClass, MissingFragmentPolicy missingFragmentPolicy) {
+      configurationFragmentPolicy.setMissingFragmentPolicy(fragmentClass, missingFragmentPolicy);
       return this;
     }
 

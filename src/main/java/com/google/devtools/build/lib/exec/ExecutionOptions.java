@@ -257,6 +257,22 @@ public class ExecutionOptions extends OptionsBase {
   public TestOutputFormat testOutput;
 
   @Option(
+      name = "max_test_output_bytes",
+      defaultValue = "-1",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {
+        OptionEffectTag.TEST_RUNNER,
+        OptionEffectTag.TERMINAL_OUTPUT,
+        OptionEffectTag.EXECUTION
+      },
+      help =
+          "Specifies maximum per-test-log size that can be emitted when --test_summary is 'errors' "
+              + "or 'all'. Useful for avoiding overwhelming the output with excessively noisy test "
+              + "output. The test header is included in the log size. Negative values imply no "
+              + "limit. Output is all or nothing.")
+  public int maxTestOutputBytes;
+
+  @Option(
       name = "test_summary",
       defaultValue = "short",
       converter = TestSummaryFormat.Converter.class,

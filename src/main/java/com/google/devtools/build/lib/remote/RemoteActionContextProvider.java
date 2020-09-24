@@ -91,12 +91,14 @@ final class RemoteActionContextProvider implements ExecutorLifecycleListener {
       return; // Can't use a spawn strategy without executor.
     }
 
+    boolean verboseFailures =
+        checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)).verboseFailures;
     RemoteSpawnRunner spawnRunner =
         new RemoteSpawnRunner(
             env.getExecRoot(),
             checkNotNull(env.getOptions().getOptions(RemoteOptions.class)),
             env.getOptions().getOptions(ExecutionOptions.class),
-            checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)).verboseFailures,
+            verboseFailures,
             env.getReporter(),
             env.getBuildRequestId(),
             env.getCommandId().toString(),
@@ -107,7 +109,7 @@ final class RemoteActionContextProvider implements ExecutorLifecycleListener {
             logDir,
             filesToDownload);
     registryBuilder.registerStrategy(
-        new RemoteSpawnStrategy(env.getExecRoot(), spawnRunner), "remote");
+        new RemoteSpawnStrategy(env.getExecRoot(), spawnRunner, verboseFailures), "remote");
   }
 
   /**
@@ -120,6 +122,7 @@ final class RemoteActionContextProvider implements ExecutorLifecycleListener {
         new RemoteSpawnCache(
             env.getExecRoot(),
             checkNotNull(env.getOptions().getOptions(RemoteOptions.class)),
+            checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)).verboseFailures,
             cache,
             env.getBuildRequestId(),
             env.getCommandId().toString(),

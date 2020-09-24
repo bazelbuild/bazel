@@ -70,7 +70,7 @@ distrib_java_import(
     enable_distributions = ["debian"],
     jars = [
         "android_common/com.android.tools.layoutlib_layoutlib_26.1.2-stripped.jar",
-        "android_common/com.android.tools_sdk-common_25.0.0-stripped.jar",
+        "android_common/com.android.tools_sdk-common_25.0.0-patched-stripped.jar",
         "android_common/com.android.tools_repository_25.0.0.jar",
     ],
     deps = [
@@ -104,7 +104,7 @@ java_import(
         "android_common/com.android.tools_common_25.0.0.jar",
         "android_common/com.android.tools_dvlib_25.0.0.jar",
         "android_common/com.android.tools_repository_25.0.0.jar",
-        "android_common/com.android.tools_sdk-common_25.0.0.jar",
+        "android_common/com.android.tools_sdk-common_25.0.0-patched.jar",
         "android_common/com.android.tools_sdklib_25.0.0.jar",
     ],
     runtime_deps = [
@@ -459,7 +459,10 @@ filegroup(
 distrib_java_import(
     name = "guava",
     enable_distributions = ["debian"],
-    jars = ["guava/guava-25.1-jre.jar"],
+    jars = [
+        "guava/failureaccess-1.0.1.jar",
+        "guava/guava-29.0-jre.jar",
+    ],
     exports = [
         ":error_prone_annotations",
         ":jcip_annotations",
@@ -507,7 +510,7 @@ distrib_java_import(
 # For bootstrapping JavaBuilder
 distrib_jar_filegroup(
     name = "guava-jars",
-    srcs = ["guava/guava-25.1-jre.jar"],
+    srcs = ["guava/guava-29.0-jre.jar"],
     enable_distributions = ["debian"],
 )
 
@@ -624,7 +627,7 @@ java_import(
 
 java_import(
     name = "guava-testlib",
-    jars = ["guava/guava-testlib-25.1-jre.jar"],
+    jars = ["guava/guava-testlib-29.0-jre.jar"],
 )
 
 java_import(

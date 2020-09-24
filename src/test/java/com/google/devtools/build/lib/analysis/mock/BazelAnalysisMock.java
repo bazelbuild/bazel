@@ -436,6 +436,10 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "",
         "def http_file(**kwargs):",
         "  pass");
+    config.create(
+        "bazel_tools_workspace/tools/jdk/local_java_repository.bzl",
+        "def local_java_repository(**kwargs):",
+        "  pass");
   }
 
   @Override

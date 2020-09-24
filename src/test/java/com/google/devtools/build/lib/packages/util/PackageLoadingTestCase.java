@@ -32,8 +32,8 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -66,7 +66,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
 
   protected LoadingMock loadingMock;
   private PackageOptions packageOptions;
-  private StarlarkSemanticsOptions starlarkSemanticsOptions;
+  private BuildLanguageOptions starlarkSemanticsOptions;
   protected ConfiguredRuleClassProvider ruleClassProvider;
   protected PackageFactory packageFactory;
   protected SkyframeExecutor skyframeExecutor;
@@ -77,7 +77,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   public final void initializeSkyframeExecutor() throws Exception {
     loadingMock = LoadingMock.get();
     packageOptions = parsePackageOptions();
-    starlarkSemanticsOptions = parseStarlarkSemanticsOptions();
+    starlarkSemanticsOptions = parseBuildLanguageOptions();
     List<RuleDefinition> extraRules = getExtraRules();
     if (!extraRules.isEmpty()) {
       ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
@@ -146,7 +146,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
             ImmutableList.of(Root.fromPath(rootDirectory)),
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
         packageOptions,
-        Options.getDefaults(StarlarkSemanticsOptions.class),
+        Options.getDefaults(BuildLanguageOptions.class),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
@@ -182,12 +182,12 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     return parser.getOptions(PackageOptions.class);
   }
 
-  private static StarlarkSemanticsOptions parseStarlarkSemanticsOptions(String... options)
+  private static BuildLanguageOptions parseBuildLanguageOptions(String... options)
       throws Exception {
     OptionsParser parser =
-        OptionsParser.builder().optionsClasses(StarlarkSemanticsOptions.class).build();
+        OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
     parser.parse(options);
-    return parser.getOptions(StarlarkSemanticsOptions.class);
+    return parser.getOptions(BuildLanguageOptions.class);
   }
 
   protected void setPackageOptions(String... options) throws Exception {
@@ -195,8 +195,8 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     setUpSkyframe();
   }
 
-  protected void setStarlarkSemanticsOptions(String... options) throws Exception {
-    starlarkSemanticsOptions = parseStarlarkSemanticsOptions(options);
+  protected void setBuildLanguageOptions(String... options) throws Exception {
+    starlarkSemanticsOptions = parseBuildLanguageOptions(options);
     setUpSkyframe();
   }
 

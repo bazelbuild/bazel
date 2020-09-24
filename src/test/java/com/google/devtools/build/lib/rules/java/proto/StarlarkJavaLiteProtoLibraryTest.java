@@ -88,7 +88,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
   @Before
   public final void setupStarlarkRule() throws Exception {
-    setStarlarkSemanticsOptions("--incompatible_new_actions_api=false");
+    setBuildLanguageOptions("--incompatible_new_actions_api=false");
 
     File[] files = Runfiles.location(RULE_DIRECTORY).listFiles();
     for (File file : files) {

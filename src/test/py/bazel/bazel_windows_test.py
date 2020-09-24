@@ -267,6 +267,28 @@ class BazelWindowsTest(test_base.TestBase):
     )
     self.AssertExitCode(exit_code, 0, stderr)
 
+  def testDeleteReadOnlyFileAndDirectory(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile('BUILD', [
+        'genrule(',
+        '  name = "gen_read_only_dir",',
+        '  cmd_bat = "mkdir $@ && attrib +r $@",',
+        '  outs = ["dir_foo"],',
+        ')',
+        '',
+        'genrule(',
+        '  name = "gen_read_only_file",',
+        '  cmd_bat = "echo hello > $@ && attrib +r $@",',
+        '  outs = ["file_foo"],',
+        ')',
+    ])
+
+    exit_code, _, stderr = self.RunBazel(['build', '//...'])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    exit_code, _, stderr = self.RunBazel(['clean'])
+    self.AssertExitCode(exit_code, 0, stderr)
+
 
 if __name__ == '__main__':
   unittest.main()

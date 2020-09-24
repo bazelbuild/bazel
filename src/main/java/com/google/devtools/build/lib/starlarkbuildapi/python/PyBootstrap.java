@@ -15,11 +15,11 @@
 package com.google.devtools.build.lib.starlarkbuildapi.python;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.python.PyInfoApi.PyInfoProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.python.PyRuntimeInfoApi.PyRuntimeInfoProviderApi;
-import com.google.devtools.build.lib.syntax.FlagGuardedValue;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import net.starlark.java.eval.FlagGuardedValue;
 
 /** {@link Bootstrap} for Starlark objects related to the Python rules. */
 public class PyBootstrap implements Bootstrap {
@@ -44,6 +44,6 @@ public class PyBootstrap implements Bootstrap {
     builder.put(
         "py_transitions",
         FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-            FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API, pyStarlarkTransitionsApi));
+            BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, pyStarlarkTransitionsApi));
   }
 }

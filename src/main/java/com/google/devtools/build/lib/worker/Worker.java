@@ -13,13 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
-import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.shell.Subprocess;
@@ -28,15 +24,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
-import com.google.gson.stream.JsonReader;
-import com.google.protobuf.util.JsonFormat;
-import com.google.protobuf.util.JsonFormat.Printer;
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -62,16 +51,15 @@ class Worker {
   protected final int workerId;
   /** The execution root of the worker. */
   protected final Path workDir;
-  /** The path of the log file. */
-  protected final Path logFile;
-  /** Stream for reading the protobuf WorkResponse. */
-  @Nullable protected RecordingInputStream protoRecordingStream;
-  /** Reader for reading the JSON WorkResponse. */
-  @Nullable protected JsonReader jsonReader;
-  /** Printer for writing the JSON WorkRequest bytes */
-  @Nullable protected Printer jsonPrinter;
-  /** BufferedWriter for the JSON WorkRequest bytes */
-  @Nullable protected BufferedWriter jsonWriter;
+  /** The path of the log file for this worker. */
+  private final Path logFile;
+  /**
+   * Stream for recording the WorkResponse as it's read, so that it can be printed in the case of
+   * parsing failures.
+   */
+  @Nullable private RecordingInputStream recordingInputStream;
+  /** The implementation of the worker protocol (JSON or Proto). */
+  @Nullable private WorkerProtocolImpl workerProtocol;
 
   private Subprocess process;
   private Thread shutdownHook;
@@ -118,12 +106,11 @@ class Worker {
     if (shutdownHook != null) {
       Runtime.getRuntime().removeShutdownHook(shutdownHook);
     }
+    if (workerProtocol != null) {
+      workerProtocol.close();
+      workerProtocol = null;
+    }
     if (process != null) {
-      if (workerKey.getProtocolFormat() == WorkerProtocolFormat.JSON) {
-        jsonReader.close();
-        jsonWriter.close();
-      }
-
       wasDestroyed = true;
       process.destroyAndWait();
     }
@@ -135,6 +122,11 @@ class Worker {
    */
   int getWorkerId() {
     return this.workerId;
+  }
+
+  /** Returns the path of the log file for this worker. */
+  public Path getLogFile() {
+    return logFile;
   }
 
   HashCode getWorkerFilesCombinedHash() {
@@ -163,95 +155,18 @@ class Worker {
         : Optional.empty();
   }
 
-  // TODO(karlgray): Create wrapper class that handles writing and reading JSON worker protocol to
-  // and from stream.
   void putRequest(WorkRequest request) throws IOException {
-    switch (workerKey.getProtocolFormat()) {
-      case JSON:
-        checkNotNull(jsonWriter, "Did prepareExecution get called before putRequest?");
-        checkNotNull(jsonPrinter, "Did prepareExecution get called before putRequest?");
-
-        jsonPrinter.appendTo(request, jsonWriter);
-        jsonWriter.flush();
-        break;
-
-      case PROTO:
-        request.writeDelimitedTo(process.getOutputStream());
-        process.getOutputStream().flush();
-        break;
-    }
+    workerProtocol.putRequest(request);
   }
 
   WorkResponse getResponse() throws IOException {
-    switch (workerKey.getProtocolFormat()) {
-      case JSON:
-        checkNotNull(jsonReader, "Did prepareExecution get called before putRequest?");
-
-        return readResponse(jsonReader);
-
-      case PROTO:
-        protoRecordingStream = new RecordingInputStream(process.getInputStream());
-        protoRecordingStream.startRecording(4096);
-        // response can be null when the worker has already closed
-        // stdout at this point and thus the InputStream is at EOF.
-        return WorkResponse.parseDelimitedFrom(protoRecordingStream);
-    }
-
-    throw new IllegalStateException(
-        "Invalid protocol format; protocol formats are currently proto or json");
-  }
-
-  private static WorkResponse readResponse(JsonReader reader) throws IOException {
-    Integer exitCode = null;
-    String output = null;
-    Integer requestId = null;
-
-    reader.beginObject();
-    while (reader.hasNext()) {
-      String name = reader.nextName();
-      switch (name) {
-        case "exitCode":
-          if (exitCode != null) {
-            throw new IOException("Work response cannot have more than one exit code");
-          }
-          exitCode = reader.nextInt();
-          break;
-        case "output":
-          if (output != null) {
-            throw new IOException("Work response cannot have more than one output");
-          }
-          output = reader.nextString();
-          break;
-        case "requestId":
-          if (requestId != null) {
-            throw new IOException("Work response cannot have more than one requestId");
-          }
-          requestId = reader.nextInt();
-          break;
-        default:
-          throw new IOException(name + " is an incorrect field in work response");
-      }
-    }
-    reader.endObject();
-
-    WorkResponse.Builder responseBuilder = WorkResponse.newBuilder();
-
-    if (exitCode != null) {
-      responseBuilder.setExitCode(exitCode);
-    }
-    if (output != null) {
-      responseBuilder.setOutput(output);
-    }
-    if (requestId != null) {
-      responseBuilder.setRequestId(requestId);
-    }
-
-    return responseBuilder.build();
+    recordingInputStream.startRecording(4096);
+    return workerProtocol.getResponse();
   }
 
   String getRecordingStreamMessage() {
-    protoRecordingStream.readRemaining();
-    return protoRecordingStream.getRecordedDataAsString();
+    recordingInputStream.readRemaining();
+    return recordingInputStream.getRecordedDataAsString();
   }
 
   public void prepareExecution(
@@ -259,25 +174,19 @@ class Worker {
       throws IOException {
     if (process == null) {
       process = createProcess();
-
-      if (workerKey.getProtocolFormat() == WorkerProtocolFormat.JSON) {
-        checkState(jsonReader == null, "JSON streams inconsistent with process status");
-        checkState(jsonPrinter == null, "JSON streams inconsistent with process status");
-        checkState(jsonWriter == null, "JSON streams inconsistent with process status");
-
-        jsonReader =
-            new JsonReader(
-                new BufferedReader(new InputStreamReader(process.getInputStream(), UTF_8)));
-        jsonReader.setLenient(true);
-        jsonPrinter = JsonFormat.printer().omittingInsignificantWhitespace();
-        jsonWriter = new BufferedWriter(new OutputStreamWriter(process.getOutputStream(), UTF_8));
+      recordingInputStream = new RecordingInputStream(process.getInputStream());
+    }
+    if (workerProtocol == null) {
+      switch (workerKey.getProtocolFormat()) {
+        case JSON:
+          workerProtocol = new JsonWorkerProtocol(recordingInputStream, process.getOutputStream());
+          break;
+        case PROTO:
+          workerProtocol = new ProtoWorkerProtocol(recordingInputStream, process.getOutputStream());
+          break;
       }
     }
   }
 
   public void finishExecution(Path execRoot) throws IOException {}
-
-  public Path getLogFile() {
-    return logFile;
-  }
 }

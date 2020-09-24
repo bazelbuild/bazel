@@ -433,7 +433,10 @@ filegroup(
         "BUILD-jdk",  # Tools are build from the workspace for tests.
         "DumpPlatformClassPath.java",
         "default_java_toolchain.bzl",
+        "fail_rule.bzl",
         "java_toolchain_alias.bzl",
+        "jdk.BUILD",
+        "local_java_repository.bzl",
         "nosystemjdk/README",
         "proguard_whitelister.py",
         "proguard_whitelister_test.py",
@@ -504,6 +507,7 @@ alias(
             "//src/conditions:linux_aarch64": "@remotejdk11_linux_aarch64//:jdk",
             "//src/conditions:linux_x86_64": "@remotejdk11_linux//:jdk",
             "//src/conditions:linux_ppc64le": "@remotejdk11_linux_ppc64le//:jdk",
+            "//src/conditions:linux_s390x": "@remotejdk11_linux_s390x//:jdk",
         },
         no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
                          " provide one using `--host_javabase.`",

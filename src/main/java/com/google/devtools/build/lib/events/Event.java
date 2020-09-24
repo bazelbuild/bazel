@@ -19,18 +19,20 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.comparing;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.build.lib.util.io.FileOutErr;
-import com.google.devtools.build.lib.util.io.FileOutErr.OutputReference;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.SyntaxError;
 
 /**
  * A situation encountered by the build system that's worth reporting.
@@ -85,13 +87,6 @@ public final class Event implements Serializable {
    */
   public byte[] getMessageBytes() {
     return message instanceof byte[] ? (byte[]) message : ((String) message).getBytes(UTF_8);
-  }
-
-  /** Returns the message as an {@link OutputReference}. */
-  public OutputReference getMessageReference() {
-    // The message is short and we have it in memory anyway; so just wrap it into
-    // the common interface.
-    return new ArrayOutputReference(getMessageBytes());
   }
 
   /** Returns the property value associated with {@code type} if any, and {@code null} otherwise. */
@@ -196,6 +191,22 @@ public final class Event implements Serializable {
     return getProperty(FileOutErr.class) != null;
   }
 
+  /**
+   * Gets the path to the stdout associated with this event (which the caller must not access), or
+   * null if there is no such path.
+   */
+  @Nullable
+  public PathFragment getStdOutPathFragment() {
+    FileOutErr outErr = getProperty(FileOutErr.class);
+    return outErr == null ? null : outErr.getOutputPathFragment();
+  }
+
+  /** Gets the size of the stdout associated with this event without reading it. */
+  public long getStdOutSize() throws IOException {
+    FileOutErr outErr = getProperty(FileOutErr.class);
+    return outErr == null ? 0 : outErr.outSize();
+  }
+
   /** Returns the stdout bytes associated with this event if any, and {@code null} otherwise. */
   @Nullable
   public byte[] getStdOut() {
@@ -206,6 +217,22 @@ public final class Event implements Serializable {
     return outErr.outAsBytes();
   }
 
+  /**
+   * Gets the path to the stderr associated with this event (which the caller must not access), or
+   * null if there is no such path.
+   */
+  @Nullable
+  public PathFragment getStdErrPathFragment() {
+    FileOutErr outErr = getProperty(FileOutErr.class);
+    return outErr == null ? null : outErr.getErrorPathFragment();
+  }
+
+  /** Gets the size of the stderr associated with this event without reading it. */
+  public long getStdErrSize() throws IOException {
+    FileOutErr outErr = getProperty(FileOutErr.class);
+    return outErr == null ? 0 : outErr.errSize();
+  }
+
   /** Returns the stderr bytes associated with this event if any, and {@code null} otherwise. */
   @Nullable
   public byte[] getStdErr() {
@@ -214,16 +241,6 @@ public final class Event implements Serializable {
       return null;
     }
     return outErr.errAsBytes();
-  }
-
-  /** Returns the stdout bytes associated with this event as a {@link OutputReference}. */
-  public OutputReference getStdOutReference() {
-    return getProperty(FileOutErr.class).getOutReference();
-  }
-
-  /** Returns the stderr bytes associated with this event as a {@link OutputReference}. */
-  public OutputReference getStdErrReference() {
-    return getProperty(FileOutErr.class).getErrReference();
   }
 
   /**
@@ -416,32 +433,26 @@ public final class Event implements Serializable {
   }
 
   /**
+   * Converts a list of {@link SyntaxError}s to events, each with a specified property, and replays
+   * them on {@code handler}.
+   */
+  public static <T> void replayEventsOn(
+      EventHandler handler,
+      List<SyntaxError> errors,
+      Class<T> propertyType,
+      Function<SyntaxError, T> toProperty) {
+    for (SyntaxError error : errors) {
+      handler.handle(
+          Event.error(error.location(), error.message())
+              .withProperty(propertyType, toProperty.apply(error)));
+    }
+  }
+
+  /**
    * Returns a {@link StarlarkThread.PrintHandler} that sends {@link EventKind#DEBUG} events to the
    * provided {@link EventHandler}.
    */
   public static StarlarkThread.PrintHandler makeDebugPrintHandler(EventHandler h) {
     return (thread, msg) -> h.handle(Event.debug(thread.getCallerLocation(), msg));
-  }
-
-  private static class ArrayOutputReference implements OutputReference {
-    private final byte[] message;
-
-    ArrayOutputReference(byte[] message) {
-      this.message = message;
-    }
-
-    @Override
-    public long getLength() {
-      return message.length;
-    }
-
-    @Override
-    public byte[] getFinalBytes(int count) {
-      if (count >= message.length) {
-        return message;
-      } else {
-        return Arrays.copyOfRange(message, message.length - count, message.length);
-      }
-    }
   }
 }

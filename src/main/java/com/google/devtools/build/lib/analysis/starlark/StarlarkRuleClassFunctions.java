@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
@@ -54,6 +55,7 @@ import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithCallback;
@@ -80,23 +82,25 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Identifier;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Module;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkCallable;
-import com.google.devtools.build.lib.syntax.StarlarkFunction;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import javax.annotation.Nullable;
+import net.starlark.java.eval.Debug;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Tuple;
+import net.starlark.java.syntax.Identifier;
+import net.starlark.java.syntax.Location;
 
 /** A helper class to provide an easier API for Starlark rule definitions. */
 public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Artifact> {
@@ -155,6 +159,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     String toolsRepository = env.getToolsRepository();
     return new RuleClass.Builder("$test_base_rule", RuleClassType.ABSTRACT, true, baseRule)
         .requiresConfigurationFragments(TestConfiguration.class)
+        // TestConfiguration only needed to create TestAction and TestProvider
+        // Only necessary at top-level and can be skipped if trimmed.
+        .setMissingFragmentPolicy(TestConfiguration.class, MissingFragmentPolicy.IGNORE)
         .add(
             attr("size", STRING)
                 .value("medium")
@@ -346,11 +353,20 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         .requiresHostConfigurationFragmentsByStarlarkBuiltinName(
             Sequence.cast(hostFragments, String.class, "host_fragments"));
     builder.setConfiguredTargetFunction(implementation);
-    // Information about the .bzl module containing the call that created the rule class.
+    // Obtain the rule definition environment (RDE) from the .bzl module being initialized by the
+    // calling thread -- the label and transitive source digest of the .bzl module of the outermost
+    // function in the call stack.
+    //
+    // If this thread is initializing a BUILD file, then the toplevel function's Module has
+    // no BazelModuleContext. Such rules cannot be instantiated, so it's ok to use a
+    // dummy label and RDE in that case (but not to crash).
     BazelModuleContext bzlModule =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
+        BazelModuleContext.of(getModuleOfOutermostStarlarkFunction(thread));
     builder.setRuleDefinitionEnvironmentLabelAndDigest(
-        bzlModule.label(), bzlModule.bzlTransitiveDigest());
+        bzlModule != null
+            ? bzlModule.label()
+            : Label.createUnvalidated(PackageIdentifier.EMPTY_PACKAGE_ID, "dummy_label"),
+        bzlModule != null ? bzlModule.bzlTransitiveDigest() : new byte[0]);
 
     builder.addRequiredToolchains(parseToolchains(toolchains, thread));
     builder.useToolchainTransition(useToolchainTransition);
@@ -403,6 +419,20 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     }
 
     return new StarlarkRuleFunction(builder, type, attributes, thread.getCallerLocation());
+  }
+
+  /**
+   * Returns the module (file) of the outermost enclosing Starlark function on the call stack or
+   * null if none of the active calls are functions defined in Starlark.
+   */
+  @Nullable
+  private static Module getModuleOfOutermostStarlarkFunction(StarlarkThread thread) {
+    for (Debug.Frame fr : Debug.getCallStack(thread)) {
+      if (fr.getFunction() instanceof StarlarkFunction) {
+        return ((StarlarkFunction) fr.getFunction()).getModule();
+      }
+    }
+    return null;
   }
 
   private static void checkAttributeName(String name) throws EvalException {

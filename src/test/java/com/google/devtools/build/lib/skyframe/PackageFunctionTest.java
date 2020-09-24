@@ -42,19 +42,19 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
-import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -84,6 +84,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Module;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -107,11 +108,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   private void preparePackageLoading(Path... roots) {
     preparePackageLoadingWithCustomStarklarkSemanticsOptions(
-        Options.getDefaults(StarlarkSemanticsOptions.class), roots);
+        Options.getDefaults(BuildLanguageOptions.class), roots);
   }
 
   private void preparePackageLoadingWithCustomStarklarkSemanticsOptions(
-      StarlarkSemanticsOptions starlarkSemanticsOptions, Path... roots) {
+      BuildLanguageOptions starlarkSemanticsOptions, Path... roots) {
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
     packageOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
     packageOptions.showLoadingProgress = true;
@@ -318,7 +319,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testPropagatesFilesystemInconsistencies_Globbing() throws Exception {
+  public void testPropagatesFilesystemInconsistencies_globbing() throws Exception {
     getSkyframeExecutor().turnOffSyscallCacheForTesting();
     reporter.removeHandler(failFastHandler);
     RecordingDifferencer differencer = getSkyframeExecutor().getDifferencerForTesting();
@@ -450,7 +451,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageOptions,
-            Options.getDefaults(StarlarkSemanticsOptions.class),
+            Options.getDefaults(BuildLanguageOptions.class),
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
             tsgm);
@@ -716,7 +717,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     validPackageWithoutErrors(PackageValue.key(PackageIdentifier.parse("@//p")));
   }
 
-  // See WorkspaceASTFunctionTest for tests that exercise load('@repo...').
+  // See WorkspaceFileFunctionTest for tests that exercise load('@repo...').
 
   @Test
   public void testLoadBadLabel() throws Exception {
@@ -937,7 +938,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGlobAllowEmpty_ParamValueMustBeBoolean() throws Exception {
+  public void testGlobAllowEmpty_paramValueMustBeBoolean() throws Exception {
     reporter.removeHandler(failFastHandler);
 
     scratch.file("pkg/BUILD", "x = " + "glob(['*.foo'], allow_empty = 5)");
@@ -950,7 +951,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGlobAllowEmpty_FunctionParam() throws Exception {
+  public void testGlobAllowEmpty_functionParam() throws Exception {
     scratch.file("pkg/BUILD", "x = " + "glob(['*.foo'], allow_empty=True)");
     invalidatePackages();
 
@@ -961,9 +962,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGlobAllowEmpty_StarlarkOption() throws Exception {
+  public void testGlobAllowEmpty_starlarkOption() throws Exception {
     preparePackageLoadingWithCustomStarklarkSemanticsOptions(
-        Options.parse(StarlarkSemanticsOptions.class, "--incompatible_disallow_empty_glob=false")
+        Options.parse(BuildLanguageOptions.class, "--incompatible_disallow_empty_glob=false")
             .getOptions(),
         rootDirectory);
 
@@ -977,7 +978,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGlobDisallowEmpty_FunctionParam_WasNonEmptyAndBecomesEmpty() throws Exception {
+  public void testGlobDisallowEmpty_functionParam_wasNonEmptyAndBecomesEmpty() throws Exception {
     scratch.file("pkg/BUILD", "x = " + "glob(['*.foo'], allow_empty=False)");
     scratch.file("pkg/blah.foo");
     invalidatePackages();
@@ -1004,9 +1005,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGlobDisallowEmpty_StarlarkOption_WasNonEmptyAndBecomesEmpty() throws Exception {
+  public void testGlobDisallowEmpty_starlarkOption_wasNonEmptyAndBecomesEmpty() throws Exception {
     preparePackageLoadingWithCustomStarklarkSemanticsOptions(
-        Options.parse(StarlarkSemanticsOptions.class, "--incompatible_disallow_empty_glob=true")
+        Options.parse(BuildLanguageOptions.class, "--incompatible_disallow_empty_glob=true")
             .getOptions(),
         rootDirectory);
 
@@ -1036,7 +1037,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGlobDisallowEmpty_FunctionParam_WasEmptyAndStaysEmpty() throws Exception {
+  public void testGlobDisallowEmpty_functionParam_wasEmptyAndStaysEmpty() throws Exception {
     scratch.file("pkg/BUILD", "x = " + "glob(['*.foo'], allow_empty=False)");
     invalidatePackages();
 
@@ -1063,9 +1064,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGlobDisallowEmpty_StarlarkOption_WasEmptyAndStaysEmpty() throws Exception {
+  public void testGlobDisallowEmpty_starlarkOption_wasEmptyAndStaysEmpty() throws Exception {
     preparePackageLoadingWithCustomStarklarkSemanticsOptions(
-        Options.parse(StarlarkSemanticsOptions.class, "--incompatible_disallow_empty_glob=true")
+        Options.parse(BuildLanguageOptions.class, "--incompatible_disallow_empty_glob=true")
             .getOptions(),
         rootDirectory);
 
@@ -1095,7 +1096,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGlobDisallowEmpty_FunctionParam_WasEmptyDueToExcludeAndStaysEmpty()
+  public void testGlobDisallowEmpty_functionParam_wasEmptyDueToExcludeAndStaysEmpty()
       throws Exception {
     scratch.file("pkg/BUILD", "x = glob(include=['*.foo'], exclude=['blah.*'], allow_empty=False)");
     scratch.file("pkg/blah.foo");
@@ -1126,10 +1127,10 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGlobDisallowEmpty_StarlarkOption_WasEmptyDueToExcludeAndStaysEmpty()
+  public void testGlobDisallowEmpty_starlarkOption_wasEmptyDueToExcludeAndStaysEmpty()
       throws Exception {
     preparePackageLoadingWithCustomStarklarkSemanticsOptions(
-        Options.parse(StarlarkSemanticsOptions.class, "--incompatible_disallow_empty_glob=true")
+        Options.parse(BuildLanguageOptions.class, "--incompatible_disallow_empty_glob=true")
             .getOptions(),
         rootDirectory);
 
@@ -1160,7 +1161,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGlobDisallowEmpty_FunctionParam_WasEmptyAndBecomesNonEmpty() throws Exception {
+  public void testGlobDisallowEmpty_functionParam_wasEmptyAndBecomesNonEmpty() throws Exception {
     scratch.file("pkg/BUILD", "x = " + "glob(['*.foo'], allow_empty=False)");
     invalidatePackages();
 
@@ -1188,9 +1189,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGlobDisallowEmpty_StarlarkOption_WasEmptyAndBecomesNonEmpty() throws Exception {
+  public void testGlobDisallowEmpty_starlarkOption_wasEmptyAndBecomesNonEmpty() throws Exception {
     preparePackageLoadingWithCustomStarklarkSemanticsOptions(
-        Options.parse(StarlarkSemanticsOptions.class, "--incompatible_disallow_empty_glob=true")
+        Options.parse(BuildLanguageOptions.class, "--incompatible_disallow_empty_glob=true")
             .getOptions(),
         rootDirectory);
 
@@ -1477,7 +1478,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
       getConfiguredTarget("//pkg:BUILD");
       // Prelude can access native.glob (though only a BUILD thread can call it).
-      assertContainsEvent("<built-in function glob>");
+      assertContainsEvent("<built-in method glob of native value>");
     }
 
     @Test
@@ -1600,7 +1601,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     private final Map<Path, IOException> pathsToErrorOnGetInputStream = Maps.newHashMap();
 
     public CustomInMemoryFs(ManualClock manualClock) {
-      super(manualClock);
+      super(manualClock, DigestHashFunction.SHA256);
     }
 
     public void stubStat(Path path, @Nullable FileStatus stubbedResult) {

@@ -26,23 +26,27 @@ public final class FileSystems {
   private FileSystems() {}
 
   /** Constructs a platform native (Unix or Windows) file system. */
-  public static FileSystem getNativeFileSystem() {
+  public static FileSystem getNativeFileSystem(DigestHashFunction digestHashFunction) {
     if (OS.getCurrent() == OS.WINDOWS) {
-      return new WindowsFileSystem(
-          DigestHashFunction.getDefaultUnchecked(), /*createSymbolicLinks=*/ false);
+      return new WindowsFileSystem(digestHashFunction, /*createSymbolicLinks=*/ false);
     }
     try {
       return Class.forName(TestConstants.TEST_REAL_UNIX_FILE_SYSTEM)
           .asSubclass(FileSystem.class)
-          .getDeclaredConstructor(DigestHashFunction.class)
-          .newInstance(DigestHashFunction.getDefaultUnchecked());
+          .getDeclaredConstructor(DigestHashFunction.class, String.class)
+          .newInstance(digestHashFunction, TestConstants.TEST_UNIX_HASH_ATTRIBUTE);
     } catch (Exception e) {
       throw new IllegalStateException(e);
     }
   }
 
+  /** Constructs a platform native (Unix or Windows) file system with SHA256 digests. */
+  public static FileSystem getNativeFileSystem() {
+    return getNativeFileSystem(DigestHashFunction.SHA256);
+  }
+
   /** Constructs a java.io.File file system. */
   public static FileSystem getJavaIoFileSystem() {
-    return new JavaIoFileSystem(DigestHashFunction.getDefaultUnchecked());
+    return new JavaIoFileSystem(DigestHashFunction.SHA256);
   }
 }

@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -35,11 +34,11 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkList;
 import java.util.Iterator;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.syntax.Location;
 
 /** Information about the JDK used by the <code>java_*</code> rules. */
 @Immutable
@@ -50,8 +49,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   /** Returns the Java Toolchain associated with the rule being analyzed or {@code null}. */
   public static JavaToolchainProvider from(RuleContext ruleContext) {
     TransitiveInfoCollection prerequisite =
-        ruleContext.getPrerequisite(
-            JavaRuleClasses.JAVA_TOOLCHAIN_ATTRIBUTE_NAME, TransitionMode.TARGET);
+        ruleContext.getPrerequisite(JavaRuleClasses.JAVA_TOOLCHAIN_ATTRIBUTE_NAME);
     return from(prerequisite, ruleContext);
   }
 

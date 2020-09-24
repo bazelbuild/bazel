@@ -15,17 +15,17 @@
 package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Module providing functions to create actions. */
 @StarlarkBuiltin(
@@ -402,7 +402,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             defaultValue = "None",
             named = true,
             positional = false,
-            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_EXEC_GROUPS,
+            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_EXEC_GROUPS,
             valueWhenDisabled = "None",
             // TODO(b/151742236) update this doc when this becomes non-experimental.
             doc =
@@ -585,7 +585,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             defaultValue = "None",
             named = true,
             positional = false,
-            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_EXEC_GROUPS,
+            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_EXEC_GROUPS,
             valueWhenDisabled = "None",
             // TODO(b/151742236) update this doc when this becomes non-experimental.
             doc =

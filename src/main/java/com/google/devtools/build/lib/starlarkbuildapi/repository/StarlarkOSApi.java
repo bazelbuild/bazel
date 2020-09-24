@@ -15,10 +15,10 @@
 package com.google.devtools.build.lib.starlarkbuildapi.repository;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkValue;
 
 /** A Starlark structure to deliver information about the system we are running on. */
 @StarlarkBuiltin(

@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -35,10 +34,8 @@ public final class PyRuntime implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext) throws ActionConflictException {
     PythonConfiguration pyConfig = ruleContext.getFragment(PythonConfiguration.class);
 
-    NestedSet<Artifact> files =
-        PrerequisiteArtifacts.nestedSet(ruleContext, "files", TransitionMode.TARGET);
-    Artifact interpreter =
-        ruleContext.getPrerequisiteArtifact("interpreter", TransitionMode.TARGET);
+    NestedSet<Artifact> files = PrerequisiteArtifacts.nestedSet(ruleContext, "files");
+    Artifact interpreter = ruleContext.getPrerequisiteArtifact("interpreter");
     PathFragment interpreterPath =
         PathFragment.create(ruleContext.attributes().get("interpreter_path", Type.STRING));
     PythonVersion pythonVersion =

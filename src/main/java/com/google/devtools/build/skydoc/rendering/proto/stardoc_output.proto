@@ -123,6 +123,12 @@ message StarlarkFunctionInfo {
   // The documented description of the function (if specified in the function's
   // docstring).
   string doc_string = 3;
+
+  // The return value for the function.
+  FunctionReturnInfo return = 4;
+
+  // The deprecation for the function.
+  FunctionDeprecationInfo deprecated = 5;
 }
 
 // Representation of a Starlark function parameter definition.
@@ -142,6 +148,18 @@ message FunctionParamInfo {
   // parameter. This might be false even if defaultValue is empty in the case of
   // special parameter such as *args and **kwargs"
   bool mandatory = 4;
+}
+
+message FunctionReturnInfo {
+  // The documented return value of the function (if specified in the function's
+  // docstring).
+  string doc_string = 1;
+}
+
+message FunctionDeprecationInfo {
+  // The documented deprecation of the function (if specified in the function's
+  // docstring).
+  string doc_string = 1;
 }
 
 // Representation of a Starlark provider field definition, comprised of

@@ -20,8 +20,8 @@ java_test(
 )
 
 java_test(
-    name = "BazelJavaBuilderTest",
-    srcs = ["BazelJavaBuilderTest.java"],
+    name = "WorkRequestHandlerTest",
+    srcs = ["WorkRequestHandlerTest.java"],
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar",
         "//src/main/protobuf:worker_protocol_java_proto",

@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -259,13 +260,14 @@ public class GrpcRemoteExecutionClientTest {
                 .build());
     GrpcRemoteExecutor executor =
         new GrpcRemoteExecutor(channel.retain(), null, retrier, remoteOptions);
-    CallCredentials creds =
-        GoogleAuthUtils.newCallCredentials(Options.getDefaults(AuthAndTLSOptions.class));
+    CallCredentialsProvider callCredentialsProvider =
+        GoogleAuthUtils.newCallCredentialsProvider(Options.getDefaults(AuthAndTLSOptions.class));
+    CallCredentials creds = callCredentialsProvider.getCallCredentials();
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             remoteOptions.remoteInstanceName,
             channel.retain(),
-            creds,
+            callCredentialsProvider,
             remoteOptions.remoteTimeout.getSeconds(),
             retrier);
     GrpcCacheClient cacheProtocol =

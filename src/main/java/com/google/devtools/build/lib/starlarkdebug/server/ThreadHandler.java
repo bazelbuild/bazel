@@ -23,16 +23,6 @@ import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.B
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Error;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.PauseReason;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Value;
-import com.google.devtools.build.lib.syntax.Debug;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.FileOptions;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Module;
-import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.SyntaxError;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -41,6 +31,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
+import net.starlark.java.eval.Debug;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.FileOptions;
+import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.ParserInput;
+import net.starlark.java.syntax.SyntaxError;
 
 /** Handles all thread-related state and debugging tasks. */
 final class ThreadHandler {
@@ -305,9 +304,9 @@ final class ThreadHandler {
       // TODO(adonovan): opt: don't parse and resolve the expression every time we hit a breakpoint
       // (!).
       ParserInput input = ParserInput.fromString(content, "<debug eval>");
-      // TODO(adonovan): the module or call frame should be a parameter.
+      // TODO(adonovan): the module or call frame should be a parameter to doEvaluate.
       Module module = Module.ofInnermostEnclosingStarlarkFunction(thread);
-      return EvalUtils.exec(input, FileOptions.DEFAULT, module, thread);
+      return Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
     } finally {
       servicingEvalRequest.set(false);
     }

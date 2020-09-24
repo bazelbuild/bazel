@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.eval.StarlarkValue;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -48,22 +48,23 @@ public final class ConfigurationFragmentPolicyTest {
   public void testMissingFragmentPolicy() throws Exception {
     ConfigurationFragmentPolicy policy =
         new ConfigurationFragmentPolicy.Builder()
-            .setMissingFragmentPolicy(MissingFragmentPolicy.IGNORE)
+            .setMissingFragmentPolicy(Integer.class, MissingFragmentPolicy.IGNORE)
             .build();
 
-    assertThat(policy.getMissingFragmentPolicy()).isEqualTo(MissingFragmentPolicy.IGNORE);
+    assertThat(policy.getMissingFragmentPolicy(Integer.class))
+        .isEqualTo(MissingFragmentPolicy.IGNORE);
 
     ConfigurationFragmentPolicy otherPolicy =
         new ConfigurationFragmentPolicy.Builder()
-            .setMissingFragmentPolicy(MissingFragmentPolicy.CREATE_FAIL_ACTIONS)
+            .setMissingFragmentPolicy(String.class, MissingFragmentPolicy.CREATE_FAIL_ACTIONS)
             .build();
 
-    assertThat(otherPolicy.getMissingFragmentPolicy())
+    assertThat(otherPolicy.getMissingFragmentPolicy(String.class))
         .isEqualTo(MissingFragmentPolicy.CREATE_FAIL_ACTIONS);
   }
 
   @Test
-  public void testRequiresConfigurationFragments_AddsToRequiredSet() throws Exception {
+  public void testRequiresConfigurationFragments_addsToRequiredSet() throws Exception {
     // Although these aren't configuration fragments, there are no requirements as to what the class
     // has to be, so...
     ConfigurationFragmentPolicy policy =
@@ -96,7 +97,7 @@ public final class ConfigurationFragmentPolicyTest {
       };
 
   @Test
-  public void testRequiresConfigurationFragments_RequiredAndLegalForSpecifiedConfiguration()
+  public void testRequiresConfigurationFragments_requiredAndLegalForSpecifiedConfiguration()
       throws Exception {
     ConfigurationFragmentPolicy policy =
         new ConfigurationFragmentPolicy.Builder()
@@ -131,7 +132,7 @@ public final class ConfigurationFragmentPolicyTest {
   }
 
   @Test
-  public void testRequiresConfigurationFragments_MapSetsLegalityByStarlarkModuleName_NoRequires()
+  public void testRequiresConfigurationFragments_mapSetsLegalityByStarlarkModuleName_noRequires()
       throws Exception {
     ConfigurationFragmentPolicy policy =
         new ConfigurationFragmentPolicy.Builder()
@@ -169,7 +170,7 @@ public final class ConfigurationFragmentPolicyTest {
   }
 
   @Test
-  public void testIncludeConfigurationFragmentsFrom_MergesWithExistingFragmentSet()
+  public void testIncludeConfigurationFragmentsFrom_mergesWithExistingFragmentSet()
       throws Exception {
     ConfigurationFragmentPolicy basePolicy =
         new ConfigurationFragmentPolicy.Builder()

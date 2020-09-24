@@ -15,16 +15,16 @@
 package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkCallable;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Command line args module. */
 @StarlarkBuiltin(
@@ -473,19 +473,23 @@ public interface CommandLineArgsApi extends StarlarkValue {
 
   @StarlarkMethod(
       name = "set_param_file_format",
-      doc = "Sets the format of the param file when written to disk",
+      doc = "Sets the format of the param file, if one is used",
       parameters = {
         @Param(
             name = "format",
             type = String.class,
             named = true,
             doc =
-                "The format of the param file. Must be one of:<ul><li>"
-                    + "\"shell\": All arguments are shell quoted and separated by "
-                    + "whitespace (space, tab, newline)</li><li>"
-                    + "\"multiline\": All arguments are unquoted and separated by newline "
-                    + "characters</li></ul>"
-                    + "<p>The format defaults to \"shell\" if not called.")
+                "Must be one of:<ul>"
+                    + "<li>\"multiline\": Each item (argument name or value) is"
+                    + " written verbatim to the param file with a newline character following"
+                    + " it.</li>"
+                    + "<li>\"shell\": Same as \"multiline\", but the items are shell-quoted</li>"
+                    + "<li>\"flag_per_line\": Same as \"multiline\", but (1) only flags (beginning"
+                    + " with '--') are written to the param file, and (2) the values of the flags,"
+                    + " if any, are written on the same line with a '=' separator. This is the"
+                    + " format expected by the Abseil flags library.</li>"
+                    + "</ul><p>The format defaults to \"shell\" if not called.")
       })
   CommandLineArgsApi setParamFileFormat(String format) throws EvalException;
 }

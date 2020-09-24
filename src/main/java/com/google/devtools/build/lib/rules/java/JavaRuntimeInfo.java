@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -31,9 +30,9 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaRuntimeInfoApi;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /** Information about the Java runtime used by the <code>java_*</code> rules. */
 @Immutable
@@ -64,20 +63,19 @@ public final class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeI
   // Helper methods to access an instance of JavaRuntimeInfo.
 
   public static JavaRuntimeInfo forHost(RuleContext ruleContext) {
-    return from(ruleContext, HOST_JAVA_RUNTIME_ATTRIBUTE_NAME, TransitionMode.HOST);
+    return from(ruleContext, HOST_JAVA_RUNTIME_ATTRIBUTE_NAME);
   }
 
   public static JavaRuntimeInfo from(RuleContext ruleContext) {
-    return from(ruleContext, JAVA_RUNTIME_ATTRIBUTE_NAME, TransitionMode.TARGET);
+    return from(ruleContext, JAVA_RUNTIME_ATTRIBUTE_NAME);
   }
 
   @Nullable
-  private static JavaRuntimeInfo from(
-      RuleContext ruleContext, String attributeName, TransitionMode mode) {
+  private static JavaRuntimeInfo from(RuleContext ruleContext, String attributeName) {
     if (!ruleContext.attributes().has(attributeName, BuildType.LABEL)) {
       return null;
     }
-    TransitiveInfoCollection prerequisite = ruleContext.getPrerequisite(attributeName, mode);
+    TransitiveInfoCollection prerequisite = ruleContext.getPrerequisite(attributeName);
     if (prerequisite == null) {
       return null;
     }

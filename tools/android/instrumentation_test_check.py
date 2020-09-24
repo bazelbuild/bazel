@@ -104,8 +104,6 @@ def _ValidateManifestPackageNames(instr_manifest_content, instr_manifest_path,
 
 
 def main(unused_argv):
-  FLAGS(sys.argv)
-
   instr_manifest_path = FLAGS.instrumentation_manifest
   target_manifest_path = FLAGS.target_manifest
   output_path = FLAGS.output
@@ -113,10 +111,10 @@ def main(unused_argv):
   if not os.path.exists(dirname):
     os.makedirs(dirname)
 
-  with open(instr_manifest_path, "r") as f:
+  with open(instr_manifest_path, "rb") as f:
     instr_manifest = f.read()
 
-  with open(target_manifest_path, "r") as f:
+  with open(target_manifest_path, "rb") as f:
     target_manifest = f.read()
 
   try:

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.query.output;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
+import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.EquivalenceRelation;
@@ -60,7 +61,8 @@ class GraphOutputFormatter extends OutputFormatter {
       Digraph<Target> result,
       OutputStream out,
       AspectResolver aspectProvider,
-      EventHandler eventHandler) {
+      EventHandler eventHandler,
+      HashFunction hashFunction) {
     this.graphNodeStringLimit = options.graphNodeStringLimit;
     this.graphConditionalEdgesLimit = options.graphConditionalEdgesLimit;
 

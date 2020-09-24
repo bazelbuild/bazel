@@ -392,7 +392,10 @@ function expect_cmd_with_timeout() {
 
 # Usage: assert_one_of <expected_list>... <actual>
 # Asserts that actual is one of the items in expected_list
-# Example: assert_one_of ( "foo", "bar", "baz" ) actualval
+#
+# Example:
+#     local expected=( "foo", "bar", "baz" )
+#     assert_one_of $expected $actual
 function assert_one_of() {
     local args=("$@")
     local last_arg_index=$((${#args[@]} - 1))
@@ -408,7 +411,10 @@ function assert_one_of() {
 
 # Usage: assert_not_one_of <expected_list>... <actual>
 # Asserts that actual is not one of the items in expected_list
-# Example: assert_not_one_of ( "foo", "bar", "baz" ) actualval
+#
+# Example:
+#     local unexpected=( "foo", "bar", "baz" )
+#     assert_not_one_of $unexpected $actual
 function assert_not_one_of() {
     local args=("$@")
     local last_arg_index=$((${#args[@]} - 1))
@@ -540,7 +546,7 @@ function __test_terminated_err() {
     fi
     __show_log >&2
     if [[ ! -z "$TEST_name" ]]; then
-      echo -n "$TEST_name "
+      echo -n "$TEST_name " >&2
     fi
     echo "FAILED: terminated because this command returned a non-zero status:" >&2
     touch $TEST_TMPDIR/__err_handled

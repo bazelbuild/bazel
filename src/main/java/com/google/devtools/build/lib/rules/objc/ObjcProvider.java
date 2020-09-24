@@ -35,22 +35,23 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider.WithLegacyStarlarkName;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.ObjcProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkList;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * A provider that provides all compiling and linking information in the transitive closure of its
@@ -1191,7 +1192,8 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     void addElementsFromStarlark(Key<?> key, Object starlarkToAdd) throws EvalException {
       NestedSet<?> toAdd = ObjcProviderStarlarkConverters.convertToJava(key, starlarkToAdd);
       if (DEPRECATED_KEYS.contains(key)) {
-        if (getStarlarkSemantics().incompatibleObjcProviderRemoveCompileInfo()) {
+        if (getStarlarkSemantics()
+            .getBool(BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO)) {
           if (!KEYS_FOR_DIRECT.contains(key)) {
             throw Starlark.errorf(
                 AppleStarlarkCommon.DEPRECATED_KEY_ERROR, key.getStarlarkKeyName());

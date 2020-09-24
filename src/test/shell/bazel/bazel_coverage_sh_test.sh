@@ -150,8 +150,8 @@ FNDA:1,com/google/orange/orangeBin::main ([Ljava/lang/String;)V
 FNF:2
 FNH:1
 DA:3,0
-DA:5,4
-DA:6,2
+DA:5,1
+DA:6,1
 DA:7,1
 LH:3
 LF:4
@@ -163,8 +163,8 @@ FNDA:1,com/google/orange/orangeLib::<init> ()V
 FNDA:1,com/google/orange/orangeLib::print ()V
 FNF:2
 FNH:2
-DA:3,3
-DA:6,3
+DA:3,1
+DA:6,1
 DA:7,1
 LH:3
 LF:3
@@ -533,8 +533,8 @@ FNDA:1,com/google/orange/orangeBin::main ([Ljava/lang/String;)V
 FNF:2
 FNH:1
 DA:2,0
-DA:4,4
-DA:5,2
+DA:4,1
+DA:5,1
 DA:6,1
 LH:3
 LF:4
@@ -548,8 +548,8 @@ FNDA:1,com/google/orange/orangeLib::<init> ()V
 FNDA:1,com/google/orange/orangeLib::print ()V
 FNF:2
 FNH:2
-DA:2,3
-DA:4,3
+DA:2,1
+DA:4,1
 DA:5,1
 LH:3
 LF:3

@@ -128,8 +128,8 @@ import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtensio
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -152,7 +152,6 @@ import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
@@ -190,6 +189,7 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 
 /**
@@ -216,7 +216,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected OptionsParser optionsParser;
   private PackageOptions packageOptions;
-  private StarlarkSemanticsOptions starlarkSemanticsOptions;
+  private BuildLanguageOptions starlarkSemanticsOptions;
   protected PackageFactory pkgFactory;
 
   protected MockToolsConfig mockToolsConfig;
@@ -260,10 +260,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         "",
         "def http_file(**kwargs):",
         "  pass");
+    mockToolsConfig.create(
+        "bazel_tools_workspace/tools/jdk/local_java_repository.bzl",
+        "def local_java_repository(**kwargs):",
+        "  pass");
     initializeMockClient();
 
     packageOptions = parsePackageOptions();
-    starlarkSemanticsOptions = parseStarlarkSemanticsOptions();
+    starlarkSemanticsOptions = parseBuildLanguageOptions();
     workspaceStatusActionFactory = new AnalysisTestUtil.DummyWorkspaceStatusActionFactory();
     mutableActionGraph = new MapBasedActionGraph(actionKeyContext);
     ruleClassProvider = createRuleClassProvider();
@@ -499,8 +503,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     setUpSkyframe();
   }
 
-  protected void setStarlarkSemanticsOptions(String... options) throws Exception {
-    starlarkSemanticsOptions = parseStarlarkSemanticsOptions(options);
+  protected void setBuildLanguageOptions(String... options) throws Exception {
+    starlarkSemanticsOptions = parseBuildLanguageOptions(options);
     setUpSkyframe();
   }
 
@@ -511,12 +515,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return parser.getOptions(PackageOptions.class);
   }
 
-  private static StarlarkSemanticsOptions parseStarlarkSemanticsOptions(String... options)
+  private static BuildLanguageOptions parseBuildLanguageOptions(String... options)
       throws Exception {
     OptionsParser parser =
-        OptionsParser.builder().optionsClasses(StarlarkSemanticsOptions.class).build();
+        OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
     parser.parse(options);
-    return parser.getOptions(StarlarkSemanticsOptions.class);
+    return parser.getOptions(BuildLanguageOptions.class);
   }
 
   /** Used by skyframe-only tests. */

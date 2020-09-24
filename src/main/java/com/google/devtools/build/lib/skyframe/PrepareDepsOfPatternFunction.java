@@ -55,7 +55,6 @@ import javax.annotation.Nullable;
  * transitive dependencies.
  */
 public class PrepareDepsOfPatternFunction implements SkyFunction {
-
   private final AtomicReference<PathPackageLocator> pkgPath;
   private final boolean traverseTestSuites;
 

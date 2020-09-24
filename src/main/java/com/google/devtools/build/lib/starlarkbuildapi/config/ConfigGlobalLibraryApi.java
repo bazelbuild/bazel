@@ -14,18 +14,18 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.config;
 
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkCallable;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.docgen.annot.DocumentMethods;
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import net.starlark.java.annot.Param;
-import net.starlark.java.annot.StarlarkConstructor;
-import net.starlark.java.annot.StarlarkGlobalLibrary;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkThread;
 
 /** A collection of top-level Starlark functions pertaining to configuration. */
-@StarlarkGlobalLibrary
+@DocumentMethods
 public interface ConfigGlobalLibraryApi {
   @StarlarkMethod(
       name = "transition",
@@ -95,7 +95,7 @@ public interface ConfigGlobalLibraryApi {
                     + "a superset of the key set of the dictionary returned by this transition."),
       },
       useStarlarkThread = true)
-  @StarlarkConstructor(objectType = ConfigurationTransitionApi.class)
+  @StarlarkConstructor
   ConfigurationTransitionApi transition(
       StarlarkCallable implementation,
       Sequence<?> inputs, // <String> expected

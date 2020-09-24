@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.vfs.Path;
 
 /** Strategy that uses sandboxing to execute a process, for Darwin */
 final class DarwinSandboxedStrategy extends AbstractSpawnStrategy {
-  DarwinSandboxedStrategy(Path execRoot, SpawnRunner spawnRunner) {
-    super(execRoot, spawnRunner);
+  DarwinSandboxedStrategy(Path execRoot, SpawnRunner spawnRunner, boolean verboseFailures) {
+    super(execRoot, spawnRunner, verboseFailures);
   }
 
   @Override

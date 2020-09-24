@@ -20,6 +20,7 @@ import shutil
 import socket
 import stat
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -59,6 +60,7 @@ class TestBase(unittest.TestCase):
       'remotejdk11_linux_for_testing',
       'remotejdk11_linux_aarch64_for_testing',
       'remotejdk11_linux_ppc64le_for_testing',
+      'remotejdk11_linux_s390x_for_testing',
       'remotejdk11_macos_for_testing',
       'remotejdk11_win_for_testing',
       'remotejdk14_linux_for_testing',
@@ -211,8 +213,13 @@ class TestBase(unittest.TestCase):
 
   @staticmethod
   def IsUnix():
-    """Returns true if the current platform is Unix platform."""
+    """Returns true if the current platform is Unix (Linux and Mac included)."""
     return os.name == 'posix'
+
+  @staticmethod
+  def IsLinux():
+    """Returns true if the current platform is Linux."""
+    return sys.platform.startswith('linux')
 
   def Path(self, path):
     """Returns the absolute path of `path` relative to self._test_cwd.

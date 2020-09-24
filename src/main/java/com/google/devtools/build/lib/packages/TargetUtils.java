@@ -24,9 +24,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -34,6 +31,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.syntax.Location;
 
 /**
  * Utility functions over Targets that don't really belong in the base {@link
@@ -244,7 +244,7 @@ public final class TargetUtils {
    * @param rule a rule instance to get tags from
    * @param allowTagsPropagation if set to true, tags will be propagated from a target to the
    *     actions' execution requirements, for more details {@see
-   *     StarlarkSemanticsOptions#experimentalAllowTagsPropagation}
+   *     BuildLanguageOptions#experimentalAllowTagsPropagation}
    */
   public static ImmutableMap<String, String> getExecutionInfo(
       Rule rule, boolean allowTagsPropagation) {
@@ -261,8 +261,7 @@ public final class TargetUtils {
    * #legalExecInfoKeys}.
    *
    * @param executionRequirementsUnchecked execution_requirements of a rule, expected to be of a
-   *     {@code Dict<String, String>} type, null or {@link
-   *     com.google.devtools.build.lib.syntax.Runtime#NONE}
+   *     {@code Dict<String, String>} type, null or Starlark None.
    * @param rule a rule instance to get tags from
    * @param allowTagsPropagation if set to true, tags will be propagated from a target to the
    *     actions' execution requirements, for more details {@see

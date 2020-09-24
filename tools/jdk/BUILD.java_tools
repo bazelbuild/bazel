@@ -368,6 +368,16 @@ config_setting(
 )
 
 config_setting(
+    name = "darwin_arm64",
+    values = {"cpu": "darwin_arm64"},
+)
+
+config_setting(
+    name = "darwin_arm64e",
+    values = {"cpu": "darwin_arm64e"},
+)
+
+config_setting(
     name = "windows",
     values = {"cpu": "x64_windows"},
 )
@@ -398,6 +408,8 @@ alias(
         ":linux_x86_64": "java_tools/src/tools/singlejar/singlejar_local",
         ":darwin": "java_tools/src/tools/singlejar/singlejar_local",
         ":darwin_x86_64": "java_tools/src/tools/singlejar/singlejar_local",
+        ":darwin_arm64": "java_tools/src/tools/singlejar/singlejar_local",
+        ":darwin_arm64e": "java_tools/src/tools/singlejar/singlejar_local",
         ":windows": "java_tools/src/tools/singlejar/singlejar_local.exe",
         "//conditions:default": "singlejar_cc_bin",
     }),
@@ -425,6 +437,8 @@ alias(
         ":linux_x86_64": ":ijar_prebuilt_binary",
         ":darwin": ":ijar_prebuilt_binary",
         ":darwin_x86_64": ":ijar_prebuilt_binary",
+        ":darwin_arm64": ":ijar_prebuilt_binary",
+        ":darwin_arm64e": ":ijar_prebuilt_binary",
         ":windows": ":ijar_prebuilt_binary",
         "//conditions:default": ":ijar_cc_binary",
     }),
@@ -724,7 +738,6 @@ cc_library(
     hdrs = [
         "java_tools/src/tools/singlejar/combiners.h",
         ":transient_bytes",
-        ":zip_headers",
     ],
     copts = SUPRESSED_WARNINGS,
     strip_include_prefix = "java_tools",

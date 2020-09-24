@@ -82,13 +82,25 @@ function test_signal_death() {
   assert_equals 134 "$code" # SIGNAL_BASE + SIGABRT = 128 + 6
 }
 
-# Tests that even when the child catches SIGTERM and exits with code 0, that the sandbox exits with
-# code 142 (telling us about the expired timeout).
 function test_signal_catcher() {
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -T 2 -t 3 -- /bin/bash -c \
-    'trap "echo later; exit 0" SIGINT SIGTERM SIGALRM; sleep 1000' &> $TEST_log || code=$?
-  assert_equals 142 "$code" # SIGNAL_BASE + SIGALRM = 128 + 14
-  expect_log "^later$"
+  # Run the sandbox with a child that catches SIGTERM and exits successfully,
+  # and a kill delay that ensures it gets the chance to see the signal.
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -t 30 -- /bin/bash -c \
+    'trap "exit 0" SIGINT SIGTERM SIGALRM; \
+     touch marker; \
+     sleep 10000' \
+    &> $TEST_log &
+  local sandbox_pid=$!
+
+  # Synchronize on the child having registered its signal handler.
+  until test -f "$SANDBOX_DIR/marker"; do sleep 1; done
+
+  # Send SIGTERM to the sandbox.
+  kill -SIGTERM "${sandbox_pid}"
+
+  # The sandbox should exit successfully: if the child says it succeeded, who
+  # are we to disagree?
+  wait "${sandbox_pid}"
 }
 
 function test_basic_timeout() {
@@ -96,24 +108,61 @@ function test_basic_timeout() {
   expect_log "^before$" ""
 }
 
-function test_timeout_grace() {
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -T 2 -t 3 -- /bin/bash -c \
-    'trap "echo -n before; sleep 1; echo -n after; exit 0" SIGINT SIGTERM SIGALRM; sleep 1000' &> $TEST_log || code=$?
-  assert_equals 142 "$code" # SIGNAL_BASE + SIGALRM = 128 + 14
-  expect_log "^beforeafter$"
+function test_timeout_exceeded_with_large_kill_delay() {
+  # Run the sandbox under a short timeout with a child that catches signals,
+  # waits while, then exits with a canned code. Use a kill delay that gives it a
+  # chance to do so.
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -T 2 -t 30 -- /bin/bash -c \
+    'trap "sleep 1; exit 17" SIGTERM; \
+     sleep 10000' \
+    &> $TEST_log || code=$?
+
+  # Assuming the trap command was run before the timeout, the "clean shutdown"
+  # code should have been allowed to run (returning 17). Otherwise it should
+  # have died immediately with SIGTERM.
+  local expected=( "17" "143" )
+  assert_one_of $expected "$code"
 }
 
-function test_timeout_kill() {
+function test_timeout_and_kill_delay_exceeded() {
+  # Run the sandbox with a child that ignores SIGTERM, and with both a short
+  # timeout and a short kill delay.
   $linux_sandbox $SANDBOX_DEFAULT_OPTS -T 2 -t 3 -- /bin/bash -c \
-    'trap "echo before; sleep 1000; echo after; exit 0" SIGINT SIGTERM SIGALRM; sleep 1000' &> $TEST_log || code=$?
-  assert_equals 142 "$code" # SIGNAL_BASE + SIGALRM = 128 + 14
-  expect_log "^before$"
+    'trap "" SIGTERM; sleep 1000' &> $TEST_log || code=$?
+
+  # If the trap command was run before the timeout we should have seen SIGKILL
+  # (after the kill delay); otherwise SIGTERM should have taken out the child.
+  local expected=( "137" "143" )
+  assert_one_of $expected "$code"
+}
+
+function test_sigint_sends_sigterm() {
+  # Run the sandbox with a child whose SIGTERM handler exits with a canned error
+  # code.
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -T 100000 -i -- /bin/bash -c \
+    'trap "exit 17" SIGTERM; \
+     trap "echo should not get here" SIGINT SIGALRM; \
+     touch marker; \
+     sleep 10000' \
+    &> $TEST_log &
+  local sandbox_pid=$!
+
+  # Synchronize on the child having registered its signal handler.
+  until test -f "$SANDBOX_DIR/marker"; do sleep 1; done
+
+  # Send SIGINT to the sandbox.
+  kill -SIGINT "${sandbox_pid}"
+
+  # That should be converted to SIGTERM by the sandbox, causing the child's
+  # handler to run.
+  wait "${sandbox_pid}" || code=$?
+  assert_equals 137 "$code" # SIGNAL_BASE + SIGTERM = 128 + 9
 }
 
 function test_debug_logging() {
   touch ${TEST_TMPDIR}/testfile
   $linux_sandbox $SANDBOX_DEFAULT_OPTS -D -- /bin/true &> $TEST_log || code=$?
-  expect_log "child exited normally with exitcode 0"
+  expect_log "child exited normally with code 0"
 }
 
 function test_mount_additional_paths_success() {
@@ -135,7 +184,7 @@ function test_mount_additional_paths_success() {
   expect_log "bind mount: ${TEST_TMPDIR}/bar -> ${TEST_TMPDIR}/bar\$"
   # mount a file to a customized path inside the sandbox
   expect_log "bind mount: ${TEST_TMPDIR}/testfile -> ${MOUNT_TARGET_ROOT}/sandboxed_testfile\$"
-  expect_log "child exited normally with exitcode 0"
+  expect_log "child exited normally with code 0"
   rm -rf ${MOUNT_TARGET_ROOT}/foo
   rm -rf ${MOUNT_TARGET_ROOT}/sandboxed_testfile
 }
@@ -196,7 +245,7 @@ function test_mount_additional_paths_multiple_sources_mount_to_one_target() {
   expect_log "bind mount: ${TEST_TMPDIR}/foo -> ${MOUNT_TARGET_ROOT}/foo\$"
   # mount a new source directory to the same target, which will overwrite the previous source path
   expect_log "bind mount: ${TEST_TMPDIR}/bar -> ${MOUNT_TARGET_ROOT}/foo\$"
-  expect_log "child exited normally with exitcode 0"
+  expect_log "child exited normally with code 0"
   rm -rf ${MOUNT_TARGET_ROOT}/foo
 }
 
@@ -274,25 +323,69 @@ function test_stats_high_user_time_and_high_system_time() {
   assert_linux_sandbox_exec_time 10 25 10 25
 }
 
-function test_child_receives_sigterm() {
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -- /bin/bash -c \
-    'trap "echo childsigterm; exit 1" SIGTERM; touch marker; sleep 1000' &> $TEST_log &
+function test_sigterm_is_forwarded_to_child() {
+  # Run the sandbox with a child that lets us know it saw SIGTERM and then exits
+  # gracefully. Use a kill delay that implies it will have a chance to see it.
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -t 30 -- /bin/bash -c \
+    'trap "exit 17" SIGTERM; \
+     touch marker; \
+     sleep 10000' \
+    &> $TEST_log &
   local sandbox_pid=$!
+
+  # Synchronize on the child having registered its signal handler.
   until test -f "$SANDBOX_DIR/marker"; do sleep 1; done
+
+  # Send SIGTERM to the sandbox, which should pass it on to the child.
   kill -SIGTERM "${sandbox_pid}"
+
+  # The sandbox should soon exit with the child's exit code.
   wait "${sandbox_pid}" || code=$?
-  assert_equals 143 "$code" # SIGNAL_BASE + SIGTERM = 128 + 15
-  expect_log "childsigterm"
+  assert_equals 17 "$code"
 }
 
-function test_child_ignores_sigterm() {
+function test_child_ignores_sigterm_and_sigalrm() {
+  # Run the sandbox with a child that ignores SIGTERM (the polite request to
+  # shut down that we send below) and SIGALRM (which we use internally and which
+  # was previously erroneously forwarded to the child).
+  #
+  # Set a kill delay of 2 seconds.
   $linux_sandbox $SANDBOX_DEFAULT_OPTS -t 2 -- /bin/bash -c \
-    'trap "" SIGTERM; touch marker; sleep 1000' &> $TEST_log &
+    'trap "" SIGTERM SIGALRM; touch marker; sleep 1000' &> $TEST_log &
   local sandbox_pid=$!
+
+  # Synchronize on the child having registered its signal handler.
   until test -f "$SANDBOX_DIR/marker"; do sleep 1; done
+
+  # Send SIGTERM to the sandbox to ask it nicely to shut down.
   kill -SIGTERM "${sandbox_pid}"
+
+  # The sandbox should soon exit with a code that indicates it was due to
+  # SIGKILL, from exceeding the kill delay.
   wait "${sandbox_pid}" || code=$?
-  assert_equals 143 "$code" # SIGNAL_BASE + SIGTERM = 128 + 15
+  assert_equals 137 "$code" # SIGNAL_BASE + SIGTERM = 128 + 9
+}
+
+function test_child_ignores_sigterm_and_sigalrm_no_kill_delay() {
+  # Run the sandbox with a child that ignores SIGTERM (the polite request to
+  # shut down that we send below) and SIGALRM (which we use internally and which
+  # was previously erroneously forwarded to the child).
+  #
+  # Unlike in the test above, don't enable a kill delay.
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -- /bin/bash -c \
+    'trap "" SIGTERM SIGALRM; touch marker; sleep 1000' &> $TEST_log &
+  local sandbox_pid=$!
+
+  # Synchronize on the child having registered its signal handler.
+  until test -f "$SANDBOX_DIR/marker"; do sleep 1; done
+
+  # Send SIGTERM to the sandbox to ask it nicely to shut down.
+  kill -SIGTERM "${sandbox_pid}"
+
+  # The sandbox should soon exit with a code that indicates it was due to
+  # SIGKILL, from exceeding the kill delay (of zero).
+  wait "${sandbox_pid}" || code=$?
+  assert_equals 137 "$code" # SIGNAL_BASE + SIGTERM = 128 + 9
 }
 
 # The test shouldn't fail if the environment doesn't support running it.

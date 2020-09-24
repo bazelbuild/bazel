@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidApplicationResourceInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.eval.EvalException;
 
 /** A provider for Android resource APKs (".ap_") and related info. */
 @Immutable
@@ -37,6 +37,8 @@ public class AndroidApplicationResourceInfo extends NativeInfo
   private final Artifact manifest;
   private final Artifact resourceProguardConfig;
   private final Artifact mainDexProguardConfig;
+  private final Artifact rTxt;
+  private final Artifact resourcesZip;
 
   AndroidApplicationResourceInfo(
       Artifact resourceApk,
@@ -44,7 +46,9 @@ public class AndroidApplicationResourceInfo extends NativeInfo
       Artifact resourceJavaClassJar,
       Artifact manifest,
       Artifact resourceProguardConfig,
-      Artifact mainDexProguardConfig) {
+      Artifact mainDexProguardConfig,
+      Artifact rTxt,
+      Artifact resourcesZip) {
     super(PROVIDER);
     this.resourceApk = resourceApk;
     this.resourceJavaSrcJar = resourceJavaSrcJar;
@@ -52,6 +56,8 @@ public class AndroidApplicationResourceInfo extends NativeInfo
     this.manifest = manifest;
     this.resourceProguardConfig = resourceProguardConfig;
     this.mainDexProguardConfig = mainDexProguardConfig;
+    this.rTxt = rTxt;
+    this.resourcesZip = resourcesZip;
   }
 
   @Override
@@ -84,6 +90,16 @@ public class AndroidApplicationResourceInfo extends NativeInfo
     return mainDexProguardConfig;
   }
 
+  @Override
+  public Artifact getRTxt() {
+    return rTxt;
+  }
+
+  @Override
+  public Artifact getResourcesZip() {
+    return resourcesZip;
+  }
+
   /** Provider for {@link AndroidApplicationResourceInfo}. */
   public static class AndroidApplicationResourceInfoProvider
       extends BuiltinProvider<AndroidApplicationResourceInfo>
@@ -100,7 +116,9 @@ public class AndroidApplicationResourceInfo extends NativeInfo
         Object resourceJavaClassJar,
         Artifact manifest,
         Object resourceProguardConfig,
-        Object mainDexProguardConfig)
+        Object mainDexProguardConfig,
+        Object rTxt,
+        Object resourcesZip)
         throws EvalException {
 
       return new AndroidApplicationResourceInfo(
@@ -109,7 +127,9 @@ public class AndroidApplicationResourceInfo extends NativeInfo
           fromNoneable(resourceJavaClassJar, Artifact.class),
           manifest,
           fromNoneable(resourceProguardConfig, Artifact.class),
-          fromNoneable(mainDexProguardConfig, Artifact.class));
+          fromNoneable(mainDexProguardConfig, Artifact.class),
+          fromNoneable(rTxt, Artifact.class),
+          fromNoneable(resourcesZip, Artifact.class));
     }
   }
 }

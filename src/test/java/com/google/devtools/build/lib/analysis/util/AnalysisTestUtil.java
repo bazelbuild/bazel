@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.shell.Command;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -68,6 +67,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * Utilities for analysis phase tests.
@@ -233,7 +233,8 @@ public final class AnalysisTestUtil {
       super(
           ActionOwner.SYSTEM_ACTION_OWNER,
           NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          ImmutableSet.of(stableStatus, volatileStatus));
+          ImmutableSet.of(stableStatus, volatileStatus),
+          "workspace status");
       this.stableStatus = stableStatus;
       this.volatileStatus = volatileStatus;
     }
@@ -506,7 +507,11 @@ public final class AnalysisTestUtil {
     for (Artifact artifact : artifacts) {
       ArtifactRoot root = artifact.getRoot();
       if (root.isSourceRoot()) {
-        files.add("src " + artifact.getRootRelativePath());
+        if (root.isExternalSourceRoot()) {
+          files.add("src(external) " + artifact.getRootRelativePath());
+        } else {
+          files.add("src " + artifact.getRootRelativePath());
+        }
       } else {
         String name = rootMap.getOrDefault(root.getRoot().toString(), "/");
         files.add(name + " " + artifact.getRootRelativePath());

@@ -15,19 +15,19 @@ package com.google.devtools.build.lib.starlarkbuildapi.android;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.OutputJarApi;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Sequence;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 
 /**
  * Configured targets implementing this provider can contribute Android-specific info to IDE to the
@@ -294,7 +294,7 @@ public interface AndroidIdeInfoProviderApi<
               generic1 = String.class)
         },
         selfCall = true)
-    @StarlarkConstructor(objectType = AndroidIdeInfoProviderApi.class)
+    @StarlarkConstructor
     AndroidIdeInfoProviderApi<FileT, OutputJarT> createInfo(
         /*noneable*/ Object javaPackage,
         /*noneable*/ Object manifest,

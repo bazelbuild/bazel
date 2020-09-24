@@ -1,11 +1,11 @@
 # External dependencies for the java_* rules.
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+load("@bazel_tools//tools/jdk:local_java_repository.bzl", "local_java_repository")
 
-new_local_repository(
+local_java_repository(
     name = "local_jdk",
-    build_file = __embedded_dir__ + "/jdk.BUILD",
-    path = DEFAULT_SYSTEM_JAVABASE,
+    java_home = DEFAULT_SYSTEM_JAVABASE,
 )
 
 bind(
@@ -97,7 +97,7 @@ bind(
 maybe(
     http_archive,
     name = "remotejdk11_linux",
-    build_file = "@local_jdk//:BUILD.bazel",
+    build_file = "@bazel_tools//tools/jdk:jdk.BUILD",
     sha256 = "360626cc19063bc411bfed2914301b908a8f77a7919aaea007a977fa8fb3cde1",
     strip_prefix = "zulu11.37.17-ca-jdk11.0.6-linux_x64",
     urls = [
@@ -109,7 +109,7 @@ maybe(
 maybe(
     http_archive,
     name = "remotejdk11_linux_aarch64",
-    build_file = "@local_jdk//:BUILD.bazel",
+    build_file = "@bazel_tools//tools/jdk:jdk.BUILD",
     sha256 = "a452f1b9682d9f83c1c14e54d1446e1c51b5173a3a05dcb013d380f9508562e4",
     strip_prefix = "zulu11.37.48-ca-jdk11.0.6-linux_aarch64",
     urls = [
@@ -121,7 +121,7 @@ maybe(
 maybe(
     http_archive,
     name = "remotejdk11_linux_ppc64le",
-    build_file = "@local_jdk//:BUILD.bazel",
+    build_file = "@bazel_tools//tools/jdk:jdk.BUILD",
     sha256 = "a417db0295b1f4b538ecbaf7c774f3a177fab9657a665940170936c0eca4e71a",
     strip_prefix = "jdk-11.0.7+10",
     urls = [
@@ -133,8 +133,21 @@ maybe(
 # This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     http_archive,
+    name = "remotejdk11_linux_s390x",
+    build_file = "@bazel_tools//tools/jdk:jdk.BUILD",
+    sha256 = "d9b72e87a1d3ebc0c9552f72ae5eb150fffc0298a7cb841f1ce7bfc70dcd1059",
+    strip_prefix = "jdk-11.0.7+10",
+    urls = [
+        "https://mirror.bazel.build/github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.7+10/OpenJDK11U-jdk_s390x_linux_hotspot_11.0.7_10.tar.gz",
+        "https://github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.7+10/OpenJDK11U-jdk_s390x_linux_hotspot_11.0.7_10.tar.gz",
+    ],
+)
+
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    http_archive,
     name = "remotejdk11_macos",
-    build_file = "@local_jdk//:BUILD.bazel",
+    build_file = "@bazel_tools//tools/jdk:jdk.BUILD",
     sha256 = "e1fe56769f32e2aaac95e0a8f86b5a323da5af3a3b4bba73f3086391a6cc056f",
     strip_prefix = "zulu11.37.17-ca-jdk11.0.6-macosx_x64",
     urls = [
@@ -146,7 +159,7 @@ maybe(
 maybe(
     http_archive,
     name = "remotejdk11_win",
-    build_file = "@local_jdk//:BUILD.bazel",
+    build_file = "@bazel_tools//tools/jdk:jdk.BUILD",
     sha256 = "a9695617b8374bfa171f166951214965b1d1d08f43218db9a2a780b71c665c18",
     strip_prefix = "zulu11.37.17-ca-jdk11.0.6-win_x64",
     urls = [
@@ -158,7 +171,7 @@ maybe(
 maybe(
     http_archive,
     name = "remotejdk14_linux",
-    build_file = "@local_jdk//:BUILD.bazel",
+    build_file = "@bazel_tools//tools/jdk:jdk.BUILD",
     sha256 = "48bb8947034cd079ad1ef83335e7634db4b12a26743a0dc314b6b861480777aa",
     strip_prefix = "zulu14.28.21-ca-jdk14.0.1-linux_x64",
     urls = [
@@ -170,7 +183,7 @@ maybe(
 maybe(
     http_archive,
     name = "remotejdk14_macos",
-    build_file = "@local_jdk//:BUILD.bazel",
+    build_file = "@bazel_tools//tools/jdk:jdk.BUILD",
     sha256 = "088bd4d0890acc9f032b738283bf0f26b2a55c50b02d1c8a12c451d8ddf080dd",
     strip_prefix = "zulu14.28.21-ca-jdk14.0.1-macosx_x64",
     urls = ["https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu14.28.21-ca-jdk14.0.1-macosx_x64.tar.gz"],
@@ -180,7 +193,7 @@ maybe(
 maybe(
     http_archive,
     name = "remotejdk14_win",
-    build_file = "@local_jdk//:BUILD.bazel",
+    build_file = "@bazel_tools//tools/jdk:jdk.BUILD",
     sha256 = "9cb078b5026a900d61239c866161f0d9558ec759aa15c5b4c7e905370e868284",
     strip_prefix = "zulu14.28.21-ca-jdk14.0.1-win_x64",
     urls = ["https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu14.28.21-ca-jdk14.0.1-win_x64.zip"],
@@ -190,10 +203,10 @@ maybe(
 maybe(
     http_archive,
     name = "remote_java_tools_linux",
-    sha256 = "0be37f4227590ecb6bc929a6a7e427c65e6239363e4c3b28b1a211718b9636c9",
+    sha256 = "69e65353c2cd65780abcbcce4daae973599298273b0f8b4d469eed822cb220d1",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v9.0/java_tools_javac11_linux-v9.0.zip",
-        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v9.0/java_tools_javac11_linux-v9.0.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.0/java_tools_javac11_linux-v10.0.zip",
+        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v10.0/java_tools_javac11_linux-v10.0.zip",
     ],
 )
 
@@ -201,10 +214,10 @@ maybe(
 maybe(
     http_archive,
     name = "remote_java_tools_windows",
-    sha256 = "14b679e3bf6a7b4aec36dc33f15ad0027aef43f1bc92e1e2f5abf3a93c156bb5",
+    sha256 = "d2f62af8daa0a3d55789b605f6582e37038329c64843337c71e64515468e55c4",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v9.0/java_tools_javac11_windows-v9.0.zip",
-        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v9.0/java_tools_javac11_windows-v9.0.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.0/java_tools_javac11_windows-v10.0.zip",
+        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v10.0/java_tools_javac11_windows-v10.0.zip",
     ],
 )
 
@@ -212,10 +225,10 @@ maybe(
 maybe(
     http_archive,
     name = "remote_java_tools_darwin",
-    sha256 = "567f5fe77e0c561b454930dea412899543849510f48f9c092dfcff8192b4086f",
+    sha256 = "64e5de2175dfccb96831573946b80d106edf3801d9db38b564514bf3581d466b",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v9.0/java_tools_javac11_darwin-v9.0.zip",
-        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v9.0/java_tools_javac11_darwin-v9.0.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.0/java_tools_javac11_darwin-v10.0.zip",
+        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v10.0/java_tools_javac11_darwin-v10.0.zip",
     ],
 )
 

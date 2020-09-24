@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
@@ -312,8 +311,7 @@ public class BazelPythonSemantics implements PythonSemantics {
       RunfilesSupport runfilesSupport,
       PyCommon common,
       RuleConfiguredTargetBuilder builder) {
-    FilesToRunProvider zipper =
-        ruleContext.getExecutablePrerequisite("$zipper", TransitionMode.HOST);
+    FilesToRunProvider zipper = ruleContext.getExecutablePrerequisite("$zipper");
     Artifact executable = common.getExecutable();
     Artifact zipFile = common.getPythonZipArtifact(executable);
 
@@ -415,8 +413,7 @@ public class BazelPythonSemantics implements PythonSemantics {
   private static PyRuntimeInfo getRuntime(RuleContext ruleContext, PyCommon common) {
     return common.shouldGetRuntimeFromToolchain()
         ? common.getRuntimeFromToolchain()
-        : ruleContext.getPrerequisite(
-            ":py_interpreter", TransitionMode.TARGET, PyRuntimeInfo.PROVIDER);
+        : ruleContext.getPrerequisite(":py_interpreter", PyRuntimeInfo.PROVIDER);
   }
 
   private static void addRuntime(

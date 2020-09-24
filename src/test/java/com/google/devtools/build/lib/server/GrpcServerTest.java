@@ -36,8 +36,8 @@ import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.protobuf.ByteString;
@@ -67,9 +67,10 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class GrpcServerTest {
 
+  private static final int SERVER_PID = 42;
   private static final String REQUEST_COOKIE = "request-cookie";
 
-  private final FileSystem fileSystem = new InMemoryFileSystem();
+  private final FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
   private Path serverDirectory;
   private GrpcServerImpl serverImpl;
   private Server server;
@@ -78,15 +79,18 @@ public class GrpcServerTest {
   private void createServer(CommandDispatcher dispatcher) throws Exception {
     serverDirectory = fileSystem.getPath("/bazel_server_directory");
     serverDirectory.createDirectoryAndParents();
-    FileSystemUtils.writeContentAsLatin1(serverDirectory.getChild("server.pid.txt"), "12345");
+
     serverImpl =
         new GrpcServerImpl(
             dispatcher,
+            ShutdownHooks.createUnregistered(),
+            new PidFileWatcher(fileSystem.getPath("/thread-not-running-dont-need"), SERVER_PID),
             new JavaClock(),
             /* port= */ -1,
             REQUEST_COOKIE,
             "response-cookie",
             serverDirectory,
+            SERVER_PID,
             1000,
             false,
             false);

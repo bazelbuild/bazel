@@ -17,14 +17,14 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.HasBinary;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
-import com.google.devtools.build.lib.syntax.TokenKind;
 import java.util.Map;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.HasBinary;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.syntax.TokenKind;
 
 /**
  * The value returned by a call to {@code select({...})}, for example:
@@ -91,6 +91,6 @@ public final class SelectorValue implements StarlarkValue, HasBinary {
 
   @Override
   public void repr(Printer printer) {
-    printer.format("select(%r)", dictionary);
+    printer.append("select(").repr(dictionary).append(")");
   }
 }

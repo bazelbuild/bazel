@@ -19,14 +19,14 @@ import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ExecGroupCollectionApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Identifier;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkIndexable;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import java.util.List;
 import java.util.stream.Collectors;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkIndexable;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.syntax.Identifier;
 
 /**
  * A {@link StarlarkIndexable} collection of resolved toolchain contexts that can be exposed to

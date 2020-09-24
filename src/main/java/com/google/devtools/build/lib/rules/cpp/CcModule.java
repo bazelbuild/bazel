@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
@@ -60,16 +61,6 @@ import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcModuleApi;
-import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.NoneType;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkList;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtil;
@@ -81,6 +72,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.ClassObject;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Tuple;
 
 /** A module that contains Starlark utilities for C++ support. */
 public abstract class CcModule
@@ -341,7 +341,7 @@ public abstract class CcModule
    */
   @SuppressWarnings("unchecked")
   protected static <T> T convertFromNoneable(Object obj, @Nullable T defaultValue) {
-    if (EvalUtils.isNullOrNone(obj)) {
+    if (Starlark.isNullOrNone(obj)) {
       return defaultValue;
     }
     return (T) obj; // totally unsafe
@@ -729,7 +729,7 @@ public abstract class CcModule
 
   @Override
   public void checkExperimentalCcSharedLibrary(StarlarkThread thread) throws EvalException {
-    if (!thread.getSemantics().experimentalCcSharedLibrary()) {
+    if (!thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_CC_SHARED_LIBRARY)) {
       throw Starlark.errorf("Pass --experimental_cc_shared_library to use cc_shared_library");
     }
   }
@@ -754,8 +754,10 @@ public abstract class CcModule
       Object nonCodeInputsObject,
       StarlarkThread thread)
       throws EvalException {
-    if (EvalUtils.isNullOrNone(linkerInputs)) {
-      if (thread.getSemantics().incompatibleRequireLinkerInputCcApi()) {
+    if (Starlark.isNullOrNone(linkerInputs)) {
+      if (thread
+          .getSemantics()
+          .getBool(BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API)) {
         throw Starlark.errorf("linker_inputs cannot be None");
       }
       @SuppressWarnings("unchecked")
@@ -910,7 +912,7 @@ public abstract class CcModule
                   .getExecPath(
                       starlarkRuleContext
                           .getStarlarkSemantics()
-                          .experimentalSiblingRepositoryLayout())
+                          .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT))
                   .getRelative(PathFragment.create(tool.second))
                   .getPathString();
         }
@@ -960,7 +962,9 @@ public abstract class CcModule
               linkerToolPath,
               /* supportsEmbeddedRuntimes= */ false,
               /* supportsInterfaceSharedLibraries= */ false,
-              starlarkRuleContext.getStarlarkSemantics().incompatibleDoNotSplitLinkingCmdline())) {
+              starlarkRuleContext
+                  .getStarlarkSemantics()
+                  .getBool(BuildLanguageOptions.INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE))) {
         legacyFeaturesBuilder.add(new Feature(feature));
       }
       legacyFeaturesBuilder.addAll(
@@ -971,7 +975,9 @@ public abstract class CcModule
       for (CToolchain.Feature feature :
           CppActionConfigs.getFeaturesToAppearLastInFeaturesList(
               featureNames,
-              starlarkRuleContext.getStarlarkSemantics().incompatibleDoNotSplitLinkingCmdline())) {
+              starlarkRuleContext
+                  .getStarlarkSemantics()
+                  .getBool(BuildLanguageOptions.INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE))) {
         legacyFeaturesBuilder.add(new Feature(feature));
       }
 
@@ -1838,7 +1844,7 @@ public abstract class CcModule
       helper.setStripIncludePrefix(stripIncludePrefix);
     }
     try {
-      CompilationInfo compilationInfo = helper.compile();
+      CompilationInfo compilationInfo = helper.compile(actions.getRuleContext()::ruleError);
       return Tuple.of(
           compilationInfo.getCcCompilationContext(), compilationInfo.getCcCompilationOutputs());
     } catch (RuleErrorException e) {

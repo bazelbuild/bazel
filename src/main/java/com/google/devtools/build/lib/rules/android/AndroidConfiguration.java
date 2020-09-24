@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-
+import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.Allowlist;
@@ -1196,6 +1196,11 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
   public AndroidManifestMerger getManifestMerger() {
     return manifestMerger;
+  }
+
+  @Override
+  public String getManifestMergerValue() {
+    return Ascii.toLowerCase(manifestMerger.name());
   }
 
   public ManifestMergerOrder getManifestMergerOrder() {

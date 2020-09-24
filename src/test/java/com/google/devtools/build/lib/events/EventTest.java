@@ -21,14 +21,13 @@ import static org.mockito.Mockito.verify;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.StarlarkThread.PrintHandler;
-import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.build.lib.testutil.TestFileOutErr;
-import com.google.devtools.build.lib.util.io.FileOutErr.OutputReference;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkThread.PrintHandler;
+import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.SyntaxError;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -80,9 +79,7 @@ public class EventTest {
   public void messageReference() throws Exception {
     byte[] messageBytes = "message".getBytes(UTF_8);
     Event event = Event.of(EventKind.WARNING, messageBytes);
-    OutputReference outputReference = event.getMessageReference();
-    assertThat(outputReference.getLength()).isEqualTo(messageBytes.length);
-    assertThat(outputReference.getFinalBytes(messageBytes.length)).isEqualTo(messageBytes);
+    assertThat(event.getMessageBytes()).isEqualTo(messageBytes);
   }
 
   @Test
@@ -198,16 +195,14 @@ public class EventTest {
     byte[] stdoutBytes = stdoutText.getBytes(UTF_8);
     int stdoutLength = stdoutBytes.length;
     assertThat(eventWithStdoutStderr.getStdOut()).isEqualTo(stdoutBytes);
-    assertThat(eventWithStdoutStderr.getStdOutReference().getLength()).isEqualTo(stdoutLength);
-    assertThat(eventWithStdoutStderr.getStdOutReference().getFinalBytes(stdoutLength))
-        .isEqualTo(stdoutBytes);
+    assertThat(eventWithStdoutStderr.getStdOutSize()).isEqualTo(stdoutLength);
+    assertThat(eventWithStdoutStderr.getStdOut()).isEqualTo(stdoutBytes);
 
     byte[] stderrBytes = stderrText.getBytes(UTF_8);
     int stderrLength = stderrBytes.length;
     assertThat(eventWithStdoutStderr.getStdErr()).isEqualTo(stderrBytes);
-    assertThat(eventWithStdoutStderr.getStdErrReference().getLength()).isEqualTo(stderrLength);
-    assertThat(eventWithStdoutStderr.getStdErrReference().getFinalBytes(stderrLength))
-        .isEqualTo(stderrBytes);
+    assertThat(eventWithStdoutStderr.getStdErrSize()).isEqualTo(stderrLength);
+    assertThat(eventWithStdoutStderr.getStdErr()).isEqualTo(stderrBytes);
   }
 
   @Test

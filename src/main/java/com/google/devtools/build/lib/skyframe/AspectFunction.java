@@ -373,19 +373,6 @@ public final class AspectFunction implements SkyFunction {
             associatedConfiguredTargetAndData.getTarget(), aspectConfiguration);
     ImmutableList<Aspect> aspectPath = aspectPathBuilder.build();
     try {
-      // Get the configuration targets that trigger this rule's configurable attributes.
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions =
-          ConfiguredTargetFunction.getConfigConditions(
-              associatedConfiguredTargetAndData.getTarget(),
-              env,
-              originalTargetAndAspectConfiguration,
-              transitivePackagesForPackageRootResolution,
-              transitiveRootCauses);
-      if (configConditions == null) {
-        // Those targets haven't yet been resolved.
-        return null;
-      }
-
       // Determine what toolchains are needed by this target.
       UnloadedToolchainContext unloadedToolchainContext = null;
       if (configuration != null) {
@@ -406,11 +393,24 @@ public final class AspectFunction implements SkyFunction {
         } catch (ToolchainException e) {
           // TODO(katre): better error handling
           throw new AspectCreationException(
-              e.getMessage(), new LabelCause(key.getLabel(), e.getMessage()));
+              e.getMessage(), new LabelCause(key.getLabel(), e.getDetailedExitCode()));
         }
-        if (env.valuesMissing()) {
-          return null;
-        }
+      }
+      if (env.valuesMissing()) {
+        return null;
+      }
+
+      // Get the configuration targets that trigger this rule's configurable attributes.
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions =
+          ConfiguredTargetFunction.getConfigConditions(
+              env,
+              originalTargetAndAspectConfiguration,
+              transitivePackagesForPackageRootResolution,
+              unloadedToolchainContext == null ? null : unloadedToolchainContext.targetPlatform(),
+              transitiveRootCauses);
+      if (configConditions == null) {
+        // Those targets haven't yet been resolved.
+        return null;
       }
 
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap;
@@ -498,7 +498,7 @@ public final class AspectFunction implements SkyFunction {
     } catch (ToolchainException e) {
       throw new AspectFunctionException(
           new AspectCreationException(
-              e.getMessage(), new LabelCause(key.getLabel(), e.getMessage())));
+              e.getMessage(), new LabelCause(key.getLabel(), e.getDetailedExitCode())));
     }
   }
 

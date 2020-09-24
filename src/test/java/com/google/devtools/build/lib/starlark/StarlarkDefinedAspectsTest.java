@@ -47,8 +47,8 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcProtoProvider;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
-import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import net.starlark.java.eval.Sequence;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -756,7 +756,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "ERROR /workspace/test/BUILD:1:13: in "
             + "//test:aspect.bzl%MyAspect aspect on java_library rule //test:xxx: \n"
             + "Traceback (most recent call last):\n"
-            + "\tFile \"/workspace/test/BUILD\", line 1, column 13, in //test:aspect.bzl%MyAspect\n"
             + "\tFile \"/workspace/test/aspect.bzl\", line 2, column 13, in _impl\n"
             + "Error: integer division by zero");
   }

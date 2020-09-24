@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidApplicationResourceInfoApi.AndroidApplicationResourceInfoApiProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDeviceBrokerInfoApi.AndroidDeviceBrokerInfoApiProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidInstrumentationInfoApi.AndroidInstrumentationInfoApiProvider;
@@ -22,9 +23,8 @@ import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidNativeLibsI
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidResourcesInfoApi.AndroidResourcesInfoApiProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.android.ApkInfoApi.ApkInfoApiProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
-import com.google.devtools.build.lib.syntax.FlagGuardedValue;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import java.util.Map;
+import net.starlark.java.eval.FlagGuardedValue;
 
 /** {@link Bootstrap} for Starlark objects related to Android rules. */
 public class AndroidBootstrap implements Bootstrap {
@@ -96,7 +96,7 @@ public class AndroidBootstrap implements Bootstrap {
       builder.put(
           provider.getKey(),
           FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-              FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API, provider.getValue()));
+              BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, provider.getValue()));
     }
   }
 }

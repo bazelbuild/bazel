@@ -21,30 +21,26 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.packages.StarlarkLibrary;
 import com.google.devtools.build.lib.packages.StarlarkNativeModule;
 import com.google.devtools.build.lib.packages.StructProvider;
-import com.google.devtools.build.lib.starlarkbuildapi.TopLevelBootstrap;
+import net.starlark.java.eval.Starlark;
 
-/** The basis for a Starlark Environment with all build-related modules registered. */
+/** The basis for a Starlark Environment with various build-related modules registered. */
 public final class StarlarkModules {
 
-  private StarlarkModules() { }
+  private StarlarkModules() {}
 
-  /** A bootstrap for non-rules-specific built-ins of the build API. */
-  private static TopLevelBootstrap topLevelBootstrap =
-      new TopLevelBootstrap(
-          new BazelBuildApiGlobals(),
-          new StarlarkAttrModule(),
-          new StarlarkCommandLine(),
-          new StarlarkNativeModule(),
-          new StarlarkRuleClassFunctions(),
-          StructProvider.STRUCT,
-          OutputGroupInfo.STARLARK_CONSTRUCTOR,
-          ActionsProvider.INSTANCE,
-          DefaultInfo.PROVIDER);
+  // excludes native. platform_common, UNIVRESE
 
   /** Adds predeclared Starlark bindings for the Bazel build language. */
-  // TODO(adonovan): rename "globals" -> "builtins"
-  public static void addStarlarkGlobalsToBuilder(ImmutableMap.Builder<String, Object> predeclared) {
+  public static void addPredeclared(ImmutableMap.Builder<String, Object> predeclared) {
     predeclared.putAll(StarlarkLibrary.COMMON); // e.g. select, depset
-    topLevelBootstrap.addBindingsToBuilder(predeclared);
+    Starlark.addMethods(predeclared, new BazelBuildApiGlobals()); // e.g. configuration_field
+    Starlark.addMethods(predeclared, new StarlarkRuleClassFunctions()); // e.g. rule
+    Starlark.addModule(predeclared, new StarlarkCommandLine()); // cmd_helper module
+    Starlark.addModule(predeclared, new StarlarkAttrModule()); // attr module
+    Starlark.addModule(predeclared, new StarlarkNativeModule()); // native module
+    predeclared.put("struct", StructProvider.STRUCT);
+    predeclared.put("OutputGroupInfo", OutputGroupInfo.STARLARK_CONSTRUCTOR);
+    predeclared.put("Actions", ActionsProvider.INSTANCE);
+    predeclared.put("DefaultInfo", DefaultInfo.PROVIDER);
   }
 }

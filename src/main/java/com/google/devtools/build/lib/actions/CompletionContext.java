@@ -18,8 +18,11 @@ import static com.google.devtools.build.lib.actions.FilesetManifest.RelativeSyml
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpanderImpl;
+import com.google.devtools.build.lib.actions.Artifact.MissingExpansionException;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehavior;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -56,6 +59,7 @@ public abstract class CompletionContext {
 
   public static CompletionContext create(
       Map<Artifact, Collection<Artifact>> expandedArtifacts,
+      Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets,
       boolean expandFilesets,
       boolean fullyResolveFilesetSymlinks,
@@ -64,7 +68,8 @@ public abstract class CompletionContext {
       Path execRoot,
       String workspaceName)
       throws IOException {
-    ArtifactExpander expander = new ArtifactExpanderImpl(expandedArtifacts, expandedFilesets);
+    ArtifactExpander expander =
+        new ArtifactExpanderImpl(expandedArtifacts, archivedTreeArtifacts, expandedFilesets);
     ArtifactPathResolver pathResolver =
         pathResolverFactory.shouldCreatePathResolverForArtifactValues()
             ? pathResolverFactory.createPathResolverForArtifactValues(
@@ -103,7 +108,12 @@ public abstract class CompletionContext {
       Artifact filesetArtifact,
       ArtifactReceiver receiver,
       RelativeSymlinkBehavior relativeSymlinkBehavior) {
-    ImmutableList<FilesetOutputSymlink> links = expander().getFileset(filesetArtifact);
+    ImmutableList<FilesetOutputSymlink> links;
+    try {
+      links = expander().getFileset(filesetArtifact);
+    } catch (MissingExpansionException e) {
+      throw new IllegalStateException(e);
+    }
     FilesetManifest filesetManifest;
     try {
       filesetManifest =

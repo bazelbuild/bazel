@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * {@link StarlarkValue}s that need special handling when they are exported from an extension file.

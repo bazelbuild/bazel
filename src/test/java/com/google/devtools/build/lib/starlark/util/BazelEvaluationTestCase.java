@@ -21,10 +21,10 @@ import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.rules.platform.PlatformCommon;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * BazelEvaluationTestCase is a subclass of EvaluationTestCase that defines various Bazel built-ins
@@ -36,7 +36,7 @@ public final class BazelEvaluationTestCase extends EvaluationTestCase {
 
   @Override
   protected Object newModuleHook(ImmutableMap.Builder<String, Object> predeclared) {
-    StarlarkModules.addStarlarkGlobalsToBuilder(predeclared);
+    StarlarkModules.addPredeclared(predeclared);
     Starlark.addModule(predeclared, new PlatformCommon());
 
     // Return the module's client data. (This one uses dummy values for tests.)

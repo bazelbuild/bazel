@@ -278,7 +278,7 @@ public final class Actions {
         outputFileNames != null
             ? Preconditions.checkNotNull(label, actionLookupKey)
                 .getPackageIdentifier()
-                .getSourceRoot()
+                .getPackagePath()
             : null;
     // Loop over the actions, looking at all outputs for conflicts.
     int actionIndex = 0;
@@ -309,9 +309,9 @@ public final class Actions {
         } else {
           // No: populate the output label map with this artifact if applicable: if this
           // artifact corresponds to a target that is an OutputFile with associated rule this label.
-          PathFragment rootRelativePath = output.getRootRelativePath();
-          if (packageDirectory != null && rootRelativePath.startsWith(packageDirectory)) {
-            PathFragment packageRelativePath = rootRelativePath.relativeTo(packageDirectory);
+          PathFragment ouputPath = output.getOutputDirRelativePath();
+          if (packageDirectory != null && ouputPath.startsWith(packageDirectory)) {
+            PathFragment packageRelativePath = ouputPath.relativeTo(packageDirectory);
             Label outputLabel = outputFileNames.get(packageRelativePath.getPathString());
             if (outputLabel != null) {
               artifactsByOutputLabel.put(outputLabel, artifact);
@@ -429,6 +429,7 @@ public final class Actions {
           Artifact artifactI = Preconditions.checkNotNull(artifactPathMap.get(pathI), pathI);
           Artifact artifactJ = Preconditions.checkNotNull(artifactPathMap.get(pathJ), pathJ);
 
+          // TODO(b/159733792): Test this check with compressed tree artifact input.
           // We ignore the artifact prefix conflict between a TreeFileArtifact and its parent
           // TreeArtifact.
           // We can only have such a conflict here if:

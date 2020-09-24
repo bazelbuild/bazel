@@ -203,8 +203,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
             AssertionError.class, () -> getConfiguredTarget("//examples/apple_starlark:my_target"));
     assertThat(e)
         .hasMessageThat()
-        .contains("File \"/workspace/examples/apple_starlark/BUILD\", line 3");
-    assertThat(e).hasMessageThat().contains("my_rule(name = 'my_target')"); // (fake source)
+        .contains("apple_starlark/BUILD:3:8: in my_rule rule //examples/apple_starlark:my_target:");
     assertThat(e)
         .hasMessageThat()
         .contains(
@@ -296,7 +295,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         ")");
 
     useConfiguration("--incompatible_objc_compile_info_migration=false");
-    setStarlarkSemanticsOptions("--incompatible_objc_provider_remove_compile_info=false");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=false");
     ConfiguredTarget libRootTarget = getConfiguredTarget("//examples/apple_starlark:lib_root");
     ObjcProvider libRootObjcProvider = libRootTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     assertThat(libRootObjcProvider.define().toList()).contains("mock_define");
@@ -385,7 +384,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         ")");
 
     useConfiguration("--incompatible_objc_compile_info_migration=false");
-    setStarlarkSemanticsOptions("--incompatible_objc_provider_remove_compile_info=false");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=false");
     ConfiguredTarget libTarget = getConfiguredTarget("//examples/apple_starlark:lib");
     ObjcProvider libObjcProvider = libTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     assertThat(libObjcProvider.define().toList()).contains("mock_define");
@@ -1079,20 +1078,20 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
   @Test
   public void testStarlarkCanCreateObjcProviderWithHeadersPreAPIRemoval() throws Exception {
-    setStarlarkSemanticsOptions("--incompatible_objc_provider_remove_compile_info=false");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=false");
     testStarlarkCanCreateObjcProviderWithHeaders();
   }
 
   @Test
   public void testStarlarkCanCreateObjcProviderWithHeadersPostAPIRemoval() throws Exception {
-    setStarlarkSemanticsOptions("--incompatible_objc_provider_remove_compile_info=true");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=true");
     testStarlarkCanCreateObjcProviderWithHeaders();
   }
 
   @Test
   public void testStarlarkCanCreateObjcProviderWithIncludePathFragmentsPreAPIRemoval()
       throws Exception {
-    setStarlarkSemanticsOptions("--incompatible_objc_provider_remove_compile_info=false");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=false");
     ConfiguredTarget starlarkTarget =
         createObjcProviderStarlarkTarget(
             "   includes = depset(['path1', 'path_dir/path2', 'path_dir1/path_dir2/path3'])",
@@ -1113,7 +1112,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
   @Test
   public void testStarlarkCanCreateObjcProviderWithFrameworkIncludesPreAPIRemoval()
       throws Exception {
-    setStarlarkSemanticsOptions("--incompatible_objc_provider_remove_compile_info=false");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=false");
     ConfiguredTarget starlarkTarget =
         createObjcProviderStarlarkTarget(
             "   includes = depset(['path1/foo.framework', 'path_dir/path2/bar.framework'])",
@@ -1130,7 +1129,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
   @Test
   public void testStarlarkCanCreateObjcProviderWithSystemIncludesPreAPIRemoval() throws Exception {
-    setStarlarkSemanticsOptions("--incompatible_objc_provider_remove_compile_info=false");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=false");
     ConfiguredTarget starlarkTarget =
         createObjcProviderStarlarkTarget(
             "   includes = depset(['path1', 'path_dir/path2', 'path_dir1/path_dir2/path3'])",
@@ -1150,7 +1149,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
   @Test
   public void testStarlarkCanCreateObjcProviderWithQuoteIncludesPreAPIRemoval() throws Exception {
-    setStarlarkSemanticsOptions("--incompatible_objc_provider_remove_compile_info=false");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=false");
     ConfiguredTarget starlarkTarget =
         createObjcProviderStarlarkTarget(
             "   includes = depset(['path1', 'path_dir/path2', 'path_dir1/path_dir2/path3'])",
@@ -1171,7 +1170,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
   @Test
   public void testStarlarkCannotCreateObjcProviderWithIncludePathFragmentsPostAPIRemoval()
       throws Exception {
-    setStarlarkSemanticsOptions("--incompatible_objc_provider_remove_compile_info=true");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=true");
     AssertionError e =
         assertThrows(
             AssertionError.class,
@@ -1188,7 +1187,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
   @Test
   public void testStarlarkCannotCreateObjcProviderWithDefinePostAPIRemoval() throws Exception {
-    setStarlarkSemanticsOptions("--incompatible_objc_provider_remove_compile_info=true");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=true");
     AssertionError e =
         assertThrows(
             AssertionError.class,
@@ -1206,7 +1205,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
   @Test
   public void testStarlarkCannotCreateObjcProviderWithFrameworkIncludesPostAPIRemoval()
       throws Exception {
-    setStarlarkSemanticsOptions("--incompatible_objc_provider_remove_compile_info=true");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=true");
     AssertionError e =
         assertThrows(
             AssertionError.class,
@@ -1225,7 +1224,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
   @Test
   public void testStarlarkCannotCreateObjcProviderWithSystemIncludesPostAPIRemoval()
       throws Exception {
-    setStarlarkSemanticsOptions("--incompatible_objc_provider_remove_compile_info=true");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=true");
     AssertionError e =
         assertThrows(
             AssertionError.class,
@@ -1243,7 +1242,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
   @Test
   public void testStarlarkCannotCreateObjcProviderWithQuoteIncludesPostAPIRemoval()
       throws Exception {
-    setStarlarkSemanticsOptions("--incompatible_objc_provider_remove_compile_info=true");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=true");
     AssertionError e =
         assertThrows(
             AssertionError.class,
@@ -1260,7 +1259,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
   @Test
   public void testStarlarkCanCreateObjcProviderWithMergeZipsPreAPIRemoval() throws Exception {
-    setStarlarkSemanticsOptions("--incompatible_objc_provider_remove_compile_info=false");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=false");
     ConfiguredTarget starlarkTarget =
         createObjcProviderStarlarkTarget(
             "   file = ctx.actions.declare_file('file')",
@@ -1277,7 +1276,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
   @Test
   public void testStarlarkCannotCreateObjcProviderWithMergeZipsPostAPIRemoval() throws Exception {
-    setStarlarkSemanticsOptions("--incompatible_objc_provider_remove_compile_info=true");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=true");
     AssertionError e =
         assertThrows(
             AssertionError.class,
@@ -1296,7 +1295,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
   @Test
   public void testStarlarkCanCreateObjcProviderWithStrictDepsPreMigration() throws Exception {
     useConfiguration("--incompatible_objc_compile_info_migration=false");
-    setStarlarkSemanticsOptions("--incompatible_objc_provider_remove_compile_info=false");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=false");
     ConfiguredTarget starlarkTarget =
         createObjcProviderStarlarkTarget(
             "   strict_includes = depset(['path1'])",
@@ -1340,7 +1339,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
   @Test
   public void testStarlarkCanCreateObjcProviderWithStrictDepsPostMigration() throws Exception {
     useConfiguration("--incompatible_objc_compile_info_migration=true");
-    setStarlarkSemanticsOptions("--incompatible_objc_provider_remove_compile_info=false");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=false");
     ConfiguredTarget starlarkTarget =
         createObjcProviderStarlarkTarget(
             "   strict_includes = depset(['path1'])",
@@ -1398,7 +1397,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
   @Test
   public void testStarlarkStrictDepsDoesNotSupportDefine() throws Exception {
-    setStarlarkSemanticsOptions("--incompatible_objc_provider_remove_compile_info=false");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=false");
     AssertionError e =
         assertThrows(
             AssertionError.class,
@@ -1417,7 +1416,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
   @Test
   public void testStarlarkStrictDepsDoesNotSupportLinkopt() throws Exception {
-    setStarlarkSemanticsOptions("--incompatible_objc_provider_remove_compile_info=false");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=false");
     AssertionError e =
         assertThrows(
             AssertionError.class,

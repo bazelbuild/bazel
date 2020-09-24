@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.profiler;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.sun.management.OperatingSystemMXBean;
 import java.lang.management.ManagementFactory;
 import java.time.Duration;
@@ -28,15 +29,20 @@ public class CollectLocalCpuUsage extends Thread {
 
   private volatile boolean stopCpuUsage;
   private volatile boolean profilingStarted;
+
+  @GuardedBy("this")
   private TimeSeries localCpuUsage;
+
   private Stopwatch stopwatch;
 
   @Override
   public void run() {
     stopwatch = Stopwatch.createStarted();
-    localCpuUsage =
-        new TimeSeries(
-            /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
+    synchronized (this) {
+      localCpuUsage =
+          new TimeSeries(
+              /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
+    }
     OperatingSystemMXBean bean =
         (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
     Duration previousElapsed = stopwatch.elapsed();
@@ -52,7 +58,11 @@ public class CollectLocalCpuUsage extends Thread {
       long nextCpuTimeNanos = bean.getProcessCpuTime();
       double deltaNanos = nextElapsed.minus(previousElapsed).toNanos();
       double cpuLevel = (nextCpuTimeNanos - previousCpuTimeNanos) / deltaNanos;
-      localCpuUsage.addRange(previousElapsed.toMillis(), nextElapsed.toMillis(), cpuLevel);
+      synchronized (this) {
+        if (localCpuUsage != null) {
+          localCpuUsage.addRange(previousElapsed.toMillis(), nextElapsed.toMillis(), cpuLevel);
+        }
+      }
       previousElapsed = nextElapsed;
       previousCpuTimeNanos = nextCpuTimeNanos;
     }
@@ -64,7 +74,7 @@ public class CollectLocalCpuUsage extends Thread {
     interrupt();
   }
 
-  public void logCollectedData() {
+  public synchronized void logCollectedData() {
     if (!profilingStarted) {
       return;
     }

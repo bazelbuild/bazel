@@ -54,8 +54,7 @@ public class EnvironmentalExecException extends ExecException {
   }
 
   @Override
-  public ActionExecutionException toActionExecutionException(
-      String messagePrefix, boolean verboseFailures, Action action) {
+  public ActionExecutionException toActionExecutionException(String messagePrefix, Action action) {
     String message =
         String.format(
             "%s failed due to %s%s",

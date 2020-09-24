@@ -100,6 +100,7 @@ import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -137,7 +138,7 @@ public abstract class BuildIntegrationTestCase {
 
     @Override
     public ActionExecutionException toActionExecutionException(
-        String messagePrefix, boolean verboseFailures, Action action) {
+        String messagePrefix, Action action) {
       String message = messagePrefix + getMessage();
       // Append cause.getMessage() if it's different from getMessage(). It typically
       // isn't but if it is we'd like to surface cause.getMessage() as part of the
@@ -288,7 +289,11 @@ public abstract class BuildIntegrationTestCase {
   }
 
   protected FileSystem createFileSystem() throws Exception {
-    return FileSystems.getNativeFileSystem();
+    return FileSystems.getNativeFileSystem(getDigestHashFunction());
+  }
+
+  protected DigestHashFunction getDigestHashFunction() {
+    return DigestHashFunction.SHA256;
   }
 
   protected Path createTestRoot(FileSystem fileSystem) {

@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Servi
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaProtoCommonApi;
-import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.eval.EvalException;
 
 /** A class that exposes Java common methods for proto compilation. */
 public class JavaProtoStarlarkCommon

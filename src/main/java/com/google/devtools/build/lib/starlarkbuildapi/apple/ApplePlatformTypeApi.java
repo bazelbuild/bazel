@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Interface for a descriptor for an Apple platform type, such as such as iOS or macOS. */
 @StarlarkBuiltin(

@@ -19,7 +19,6 @@ import static java.nio.file.StandardOpenOption.READ;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -37,8 +36,6 @@ public abstract class AbstractFileSystem extends FileSystem {
 
   protected static final String ERR_PERMISSION_DENIED = " (Permission denied)";
   protected static final Profiler profiler = Profiler.instance();
-
-  public AbstractFileSystem() throws DefaultHashFunctionNotSetException {}
 
   public AbstractFileSystem(DigestHashFunction digestFunction) {
     super(digestFunction);

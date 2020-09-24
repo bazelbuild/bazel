@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.starlarkbuildapi.stubs;
 
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
-import com.google.devtools.build.lib.syntax.Printer;
+import net.starlark.java.eval.Printer;
 
 /**
  * Stub implementation of {@link ProviderApi}. Should only be used for experimental, unimplemented

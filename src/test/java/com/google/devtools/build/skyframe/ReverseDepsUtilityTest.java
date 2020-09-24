@@ -134,24 +134,6 @@ public class ReverseDepsUtilityTest {
     assertThat(ReverseDepsUtility.getReverseDeps(example)).containsExactly(fixedKey, key);
   }
 
-  @Test
-  public void testMaybeCheck() {
-    InMemoryNodeEntry example = new InMemoryNodeEntry();
-    for (int i = 0; i < numElements; i++) {
-      ReverseDepsUtility.addReverseDeps(example, Collections.singleton(Key.create(i)));
-      // This should always succeed, since the next element is still not present.
-      ReverseDepsUtility.maybeCheckReverseDepNotPresent(example, Key.create(i + 1));
-    }
-    if (numElements == 0 || numElements >= ReverseDepsUtility.MAYBE_CHECK_THRESHOLD) {
-      // This will not throw, because the numElements is 0 or above the threshold.
-      ReverseDepsUtility.maybeCheckReverseDepNotPresent(example, Key.create(0));
-    } else {
-      assertThrows(
-          IllegalStateException.class,
-          () -> ReverseDepsUtility.maybeCheckReverseDepNotPresent(example, Key.create(0)));
-    }
-  }
-
   private static class Key extends AbstractSkyKey<Integer> {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
 

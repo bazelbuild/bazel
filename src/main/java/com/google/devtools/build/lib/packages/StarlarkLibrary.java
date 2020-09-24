@@ -16,26 +16,26 @@ package com.google.devtools.build.lib.packages;
 import static com.google.devtools.build.lib.packages.PackageFactory.getContext;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.docgen.annot.DocumentMethods;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.NoneType;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import java.util.List;
 import java.util.Set;
 import net.starlark.java.annot.Param;
-import net.starlark.java.annot.StarlarkGlobalLibrary;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 
 /**
  * A library of pre-declared Bazel Starlark functions.
@@ -62,7 +62,7 @@ public final class StarlarkLibrary {
     return env.build();
   }
 
-  @StarlarkGlobalLibrary
+  @DocumentMethods
   private static class CommonLibrary {
 
     @StarlarkMethod(
@@ -151,7 +151,7 @@ public final class StarlarkLibrary {
                       + "the new depset, in left-to-right order, or else a depset that becomes "
                       + "a transitive element of the new depset. In the latter case, "
                       + "<code>transitive</code> cannot be specified.",
-              disableWithFlag = StarlarkSemantics.FlagIdentifier.INCOMPATIBLE_DISABLE_DEPSET_ITEMS,
+              disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_DISABLE_DEPSET_ITEMS,
               valueWhenDisabled = "[]",
               named = true),
         },
@@ -192,8 +192,6 @@ public final class StarlarkLibrary {
     public Object select(Dict<?, ?> dict, String noMatchError) throws EvalException {
       return SelectorList.select(dict, noMatchError);
     }
-
-    // TODO(adonovan): move depset here.
   }
 
   /**
@@ -210,7 +208,7 @@ public final class StarlarkLibrary {
     return env.build();
   }
 
-  @StarlarkGlobalLibrary
+  @DocumentMethods
   private static class BuildLibrary {
     @StarlarkMethod(
         name = "environment_group",
@@ -298,7 +296,8 @@ public final class StarlarkLibrary {
         License license = BuildType.LICENSE.convert(licensesList, "'licenses' operand");
         context.pkgBuilder.setDefaultLicense(license);
       } catch (ConversionException e) {
-        context.eventHandler.handle(Event.error(thread.getCallerLocation(), e.getMessage()));
+        context.eventHandler.handle(
+            Package.error(thread.getCallerLocation(), e.getMessage(), Code.LICENSE_PARSE_FAILURE));
         context.pkgBuilder.setContainsErrors();
       }
       return Starlark.NONE;
@@ -322,7 +321,9 @@ public final class StarlarkLibrary {
             BuildType.DISTRIBUTIONS.convert(object, "'distribs' operand");
         context.pkgBuilder.setDefaultDistribs(distribs);
       } catch (ConversionException e) {
-        context.eventHandler.handle(Event.error(thread.getCallerLocation(), e.getMessage()));
+        context.eventHandler.handle(
+            Package.error(
+                thread.getCallerLocation(), e.getMessage(), Code.DISTRIBUTIONS_PARSE_FAILURE));
         context.pkgBuilder.setContainsErrors();
       }
       return Starlark.NONE;

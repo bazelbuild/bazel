@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
@@ -39,19 +40,18 @@ import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
 import com.google.devtools.build.lib.rules.objc.AppleBinary.AppleBinaryOutput;
-import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleCommonApi;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.syntax.Location;
 
 /** A class that exposes apple rule implementation internals to Starlark. */
 public class AppleStarlarkCommon
@@ -196,15 +196,15 @@ public class AppleStarlarkCommon
 
   @Override
   // This method is registered statically for Starlark, and never called directly.
-  public ObjcProvider newObjcProvider(Boolean usesSwift, Dict<?, ?> kwargs, StarlarkThread thread)
-      throws EvalException {
+  public ObjcProvider newObjcProvider(
+      Boolean usesSwift, Dict<String, Object> kwargs, StarlarkThread thread) throws EvalException {
     StarlarkSemantics semantics = thread.getSemantics();
     ObjcProvider.StarlarkBuilder resultBuilder = new ObjcProvider.StarlarkBuilder(semantics);
     if (usesSwift) {
       resultBuilder.add(ObjcProvider.FLAG, ObjcProvider.Flag.USES_SWIFT);
     }
-    for (Map.Entry<?, ?> entry : kwargs.entrySet()) {
-      Key<?> key = ObjcProvider.getStarlarkKeyForString((String) entry.getKey());
+    for (Map.Entry<String, Object> entry : kwargs.entrySet()) {
+      ObjcProvider.Key<?> key = ObjcProvider.getStarlarkKeyForString(entry.getKey());
       if (key != null) {
         resultBuilder.addElementsFromStarlark(key, entry.getValue());
       } else if (entry.getKey().equals("strict_include")) {
@@ -212,7 +212,8 @@ public class AppleStarlarkCommon
       } else if (entry.getKey().equals("providers")) {
         resultBuilder.addProvidersFromStarlark(entry.getValue());
       } else if (entry.getKey().equals("direct_dep_providers")) {
-        if (semantics.incompatibleObjcProviderRemoveCompileInfo()) {
+        if (semantics.getBool(
+            BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO)) {
           throw new EvalException(BAD_DIRECT_DEP_PROVIDERS_ERROR);
         }
         resultBuilder.addDirectDepProvidersFromStarlark(entry.getValue());

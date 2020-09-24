@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -62,24 +63,23 @@ public class PrepareDepsOfPatternValue implements SkyValue {
     return 42;
   }
 
-
   /**
-   * Returns a {@link PrepareDepsOfPatternSkyKeysAndExceptions}, containing
-   * {@link PrepareDepsOfPatternSkyKeyValue} and {@link PrepareDepsOfPatternSkyKeyException}
-   * instances that have {@link TargetPatternKey} arguments. Negative target patterns of type other
-   * than {@link Type#TARGETS_BELOW_DIRECTORY} are not permitted. If a provided pattern fails to
-   * parse or is negative but not a {@link Type#TARGETS_BELOW_DIRECTORY}, there will be a
-   * corresponding {@link PrepareDepsOfPatternSkyKeyException} in the iterable returned by
-   * {@link PrepareDepsOfPatternSkyKeysAndExceptions#getExceptions} whose
-   * {@link PrepareDepsOfPatternSkyKeyException#getException} and
-   * {@link PrepareDepsOfPatternSkyKeyException#getOriginalPattern} methods return the
-   * {@link TargetParsingException} and original pattern, respectively.
+   * Returns a {@link PrepareDepsOfPatternSkyKeysAndExceptions}, containing {@link
+   * PrepareDepsOfPatternSkyKeyValue} and {@link PrepareDepsOfPatternSkyKeyException} instances that
+   * have {@link TargetPatternKey} arguments. Negative target patterns of type other than {@link
+   * Type#TARGETS_BELOW_DIRECTORY} are not permitted. If a provided pattern fails to parse or is
+   * negative but not a {@link Type#TARGETS_BELOW_DIRECTORY}, there will be a corresponding {@link
+   * PrepareDepsOfPatternSkyKeyException} in the iterable returned by {@link
+   * PrepareDepsOfPatternSkyKeysAndExceptions#getExceptions} whose {@link
+   * PrepareDepsOfPatternSkyKeyException#getException} and {@link
+   * PrepareDepsOfPatternSkyKeyException#getOriginalPattern} methods return the {@link
+   * TargetParsingException} and original pattern, respectively.
    *
-   * <p>There may be fewer returned elements in
-   * {@link PrepareDepsOfPatternSkyKeysAndExceptions#getValues} than patterns provided as input.
-   * This function will combine negative {@link Type#TARGETS_BELOW_DIRECTORY} patterns with
-   * preceding patterns to return an iterable of SkyKeys that avoids loading excluded directories
-   * during evaluation.
+   * <p>There may be fewer returned elements in {@link
+   * PrepareDepsOfPatternSkyKeysAndExceptions#getValues} than patterns provided as input. This
+   * function will combine negative {@link Type#TARGETS_BELOW_DIRECTORY} patterns with preceding
+   * patterns to return an iterable of SkyKeys that avoids loading excluded directories during
+   * evaluation.
    *
    * @param patterns The list of patterns, e.g. [//foo/..., -//foo/biz/...]. If a pattern's first
    *     character is "-", it is treated as a negative pattern.
@@ -87,7 +87,7 @@ public class PrepareDepsOfPatternValue implements SkyValue {
    */
   @ThreadSafe
   public static PrepareDepsOfPatternSkyKeysAndExceptions keys(
-      List<String> patterns, String offset) {
+      List<String> patterns, PathFragment offset) {
     ImmutableList.Builder<PrepareDepsOfPatternSkyKeyValue> resultValuesBuilder =
         ImmutableList.builder();
     ImmutableList.Builder<PrepareDepsOfPatternSkyKeyException> resultExceptionsBuilder =

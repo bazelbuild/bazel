@@ -166,6 +166,9 @@ final class WorkerKey {
     if (!execRoot.equals(workerKey.execRoot)) {
       return false;
     }
+    if (!this.protocolFormat.equals(workerKey.protocolFormat)) {
+      return false;
+    }
     return mnemonic.equals(workerKey.mnemonic);
 
   }
@@ -177,7 +180,9 @@ final class WorkerKey {
   }
 
   private int calculateHashCode() {
-    return Objects.hash(args, env, execRoot, mnemonic, proxied);
+    // Use the string representation of the protocolFormat because the hash of the same enum value
+    // can vary across instances.
+    return Objects.hash(args, env, execRoot, mnemonic, proxied, protocolFormat.toString());
   }
 
   @Override

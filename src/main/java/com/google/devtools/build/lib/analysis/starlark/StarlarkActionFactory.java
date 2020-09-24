@@ -13,9 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.starlark;
 
-import static java.util.stream.Collectors.toList;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
@@ -49,16 +47,10 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.GeneratedMessage;
 import java.nio.charset.StandardCharsets;
@@ -67,6 +59,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 
 /** Provides a Starlark interface for all action creation needs. */
 public class StarlarkActionFactory implements StarlarkActionFactoryApi {
@@ -122,7 +121,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     if (Starlark.NONE.equals(sibling)) {
       fragment = ruleContext.getPackageDirectory().getRelative(PathFragment.create(filename));
     } else {
-      PathFragment original = ((Artifact) sibling).getRootRelativePath();
+      PathFragment original = ((Artifact) sibling).getOutputDirRelativePath();
       fragment = original.replaceName(filename);
     }
 
@@ -142,7 +141,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     if (Starlark.NONE.equals(sibling)) {
       fragment = ruleContext.getPackageDirectory().getRelative(PathFragment.create(filename));
     } else {
-      PathFragment original = ((Artifact) sibling).getRootRelativePath();
+      PathFragment original = ((Artifact) sibling).getOutputDirRelativePath();
       fragment = original.replaceName(filename);
     }
 
@@ -175,7 +174,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     if (Starlark.NONE.equals(sibling)) {
       rootRelativePath = ruleContext.getPackageDirectory().getRelative(filename);
     } else {
-      PathFragment original = ((Artifact) sibling).getRootRelativePath();
+      PathFragment original = ((Artifact) sibling).getOutputDirRelativePath();
       rootRelativePath = original.replaceName(filename);
     }
 
@@ -235,7 +234,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     String progressMessage =
         (progressMessageUnchecked != Starlark.NONE)
             ? (String) progressMessageUnchecked
-            : "Creating symlink " + outputArtifact.getRootRelativePathString();
+            : "Creating symlink " + outputArtifact.getOutputDirRelativePathString();
 
     SymlinkAction action;
     if (targetFile != Starlark.NONE) {
@@ -439,7 +438,9 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         }
       }
     } else if (commandUnchecked instanceof Sequence) {
-      if (thread.getSemantics().incompatibleRunShellCommandString()) {
+      if (thread
+          .getSemantics()
+          .getBool(BuildLanguageOptions.INCOMPATIBLE_RUN_SHELL_COMMAND_STRING)) {
         throw Starlark.errorf(
             "'command' must be of type string. passing a sequence of strings as 'command'"
                 + " is deprecated. To temporarily disable this check,"
@@ -572,47 +573,6 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
               Starlark.type(toolUnchecked));
         }
       }
-    } else {
-      // Users didn't pass 'tools', kick in compatibility modes
-      if (starlarkSemantics.incompatibleNoSupportToolsInActionInputs()) {
-        // In this mode we error out if we find any tools among the inputs
-        List<Artifact> tools = null;
-        for (Artifact artifact : inputArtifacts) {
-          FilesToRunProvider provider = context.getExecutableRunfiles(artifact);
-          if (provider != null) {
-            tools = tools != null ? tools : new ArrayList<>(1);
-            tools.add(artifact);
-          }
-        }
-        if (tools != null) {
-          String toolsAsString =
-              Joiner.on(", ")
-                  .join(
-                      tools
-                          .stream()
-                          .map(Artifact::getExecPathString)
-                          .map(s -> "'" + s + "'")
-                          .collect(toList()));
-          throw Starlark.errorf(
-              "Found tool(s) %s in inputs. "
-                  + "A tool is an input with executable=True set. "
-                  + "All tools should be passed using the 'tools' "
-                  + "argument instead of 'inputs' in order to make their runfiles available "
-                  + "to the action. This safety check will not be performed once the action "
-                  + "is modified to take a 'tools' argument. "
-                  + "To temporarily disable this check, "
-                  + "set --incompatible_no_support_tools_in_action_inputs=false.",
-              toolsAsString);
-        }
-      } else {
-        // Full legacy support -- add tools from inputs
-        for (Artifact artifact : inputArtifacts) {
-          FilesToRunProvider provider = context.getExecutableRunfiles(artifact);
-          if (provider != null) {
-            builder.addTool(provider);
-          }
-        }
-      }
     }
 
     String mnemonic = getMnemonic(mnemonicUnchecked);
@@ -636,7 +596,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         TargetUtils.getFilteredExecutionInfo(
             executionRequirementsUnchecked,
             ruleContext.getRule(),
-            starlarkSemantics.experimentalAllowTagsPropagation());
+            starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_ALLOW_TAGS_PROPAGATION));
     builder.setExecutionInfo(executionInfo);
 
     if (inputManifestsUnchecked != Starlark.NONE) {

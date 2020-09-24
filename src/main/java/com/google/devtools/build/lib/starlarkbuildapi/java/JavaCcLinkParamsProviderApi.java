@@ -14,17 +14,17 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkValue;
 
 /** A target that provides C++ libraries to be linked into Java targets. */
 @StarlarkBuiltin(
@@ -47,7 +47,7 @@ public interface JavaCcLinkParamsProviderApi<
       structField = true,
       doc = "Returns the CcLinkingInfo provider.",
       documented = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   CcInfoApiT getCcInfo();
 
   /** The provider implementing this can construct the JavaCcLinkParamsInfo provider. */
@@ -64,7 +64,7 @@ public interface JavaCcLinkParamsProviderApi<
         name = NAME,
         doc = "The <code>JavaCcLinkParamsInfo</code> constructor.",
         documented = true,
-        enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
+        enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
         parameters = {
           @Param(
               name = "store",
@@ -74,7 +74,7 @@ public interface JavaCcLinkParamsProviderApi<
               type = CcInfoApi.class),
         },
         selfCall = true)
-    @StarlarkConstructor(objectType = JavaCcLinkParamsProviderApi.class, receiverNameForDoc = NAME)
+    @StarlarkConstructor
     public JavaCcLinkParamsProviderApi<FileT, CcInfoApiT> createInfo(CcInfoApiT store)
         throws EvalException;
   }

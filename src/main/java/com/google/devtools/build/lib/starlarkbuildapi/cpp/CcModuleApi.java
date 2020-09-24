@@ -16,23 +16,23 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.NoneType;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
-import com.google.devtools.build.lib.syntax.Tuple;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.Tuple;
 
 /** Utilites related to C++ support. */
 @StarlarkBuiltin(
@@ -728,7 +728,7 @@ public interface CcModuleApi<
             doc = "List of <code>LibraryToLink</code>.",
             positional = false,
             named = true,
-            disableWithFlag = FlagIdentifier.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
+            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
             noneable = true,
             defaultValue = "None",
             valueWhenDisabled = "None",
@@ -738,7 +738,7 @@ public interface CcModuleApi<
             doc = "List of user link flags passed as strings.",
             positional = false,
             named = true,
-            disableWithFlag = FlagIdentifier.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
+            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
             noneable = true,
             defaultValue = "None",
             valueWhenDisabled = "None",
@@ -748,7 +748,7 @@ public interface CcModuleApi<
             doc = "For additional inputs to the linking action, e.g.: linking scripts.",
             positional = false,
             named = true,
-            disableWithFlag = FlagIdentifier.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
+            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
             noneable = true,
             defaultValue = "None",
             valueWhenDisabled = "None",

@@ -313,22 +313,22 @@ public class ActionCacheCheckerTest {
   }
 
   @Test
-  public void testMiddleman_NotCached() throws Exception {
+  public void testMiddleman_notCached() throws Exception {
     doTestNotCached(new NullMiddlemanAction(), MissReason.DIFFERENT_DEPS);
   }
 
   @Test
-  public void testMiddleman_Cached() throws Exception {
+  public void testMiddleman_cached() throws Exception {
     doTestCached(new NullMiddlemanAction(), MissReason.DIFFERENT_DEPS);
   }
 
   @Test
-  public void testMiddleman_CorruptedCacheEntry() throws Exception {
+  public void testMiddleman_corruptedCacheEntry() throws Exception {
     doTestCorruptedCacheEntry(new NullMiddlemanAction());
   }
 
   @Test
-  public void testMiddleman_DifferentFiles() throws Exception {
+  public void testMiddleman_differentFiles() throws Exception {
     Action action =
         new NullMiddlemanAction() {
           @Override

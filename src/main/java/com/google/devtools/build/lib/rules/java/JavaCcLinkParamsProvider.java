@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCcLinkParamsProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.eval.EvalException;
 
 /** A target that provides C++ libraries to be linked into Java targets. */
 @Immutable

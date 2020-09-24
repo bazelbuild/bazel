@@ -485,6 +485,10 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
     // being "null" to set the programmatic default in the server.
     result.push_back("--digest_function=" + startup_options.digest_function);
   }
+  if (!startup_options.unix_digest_hash_attribute_name.empty()) {
+    result.push_back("--unix_digest_hash_attribute_name=" +
+                     startup_options.unix_digest_hash_attribute_name);
+  }
   if (startup_options.idle_server_tasks) {
     result.push_back("--idle_server_tasks");
   } else {

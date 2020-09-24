@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLocalTestRu
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSdkRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSemantics;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidToolsDefaultsJar;
+import com.google.devtools.build.lib.bazel.rules.android.BazelSdkToolchainRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppSemantics;
 import com.google.devtools.build.lib.bazel.rules.cpp.proto.BazelCcProtoAspect;
 import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaLiteProtoAspect;
@@ -340,6 +341,7 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(
               new AndroidRuleClasses.AndroidBinaryBaseRule(
                   androidNeverlinkAspect, dexArchiveAspect));
+          builder.addRuleDefinition(new BazelSdkToolchainRule());
           builder.addRuleDefinition(new AndroidLibraryBaseRule(androidNeverlinkAspect));
           builder.addRuleDefinition(new BazelAndroidLibraryRule());
           builder.addRuleDefinition(new BazelAndroidBinaryRule());

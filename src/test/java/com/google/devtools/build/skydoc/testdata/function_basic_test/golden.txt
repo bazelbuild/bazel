@@ -87,6 +87,57 @@ Use `bazel build` to run the check.
 </table>
 
 
+<a name="#deprecated_do_not_use"></a>
+
+## deprecated_do_not_use
+
+<pre>
+deprecated_do_not_use()
+</pre>
+
+This function is deprecated.
+
+### Deprecated
+
+Use literally anything but this function.
+
+
+
+<a name="#returns_a_thing"></a>
+
+## returns_a_thing
+
+<pre>
+returns_a_thing(<a href="#returns_a_thing-name">name</a>)
+</pre>
+
+Returns a suffixed name.
+
+### Returns
+
+A suffixed version of the name.
+
+### Parameters
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="returns_a_thing-name">
+      <td><code>name</code></td>
+      <td>
+        required.
+        <p>
+          A unique name for this rule.
+        </p>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+
 <a name="#undocumented_function"></a>
 
 ## undocumented_function

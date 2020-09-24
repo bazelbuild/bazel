@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
@@ -110,7 +109,7 @@ public class AndroidAssets {
       return null;
     }
 
-    return ruleContext.getPrerequisitesIf(ASSETS_ATTR, TransitionMode.TARGET, FileProvider.class);
+    return ruleContext.getPrerequisitesIf(ASSETS_ATTR, FileProvider.class);
   }
 
   @Nullable

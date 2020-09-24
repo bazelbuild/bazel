@@ -13,14 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.syntax.EvalException;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 
 /**
  * A provider for targets that create Android instrumentations. Consumed by Android testing rules.
@@ -67,9 +67,7 @@ public interface AndroidInstrumentationInfoApi<ApkT extends ApkInfoApi<?>> exten
               doc = "The target ApkInfo of the instrumentation test.")
         },
         selfCall = true)
-    @StarlarkConstructor(
-        objectType = AndroidInstrumentationInfoApi.class,
-        receiverNameForDoc = NAME)
+    @StarlarkConstructor
     AndroidInstrumentationInfoApi<ApkT> createInfo(ApkT target) throws EvalException;
   }
 }

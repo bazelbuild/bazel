@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.In
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
-import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.AnsiStrippingOutputStream;
 import com.google.devtools.build.lib.util.DebugLoggerConfigurator;
@@ -73,6 +72,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.logging.Level;
+import net.starlark.java.eval.Starlark;
 
 /**
  * Dispatches to the Blaze commands; that is, given a command line, this abstraction looks up the
@@ -82,12 +82,15 @@ import java.util.logging.Level;
 public class BlazeCommandDispatcher implements CommandDispatcher {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
+  public static final int UNKNOWN_SERVER_PID = -1;
+
   private static final ImmutableList<String> HELP_COMMAND = ImmutableList.of("help");
 
   private static final ImmutableSet<String> ALL_HELP_OPTIONS =
       ImmutableSet.of("--help", "-help", "-h");
 
   private final BlazeRuntime runtime;
+  private final int serverPid;
   private final BugReporter bugReporter;
   private final Object commandLock;
   private String currentClientDescription = null;
@@ -107,31 +110,25 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                 }
               });
 
-  @VisibleForTesting
-  BlazeCommandDispatcher(BlazeRuntime runtime, BugReporter bugReporter, BlazeCommand... commands) {
-    this(runtime, bugReporter);
-    runtime.overrideCommands(ImmutableList.copyOf(commands));
+  BlazeCommandDispatcher(BlazeRuntime runtime, int serverPid) {
+    this(runtime, serverPid, runtime.getBugReporter());
   }
 
-  /**
-   * Create a Blaze dispatcher that uses the specified {@code BlazeRuntime} instance, but overrides
-   * the command map with the given commands (plus any commands from modules).
-   */
-  @VisibleForTesting
-  public BlazeCommandDispatcher(BlazeRuntime runtime, BlazeCommand... commands) {
-    this(runtime);
-    runtime.overrideCommands(ImmutableList.copyOf(commands));
-  }
-
-  /** Create a Blaze dispatcher that uses the specified {@code BlazeRuntime} instance. */
+  /** Convenience test-only constructor. */
   @VisibleForTesting
   public BlazeCommandDispatcher(BlazeRuntime runtime) {
-    this(runtime, runtime.getBugReporter());
+    this(runtime, UNKNOWN_SERVER_PID, runtime.getBugReporter());
   }
 
+  /** Convenience test-only constructor. */
   @VisibleForTesting
-  public BlazeCommandDispatcher(BlazeRuntime runtime, BugReporter bugReporter) {
+  BlazeCommandDispatcher(BlazeRuntime runtime, BugReporter bugReporter) {
+    this(runtime, UNKNOWN_SERVER_PID, bugReporter);
+  }
+
+  private BlazeCommandDispatcher(BlazeRuntime runtime, int serverPid, BugReporter bugReporter) {
     this.runtime = runtime;
+    this.serverPid = serverPid;
     this.bugReporter = bugReporter;
     this.commandLock = new Object();
   }
@@ -187,11 +184,13 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         switch (lockingMode) {
           case WAIT:
             if (!otherClientDescription.equals(currentClientDescription)) {
+              String serverDescription =
+                  serverPid == UNKNOWN_SERVER_PID ? "" : (" (server_pid=" + serverPid + ")");
               outErr.printErrLn(
-                  "Another command ("
-                      + currentClientDescription
-                      + ") is running. "
-                      + " Waiting for it to complete on the server...");
+                  String.format(
+                      "Another command (%s) is running. Waiting for it to complete on the"
+                          + " server%s...",
+                      currentClientDescription, serverDescription));
               otherClientDescription = currentClientDescription;
             }
             commandLock.wait(500);
@@ -328,7 +327,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         options.containsExplicitOption("experimental_generate_json_trace_profile")
             && !commonOptions.enableTracer;
     if (commandSupportsProfile
-        && commonOptions.enableProfileByDefault
         && !profileExplicitlyDisabled) {
       commonOptions.enableTracer = true;
       if (!options.containsExplicitOption("experimental_profile_cpu_usage")) {

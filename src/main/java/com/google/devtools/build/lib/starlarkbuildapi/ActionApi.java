@@ -15,16 +15,16 @@
 package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import java.io.IOException;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Interface for actions in Starlark. */
 @StarlarkBuiltin(
@@ -139,7 +139,7 @@ public interface ActionApi extends StarlarkValue {
               + " code base; all relevant info is in the keyset. Returns None if this action does"
               + " not expose execution requirements.",
       allowReturnNones = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
   @Nullable
   public Dict<String, String> getExecutionInfoDict();
 }

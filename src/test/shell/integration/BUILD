@@ -465,6 +465,7 @@ sh_test(
     args = [
         "--worker_sandboxing=no",
         "non-sandboxed",
+        "proto",
     ],
     data = [
         ":test-deps",
@@ -477,12 +478,31 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_json_worker_test",
+    size = "large",
+    srcs = ["bazel_worker_test.sh"],
+    args = [
+        "--worker_sandboxing=no",
+        "non-sandboxed",
+        "json",
+    ],
+    data = [
+        ":test-deps",
+        "//src/test/java/com/google/devtools/build/lib:ExampleWorker_deploy.jar",
+    ],
+    tags = [
+        "no_windows",
+    ],
+)
+
+sh_test(
     name = "bazel_worker_multiplexer_test",
     size = "large",
     srcs = ["bazel_worker_multiplexer_test.sh"],
     args = [
         "--worker_sandboxing=no",
         "non-sandboxed",
+        "proto",
     ],
     data = [
         ":test-deps",
@@ -501,6 +521,7 @@ sh_test(
     args = [
         "--worker_sandboxing",
         "sandboxed",
+        "proto",
     ],
     data = [
         ":test-deps",

@@ -96,7 +96,10 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
 
     Duration timeout = context.getTimeout();
     ProcessWrapper.CommandLineBuilder commandLineBuilder =
-        processWrapper.commandLineBuilder(spawn.getArguments()).setTimeout(timeout);
+        processWrapper
+            .commandLineBuilder(spawn.getArguments())
+            .addExecutionInfo(spawn.getExecutionInfo())
+            .setTimeout(timeout);
 
     Path statisticsPath = null;
     if (getSandboxOptions().collectLocalSandboxExecutionStatistics) {

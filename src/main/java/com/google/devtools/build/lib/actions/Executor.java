@@ -54,11 +54,6 @@ public interface Executor extends ActionContext.ActionContextRegistry {
   Clock getClock();
 
   /**
-   * Returns whether failures should have verbose error messages.
-   */
-  boolean getVerboseFailures();
-
-  /**
    * Returns the command line options of the Blaze command being executed.
    */
   OptionsProvider getOptions();

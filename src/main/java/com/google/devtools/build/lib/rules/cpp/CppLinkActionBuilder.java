@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.rules.cpp.LibrariesToLinkCollector.Collecte
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -61,6 +60,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /** Builder class to construct {@link CppLinkAction}s. */
 public class CppLinkActionBuilder {

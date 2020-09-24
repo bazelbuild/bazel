@@ -22,9 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase; // a bad dependency!
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.StarlarkFunction;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skydoc.SkydocMain.StarlarkEvaluationException;
@@ -40,6 +37,9 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Star
 import java.io.IOException;
 import java.util.Map;
 import java.util.stream.Collectors;
+import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.syntax.ParserInput;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;

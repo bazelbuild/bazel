@@ -25,12 +25,13 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -73,7 +74,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
                 ImmutableList.of(Root.fromPath(rootDirectory), Root.fromPath(alternativeRoot)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageOptions,
-            Options.getDefaults(StarlarkSemanticsOptions.class),
+            Options.getDefaults(BuildLanguageOptions.class),
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
@@ -405,7 +406,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testErrorReadingBzlFileInlineIsTransient() throws Exception {
+  public void testErrorReadingBzlFileIsTransientWhenUsingASTInlining() throws Exception {
     CustomInMemoryFs fs = (CustomInMemoryFs) fileSystem;
     scratch.file("a/BUILD");
     fs.badPathForRead = scratch.file("a/a1.bzl", "doesntmatter");
@@ -447,6 +448,10 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   private static class CustomInMemoryFs extends InMemoryFileSystem {
     @Nullable private Path badPathForStat;
     @Nullable private Path badPathForRead;
+
+    CustomInMemoryFs() {
+      super(DigestHashFunction.SHA256);
+    }
 
     @Override
     public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {

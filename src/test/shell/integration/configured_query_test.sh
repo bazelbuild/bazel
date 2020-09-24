@@ -153,68 +153,81 @@ EOF
 
 function test_universe_scope_specified() {
   local -r pkg=$FUNCNAME
-  write_java_library_build $pkg
+  write_test_targets $pkg
 
   # The java_library rule has a host transition on its plugins attribute.
-  bazel cquery //$pkg:dep+//$pkg:plugin --universe_scope=//$pkg:my_java \
+  bazel cquery //$pkg:target+//$pkg:host --universe_scope=//$pkg:main \
     > output 2>"$TEST_log" || fail "Excepted success"
 
   # Find the lines of output for //$pkg:plugin and //$pkg:dep.
-  PKG_HOST=$(grep "//$pkg:plugin" output)
-  PKG_TARGET=$(grep "//$pkg:dep" output)
+  PKG_HOST=$(grep "//$pkg:host" output)
+  PKG_TARGET=$(grep "//$pkg:target" output)
   # Trim to just configurations.
-  HOST_CONFIG=${PKG_HOST/"//$pkg:plugin"}
-  TARGET_CONFIG=${PKG_TARGET/"//$pkg:dep"}
+  HOST_CONFIG=${PKG_HOST/"//$pkg:host"}
+  TARGET_CONFIG=${PKG_TARGET/"//$pkg:target"}
   # Ensure they are are not equal.
   assert_not_equals $HOST_CONFIG $TARGET_CONFIG
 }
 
 function test_host_config_output() {
   local -r pkg=$FUNCNAME
-  write_java_library_build $pkg
+  write_test_targets $pkg
 
-  bazel cquery //$pkg:plugin --universe_scope=//$pkg:my_java \
+  bazel cquery //$pkg:host --universe_scope=//$pkg:main \
     > output 2>"$TEST_log" || fail "Excepted success"
 
-  assert_contains "//$pkg:plugin (HOST)" output
+  assert_contains "//$pkg:host (HOST)" output
 }
 
 function test_transitions_lite() {
   local -r pkg=$FUNCNAME
-  write_java_library_build $pkg
+  write_test_targets $pkg
 
-  bazel cquery "deps(//$pkg:my_java)" --transitions=lite \
+  bazel cquery "deps(//$pkg:main)" --transitions=lite \
     > output 2>"$TEST_log" || fail "Excepted success"
 
-  assert_contains "//$pkg:my_java" output
-  assert_contains "plugins#//$pkg:plugin#HostTransition" output
+  assert_contains "//$pkg:main" output
+  assert_contains "host_dep#//$pkg:host#HostTransition" output
 }
 
 
 function test_transitions_full() {
   local -r pkg=$FUNCNAME
-  write_java_library_build $pkg
+  write_test_targets $pkg
 
-  bazel cquery "deps(//$pkg:my_java)" --transitions=full \
+  bazel cquery "deps(//$pkg:main)" --transitions=full \
     > output 2>"$TEST_log" || fail "Excepted success"
 
-  assert_contains "//$pkg:my_java" output
-  assert_contains "plugins#//$pkg:plugin#HostTransition" output
+  assert_contains "//$pkg:main" output
+  assert_contains "host_dep#//$pkg:host#HostTransition" output
 }
 
-function write_java_library_build() {
-  local -r pkg=$1
+function write_test_targets() {
   mkdir -p $pkg
-  cat > $pkg/BUILD <<EOF
-java_library(
-    name = "my_java",
-    srcs = ['foo.java'],
-    deps = [":dep"],
-    plugins = [":plugin"]
+  cat > $pkg/rule.bzl <<EOF
+def _my_rule_impl(ctx):
+    pass
+my_rule = rule(
+    implementation = _my_rule_impl,
+    attrs = {
+      "src_dep": attr.label(allow_single_file = True),
+      "target_dep": attr.label(cfg = 'target'),
+      "host_dep": attr.label(cfg = 'host'),
+    },
 )
-java_library(name = "dep")
-java_plugin(name = "plugin")
 EOF
+  cat > $pkg/BUILD <<EOF
+load(':rule.bzl', 'my_rule')
+filegroup(name = "target")
+filegroup(name = "host")
+my_rule(
+    name = "main",
+    src_dep = "file.txt",
+    target_dep = ":target",
+    host_dep = ":host",
+)
+EOF
+  touch $pkg/file.txt
 }
 
 # TODO(gregce): --show_config_fragments and RequiredConfigFragmentsProvider
@@ -808,6 +821,91 @@ EOF
   assert_contains "//$pkg:the_alias" output
   assert_contains "//$pkg:some_file (null)" output
   assert_equals "$(grep some_file output | wc -l | egrep -o '[0-9]+')" "1"
+}
+
+function test_starlark_output_mode() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+py_library(
+    name = "pylib",
+    srcs = ["pylib.py"],
+)
+
+py_library(
+    name = "pylibtwo",
+    srcs = ["pylibtwo.py", "pylibtwo2.py",],
+)
+EOF
+
+  bazel cquery "//$pkg:all" --output=starlark \
+    --starlark:expr="str(target.label) + '%foo'" > output \
+    2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:pylib%foo" output
+  assert_contains "//$pkg:pylibtwo%foo" output
+
+  bazel cquery "//$pkg:all" --output=starlark \
+    --starlark:expr="str(target.label) + '%' + str(target.files.to_list()[1].is_directory)" \
+    > output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:pylibtwo%False" output
+  # pylib evaluation will fail, as it has only one output file.
+  assert_contains "Starlark evaluation error for //$pkg:pylib" "$TEST_log"
+}
+
+function test_starlark_output_invalid_expression() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  touch $pkg/BUILD
+
+  bazel cquery "//$pkg:all" --output=starlark \
+    --starlark:expr="no_symbol" \
+    > output 2>"$TEST_log" && fail "Expected failure"
+
+  assert_contains "invalid --starlark:expr: name 'no_symbol' is not defined" $TEST_log
+
+  bazel cquery "//$pkg:all" --output=starlark \
+    --starlark:expr="def foo(): return 5" \
+    > output 2>"$TEST_log" && fail "Expected failure"
+
+  assert_contains "syntax error at 'def': expected expression" $TEST_log
+}
+
+function test_starlark_output_cc_library_files() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+cc_library(
+    name = "cclib",
+    srcs = ["mylib.cc"],
+)
+EOF
+
+  bazel cquery "//$pkg:all" --output=starlark \
+    --starlark:expr="' '.join([f.basename for f in target.files.to_list()])" \
+    > output 2>"$TEST_log" || fail "Expected failure"
+
+  if "$is_windows"; then
+    assert_contains "cclib.lib" output
+  else
+    assert_contains "libcclib.a" output
+    assert_contains "libcclib.so" output
+  fi
+}
+
+function test_starlark_file_output() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+exports_files(srcs = ["foo"])
+EOF
+
+  bazel cquery "//$pkg:foo" --output=starlark \
+    --starlark:expr="'path=' + target.files.to_list()[0].path" \
+    > output 2>"$TEST_log" || fail "Expected failure"
+
+  assert_contains "^path=$pkg/foo$" output
 }
 
 run_suite "${PRODUCT_NAME} configured query tests"

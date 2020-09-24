@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
+import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.ValueOrException3;
 import java.util.ArrayList;
@@ -117,23 +117,16 @@ public class ConstraintValueLookupUtil {
       super(formatError(label), e);
     }
 
+    @Override
+    protected Code getDetailedCode() {
+      return Code.INVALID_CONSTRAINT_VALUE;
+    }
+
     private static String formatError(Label label) {
       return String.format(
           "Target %s was referenced as a constraint_value, "
               + "but does not provide ConstraintValueInfo",
           label);
-    }
-  }
-
-  /**
-   * Used to declare all the exception types that can be wrapped in the exception thrown by {@link
-   * #compute}.
-   */
-  public static class ConstraintValueLookupFunctionException extends SkyFunctionException {
-
-    public ConstraintValueLookupFunctionException(
-        InvalidConstraintValueException cause, Transience transience) {
-      super(cause, transience);
     }
   }
 }

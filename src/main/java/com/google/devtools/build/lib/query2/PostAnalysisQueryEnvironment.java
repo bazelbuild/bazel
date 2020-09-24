@@ -99,7 +99,7 @@ import javax.annotation.Nullable;
 public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQueryEnvironment<T> {
   protected final TopLevelConfigurations topLevelConfigurations;
   protected final BuildConfiguration hostConfiguration;
-  private final String parserPrefix;
+  private final PathFragment parserPrefix;
   private final PathPackageLocator pkgPath;
   private final Supplier<WalkableGraph> walkableGraphSupplier;
   protected WalkableGraph graph;
@@ -117,7 +117,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
       BuildConfiguration hostConfiguration,
-      String parserPrefix,
+      PathFragment parserPrefix,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
       Set<Setting> settings) {
@@ -137,7 +137,8 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
           SkyframeExecutor skyframeExecutor,
           BuildConfiguration hostConfiguration,
           @Nullable TransitionFactory<Rule> trimmingTransitionFactory,
-          PackageManager packageManager);
+          PackageManager packageManager)
+          throws QueryException, InterruptedException;
 
   public abstract String getOutputFormat();
 

@@ -57,7 +57,7 @@ abstract class BaseSandboxfsProcessIntegrationTest {
   }
 
   @Test
-  public void testMount_MissingDirectory() throws IOException {
+  public void testMount_missingDirectory() throws IOException {
     IOException expected = assertThrows(
         IOException.class, () -> mount(tmpDir.getRelative("missing")));
     assertThat(expected).hasMessageThat().matches(".*(/missing.*does not exist|failed to start).*");

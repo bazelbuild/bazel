@@ -22,7 +22,6 @@ import com.google.common.collect.Lists;
 import com.google.common.io.ByteSource;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -34,17 +33,11 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
-/**
- * This interface models a file system using UNIX the naming scheme.
- */
+/** This interface models a file system. */
 @ThreadSafe
 public abstract class FileSystem {
 
   private final DigestHashFunction digestFunction;
-
-  public FileSystem() throws DefaultHashFunctionNotSetException {
-    digestFunction = DigestHashFunction.getDefault();
-  }
 
   public FileSystem(DigestHashFunction digestFunction) {
     this.digestFunction = Preconditions.checkNotNull(digestFunction);

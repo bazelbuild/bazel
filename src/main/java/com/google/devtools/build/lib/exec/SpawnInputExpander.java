@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -20,6 +21,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.Artifact.MissingExpansionException;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetManifest;
@@ -132,8 +134,13 @@ public class SpawnInputExpander {
                   input);
             }
           } else if (localArtifact.isFileset()) {
-            addFilesetManifest(
-                location, localArtifact, artifactExpander.getFileset(localArtifact), inputMap);
+            ImmutableList<FilesetOutputSymlink> filesetLinks;
+            try {
+              filesetLinks = artifactExpander.getFileset(localArtifact);
+            } catch (MissingExpansionException e) {
+              throw new IllegalStateException(e);
+            }
+            addFilesetManifest(location, localArtifact, filesetLinks, inputMap);
           } else {
             if (strict) {
               failIfDirectory(actionFileCache, localArtifact);

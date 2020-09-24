@@ -15,18 +15,18 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.NoneType;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.docgen.annot.DocumentMethods;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import net.starlark.java.annot.Param;
-import net.starlark.java.annot.StarlarkGlobalLibrary;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkThread;
 
 /** A collection of global Starlark build API functions that apply to WORKSPACE files. */
-@StarlarkGlobalLibrary
+@DocumentMethods
 public interface WorkspaceGlobalsApi {
 
   @StarlarkMethod(
@@ -111,7 +111,7 @@ public interface WorkspaceGlobalsApi {
             positional = false)
       },
       useStarlarkThread = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_NINJA_ACTIONS)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_NINJA_ACTIONS)
   NoneType dontSymlinkDirectoriesInExecroot(Sequence<?> paths, StarlarkThread thread)
       throws EvalException, InterruptedException;
 

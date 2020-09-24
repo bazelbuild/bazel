@@ -37,10 +37,10 @@ import com.google.devtools.build.lib.starlarkbuildapi.go.GoConfigurationApi;
 import com.google.devtools.build.lib.starlarkbuildapi.go.GoContextInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.go.GoPackageInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.Tuple;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Tuple;
 
 /**
  * Fake stub implementations for C++-related Starlark API which are unsupported without use of

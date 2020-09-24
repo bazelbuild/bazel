@@ -29,14 +29,14 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.HashMap;
 import java.util.Map;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -261,7 +261,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
               ruleClass,
               Location.fromFile(myPkgPath.toString()),
               CallStack.EMPTY,
-              new AttributeContainer(ruleClass));
+              AttributeContainer.newMutableInstance(ruleClass));
       if (TargetUtils.isTestRule(rule)) {
         assertAttr(ruleClass, "tags", Type.STRING_LIST);
         assertAttr(ruleClass, "size", Type.STRING);

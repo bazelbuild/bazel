@@ -20,8 +20,10 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.query2.common.UniverseSkyKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -56,7 +58,7 @@ public final class PrepareDepsOfPatternsValue implements SkyValue {
   }
 
   @ThreadSafe
-  public static TargetPatternSequence key(ImmutableList<String> patterns, String offset) {
+  public static TargetPatternSequence key(ImmutableList<String> patterns, PathFragment offset) {
     return TargetPatternSequence.create(patterns, offset);
   }
 
@@ -64,29 +66,30 @@ public final class PrepareDepsOfPatternsValue implements SkyValue {
   @ThreadSafe
   @AutoCodec.VisibleForSerialization
   @AutoCodec
-  static class TargetPatternSequence implements SkyKey {
+  static class TargetPatternSequence implements UniverseSkyKey {
     private static final Interner<TargetPatternSequence> interner =
         BlazeInterners.newWeakInterner();
 
     private final ImmutableList<String> patterns;
-    private final String offset;
+    private final PathFragment offset;
 
-    private TargetPatternSequence(ImmutableList<String> patterns, String offset) {
+    private TargetPatternSequence(ImmutableList<String> patterns, PathFragment offset) {
       this.patterns = Preconditions.checkNotNull(patterns);
       this.offset = Preconditions.checkNotNull(offset);
     }
 
     @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
-    static TargetPatternSequence create(ImmutableList<String> patterns, String offset) {
+    static TargetPatternSequence create(ImmutableList<String> patterns, PathFragment offset) {
       return interner.intern(new TargetPatternSequence(patterns, offset));
     }
 
+    @Override
     public ImmutableList<String> getPatterns() {
       return patterns;
     }
 
-    public String getOffset() {
+    public PathFragment getOffset() {
       return offset;
     }
 

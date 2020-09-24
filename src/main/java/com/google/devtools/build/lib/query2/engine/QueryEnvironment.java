@@ -472,7 +472,14 @@ public interface QueryEnvironment<T> {
    */
   MinDepthUniquifier<T> createMinDepthUniquifier();
 
-  void reportBuildFileError(QueryExpression expression, String msg) throws QueryException;
+  /**
+   * Handle an error during evaluation of {@code expression} by either throwing {@link
+   * QueryException} or emitting an event, depending on whether the evaluation is running in a "keep
+   * going" mode.
+   */
+  void handleError(
+      QueryExpression expression, String message, @Nullable DetailedExitCode detailedExitCode)
+      throws QueryException;
 
   /**
    * Returns the set of BUILD, and optionally Starlark files that define the given set of targets.

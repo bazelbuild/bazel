@@ -13,8 +13,8 @@ java_library(
     srcs = ["ExternalPackageException.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
         "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/net/starlark/java/eval",
     ],
 )
 

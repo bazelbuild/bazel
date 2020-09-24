@@ -342,13 +342,29 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
       help =
-          "Specifies the set of environment variables available to actions. "
-              + "Variables can be either specified by name, in which case the value will be "
-              + "taken from the invocation environment, or by the name=value pair which sets "
-              + "the value independent of the invocation environment. This option can be used "
-              + "multiple times; for options given for the same variable, the latest wins, options "
-              + "for different variables accumulate.")
+          "Specifies the set of environment variables available to actions with target"
+              + " configuration. Variables can be either specified by name, in which case the"
+              + " value will be taken from the invocation environment, or by the name=value pair"
+              + " which sets the value independent of the invocation environment. This option can"
+              + " be used multiple times; for options given for the same variable, the latest"
+              + " wins, options for different variables accumulate.")
   public List<Map.Entry<String, String>> actionEnvironment;
+
+  @Option(
+      name = "host_action_env",
+      converter = Converters.OptionalAssignmentConverter.class,
+      allowMultiple = true,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+      help =
+          "Specifies the set of environment variables available to actions with host or execution"
+              + " configurations. Variables can be either specified by name, in which case the"
+              + " value will be taken from the invocation environment, or by the name=value pair"
+              + " which sets the value independent of the invocation environment. This option can"
+              + " be used multiple times; for options given for the same variable, the latest"
+              + " wins, options for different variables accumulate.")
+  public List<Map.Entry<String, String>> hostActionEnvironment;
 
   @Option(
       name = "repo_env",
@@ -841,6 +857,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " ignored unless --experimental_enable_flag_alias is set to true.")
   public List<Map.Entry<String, String>> commandLineFlagAliases;
 
+  @Option(
+      name = "experimental_send_archived_tree_artifact_inputs",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
+      defaultValue = "false",
+      help =
+          "Send input tree artifacts as a single archived file rather than sending each file in the"
+              + " artifact as a separate input.")
+  public boolean sendArchivedTreeArtifactInputs;
+
   /** Ways configured targets may provide the {@link Fragment}s they require. */
   public enum IncludeConfigFragmentsEnum {
     /**
@@ -916,6 +942,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.cpu = hostCpu;
     host.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
     host.enableAggregatingMiddleman = enableAggregatingMiddleman;
+    host.sendArchivedTreeArtifactInputs = sendArchivedTreeArtifactInputs;
 
     // === Runfiles ===
     host.buildRunfilesManifests = buildRunfilesManifests;
@@ -945,6 +972,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     // Save host options in case of a further exec->host transition.
     host.hostCpu = hostCpu;
     host.hostCompilationMode = hostCompilationMode;
+
+    // Pass host action environment variables
+    host.actionEnvironment = hostActionEnvironment;
 
     return host;
   }

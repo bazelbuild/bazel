@@ -352,37 +352,39 @@ its outputs are needed for the build.
 
 Imagine that you want to build a C++ binary for a different architecture. The
 build can be complex and involve multiple steps. Some of the intermediate
-binaries, like compilers and code generators, have to run on your machine (the
-host). Some binaries like the final output must be built for the target
+binaries, like compilers and code generators, have to run on [the execution
+platform](../platforms.html#overview) (which could be your host, or a remote
+executor). Some binaries like the final output must be built for the target
 architecture.
 
 For this reason, Bazel has a concept of "configurations" and transitions. The
 topmost targets (the ones requested on the command line) are built in the
-"target" configuration, while tools that should run locally on the host are
-built in the "host" configuration. Rules may generate different actions based on
-the configuration, for instance to change the cpu architecture that is passed to
-the compiler. In some cases, the same library may be needed for different
+"target" configuration, while tools that should run on the execution platform
+are built in an "exec" configuration. Rules may generate different actions based
+on the configuration, for instance to change the cpu architecture that is passed
+to the compiler. In some cases, the same library may be needed for different
 configurations. If this happens, it will be analyzed and potentially built
 multiple times.
 
 By default, Bazel builds a target's dependencies in the same configuration as
-the target itself, in other words without transitions. When a dependency is a tool
-that's needed to help build the target, the corresponding attribute should
-specify a transition to the host configuration. This causes the tool and all its
-dependencies to build for the host machine.
+the target itself, in other words without transitions. When a dependency is a
+tool that's needed to help build the target, the corresponding attribute should
+specify a transition to an exec configuration. This causes the tool and all its
+dependencies to build for the execution platform.
 
 For each dependency attribute, you can use `cfg` to decide if dependencies
-should build in the same configuration or transition to the host configuration.
+should build in the same configuration or transition to an exec configuration.
 If a dependency attribute has the flag `executable=True`, `cfg` must be set
-explicitly. This is to guard against accidentally building a host tool for the
-wrong configuration. [See example](https://github.com/bazelbuild/examples/blob/master/rules/actions_run/execute.bzl)
+explicitly. This is to guard against accidentally building a tool for the wrong
+configuration. [See
+example](https://github.com/bazelbuild/examples/blob/master/rules/actions_run/execute.bzl)
 
 In general, sources, dependent libraries, and executables that will be needed at
 runtime can use the same configuration.
 
 Tools that are executed as part of the build (e.g., compilers, code generators)
-should be built for the host configuration. In this case, specify `cfg="host"`
-in the attribute.
+should be built for an exec configuration. In this case, specify `cfg="exec"` in
+the attribute.
 
 Otherwise, executables that are used at runtime (e.g. as part of a test) should
 be built for the target configuration. In this case, specify `cfg="target"` in
@@ -391,6 +393,38 @@ the attribute.
 `cfg="target"` doesn't actually do anything: it's purely a convenience value to
 help rule designers be explicit about their intentions. When `executable=False`,
 which means `cfg` is optional, only set this when it truly helps readability.
+
+You can also use `cfg=my_transition` to use [user-defined
+transitions](config.html#user-defined-transitions), which allow rule authors a
+great deal of flexibility in changing configurations, with the drawback of
+[making the build graph larger and less
+comprehensible](config.html#memory-and-performance-considerations).
+
+**Note**: Historically, Bazel didn't have the concept of execution platforms,
+and instead all build actions were considered to run on the host machine.
+Because of this, there is a single "host" configuration, and a "host" transition
+that can be used to build a dependency in the host configuration. Many rules
+still use the "host" transition for their tools, but this is currently
+deprecated and being migrated to use "exec" transitions where possible.
+
+There are numerous differences between the "host" and "exec" configurations:
+*  "host" is terminal, "exec" isn't: Once a dependency is in the "host"
+   configuration, no more transitions are allowed. You can keep making further
+   configuration transitions once you're in an "exec" configuration.
+*  "host" is monolithic, "exec" isn't: There is only one "host" configuration,
+   but there can be a different "exec" configuration for each execution
+   platform.
+*  "host" assumes you run tools on the same machine as Bazel, or on a
+   significantly similar machine. This is no longer true: you can run build
+   actions on your local machine, or on a remote executor, and there's no
+   guarantee that the remote executor is the same CPU and OS as your local
+   machine.
+
+Both the "exec" and "host" configurations apply the same option changes, (i.e.,
+set `--compilation_mode` from `--host_compilation_mode`, set `--cpu` from
+`--host_cpu`, etc). The difference is that the "host" configuration starts with
+the **default** values of all other flags, whereas the "exec" configuration
+starts with the **current** values of flags, based on the target configuration.
 
 <a name="fragments"></a>
 

@@ -61,7 +61,7 @@ public final class FailAction extends AbstractAction {
         false,
         DetailedExitCode.of(
             FailureDetail.newBuilder()
-                .setMessage("FailAction intentional failure")
+                .setMessage("FailAction intentional failure: " + errorMessage)
                 .setFailAction(
                     FailureDetails.FailAction.newBuilder().setCode(Code.INTENTIONAL_FAILURE))
                 .build()));

@@ -13,14 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.syntax.EvalException;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 
 /** Supplies a resource apk file (".ap_") and related info. */
 @StarlarkBuiltin(
@@ -87,6 +87,24 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
       structField = true)
   FileT getMainDexProguardConfig();
 
+  /** The R.txt file. */
+  @StarlarkMethod(
+      name = "r_txt",
+      doc = "The R.txt file.",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  FileT getRTxt();
+
+  /** The merged resource files zip. */
+  @StarlarkMethod(
+      name = "resources_zip",
+      doc = "The merged resource files zip.",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  FileT getResourcesZip();
+
   /** Provider for {@link AndroidApplicationResourceInfoApi}. */
   @StarlarkBuiltin(
       name = "Provider",
@@ -132,16 +150,32 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
               noneable = true,
               named = true,
               doc = ""),
+          @Param(
+              name = "r_txt",
+              type = FileApi.class,
+              noneable = true,
+              named = true,
+              doc = "",
+              defaultValue = "None"),
+          @Param(
+              name = "resources_zip",
+              type = FileApi.class,
+              noneable = true,
+              named = true,
+              doc = "",
+              defaultValue = "None"),
         },
         selfCall = true)
-    @StarlarkConstructor(objectType = AndroidApplicationResourceInfoApi.class)
+    @StarlarkConstructor
     AndroidApplicationResourceInfoApi<FileT> createInfo(
         Object resourceApk,
         Object resourceJavaSrcJar,
         Object resourceJavaClassJar,
         FileT manifest,
         Object resourceProguardConfig,
-        Object mainDexProguardConfig)
+        Object mainDexProguardConfig,
+        Object rTxt,
+        Object resourcesZip)
         throws EvalException;
   }
 }

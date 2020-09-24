@@ -14,15 +14,15 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
 
 /** Interface for an info object that indicates what output groups a rule has. */
 @StarlarkBuiltin(
@@ -53,9 +53,7 @@ public interface OutputGroupInfoApi extends StructApi {
                 defaultValue = "{}",
                 doc = "Dictionary of arguments."),
         selfCall = true)
-    @StarlarkConstructor(
-        objectType = OutputGroupInfoApi.class,
-        receiverNameForDoc = "OutputGroupInfo")
-    OutputGroupInfoApi constructor(Dict<?, ?> kwargs) throws EvalException;
+    @StarlarkConstructor
+    OutputGroupInfoApi constructor(Dict<String, Object> kwargs) throws EvalException;
   }
 }

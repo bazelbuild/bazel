@@ -16,6 +16,8 @@
 # List of architectures supported by osx crosstool.
 OSX_TOOLS_NON_DEVICE_ARCHS = [
     "darwin_x86_64",
+    "darwin_arm64",
+    "darwin_arm64e",
     "ios_i386",
     "ios_x86_64",
     "watchos_i386",
@@ -38,6 +40,8 @@ OSX_TOOLS_ARCHS = [
 # TODO(apple-rules): Add constraints for watchos and tvos.
 OSX_TOOLS_CONSTRAINTS = {
     "darwin_x86_64": ["@platforms//os:osx", "@platforms//cpu:x86_64"],
+    "darwin_arm64": ["@platforms//os:osx", "@platforms//cpu:aarch64"],
+    "darwin_arm64e": ["@platforms//os:osx", "@platforms//cpu:aarch64"],
     "ios_i386": ["@platforms//os:ios", "@platforms//cpu:x86_32"],
     "ios_x86_64": ["@platforms//os:ios", "@platforms//cpu:x86_64"],
     "watchos_i386": ["@platforms//os:ios", "@platforms//cpu:x86_32"],

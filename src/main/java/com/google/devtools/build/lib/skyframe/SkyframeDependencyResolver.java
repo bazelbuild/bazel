@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RepositoryFetchException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -136,7 +137,7 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
             // label.
             repositoryLabel = label;
           }
-          rootCauses.add(new LoadingFailedCause(repositoryLabel, e.getMessage()));
+          rootCauses.add(new LoadingFailedCause(repositoryLabel, e.getDetailedExitCode()));
           env.getListener()
               .handle(
                   Event.error(
@@ -166,11 +167,13 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
         if (pkg.containsErrors()) {
           NoSuchTargetException e = new NoSuchTargetException(target);
           missingEdgeHook(fromTarget, entry.getKey(), label, e);
-          rootCauses.add(new LoadingFailedCause(label, e.getMessage()));
+          rootCauses.add(
+              new LoadingFailedCause(
+                  label, DetailedExitCode.of(pkg.contextualizeFailureDetailForTarget(target))));
         }
         result.put(label, target);
       } catch (NoSuchTargetException e) {
-        rootCauses.add(new LoadingFailedCause(label, e.getMessage()));
+        rootCauses.add(new LoadingFailedCause(label, e.getDetailedExitCode()));
         missingEdgeHook(fromTarget, entry.getKey(), label, e);
       }
     }

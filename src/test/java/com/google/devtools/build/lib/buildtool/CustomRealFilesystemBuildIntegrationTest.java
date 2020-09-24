@@ -91,7 +91,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
    * Tests that IOExceptions encountered while handling non-mandatory inputs are properly handled.
    */
   @Test
-  public void testIOException_NonMandatoryInputs() throws Exception {
+  public void testIOException_nonMandatoryInputs() throws Exception {
     Path fooBuildFile =
         write("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'], hdrs_check = 'loose')");
     write("foo/foo.cc", "#include \"foo/foo.h\"");
@@ -150,7 +150,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
    * handled.
    */
   @Test
-  public void testIOException_NonMandatoryGeneratedInputs() throws Exception {
+  public void testIOException_nonMandatoryGeneratedInputs() throws Exception {
     write(
         "bar/BUILD",
         "cc_library(",
@@ -262,7 +262,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     private final Set<String> createDirectoryErrorNames = new HashSet<>();
 
     private CustomRealFilesystem() {
-      super(DigestHashFunction.getDefaultUnchecked());
+      super(DigestHashFunction.SHA256, /*hashAttributeName=*/ "");
     }
 
     void alwaysError(Path path) {

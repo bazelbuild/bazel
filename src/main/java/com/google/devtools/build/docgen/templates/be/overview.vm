@@ -92,6 +92,8 @@ For non-native Starlark rules that ship separately from Bazel, see the list of
 #summaryTable($langSpecificRuleFamilies)
 
 </table>
+<h3>Language-agnostic native rules</h3>
+
 <table class="table table-condensed table-striped" summary="Table of rules not specific to a programming language">
   <colgroup span="6" width="20%"></colgroup>
 #summaryTable($genericRuleFamilies)

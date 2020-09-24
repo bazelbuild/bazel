@@ -145,6 +145,7 @@ public class JacocoLCOVFormatter {
             }
           }
 
+          // List branches
           for (IClassCoverage clsCoverage : sourceToClassCoverage.get(sourceFile).values()) {
             BranchCoverageDetail detail = branchCoverageDetail.get(clsCoverage.getName());
             if (detail != null) {
@@ -153,15 +154,18 @@ public class JacocoLCOVFormatter {
                 boolean executed = detail.getExecutedBit(line);
                 if (executed) {
                   for (int branchIdx = 0; branchIdx < numBranches; branchIdx++) {
+                    // We haven't got execution counts for branches; just record if they were hit or
+                    // not.
                     if (detail.getTakenBit(line, branchIdx)) {
-                      writer.printf("BA:%d,%d\n", line, 2); // executed, taken
+                      writer.printf("BRDA:%d,%d,%d,%d\n", line, 0, branchIdx, 1); // executed, taken
                     } else {
-                      writer.printf("BA:%d,%d\n", line, 1); // executed, not taken
+                      writer.printf(
+                          "BRDA:%d,%d,%d,%d\n", line, 0, branchIdx, 0); // executed, not taken
                     }
                   }
                 } else {
                   for (int branchIdx = 0; branchIdx < numBranches; branchIdx++) {
-                    writer.printf("BA:%d,%d\n", line, 0); // not executed
+                    writer.printf("BRDA:%d,%d,%d,%s\n", line, 0, branchIdx, "-"); // not executed
                   }
                 }
               }
@@ -174,7 +178,9 @@ public class JacocoLCOVFormatter {
           for (int line = firstLine; line <= lastLine; line++) {
             ICounter instructionCounter = srcCoverage.getLine(line).getInstructionCounter();
             if (instructionCounter.getTotalCount() != 0) {
-              writer.printf("DA:%d,%d\n", line, instructionCounter.getCoveredCount());
+              // All we can do is say if a line was hit, we do not have execution counts.
+              int execCount = instructionCounter.getCoveredCount() > 0 ? 1 : 0;
+              writer.printf("DA:%d,%d\n", line, execCount);
             }
           }
         }

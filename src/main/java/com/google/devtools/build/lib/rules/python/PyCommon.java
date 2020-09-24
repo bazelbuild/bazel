@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.python;
 
-import static com.google.devtools.build.lib.syntax.Starlark.NONE;
+import static net.starlark.java.eval.Starlark.NONE;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.analysis.PseudoAction;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -51,8 +50,6 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -63,6 +60,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /** A helper class for analyzing a Python configured target. */
 public final class PyCommon {
@@ -236,10 +235,7 @@ public final class PyCommon {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.compileOrder();
     collectTransitivePythonSourcesFromDeps(ruleContext, builder);
     builder.addAll(
-        ruleContext
-            .getPrerequisiteArtifacts("srcs", TransitionMode.TARGET)
-            .filter(PyRuleClasses.PYTHON_SOURCE)
-            .list());
+        ruleContext.getPrerequisiteArtifacts("srcs").filter(PyRuleClasses.PYTHON_SOURCE).list());
     return builder.build();
   }
 
@@ -249,8 +245,7 @@ public final class PyCommon {
    */
   private static void collectTransitivePythonSourcesFromDeps(
       RuleContext ruleContext, NestedSetBuilder<Artifact> builder) {
-    for (TransitiveInfoCollection dep :
-        ruleContext.getPrerequisites("deps", TransitionMode.TARGET)) {
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps")) {
       try {
         builder.addTransitive(PyProviderUtils.getTransitiveSources(dep));
       } catch (EvalException e) {
@@ -276,10 +271,9 @@ public final class PyCommon {
     if (ruleContext.attributes().has("data")) {
       targets =
           Iterables.concat(
-              ruleContext.getPrerequisites("deps", TransitionMode.TARGET),
-              ruleContext.getPrerequisites("data", TransitionMode.DONT_CHECK));
+              ruleContext.getPrerequisites("deps"), ruleContext.getPrerequisites("data"));
     } else {
-      targets = ruleContext.getPrerequisites("deps", TransitionMode.TARGET);
+      targets = ruleContext.getPrerequisites("deps");
     }
     for (TransitiveInfoCollection target : targets) {
       try {
@@ -296,8 +290,7 @@ public final class PyCommon {
   private static NestedSet<String> initImports(RuleContext ruleContext, PythonSemantics semantics) {
     NestedSetBuilder<String> builder = NestedSetBuilder.compileOrder();
     builder.addAll(semantics.getImports(ruleContext));
-    for (TransitiveInfoCollection dep :
-        ruleContext.getPrerequisites("deps", TransitionMode.TARGET)) {
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps")) {
       try {
         NestedSet<String> imports = PyProviderUtils.getImports(dep);
         if (!builder.getOrder().isCompatible(imports.getOrder())) {
@@ -326,8 +319,7 @@ public final class PyCommon {
     if (sourcesVersion == PythonVersion.PY2ONLY) {
       return true;
     }
-    for (TransitiveInfoCollection dep :
-        ruleContext.getPrerequisites("deps", TransitionMode.TARGET)) {
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps")) {
       try {
         if (PyProviderUtils.getHasPy2OnlySources(dep)) {
           return true;
@@ -349,8 +341,7 @@ public final class PyCommon {
     if (sourcesVersion == PythonVersion.PY3 || sourcesVersion == PythonVersion.PY3ONLY) {
       return true;
     }
-    for (TransitiveInfoCollection dep :
-        ruleContext.getPrerequisites("deps", TransitionMode.TARGET)) {
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps")) {
       try {
         if (PyProviderUtils.getHasPy3OnlySources(dep)) {
           return true;
@@ -493,10 +484,7 @@ public final class PyCommon {
       RuleContext ruleContext, PythonVersion version, PythonVersion sourcesVersion) {
     if (sourcesVersion == PythonVersion.PY2 && version == PythonVersion.PY3) {
       Iterable<Artifact> artifacts =
-          ruleContext
-              .getPrerequisiteArtifacts("srcs", TransitionMode.TARGET)
-              .filter(PyRuleClasses.PYTHON_SOURCE)
-              .list();
+          ruleContext.getPrerequisiteArtifacts("srcs").filter(PyRuleClasses.PYTHON_SOURCE).list();
       return PythonUtils.generate2to3Actions(ruleContext, artifacts);
     } else {
       return null;
@@ -533,8 +521,7 @@ public final class PyCommon {
     if (!ruleContext.getFragment(PythonConfiguration.class).disallowLegacyPyProvider()) {
       return;
     }
-    for (TransitiveInfoCollection dep :
-        ruleContext.getPrerequisites("deps", TransitionMode.TARGET)) {
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps")) {
       if (PyProviderUtils.hasLegacyProvider(dep)) {
         ruleContext.attributeError(
             "deps",
@@ -869,7 +856,7 @@ public final class PyCommon {
     List<Artifact> sourceFiles = new ArrayList<>();
     // TODO(bazel-team): Need to get the transitive deps closure, not just the sources of the rule.
     for (TransitiveInfoCollection src :
-        ruleContext.getPrerequisitesIf("srcs", TransitionMode.TARGET, FileProvider.class)) {
+        ruleContext.getPrerequisitesIf("srcs", FileProvider.class)) {
       // Make sure that none of the sources contain hyphens.
       if (Util.containsHyphen(src.getLabel().getPackageFragment())) {
         ruleContext.attributeError("srcs",
@@ -913,7 +900,7 @@ public final class PyCommon {
             ruleContext.getActionOwner(),
             // Has to be unfiltered sources as filtered will give an error for
             // unsupported file types where as certain tests only expect a warning.
-            ruleContext.getPrerequisiteArtifacts("srcs", TransitionMode.TARGET).list(),
+            ruleContext.getPrerequisiteArtifacts("srcs").list(),
             // We must not add the files declared in the srcs of this rule.;
             dependencyTransitivePythonSources,
             PseudoAction.getDummyOutput(ruleContext)));
@@ -970,8 +957,7 @@ public final class PyCommon {
     PathFragment mainSourcePath = PathFragment.create(mainSourceName);
 
     Artifact mainArtifact = null;
-    for (Artifact outItem :
-        ruleContext.getPrerequisiteArtifacts("srcs", TransitionMode.TARGET).list()) {
+    for (Artifact outItem : ruleContext.getPrerequisiteArtifacts("srcs").list()) {
       if (outItem.getRootRelativePath().endsWith(mainSourcePath)) {
         if (mainArtifact == null) {
           mainArtifact = outItem;

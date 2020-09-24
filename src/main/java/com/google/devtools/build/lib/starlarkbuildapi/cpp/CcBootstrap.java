@@ -15,13 +15,13 @@
 package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
-import com.google.devtools.build.lib.syntax.FlagGuardedValue;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import net.starlark.java.eval.FlagGuardedValue;
 
 /** {@link Bootstrap} for Starlark objects related to cpp rules. */
 public class CcBootstrap implements Bootstrap {
@@ -89,11 +89,11 @@ public class CcBootstrap implements Bootstrap {
     builder.put(
         "py_wrap_cc_helper_do_not_use",
         FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-            FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API, pyWrapCcHelper));
+            BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, pyWrapCcHelper));
     builder.put(
         "go_wrap_cc_helper_do_not_use",
         FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-            FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API, goWrapCcHelper));
+            BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, goWrapCcHelper));
     builder.put("PyWrapCcInfo", pyWrapCcInfoProvider);
     builder.put("PyCcLinkParamsProvider", pyCcLinkInfoParamsInfoProvider);
   }

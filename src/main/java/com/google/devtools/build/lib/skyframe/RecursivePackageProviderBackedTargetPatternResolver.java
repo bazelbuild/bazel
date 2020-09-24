@@ -305,10 +305,13 @@ public class RecursivePackageProviderBackedTargetPatternResolver
           filteredTargets.addAll(targets);
         }
         // TODO(bazel-core): Invoking the callback while holding onto the package
-        // semaphore can lead to deadlocks. Also, if the semaphore has a small count,
-        // acquireAll can also lead to problems if we don't batch appropriately.
-        // Although we default to an unbounded semaphore for SkyQuery and this is an
-        // unreported issue, consider refactoring so that the code is strictly correct.
+        // semaphore can lead to deadlocks.
+        //
+        // Also, if the semaphore has a small count, acquireAll can also lead to problems if we
+        // don't batch appropriately. Note: We default to an unbounded semaphore for SkyQuery.
+        //
+        // TODO(b/168142585): Make this code strictly correct in the situation where the semaphore
+        // is bounded.
         callback.process(filteredTargets);
       } finally {
         packageSemaphore.releaseAll(pkgIdBatchSet);

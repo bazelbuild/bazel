@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.skydoc.rendering;
 
-import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderFieldInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import java.util.Collection;
+import net.starlark.java.eval.StarlarkCallable;
 
 /**
  * Stores information about a starlark provider definition, comprised of StarlarkCallable identifier

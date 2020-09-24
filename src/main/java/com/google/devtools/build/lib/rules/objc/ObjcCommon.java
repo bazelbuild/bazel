@@ -56,12 +56,12 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * Contains information common to multiple objc_* rules, and provides a unified API for extracting
@@ -428,9 +428,8 @@ public final class ObjcCommon {
 
       for (CompilationArtifacts artifacts : compilationArtifacts.asSet()) {
         Iterable<Artifact> allSources =
-            Iterables.concat(artifacts.getSrcs(), artifacts.getNonArcSrcs());
-        // TODO(bazel-team): Add private headers to the provider when we have module maps to enforce
-        // them.
+            Iterables.concat(
+                artifacts.getSrcs(), artifacts.getNonArcSrcs(), artifacts.getPrivateHdrs());
         objcProvider
             .addAll(LIBRARY, artifacts.getArchive().asSet())
             .addAll(SOURCE, allSources)

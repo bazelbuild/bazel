@@ -31,10 +31,10 @@ import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtensio
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledgeImpl;
 import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledgeImpl.ManagedDirectoriesListener;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -46,9 +46,13 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.syntax.ParserInput;
+import net.starlark.java.syntax.StarlarkFile;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.junit.Test;
@@ -474,7 +478,9 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
 
     try {
       StarlarkSemantics semanticsWithNinjaActions =
-          StarlarkSemantics.builderWithDefaults().experimentalNinjaActions(true).build();
+          StarlarkSemantics.builder()
+              .setBool(BuildLanguageOptions.EXPERIMENTAL_NINJA_ACTIONS, true)
+              .build();
       PrecomputedValue.STARLARK_SEMANTICS.set(injectable, semanticsWithNinjaActions);
 
       assertThat(
@@ -587,5 +593,86 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     public void reset() {
       repositoryNames = null;
     }
+  }
+
+  // tests of splitAST, an internal helper function
+
+  @Test
+  public void testSplitASTNoLoad() {
+    List<StarlarkFile> asts = getASTs("foo_bar = 1");
+    assertThat(asts).hasSize(1);
+    assertThat(asts.get(0).getStatements()).hasSize(1);
+  }
+
+  @Test
+  public void testSplitASTOneLoadAtTop() {
+    List<StarlarkFile> asts = getASTs("load('//:foo.bzl', 'bar')", "foo_bar = 1");
+    assertThat(asts).hasSize(1);
+    assertThat(asts.get(0).getStatements()).hasSize(2);
+  }
+
+  @Test
+  public void testSplitASTOneLoad() {
+    List<StarlarkFile> asts = getASTs("foo_bar = 1", "load('//:foo.bzl', 'bar')");
+    assertThat(asts).hasSize(2);
+    assertThat(asts.get(0).getStatements()).hasSize(1);
+    assertThat(asts.get(1).getStatements()).hasSize(1);
+  }
+
+  @Test
+  public void testSplitASTTwoSuccessiveLoads() {
+    List<StarlarkFile> asts =
+        getASTs("foo_bar = 1", "load('//:foo.bzl', 'bar')", "load('//:bar.bzl', 'foo')");
+    assertThat(asts).hasSize(2);
+    assertThat(asts.get(0).getStatements()).hasSize(1);
+    assertThat(asts.get(1).getStatements()).hasSize(2);
+  }
+
+  @Test
+  public void testSplitASTTwoSucessiveLoadsWithNonLoadStatement() {
+    List<StarlarkFile> asts =
+        getASTs(
+            "foo_bar = 1",
+            "load('//:foo.bzl', 'bar')",
+            "load('//:bar.bzl', 'foo')",
+            "local_repository(name = 'foobar', path = '/bar/foo')");
+    assertThat(asts).hasSize(2);
+    assertThat(asts.get(0).getStatements()).hasSize(1);
+    assertThat(asts.get(1).getStatements()).hasSize(3);
+  }
+
+  @Test
+  public void testSplitASTThreeLoadsThreeSegments() {
+    List<StarlarkFile> asts =
+        getASTs(
+            "foo_bar = 1",
+            "load('//:foo.bzl', 'bar')",
+            "load('//:bar.bzl', 'foo')",
+            "local_repository(name = 'foobar', path = '/bar/foo')",
+            "load('@foobar//:baz.bzl', 'bleh')");
+    assertThat(asts).hasSize(3);
+    assertThat(asts.get(0).getStatements()).hasSize(1);
+    assertThat(asts.get(1).getStatements()).hasSize(3);
+    assertThat(asts.get(2).getStatements()).hasSize(1);
+  }
+
+  @Test
+  public void testSplitASTThreeLoadsThreeSegmentsWithContent() {
+    List<StarlarkFile> asts =
+        getASTs(
+            "foo_bar = 1",
+            "load('//:foo.bzl', 'bar')",
+            "load('//:bar.bzl', 'foo')",
+            "local_repository(name = 'foobar', path = '/bar/foo')",
+            "load('@foobar//:baz.bzl', 'bleh')",
+            "bleh()");
+    assertThat(asts).hasSize(3);
+    assertThat(asts.get(0).getStatements()).hasSize(1);
+    assertThat(asts.get(1).getStatements()).hasSize(3);
+    assertThat(asts.get(2).getStatements()).hasSize(2);
+  }
+
+  private static ImmutableList<StarlarkFile> getASTs(String... lines) {
+    return WorkspaceFileFunction.splitAST(StarlarkFile.parse(ParserInput.fromLines(lines)));
   }
 }

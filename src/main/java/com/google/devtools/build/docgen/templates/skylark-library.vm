@@ -3,12 +3,11 @@ layout: documentation
 title: ${module.title}
 ---
 
-<!-- {% raw %} -->
-
 <a href="../concepts.html">Extensions</a> &gt;
 <a href="skylark-overview.html">API reference</a> &gt;
 ${module.title}
 
+<!-- {% raw %} -->
 <h1 id="modules.${module.name}">${module.title}</h1>
 
 ${module.documentation}
@@ -21,9 +20,6 @@ ${module.documentation}
     #if ($method.documented())
     <li>
       <a href="#${method.name}">${method.name}</a>
-      #if (${method.deprecated})
-      (Deprecated)
-      #end
     </li>
     #end
   #end

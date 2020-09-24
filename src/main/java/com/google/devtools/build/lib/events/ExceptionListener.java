@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
-import com.google.devtools.build.lib.syntax.Location;
+import net.starlark.java.syntax.Location;
 
 /**
  * The ExceptionListener is the primary means of reporting exceptions. It is a subset of the

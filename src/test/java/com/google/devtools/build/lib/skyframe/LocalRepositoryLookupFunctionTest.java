@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -55,6 +54,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -108,7 +108,6 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
         new DirectoryListingStateFunction(
             externalFilesHelper, new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS)));
     RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
-    skyFunctions.put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider));
     skyFunctions.put(
         WorkspaceFileValue.WORKSPACE_FILE,
         new WorkspaceFileFunction(
@@ -275,7 +274,7 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
   }
 
   @Test
-  public void testLocalRepository_LocalWorkspace_SymlinkCycle() throws Exception {
+  public void testLocalRepository_localWorkspace_symlinkCycle() throws Exception {
     scratch.overwriteFile("WORKSPACE", "local_repository(name='local', path='local/repo')");
     Path localRepoWorkspace = scratch.resolve("local/repo/WORKSPACE");
     Path localRepoWorkspaceLink = scratch.resolve("local/repo/WORKSPACE.link");
@@ -301,7 +300,7 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
   }
 
   @Test
-  public void testLocalRepository_MainWorkspace_NotFound() throws Exception {
+  public void testLocalRepository_mainWorkspace_notFound() throws Exception {
     // Do not add a local_repository to WORKSPACE.
     scratch.overwriteFile("WORKSPACE", "");
     scratch.deleteFile("WORKSPACE");

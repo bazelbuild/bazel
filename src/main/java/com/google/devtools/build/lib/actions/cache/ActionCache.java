@@ -87,7 +87,7 @@ public interface ActionCache {
 
     public Entry(String key, Map<String, String> usedClientEnv, boolean discoversInputs) {
       actionKey = key;
-      this.usedClientEnvDigest = DigestUtils.fromEnv(usedClientEnv);
+      this.usedClientEnvDigest = MetadataDigestUtils.fromEnv(usedClientEnv);
       files = discoversInputs ? new ArrayList<String>() : null;
       mdMap = new HashMap<>();
     }
@@ -141,7 +141,7 @@ public interface ActionCache {
      */
     public byte[] getFileDigest() {
       if (digest == null) {
-        digest = DigestUtils.fromMetadata(mdMap);
+        digest = MetadataDigestUtils.fromMetadata(mdMap);
         mdMap = null;
       }
       return digest;
@@ -182,7 +182,9 @@ public interface ActionCache {
           .append("\n");
       builder.append("      digestKey = ");
       if (digest == null) {
-        builder.append(formatDigest(DigestUtils.fromMetadata(mdMap))).append(" (from mdMap)\n");
+        builder
+            .append(formatDigest(MetadataDigestUtils.fromMetadata(mdMap)))
+            .append(" (from mdMap)\n");
       } else {
         builder.append(formatDigest(digest)).append("\n");
       }

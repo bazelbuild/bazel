@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Starlark;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /**
  * An enum that represents different types of rule attributes, based on where their values come

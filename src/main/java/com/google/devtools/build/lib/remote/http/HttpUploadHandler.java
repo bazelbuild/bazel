@@ -56,8 +56,17 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
       failAndClose(new IOException("Failed to parse the HTTP response."), ctx);
       return;
     }
+
+    checkState(userPromise != null, "response before request");
+    ChannelPromise promise = userPromise;
+    userPromise = null;
+    // Connection reset must happen *before* completing the user promise. Otherwise there is a race
+    // condition, where this handler can be reused even though it is closed.
     try {
-      checkState(userPromise != null, "response before request");
+      if (!HttpUtil.isKeepAlive(response)) {
+        ctx.close();
+      }
+    } finally {
       if (!response.status().equals(HttpResponseStatus.OK)
           && !response.status().equals(HttpResponseStatus.ACCEPTED)
           && !response.status().equals(HttpResponseStatus.CREATED)
@@ -69,13 +78,9 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
           response.content().readBytes(data);
           errorMsg += "\n" + new String(data, HttpUtil.getCharset(response));
         }
-        failAndResetUserPromise(new HttpException(response, errorMsg, null));
+        promise.setFailure(new HttpException(response, errorMsg, null));
       } else {
-        succeedAndResetUserPromise();
-      }
-    } finally {
-      if (!HttpUtil.isKeepAlive(response)) {
-        ctx.close();
+        promise.setSuccess();
       }
     }
   }
@@ -144,10 +149,9 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
 
   @SuppressWarnings("FutureReturnValueIgnored")
   private void failAndClose(Throwable t, ChannelHandlerContext ctx) {
-    try {
-      failAndResetUserPromise(t);
-    } finally {
-      ctx.close();
-    }
+    // All resets must happen *before* completing the user promise. Otherwise there is a race
+    // condition, where this handler can be reused even though it is closed.
+    ctx.close();
+    failAndResetUserPromise(t);
   }
 }

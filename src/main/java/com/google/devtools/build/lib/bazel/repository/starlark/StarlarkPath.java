@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.bazel.repository.starlark;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryPathApi;
-import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
+import net.starlark.java.eval.Printer;
 
 /**
  * A Path object to be used into Starlark remote repository.

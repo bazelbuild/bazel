@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.runtime.UiStateTracker.ProgressMode;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
+import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -279,16 +280,15 @@ public class UiOptions extends OptionsBase {
   public int uiSamplesShown;
 
   @Option(
-      name = "experimental_ui_limit_console_output",
-      defaultValue = "0",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      name = "experimental_ui_max_stdouterr_bytes",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      defaultValue = "1048576",
+      converter = MaxStdoutErrBytesConverter.class,
       help =
-          "Number of bytes to which the UI will limit its output (non-positive "
-              + "values indicate unlimited). Once the limit is approaching, the UI "
-              + "will try hard to limit in a meaningful way, but will ultimately just drop all "
-              + "output.")
-  public int experimentalUiLimitConsoleOutput;
+          "The maximum size of the stdout / stderr files that will be printed to the console. "
+              + "-1 implies no limit.")
+  public int maxStdoutErrBytes;
 
   public boolean useColor() {
     return useColorEnum == UseColor.YES || (useColorEnum == UseColor.AUTO && isATty);
@@ -296,5 +296,27 @@ public class UiOptions extends OptionsBase {
 
   public boolean useCursorControl() {
     return useCursesEnum == UseCurses.YES || (useCursesEnum == UseCurses.AUTO && isATty);
+  }
+
+  /** A converter for --experimental_ui_max_stdouterr_bytes. */
+  public static class MaxStdoutErrBytesConverter extends RangeConverter {
+
+    /**
+     * The maximum value of the flag must be limited to ensure conversions to UTF-8 do not trigger
+     * integer overflows. In JDK9+, if the message buffer contains a byte whose high bit is set, a
+     * UTF-8 decoding path is taken that allocates a new byte[] buffer twice as large as the message
+     * byte[] buffer.
+     */
+    private static final int MAX_VALUE = (Integer.MAX_VALUE - 8) >> 1;
+
+    public MaxStdoutErrBytesConverter() {
+      super(-1, (Integer.MAX_VALUE - 8) >> 1);
+    }
+
+    @Override
+    public Integer convert(String input) throws OptionsParsingException {
+      Integer value = super.convert(input);
+      return value >= 0 ? value : MAX_VALUE;
+    }
   }
 }
