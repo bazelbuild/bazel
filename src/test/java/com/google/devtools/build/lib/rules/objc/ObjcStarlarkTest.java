@@ -1758,7 +1758,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         assertThrows(
             AssertionError.class, () -> getConfiguredTarget("//examples/apple_starlark:my_target"));
     assertThat(e).hasMessageThat().contains(
-        "Dotted version components must all be starting of the form");
+        "Dotted version components must all be start with the form");
   }
 
   /**
