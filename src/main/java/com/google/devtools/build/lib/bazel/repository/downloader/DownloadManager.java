@@ -94,7 +94,9 @@ public class DownloadManager {
       throw new InterruptedException();
     }
 
-    urls = rewriter.amend(urls);
+    if (rewriter != null) {
+      urls = rewriter.amend(urls);
+    }
 
     URL mainUrl; // The "main" URL for this request
     // Used for reporting only and determining the file name only.
