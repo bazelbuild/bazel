@@ -163,6 +163,9 @@ public interface SpawnResult {
    */
   String getRunnerName();
 
+  /** Returns optional details about the runner. */
+  String getRunnerSubtype();
+
   /**
    * Returns the wall time taken by the {@link Spawn}'s execution.
    *
@@ -253,6 +256,7 @@ public interface SpawnResult {
     @Nullable private final FailureDetail failureDetail;
     private final String executorHostName;
     private final String runnerName;
+    private final String runnerSubtype;
     private final SpawnMetrics spawnMetrics;
     private final Optional<Duration> wallTime;
     private final Optional<Duration> userTime;
@@ -275,6 +279,7 @@ public interface SpawnResult {
       this.failureDetail = builder.failureDetail;
       this.executorHostName = builder.executorHostName;
       this.runnerName = builder.runnerName;
+      this.runnerSubtype = builder.runnerSubtype;
       this.spawnMetrics = builder.spawnMetrics != null
           ? builder.spawnMetrics
           : SpawnMetrics.forLocalExecution(builder.wallTime.orElse(Duration.ZERO));
@@ -316,6 +321,11 @@ public interface SpawnResult {
     @Override
     public String getRunnerName() {
       return runnerName;
+    }
+
+    @Override
+    public String getRunnerSubtype() {
+      return runnerSubtype;
     }
 
     @Override
@@ -429,6 +439,7 @@ public interface SpawnResult {
     private FailureDetail failureDetail;
     private String executorHostName;
     private String runnerName = "";
+    private String runnerSubtype = "";
     private SpawnMetrics spawnMetrics;
     private Optional<Duration> wallTime = Optional.empty();
     private Optional<Duration> userTime = Optional.empty();
@@ -485,6 +496,11 @@ public interface SpawnResult {
 
     public Builder setRunnerName(String runnerName) {
       this.runnerName = runnerName;
+      return this;
+    }
+
+    public Builder setRunnerSubtype(String runnerSubtype) {
+      this.runnerSubtype = runnerSubtype;
       return this;
     }
 
