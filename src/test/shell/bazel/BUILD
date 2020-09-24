@@ -492,7 +492,6 @@ sh_test(
         "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
     ],
     tags = [
-        "manual",
         "no_windows",
     ],
 )
@@ -524,7 +523,6 @@ sh_test(
             "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         ],
         tags = [
-            "manual",
             "no_windows",
         ],
     )
@@ -1219,7 +1217,7 @@ sh_test(
     size = "large",
     srcs = ["jdeps_test.sh"],
     data = [
-        ":jdeps_class_blacklist.txt",
+        ":jdeps_class_denylist.txt",
         ":test-deps",
         "//src:embedded_jdk_allmodules",
         "//src:jdeps_modules.golden",
@@ -1317,5 +1315,13 @@ sh_test(
     name = "run_test",
     srcs = ["run_test.sh"],
     data = [":test-deps"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
+    name = "unix_digest_hash_attribute_name_test",
+    srcs = ["unix_digest_hash_attribute_name_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )

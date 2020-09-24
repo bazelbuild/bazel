@@ -214,7 +214,7 @@ public abstract class ASTFileLookupValue implements NotComparableSkyValue {
 
     @Override
     public SkyFunctionName functionName() {
-      return SkyFunctions.AST_FILE_LOOKUP;
+      return SkyFunctions.BZL_COMPILE;
     }
   }
 

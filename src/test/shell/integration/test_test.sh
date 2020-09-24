@@ -259,6 +259,7 @@ eof
 function run_bazel_and_interrupt() {
   local exp_message="${1}"; shift
 
+  rm -f "${TEST_log}"
   bazel "${@}" >"${TEST_log}" 2>&1 &
   local bazel_pid="${!}"
   local timeout=60

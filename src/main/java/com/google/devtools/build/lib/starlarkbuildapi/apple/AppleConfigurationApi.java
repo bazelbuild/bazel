@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDeprecated;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
@@ -34,7 +33,6 @@ public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfo
       doc =
           "<b>Deprecated. Use <a href='#single_arch_cpu'>single_arch_cpu</a> instead.</b> "
               + "The value of ios_cpu for this configuration.")
-  @StarlarkDeprecated
   String getIosCpu();
 
   @StarlarkMethod(

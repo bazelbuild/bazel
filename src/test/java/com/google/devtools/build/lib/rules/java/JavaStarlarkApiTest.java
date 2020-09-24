@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -2324,5 +2325,33 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
     Depset files = (Depset) ct.get("files");
     assertThat(prettyArtifactNames(files.toList(Artifact.class))).containsExactly("a/a.txt");
+  }
+
+  @Test
+  public void testJavaLibaryCollectsCoverageDependenciesFromResources() throws Exception {
+    useConfiguration("--collect_code_coverage");
+
+    scratch.file(
+        "java/BUILD",
+        "java_library(",
+        "    name = 'lib',",
+        "    resources = [':libjni.so'],",
+        ")",
+        "",
+        "cc_binary(",
+        "    name = 'libjni.so',",
+        "    srcs = ['jni.cc'],",
+        "    linkshared = 1,",
+        ")");
+
+    InstrumentedFilesInfo target = getInstrumentedFilesProvider("//java:lib");
+
+    assertThat(prettyArtifactNames(target.getInstrumentedFiles())).containsExactly("java/jni.cc");
+    assertThat(prettyArtifactNames(target.getInstrumentationMetadataFiles()))
+        .containsExactly("java/_objs/libjni.so/jni.gcno");
+  }
+
+  private InstrumentedFilesInfo getInstrumentedFilesProvider(String label) throws Exception {
+    return getConfiguredTarget(label).get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
   }
 }

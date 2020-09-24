@@ -68,7 +68,9 @@ public final class QueryParser {
     QueryExpression expr = parser.parseExpression();
     if (parser.token.kind != TokenKind.EOF) {
       throw new QuerySyntaxException(
-          "unexpected token '" + parser.token + "' after query expression '" + expr + "'");
+          String.format(
+              "unexpected token '%s' after query expression '%s'",
+              parser.token, expr.toTrunctatedString()));
     }
     return expr;
   }

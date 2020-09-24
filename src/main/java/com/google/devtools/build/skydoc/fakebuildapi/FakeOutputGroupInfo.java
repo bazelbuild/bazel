@@ -43,7 +43,7 @@ public class FakeOutputGroupInfo implements OutputGroupInfoApi {
   public static class FakeOutputGroupInfoProvider implements OutputGroupInfoApiProvider {
 
     @Override
-    public OutputGroupInfoApi constructor(Dict<?, ?> kwargs) throws EvalException {
+    public OutputGroupInfoApi constructor(Dict<String, Object> kwargs) throws EvalException {
       return new FakeOutputGroupInfo();
     }
 

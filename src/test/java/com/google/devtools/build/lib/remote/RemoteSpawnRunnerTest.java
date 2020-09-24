@@ -213,7 +213,8 @@ public class RemoteSpawnRunnerTest {
   }
 
   private FakeSpawnExecutionContext getSpawnContext(Spawn spawn) {
-    AbstractSpawnStrategy fakeLocalStrategy = new AbstractSpawnStrategy(execRoot, localRunner) {};
+    AbstractSpawnStrategy fakeLocalStrategy =
+        new AbstractSpawnStrategy(execRoot, localRunner, /*verboseFailures=*/ true) {};
     ClassToInstanceMap<ActionContext> actionContextRegistry =
         ImmutableClassToInstanceMap.of(RemoteLocalFallbackRegistry.class, () -> fakeLocalStrategy);
     return new FakeSpawnExecutionContext(
@@ -821,7 +822,7 @@ public class RemoteSpawnRunnerTest {
 
     SpawnResult result = runner.exec(spawn, policy);
     assertThat(result.exitCode()).isEqualTo(ExitCode.REMOTE_ERROR.getNumericExitCode());
-    assertThat(result.getDetailMessage("", "", false, false, false)).contains("reasons");
+    assertThat(result.getDetailMessage("", "", false, false)).contains("reasons");
   }
 
   @Test
@@ -841,7 +842,7 @@ public class RemoteSpawnRunnerTest {
 
     SpawnResult result = runner.exec(spawn, policy);
     assertThat(result.exitCode()).isEqualTo(ExitCode.REMOTE_ERROR.getNumericExitCode());
-    assertThat(result.getDetailMessage("", "", false, false, false)).contains("reasons");
+    assertThat(result.getDetailMessage("", "", false, false)).contains("reasons");
   }
 
   @Test

@@ -750,8 +750,6 @@ public class RuleClass {
         }
         configurationFragmentPolicy
             .includeConfigurationFragmentsFrom(parent.getConfigurationFragmentPolicy());
-        configurationFragmentPolicy.setMissingFragmentPolicy(
-            parent.getConfigurationFragmentPolicy().getMissingFragmentPolicy());
         supportsConstraintChecking = parent.supportsConstraintChecking;
 
         addRequiredToolchains(parent.getRequiredToolchains());
@@ -1033,11 +1031,12 @@ public class RuleClass {
     }
 
     /**
-     * Sets the policy for the case where the configuration is missing required fragments (see
+     * Sets the policy for the case where the configuration is missing required fragment class (see
      * {@link #requiresConfigurationFragments}).
      */
-    public Builder setMissingFragmentPolicy(MissingFragmentPolicy missingFragmentPolicy) {
-      configurationFragmentPolicy.setMissingFragmentPolicy(missingFragmentPolicy);
+    public Builder setMissingFragmentPolicy(
+        Class<?> fragmentClass, MissingFragmentPolicy missingFragmentPolicy) {
+      configurationFragmentPolicy.setMissingFragmentPolicy(fragmentClass, missingFragmentPolicy);
       return this;
     }
 

@@ -42,9 +42,6 @@ abstract class StarlarkDoc {
    */
   public abstract String getDocumentation();
 
-  /** Returns true if this entity should be considered "deprecated" for documentation purposes. */
-  public abstract boolean isDeprecated();
-
   protected String getTypeAnchor(Class<?> returnType, Class<?> generic1) {
     return getTypeAnchor(returnType) + " of " + getTypeAnchor(generic1) + "s";
   }

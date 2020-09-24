@@ -44,8 +44,11 @@ import java.util.List;
  */
 @ThreadSafe
 public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
-  public UnixFileSystem(DigestHashFunction hashFunction) {
+  protected final String hashAttributeName;
+
+  public UnixFileSystem(DigestHashFunction hashFunction, String hashAttributeName) {
     super(hashFunction);
+    this.hashAttributeName = hashAttributeName;
   }
 
   /**
@@ -401,6 +404,13 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     } finally {
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_XATTR, pathName);
     }
+  }
+
+  @Override
+  protected byte[] getFastDigest(Path path) throws IOException {
+    // Attempt to obtain the digest from an extended attribute attached to the file. This prevents
+    // the checksum from being recomputed unnecessarily.
+    return hashAttributeName.isEmpty() ? null : getxattr(path, hashAttributeName, true);
   }
 
   @Override

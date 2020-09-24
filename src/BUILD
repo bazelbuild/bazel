@@ -341,7 +341,6 @@ filegroup(
         "//src/main/native/windows:target-os-native-lib",
         "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",
-        "//src/main/tools:jdk-support",
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",
     ] + select({

@@ -172,6 +172,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
     runBadTargetLiteralsTest(/*checkDetailedCode=*/ false);
   }
 
+  @SuppressWarnings("TruthIncompatibleType")
   @Override
   @Test
   public void testNoImplicitDeps() throws Exception {
@@ -214,7 +215,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
     assertThat(evalToListOfStrings("deps(//test:my_rule)"))
         .containsAtLeastElementsIn(evalToListOfStrings(explicits));
     assertThat(evalToListOfStrings("deps(//test:my_rule)"))
-        .doesNotContain(evalToListOfStrings(implicits));
+        .containsNoneIn(evalToListOfStrings(implicits));
   }
 
   @Test
@@ -263,7 +264,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
     assertThat(evalToListOfStrings("deps(//test:my_rule)"))
         .containsAtLeastElementsIn(evalToListOfStrings(explicits));
     assertThat(evalToListOfStrings("deps(//test:my_rule)"))
-        .doesNotContain(evalToListOfStrings(implicits));
+        .containsNoneIn(evalToListOfStrings(implicits));
   }
 
   // Regression test for b/148550864

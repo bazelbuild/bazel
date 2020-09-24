@@ -86,17 +86,21 @@ final class StringModule implements StarlarkValue {
   // Returns the substring denoted by str[start:end], which is never out of bounds.
   // For speed, we don't return str.substring(start, end), as substring allocates a copy.
   // Instead we return the (start, end) indices, packed into the lo/hi arms of a long.
-  private static long substringIndices(String str, int start, Object end, String name)
-      throws EvalException {
+  private static long substringIndices(String str, Object start, Object end) throws EvalException {
     // This function duplicates the logic of Starlark.slice for strings.
     int n = str.length();
-    // TODO(adonovan): allow start to be None, as required by spec.
-    start = EvalUtils.toIndex(start, n);
-    int stop = end == Starlark.NONE ? n : EvalUtils.toIndex(Starlark.toInt(end, name), n);
-    if (stop < start) {
-      stop = start; // => empty result
+    int istart = 0;
+    if (start != Starlark.NONE) {
+      istart = EvalUtils.toIndex(Starlark.toInt(start, "start"), n);
     }
-    return pack(start, stop); // = str.substring(start, stop)
+    int iend = n;
+    if (end != Starlark.NONE) {
+      iend = EvalUtils.toIndex(Starlark.toInt(end, "end"), n);
+    }
+    if (iend < istart) {
+      iend = istart; // => empty result
+    }
+    return pack(istart, iend); // = str.substring(start, end)
   }
 
   private static long pack(int lo, int hi) {
@@ -515,10 +519,9 @@ final class StringModule implements StarlarkValue {
    *
    * @param forward true if we want to return the last matching index.
    */
-  private static int stringFind(
-      boolean forward, String self, String sub, int start, Object end, String msg)
+  private static int stringFind(boolean forward, String self, String sub, Object start, Object end)
       throws EvalException {
-    long indices = substringIndices(self, start, end, msg);
+    long indices = substringIndices(self, start, end);
     // Unfortunately Java forces us to allocate here, even though
     // String has a private indexOf method that accepts indices.
     // Fortunately the common case is self[0:n].
@@ -544,6 +547,7 @@ final class StringModule implements StarlarkValue {
         @Param(
             name = "start",
             type = Integer.class,
+            noneable = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
@@ -553,8 +557,8 @@ final class StringModule implements StarlarkValue {
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
       })
-  public Integer rfind(String self, String sub, Integer start, Object end) throws EvalException {
-    return stringFind(false, self, sub, start, end, "'end' argument to rfind");
+  public Integer rfind(String self, String sub, Object start, Object end) throws EvalException {
+    return stringFind(false, self, sub, start, end);
   }
 
   @StarlarkMethod(
@@ -569,6 +573,7 @@ final class StringModule implements StarlarkValue {
         @Param(
             name = "start",
             type = Integer.class,
+            noneable = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
@@ -578,8 +583,8 @@ final class StringModule implements StarlarkValue {
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
       })
-  public Integer find(String self, String sub, Integer start, Object end) throws EvalException {
-    return stringFind(true, self, sub, start, end, "'end' argument to find");
+  public Integer find(String self, String sub, Object start, Object end) throws EvalException {
+    return stringFind(true, self, sub, start, end);
   }
 
   @StarlarkMethod(
@@ -594,6 +599,7 @@ final class StringModule implements StarlarkValue {
         @Param(
             name = "start",
             type = Integer.class,
+            noneable = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
@@ -603,11 +609,10 @@ final class StringModule implements StarlarkValue {
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
       })
-  public Integer rindex(String self, String sub, Integer start, Object end) throws EvalException {
-    int res = stringFind(false, self, sub, start, end, "'end' argument to rindex");
+  public Integer rindex(String self, String sub, Object start, Object end) throws EvalException {
+    int res = stringFind(false, self, sub, start, end);
     if (res < 0) {
-      throw Starlark.errorf(
-          "substring %s not found in %s", Starlark.repr(sub), Starlark.repr(self));
+      throw Starlark.errorf("substring not found");
     }
     return res;
   }
@@ -624,6 +629,7 @@ final class StringModule implements StarlarkValue {
         @Param(
             name = "start",
             type = Integer.class,
+            noneable = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
@@ -633,11 +639,10 @@ final class StringModule implements StarlarkValue {
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
       })
-  public Integer index(String self, String sub, Integer start, Object end) throws EvalException {
-    int res = stringFind(true, self, sub, start, end, "'end' argument to index");
+  public Integer index(String self, String sub, Object start, Object end) throws EvalException {
+    int res = stringFind(true, self, sub, start, end);
     if (res < 0) {
-      throw Starlark.errorf(
-          "substring %s not found in %s", Starlark.repr(sub), Starlark.repr(self));
+      throw Starlark.errorf("substring not found");
     }
     return res;
   }
@@ -671,6 +676,8 @@ final class StringModule implements StarlarkValue {
         result.add(line);
       }
     }
+    // TODO(adonovan): spec should state immutability.
+    // Python[23] and go.starlark.net return a mutable list.
     return StarlarkList.immutableCopyOf(result);
   }
 
@@ -815,6 +822,7 @@ final class StringModule implements StarlarkValue {
         @Param(
             name = "start",
             type = Integer.class,
+            noneable = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
@@ -824,8 +832,8 @@ final class StringModule implements StarlarkValue {
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
       })
-  public Integer count(String self, String sub, Integer start, Object end) throws EvalException {
-    long indices = substringIndices(self, start, end, "'end' operand of 'count'");
+  public Integer count(String self, String sub, Object start, Object end) throws EvalException {
+    long indices = substringIndices(self, start, end);
     if (sub.isEmpty()) {
       return hi(indices) - lo(indices) + 1; // str.length() + 1
     }
@@ -875,6 +883,7 @@ final class StringModule implements StarlarkValue {
         @Param(
             name = "start",
             type = Integer.class,
+            noneable = true,
             defaultValue = "0",
             doc = "Test beginning at this position."),
         @Param(
@@ -884,8 +893,8 @@ final class StringModule implements StarlarkValue {
             defaultValue = "None",
             doc = "optional position at which to stop comparing.")
       })
-  public Boolean endsWith(String self, Object sub, Integer start, Object end) throws EvalException {
-    long indices = substringIndices(self, start, end, "'end' operand of 'endswith'");
+  public Boolean endsWith(String self, Object sub, Object start, Object end) throws EvalException {
+    long indices = substringIndices(self, start, end);
     if (sub instanceof String) {
       return substringEndsWith(self, lo(indices), hi(indices), (String) sub);
     }
@@ -929,7 +938,7 @@ final class StringModule implements StarlarkValue {
       extraPositionals =
           @Param(
               name = "args",
-              type = Sequence.class,
+              type = Tuple.class,
               defaultValue = "()",
               doc = "List of arguments."),
       extraKeywords =
@@ -938,11 +947,9 @@ final class StringModule implements StarlarkValue {
               type = Dict.class,
               defaultValue = "{}",
               doc = "Dictionary of arguments."))
-  public String format(String self, Sequence<?> args, Dict<?, ?> kwargs) throws EvalException {
-    @SuppressWarnings("unchecked")
-    List<Object> argObjects = (List<Object>) args.getImmutableList();
-    return new FormatParser()
-        .format(self, argObjects, Dict.cast(kwargs, String.class, Object.class, "kwargs"));
+  public String format(String self, Tuple<Object> args, Dict<String, Object> kwargs)
+      throws EvalException {
+    return new FormatParser().format(self, args, kwargs);
   }
 
   @StarlarkMethod(
@@ -963,6 +970,7 @@ final class StringModule implements StarlarkValue {
         @Param(
             name = "start",
             type = Integer.class,
+            noneable = true,
             defaultValue = "0",
             doc = "Test beginning at this position."),
         @Param(
@@ -972,9 +980,9 @@ final class StringModule implements StarlarkValue {
             defaultValue = "None",
             doc = "Stop comparing at this position.")
       })
-  public Boolean startsWith(String self, Object sub, Integer start, Object end)
+  public Boolean startsWith(String self, Object sub, Object start, Object end)
       throws EvalException {
-    long indices = substringIndices(self, start, end, "'end' operand of 'startswith'");
+    long indices = substringIndices(self, start, end);
     if (sub instanceof String) {
       return substringStartsWith(self, lo(indices), hi(indices), (String) sub);
     }

@@ -246,12 +246,22 @@ public final class RepositoryName implements Serializable {
 
   /**
    * Returns the relative path to the repository source. Returns "" for the main repository and
-   * external/[repository name] for external repositories.
+   * [repository name] for external repositories.
    */
   public PathFragment getSourceRoot() {
     return isDefault() || isMain()
         ? PathFragment.EMPTY_FRAGMENT
-        : LabelConstants.EXTERNAL_REPOSITORY_LOCATION.getRelative(strippedName());
+        : PathFragment.create(strippedName());
+  }
+
+  /**
+   * Returns the package path to the repository source. Returns "" for the main repository and
+   * external/[repository name] for external repositories.
+   */
+  public PathFragment getPackagePath() {
+    return isDefault() || isMain()
+        ? PathFragment.EMPTY_FRAGMENT
+        : LabelConstants.EXTERNAL_PACKAGE_NAME.getRelative(strippedName());
   }
 
   /**

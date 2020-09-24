@@ -27,7 +27,6 @@ import java.util.Map;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkGlobalLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
@@ -39,7 +38,6 @@ import org.junit.runners.JUnit4;
 /** Tests of Starlark evaluation. */
 // There is no clear distinction between this and EvaluationTest.
 // TODO(adonovan): reorganize.
-@StarlarkGlobalLibrary // required for @StarlarkMethod-annotated methods
 @RunWith(JUnit4.class)
 public final class StarlarkEvaluationTest {
 
@@ -69,6 +67,15 @@ public final class StarlarkEvaluationTest {
   @StarlarkMethod(name = "thrownpe", documented = false)
   public void thrownpe() {
     throw new NullPointerException("oops");
+  }
+
+  private static Object getattr(Object x, String name) {
+    try {
+      return Starlark.getattr(
+          Mutability.IMMUTABLE, StarlarkSemantics.DEFAULT, x, name, Starlark.NONE);
+    } catch (EvalException | InterruptedException ex) {
+      throw new IllegalStateException(ex);
+    }
   }
 
   // A trivial struct-like class with Starlark fields defined by a map.
@@ -161,7 +168,7 @@ public final class StarlarkEvaluationTest {
 
     @StarlarkMethod(name = "struct_field_callable", documented = false, structField = true)
     public Object structFieldCallable() {
-      return new BuiltinCallable(StarlarkEvaluationTest.this, "foobar");
+      return getattr(StarlarkEvaluationTest.this, "foobar");
     }
 
     @StarlarkMethod(name = "interrupted_struct_field", documented = false, structField = true)
@@ -362,10 +369,18 @@ public final class StarlarkEvaluationTest {
     @StarlarkMethod(
         name = "proxy_methods_object",
         doc = "Returns a struct containing all callable method objects of this mock",
-        allowReturnNones = true)
-    public ClassObject proxyMethodsObject() {
-      ImmutableMap.Builder<String, Object> builder = new ImmutableMap.Builder<>();
-      Starlark.addMethods(builder, this);
+        allowReturnNones = true,
+        useStarlarkThread = true)
+    public ClassObject proxyMethodsObject(StarlarkThread thread)
+        throws EvalException, InterruptedException {
+      ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
+      for (String name : Starlark.dir(thread.mutability(), thread.getSemantics(), this)) {
+        if (name.equals("interrupted_struct_field")) {
+          continue; // skip, because getattr would be interrupted
+        }
+        Object v = Starlark.getattr(thread.mutability(), thread.getSemantics(), this, name, null);
+        builder.put(name, v);
+      }
       return new SimpleStruct(builder.build());
     }
 
@@ -1222,7 +1237,7 @@ public final class StarlarkEvaluationTest {
 
   @Test
   public void testCallingInterruptedFunction() throws Exception {
-    ev.update("interrupted_function", new BuiltinCallable(this, "interrupted_function"));
+    ev.update("interrupted_function", getattr(this, "interrupted_function"));
     assertThrows(InterruptedException.class, () -> ev.eval("interrupted_function()"));
   }
 
@@ -1403,7 +1418,7 @@ public final class StarlarkEvaluationTest {
 
   @Test
   public void testJavaFunctionOverflowsStack() throws Exception {
-    ev.update("stackoverflow", new BuiltinCallable(this, "stackoverflow"));
+    ev.update("stackoverflow", getattr(this, "stackoverflow"));
     Starlark.UncheckedEvalException e =
         assertThrows(Starlark.UncheckedEvalException.class, () -> ev.eval("stackoverflow()"));
     assertThat(e).hasCauseThat().isInstanceOf(StackOverflowError.class);
@@ -1415,7 +1430,7 @@ public final class StarlarkEvaluationTest {
 
   @Test
   public void testJavaFunctionThrowsNPE() throws Exception {
-    ev.update("thrownpe", new BuiltinCallable(this, "thrownpe"));
+    ev.update("thrownpe", getattr(this, "thrownpe"));
     Starlark.UncheckedEvalException e =
         assertThrows(Starlark.UncheckedEvalException.class, () -> ev.eval("thrownpe()"));
     // Wrapper reveals stack.
@@ -1804,9 +1819,9 @@ public final class StarlarkEvaluationTest {
             "d = str(getattr('str', 'replace', 'no'))",
             "e = str(getattr(mock, 'other', 'no'))\n")
         .testLookup("a", "a")
-        .testLookup("b", "<built-in function function>")
-        .testLookup("c", "<built-in function is_empty>")
-        .testLookup("d", "<built-in function replace>")
+        .testLookup("b", "<built-in method function of Mock value>")
+        .testLookup("c", "<built-in method is_empty of Mock value>")
+        .testLookup("d", "<built-in method replace of string value>")
         .testLookup("e", "no");
   }
 
@@ -2058,5 +2073,14 @@ public final class StarlarkEvaluationTest {
             "'string' value has no field or method 'nonesuch'",
             "def f(): x = 1//0",
             "''.nonesuch(f())");
+  }
+
+  @Test
+  public void testAddMethodsRejectsFields() throws Exception {
+    IllegalArgumentException ex =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> Starlark.addMethods(ImmutableMap.builder(), new Mock()));
+    assertThat(ex).hasMessageThat().contains("method struct_field has structField=true");
   }
 }

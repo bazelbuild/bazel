@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.In
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Command.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -40,6 +42,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -194,7 +197,7 @@ public final class BlazeOptionHandler {
   }
 
   private void parseArgsAndConfigs(List<String> args, ExtendedEventHandler eventHandler)
-      throws OptionsParsingException, InterruptedException {
+      throws OptionsParsingException, InterruptedException, AbruptExitException {
     Path workspaceDirectory = workspace.getWorkspace();
     // TODO(ulfjack): The working directory is passed by the client as part of CommonCommandOptions,
     // and we can't know it until after we've parsed the options, so use the workspace for now.
@@ -216,7 +219,6 @@ public final class BlazeOptionHandler {
     // proper rcfiles. The --default_override options should be parsed with the --rc_source since
     // {@link #parseRcOptions} depends on the list populated by the {@link
     // ClientOptions#OptionOverrideConverter}.
-
     ImmutableList.Builder<String> defaultOverridesAndRcSources = new ImmutableList.Builder<>();
     ImmutableList.Builder<String> remainingCmdLine = new ImmutableList.Builder<>();
     partitionCommandLineArgs(cmdLineAfterCommand, defaultOverridesAndRcSources, remainingCmdLine);
@@ -240,6 +242,9 @@ public final class BlazeOptionHandler {
     // Parses the remaining command-line options.
     optionsParser.parseWithSourceFunction(
         PriorityCategory.COMMAND_LINE, commandOptionSourceFunction, remainingCmdLine.build());
+
+    // TODO(b/132346407) : Remove when shorthand aliasing is fully implemented
+    validateFlagAliasUsage(optionsParser);
 
     if (commandAnnotation.builds()) {
       // splits project files from targets in the traditional sense
@@ -347,6 +352,8 @@ public final class BlazeOptionHandler {
                   FailureDetails.Interrupted.newBuilder()
                       .setCode(FailureDetails.Interrupted.Code.OPTIONS_PARSING))
               .build());
+    } catch (AbruptExitException e) {
+      return e.getDetailedExitCode();
     }
     return DetailedExitCode.success();
   }
@@ -513,5 +520,42 @@ public final class BlazeOptionHandler {
         remainingCmdLine.add(option);
       }
     }
+  }
+
+  private static void validateFlagAliasUsage(OptionsParser optionsParser)
+      throws OptionsParsingException {
+
+    CoreOptions coreOptions = optionsParser.getOptions(CoreOptions.class);
+
+    // --flag_alias would've thrown an error before reaching this if it was used, but CoreOptions
+    // may not necessarily be present
+    if (coreOptions == null) {
+      return;
+    }
+
+    List<Map.Entry<String, String>> collectedAliases = coreOptions.commandLineFlagAliases;
+    if (collectedAliases.isEmpty()) {
+      return;
+    }
+
+    if (coreOptions.enableFlagAlias) {
+      return;
+    }
+
+    String detectedAliases =
+        "Detected aliases: --flag_alias="
+            + collectedAliases.get(0).getKey()
+            + "="
+            + collectedAliases.get(0).getValue();
+    for (int i = 1; i < collectedAliases.size(); i++) {
+      Map.Entry<String, String> entry = collectedAliases.get(i);
+      String aliasString = ", --flag_alias=" + entry.getKey() + "=" + entry.getValue();
+      detectedAliases += aliasString;
+    }
+
+    throw new OptionsParsingException(
+        "--flag_alias is experimental. Set --experimental_enable_flag_alias to true to make use of"
+            + " it. "
+            + detectedAliases);
   }
 }

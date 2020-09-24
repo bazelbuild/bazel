@@ -20,6 +20,7 @@ import shutil
 import socket
 import stat
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -212,8 +213,13 @@ class TestBase(unittest.TestCase):
 
   @staticmethod
   def IsUnix():
-    """Returns true if the current platform is Unix platform."""
+    """Returns true if the current platform is Unix (Linux and Mac included)."""
     return os.name == 'posix'
+
+  @staticmethod
+  def IsLinux():
+    """Returns true if the current platform is Linux."""
+    return sys.platform.startswith('linux')
 
   def Path(self, path):
     """Returns the absolute path of `path` relative to self._test_cwd.

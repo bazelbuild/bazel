@@ -51,7 +51,7 @@ import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
-import com.google.devtools.build.lib.skyframe.ASTFileLookupFunction;
+import com.google.devtools.build.lib.skyframe.BzlCompileFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
@@ -76,7 +76,6 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction;
-import com.google.devtools.build.lib.skyframe.WorkspaceASTFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceFileFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceNameFunction;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -485,13 +484,12 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             new IgnoredPackagePrefixesFunction(
                 /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
         .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
-        .put(SkyFunctions.AST_FILE_LOOKUP, new ASTFileLookupFunction(pkgFactory, hashFunction))
+        .put(SkyFunctions.BZL_COMPILE, new BzlCompileFunction(pkgFactory, hashFunction))
         .put(SkyFunctions.STARLARK_BUILTINS, new StarlarkBuiltinsFunction(pkgFactory))
         .put(
             SkyFunctions.BZL_LOAD,
             BzlLoadFunction.create(pkgFactory, hashFunction, CacheBuilder.newBuilder().build()))
         .put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction())
-        .put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider))
         .put(
             WorkspaceFileValue.WORKSPACE_FILE,
             new WorkspaceFileFunction(

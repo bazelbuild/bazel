@@ -56,6 +56,7 @@ public final class SpawnBuilder {
   private final NestedSetBuilder<ActionInput> tools = NestedSetBuilder.stableOrder();
 
   private RunfilesSupplier runfilesSupplier = EmptyRunfilesSupplier.INSTANCE;
+  private ResourceSet resourceSet = ResourceSet.ZERO;
 
   public SpawnBuilder(String... args) {
     this.args = ImmutableList.copyOf(args);
@@ -74,7 +75,7 @@ public final class SpawnBuilder {
         inputs.build(),
         tools.build(),
         ImmutableSet.copyOf(outputs),
-        ResourceSet.ZERO);
+        resourceSet);
   }
 
   public SpawnBuilder withPlatform(PlatformInfo platform) {
@@ -159,6 +160,11 @@ public final class SpawnBuilder {
 
   public SpawnBuilder withTool(ActionInput tool) {
     tools.add(tool);
+    return this;
+  }
+
+  public SpawnBuilder withLocalResources(ResourceSet resourceSet) {
+    this.resourceSet = resourceSet;
     return this;
   }
 }

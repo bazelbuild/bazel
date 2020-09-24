@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
 import com.google.devtools.build.lib.rules.objc.AppleBinary.AppleBinaryOutput;
-import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleCommonApi;
 import java.util.Map;
@@ -197,15 +196,15 @@ public class AppleStarlarkCommon
 
   @Override
   // This method is registered statically for Starlark, and never called directly.
-  public ObjcProvider newObjcProvider(Boolean usesSwift, Dict<?, ?> kwargs, StarlarkThread thread)
-      throws EvalException {
+  public ObjcProvider newObjcProvider(
+      Boolean usesSwift, Dict<String, Object> kwargs, StarlarkThread thread) throws EvalException {
     StarlarkSemantics semantics = thread.getSemantics();
     ObjcProvider.StarlarkBuilder resultBuilder = new ObjcProvider.StarlarkBuilder(semantics);
     if (usesSwift) {
       resultBuilder.add(ObjcProvider.FLAG, ObjcProvider.Flag.USES_SWIFT);
     }
-    for (Map.Entry<?, ?> entry : kwargs.entrySet()) {
-      Key<?> key = ObjcProvider.getStarlarkKeyForString((String) entry.getKey());
+    for (Map.Entry<String, Object> entry : kwargs.entrySet()) {
+      ObjcProvider.Key<?> key = ObjcProvider.getStarlarkKeyForString(entry.getKey());
       if (key != null) {
         resultBuilder.addElementsFromStarlark(key, entry.getValue());
       } else if (entry.getKey().equals("strict_include")) {

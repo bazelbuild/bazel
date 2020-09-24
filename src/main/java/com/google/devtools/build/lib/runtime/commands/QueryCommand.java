@@ -82,7 +82,9 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
     try (SilentCloseable closeable = Profiler.instance().profile("QueryExpression.parse")) {
       expr = QueryExpression.parse(query, queryEnv);
     } catch (QuerySyntaxException e) {
-      String message = "Error while parsing '" + query + "': " + e.getMessage();
+      String message =
+          String.format(
+              "Error while parsing '%s': %s", QueryExpression.truncate(query), e.getMessage());
       env.getReporter().handle(Event.error(null, message));
       return Either.ofLeft(
           BlazeCommandResult.detailedExitCode(

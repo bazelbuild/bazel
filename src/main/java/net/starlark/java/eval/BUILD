@@ -51,7 +51,7 @@ java_library(
     visibility = ["//src/main/java/net/starlark/java:clients"],
     deps = [
         # Do not add Bazel or Google dependencies here!
-        "//src/main/java/net/starlark/java/annot:annot_new",
+        "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/spelling",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:error_prone_annotations",

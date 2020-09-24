@@ -41,11 +41,11 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Unit tests of specific functionality of ASTFileLookupFunction. */
+/** Unit tests of specific functionality of BzlCompileFunction. */
 @RunWith(JUnit4.class)
-public class ASTFileLookupFunctionTest extends BuildViewTestCase {
+public class BzlCompileFunctionTest extends BuildViewTestCase {
 
-  private static class MockFileSystem extends InMemoryFileSystem {
+  private class MockFileSystem extends InMemoryFileSystem {
     PathFragment throwIOExceptionFor = null;
 
     MockFileSystem() {
@@ -111,10 +111,10 @@ public class ASTFileLookupFunctionTest extends BuildViewTestCase {
 
     invalidatePackages(/*alsoConfigs=*/ false); // Repository shuffling messes with toolchains.
     SkyKey skyKey =
-        ASTFileLookupValue.key(
+        BzlCompileValue.key(
             Root.fromPath(repoPath),
             Label.parseAbsoluteUnchecked("@a_remote_repo//remote_pkg:foo.bzl"));
-    EvaluationResult<ASTFileLookupValue> result =
+    EvaluationResult<BzlCompileValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
     List<String> loads = getLoads(result.get(skyKey).getAST());
@@ -133,8 +133,8 @@ public class ASTFileLookupFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testLoadOfNonexistentFile() throws Exception {
-    SkyKey skyKey = ASTFileLookupValue.key(root, Label.parseAbsoluteUnchecked("//pkg:foo.bzl"));
-    EvaluationResult<ASTFileLookupValue> result =
+    SkyKey skyKey = BzlCompileValue.key(root, Label.parseAbsoluteUnchecked("//pkg:foo.bzl"));
+    EvaluationResult<BzlCompileValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
     assertThat(result.get(skyKey).lookupSuccessful()).isFalse();

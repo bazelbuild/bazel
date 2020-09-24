@@ -30,7 +30,7 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
 
   @Override
   protected FileSystem getFreshFileSystem(DigestHashFunction digestHashFunction) {
-    return new UnixFileSystem(digestHashFunction);
+    return new UnixFileSystem(digestHashFunction, /*hashAttributeName=*/ "");
   }
 
   @Override

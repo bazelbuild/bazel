@@ -2250,7 +2250,7 @@ def foo_repos():
     )
 EOF
 
-  bazel build --record_rule_instantiation_callstack @foo//... > "${TEST_log}" 2>&1 && fail "expected failure"
+  bazel build @foo//... > "${TEST_log}" 2>&1 && fail "expected failure"
   inplace-sed -e "s?$WRKDIR/?WRKDIR/?g" -e "s?$TEST_TMPDIR/?TEST_TMPDIR/?g" "${TEST_log}"
 
   expect_log 'error.*repository.*foo'
@@ -2326,7 +2326,7 @@ load("@a//:notabuildfile.bzl", "x")
 EOF
   touch BUILD
 
-  bazel build --record_rule_instantiation_callstack //... > "${TEST_log}" 2>&1 && fail "expected failure" || :
+  bazel build //... > "${TEST_log}" 2>&1 && fail "expected failure" || :
   inplace-sed -e 's?$(pwd)/?PWD/?g' "${TEST_log}"
 
   expect_not_log '[iI]nternal [eE]rror'

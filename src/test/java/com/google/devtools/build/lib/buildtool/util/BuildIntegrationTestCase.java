@@ -108,7 +108,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -139,7 +138,7 @@ public abstract class BuildIntegrationTestCase {
 
     @Override
     public ActionExecutionException toActionExecutionException(
-        String messagePrefix, boolean verboseFailures, Action action) {
+        String messagePrefix, Action action) {
       String message = messagePrefix + getMessage();
       // Append cause.getMessage() if it's different from getMessage(). It typically
       // isn't but if it is we'd like to surface cause.getMessage() as part of the
@@ -293,7 +292,6 @@ public abstract class BuildIntegrationTestCase {
     return FileSystems.getNativeFileSystem(getDigestHashFunction());
   }
 
-  @ForOverride
   protected DigestHashFunction getDigestHashFunction() {
     return DigestHashFunction.SHA256;
   }

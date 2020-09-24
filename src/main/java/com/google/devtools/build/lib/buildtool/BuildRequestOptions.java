@@ -117,9 +117,10 @@ public class BuildRequestOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Execute the analysis phase; this is the usual behaviour. Specifying --noanalyze causes "
-              + "the build to stop before starting the analysis phase, returning zero iff the "
-              + "package loading completed successfully; this mode is useful for testing.")
+          "Execute the loading/analysis phase; this is the usual behaviour. Specifying --noanalyze"
+              + "causes the build to stop before starting the loading/analysis phase, just doing "
+              + "target pattern parsing and returning zero iff that completed successfully; this "
+              + "mode is useful for testing.")
   public boolean performAnalysisPhase;
 
   @Option(

@@ -29,6 +29,10 @@
 
 #include "src/main/native/windows/util.h"
 
+#ifndef IO_REPARSE_TAG_PROJFS
+#define IO_REPARSE_TAG_PROJFS 0x9000001C
+#endif
+
 namespace bazel {
 namespace windows {
 
@@ -523,6 +527,10 @@ int ReadSymlinkOrJunction(const wstring& path, wstring* result,
       *result = wstring(
           p, buf->MountPointReparseBuffer.SubstituteNameLength / sizeof(WCHAR));
       return ReadSymlinkOrJunctionResult::kSuccess;
+    }
+    case IO_REPARSE_TAG_PROJFS: {
+      // Virtual File System for Git
+      return ReadSymlinkOrJunctionResult::kNotALink;
     }
     default:
       return ReadSymlinkOrJunctionResult::kUnknownLinkType;

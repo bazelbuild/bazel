@@ -178,10 +178,13 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
       if (!keepGoing) {
         if (detailedExitCode != null) {
           throw new QueryException(
-              "Evaluation of query \"" + expr + "\" failed", detailedExitCode.getFailureDetail());
+              "Evaluation of query \"" + expr.toTrunctatedString() + "\" failed",
+              detailedExitCode.getFailureDetail());
         }
         throw new QueryException(
-            "Evaluation of query \"" + expr + "\" failed due to BUILD file errors",
+            "Evaluation of query \""
+                + expr.toTrunctatedString()
+                + "\" failed due to BUILD file errors",
             Query.Code.BUILD_FILE_ERROR);
       }
       eventHandler.handle(
@@ -194,7 +197,9 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
             DetailedExitCode.of(
                 FailureDetail.newBuilder()
                     .setMessage(
-                        "Evaluation of query \"" + expr + "\" failed due to BUILD file errors")
+                        "Evaluation of query \""
+                            + expr.toTrunctatedString()
+                            + "\" failed due to BUILD file errors")
                     .setQuery(Query.newBuilder().setCode(Code.BUILD_FILE_ERROR))
                     .build()));
       }
@@ -246,7 +251,7 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
       }
       throw new QueryException(expression, message, Query.Code.BUILD_FILE_ERROR);
     }
-    eventHandler.handle(createErrorEvent(expression.toString(), message, detailedExitCode));
+    eventHandler.handle(createErrorEvent(expression, message, detailedExitCode));
   }
 
   public abstract Target getTarget(Label label)
@@ -317,8 +322,9 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
   }
 
   private static Event createErrorEvent(
-      String caller, String message, @Nullable DetailedExitCode detailedExitCode) {
-    String eventMessage = String.format("Evaluation of query \"%s\" failed: %s", caller, message);
+      QueryExpression expr, String message, @Nullable DetailedExitCode detailedExitCode) {
+    String eventMessage =
+        String.format("Evaluation of query \"%s\" failed: %s", expr.toTrunctatedString(), message);
     Event event = Event.error(eventMessage);
     if (detailedExitCode != null) {
       event =

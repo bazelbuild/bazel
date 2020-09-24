@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDeprecated;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -32,5 +31,4 @@ import net.starlark.java.eval.StarlarkValue;
         "Deprecated. Use <a"
             + " href=\"https://docs.bazel.build/versions/master/skylark/lib/JavaInfo.html\">JavaInfo</a>"
             + " instead.")
-@StarlarkDeprecated
 public interface JavaStarlarkApiProviderApi<FileT extends FileApi> extends StarlarkValue {}

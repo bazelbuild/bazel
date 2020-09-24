@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.vfs.Path;
  * Strategy that uses subprocessing to execute a process.
  */
 public class StandaloneSpawnStrategy extends AbstractSpawnStrategy {
-  public StandaloneSpawnStrategy(Path execRoot, SpawnRunner spawnRunner) {
-    super(execRoot, spawnRunner);
+  public StandaloneSpawnStrategy(Path execRoot, SpawnRunner spawnRunner, boolean verboseFailures) {
+    super(execRoot, spawnRunner, verboseFailures);
   }
 
   @Override

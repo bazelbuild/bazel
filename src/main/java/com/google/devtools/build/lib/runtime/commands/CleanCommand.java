@@ -49,6 +49,7 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.UUID;
 import java.util.logging.LogManager;
 
 /** Implements 'blaze clean'. */
@@ -189,7 +190,8 @@ public final class CleanCommand implements BlazeCommand {
 
   private static void asyncClean(CommandEnvironment env, Path path, String pathItemName)
       throws IOException, CommandException, InterruptedException {
-    String tempBaseName = path.getBaseName() + "_tmp_" + ProcessUtils.getpid();
+    String tempBaseName =
+        path.getBaseName() + "_tmp_" + ProcessUtils.getpid() + "_" + UUID.randomUUID();
 
     // Keeping tempOutputBase in the same directory ensures it remains in the
     // same file system, and therefore the mv will be atomic and fast.

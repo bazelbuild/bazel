@@ -35,7 +35,6 @@ import build.bazel.remote.execution.v2.OutputDirectory;
 import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import build.bazel.remote.execution.v2.Tree;
-import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -1243,9 +1242,9 @@ public class RemoteCacheTests {
     final ConcurrentMap<Digest, byte[]> cas = new ConcurrentHashMap<>();
 
     Digest fooDigest = digestUtil.computeAsUtf8("foo-contents");
-    cas.put(fooDigest, "foo-contents".getBytes(Charsets.UTF_8));
+    cas.put(fooDigest, "foo-contents".getBytes(UTF_8));
     Digest quxDigest = digestUtil.computeAsUtf8("qux-contents");
-    cas.put(quxDigest, "qux-contents".getBytes(Charsets.UTF_8));
+    cas.put(quxDigest, "qux-contents".getBytes(UTF_8));
 
     Tree barTreeMessage =
         Tree.newBuilder()
@@ -1324,9 +1323,9 @@ public class RemoteCacheTests {
     Digest barTreeDigest = digestUtil.compute(barTreeMessage);
 
     final ConcurrentMap<Digest, byte[]> map = new ConcurrentHashMap<>();
-    map.put(fooDigest, "foo-contents".getBytes(Charsets.UTF_8));
+    map.put(fooDigest, "foo-contents".getBytes(UTF_8));
     map.put(barTreeDigest, barTreeMessage.toByteArray());
-    map.put(quxDigest, "qux-contents".getBytes(Charsets.UTF_8));
+    map.put(quxDigest, "qux-contents".getBytes(UTF_8));
 
     ActionResult.Builder result = ActionResult.newBuilder();
     result.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
@@ -1376,7 +1375,7 @@ public class RemoteCacheTests {
     Digest treeDigest = digestUtil.compute(tree);
 
     final ConcurrentMap<Digest, byte[]> map = new ConcurrentHashMap<>();
-    map.put(fileDigest, "file".getBytes(Charsets.UTF_8));
+    map.put(fileDigest, "file".getBytes(UTF_8));
     map.put(treeDigest, tree.toByteArray());
 
     ActionResult.Builder result = ActionResult.newBuilder();

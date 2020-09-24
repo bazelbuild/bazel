@@ -13,8 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.http;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.auth.Credentials;
-import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
@@ -62,7 +63,7 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
   protected void addCredentialHeaders(HttpRequest request, URI uri) throws IOException {
     String userInfo = uri.getUserInfo();
     if (userInfo != null) {
-      String value = BaseEncoding.base64Url().encode(userInfo.getBytes(Charsets.UTF_8));
+      String value = BaseEncoding.base64Url().encode(userInfo.getBytes(UTF_8));
       request.headers().set(HttpHeaderNames.AUTHORIZATION, "Basic " + value);
       return;
     }

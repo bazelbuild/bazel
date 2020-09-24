@@ -121,7 +121,9 @@ public final class FetchCommand implements BlazeCommand {
     try {
       expr = QueryExpression.parse(query, queryEnv);
     } catch (QuerySyntaxException e) {
-      String errorMessage = "Error while parsing '" + query + "': " + e.getMessage();
+      String errorMessage =
+          String.format(
+              "Error while parsing '%s': %s", QueryExpression.truncate(query), e.getMessage());
       env.getReporter().handle(Event.error(null, errorMessage));
       return createFailedBlazeCommandResult(
           ExitCode.COMMAND_LINE_ERROR, Code.QUERY_PARSE_ERROR, errorMessage);

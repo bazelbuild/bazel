@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.skyframe.RegisteredExecutionPlatformsFuncti
 import com.google.devtools.build.lib.skyframe.RegisteredToolchainsFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.WorkspaceASTFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceFileFunction;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
@@ -143,7 +142,6 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
             externalFilesHelper));
     skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator));
     RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
-    skyFunctions.put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider));
     skyFunctions.put(
         WorkspaceFileValue.WORKSPACE_FILE,
         new WorkspaceFileFunction(

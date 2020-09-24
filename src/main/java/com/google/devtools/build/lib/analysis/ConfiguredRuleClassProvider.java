@@ -743,7 +743,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
       ImmutableMap<String, Object> nativeRuleSpecificBindings) {
     ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
     // Add predeclared symbols of the Bazel build language.
-    StarlarkModules.addStarlarkGlobalsToBuilder(envBuilder);
+    StarlarkModules.addPredeclared(envBuilder);
     // Add all the extensions registered with the rule class provider.
     envBuilder.putAll(nativeRuleSpecificBindings);
     return envBuilder.build();

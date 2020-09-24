@@ -599,7 +599,7 @@ public final class CcCommon {
     List<PathFragment> result = new ArrayList<>();
     PackageIdentifier packageIdentifier = ruleContext.getLabel().getPackageIdentifier();
     PathFragment packageExecPath = packageIdentifier.getExecPath(siblingRepositoryLayout);
-    PathFragment packageSourceRoot = packageIdentifier.getSourceRoot();
+    PathFragment packageSourceRoot = packageIdentifier.getPackagePath();
     for (String includesAttr : ruleContext.getExpander().list("includes")) {
       if (includesAttr.startsWith("/")) {
         ruleContext.attributeWarning("includes",

@@ -738,7 +738,6 @@ cc_library(
     hdrs = [
         "java_tools/src/tools/singlejar/combiners.h",
         ":transient_bytes",
-        ":zip_headers",
     ],
     copts = SUPRESSED_WARNINGS,
     strip_include_prefix = "java_tools",

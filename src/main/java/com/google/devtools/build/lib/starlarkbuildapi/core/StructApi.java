@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.core;
 
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
@@ -104,7 +104,7 @@ public interface StructApi extends StarlarkValue {
                 doc = "Dictionary of arguments."),
         useStarlarkThread = true,
         selfCall = true)
-    @StarlarkConstructor(objectType = StructApi.class, receiverNameForDoc = "struct")
+    @StarlarkConstructor
     StructApi createStruct(Dict<String, Object> kwargs, StarlarkThread thread) throws EvalException;
   }
 }

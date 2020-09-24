@@ -80,7 +80,7 @@ public final class AspectResolver {
               String.format(
                   "Evaluation of aspect %s on %s failed: %s",
                   depAspect.getAspect().getAspectClass().getName(), dep.getLabel(), e),
-              new LabelCause(dep.getLabel(), e.getMessage()));
+              new LabelCause(dep.getLabel(), e.getDetailedExitCode()));
         }
 
         if (aspectValue == null) {

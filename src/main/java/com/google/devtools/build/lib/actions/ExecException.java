@@ -82,10 +82,7 @@ public abstract class ExecException extends Exception {
    * @return ActionExecutionException object describing the action failure
    */
   public ActionExecutionException toActionExecutionException(Action action) {
-    // In all ExecException implementations verboseFailures argument used only to determine should
-    // we pass ExecException as cause of ActionExecutionException. So use this method only
-    // if you need this information inside of ActionExecutionexception.
-    return toActionExecutionException("", true, action);
+    return toActionExecutionException("", action);
   }
 
   /**
@@ -94,10 +91,9 @@ public abstract class ExecException extends Exception {
    * incorporating just the termination status if available.
    *
    * @param messagePrefix describes the action type as noun
-   * @param verboseFailures true if user requested verbose output with flag --verbose_failures
    * @param action failed action
    * @return ActionExecutionException object describing the action failure
    */
   public abstract ActionExecutionException toActionExecutionException(
-      String messagePrefix, boolean verboseFailures, Action action);
+      String messagePrefix, Action action);
 }

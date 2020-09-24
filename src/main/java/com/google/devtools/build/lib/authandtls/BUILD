@@ -12,6 +12,7 @@ java_library(
     name = "authandtls",
     srcs = glob(["*.java"]),
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:auth",
         "//third_party:guava",

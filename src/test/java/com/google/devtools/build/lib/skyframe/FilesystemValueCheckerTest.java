@@ -150,8 +150,6 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
             CrossRepositoryLabelViolationStrategy.ERROR,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
-    skyFunctions.put(SkyFunctions.WORKSPACE_AST,
-        new WorkspaceASTFunction(TestRuleClassProvider.getRuleClassProvider()));
     skyFunctions.put(
         WorkspaceFileValue.WORKSPACE_FILE,
         new WorkspaceFileFunction(

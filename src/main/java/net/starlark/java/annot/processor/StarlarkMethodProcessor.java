@@ -42,7 +42,6 @@ import javax.tools.Diagnostic;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkGlobalLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 
 /**
@@ -52,28 +51,9 @@ import net.starlark.java.annot.StarlarkMethod;
  */
 @SupportedAnnotationTypes({
   "net.starlark.java.annot.StarlarkMethod",
-  "net.starlark.java.annot.StarlarkGlobalLibrary",
   "net.starlark.java.annot.StarlarkBuiltin"
 })
 public class StarlarkMethodProcessor extends AbstractProcessor {
-
-  // TODO(adonovan): delete this transitional hack once Bazel's uses are renamed.
-  /** Transitional hack. */
-  @SupportedAnnotationTypes({
-    "net.starlark.java.annot.StarlarkMethod",
-    "net.starlark.java.annot.StarlarkGlobalLibrary",
-    "net.starlark.java.annot.StarlarkBuiltin"
-  })
-  public static class New extends StarlarkMethodProcessor {
-    @Override
-    protected String prefix() {
-      return "net.starlark.java.eval.";
-    }
-  }
-
-  protected String prefix() {
-    return "com.google.devtools.build.lib.syntax.";
-  }
 
   private Types types;
   private Elements elements;
@@ -111,7 +91,7 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
     TypeMirror booleanType = getType("java.lang.Boolean");
     TypeMirror listType = getType("java.util.List");
     TypeMirror mapType = getType("java.util.Map");
-    TypeMirror starlarkValueType = getType(prefix() + "StarlarkValue");
+    TypeMirror starlarkValueType = getType("net.starlark.java.eval.StarlarkValue");
 
     // Ensure StarlarkBuiltin-annotated classes implement StarlarkValue.
     for (Element cls : roundEnv.getElementsAnnotatedWith(StarlarkBuiltin.class)) {
@@ -122,14 +102,6 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
             cls.getSimpleName());
       }
     }
-
-    // TODO(adonovan): reject a StarlarkMethod-annotated method whose class doesn't have (or
-    // inherit) a StarlarkBuiltin documentation annotation.
-
-    // Only StarlarkGlobalLibrary-annotated classes, and those that implement StarlarkValue,
-    // are allowed StarlarkMethod-annotated methods.
-    Set<Element> okClasses =
-        new HashSet<>(roundEnv.getElementsAnnotatedWith(StarlarkGlobalLibrary.class));
 
     for (Element element : roundEnv.getElementsAnnotatedWith(StarlarkMethod.class)) {
       // Only methods are annotated with StarlarkMethod.
@@ -208,17 +180,6 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
               method.getSimpleName(),
               ret);
         }
-      }
-
-      // Check that the method's class is StarlarkGlobalLibrary-annotated,
-      // or implements StarlarkValue, or an error has already been reported.
-      if (okClasses.add(cls) && !types.isAssignable(cls.asType(), starlarkValueType)) {
-        errorf(
-            cls,
-            "method %s has StarlarkMethod annotation but enclosing class %s does not implement"
-                + " StarlarkValue nor has StarlarkGlobalLibrary annotation",
-            method.getSimpleName(),
-            cls.getSimpleName());
       }
     }
 
@@ -510,7 +471,7 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
       // Allow any supertype of Tuple<Object>.
       TypeMirror tupleOfObjectType =
           types.getDeclaredType(
-              elements.getTypeElement(prefix() + "Tuple"), getType("java.lang.Object"));
+              elements.getTypeElement("net.starlark.java.eval.Tuple"), getType("java.lang.Object"));
       if (!types.isAssignable(tupleOfObjectType, param.asType())) {
         errorf(
             param,
@@ -526,7 +487,7 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
       // Allow any supertype of Dict<String, Object>.
       TypeMirror dictOfStringObjectType =
           types.getDeclaredType(
-              elements.getTypeElement(prefix() + "Dict"),
+              elements.getTypeElement("net.starlark.java.eval.Dict"),
               getType("java.lang.String"),
               getType("java.lang.Object"));
       if (!types.isAssignable(dictOfStringObjectType, param.asType())) {
@@ -541,7 +502,7 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
 
     if (annot.useStarlarkThread()) {
       VariableElement param = params.get(index++);
-      TypeMirror threadType = getType(prefix() + "StarlarkThread");
+      TypeMirror threadType = getType("net.starlark.java.eval.StarlarkThread");
       if (!types.isSameType(threadType, param.asType())) {
         errorf(
             param,
@@ -553,7 +514,7 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
 
     if (annot.useStarlarkSemantics()) {
       VariableElement param = params.get(index++);
-      TypeMirror semanticsType = getType(prefix() + "StarlarkSemantics");
+      TypeMirror semanticsType = getType("net.starlark.java.eval.StarlarkSemantics");
       if (!types.isSameType(semanticsType, param.asType())) {
         errorf(
             param,

@@ -206,13 +206,13 @@ public class RemoteCache implements AutoCloseable {
     }
   }
 
-  public static <T> void waitForBulkTransfer(
-      Iterable<ListenableFuture<T>> transfers, boolean cancelRemainingOnInterrupt)
+  public static void waitForBulkTransfer(
+      Iterable<? extends ListenableFuture<?>> transfers, boolean cancelRemainingOnInterrupt)
       throws BulkTransferException, InterruptedException {
     BulkTransferException bulkTransferException = null;
     InterruptedException interruptedException = null;
     boolean interrupted = Thread.currentThread().isInterrupted();
-    for (ListenableFuture<T> transfer : transfers) {
+    for (ListenableFuture<?> transfer : transfers) {
       try {
         if (interruptedException == null) {
           // Wait for all transfers to finish.

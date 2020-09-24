@@ -190,7 +190,6 @@ public abstract class GlobFunctionTest {
 
     AnalysisMock analysisMock = AnalysisMock.get();
     RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
-    skyFunctions.put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider));
     skyFunctions.put(
         WorkspaceFileValue.WORKSPACE_FILE,
         new WorkspaceFileFunction(

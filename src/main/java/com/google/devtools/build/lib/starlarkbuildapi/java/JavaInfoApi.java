@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkConstructor;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -236,7 +236,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
         },
         selfCall = true,
         useStarlarkThread = true)
-    @StarlarkConstructor(objectType = JavaInfoApi.class, receiverNameForDoc = "JavaInfo")
+    @StarlarkConstructor
     JavaInfoApi<?> javaInfo(
         FileApi outputJarApi,
         Object compileJarApi,

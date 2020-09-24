@@ -92,7 +92,6 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
           } catch (ExecException e) {
             throw e.toActionExecutionException(
                 "Writing file for rule '" + Label.print(getOwner().getLabel()) + "'",
-                actionExecutionContext.getVerboseFailures(),
                 AbstractFileWriteAction.this);
           }
           afterWrite(actionExecutionContext);
@@ -102,7 +101,6 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
     } catch (ExecException e) {
       throw e.toActionExecutionException(
           "Writing file for rule '" + Label.print(getOwner().getLabel()) + "'",
-          actionExecutionContext.getVerboseFailures(),
           this);
     }
   }

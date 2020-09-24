@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.buildeventstream.transports;
 
-import com.google.common.base.Charsets;
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
@@ -46,6 +47,6 @@ public final class TextFormatFileTransport extends FileTransport {
   @Override
   protected byte[] serializeEvent(BuildEventStreamProtos.BuildEvent buildEvent) {
     String protoTextRepresentation = TextFormat.printToString(buildEvent);
-    return ("event {\n" + protoTextRepresentation + "}\n\n").getBytes(Charsets.UTF_8);
+    return ("event {\n" + protoTextRepresentation + "}\n\n").getBytes(UTF_8);
   }
 }

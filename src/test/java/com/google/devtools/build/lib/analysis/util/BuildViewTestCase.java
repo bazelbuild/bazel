@@ -260,6 +260,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         "",
         "def http_file(**kwargs):",
         "  pass");
+    mockToolsConfig.create(
+        "bazel_tools_workspace/tools/jdk/local_java_repository.bzl",
+        "def local_java_repository(**kwargs):",
+        "  pass");
     initializeMockClient();
 
     packageOptions = parsePackageOptions();

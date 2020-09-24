@@ -36,7 +36,7 @@ public final class BazelEvaluationTestCase extends EvaluationTestCase {
 
   @Override
   protected Object newModuleHook(ImmutableMap.Builder<String, Object> predeclared) {
-    StarlarkModules.addStarlarkGlobalsToBuilder(predeclared);
+    StarlarkModules.addPredeclared(predeclared);
     Starlark.addModule(predeclared, new PlatformCommon());
 
     // Return the module's client data. (This one uses dummy values for tests.)

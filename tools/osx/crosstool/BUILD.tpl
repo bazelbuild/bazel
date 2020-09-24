@@ -50,6 +50,7 @@ cc_toolchain_suite(
             ":builtin_include_directory_paths",
             ":cc_wrapper",
             ":libtool",
+            ":libtool_check_unique",
             ":make_hashed_objlist.py",
             ":wrapped_clang",
             ":wrapped_clang_pp",

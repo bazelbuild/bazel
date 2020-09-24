@@ -16,23 +16,24 @@ package com.google.devtools.build.lib.causes;
 import com.google.common.base.MoreObjects;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.Objects;
 
-/** Failure due to something associated with a label; also adds a message. */
+/** Failure due to something associated with a label. */
 public class LabelCause implements Cause {
   private final Label label;
-  private final String msg;
+  private final DetailedExitCode detailedExitCode;
 
-  public LabelCause(Label label, String msg) {
+  public LabelCause(Label label, DetailedExitCode detailedExitCode) {
     this.label = label;
-    this.msg = msg;
+    this.detailedExitCode = detailedExitCode;
   }
 
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
         .add("label", label)
-        .add("msg", msg)
+        .add("detailedExitCode", detailedExitCode)
         .toString();
   }
 
@@ -41,8 +42,13 @@ public class LabelCause implements Cause {
     return label;
   }
 
+  @Override
+  public DetailedExitCode getDetailedExitCode() {
+    return detailedExitCode;
+  }
+
   public String getMessage() {
-    return msg;
+    return detailedExitCode.getFailureDetail().getMessage();
   }
 
   @Override
@@ -63,11 +69,11 @@ public class LabelCause implements Cause {
       return false;
     }
     LabelCause a = (LabelCause) o;
-    return label.equals(a.label) && msg.equals(a.msg);
+    return label.equals(a.label) && detailedExitCode.equals(a.detailedExitCode);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(label, msg);
+    return Objects.hash(label, detailedExitCode);
   }
 }

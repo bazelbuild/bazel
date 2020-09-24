@@ -26,8 +26,8 @@ import javax.annotation.Nullable;
 
 /** Strategy that uses sandboxing to execute a process. */
 public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
-  LinuxSandboxedStrategy(Path execRoot, SpawnRunner spawnRunner) {
-    super(execRoot, spawnRunner);
+  LinuxSandboxedStrategy(Path execRoot, SpawnRunner spawnRunner, boolean verboseFailures) {
+    super(execRoot, spawnRunner, verboseFailures);
   }
 
   @Override

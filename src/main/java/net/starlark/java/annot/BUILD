@@ -15,14 +15,6 @@ java_library(
     exports = [":annot_sans_processor"],
 )
 
-# Transitional hack for renaming.
-java_library(
-    name = "annot_new",
-    exported_plugins = ["//src/main/java/net/starlark/java/annot/processor:processor_new"],
-    visibility = ["//src/main/java/net/starlark/java:clients"],
-    exports = [":annot_sans_processor"],
-)
-
 # Annotations without processor, to avoid a dependency cycle in the processor itself.
 java_library(
     name = "annot_sans_processor",
