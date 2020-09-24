@@ -88,7 +88,8 @@ public interface ApkInfoApi<FileT extends FileApi> extends StructApi {
       name = "signing_lineage",
       doc = "Returns the signing lineage file, if present, that was used to sign the APK.",
       documented = false,
-      structField = true)
+      structField = true,
+      allowReturnNones = true)
   FileT getSigningLineage();
 
   /** Provider for {@link ApkInfoApi}. */
