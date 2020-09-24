@@ -652,6 +652,18 @@ public abstract class Artifact
     return getPathForLocationExpansion();
   }
 
+  /**
+   * Returns the path to this artifact relative to its repository root. As a result, the returned
+   * path always starts with a corresponding package name, if exists.
+   */
+  public PathFragment getRepositoryRelativePath() {
+    PathFragment fullPath = getPathForLocationExpansion();
+    // We can't use root.isExternalSource() here since it needs to handle derived artifacts too.
+    return fullPath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)
+        ? fullPath.subFragment(2)
+        : fullPath;
+  }
+
   /** Returns this.getExecPath().getPathString(). */
   @Override
   public final String getExecPathString() {
@@ -664,6 +676,10 @@ public abstract class Artifact
 
   public final String getOutputDirRelativePathString() {
     return getOutputDirRelativePath().getPathString();
+  }
+
+  public final String getRepositoryRelativePathString() {
+    return getRepositoryRelativePath().getPathString();
   }
 
   @Override
