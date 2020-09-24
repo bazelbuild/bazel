@@ -645,6 +645,7 @@ java_test(
 
 java_test(
     name = "StarlarkCcCommonTest",
+    size = "large",
     srcs = ["StarlarkCcCommonTest.java"],
     deps = [
         ":StarlarkCcCommonTestHelper",
