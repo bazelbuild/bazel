@@ -66,6 +66,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/host_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/no_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:package_specification_provider",
