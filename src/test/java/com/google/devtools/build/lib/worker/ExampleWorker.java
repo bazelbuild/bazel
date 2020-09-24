@@ -138,11 +138,7 @@ public class ExampleWorker {
           System.out.flush();
         } else {
           WorkResponse response =
-              WorkResponse.newBuilder()
-                  .setOutput(baos.toString())
-                  .setExitCode(exitCode)
-                  .setRequestId(request.getRequestId())
-                  .build();
+              WorkResponse.newBuilder().setOutput(baos.toString()).setExitCode(exitCode).build();
           workerProtocol.writeResponse(response);
         }
 
