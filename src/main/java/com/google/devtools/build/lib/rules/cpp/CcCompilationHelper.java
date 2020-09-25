@@ -843,17 +843,12 @@ public final class CcCompilationHelper {
       }
       stripPrefix = PathFragment.create(stripIncludePrefix);
       if (stripPrefix.isAbsolute()) {
-        stripPrefix =
-            label
-                .getPackageIdentifier()
-                .getRepository()
-                .getPackagePath()
-                .getRelative(stripPrefix.toRelative());
+        stripPrefix = stripPrefix.toRelative();
       } else {
-        stripPrefix = actionConstructionContext.getPackageDirectory().getRelative(stripPrefix);
+        stripPrefix = label.getPackageFragment().getRelative(stripPrefix);
       }
     } else if (prefix != null) {
-      stripPrefix = actionConstructionContext.getPackageDirectory();
+      stripPrefix = label.getPackageFragment();
     } else {
       stripPrefix = null;
     }
@@ -879,7 +874,7 @@ public final class CcCompilationHelper {
     NestedSetBuilder<Pair<String, String>> virtualToOriginalHeaders =
         NestedSetBuilder.stableOrder();
     for (Artifact originalHeader : publicHeaders) {
-      if (!originalHeader.getOutputDirRelativePath().startsWith(stripPrefix)) {
+      if (!originalHeader.getRepositoryRelativePath().startsWith(stripPrefix)) {
         ruleErrorConsumer.ruleError(
             String.format(
                 "header '%s' is not under the specified strip prefix '%s'",
@@ -887,7 +882,7 @@ public final class CcCompilationHelper {
         continue;
       }
 
-      PathFragment includePath = originalHeader.getOutputDirRelativePath().relativeTo(stripPrefix);
+      PathFragment includePath = originalHeader.getRepositoryRelativePath().relativeTo(stripPrefix);
       if (prefix != null) {
         includePath = prefix.getRelative(includePath);
       }
