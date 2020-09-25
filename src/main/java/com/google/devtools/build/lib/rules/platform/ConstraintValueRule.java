@@ -55,7 +55,7 @@ public class ConstraintValueRule implements RuleDefinition {
         .build();
   }
 }
-/*<!-- #BLAZE_RULE (NAME = constraint_value, TYPE = OTHER, FAMILY = Platform)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = constraint_value, FAMILY = Platform)[GENERIC_RULE] -->
 
 This rule introduces a new value for a given constraint type. See the
 <a href="https://docs.bazel.build/versions/master/platforms.html">Platforms</a> page for more

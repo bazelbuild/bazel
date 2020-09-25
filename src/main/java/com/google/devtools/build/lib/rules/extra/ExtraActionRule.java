@@ -126,7 +126,7 @@ public final class ExtraActionRule implements RuleDefinition {
   }
 }
 
-/*<!-- #BLAZE_RULE (NAME = extra_action, TYPE = LIBRARY, FAMILY = Extra Actions)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = extra_action, FAMILY = Extra Actions)[GENERIC_RULE] -->
 
 <p>
   An <code>extra_action</code> rule doesn't produce any meaningful output

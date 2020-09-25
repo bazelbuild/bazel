@@ -112,7 +112,7 @@ public final class TestSuiteRule implements RuleDefinition {
   }
 }
 
-/*<!-- #BLAZE_RULE (NAME = test_suite, TYPE = TEST, FAMILY = General)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = test_suite, FAMILY = General)[GENERIC_RULE] -->
 
 <p>
 A <code>test_suite</code> defines a set of tests that are considered "useful" to humans. This
