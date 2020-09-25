@@ -264,7 +264,7 @@ final class ConfigExpander {
 
     if (!foundDefinition) {
       throw new OptionsParsingException(
-          "Config value " + configToExpand + " is not defined in any .rc file");
+          "Config value '" + configToExpand + "' is not defined in any .rc file");
     }
     return expansion;
   }
