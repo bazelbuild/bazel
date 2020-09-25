@@ -430,14 +430,11 @@ public class BuildTool {
         reportExceptionError(environmentPendingAbruptExitException);
         result.setCatastrophe();
       }
-    } catch (TargetParsingException e) {
-      detailedExitCode = e.getDetailedExitCode();
-      reportExceptionError(e);
-    } catch (LoadingFailedException e) {
+    } catch (TargetParsingException | LoadingFailedException e) {
       detailedExitCode = e.getDetailedExitCode();
       reportExceptionError(e);
     } catch (ViewCreationFailedException e) {
-      detailedExitCode = DetailedExitCode.justExitCode(ExitCode.PARSING_FAILURE);
+      detailedExitCode = DetailedExitCode.of(ExitCode.PARSING_FAILURE, e.getFailureDetail());
       reportExceptionError(e);
     } catch (ExitException e) {
       detailedExitCode = e.getDetailedExitCode();

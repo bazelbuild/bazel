@@ -848,6 +848,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/causes",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:jsr305",
     ],
 )
@@ -1209,7 +1211,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/causes",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:jsr305",
     ],
 )
@@ -2279,6 +2282,9 @@ java_library(
 java_library(
     name = "sane_analysis_exception",
     srcs = ["SaneAnalysisException.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
+    ],
 )
 
 java_library(

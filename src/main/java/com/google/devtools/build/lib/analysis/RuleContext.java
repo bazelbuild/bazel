@@ -89,8 +89,12 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.SaneAnalysisException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -1332,6 +1336,15 @@ public final class RuleContext extends TargetContext
       implements SaneAnalysisException {
     InvalidExecGroupException(String message) {
       super(message);
+    }
+
+    @Override
+    public DetailedExitCode getDetailedExitCode() {
+      return DetailedExitCode.of(
+          FailureDetail.newBuilder()
+              .setMessage(getMessage())
+              .setAnalysis(Analysis.newBuilder().setCode(Code.EXEC_GROUP_MISSING))
+              .build());
     }
   }
 

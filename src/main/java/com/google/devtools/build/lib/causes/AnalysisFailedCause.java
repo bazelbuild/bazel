@@ -17,6 +17,7 @@ import com.google.common.base.MoreObjects;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -28,20 +29,26 @@ import javax.annotation.Nullable;
 public class AnalysisFailedCause implements Cause {
   private final Label label;
   @Nullable private final ConfigurationId configuration;
-  private final String msg;
+  private final DetailedExitCode detailedExitCode;
 
-  public AnalysisFailedCause(Label label, @Nullable ConfigurationId configuration, String msg) {
+  public AnalysisFailedCause(
+      Label label, @Nullable ConfigurationId configuration, DetailedExitCode detailedExitCode) {
     this.label = label;
     this.configuration = configuration;
-    this.msg = msg;
+    this.detailedExitCode = detailedExitCode;
   }
 
   @Override
   public String toString() {
+    // TODO(mschaller): Tests expect non-escaped message strings, and protobuf (the FailureDetail in
+    //  detailedExitCode) escapes them. Better versions of tests would check structured data, and
+    //  doing that requires unwinding test infrastructure. Note the "inTest" blocks in
+    //  SkyframeBuildView#processErrors.
     return MoreObjects.toStringHelper(this)
         .add("label", label)
         .add("configuration", configuration)
-        .add("msg", msg)
+        .add("detailedExitCode", detailedExitCode)
+        .add("msg", detailedExitCode.getFailureDetail().getMessage())
         .toString();
   }
 
@@ -71,6 +78,11 @@ public class AnalysisFailedCause implements Cause {
   }
 
   @Override
+  public DetailedExitCode getDetailedExitCode() {
+    return detailedExitCode;
+  }
+
+  @Override
   public boolean equals(Object o) {
     if (this == o) {
       return true;
@@ -80,11 +92,11 @@ public class AnalysisFailedCause implements Cause {
     AnalysisFailedCause a = (AnalysisFailedCause) o;
     return Objects.equals(label, a.label)
         && Objects.equals(configuration, a.configuration)
-        && Objects.equals(msg, a.msg);
+        && Objects.equals(detailedExitCode, a.detailedExitCode);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(label, configuration, msg);
+    return Objects.hash(label, configuration, detailedExitCode);
   }
 }

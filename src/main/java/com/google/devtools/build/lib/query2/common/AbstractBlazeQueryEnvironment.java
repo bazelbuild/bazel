@@ -119,20 +119,19 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
 
   /**
    * Evaluate the specified query expression in this environment, streaming results to the given
-   * {@code callback}. {@code callback.start()} will be called before query evaluation and
-   * {@code callback.close()} will be unconditionally called at the end of query evaluation
-   * (i.e. regardless of whether it was successful).
+   * {@code callback}. {@code callback.start()} will be called before query evaluation and {@code
+   * callback.close()} will be unconditionally called at the end of query evaluation (i.e.
+   * regardless of whether it was successful).
    *
    * @return a {@link QueryEvalResult} object that contains the resulting set of targets and a bit
-   *   to indicate whether errors occurred during evaluation; note that the
-   *   success status can only be false if {@code --keep_going} was in effect
-   * @throws QueryException if the evaluation failed and {@code --nokeep_going} was in
-   *   effect
+   *     to indicate whether errors occurred during evaluation; note that the success status can
+   *     only be false if {@code --keep_going} was in effect
+   * @throws QueryException if the evaluation failed and {@code --nokeep_going} was in effect
+   * @throws IOException for output formatter failures from {@code callback}
    */
   public QueryEvalResult evaluateQuery(
-      QueryExpression expr,
-      ThreadSafeOutputFormatterCallback<T> callback)
-          throws QueryException, InterruptedException, IOException {
+      QueryExpression expr, ThreadSafeOutputFormatterCallback<T> callback)
+      throws QueryException, InterruptedException, IOException {
     EmptinessSensingCallback<T> emptySensingCallback = new EmptinessSensingCallback<>(callback);
     long startTime = System.currentTimeMillis();
     // In the --nokeep_going case, errors are reported in the order in which the patterns are
