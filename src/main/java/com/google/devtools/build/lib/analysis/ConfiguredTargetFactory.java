@@ -330,7 +330,7 @@ public final class ConfiguredTargetFactory {
     }
 
     try {
-      boolean creatingFailActions = false;
+      Class<?> missingFragmentClass = null;
       for (Class<?> fragmentClass :
           configurationFragmentPolicy.getRequiredConfigurationFragments()) {
         if (!configuration.hasFragment(fragmentClass.asSubclass(Fragment.class))) {
@@ -344,12 +344,12 @@ public final class ConfiguredTargetFactory {
               return null;
             }
             // Otherwise missingFragmentPolicy == MissingFragmentPolicy.CREATE_FAIL_ACTIONS:
-            creatingFailActions = true;
+            missingFragmentClass = fragmentClass;
           }
         }
       }
-      if (creatingFailActions) {
-        return createFailConfiguredTarget(ruleContext);
+      if (missingFragmentClass != null) {
+        return createFailConfiguredTargetForMissingFragmentClass(ruleContext, missingFragmentClass);
       }
       if (rule.getRuleClassObject().isStarlark()) {
         // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
@@ -614,16 +614,24 @@ public final class ConfiguredTargetFactory {
 
   /**
    * A pseudo-implementation for configured targets that creates fail actions for all declared
-   * outputs, both implicit and explicit.
+   * outputs, both implicit and explicit, due to a missing fragment class.
    */
-  private static ConfiguredTarget createFailConfiguredTarget(RuleContext ruleContext)
-      throws RuleErrorException, ActionConflictException {
+  private static ConfiguredTarget createFailConfiguredTargetForMissingFragmentClass(
+      RuleContext ruleContext, Class<?> missingFragmentClass) {
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
     if (!ruleContext.getOutputArtifacts().isEmpty()) {
-      ruleContext.registerAction(new FailAction(ruleContext.getActionOwner(),
-          ruleContext.getOutputArtifacts(), "Can't build this"));
+      ruleContext.registerAction(
+          new FailAction(
+              ruleContext.getActionOwner(),
+              ruleContext.getOutputArtifacts(),
+              "Missing fragment class: " + missingFragmentClass.getName()));
     }
     builder.add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
-    return builder.build();
+    try {
+      return builder.build();
+    } catch (ActionConflictException e) {
+      throw new IllegalStateException(
+          "Can't have an action conflict with one action: " + ruleContext.getLabel(), e);
+    }
   }
 }
