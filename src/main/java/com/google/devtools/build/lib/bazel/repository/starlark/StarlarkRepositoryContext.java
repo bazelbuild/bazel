@@ -1028,6 +1028,19 @@ public class StarlarkRepositoryContext
     return StructProvider.STRUCT.createWithBuiltinLocation(Dict.copyOf(null, out.build()));
   }
 
+  private static String proxyedUrl(String url) throws EvalException {
+    String proxy = System.getenv("BAZEL_PROXY");
+    if (proxy == null) {
+      return url;
+    }
+
+    String[] parts = url.split("://");
+    if (parts.length != 2) {
+      throw Starlark.errorf("url:%s not of https:// format", url);
+    }
+    return proxy + "/" + parts[1];
+  }
+
   private static ImmutableList<String> checkAllUrls(Iterable<?> urlList) throws EvalException {
     ImmutableList.Builder<String> result = ImmutableList.builder();
 
@@ -1038,7 +1051,7 @@ public class StarlarkRepositoryContext
                 + " sequence",
             Starlark.type(o));
       }
-      result.add((String) o);
+      result.add(proxyedUrl((String) o));
     }
 
     return result.build();
@@ -1048,7 +1061,7 @@ public class StarlarkRepositoryContext
       throws RepositoryFunctionException, EvalException, InterruptedException {
     List<String> urlStrings;
     if (urlOrList instanceof String) {
-      urlStrings = ImmutableList.of((String) urlOrList);
+      urlStrings = ImmutableList.of(proxyedUrl((String) urlOrList));
     } else {
       urlStrings = checkAllUrls((Iterable<?>) urlOrList);
     }
