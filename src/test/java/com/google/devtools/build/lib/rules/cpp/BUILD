@@ -647,6 +647,7 @@ java_test(
     name = "StarlarkCcCommonTest",
     size = "large",
     srcs = ["StarlarkCcCommonTest.java"],
+    shard_count = 4,
     deps = [
         ":StarlarkCcCommonTestHelper",
         "//src/main/java/com/google/devtools/build/lib/actions",
