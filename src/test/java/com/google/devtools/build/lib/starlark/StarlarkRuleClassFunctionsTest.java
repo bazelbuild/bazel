@@ -625,7 +625,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void incompatibleDataTransition() throws Exception {
     EvalException expected =
         assertThrows(EvalException.class, () -> ev.eval("attr.label(cfg = 'data')"));
-    assertThat(expected).hasMessageThat().contains("cfg must be either 'host' or 'target'");
+    assertThat(expected).hasMessageThat().contains("cfg must be either 'host', 'target'");
   }
 
   @Test
