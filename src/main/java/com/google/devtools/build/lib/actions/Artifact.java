@@ -103,6 +103,11 @@ import net.starlark.java.eval.Starlark;
  *       affect the result of a build, such as timestamp files.
  *   <li>A 'Fileset' special Artifact. This is a legacy type of Artifact and should not be used by
  *       new rule implementations.
+ *   <li>A 'symlink' special Artifact. While a symlink can also be represented by a regular
+ *       Artifact, using a symlink special Artifact would result in deriving the Artifact's SkyValue
+ *       from the symlinks themselves (lstat, not stat), and not following the symlinks like in
+ *       regular Artifacts. The underlying symlink can be unresolved, otherwise known as a dangling
+ *       symlink.
  * </ul>
  *
  * <p>While Artifact implements {@link SkyKey} for memory-saving purposes, Skyframe requests
