@@ -24,6 +24,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.J2OBJC_LIBRA
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKED_BINARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKOPT;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKSTAMP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
@@ -402,7 +403,8 @@ public final class ObjcCommon {
                 CC_LIBRARY,
                 NestedSetBuilder.<LibraryToLink>linkOrder()
                     .addTransitive(linkProvider.getLibraries())
-                    .build());
+                    .build())
+            .addAll(LINKSTAMP, linkProvider.getLinkstamps());
       }
 
       if (compilationAttributes.isPresent()) {
