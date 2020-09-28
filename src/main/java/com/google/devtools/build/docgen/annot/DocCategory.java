@@ -11,13 +11,22 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+package com.google.devtools.build.docgen.annot;
 
-package com.google.devtools.build.lib.starlarkbuildapi;
+/** Sections of the API reference for the Bazel build language. */
+public final class DocCategory {
 
-import com.google.devtools.build.docgen.annot.DocCategory;
-import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.eval.StarlarkValue;
+  private DocCategory() {} // uninstantiable
 
-/** A unit of toolchain resolution. Every rule has one or more of these. */
-@StarlarkBuiltin(name = "exec_group", category = DocCategory.BUILTIN, documented = false)
-public interface ExecGroupApi extends StarlarkValue {}
+  public static final String CONFIGURATION_FRAGMENT = "CONFIGURATION_FRAGMENT";
+
+  // TODO(adonovan): be more rigorous about distinguishing providers
+  // from provider instances (aka structs/infos).
+  public static final String PROVIDER = "PROVIDER";
+
+  public static final String BUILTIN = "BUILTIN";
+
+  public static final String TOP_LEVEL_TYPE = "TOP_LEVEL_TYPE";
+
+  public static final String NONE = "NONE";
+}

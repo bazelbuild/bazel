@@ -22,7 +22,6 @@ import java.util.AbstractList;
 import java.util.Arrays;
 import java.util.Iterator;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /**
  * A Starlark tuple, i.e. the value represented by {@code (1, 2, 3)}. Tuples are always immutable
@@ -30,7 +29,7 @@ import net.starlark.java.annot.StarlarkDocumentationCategory;
  */
 @StarlarkBuiltin(
     name = "tuple",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = "core",
     doc =
         "The built-in tuple type. Example tuple expressions:<br>"
             + "<pre class=language-python>x = (1, 2, 3)</pre>"

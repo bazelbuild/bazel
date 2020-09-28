@@ -21,7 +21,6 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 import javax.annotation.concurrent.Immutable;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /**
  * A sequence returned by the {@code range} function invocation.
@@ -36,7 +35,7 @@ import net.starlark.java.annot.StarlarkDocumentationCategory;
  */
 @StarlarkBuiltin(
     name = "range",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = "core",
     doc =
         "A language built-in type to support ranges. Example of range literal:<br>"
             + "<pre class=language-python>x = range(1, 10, 3)</pre>"

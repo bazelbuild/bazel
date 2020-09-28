@@ -22,14 +22,13 @@ import java.util.Collection;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.syntax.Location;
 
 /** A StarlarkList is a mutable finite sequence of values. */
 @StarlarkBuiltin(
     name = "list",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = "core",
     doc =
         "The built-in list type. Example list expressions:<br>"
             + "<pre class=language-python>x = [1, 2, 3]</pre>"

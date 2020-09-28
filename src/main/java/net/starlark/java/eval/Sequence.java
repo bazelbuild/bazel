@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.RandomAccess;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /**
  * A Sequence is a finite iterable sequence of Starlark values, such as a list or tuple.
@@ -36,7 +35,7 @@ import net.starlark.java.annot.StarlarkDocumentationCategory;
 @StarlarkBuiltin(
     name = "sequence",
     documented = false,
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = "core",
     doc = "common type of lists and tuples.")
 public interface Sequence<E>
     extends StarlarkValue, List<E>, RandomAccess, StarlarkIndexable, StarlarkIterable<E> {

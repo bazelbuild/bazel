@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.platform;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkIndexable;
@@ -23,7 +23,7 @@ import net.starlark.java.eval.StarlarkValue;
 /** Stores {@link com.google.devtools.build.lib.packages.ExecGroup}s available to a given rule. */
 @StarlarkBuiltin(
     name = "ExecGroupCollection",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     // TODO(b/151742236) update this doc when this becomes non-experimental.
     doc = "<i>experimental</i> Stores exec groups available to a given rule.")
 public interface ExecGroupCollectionApi extends StarlarkValue, StarlarkIndexable {
@@ -36,7 +36,7 @@ public interface ExecGroupCollectionApi extends StarlarkValue, StarlarkIndexable
    */
   @StarlarkBuiltin(
       name = "ExecGroupContext",
-      category = StarlarkDocumentationCategory.BUILTIN,
+      category = DocCategory.BUILTIN,
       // TODO(b/151742236) update this doc when this becomes non-experimental.
       doc = "<i>experimental</i> Stores information about an exec group.")
   interface ExecGroupContextApi extends StarlarkValue {

@@ -29,7 +29,6 @@ import java.util.NoSuchElementException;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 
 /** The universal predeclared functions of core Starlark. */
@@ -793,7 +792,7 @@ class MethodLibrary {
   /** Starlark int type. */
   @StarlarkBuiltin(
       name = "int",
-      category = StarlarkDocumentationCategory.BUILTIN,
+      category = "core",
       doc =
           "A type to represent integers. It can represent any number between -2147483648 and "
               + "2147483647 (included). "
@@ -812,7 +811,7 @@ class MethodLibrary {
   /** Starlark bool type. */
   @StarlarkBuiltin(
       name = "bool",
-      category = StarlarkDocumentationCategory.BUILTIN,
+      category = "core",
       doc =
           "A type to represent booleans. There are only two possible values: "
               + "<a href=\"globals.html#True\">True</a> and "

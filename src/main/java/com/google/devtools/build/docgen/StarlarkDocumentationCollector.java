@@ -16,6 +16,7 @@ package com.google.devtools.build.docgen;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.DocumentMethods;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
@@ -28,7 +29,6 @@ import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkInterfaceUtils;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Starlark;
@@ -39,8 +39,7 @@ import net.starlark.java.eval.StarlarkValue;
 final class StarlarkDocumentationCollector {
   @StarlarkBuiltin(
       name = "globals",
-      title = "Globals",
-      category = StarlarkDocumentationCategory.TOP_LEVEL_TYPE,
+      category = DocCategory.TOP_LEVEL_TYPE,
       doc = "Objects, functions and modules registered in the global environment.")
   private static final class TopLevelModule implements StarlarkValue {}
 
@@ -76,7 +75,8 @@ final class StarlarkDocumentationCollector {
     // (This is a special case of {@link StarlarkBuiltinDoc} as it has no object name).
     StarlarkBuiltin topLevelModule = getTopLevelModule();
     modules.put(
-        topLevelModule.name(), new StarlarkBuiltinDoc(topLevelModule, TopLevelModule.class));
+        topLevelModule.name(),
+        new StarlarkBuiltinDoc(topLevelModule, /*title=*/ "Globals", TopLevelModule.class));
 
     // Creating module documentation is done in three passes.
     // 1. Add all classes/interfaces annotated with @StarlarkBuiltin with documented = true.
@@ -149,7 +149,9 @@ final class StarlarkDocumentationCollector {
     if (moduleAnnotation.documented()) {
       StarlarkBuiltinDoc previousModuleDoc = modules.get(moduleAnnotation.name());
       if (previousModuleDoc == null) {
-        modules.put(moduleAnnotation.name(), new StarlarkBuiltinDoc(moduleAnnotation, moduleClass));
+        modules.put(
+            moduleAnnotation.name(),
+            new StarlarkBuiltinDoc(moduleAnnotation, moduleAnnotation.name(), moduleClass));
       } else {
         // Handle a strange corner-case: If moduleClass has a subclass which is also
         // annotated with {@link StarlarkBuiltin} with the same name, and also has the same
@@ -161,7 +163,9 @@ final class StarlarkDocumentationCollector {
         if (previousModuleDoc.getClassObject().isAssignableFrom(moduleClass)) {
           // The new module is a subclass of the old module, so use the subclass.
           modules.put(
-              moduleAnnotation.name(), new StarlarkBuiltinDoc(moduleAnnotation, moduleClass));
+              moduleAnnotation.name(),
+              new StarlarkBuiltinDoc(
+                  moduleAnnotation, /*title=*/ moduleAnnotation.name(), moduleClass));
         }
       }
     }

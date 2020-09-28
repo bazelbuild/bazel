@@ -26,7 +26,6 @@ import java.util.regex.Pattern;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 
 /**
@@ -40,7 +39,7 @@ import net.starlark.java.annot.StarlarkMethod;
  */
 @StarlarkBuiltin(
     name = "string",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = "core",
     doc =
         "A language built-in type to support strings. "
             + "Examples of string literals:<br>"

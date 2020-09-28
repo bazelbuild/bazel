@@ -13,6 +13,7 @@ filegroup(
 java_library(
     name = "annot",
     srcs = [
+        "DocCategory.java",
         "DocumentMethods.java",
         "StarlarkConstructor.java",
     ],
