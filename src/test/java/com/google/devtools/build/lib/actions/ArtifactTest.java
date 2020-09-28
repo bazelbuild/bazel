@@ -19,7 +19,10 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -494,5 +497,37 @@ public class ArtifactTest {
                     ArtifactOwner.NULL_OWNER)
                 .getRepositoryRelativePath())
         .isEqualTo(PathFragment.create("bar/baz.cc"));
+  }
+
+  @Test
+  public void archivedTreeArtifact_codec_roundTripsArchivedArtifact() throws Exception {
+    ArchivedTreeArtifact artifact1 = createArchivedTreeArtifact(rootDir, "tree1");
+    ArtifactRoot anotherRoot =
+        ArtifactRoot.asDerivedRoot(scratch.getFileSystem().getPath("/"), "src");
+    ArchivedTreeArtifact artifact2 = createArchivedTreeArtifact(anotherRoot, "tree2");
+    new SerializationTester(artifact1, artifact2)
+        .addDependency(FileSystem.class, scratch.getFileSystem())
+        .addDependency(
+            Root.RootCodecDependencies.class, new Root.RootCodecDependencies(anotherRoot.getRoot()))
+        .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
+        .<ArchivedTreeArtifact>setVerificationFunction(
+            (original, deserialized) -> {
+              assertThat(original).isEqualTo(deserialized);
+              assertThat(original.getGeneratingActionKey())
+                  .isEqualTo(deserialized.getGeneratingActionKey());
+            })
+        .runTests();
+  }
+
+  private static ArchivedTreeArtifact createArchivedTreeArtifact(
+      ArtifactRoot root, String treeRelativePath) {
+    SpecialArtifact treeArtifact =
+        new SpecialArtifact(
+            root,
+            root.getExecPath().getRelative(treeRelativePath),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER,
+            SpecialArtifactType.TREE);
+    treeArtifact.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+    return ArchivedTreeArtifact.create(treeArtifact, root.getExecPath().subFragment(0, 1));
   }
 }

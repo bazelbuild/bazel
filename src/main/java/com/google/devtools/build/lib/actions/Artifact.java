@@ -1138,6 +1138,15 @@ public abstract class Artifact
               0, rootPathFragment.segmentCount() - artifactRoot.getExecPath().segmentCount());
       return rootPath.getFileSystem().getPath(execRootPath);
     }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static ArchivedTreeArtifact createForDeserialization(
+        SpecialArtifact treeArtifact, ArtifactRoot root, PathFragment execPath) {
+      ArchivedTreeArtifact result = new ArchivedTreeArtifact(treeArtifact, root, execPath);
+      result.setGeneratingActionKey(treeArtifact.getGeneratingActionKey());
+      return result;
+    }
   }
 
   /**
