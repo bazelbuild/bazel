@@ -1126,12 +1126,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setList("srcs", "a.m")
         .write();
     CppCompileAction compileAction = (CppCompileAction) compileAction("//lib:lib", "a.o");
-    assertThat(
-            compileAction
-                .discoverInputsFromDotdFiles(
-                    new ActionExecutionContextBuilder().build(), null, null, null, false)
-                .toList())
-        .isEmpty();
+    assertThat(compileAction.getDotdFile()).isNull();
   }
 
   @Test
