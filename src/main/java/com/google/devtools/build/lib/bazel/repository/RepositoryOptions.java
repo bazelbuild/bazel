@@ -27,6 +27,7 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
+import java.net.URL;
 
 /**
  * Command-line options for repositories.
@@ -76,6 +77,15 @@ public class RepositoryOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help = "Scale all timeouts related to http downloads by the given factor")
   public double httpTimeoutScaling;
+
+  @Option(
+      name = "http_mirror",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      converter = OptionsUtils.URLConverter.class,
+      help = "Prefix all urls related to http downloads by the given mirror")
+  public URL httpMirror;
 
   @Option(
     name = "override_repository",

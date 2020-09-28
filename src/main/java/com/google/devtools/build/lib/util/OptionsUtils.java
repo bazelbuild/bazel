@@ -22,6 +22,8 @@ import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.ParsedOptionDescription;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.List;
 
 /** Blaze-specific option utilities. */
@@ -156,5 +158,27 @@ public final class OptionsUtils {
       path = path.replace("~", StandardSystemProperty.USER_HOME.value());
     }
     return PathFragment.create(path);
+  }
+
+  /** Converter from String to URL. If the input is empty returns {@code null} instead. */
+  public static class URLConverter implements Converter<URL> {
+
+    @Override
+    public URL convert(String input) throws OptionsParsingException {
+      if (input.isEmpty()) {
+        return null;
+      }
+
+      try {
+        return new URL(input);
+      } catch (MalformedURLException e) {
+        throw new OptionsParsingException("Expected url but got '" + input + "'.");
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a url";
+    }
   }
 }

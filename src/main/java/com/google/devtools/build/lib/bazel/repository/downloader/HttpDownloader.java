@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
+import java.net.MalformedURLException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URL;
@@ -50,11 +51,16 @@ public class HttpDownloader implements Downloader {
   private static final Semaphore semaphore = new Semaphore(MAX_PARALLEL_DOWNLOADS, true);
 
   private float timeoutScaling = 1.0f;
+  private URL mirror = null;
 
   public HttpDownloader() {}
 
   public void setTimeoutScaling(float timeoutScaling) {
     this.timeoutScaling = timeoutScaling;
+  }
+
+  public void setMirror(URL mirror) {
+    this.mirror = mirror;
   }
 
   @Override
@@ -85,6 +91,14 @@ public class HttpDownloader implements Downloader {
     boolean success = false;
 
     List<IOException> ioExceptions = ImmutableList.of();
+
+    // Prefix all urls with the mirror to send requests to the mirror server first
+    // if mirrored urls failed, then retry the origin urls
+    if (mirror != null) {
+      List<URL> mirroredUrls = getMirroredUrls(urls);
+      mirroredUrls.addAll(urls);
+      urls = mirroredUrls;
+    }
 
     for (URL url : urls) {
       semaphore.acquire();
@@ -135,5 +149,22 @@ public class HttpDownloader implements Downloader {
 
       throw exception;
     }
+  }
+
+  public List<URL> getMirroredUrls(List<URL> urls) throws IOException {
+    List<URL> mirroredUrls = new ArrayList<>(urls.size());
+    for (URL url : urls) {
+      String portStr = "";
+      if ( url.getPort() != -1 ) {
+        portStr = String.format(":%d", url.getPort());
+      }
+      String mirroredUrlStr = mirror.toString().replaceAll("/*$","") + "/" + url.getHost() + portStr + "/" + url.getPath().replaceAll("^/*","");
+      try {
+        mirroredUrls.add(new URL(mirroredUrlStr));
+      } catch (MalformedURLException e) {
+        throw new IOException("Bad mirrored URL: " + mirroredUrlStr);
+      }
+    }
+    return mirroredUrls;
   }
 }
