@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.bazel.rules.ninja.actions;
 
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -41,10 +41,13 @@ class NinjaGraphArtifactsHelper {
   private final PathFragment outputRootPath;
   private final PathFragment workingDirectory;
   private final ArtifactRoot derivedOutputRoot;
-
-  private final ImmutableSortedMap<PathFragment, Artifact> symlinkPathToArtifact;
-  private final ImmutableSortedSet<PathFragment> outputRootSymlinks;
   private final Root sourceRoot;
+
+  // Artifacts that should be symlinked directly from the source tree into the execroot.
+  private final ImmutableSortedMap<PathFragment, Artifact> symlinkPathToArtifact;
+
+  // Symlink output artifacts created by Ninja actions during the build.
+  private final ImmutableSet<PathFragment> symlinkOutputs;
 
   /**
    * Constructor
@@ -54,7 +57,7 @@ class NinjaGraphArtifactsHelper {
    * @param workingDirectory relative path under execroot, the root for interpreting all paths in
    *     Ninja file
    * @param symlinkPathToArtifact mapping of paths to artifacts for input symlinks under output_root
-   * @param outputRootSymlinks list of output paths for which symlink artifacts should be created,
+   * @param symlinkOutputs list of output paths for which symlink artifacts should be created,
    *     paths are relative to the output_root.
    */
   NinjaGraphArtifactsHelper(
@@ -62,12 +65,12 @@ class NinjaGraphArtifactsHelper {
       PathFragment outputRootPath,
       PathFragment workingDirectory,
       ImmutableSortedMap<PathFragment, Artifact> symlinkPathToArtifact,
-      ImmutableSortedSet<PathFragment> outputRootSymlinks) {
+      ImmutableSet<PathFragment> symlinkOutputs) {
     this.ruleContext = ruleContext;
     this.outputRootPath = outputRootPath;
     this.workingDirectory = workingDirectory;
     this.symlinkPathToArtifact = symlinkPathToArtifact;
-    this.outputRootSymlinks = outputRootSymlinks;
+    this.symlinkOutputs = symlinkOutputs;
     Path execRoot =
         Preconditions.checkNotNull(ruleContext.getConfiguration())
             .getDirectories()
@@ -89,7 +92,7 @@ class NinjaGraphArtifactsHelper {
               pathRelativeToWorkingDirectory));
     }
     // If the path was declared as output symlink, create a symlink artifact.
-    if (outputRootSymlinks.contains(execPath.relativeTo(outputRootPath))) {
+    if (symlinkOutputs.contains(execPath.relativeTo(outputRootPath))) {
       return ruleContext
           .getAnalysisEnvironment()
           .getSymlinkArtifact(execPath.relativeTo(outputRootPath), derivedOutputRoot);
@@ -108,9 +111,9 @@ class NinjaGraphArtifactsHelper {
 
     PathFragment execPath = workingDirectory.getRelative(workingDirectoryPath);
     if (execPath.startsWith(outputRootPath)) {
-      // In the output directory, so it is either specified via output_root_symlinks, or
+      // In the output directory, so it is either marked as a symlink_output from Ninja, or
       // it is a derived artifact.
-      if (outputRootSymlinks.contains(execPath.relativeTo(outputRootPath))) {
+      if (symlinkOutputs.contains(execPath.relativeTo(outputRootPath))) {
         return ruleContext
             .getAnalysisEnvironment()
             .getSymlinkArtifact(execPath.relativeTo(outputRootPath), derivedOutputRoot);

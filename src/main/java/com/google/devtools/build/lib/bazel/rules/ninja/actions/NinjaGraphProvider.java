@@ -32,7 +32,7 @@ public final class NinjaGraphProvider implements TransitiveInfoProvider {
   private final PathFragment workingDirectory;
   private final ImmutableSortedMap<PathFragment, NinjaTarget> targetsMap;
   private final ImmutableSortedMap<PathFragment, PhonyTarget> phonyTargetsMap;
-  private final ImmutableSortedSet<PathFragment> outputRootSymlinks;
+  private final ImmutableSet<PathFragment> outputRootSymlinks;
   private final ImmutableSet<PathFragment> outputRootInputsSymlinks;
 
   public NinjaGraphProvider(
@@ -40,7 +40,7 @@ public final class NinjaGraphProvider implements TransitiveInfoProvider {
       PathFragment workingDirectory,
       ImmutableSortedMap<PathFragment, NinjaTarget> targetsMap,
       ImmutableSortedMap<PathFragment, PhonyTarget> phonyTargetsMap,
-      ImmutableSortedSet<PathFragment> outputRootSymlinks,
+      ImmutableSet<PathFragment> outputRootSymlinks,
       ImmutableSet<PathFragment> outputRootInputsSymlinks) {
 
     this.outputRoot = outputRoot;
@@ -68,7 +68,7 @@ public final class NinjaGraphProvider implements TransitiveInfoProvider {
   }
 
   /** Output paths under output_root, that should be treated as symlink artifacts. */
-  public ImmutableSortedSet<PathFragment> getOutputRootSymlinks() {
+  public ImmutableSet<PathFragment> getOutputRootSymlinks() {
     return outputRootSymlinks;
   }
 
