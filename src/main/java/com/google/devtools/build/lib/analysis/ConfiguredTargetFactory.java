@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.rules.cpp.DeniedImplicitOutputMarkerProvider;
+import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.skyframe.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -624,7 +625,8 @@ public final class ConfiguredTargetFactory {
           new FailAction(
               ruleContext.getActionOwner(),
               ruleContext.getOutputArtifacts(),
-              "Missing fragment class: " + missingFragmentClass.getName()));
+              "Missing fragment class: " + missingFragmentClass.getName(),
+              Code.FRAGMENT_CLASS_MISSING));
     }
     builder.add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
     try {

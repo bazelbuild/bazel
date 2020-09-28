@@ -81,6 +81,7 @@ import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.java.OneVersionCheckActionBuilder;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
+import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -833,7 +834,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         new FailAction(
             ruleContext.getActionOwner(),
             failures.build().toSet(),
-            String.format("Can't run Proguard without proguard_specs")));
+            "Can't run Proguard without proguard_specs",
+            Code.PROGUARD_SPECS_MISSING));
     return new ProguardOutput(deployJarArtifact, null, null, null, null, null, null);
   }
 

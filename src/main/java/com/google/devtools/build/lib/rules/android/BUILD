@@ -89,6 +89,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:android_deploy_info_java_proto",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:android_common_25_0_0_lite",
         "//third_party:auto_value",
         "//third_party:guava",

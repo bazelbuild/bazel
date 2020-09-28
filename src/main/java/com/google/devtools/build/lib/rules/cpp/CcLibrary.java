@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
+import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -268,8 +269,12 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 ruleContext.getConfiguration(),
                 LinkTargetType.INTERFACE_DYNAMIC_LIBRARY));
       }
-      ruleContext.registerAction(new FailAction(ruleContext.getActionOwner(),
-          dynamicLibraries.build(), "Toolchain does not support dynamic linking"));
+      ruleContext.registerAction(
+          new FailAction(
+              ruleContext.getActionOwner(),
+              dynamicLibraries.build(),
+              "Toolchain does not support dynamic linking",
+              Code.DYNAMIC_LINKING_NOT_SUPPORTED));
     } else if (!createDynamicLibrary
         && ruleContext.attributes().isConfigurable("srcs")) {
       // If "srcs" is configurable, the .so output is always declared because the logic that
@@ -293,9 +298,13 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 ruleContext.getConfiguration(),
                 LinkTargetType.INTERFACE_DYNAMIC_LIBRARY));
       }
-      ruleContext.registerAction(new FailAction(ruleContext.getActionOwner(),
-          dynamicLibraries.build(), "configurable \"srcs\" triggers an implicit .so output "
-          + "even though there are no sources to compile in this configuration"));
+      ruleContext.registerAction(
+          new FailAction(
+              ruleContext.getActionOwner(),
+              dynamicLibraries.build(),
+              "configurable \"srcs\" triggers an implicit .so output even though there are no"
+                  + " sources to compile in this configuration",
+              Code.SOURCE_FILES_MISSING));
     }
 
     CompilationInfo compilationInfo = compilationHelper.compile(ruleContext::ruleError);

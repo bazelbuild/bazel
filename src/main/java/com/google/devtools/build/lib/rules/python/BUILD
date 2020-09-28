@@ -54,6 +54,7 @@ java_library(
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:extra_actions_base_java_proto",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",

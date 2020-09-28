@@ -1023,6 +1023,13 @@ message FailAction {
   enum Code {
     FAIL_ACTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     INTENTIONAL_FAILURE = 1 [(metadata) = { exit_code: 1 }];
+    INCORRECT_PYTHON_VERSION = 2 [(metadata) = { exit_code: 1 }];
+    PROGUARD_SPECS_MISSING = 3 [(metadata) = { exit_code: 1 }];
+    DYNAMIC_LINKING_NOT_SUPPORTED = 4 [(metadata) = { exit_code: 1 }];
+    SOURCE_FILES_MISSING = 5 [(metadata) = { exit_code: 1 }];
+    INCORRECT_TOOLCHAIN = 6 [(metadata) = { exit_code: 1 }];
+    FRAGMENT_CLASS_MISSING = 7 [(metadata) = { exit_code: 1 }];
+    reserved 8, 9; // For internal use
   }
 
   Code code = 1;

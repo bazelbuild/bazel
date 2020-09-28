@@ -34,11 +34,16 @@ public final class FailAction extends AbstractAction {
 
   private static final String GUID = "626cb78a-810f-4af3-979c-ee194955f04c";
 
-  private final String errorMessage;
+  private final FailureDetail failureDetail;
 
-  public FailAction(ActionOwner owner, Iterable<Artifact> outputs, String errorMessage) {
+  public FailAction(
+      ActionOwner owner, Iterable<Artifact> outputs, String errorMessage, Code failActionCode) {
     super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), outputs);
-    this.errorMessage = errorMessage;
+    this.failureDetail =
+        FailureDetail.newBuilder()
+            .setMessage(errorMessage + " caused by " + getOwner().getLabel())
+            .setFailAction(FailureDetails.FailAction.newBuilder().setCode(failActionCode).build())
+            .build();
   }
 
   @Override
@@ -47,26 +52,14 @@ public final class FailAction extends AbstractAction {
   }
 
   public String getErrorMessage() {
-    return errorMessage;
+    return failureDetail.getMessage();
   }
 
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException {
     throw new ActionExecutionException(
-        errorMessage,
-        this,
-        false,
-        DetailedExitCode.of(
-            FailureDetail.newBuilder()
-                .setMessage(
-                    "FailAction intentional failure: "
-                        + errorMessage
-                        + " caused by "
-                        + getOwner().getLabel())
-                .setFailAction(
-                    FailureDetails.FailAction.newBuilder().setCode(Code.INTENTIONAL_FAILURE))
-                .build()));
+        failureDetail.getMessage(), this, false, DetailedExitCode.of(failureDetail));
   }
 
   @Override
