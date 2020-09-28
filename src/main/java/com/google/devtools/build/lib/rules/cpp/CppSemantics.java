@@ -49,7 +49,7 @@ public interface CppSemantics {
   IncludeProcessing getIncludeProcessing();
 
   /** Returns true iff this build should perform .d input pruning. */
-  boolean needsDotdInputPruning();
+  boolean needsDotdInputPruning(BuildConfiguration configuration);
 
   void validateAttributes(RuleContext ruleContext);
 
