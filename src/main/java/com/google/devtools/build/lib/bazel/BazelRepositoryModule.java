@@ -302,6 +302,10 @@ public class BazelRepositoryModule extends BlazeModule {
         httpDownloader.setTimeoutScaling(1.0f);
       }
 
+      if (repoOptions.httpMirror != null) {
+        httpDownloader.setMirror(repoOptions.httpMirror);
+      }
+
       if (repoOptions.repositoryOverrides != null) {
         // To get the usual latest-wins semantics, we need a mutable map, as the builder
         // of an immutable map does not allow redefining the values of existing keys.

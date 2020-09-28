@@ -36,7 +36,9 @@ import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -318,6 +320,123 @@ public class HttpDownloaderTest {
           assertThat(suppressed).hasCauseThat().isInstanceOf(SocketTimeoutException.class);
         }
       }
+    }
+  }
+
+  @Test
+  public void downloadFromMirroredUrlOk() throws IOException, InterruptedException {
+    try {
+      try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+        @SuppressWarnings("unused")
+        Future<?> possiblyIgnoredError =
+            executor.submit(
+                () -> {
+                  try (Socket socket = server.accept()) {
+                    Map<String, String> m = new HashMap<String, String>();
+                    readHttpRequest(socket.getInputStream(),m);
+                    String reqUri = m.getOrDefault("x-request-uri","");
+                    sendLines(
+                        socket,
+                        "HTTP/1.1 200 OK",
+                        "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                        "Connection: close",
+                        "Content-Type: text/plain",
+                        "",
+                        reqUri);
+                  }
+                  return null;
+                });
+
+        // set mirror
+        httpDownloader.setMirror(new URL(String.format("http://localhost:%d/", server.getLocalPort())));
+
+        Path resultingFile =
+            downloadManager.download(
+                Collections.singletonList(
+                    new URL(String.format("http://localhost:%d/foo", server.getLocalPort()))),
+                Collections.emptyMap(),
+                Optional.absent(),
+                "testCanonicalId",
+                Optional.absent(),
+                fs.getPath(workingDir.newFile().getAbsolutePath()),
+                eventHandler,
+                Collections.emptyMap(),
+                "testRepo");
+
+        assertThat(new String(readFile(resultingFile), UTF_8)).isEqualTo(String.format("/localhost:%d/foo", server.getLocalPort()));
+      }
+    } finally {
+      httpDownloader.setMirror(null);
+    }
+  }
+
+  @Test
+  public void downloadFromMirroredUrlFailedButOriginOk() throws IOException, InterruptedException {
+    try {
+      try (ServerSocket server1 = new ServerSocket(0, 1, InetAddress.getByName(null));
+        ServerSocket server2 = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+        @SuppressWarnings("unused")
+        Future<?> possiblyIgnoredError =
+            executor.submit(
+                () -> {
+                    Socket socket = server1.accept();
+                    readHttpRequest(socket.getInputStream());
+                    sendLines(
+                        socket,
+                        "HTTP/1.1 200 OK",
+                        "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                        "Connection: close",
+                        "Content-Type: text/plain",
+                        "",
+                        "hello");
+
+                    // Never close the socket to cause SocketTimeoutException during body read on client
+                    // side.
+                    return null;
+                });
+
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError2 =
+          executor.submit(
+              () -> {
+                while (!executor.isShutdown()) {
+                  try (Socket socket = server2.accept()) {
+                    Map<String, String> m = new HashMap<String, String>();
+                    readHttpRequest(socket.getInputStream(),m);
+                    String reqUri = m.getOrDefault("x-request-uri","");
+                    sendLines(
+                        socket,
+                        "HTTP/1.1 200 OK",
+                        "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                        "Connection: close",
+                        "Content-Type: text/plain",
+                        "",
+                        reqUri);
+                  }
+                }
+                return null;
+              });
+
+        // set mirror
+        httpDownloader.setMirror(new URL(String.format("http://localhost:%d/", server1.getLocalPort())));
+
+        Path resultingFile =
+            downloadManager.download(
+                Collections.singletonList(
+                    new URL(String.format("http://localhost:%d/foo", server2.getLocalPort()))),
+                Collections.emptyMap(),
+                Optional.absent(),
+                "testCanonicalId",
+                Optional.absent(),
+                fs.getPath(workingDir.newFile().getAbsolutePath()),
+                eventHandler,
+                Collections.emptyMap(),
+                "testRepo");
+
+        assertThat(new String(readFile(resultingFile), UTF_8)).isEqualTo("/foo");
+      }
+    } finally {
+      httpDownloader.setMirror(null);
     }
   }
 
