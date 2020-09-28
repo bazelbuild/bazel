@@ -1057,6 +1057,7 @@ java_library(
     name = "collect_packages_under_directory_function",
     srcs = ["CollectPackagesUnderDirectoryFunction.java"],
     deps = [
+        "process_package_directory",
         ":collect_packages_under_directory_value",
         ":recursive_directory_traversal_function",
         ":recursive_pkg_key",
@@ -1524,6 +1525,8 @@ java_library(
     srcs = ["GlobFunction.java"],
     deps = [
         ":directory_listing_value",
+        ":file_symlink_infinite_expansion_exception",
+        ":file_symlink_infinite_expansion_uniqueness_function",
         ":glob_descriptor",
         ":glob_value",
         ":ignored_package_prefixes_value",
@@ -2020,6 +2023,8 @@ java_library(
         ":directory_listing_value",
         ":dirents",
         ":file_symlink_exception",
+        ":file_symlink_infinite_expansion_exception",
+        ":file_symlink_infinite_expansion_uniqueness_function",
         ":package_lookup_value",
         ":process_package_directory_result",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
@@ -2095,6 +2100,8 @@ java_library(
     deps = [
         ":action_execution_value",
         ":directory_listing_value",
+        ":file_symlink_infinite_expansion_exception",
+        ":file_symlink_infinite_expansion_uniqueness_function",
         ":package_lookup_value",
         ":sky_functions",
         ":tree_artifact_value",
