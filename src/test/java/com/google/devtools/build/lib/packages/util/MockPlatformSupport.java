@@ -142,7 +142,8 @@ public class MockPlatformSupport {
       mockToolsConfig.create(
           TestConstants.LOCAL_CONFIG_PLATFORM_PATH + "/BUILD",
           "package(default_visibility=['//visibility:public'])",
-          "platform(name = 'host')");
+          "platform(name = 'host')",
+          "platform(name = 'target')");
     } else {
       // Create a mock host platform that hard-coded cpu and os, since @local_config_platform isn't
       // available.
