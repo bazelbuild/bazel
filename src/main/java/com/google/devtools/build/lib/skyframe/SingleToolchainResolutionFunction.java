@@ -132,21 +132,24 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
     ImmutableMap.Builder<ConfiguredTargetKey, Label> builder = ImmutableMap.builder();
     ToolchainTypeInfo toolchainType = null;
 
-    debugMessage(eventHandler, "Looking for toolchain of type %s...", toolchainTypeLabel);
+    debugMessage(eventHandler, "%s: Looking for toolchain for target %s", toolchainTypeLabel,
+        targetPlatform.label());
     for (DeclaredToolchainInfo toolchain : toolchains) {
       // Make sure the type matches.
       if (!toolchain.toolchainType().typeLabel().equals(toolchainTypeLabel)) {
         continue;
       }
-      debugMessage(eventHandler, "  Considering toolchain %s...", toolchain.toolchainLabel());
+      debugMessage(eventHandler, "%s: %s: Considering toolchain.", toolchainTypeLabel,
+          toolchain.toolchainLabel());
 
       // Make sure the target platform matches.
       if (!checkConstraints(
-          eventHandler, toolchain.targetConstraints(), "target", targetPlatform)) {
+          eventHandler, toolchain.targetConstraints(), "target", targetPlatform, toolchainTypeLabel,
+          toolchain.toolchainLabel())) {
         debugMessage(
             eventHandler,
-            "  Rejected toolchain %s, because of target platform mismatch",
-            toolchain.toolchainLabel());
+            "%s: %s: Rejected toolchain, because of target platform mismatch",
+            toolchainTypeLabel, toolchain.toolchainLabel());
         continue;
       }
 
@@ -154,7 +157,8 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       for (ConfiguredTargetKey executionPlatformKey : availableExecutionPlatformKeys) {
         PlatformInfo executionPlatform = platforms.get(executionPlatformKey);
         if (!checkConstraints(
-            eventHandler, toolchain.execConstraints(), "execution", executionPlatform)) {
+            eventHandler, toolchain.execConstraints(), "execution", executionPlatform,
+            toolchainTypeLabel, toolchain.toolchainLabel())) {
           continue;
         }
 
@@ -169,12 +173,14 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
 
     ImmutableMap<ConfiguredTargetKey, Label> resolvedToolchainLabels = builder.build();
     if (resolvedToolchainLabels.isEmpty()) {
-      debugMessage(eventHandler, "  No toolchains found");
+      debugMessage(eventHandler, "%s:  No toolchains found for target %s", toolchainTypeLabel,
+          targetPlatform.label());
     } else {
       debugMessage(
           eventHandler,
-          "  For toolchain type %s, possible execution platforms and toolchains: {%s}",
+          "%s:  For target %s, possible execution platforms and toolchains: {%s}",
           toolchainTypeLabel,
+          targetPlatform.label(),
           resolvedToolchainLabels.entrySet().stream()
               .map(e -> String.format("%s -> %s", e.getKey().getLabel(), e.getValue()))
               .collect(joining(", ")));
@@ -210,7 +216,8 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       @Nullable EventHandler eventHandler,
       ConstraintCollection toolchainConstraints,
       String platformType,
-      PlatformInfo platform) {
+      PlatformInfo platform,
+      Label toolchainTypeLabel, Label toolchainLabel) {
 
     // Check every constraint_setting in either the toolchain or the platform.
     ImmutableSet<ConstraintSettingInfo> mismatchSettings =
@@ -232,8 +239,10 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
 
       debugMessage(
           eventHandler,
-          "    Toolchain constraint %s has value %s, "
+          "%s: %s:    Toolchain constraint %s has value %s, "
               + "which does not match value %s from the %s platform %s",
+          toolchainTypeLabel,
+          toolchainLabel,
           mismatchSetting.label(),
           toolchainConstraints.has(mismatchSetting)
               ? toolchainConstraints.get(mismatchSetting).label()
