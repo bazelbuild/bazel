@@ -206,11 +206,12 @@ public abstract class BugReport {
         } else {
           logThrowableToConsole(throwable);
         }
+        // TODO(b/167592709): remove verbose logging when bug resolved.
+        logger.atInfo().log("Finished logging crash, runtime: %s", runtime);
         try {
           if (runtime != null) {
             runtime.cleanUpForCrash(detailedExitCode);
           }
-          // TODO(b/167592709): remove verbose logging when bug resolved.
           logger.atInfo().log("Finished runtime cleanup");
           CustomExitCodePublisher.maybeWriteExitStatusFile(numericExitCode);
           logger.atInfo().log("Wrote exit status file");

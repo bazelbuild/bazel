@@ -152,7 +152,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final FileSystem fileSystem;
-  private final Iterable<BlazeModule> blazeModules;
+  private final ImmutableList<BlazeModule> blazeModules;
   private final Map<String, BlazeCommand> commandMap = new LinkedHashMap<>();
   private final Clock clock;
   private final Runnable abruptShutdownHandler;
@@ -199,7 +199,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       Clock clock,
       Runnable abruptShutdownHandler,
       OptionsParsingResult startupOptionsProvider,
-      Iterable<BlazeModule> blazeModules,
+      ImmutableList<BlazeModule> blazeModules,
       SubscriberExceptionHandler eventBusExceptionHandler,
       BugReporter bugReporter,
       ProjectFile.Provider projectFileProvider,
@@ -559,6 +559,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   @Override
   public void cleanUpForCrash(DetailedExitCode exitCode) {
+    // TODO(b/167592709): remove verbose logging when bug resolved.
+    logger.atInfo().log("Cleaning up in crash: %s", exitCode);
     if (declareExitCode(exitCode)) {
       // Only try to publish events if we won the exit code race. Otherwise someone else is already
       // exiting for us.
@@ -736,8 +738,11 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   /** Invokes {@link BlazeModule#blazeShutdownOnCrash()} on all registered modules. */
   private void shutDownModulesOnCrash() {
+    // TODO(b/167592709): remove verbose logging when bug resolved.
+    logger.atInfo().log("Shutting down modules on crash: %s", blazeModules);
     try {
       for (BlazeModule module : blazeModules) {
+        logger.atInfo().log("Shutting down %s on crash", module);
         module.blazeShutdownOnCrash();
       }
     } finally {
