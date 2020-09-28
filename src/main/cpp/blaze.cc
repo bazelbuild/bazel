@@ -856,11 +856,13 @@ static void StartServerAndConnect(
     const string &workspace, const OptionProcessor &option_processor,
     const StartupOptions &startup_options, LoggingInfo *logging_info,
     BlazeServer *server) {
-  // Delete the old command_port file if it already exists. Otherwise we might
-  // run into the race condition that we read the old command_port file before
+  // Delete the old command_port and cookies files if they already exist. Otherwise we might
+  // run into the race condition that we read the old file before
   // the new server has written the new file and we try to connect to the old
-  // port, run into a timeout and try again.
+  // port, run into a timeout and try again, or read an old cookie and get bad cookie error.
   (void)blaze_util::UnlinkPath(server_dir.GetRelative("command_port"));
+  (void)blaze_util::UnlinkPath(server_dir.GetRelative("request_cookie"));
+  (void)blaze_util::UnlinkPath(server_dir.GetRelative("response_cookie"));
 
   EnsureServerDir(server_dir);
 
