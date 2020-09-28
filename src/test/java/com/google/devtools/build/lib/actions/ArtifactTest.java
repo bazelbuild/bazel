@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.LabelArtifactOwner;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
@@ -465,5 +466,33 @@ public class ArtifactTest {
                     /*contentBasedPath=*/ true)
                 .contentBasedPath())
         .isTrue();
+  }
+
+  @Test
+  public void testGetRepositoryRelativePathExternalSourceArtifacts() throws IOException {
+    ArtifactRoot externalRoot =
+        ArtifactRoot.asExternalSourceRoot(
+            Root.fromPath(
+                scratch
+                    .dir("/output_base")
+                    .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION)));
+
+    // --experimental_sibling_repository_layout not set
+    assertThat(
+            new Artifact.SourceArtifact(
+                    externalRoot,
+                    LabelConstants.EXTERNAL_PATH_PREFIX.getRelative("foo/bar/baz.cc"),
+                    ArtifactOwner.NULL_OWNER)
+                .getRepositoryRelativePath())
+        .isEqualTo(PathFragment.create("bar/baz.cc"));
+
+    // --experimental_sibling_repository_layout set
+    assertThat(
+            new Artifact.SourceArtifact(
+                    externalRoot,
+                    LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative("foo/bar/baz.cc"),
+                    ArtifactOwner.NULL_OWNER)
+                .getRepositoryRelativePath())
+        .isEqualTo(PathFragment.create("bar/baz.cc"));
   }
 }

@@ -663,7 +663,6 @@ public abstract class Artifact
    */
   public PathFragment getRepositoryRelativePath() {
     PathFragment fullPath = getPathForLocationExpansion();
-    // We can't use root.isExternalSource() here since it needs to handle derived artifacts too.
     return fullPath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)
         ? fullPath.subFragment(2)
         : fullPath;
@@ -904,6 +903,11 @@ public abstract class Artifact
     @Override
     public PathFragment getPathForLocationExpansion() {
       return getExecPath();
+    }
+
+    @Override
+    public PathFragment getRepositoryRelativePath() {
+      return root.isExternalSourceRoot() ? getExecPath().subFragment(2) : getExecPath();
     }
 
     @Override
