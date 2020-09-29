@@ -154,17 +154,30 @@ public class HttpDownloader implements Downloader {
   public List<URL> getMirroredUrls(List<URL> urls) throws IOException {
     List<URL> mirroredUrls = new ArrayList<>(urls.size());
     for (URL url : urls) {
+      URL mirroredUrl;
+      try {
+        mirroredUrl = urlToMirroredUrl(url);
+      } catch (MalformedURLException e) {
+        throw new IOException("Bad mirrored URL: " + e.getMessage());
+      }
+
+      mirroredUrls.add(mirroredUrl);
+    }
+    return mirroredUrls;
+  }
+
+  public URL urlToMirroredUrl(URL url) throws MalformedURLException {
       String portStr = "";
       if ( url.getPort() != -1 ) {
         portStr = String.format(":%d", url.getPort());
       }
-      String mirroredUrlStr = mirror.toString().replaceAll("/*$","") + "/" + url.getHost() + portStr + "/" + url.getPath().replaceAll("^/*","");
-      try {
-        mirroredUrls.add(new URL(mirroredUrlStr));
-      } catch (MalformedURLException e) {
-        throw new IOException("Bad mirrored URL: " + mirroredUrlStr);
-      }
-    }
-    return mirroredUrls;
+
+      String mirroredUrlStr = mirror.toString().replaceAll("/*$","")
+                              + "/"
+                              + url.getHost() + portStr
+                              + "/"
+                              + url.getPath().replaceAll("^/*","");
+
+      return new URL(mirroredUrlStr);
   }
 }

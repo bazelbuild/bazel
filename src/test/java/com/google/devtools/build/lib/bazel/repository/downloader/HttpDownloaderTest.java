@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.MalformedURLException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
@@ -371,7 +372,7 @@ public class HttpDownloaderTest {
   }
 
   @Test
-  public void downloadFromMirroredUrlFailedButOriginOk() throws IOException, InterruptedException {
+  public void downloadFromMirrorNotFoundThenRetryOriginOk() throws IOException, InterruptedException {
     try {
       try (ServerSocket server1 = new ServerSocket(0, 1, InetAddress.getByName(null));
         ServerSocket server2 = new ServerSocket(0, 1, InetAddress.getByName(null))) {
@@ -379,19 +380,16 @@ public class HttpDownloaderTest {
         Future<?> possiblyIgnoredError =
             executor.submit(
                 () -> {
-                    Socket socket = server1.accept();
-                    readHttpRequest(socket.getInputStream());
-                    sendLines(
-                        socket,
-                        "HTTP/1.1 200 OK",
-                        "Date: Fri, 31 Dec 1999 23:59:59 GMT",
-                        "Connection: close",
-                        "Content-Type: text/plain",
-                        "",
-                        "hello");
-
-                    // Never close the socket to cause SocketTimeoutException during body read on client
-                    // side.
+                    try (Socket socket = server1.accept()) {
+                      readHttpRequest(socket.getInputStream());
+                      sendLines(
+                          socket,
+                          "HTTP/1.1 404 Not Found",
+                          "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                          "Connection: close",
+                          "Content-Type: text/plain",
+                          "");
+                    }
                     return null;
                 });
 
@@ -435,6 +433,38 @@ public class HttpDownloaderTest {
 
         assertThat(new String(readFile(resultingFile), UTF_8)).isEqualTo("/foo");
       }
+    } finally {
+      httpDownloader.setMirror(null);
+    }
+  }
+
+  @Test
+  public void testUrlToMirroredUrl() throws MalformedURLException {
+    try {
+
+        URL mirroredUrl = null;
+        URL expectedMirroredUrl = new URL("https://mirror.example.com/downloads.somewhere.com/something.tar.gz");
+
+        // normal case
+        httpDownloader.setMirror(new URL(String.format("https://mirror.example.com")));
+        mirroredUrl = httpDownloader.urlToMirroredUrl(new URL("https://downloads.somewhere.com/something.tar.gz"));
+        assertThat(mirroredUrl.toString()).isEqualTo(expectedMirroredUrl.toString());
+
+        // mirror url with end slash case
+        httpDownloader.setMirror(new URL(String.format("https://mirror.example.com/")));
+        mirroredUrl = httpDownloader.urlToMirroredUrl(new URL("https://downloads.somewhere.com/something.tar.gz"));
+        assertThat(mirroredUrl.toString()).isEqualTo(expectedMirroredUrl.toString());
+
+        // duplicated end slash case
+        httpDownloader.setMirror(new URL(String.format("https://mirror.example.com///")));
+        mirroredUrl = httpDownloader.urlToMirroredUrl(new URL("https://downloads.somewhere.com///something.tar.gz"));
+        assertThat(mirroredUrl.toString()).isEqualTo(expectedMirroredUrl.toString());
+
+        // url with custom port
+        expectedMirroredUrl = new URL("https://mirror.example.com/downloads.somewhere.com:8081/something.tar.gz");
+        httpDownloader.setMirror(new URL(String.format("https://mirror.example.com")));
+        mirroredUrl = httpDownloader.urlToMirroredUrl(new URL("http://downloads.somewhere.com:8081/something.tar.gz"));
+        assertThat(mirroredUrl.toString()).isEqualTo(expectedMirroredUrl.toString());
     } finally {
       httpDownloader.setMirror(null);
     }
