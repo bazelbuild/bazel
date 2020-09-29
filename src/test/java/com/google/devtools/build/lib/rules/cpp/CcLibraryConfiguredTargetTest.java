@@ -1066,7 +1066,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration("--features=parse_headers");
     ConfiguredTarget x =
         scratchConfiguredTarget("x", "x", "cc_library(name = 'x', hdrs = ['x.cc'])");
-    assertThat(getGeneratingAction(getBinArtifact("_objs/x/.pic.o", x))).isNull();
+    assertThat(getGeneratingAction(getBinArtifact("_objs/x/x.o", x))).isNull();
   }
 
   @Test
