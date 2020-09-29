@@ -217,7 +217,7 @@ rules. A description of these concepts for the users of Bazel is available
 ### Repositories
 
 A "repository" is a source tree on which a developer works; it usually
-represents a single project. Bazel's ancestor, Bazel, operated on a monorepo,
+represents a single project. Bazel's ancestor, Blaze, operated on a monorepo,
 i.e. a single source tree that contains all source code used to run the build.
 Bazel, in contrast, supports projects whose source code spans multiple
 repositories. The repository from which Bazel is invoked is called the “main
