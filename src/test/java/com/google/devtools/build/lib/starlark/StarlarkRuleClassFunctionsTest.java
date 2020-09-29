@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
-import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import javax.annotation.Nullable;
@@ -78,7 +77,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
-  private final EvaluationTestCase ev = new BazelEvaluationTestCase();
+  private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
 
   private StarlarkRuleContext createRuleContext(String label) throws Exception {
     return new StarlarkRuleContext(
@@ -735,7 +734,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(c.hasAttr("a1", Type.STRING)).isTrue();
   }
 
-  private static void evalAndExport(EvaluationTestCase ev, String... lines) throws Exception {
+  private static void evalAndExport(BazelEvaluationTestCase ev, String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
     Module module = ev.getModule();
     StarlarkFile file = StarlarkFile.parse(input);

@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
-import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import net.starlark.java.syntax.Location;
 import org.junit.Before;
@@ -34,7 +33,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class PyRuntimeInfoTest extends BuildViewTestCase {
 
-  private final EvaluationTestCase ev = new BazelEvaluationTestCase();
+  private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
 
   private Artifact dummyInterpreter;
   private Artifact dummyFile;

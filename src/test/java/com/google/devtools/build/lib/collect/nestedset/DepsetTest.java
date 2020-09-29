@@ -17,11 +17,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
-import com.google.devtools.build.lib.packages.StarlarkLibrary;
-import com.google.devtools.build.lib.packages.StructProvider;
-import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
+import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkCallable;
@@ -37,15 +34,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class DepsetTest {
 
-  private final EvaluationTestCase ev =
-      new EvaluationTestCase() {
-        @Override
-        protected Object newModuleHook(ImmutableMap.Builder<String, Object> predeclared) {
-          predeclared.put("depset", StarlarkLibrary.COMMON.get("depset"));
-          predeclared.put("struct", StructProvider.STRUCT);
-          return null; // no client data
-        }
-      };
+  private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
 
   @Test
   public void testConstructor() throws Exception {

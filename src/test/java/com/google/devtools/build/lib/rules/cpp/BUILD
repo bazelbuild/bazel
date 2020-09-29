@@ -682,7 +682,7 @@ java_test(
     deps = [
         "//src/main/java/net/starlark/java/eval",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
-        "//src/test/java/com/google/devtools/build/lib/syntax/util",
+        "//src/test/java/com/google/devtools/build/lib/starlark/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:junit4",
     ],
