@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.packages.util;
+package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -20,17 +20,7 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.packages.CachingPackageLocator;
-import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
-import com.google.devtools.build.lib.packages.GlobCache;
-import com.google.devtools.build.lib.packages.LegacyGlobber;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
-import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.PackageLoadingListener;
-import com.google.devtools.build.lib.packages.PackageValidator;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -45,19 +35,20 @@ import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.StarlarkFile;
 
 /**
- * An apparatus that creates / maintains a {@link PackageFactory}.
+ * A helper class for degenerate tests of the loading phase. Such tests cannot use 'load', for
+ * example.
  */
-public class PackageFactoryApparatus {
+// TODO(adonovan): eliminate this class in due course. Tests should use skyframe.PackageFunction.
+class PackageFactoryApparatus {
 
   private final ExtendedEventHandler eventHandler;
   private final PackageFactory factory;
 
-  public PackageFactoryApparatus(ExtendedEventHandler eventHandler) {
+  PackageFactoryApparatus(ExtendedEventHandler eventHandler) {
     this(eventHandler, PackageValidator.NOOP_VALIDATOR);
   }
 
-  public PackageFactoryApparatus(
-      ExtendedEventHandler eventHandler, PackageValidator packageValidator) {
+  PackageFactoryApparatus(ExtendedEventHandler eventHandler, PackageValidator packageValidator) {
     this.eventHandler = eventHandler;
     RuleClassProvider ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();
     factory =
@@ -71,10 +62,8 @@ public class PackageFactoryApparatus {
             PackageLoadingListener.NOOP_LISTENER);
   }
 
-  /**
-   * Returns the package factory maintained by this apparatus.
-   */
-  public PackageFactory factory() {
+  /** Returns the package factory maintained by this apparatus. */
+  PackageFactory factory() {
     return factory;
   }
 
@@ -85,11 +74,11 @@ public class PackageFactoryApparatus {
   }
 
   /** Parses and evaluates {@code buildFile} and returns the resulting {@link Package} instance. */
-  public Package createPackage(String packageName, RootedPath buildFile) throws Exception {
+  Package createPackage(String packageName, RootedPath buildFile) throws Exception {
     return createPackage(PackageIdentifier.createInMainRepo(packageName), buildFile, eventHandler);
   }
 
-  public Package createPackage(String packageName, RootedPath buildFile, String starlarkOption)
+  Package createPackage(String packageName, RootedPath buildFile, String starlarkOption)
       throws Exception {
     return createPackage(
         PackageIdentifier.createInMainRepo(packageName), buildFile, eventHandler, starlarkOption);
@@ -99,7 +88,7 @@ public class PackageFactoryApparatus {
    * Parses and evaluates {@code buildFile} with custom {@code eventHandler} and returns the
    * resulting {@link Package} instance.
    */
-  public Package createPackage(
+  Package createPackage(
       PackageIdentifier packageIdentifier,
       RootedPath buildFile,
       ExtendedEventHandler reporter,
@@ -136,7 +125,7 @@ public class PackageFactoryApparatus {
     }
   }
 
-  public Package createPackage(
+  Package createPackage(
       PackageIdentifier packageIdentifier, RootedPath buildFile, ExtendedEventHandler reporter)
       throws Exception {
     return createPackage(packageIdentifier, buildFile, reporter, null);
@@ -144,7 +133,7 @@ public class PackageFactoryApparatus {
 
   /** Parses the {@code buildFile} into a {@link StarlarkFile}. */
   // TODO(adonovan): inline this into all callers. It has nothing to do with PackageFactory.
-  public StarlarkFile parse(Path buildFile) throws IOException {
+  StarlarkFile parse(Path buildFile) throws IOException {
     byte[] bytes = FileSystemUtils.readWithKnownFileSize(buildFile, buildFile.getFileSize());
     ParserInput input = ParserInput.fromLatin1(bytes, buildFile.toString());
     StarlarkFile file = StarlarkFile.parse(input);
@@ -153,7 +142,7 @@ public class PackageFactoryApparatus {
   }
 
   /** Evaluates the parsed BUILD file {@code file} into a {@link Package}. */
-  public Pair<Package, GlobCache> evalAndReturnGlobCache(
+  Pair<Package, GlobCache> evalAndReturnGlobCache(
       String packageName, RootedPath filename, StarlarkFile file)
       throws InterruptedException, NoSuchPackageException {
     PackageIdentifier packageId = PackageIdentifier.createInMainRepo(packageName);
@@ -198,21 +187,19 @@ public class PackageFactoryApparatus {
     return Pair.of(result, globCache);
   }
 
-  public Package eval(String packageName, RootedPath filename, StarlarkFile file)
+  Package eval(String packageName, RootedPath filename, StarlarkFile file)
       throws InterruptedException, NoSuchPackageException {
     return evalAndReturnGlobCache(packageName, filename, file).first;
   }
 
   /** Evaluates the {@code filename} into a {@link Package}. */
-  public Package eval(String packageName, RootedPath filename)
+  Package eval(String packageName, RootedPath filename)
       throws InterruptedException, IOException, NoSuchPackageException {
     return eval(packageName, filename, parse(filename.asPath()));
   }
 
-  /**
-   * Creates a package locator that finds no packages.
-   */
-  public static CachingPackageLocator createEmptyLocator() {
+  /** Creates a package locator that finds no packages. */
+  static CachingPackageLocator createEmptyLocator() {
     return new CachingPackageLocator() {
       @Override
       public Path getBuildFileForPackage(PackageIdentifier packageName) {

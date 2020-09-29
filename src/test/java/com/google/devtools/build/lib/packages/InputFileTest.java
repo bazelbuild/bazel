@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
-import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;

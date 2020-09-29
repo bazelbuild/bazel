@@ -910,8 +910,8 @@ public final class PackageFactory {
    *
    * @see PackageFactory#PackageFactory
    */
-  @VisibleForTesting // used by PackageFactoryApparatus
-  public Package.Builder evaluateBuildFile(
+  // Used by PackageFactoryApparatus. DO NOT make this public!
+  Package.Builder evaluateBuildFile(
       String workspaceName,
       PackageIdentifier packageId,
       StarlarkFile file, // becomes resolved as a side effect
