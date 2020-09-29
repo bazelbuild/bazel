@@ -1147,6 +1147,58 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCppCompileActionMnemonicOfSrc() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
+
+    ConfiguredTarget x =
+        scratchConfiguredTarget("foo", "x", "cc_library(name = 'x', srcs = ['a.cc'])");
+
+    assertThat(getGeneratingCompileAction("_objs/x/a.o", x).getMnemonic()).isEqualTo("CppCompile");
+  }
+
+  @Test
+  public void testCppCompileActionMnemonicOfPrivateHdr() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
+
+    ConfiguredTarget x =
+        scratchConfiguredTarget("foo", "x", "cc_library(name = 'x', srcs = ['y.h'])");
+
+    assertThat(getGeneratingCompileAction("_objs/x/y.h.processed", x).getMnemonic())
+        .isEqualTo("CppCompile");
+  }
+
+  @Test
+  public void testCppCompileActionMnemonicOfPublicHdr() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
+
+    ConfiguredTarget x =
+        scratchConfiguredTarget("foo", "x", "cc_library(name = 'x', hdrs = ['z.h'])");
+
+    assertThat(getGeneratingCompileAction("_objs/x/z.h.processed", x).getMnemonic())
+        .isEqualTo("CppCompile");
+  }
+
+  private CppCompileAction getGeneratingCompileAction(
+      String packageRelativePath, ConfiguredTarget owner) {
+    return (CppCompileAction) getGeneratingAction(getBinArtifact(packageRelativePath, owner));
+  }
+
+  @Test
   public void testIncludePathOrder() throws Exception {
     useConfiguration("--incompatible_merge_genfiles_directory=false");
     scratch.file("foo/BUILD",

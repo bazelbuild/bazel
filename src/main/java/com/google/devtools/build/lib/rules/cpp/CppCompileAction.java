@@ -118,6 +118,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   private static final boolean VALIDATION_DEBUG_WARN = false;
 
+  private static final String CPP_COMPILE_MNEMONIC = "CppCompile";
+  private static final String OBJC_COMPILE_MNEMONIC = "ObjcCompile";
+
   protected final Artifact outputFile;
   private final Artifact sourceFile;
   private final CppConfiguration cppConfiguration;
@@ -1673,11 +1676,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
   }
 
-  static String actionNameToMnemonic(String actionName) {
+  static String actionNameToMnemonic(String actionName, FeatureConfiguration featureConfiguration) {
     switch (actionName) {
       case CppActionNames.OBJC_COMPILE:
       case CppActionNames.OBJCPP_COMPILE:
-        return "ObjcCompile";
+        return OBJC_COMPILE_MNEMONIC;
 
       case CppActionNames.LINKSTAMP_COMPILE:
         // When compiling shared native deps, e.g. when two java_binary rules have the same set of
@@ -1689,14 +1692,19 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         // extra actions to regular CppCompileActions without tickling this bug.
         return "CppLinkstampCompile";
 
+      case CppActionNames.CPP_HEADER_PARSING:
+        return featureConfiguration.isEnabled(CppRuleClasses.LANG_OBJC)
+            ? OBJC_COMPILE_MNEMONIC
+            : CPP_COMPILE_MNEMONIC;
+
       default:
-        return "CppCompile";
+        return CPP_COMPILE_MNEMONIC;
     }
   }
 
   @Override
   public String getMnemonic() {
-    return actionNameToMnemonic(actionName);
+    return actionNameToMnemonic(actionName, featureConfiguration);
   }
 
   @Override

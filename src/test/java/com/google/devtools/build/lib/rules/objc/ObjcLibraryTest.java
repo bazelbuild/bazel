@@ -2144,14 +2144,17 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     MockObjcSupport.setupCcToolchainConfig(
         mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
     useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
+
     ConfiguredTarget x =
         scratchConfiguredTarget("foo", "x", "objc_library(name = 'x', hdrs = ['x.h'])");
-    Artifact header =
-        ActionsTestUtil.getFirstArtifactEndingWith(
-            getOutputGroup(x, CcCompilationHelper.HIDDEN_HEADER_TOKENS), "x.h.processed");
 
-    CommandAction compileAction = (CommandAction) getGeneratingAction(header);
-    assertThat(compileAction.getArguments()).contains("-DDUMMY_LANG_OBJC");
+    assertThat(getGeneratingCompileAction("_objs/x/arc/x.h.processed", x).getArguments())
+        .contains("-DDUMMY_LANG_OBJC");
+  }
+
+  private CppCompileAction getGeneratingCompileAction(
+      String packageRelativePath, ConfiguredTarget owner) {
+    return (CppCompileAction) getGeneratingAction(getBinArtifact(packageRelativePath, owner));
   }
 
   @Test
@@ -2201,6 +2204,45 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     String validation = ActionsTestUtil.baseNamesOf(getOutputGroup(x, OutputGroupInfo.VALIDATION));
     assertThat(validation).contains("y.h.processed");
     assertThat(validation).contains("z.h.processed");
+  }
+
+  @Test
+  public void testCppCompileActionMnemonicOfSrc() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
+
+    ConfiguredTarget x =
+        scratchConfiguredTarget("foo", "x", "objc_library(name = 'x', srcs = ['a.m'])");
+
+    assertThat(getGeneratingCompileAction("_objs/x/arc/a.o", x).getMnemonic())
+        .isEqualTo("ObjcCompile");
+  }
+
+  @Test
+  public void testCppCompileActionMnemonicOfPrivateHdr() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
+
+    ConfiguredTarget x =
+        scratchConfiguredTarget("foo", "x", "objc_library(name = 'x', srcs = ['y.h'])");
+
+    assertThat(getGeneratingCompileAction("_objs/x/arc/y.h.processed", x).getMnemonic())
+        .isEqualTo("ObjcCompile");
+  }
+
+  @Test
+  public void testCppCompileActionMnemonicOfPublicHdr() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
+
+    ConfiguredTarget x =
+        scratchConfiguredTarget("foo", "x", "objc_library(name = 'x', hdrs = ['z.h'])");
+
+    assertThat(getGeneratingCompileAction("_objs/x/arc/z.h.processed", x).getMnemonic())
+        .isEqualTo("ObjcCompile");
   }
 
   protected List<String> linkstampExecPaths(NestedSet<CcLinkingContext.Linkstamp> linkstamps) {
