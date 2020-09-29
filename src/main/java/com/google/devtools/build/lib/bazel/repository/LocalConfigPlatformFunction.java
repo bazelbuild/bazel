@@ -162,7 +162,7 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
             "platform(name = 'target',",
             "  # Auto-detected host platform constraints.",
             "  constraint_values = HOST_CONSTRAINTS + ",
-            "    ['@bazel_tools//platforms:installed_on_target'],",
+            "    ['@bazel_tools//platforms:located_on_target_or_host'],",
             ")"),
         repositoryName);
   }

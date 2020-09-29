@@ -82,18 +82,18 @@ alias(
 )
 
 constraint_setting(
-    name = "on_target",
-    default_constraint_value = "not_installed_on_target",
+    name = "toolchain_location",
+    default_constraint_value = "located_on_host_only",
 )
 
 constraint_value(
-    name = "installed_on_target",
-    constraint_setting = "on_target",
+    name = "located_on_target_and_host",
+    constraint_setting = "toolchain_location",
 )
 
 constraint_value(
-    name = "not_installed_on_target",
-    constraint_setting = "on_target",
+    name = "located_on_host_only",
+    constraint_setting = "toolchain_location",
 )
 
 # A default platform with nothing defined.
@@ -126,7 +126,7 @@ platform(
 platform(
     name = "target_platform",
     constraint_values = [
-        ":installed_on_target",
+        ":located_on_target_and_host",
     ],
     cpu_constraints = [
         "@platforms//cpu:x86_32",
