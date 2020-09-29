@@ -1094,7 +1094,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             featureConfiguration,
             ruleContext,
             /* generateHeaderTokensGroup= */ false,
-            /* addSelfHeaderTokens= */ false);
+            /* addSelfHeaderTokens= */ false,
+            /* generateHiddenTopLevelGroup= */ false);
 
     builder
         .setFilesToBuild(filesToBuild)

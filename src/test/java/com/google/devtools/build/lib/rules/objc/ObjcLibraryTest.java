@@ -2127,6 +2127,19 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testArtifactsToAlwaysBuild() throws Exception {
+    ConfiguredTarget x =
+        scratchConfiguredTarget(
+            "foo",
+            "x",
+            "objc_library(name = 'x', srcs = ['x.m'], non_arc_srcs = ['x2.m'], deps = [':y'])",
+            "objc_library(name = 'y', srcs = ['y.m'], non_arc_srcs = ['y2.m'], )");
+    assertThat(
+            ActionsTestUtil.sortedBaseNamesOf(getOutputGroup(x, OutputGroupInfo.HIDDEN_TOP_LEVEL)))
+        .isEqualTo("x.o x2.o y.o y2.o");
+  }
+
+  @Test
   public void testLangObjcFeature() throws Exception {
     MockObjcSupport.setupCcToolchainConfig(
         mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
@@ -2168,6 +2181,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(
             ActionsTestUtil.baseNamesOf(
                 getOutputGroup(x, CcCompilationHelper.HIDDEN_HEADER_TOKENS)))
+        .isEqualTo("y.h.processed");
+    assertThat(ActionsTestUtil.baseNamesOf(getOutputGroup(x, OutputGroupInfo.HIDDEN_TOP_LEVEL)))
         .isEqualTo("y.h.processed");
   }
 

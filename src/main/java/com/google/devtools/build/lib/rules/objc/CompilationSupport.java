@@ -486,7 +486,8 @@ public class CompilationSupport {
             featureConfiguration,
             ruleContext,
             /* generateHeaderTokensGroup= */ true,
-            /* addSelfHeaderTokens= */ true);
+            /* addSelfHeaderTokens= */ true,
+            /* generateHiddenTopLevelGroup= */ true);
 
     Map<String, NestedSet<Artifact>> nonArcOutputGroups =
         CcCompilationHelper.buildOutputGroupsForEmittingCompileProviders(
@@ -497,7 +498,8 @@ public class CompilationSupport {
             featureConfiguration,
             ruleContext,
             /* generateHeaderTokensGroup= */ true,
-            /* addSelfHeaderTokens= */ false);
+            /* addSelfHeaderTokens= */ false,
+            /* generateHiddenTopLevelGroup= */ true);
 
     Map<String, NestedSet<Artifact>> mergedOutputGroups =
         CcCommon.mergeOutputGroups(ImmutableList.of(arcOutputGroups, nonArcOutputGroups));

@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier.MapBackedMakeVariableSupplier;
-import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -472,7 +471,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             featureConfiguration,
             ruleContext,
             /* generateHeaderTokensGroup= */ true,
-            /* addSelfHeaderTokens= */ true);
+            /* addSelfHeaderTokens= */ true,
+            /* generateHiddenTopLevelGroup= */ true);
     CcStarlarkApiProvider.maybeAdd(ruleContext, targetBuilder);
     targetBuilder
         .setFilesToBuild(filesToBuild)
@@ -488,11 +488,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         .addOutputGroups(
             CcCommon.mergeOutputGroups(ImmutableList.of(currentOutputGroups, outputGroups.build())))
         .addNativeDeclaredProvider(instrumentedFilesProvider)
-        .addProvider(RunfilesProvider.withData(defaultRunfiles.build(), dataRunfiles.build()))
-        .addOutputGroup(
-            OutputGroupInfo.HIDDEN_TOP_LEVEL,
-            collectHiddenTopLevelArtifacts(
-                ruleContext, ccToolchain, ccCompilationOutputs, featureConfiguration));
+        .addProvider(RunfilesProvider.withData(defaultRunfiles.build(), dataRunfiles.build()));
 
     maybeAddDeniedImplicitOutputsProvider(targetBuilder, ruleContext);
   }
@@ -503,26 +499,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         && !Allowlist.isAvailable(ruleContext, IMPLICIT_OUTPUTS_ALLOWLIST)) {
       targetBuilder.addNativeDeclaredProvider(new DeniedImplicitOutputMarkerProvider());
     }
-  }
-
-  private static NestedSet<Artifact> collectHiddenTopLevelArtifacts(
-      RuleContext ruleContext,
-      CcToolchainProvider toolchain,
-      CcCompilationOutputs ccCompilationOutputs,
-      FeatureConfiguration featureConfiguration) {
-    // Ensure that we build all the dependencies, otherwise users may get confused.
-    NestedSetBuilder<Artifact> artifactsToForceBuilder = NestedSetBuilder.stableOrder();
-    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
-    boolean processHeadersInDependencies = cppConfiguration.processHeadersInDependencies();
-    boolean usePic = toolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration);
-    artifactsToForceBuilder.addTransitive(
-        ccCompilationOutputs.getFilesToCompile(processHeadersInDependencies, usePic));
-    for (OutputGroupInfo dep :
-        ruleContext.getPrerequisites("deps", OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
-      artifactsToForceBuilder.addTransitive(
-          dep.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL));
-    }
-    return artifactsToForceBuilder.build();
   }
 
   private static void warnAboutEmptyLibraries(RuleContext ruleContext,
