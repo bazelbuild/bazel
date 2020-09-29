@@ -570,9 +570,7 @@ JAVA_TOOLS_DEPLOY_JARS = [
     "//conditions:default": [],
 })
 
-JAVA_VERSIONS = ("11", "14")
-
-# TODO(davido): Hard code the javac 11 for now; it is required for default toolchain.
+JAVA_VERSIONS = ("11",)
 
 [
     genrule(
@@ -763,9 +761,6 @@ filegroup(
         "@remote_java_tools_javac11_test_darwin//:WORKSPACE",
         "@remote_java_tools_javac11_test_linux//:WORKSPACE",
         "@remote_java_tools_javac11_test_windows//:WORKSPACE",
-        "@remote_java_tools_javac14_test_darwin//:WORKSPACE",
-        "@remote_java_tools_javac14_test_linux//:WORKSPACE",
-        "@remote_java_tools_javac14_test_windows//:WORKSPACE",
         "@remote_java_tools_linux_for_testing//:WORKSPACE",
         "@remote_java_tools_windows_for_testing//:WORKSPACE",
         "@remotejdk11_linux_aarch64_for_testing//:WORKSPACE",
