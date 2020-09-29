@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcIncludeScanningRule;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcLinkingRule;
 import com.google.devtools.build.lib.rules.cpp.CpuTransformer;
+import com.google.devtools.build.lib.rules.cpp.DebugPackageProvider;
 import com.google.devtools.build.lib.rules.cpp.FdoPrefetchHintsRule;
 import com.google.devtools.build.lib.rules.cpp.FdoProfileRule;
 import com.google.devtools.build.lib.rules.cpp.GoogleLegacyStubs;
@@ -89,6 +90,7 @@ public class CcRules implements RuleSet {
         new CcBootstrap(
             new BazelCcModule(),
             CcInfo.PROVIDER,
+            DebugPackageProvider.PROVIDER,
             CcToolchainConfigInfo.PROVIDER,
             new GoogleLegacyStubs.PyWrapCcHelper(),
             new GoogleLegacyStubs.GoWrapCcHelper(),

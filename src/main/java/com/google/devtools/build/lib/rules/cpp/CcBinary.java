@@ -661,8 +661,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     CcStarlarkApiProvider.maybeAdd(ruleContext, ruleBuilder);
     ruleBuilder
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
-        .addProvider(
-            DebugPackageProvider.class,
+        .addNativeDeclaredProvider(
             new DebugPackageProvider(ruleContext.getLabel(), strippedFile, binary, explicitDwpFile))
         .setRunfilesSupport(runfilesSupport, binary)
         .addNativeDeclaredProvider(ccLauncherInfo);
