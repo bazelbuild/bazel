@@ -93,6 +93,21 @@ alias(
     actual = "@platforms//os:windows",
 )
 
+constraint_setting(
+    name = "on_target",
+    default_constraint_value = "not_installed_on_target",
+)
+
+constraint_value(
+    name = "installed_on_target",
+    constraint_setting = "on_target",
+)
+
+constraint_value(
+    name = "not_installed_on_target",
+    constraint_setting = "on_target",
+)
+
 # A default platform with nothing defined.
 platform(name = "default_platform")
 
@@ -123,6 +138,7 @@ platform(
 platform(
     name = "target_platform",
     constraint_values = [
+        ":installed_on_target",
     ],
     cpu_constraints = [
         "@platforms//cpu:x86_32",

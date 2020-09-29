@@ -40,6 +40,8 @@ public class PlatformOptions extends FragmentOptions {
   // directly.
   public static final Label LEGACY_DEFAULT_HOST_PLATFORM =
       Label.parseAbsoluteUnchecked("@bazel_tools//platforms:host_platform");
+  public static final Label DEFAULT_TARGET_PLATFORM =
+      Label.parseAbsoluteUnchecked("@local_config_platform//:target");
   public static final Label DEFAULT_HOST_PLATFORM =
       Label.parseAbsoluteUnchecked("@local_config_platform//:host");
 
@@ -258,8 +260,8 @@ public class PlatformOptions extends FragmentOptions {
     if (!platforms.isEmpty()) {
       return Iterables.getFirst(platforms, null);
     } else if (autoConfigureHostPlatform) {
-      // Default to the host platform, whatever it is.
-      return computeHostPlatform();
+      // Default to the auto-configured target platform, whatever it is.
+      return DEFAULT_TARGET_PLATFORM;
     } else {
       // Use the legacy target platform
       return targetPlatformFallback;
