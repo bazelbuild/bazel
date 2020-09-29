@@ -15,39 +15,79 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
-import com.google.devtools.build.lib.packages.util.PackageFactoryTestBase;
+import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
+import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.StarlarkFile;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Unit tests for {@code PackageFactory}.
- */
+/** Unit tests for {@code PackageFactory}. */
 @RunWith(JUnit4.class)
-public class PackageFactoryTest extends PackageFactoryTestBase {
+public final class PackageFactoryTest {
+
+  private Scratch scratch;
+  private EventCollectionApparatus events = new EventCollectionApparatus();
+  private DummyPackageValidator dummyPackageValidator = new DummyPackageValidator();
+  private PackageFactoryApparatus packages =
+      new PackageFactoryApparatus(events.reporter(), dummyPackageValidator);
+  private Root root;
+
+  @Before
+  public final void initializeFileSystem() throws Exception {
+    FileSystem fs =
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
+          @Override
+          public Collection<Dirent> readdir(Path path, boolean followSymlinks) throws IOException {
+            if (path.equals(throwOnReaddir)) {
+              throw new FileNotFoundException(path.getPathString());
+            }
+            return super.readdir(path, followSymlinks);
+          }
+        };
+    Path tmpPath = fs.getPath("/");
+    scratch = new Scratch(tmpPath);
+    root = Root.fromPath(scratch.dir("/"));
+  }
 
   @Test
   public void testCreatePackage() throws Exception {
@@ -87,7 +127,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
             () ->
                 packages.createPackage(
                     "not even a legal/.../label",
-                    RootedPath.toRootedPath(root, emptyBuildFile("not even a legal/.../label"))));
+                    RootedPath.toRootedPath(root, emptyFile("/not even a legal/.../label/BUILD"))));
     assertThat(e)
         .hasMessageThat()
         .contains(
@@ -132,6 +172,13 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     assertThat(isValidPackageName("foo/PROTECTED/bar")).isTrue();
     // Multiple "PROTECTED"s:
     assertThat(isValidPackageName("foo/PROTECTED/bar/PROTECTED/wiz")).isTrue();
+  }
+
+  private boolean isValidPackageName(String packageName) throws Exception {
+    // Write a license decl just in case it's a third_party package:
+    Path buildFile = scratch.file("/" + packageName + "/BUILD", "licenses(['notice'])");
+    Package pkg = packages.createPackage(packageName, RootedPath.toRootedPath(root, buildFile));
+    return !pkg.containsErrors();
   }
 
   @Test
@@ -553,7 +600,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     Package pkg = packages.eval("rg", RootedPath.toRootedPath(root, file));
     events.assertNoWarningsOrErrors();
 
-    assertEvaluates(
+    assertGlob(
         pkg,
         ImmutableList.of(
             "BUILD",
@@ -568,7 +615,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
             "foo/wiz/quid/gav.cc"),
         "**");
 
-    assertEvaluates(
+    assertGlob(
         pkg,
         ImmutableList.of(
             "a.cc",
@@ -578,47 +625,46 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
             "foo/wiz/bum.cc",
             "foo/wiz/quid/gav.cc"),
         "**/*.cc");
-    assertEvaluates(
-        pkg, ImmutableList.of("foo/bar.cc", "foo/wiz/bam.cc", "foo/wiz/bum.cc"), "**/b*.cc");
-    assertEvaluates(
+    assertGlob(pkg, ImmutableList.of("foo/bar.cc", "foo/wiz/bam.cc", "foo/wiz/bum.cc"), "**/b*.cc");
+    assertGlob(
         pkg,
         ImmutableList.of(
             "foo/bar.cc", "foo/foo.cc", "foo/wiz/bam.cc", "foo/wiz/bum.cc", "foo/wiz/quid/gav.cc"),
         "**/*/*.cc");
-    assertEvaluates(pkg, ImmutableList.of("foo/wiz/quid/gav.cc"), "foo/**/quid/*.cc");
+    assertGlob(pkg, ImmutableList.of("foo/wiz/quid/gav.cc"), "foo/**/quid/*.cc");
 
-    assertEvaluates(
+    assertGlob(
         pkg,
         Collections.<String>emptyList(),
         ImmutableList.of("*.cc", "*/*.cc", "*/*/*.cc"),
         ImmutableList.of("**/*.cc"));
-    assertEvaluates(
+    assertGlob(
         pkg,
         Collections.<String>emptyList(),
         ImmutableList.of("**/*.cc"),
         ImmutableList.of("**/*.cc"));
-    assertEvaluates(
+    assertGlob(
         pkg,
         Collections.<String>emptyList(),
         ImmutableList.of("**/*.cc"),
         ImmutableList.of("*.cc", "*/*.cc", "*/*/*.cc", "*/*/*/*.cc"));
-    assertEvaluates(
+    assertGlob(
         pkg,
         Collections.<String>emptyList(),
         ImmutableList.of("**"),
         ImmutableList.of("*", "*/*", "*/*/*", "*/*/*/*"));
-    assertEvaluates(
+    assertGlob(
         pkg,
         ImmutableList.of(
             "foo/bar.cc", "foo/foo.cc", "foo/wiz/bam.cc", "foo/wiz/bum.cc", "foo/wiz/quid/gav.cc"),
         ImmutableList.of("**/*.cc"),
         ImmutableList.of("*.cc"));
-    assertEvaluates(
+    assertGlob(
         pkg,
         ImmutableList.of("a.cc", "foo/wiz/bam.cc", "foo/wiz/bum.cc", "foo/wiz/quid/gav.cc"),
         ImmutableList.of("**/*.cc"),
         ImmutableList.of("*/*.cc"));
-    assertEvaluates(
+    assertGlob(
         pkg,
         ImmutableList.of("a.cc", "foo/bar.cc", "foo/foo.cc", "foo/wiz/quid/gav.cc"),
         ImmutableList.of("**/*.cc"),
@@ -1232,5 +1278,184 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     Package pkg = packages.eval("p", RootedPath.toRootedPath(root, file));
     assertThat(pkg.containsErrors()).isTrue();
     events.assertContainsError(expectedError);
+  }
+
+  private Package expectEvalSuccess(String... content)
+      throws InterruptedException, IOException, NoSuchPackageException {
+    Path file = scratch.file("pkg/BUILD", content);
+    Package pkg = packages.eval("pkg", RootedPath.toRootedPath(root, file));
+    assertThat(pkg.containsErrors()).isFalse();
+    return pkg;
+  }
+
+  private void expectEvalError(String expectedError, String... content) throws Exception {
+    events.setFailFast(false);
+    Path file = scratch.file("pkg/BUILD", content);
+    Package pkg = packages.eval("pkg", RootedPath.toRootedPath(root, file));
+    assertWithMessage("Expected evaluation error, but none was not reported")
+        .that(pkg.containsErrors())
+        .isTrue();
+    events.assertContainsError(expectedError);
+  }
+
+  private Path throwOnReaddir = null;
+
+  private static AttributeMap attributes(Rule rule) {
+    return RawAttributeMapper.of(rule);
+  }
+
+  private static void assertGlob(Package pkg, List<String> expected, String... include)
+      throws Exception {
+    assertGlob(pkg, expected, ImmutableList.copyOf(include), ImmutableList.of());
+  }
+
+  private static void assertGlob(
+      Package pkg, List<String> expected, List<String> include, List<String> exclude)
+      throws Exception {
+    GlobCache globCache =
+        new GlobCache(
+            pkg.getFilename().asPath().getParentDirectory(),
+            pkg.getPackageIdentifier(),
+            ImmutableSet.of(),
+            PackageFactoryApparatus.createEmptyLocator(),
+            null,
+            TestUtils.getPool(),
+            -1);
+    assertThat(globCache.globUnsorted(include, exclude, false, true))
+        .containsExactlyElementsIn(expected);
+  }
+
+  private Path emptyFile(String path) {
+    try {
+      return scratch.file(path);
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  /********************************************************************
+   *                                                                  *
+   *              Test "glob" function in build language              *
+   *                                                                  *
+   ********************************************************************/
+  private void assertGlobFails(String globCallExpression, String expectedError) throws Exception {
+    Package pkg = buildPackageWithGlob(globCallExpression);
+
+    events.assertContainsError(expectedError);
+    assertThat(pkg.containsErrors()).isTrue();
+  }
+
+  private Package buildPackageWithGlob(String globCallExpression) throws Exception {
+    scratch.deleteFile("/dummypackage/BUILD");
+    Path file = scratch.file("/dummypackage/BUILD", "x = " + globCallExpression);
+    return packages.eval("dummypackage", RootedPath.toRootedPath(root, file));
+  }
+
+  private List<Pair<String, Boolean>> createGlobCacheKeys(
+      List<String> expressions, boolean excludeDirs) {
+    List<Pair<String, Boolean>> keys = Lists.newArrayListWithCapacity(expressions.size());
+    for (String expression : expressions) {
+      keys.add(Pair.of(expression, excludeDirs));
+    }
+
+    return keys;
+  }
+
+  /**
+   * Test globbing in the context of a package, using the build language. We use the specially setup
+   * "globs" test package and the files beneath it.
+   *
+   * @param result the expected list of filenames that match the glob
+   * @param includes an include pattern for the glob
+   * @param excludes an exclude pattern for the glob
+   * @param excludeDirs an exclude_directories flag for the glob
+   * @throws Exception if the glob doesn't match the expected result.
+   */
+  private void assertGlobMatches(
+      List<String> result, List<String> includes, List<String> excludes, boolean excludeDirs)
+      throws Exception {
+
+    Pair<Package, GlobCache> evaluated =
+        evaluateGlob(
+            includes,
+            excludes,
+            excludeDirs,
+            Starlark.format("(result == sorted(%r)) or fail('incorrect glob result')", result));
+
+    Package pkg = evaluated.first;
+    GlobCache globCache = evaluated.second;
+
+    // Ensure all of the patterns are recorded against this package:
+    assertThat(globCache.getKeySet().containsAll(createGlobCacheKeys(includes, excludeDirs)))
+        .isTrue();
+    assertThat(pkg.containsErrors()).isFalse();
+  }
+
+  /**
+   * Evaluate a glob() call against a test directory and BUILD code to process the results.
+   *
+   * @param includes a list of glob patterns; glob will include these files.
+   * @param excludes a list of glob patterns to exclude even if previously included.
+   * @param excludeDirs true if directories should be excluded from the match.
+   * @param resultAssertion code in the BUILD language that can access the variable result, to which
+   *     the result of the glob will be bound, and that may contain an assertion on it.
+   * @return a Package and a GlobCache.
+   * @throws Exception if the processResult code causes a failure.
+   */
+  private Pair<Package, GlobCache> evaluateGlob(
+      List<String> includes, List<String> excludes, boolean excludeDirs, String resultAssertion)
+      throws Exception {
+    Path globsDir = scratch.dir("/globs");
+    globsDir.getChild("subdir").createDirectory();
+    for (String file : ImmutableList.of("Wombat1.java", "Wombat2.java", "subdir/Wombat3.java")) {
+      FileSystemUtils.createEmptyFile(globsDir.getRelative(file));
+    }
+    Path file =
+        scratch.file(
+            "/globs/BUILD",
+            Starlark.format(
+                "result = glob(%r, exclude=%r, exclude_directories=%r)",
+                includes, excludes, excludeDirs ? 1 : 0),
+            resultAssertion);
+
+    return packages.evalAndReturnGlobCache(
+        "globs", RootedPath.toRootedPath(root, file), packages.parse(file));
+  }
+
+  private void assertGlobProducesError(String pattern, boolean errorExpected) throws Exception {
+    events.setFailFast(false);
+    Package pkg =
+        evaluateGlob(ImmutableList.of(pattern), Collections.<String>emptyList(), false, "").first;
+    assertThat(pkg.containsErrors()).isEqualTo(errorExpected);
+    boolean foundError = false;
+    for (Event event : events.collector()) {
+      if (event.getMessage().contains("glob")) {
+        if (!errorExpected) {
+          fail("error not expected for glob pattern " + pattern + ", but got: " + event);
+          return;
+        }
+        foundError = errorExpected;
+        break;
+      }
+    }
+    assertThat(foundError).isEqualTo(errorExpected);
+  }
+
+  /**
+   * {@link PackageValidator} whose functionality can be swapped out on demand via {@link #setImpl}.
+   */
+  private static class DummyPackageValidator implements PackageValidator {
+    private PackageValidator underlying = PackageValidator.NOOP_VALIDATOR;
+
+    /** Sets {@link PackageValidator} implementation to use. */
+    private void setImpl(PackageValidator impl) {
+      this.underlying = impl;
+    }
+
+    @Override
+    public void validate(Package pkg, ExtendedEventHandler eventHandler)
+        throws InvalidPackageException {
+      underlying.validate(pkg, eventHandler);
+    }
   }
 }
