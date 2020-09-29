@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -38,8 +39,10 @@ import com.google.devtools.build.lib.starlarkbuildapi.RunfilesApi;
 import com.google.devtools.build.lib.starlarkbuildapi.SymlinkEntryApi;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -329,7 +332,9 @@ public final class Runfiles implements RunfilesApi {
   @VisibleForTesting
   static Map<PathFragment, Artifact> filterListForObscuringSymlinks(
       EventHandler eventHandler, Location location, Map<PathFragment, Artifact> workingManifest) {
-    Map<PathFragment, Artifact> newManifest = new HashMap<>();
+    Map<PathFragment, Artifact> newManifest =
+        Maps.newHashMapWithExpectedSize(workingManifest.size());
+    Set<PathFragment> noFurtherObstructions = new HashSet<>();
 
     outer:
     for (Map.Entry<PathFragment, Artifact> entry : workingManifest.entrySet()) {
@@ -337,8 +342,13 @@ public final class Runfiles implements RunfilesApi {
       Artifact symlink = entry.getValue();
       // drop nested entries; warn if this changes anything
       int n = source.segmentCount();
+      ArrayList<PathFragment> parents = new ArrayList<>(n);
       for (int j = 1; j < n; ++j) {
         PathFragment prefix = source.subFragment(0, n - j);
+        if (noFurtherObstructions.contains(prefix)) {
+          break;
+        }
+        parents.add(prefix);
         Artifact ancestor = workingManifest.get(prefix);
         if (ancestor != null) {
           // This is an obscuring symlink, so just drop it and move on if there's no reporter.
@@ -364,6 +374,7 @@ public final class Runfiles implements RunfilesApi {
           continue outer;
         }
       }
+      noFurtherObstructions.addAll(parents);
       newManifest.put(entry.getKey(), entry.getValue());
     }
     return newManifest;
