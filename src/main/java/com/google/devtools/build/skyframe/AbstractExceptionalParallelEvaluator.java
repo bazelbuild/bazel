@@ -124,10 +124,9 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
           valueVersion,
           evaluatorContext.getGraphVersion());
 
-      if (value != null) {
-        ValueWithMetadata valueWithMetadata =
-            ValueWithMetadata.wrapWithMetadata(entry.getValueMaybeWithMetadata());
-        replay(valueWithMetadata);
+      SkyValue valueMaybeWithMetadata = entry.getValueMaybeWithMetadata();
+      if (valueMaybeWithMetadata != null) {
+        replay(ValueWithMetadata.wrapWithMetadata(valueMaybeWithMetadata));
       }
 
       // For most nodes we do not inform the progress receiver if they were already done when we
@@ -402,6 +401,10 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
             "Current key %s has to be a top-level key: %s",
             errorKey,
             rootValues);
+        SkyValue valueMaybeWithMetadata = errorEntry.getValueMaybeWithMetadata();
+        if (valueMaybeWithMetadata != null) {
+          replay(ValueWithMetadata.wrapWithMetadata(valueMaybeWithMetadata));
+        }
         break;
       }
       SkyKey parent = Preconditions.checkNotNull(Iterables.getFirst(reverseDeps, null));
@@ -506,12 +509,13 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
               ErrorInfo.fromException(reifiedBuilderException, /*isTransitivelyTransient=*/ false);
           Pair<NestedSet<TaggedEvents>, NestedSet<Postable>> eventsAndPostables =
               env.buildAndReportEventsAndPostables(parentEntry, /*expectDoneDeps=*/ false);
-          bubbleErrorInfo.put(
-              errorKey,
+          ValueWithMetadata valueWithMetadata =
               ValueWithMetadata.error(
                   ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)),
                   eventsAndPostables.first,
-                  eventsAndPostables.second));
+                  eventsAndPostables.second);
+          replay(valueWithMetadata);
+          bubbleErrorInfo.put(errorKey, valueWithMetadata);
           continue;
         }
       } finally {
@@ -530,12 +534,13 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       // Builder didn't throw its own exception, so just propagate this one up.
       Pair<NestedSet<TaggedEvents>, NestedSet<Postable>> eventsAndPostables =
           env.buildAndReportEventsAndPostables(parentEntry, /*expectDoneDeps=*/ false);
-      bubbleErrorInfo.put(
-          errorKey,
+      ValueWithMetadata valueWithMetadata =
           ValueWithMetadata.error(
               ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)),
               eventsAndPostables.first,
-              eventsAndPostables.second));
+              eventsAndPostables.second);
+      replay(valueWithMetadata);
+      bubbleErrorInfo.put(errorKey, valueWithMetadata);
     }
 
     // Reset the interrupt bit if there was an interrupt from outside this evaluator interrupt.
@@ -589,8 +594,6 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         }
         continue;
       }
-      // Replaying here is necessary for error bubbling and other cases.
-      replay(valueWithMetadata);
       SkyValue value = valueWithMetadata.getValue();
       ErrorInfo errorInfo = valueWithMetadata.getErrorInfo();
       Preconditions.checkState(value != null || errorInfo != null, skyKey);
