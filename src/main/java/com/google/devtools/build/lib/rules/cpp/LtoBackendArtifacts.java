@@ -341,6 +341,20 @@ public final class LtoBackendArtifacts {
       buildVariables.addStringVariable("fdo_prefetch_hints_path", prefetch.getExecPathString());
       builder.addInput(fdoContext.getPrefetchHintsArtifact());
     }
+    if (fdoContext.getPropellerOptimizeInputFile() != null
+        && fdoContext.getPropellerOptimizeInputFile().getCcArtifact() != null) {
+      buildVariables.addStringVariable(
+          "propeller_optimize_cc_path",
+          fdoContext.getPropellerOptimizeInputFile().getCcArtifact().getExecPathString());
+      builder.addInput(fdoContext.getPropellerOptimizeInputFile().getCcArtifact());
+    }
+    if (fdoContext.getPropellerOptimizeInputFile() != null
+        && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
+      buildVariables.addStringVariable(
+          "propeller_optimize_ld_path",
+          fdoContext.getPropellerOptimizeInputFile().getLdArtifact().getExecPathString());
+      builder.addInput(fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
+    }
     if (!featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
         && !featureConfiguration.isEnabled(CppRuleClasses.CS_FDO_OPTIMIZE)
         && !featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO)) {

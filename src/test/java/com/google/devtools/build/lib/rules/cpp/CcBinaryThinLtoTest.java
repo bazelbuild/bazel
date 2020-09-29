@@ -1859,6 +1859,56 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     assertThat(backendAction.getArguments()).containsAtLeast("-fno-PIE", "-fPIC").inOrder();
   }
 
+  @Test
+  public void testPropellerOptimizeOption() throws Exception {
+    scratch.file(
+        "pkg/BUILD",
+        "package(features = ['thin_lto'])",
+        "",
+        "cc_binary(name = 'bin',",
+        "          srcs = ['binfile.cc', ])");
+
+    scratch.file(
+        "fdo/BUILD",
+        "propeller_optimize(name='test_propeller_optimize', cc_profile=':cc_profile.txt',"
+            + " ld_profile=':ld_profile.txt')");
+
+    scratch.file("pkg/binfile.cc", "int main() {}");
+
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.THIN_LTO,
+                    CppRuleClasses.SUPPORTS_START_END_LIB,
+                    CppRuleClasses.SUPPORTS_PIC,
+                    MockCcSupport.HOST_AND_NONHOST_CONFIGURATION_FEATURES,
+                    CppRuleClasses.AUTOFDO));
+
+    useConfiguration(
+        "--propeller_optimize=//fdo:test_propeller_optimize", "--compilation_mode=opt");
+
+    Artifact binArtifact = getFilesToBuild(getConfiguredTarget("//pkg:bin")).getSingleton();
+
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
+
+    List<String> commandLine = linkAction.getLinkCommandLine().getRawLinkArgv();
+    assertThat(commandLine).contains("-Wl,--symbol-ordering-file=fdo/ld_profile.txt");
+
+    LtoBackendAction backendAction =
+        (LtoBackendAction)
+            getPredecessorByInputName(linkAction, "pkg/bin.lto/pkg/_objs/bin/binfile.o");
+
+    String expectedCompilerFlag = "-fbasic-block-sections=list=fdo/cc_profile.txt";
+    assertThat(Joiner.on(" ").join(backendAction.getArguments()))
+        .containsMatch(expectedCompilerFlag);
+    assertThat(ActionsTestUtil.baseArtifactNames(backendAction.getInputs()))
+        .contains("cc_profile.txt");
+  }
+
   private void testLLVMCachePrefetchBackendOption(String extraOption, boolean asLabel)
       throws Exception {
     scratch.file(

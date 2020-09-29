@@ -508,6 +508,20 @@ public class CppOptions extends FragmentOptions {
   public boolean enableFdoProfileAbsolutePath;
 
   @Option(
+      name = "propeller_optimize",
+      defaultValue = "null",
+      converter = LabelConverter.class,
+      category = "flags",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "The layout file for propeller code layout optimizations.")
+  public Label propellerOptimizeLabel;
+
+  public Label getPropellerOptimizeLabel() {
+    return propellerOptimizeLabel;
+  }
+
+  @Option(
     name = "save_temps",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
