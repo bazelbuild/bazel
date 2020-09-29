@@ -2378,8 +2378,7 @@ data_repo(
 load("@data//:value.bzl", "value")
 EOF
 
-  # TODO(adonovan): add a test that the error message contains a hint to set the flag if unset.
-  bazel build --record_rule_instantiation_callstack //... > "${TEST_log}" 2>&1 && fail "expected failure" || :
+  bazel build //... > "${TEST_log}" 2>&1 && fail "expected failure" || :
   inplace-sed -e 's?$(pwd)/?PWD/?g' "${TEST_log}"
 
   expect_log "you have to add.*this_repo_is_missing.*WORKSPACE"
