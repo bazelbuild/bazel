@@ -75,26 +75,18 @@ public class Main {
         flags.coverageDir() != null
             ? getCoverageFilesInDir(flags.coverageDir())
             : Collections.emptyList();
-    Coverage coverage;
-    try {
-      coverage =
-          Coverage.merge(
-              parseFiles(
-                  getTracefiles(flags, filesInCoverageDir),
-                  LcovParser::parse,
-                  flags.parseParallelism()),
-              parseFiles(
-                  getGcovInfoFiles(filesInCoverageDir),
-                  GcovParser::parse,
-                  flags.parseParallelism()),
-              parseFiles(
-                  getGcovJsonInfoFiles(filesInCoverageDir),
-                  GcovJsonParser::parse,
-                  flags.parseParallelism()));
-    } catch (IncompatibleMergeException e) {
-      logger.log(Level.SEVERE, e.getMessage());
-      return 1;
-    }
+    Coverage coverage =
+        Coverage.merge(
+            parseFiles(
+                getTracefiles(flags, filesInCoverageDir),
+                LcovParser::parse,
+                flags.parseParallelism()),
+            parseFiles(
+                getGcovInfoFiles(filesInCoverageDir), GcovParser::parse, flags.parseParallelism()),
+            parseFiles(
+                getGcovJsonInfoFiles(filesInCoverageDir),
+                GcovJsonParser::parse,
+                flags.parseParallelism()));
 
     if (flags.sourcesToReplaceFile() != null) {
       coverage.maybeReplaceSourceFileNames(getMapFromFile(flags.sourcesToReplaceFile()));
@@ -331,7 +323,7 @@ public class Main {
         for (SourceFileCoverage sourceFileCoverage : sourceFilesCoverage) {
           coverage.add(sourceFileCoverage);
         }
-      } catch (IOException | IncompatibleMergeException e) {
+      } catch (IOException e) {
         logger.log(
             Level.SEVERE,
             "File " + file.getAbsolutePath() + " could not be parsed due to: " + e.getMessage(),
@@ -351,7 +343,7 @@ public class Main {
             () ->
                 partitions.parallelStream()
                     .map((p) -> parseFilesSequentially(p, parser))
-                    .reduce((c1, c2) -> Coverage.mergeUnchecked(c1, c2))
+                    .reduce((c1, c2) -> Coverage.merge(c1, c2))
                     .orElse(Coverage.create()))
         .get();
   }
