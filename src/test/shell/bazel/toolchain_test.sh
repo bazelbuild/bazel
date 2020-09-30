@@ -1778,6 +1778,80 @@ EOF
   expect_log "//toolchain:test_toolchain"
 }
 
+function test_two_toolchain_types_resolve_to_same_label() {
+  write_test_toolchain
+
+  cat >> WORKSPACE <<EOF
+register_toolchains('//:toolchain_1')
+register_toolchains('//:toolchain_2')
+EOF
+
+  cat >> toolchain/BUILD <<EOF
+toolchain_type(
+    name = 'test_toolchain_1',
+    visibility = ['//visibility:public']
+)
+toolchain_type(
+    name = 'test_toolchain_2',
+    visibility = ['//visibility:public']
+)
+EOF
+
+  cat >> BUILD <<EOF
+load('//toolchain:toolchain_test_toolchain.bzl', 'test_toolchain')
+
+# Define the toolchain.
+test_toolchain(
+    name = 'toolchain_impl_1',
+)
+
+# Declare the toolchain.
+toolchain(
+    name = 'toolchain_1',
+    toolchain_type = '//toolchain:test_toolchain_1',
+    toolchain = ':toolchain_impl_1')
+toolchain(
+    name = 'toolchain_2',
+    toolchain_type = '//toolchain:test_toolchain_2',
+    toolchain = ':toolchain_impl_1')
+EOF
+
+  cat >> toolchain/rule_use_toolchains.bzl <<EOF
+def _impl(ctx):
+  toolchain1 = ctx.toolchains['//toolchain:test_toolchain_1']
+  toolchain2 = ctx.toolchains['//toolchain:test_toolchain_2']
+  message = ctx.attr.message
+  print(
+      'Using toolchain1: rule message: "%s", toolchain extra_str: "%s"' %
+         (message, toolchain1.extra_str))
+  print(
+      'Using toolchain2: rule message: "%s", toolchain extra_str: "%s"' %
+         (message, toolchain2.extra_str))
+  return []
+
+use_toolchains = rule(
+    implementation = _impl,
+    attrs = {
+        'message': attr.string(),
+    },
+    toolchains = ['//toolchain:test_toolchain_1', '//toolchain:test_toolchain_2'],
+)
+EOF
+
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+load('//toolchain:rule_use_toolchains.bzl', 'use_toolchains')
+# Use both toolchains.
+use_toolchains(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  bazel build //demo:use &> $TEST_log || fail "Build failed"
+  expect_log 'Using toolchain1: rule message: "this is the rule"'
+  expect_log 'Using toolchain2: rule message: "this is the rule"'
+}
+
 # TODO(katre): Test using toolchain-provided make variables from a genrule.
 
 run_suite "toolchain tests"
