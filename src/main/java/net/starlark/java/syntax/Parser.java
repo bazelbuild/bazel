@@ -572,8 +572,7 @@ final class Parser {
     switch (token.kind) {
       case INT:
         {
-          IntegerLiteral literal =
-              new IntegerLiteral(locs, token.raw, token.start, (Integer) token.value);
+          IntLiteral literal = new IntLiteral(locs, token.raw, token.start, (Number) token.value);
           nextToken();
           return literal;
         }

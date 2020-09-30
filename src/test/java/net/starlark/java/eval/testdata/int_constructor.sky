@@ -5,14 +5,9 @@ assert_eq(int(0), 0)
 assert_eq(int(42), 42)
 assert_eq(int(-1), -1)
 assert_eq(int(2147483647), 2147483647)
-# -2147483648 is not (yet) a valid int literal even though it's a
-# valid int value, hence the -1 expression.
-assert_eq(int(-2147483647 - 1), -2147483647 - 1)
----
-2147483648 ### invalid base-10 integer constant: 2147483648
----
--2147483649 ### invalid base-10 integer constant: 2147483649
----
+assert_eq(int(-2147483647 - 1), -2147483648)
+assert_eq(int(-2147483649), -2147483649)
+assert_eq(int(1 << 100), 1 << 100)
 
 # from bool
 assert_eq(int(True), 1)
@@ -33,15 +28,15 @@ assert_eq(int('-1'), -1)
 assert_eq(int('-1234'), -1234)
 assert_eq(int('2147483647'), 2147483647)
 assert_eq(int('-2147483648'), -2147483647 - 1)
-assert_eq(int('123456789012345678901234567891234567890'), int('123456789012345678901234567891234567891') - 1)
-assert_eq(int('-123456789012345678901234567891234567890'), int('-123456789012345678901234567891234567891') + 1)
-assert_eq(int('-0xabcdefabcdefabcdefabcdefabcdef', 0), int('-892059645479943313385225296292859375'))
+assert_eq(int('123456789012345678901234567891234567890'), 123456789012345678901234567891234567890)
+assert_eq(int('-123456789012345678901234567891234567890'), -123456789012345678901234567891234567890)
+assert_eq(int('-0xabcdefabcdefabcdefabcdefabcdef', 0), -0xabcdefabcdefabcdefabcdefabcdef)
 assert_eq(int('1111111111111', 2), 8191)
-assert_eq(int('1111111111111', 5), int('305175781'))
-assert_eq(int('1111111111111', 8), int('78536544841'))
-assert_eq(int('1111111111111', 10), int('1111111111111'))
-assert_eq(int('1111111111111', 16), int('300239975158033'))
-assert_eq(int('1111111111111', 36), int('4873763662273663093'))
+assert_eq(int('1111111111111', 5), 305175781)
+assert_eq(int('1111111111111', 8), 78536544841)
+assert_eq(int('1111111111111', 10), 1111111111111)
+assert_eq(int('1111111111111', 16), 300239975158033)
+assert_eq(int('1111111111111', 36), 4873763662273663093)
 assert_eq(int('016'), 16) # zero ok when base != 0.
 assert_eq(int('+42'), 42) # '+' prefix ok
 # with base, no prefix

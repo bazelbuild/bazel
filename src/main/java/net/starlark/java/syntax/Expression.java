@@ -37,7 +37,7 @@ public abstract class Expression extends Node {
     CALL,
     IDENTIFIER,
     INDEX,
-    INTEGER_LITERAL,
+    INT_LITERAL,
     LIST_EXPR,
     SLICE,
     STRING_LITERAL,

@@ -7,12 +7,13 @@ assert_eq(5 + 7, 12)
 assert_eq(5 * 7, 35)
 assert_eq(5 - 7, -2)
 
-# big numbers (but no big literals yet)
-# TODO(adonovan): implement %x.
-assert_eq("%d" % (1 << 32), "4294967296") # ="0x100000000"
-assert_eq("%d" % (1 << 64), "18446744073709551616") # ="0x10000000000000000"
-assert_eq("%d" % (1 << 128), "340282366920938463463374607431768211456") # ="0x100000000000000000000000000000000"
-assert_eq("%d" % (-1 << 128), "-340282366920938463463374607431768211456") # ="-0x100000000000000000000000000000000"
+# big numbers
+assert_eq(+1 << 32, +0x100000000)
+assert_eq(-1 << 32, -0x100000000)
+assert_eq(+1 << 64, +0x10000000000000000)
+assert_eq(-1 << 64, -0x10000000000000000)
+assert_eq(+1 << 128, +0x100000000000000000000000000000000)
+assert_eq(-1 << 128, -0x100000000000000000000000000000000)
 assert_eq((1 << 128) // (1 << 127), 2)
 
 # size boundaries
@@ -20,10 +21,10 @@ maxint = (1<<31) - 1
 maxlong = (1<<63) - 1
 minint = -1 << 31
 minlong = -1 << 63
-assert_eq(str(maxint + 1), "2147483648")
-assert_eq(str(maxlong + 1), "9223372036854775808")
-assert_eq(str(minint - 1), "-2147483649")
-assert_eq(str(minlong - 1), "-9223372036854775809")
+assert_eq(maxint + 1, 0x80000000)
+assert_eq(maxlong + 1, 0x8000000000000000)
+assert_eq(minint - 1, -0x80000001)
+assert_eq(minlong - 1, -0x8000000000000001)
 
 # str(int)
 assert_eq(str(0), "0")
@@ -34,6 +35,13 @@ assert_eq(str(1<<96), "79228162514264337593543950336")
 assert_eq(str(-1<<24), "-16777216")
 assert_eq(str(-1<<48), "-281474976710656")
 assert_eq(str(-1<<96), "-79228162514264337593543950336")
+
+# %d formatting
+# TODO(adonovan): implement %x.
+assert_eq("%d" % (1 << 32), "4294967296")
+assert_eq("%d" % (1 << 64), "18446744073709551616")
+assert_eq("%d" % (1 << 128), "340282366920938463463374607431768211456")
+assert_eq("%d" % (-1 << 128), "-340282366920938463463374607431768211456")
 
 # truth
 assert_(not 0)
@@ -69,12 +77,11 @@ assert_eq(product, p2 * p1)
 assert_eq(product // p1, p2)
 assert_eq(product % p1, 0)
 assert_eq(maxint, 0x7fffffff)
-assert_eq(str(maxint * maxint), "4611686014132420609")
-assert_eq(str((1<<62) - (2<<31) + 1), "4611686014132420609")
-assert_eq(str(111111111 * 111111111), "12345678987654321")
-assert_eq(str(-(111111111 * 111111111)), "-12345678987654321")
-assert_eq(str((111111111 * 111111111) // 111111111), "111111111")
-assert_eq(str((111111111 * 111111111) // 111111111), "111111111")
+assert_eq(maxint * maxint, 0x3fffffff00000001)
+assert_eq((1<<62) - (2<<31) + 1, 0x3fffffff00000001)
+assert_eq(111111111 * 111111111, 12345678987654321)
+assert_eq(-(111111111 * 111111111), -12345678987654321)
+assert_eq((111111111 * 111111111) // 111111111, 111111111)
 
 # division
 assert_eq(100 // 7, 14)

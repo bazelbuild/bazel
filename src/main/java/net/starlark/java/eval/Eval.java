@@ -16,6 +16,7 @@ package net.starlark.java.eval;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -38,7 +39,7 @@ import net.starlark.java.syntax.ForStatement;
 import net.starlark.java.syntax.Identifier;
 import net.starlark.java.syntax.IfStatement;
 import net.starlark.java.syntax.IndexExpression;
-import net.starlark.java.syntax.IntegerLiteral;
+import net.starlark.java.syntax.IntLiteral;
 import net.starlark.java.syntax.ListExpression;
 import net.starlark.java.syntax.LoadStatement;
 import net.starlark.java.syntax.Location;
@@ -448,11 +449,18 @@ final class Eval {
         return evalIdentifier(fr, (Identifier) expr);
       case INDEX:
         return evalIndex(fr, (IndexExpression) expr);
-      case INTEGER_LITERAL:
+      case INT_LITERAL:
         // TODO(adonovan): opt: avoid allocation by saving
-        // the StarlarkInt in the IntegerLiteral (a temporary hack
+        // the StarlarkInt in the IntLiteral (a temporary hack
         // until we use a compiled representation).
-        return StarlarkInt.of(((IntegerLiteral) expr).getValue());
+        Number n = ((IntLiteral) expr).getValue();
+        if (n instanceof Integer) {
+          return StarlarkInt.of((Integer) n);
+        } else if (n instanceof Long) {
+          return StarlarkInt.of((Long) n);
+        } else {
+          return StarlarkInt.of((BigInteger) n);
+        }
       case LIST_EXPR:
         return evalList(fr, (ListExpression) expr);
       case SLICE:

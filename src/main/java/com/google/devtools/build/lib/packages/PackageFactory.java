@@ -81,7 +81,7 @@ import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ForStatement;
 import net.starlark.java.syntax.Identifier;
 import net.starlark.java.syntax.IfStatement;
-import net.starlark.java.syntax.IntegerLiteral;
+import net.starlark.java.syntax.IntLiteral;
 import net.starlark.java.syntax.ListExpression;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.NodeVisitor;
@@ -1163,9 +1163,11 @@ public final class PackageFactory {
                     String pattern = ((StringLiteral) elem).getValue();
                     // exclude_directories is (oddly) an int with default 1.
                     boolean exclude = true;
-                    if (excludeDirectories instanceof IntegerLiteral
-                        && ((IntegerLiteral) excludeDirectories).getValue() == 0) {
-                      exclude = false;
+                    if (excludeDirectories instanceof IntLiteral) {
+                      Number v = ((IntLiteral) excludeDirectories).getValue();
+                      if (v instanceof Integer && (Integer) v == 0) {
+                        exclude = false;
+                      }
                     }
                     (exclude ? globs : globsWithDirs).add(pattern);
                   }

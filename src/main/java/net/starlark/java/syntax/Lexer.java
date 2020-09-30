@@ -37,7 +37,7 @@ final class Lexer {
   int start; // start offset
   int end; // end offset
   String raw; // source text of token
-  Object value; // String or Integer value of token
+  Object value; // String or Integer/Long/BigInteger value of token
 
   // --- end of parser-visible fields ---
 
@@ -591,28 +591,12 @@ final class Lexer {
     int oldPos = pos - 1;
     String literal = scanInteger();
 
-    final String substring;
-    final int radix;
-    if (literal.startsWith("0x") || literal.startsWith("0X")) {
-      radix = 16;
-      substring = literal.substring(2);
-    } else if (literal.startsWith("0o") || literal.startsWith("0O")) {
-      radix = 8;
-      substring = literal.substring(2);
-    } else if (literal.startsWith("0") && literal.length() > 1) {
-      radix = 8;
-      substring = literal.substring(1);
-      error("invalid octal value `" + literal + "`, should be: `0o" + substring + "`", oldPos);
-    } else {
-      radix = 10;
-      substring = literal;
-    }
-
-    int value = 0;
+    Number value;
     try {
-      value = Integer.parseInt(substring, radix);
-    } catch (NumberFormatException e) {
-      error("invalid base-" + radix + " integer constant: " + literal, oldPos);
+      value = IntLiteral.scan(literal);
+    } catch (NumberFormatException ex) {
+      error(ex.getMessage(), oldPos);
+      value = 0;
     }
 
     setToken(TokenKind.INT, oldPos, pos);

@@ -101,13 +101,13 @@ public final class ParserTest {
   }
 
   // helper func for testListExpressions:
-  private static int getIntElem(DictExpression.Entry entry, boolean key) {
-    return ((IntegerLiteral) (key ? entry.getKey() : entry.getValue())).getValue();
+  private static Number getIntElem(DictExpression.Entry entry, boolean key) {
+    return ((IntLiteral) (key ? entry.getKey() : entry.getValue())).getValue();
   }
 
   // helper func for testListExpressions:
-  private static int getIntElem(ListExpression list, int index) {
-    return ((IntegerLiteral) list.getElements().get(index)).getValue();
+  private static Number getIntElem(ListExpression list, int index) {
+    return ((IntLiteral) list.getElements().get(index)).getValue();
   }
 
   // helper func for testListExpressions:
@@ -186,9 +186,9 @@ public final class ParserTest {
     UnaryOperatorExpression e = (UnaryOperatorExpression) parseExpression("-5");
     UnaryOperatorExpression e2 = (UnaryOperatorExpression) parseExpression("- 5");
 
-    IntegerLiteral i = (IntegerLiteral) e.getX();
+    IntLiteral i = (IntLiteral) e.getX();
     assertThat(i.getValue()).isEqualTo(5);
-    IntegerLiteral i2 = (IntegerLiteral) e2.getX();
+    IntLiteral i2 = (IntLiteral) e2.getX();
     assertThat(i2.getValue()).isEqualTo(5);
     assertLocation(0, 2, e);
     assertLocation(0, 3, e2);
@@ -201,16 +201,16 @@ public final class ParserTest {
     IndexExpression function = (IndexExpression) e.getFunction();
     Identifier functionList = (Identifier) function.getObject();
     assertThat(functionList.getName()).isEqualTo("foo");
-    IntegerLiteral listIndex = (IntegerLiteral) function.getKey();
+    IntLiteral listIndex = (IntLiteral) function.getKey();
     assertThat(listIndex.getValue()).isEqualTo(0);
 
     assertThat(e.getArguments()).hasSize(3);
     assertThat(e.getNumPositionalArguments()).isEqualTo(2);
 
-    IntegerLiteral arg0 = (IntegerLiteral) e.getArguments().get(0).getValue();
+    IntLiteral arg0 = (IntLiteral) e.getArguments().get(0).getValue();
     assertThat((int) arg0.getValue()).isEqualTo(1);
 
-    IntegerLiteral arg1 = (IntegerLiteral) e.getArguments().get(1).getValue();
+    IntLiteral arg1 = (IntLiteral) e.getArguments().get(1).getValue();
     assertThat((int) arg1.getValue()).isEqualTo(2);
 
     Argument arg2 = e.getArguments().get(2);
@@ -229,10 +229,10 @@ public final class ParserTest {
     assertThat(e.getArguments()).hasSize(3);
     assertThat(e.getNumPositionalArguments()).isEqualTo(2);
 
-    IntegerLiteral arg0 = (IntegerLiteral) e.getArguments().get(0).getValue();
+    IntLiteral arg0 = (IntLiteral) e.getArguments().get(0).getValue();
     assertThat((int) arg0.getValue()).isEqualTo(1);
 
-    IntegerLiteral arg1 = (IntegerLiteral) e.getArguments().get(1).getValue();
+    IntLiteral arg1 = (IntLiteral) e.getArguments().get(1).getValue();
     assertThat((int) arg1.getValue()).isEqualTo(2);
 
     Argument arg2 = e.getArguments().get(2);
@@ -251,7 +251,7 @@ public final class ParserTest {
     assertThat(e.getArguments()).hasSize(1);
     assertThat(e.getNumPositionalArguments()).isEqualTo(1);
 
-    IntegerLiteral arg0 = (IntegerLiteral) e.getArguments().get(0).getValue();
+    IntLiteral arg0 = (IntLiteral) e.getArguments().get(0).getValue();
     assertThat((int) arg0.getValue()).isEqualTo(1);
   }
 
@@ -310,7 +310,7 @@ public final class ParserTest {
   @Test
   public void testSubstring() throws Exception {
     SliceExpression s = (SliceExpression) parseExpression("'FOO.CC'[:].lower()[1:]");
-    assertThat(((IntegerLiteral) s.getStart()).getValue()).isEqualTo(1);
+    assertThat(((IntLiteral) s.getStart()).getValue()).isEqualTo(1);
 
     CallExpression e = (CallExpression) parseExpression("'FOO.CC'.lower()[1:].startswith('oo')");
     DotExpression dotExpression = (DotExpression) e.getFunction();
@@ -318,7 +318,7 @@ public final class ParserTest {
     assertThat(e.getArguments()).hasSize(1);
 
     s = (SliceExpression) parseExpression("'FOO.CC'[1:][:2]");
-    assertThat(((IntegerLiteral) s.getStop()).getValue()).isEqualTo(2);
+    assertThat(((IntLiteral) s.getStop()).getValue()).isEqualTo(2);
   }
 
   @Test
@@ -372,7 +372,7 @@ public final class ParserTest {
     assertThat(e.getArguments()).hasSize(3);
     assertThat(e.getNumPositionalArguments()).isEqualTo(3);
 
-    IntegerLiteral arg0 = (IntegerLiteral) e.getArguments().get(0).getValue();
+    IntLiteral arg0 = (IntLiteral) e.getArguments().get(0).getValue();
     assertThat((int) arg0.getValue()).isEqualTo(1);
 
     Argument arg1 = e.getArguments().get(1);
@@ -383,7 +383,7 @@ public final class ParserTest {
     assertThat(src.substring(5, 28)).isEqualTo("[x for foo foo foo foo]");
     assertThat(arg1val.getEndLocation().column()).isEqualTo(29);
 
-    IntegerLiteral arg2 = (IntegerLiteral) e.getArguments().get(2).getValue();
+    IntLiteral arg2 = (IntLiteral) e.getArguments().get(2).getValue();
     assertThat((int) arg2.getValue()).isEqualTo(3);
   }
 
@@ -727,7 +727,7 @@ public final class ParserTest {
 
   @Test
   public void testTupleLiterals5() throws Exception {
-    IntegerLiteral intLit = (IntegerLiteral) parseExpression("(42)"); // not a tuple!
+    IntLiteral intLit = (IntLiteral) parseExpression("(42)"); // not a tuple!
     assertThat((int) intLit.getValue()).isEqualTo(42);
   }
 
