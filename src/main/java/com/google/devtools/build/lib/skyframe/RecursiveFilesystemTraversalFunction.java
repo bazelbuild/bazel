@@ -338,19 +338,6 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       if (env.valuesMissing()) {
         throw new MissingDepException();
       }
-      if (fileValue.unboundedAncestorSymlinkExpansionChain() != null) {
-        SkyKey uniquenessKey =
-            FileSymlinkInfiniteExpansionUniquenessFunction.key(
-                fileValue.unboundedAncestorSymlinkExpansionChain());
-        env.getValue(uniquenessKey);
-        if (env.valuesMissing()) {
-          throw new MissingDepException();
-        }
-
-        throw new FileSymlinkInfiniteExpansionException(
-            fileValue.pathToUnboundedAncestorSymlinkExpansionChain(),
-            fileValue.unboundedAncestorSymlinkExpansionChain());
-      }
       if (fileValue.exists()) {
         // If it exists, it may either be a symlink or a file/directory.
         PathFragment unresolvedLinkTarget = null;

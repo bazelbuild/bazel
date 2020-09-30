@@ -98,22 +98,18 @@ test_broken_BUILD_files_ignored() {
         || fail "directory mentioned in .bazelignore not ignored as it should"
 }
 
-test_symlink_cycle_ignored() {
+test_symlink_loop_ignored() {
     rm -rf work && mkdir work && cd work
     create_workspace_with_default_repos WORKSPACE
     mkdir -p ignoreme/deep
     (cd ignoreme/deep && ln -s . loop)
     touch BUILD
-
-    # This should really fail, but it does not:
-    # https://github.com/bazelbuild/bazel/issues/12148
-    bazel build ... >& $TEST_log || fail "Expected success"
-    expect_log "Infinite symlink expansion"
+    bazel build ... && fail "Expected failure" || :
 
     echo; echo
     echo ignoreme > .bazelignore
-    bazel build ... >& $TEST_log || fail "Expected success"
-    expect_not_log "Infinite symlink expansion"
+    bazel build ... \
+        || fail "directory mentioned in .bazelignore not ignored as it should"
 }
 
 test_build_specific_target() {
