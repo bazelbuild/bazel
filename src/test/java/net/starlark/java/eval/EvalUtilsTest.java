@@ -17,6 +17,7 @@ package net.starlark.java.eval;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import java.math.BigInteger;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import org.junit.Test;
@@ -61,12 +62,14 @@ public final class EvalUtilsTest {
   @Test
   public void testDatatypeMutabilityPrimitive() throws Exception {
     assertThat(Starlark.isImmutable("foo")).isTrue();
-    assertThat(Starlark.isImmutable(3)).isTrue();
+    assertThat(Starlark.isImmutable(StarlarkInt.of(3))).isTrue();
   }
 
   @Test
   public void testDatatypeMutabilityShallow() throws Exception {
-    assertThat(Starlark.isImmutable(Tuple.of(1, 2, 3))).isTrue();
+    assertThat(
+            Starlark.isImmutable(Tuple.of(StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3))))
+        .isTrue();
 
     assertThat(Starlark.isImmutable(makeList(null))).isTrue();
     assertThat(Starlark.isImmutable(makeDict(null))).isTrue();
@@ -91,15 +94,15 @@ public final class EvalUtilsTest {
 
     Object[] objects = {
       "1",
-      2,
+      StarlarkInt.of(2),
       true,
       Starlark.NONE,
-      Tuple.of(1, 2, 3),
+      Tuple.of(StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3)),
       Tuple.of("1", "2", "3"),
-      StarlarkList.of(mu, 1, 2, 3),
+      StarlarkList.of(mu, StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3)),
       StarlarkList.of(mu, "1", "2", "3"),
-      Dict.of(mu, "key", 123),
-      Dict.of(mu, 123, "value"),
+      Dict.of(mu, "key", StarlarkInt.of(123)),
+      Dict.of(mu, StarlarkInt.of(123), "value"),
       myValue,
     };
 
@@ -126,10 +129,47 @@ public final class EvalUtilsTest {
   @Test
   public void testLen() {
     assertThat(Starlark.len("abc")).isEqualTo(3);
-    assertThat(Starlark.len(Tuple.of(1, 2, 3))).isEqualTo(3);
-    assertThat(Starlark.len(StarlarkList.of(null, 1, 2, 3))).isEqualTo(3);
-    assertThat(Starlark.len(Dict.of(null, "one", 1, "two", 2))).isEqualTo(2);
+    assertThat(Starlark.len(Tuple.of(StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3))))
+        .isEqualTo(3);
+    assertThat(
+            Starlark.len(
+                StarlarkList.of(null, StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3))))
+        .isEqualTo(3);
+    assertThat(Starlark.len(Dict.of(null, "one", StarlarkInt.of(1), "two", StarlarkInt.of(2))))
+        .isEqualTo(2);
     assertThat(Starlark.len(true)).isEqualTo(-1);
     assertThrows(IllegalArgumentException.class, () -> Starlark.len(this));
+  }
+
+  @Test
+  public void testIntConstructor() throws Exception {
+    // small values are cached
+    assertThat(StarlarkInt.of(-1)).isSameInstanceAs(StarlarkInt.of(-1));
+    assertThat(StarlarkInt.of(0)).isSameInstanceAs(StarlarkInt.ZERO);
+    assertThat(StarlarkInt.of(123)).isSameInstanceAs(StarlarkInt.of(123));
+    // int32
+    assertThat(StarlarkInt.of(0).getClass().getSimpleName()).isEqualTo("Int32");
+    assertThat(StarlarkInt.of(Integer.MAX_VALUE).getClass().getSimpleName()).isEqualTo("Int32");
+    assertThat(StarlarkInt.of(Integer.MIN_VALUE).getClass().getSimpleName()).isEqualTo("Int32");
+    // int64
+    assertThat(StarlarkInt.of((long) Integer.MAX_VALUE + 1).getClass().getSimpleName())
+        .isEqualTo("Int64");
+    assertThat(StarlarkInt.of((long) Integer.MIN_VALUE - 1).getClass().getSimpleName())
+        .isEqualTo("Int64");
+    assertThat(StarlarkInt.of(Long.MAX_VALUE).getClass().getSimpleName()).isEqualTo("Int64");
+    assertThat(StarlarkInt.of(Long.MIN_VALUE).getClass().getSimpleName()).isEqualTo("Int64");
+    // big
+    assertThat(StarlarkInt.of(new BigInteger("7fffffffffffffff", 16)).getClass().getSimpleName())
+        .isEqualTo("Int64"); // (max long)
+    assertThat(StarlarkInt.of(new BigInteger("8000000000000000", 16)).getClass().getSimpleName())
+        .isEqualTo("Big");
+    assertThat(StarlarkInt.of(new BigInteger("8000000000000001", 16)).getClass().getSimpleName())
+        .isEqualTo("Big");
+    assertThat(StarlarkInt.of(new BigInteger("-7fffffffffffffff", 16)).getClass().getSimpleName())
+        .isEqualTo("Int64");
+    assertThat(StarlarkInt.of(new BigInteger("-8000000000000000", 16)).getClass().getSimpleName())
+        .isEqualTo("Int64"); // (min long)
+    assertThat(StarlarkInt.of(new BigInteger("-8000000000000001", 16)).getClass().getSimpleName())
+        .isEqualTo("Big");
   }
 }

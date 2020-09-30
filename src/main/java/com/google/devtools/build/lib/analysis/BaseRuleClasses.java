@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import net.starlark.java.eval.StarlarkInt;
 
 /**
  * Rule class definitions used by (almost) every rule.
@@ -185,7 +186,7 @@ public class BaseRuleClasses {
                   .value(false)
                   .taggable()
                   .nonconfigurable("policy decision: should be consistent across configurations"))
-          .add(attr("shard_count", INTEGER).value(-1))
+          .add(attr("shard_count", INTEGER).value(StarlarkInt.of(-1)))
           .add(
               attr("local", BOOLEAN)
                   .value(false)

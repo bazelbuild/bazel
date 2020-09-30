@@ -25,6 +25,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -139,11 +140,13 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
 
   @StarlarkMethod(
       name = "int",
-      doc = "Creates a schema for an integer attribute.",
+      doc =
+          "Creates a schema for an integer attribute. The value must be in the signed 32-bit"
+              + " range.",
       parameters = {
         @Param(
             name = DEFAULT_ARG,
-            type = Integer.class,
+            type = StarlarkInt.class,
             defaultValue = "0",
             doc = DEFAULT_DOC,
             named = true,
@@ -165,7 +168,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
         @Param(
             name = VALUES_ARG,
             type = Sequence.class,
-            generic1 = Integer.class,
+            generic1 = StarlarkInt.class,
             defaultValue = "[]",
             doc = VALUES_DOC,
             named = true,
@@ -173,7 +176,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       },
       useStarlarkThread = true)
   Descriptor intAttribute(
-      Integer defaultValue,
+      StarlarkInt defaultValue,
       String doc,
       Boolean mandatory,
       Sequence<?> values,
@@ -391,7 +394,9 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
 
   @StarlarkMethod(
       name = "int_list",
-      doc = "Creates a schema for a list-of-integers attribute.",
+      doc =
+          "Creates a schema for a list-of-integers attribute. Each element must be in the signed"
+              + " 32-bit range.",
       parameters = {
         @Param(
             name = MANDATORY_ARG,
@@ -408,7 +413,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
         @Param(
             name = DEFAULT_ARG,
             type = Sequence.class,
-            generic1 = Integer.class,
+            generic1 = StarlarkInt.class,
             defaultValue = "[]",
             doc = DEFAULT_DOC,
             named = true,

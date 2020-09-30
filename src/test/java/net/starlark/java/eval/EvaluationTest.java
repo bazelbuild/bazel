@@ -170,17 +170,19 @@ public final class EvaluationTest {
         .testExpression("'%sx' % 'foo' + 'bar1'", "fooxbar1")
         .testExpression("('%sx' % 'foo') + 'bar2'", "fooxbar2")
         .testExpression("'%sx' % ('foo' + 'bar3')", "foobar3x")
-        .testExpression("123 + 456", 579)
-        .testExpression("456 - 123", 333)
-        .testExpression("8 % 3", 2)
+        .testExpression("123 + 456", StarlarkInt.of(579))
+        .testExpression("456 - 123", StarlarkInt.of(333))
+        .testExpression("8 % 3", StarlarkInt.of(2))
         .testIfErrorContains("unsupported binary operation: int % string", "3 % 'foo'")
-        .testExpression("-5", -5)
+        .testExpression("-5", StarlarkInt.of(-5))
         .testIfErrorContains("unsupported unary operation: -string", "-'foo'");
   }
 
   @Test
   public void testListExprs() throws Exception {
-    ev.new Scenario().testExactOrder("[1, 2, 3]", 1, 2, 3).testExactOrder("(1, 2, 3)", 1, 2, 3);
+    ev.new Scenario()
+        .testExactOrder("[1, 2, 3]", StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3))
+        .testExactOrder("(1, 2, 3)", StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3));
   }
 
   @Test
@@ -191,9 +193,9 @@ public final class EvaluationTest {
   @Test
   public void testConditionalExpressions() throws Exception {
     ev.new Scenario()
-        .testExpression("1 if True else 2", 1)
-        .testExpression("1 if False else 2", 2)
-        .testExpression("1 + 2 if 3 + 4 else 5 + 6", 3);
+        .testExpression("1 if True else 2", StarlarkInt.of(1))
+        .testExpression("1 if False else 2", StarlarkInt.of(2))
+        .testExpression("1 + 2 if 3 + 4 else 5 + 6", StarlarkInt.of(3));
   }
 
   @Test
@@ -226,10 +228,11 @@ public final class EvaluationTest {
           }
 
           @Override
-          public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named) {
-            int sum = 0;
+          public StarlarkInt fastcall(StarlarkThread thread, Object[] positional, Object[] named)
+              throws EvalException {
+            StarlarkInt sum = StarlarkInt.of(0);
             for (Object arg : positional) {
-              sum += (Integer) arg;
+              sum = StarlarkInt.add(sum, (StarlarkInt) arg);
             }
             return sum;
           }
@@ -237,18 +240,18 @@ public final class EvaluationTest {
 
     ev.new Scenario()
         .update(sum.getName(), sum)
-        .testExpression("sum(1, 2, 3, 4, 5, 6)", 21)
+        .testExpression("sum(1, 2, 3, 4, 5, 6)", StarlarkInt.of(21))
         .testExpression("sum", sum)
-        .testExpression("sum(a=1, b=2)", 0);
+        .testExpression("sum(a=1, b=2)", StarlarkInt.of(0));
   }
 
   @Test
   public void testNotCallInt() throws Exception {
     ev.new Scenario()
         .setUp("sum = 123456")
-        .testLookup("sum", 123456)
+        .testLookup("sum", StarlarkInt.of(123456))
         .testIfExactError("'int' object is not callable", "sum(1, 2, 3, 4, 5, 6)")
-        .testExpression("sum", 123456);
+        .testExpression("sum", StarlarkInt.of(123456));
   }
 
   @Test
@@ -290,19 +293,19 @@ public final class EvaluationTest {
   @Test
   public void testModulo() throws Exception {
     ev.new Scenario()
-        .testExpression("6 % 2", 0)
-        .testExpression("6 % 4", 2)
-        .testExpression("3 % 6", 3)
-        .testExpression("7 % -4", -1)
-        .testExpression("-7 % 4", 1)
-        .testExpression("-7 % -4", -3)
+        .testExpression("6 % 2", StarlarkInt.of(0))
+        .testExpression("6 % 4", StarlarkInt.of(2))
+        .testExpression("3 % 6", StarlarkInt.of(3))
+        .testExpression("7 % -4", StarlarkInt.of(-1))
+        .testExpression("-7 % 4", StarlarkInt.of(1))
+        .testExpression("-7 % -4", StarlarkInt.of(-3))
         .testIfExactError("integer modulo by zero", "5 % 0");
   }
 
   @Test
   public void testMult() throws Exception {
     ev.new Scenario()
-        .testExpression("6 * 7", 42)
+        .testExpression("6 * 7", StarlarkInt.of(42))
         .testExpression("3 * 'ab'", "ababab")
         .testExpression("0 * 'ab'", "")
         .testExpression("'1' + '0' * 5", "100000")
@@ -318,35 +321,38 @@ public final class EvaluationTest {
   @Test
   public void testFloorDivision() throws Exception {
     ev.new Scenario()
-        .testExpression("6 // 2", 3)
-        .testExpression("6 // 4", 1)
-        .testExpression("3 // 6", 0)
-        .testExpression("7 // -2", -4)
-        .testExpression("-7 // 2", -4)
-        .testExpression("-7 // -2", 3)
-        .testExpression("2147483647 // 2", 1073741823)
+        .testExpression("6 // 2", StarlarkInt.of(3))
+        .testExpression("6 // 4", StarlarkInt.of(1))
+        .testExpression("3 // 6", StarlarkInt.of(0))
+        .testExpression("7 // -2", StarlarkInt.of(-4))
+        .testExpression("-7 // 2", StarlarkInt.of(-4))
+        .testExpression("-7 // -2", StarlarkInt.of(3))
+        .testExpression("2147483647 // 2", StarlarkInt.of(1073741823))
         .testIfErrorContains("unsupported binary operation: string // int", "'str' // 2")
         .testIfExactError("integer division by zero", "5 // 0");
   }
 
   @Test
-  public void testCheckedArithmetic() throws Exception {
+  public void testArithmeticDoesNotOverflow() throws Exception {
     ev.new Scenario()
-        .testIfErrorContains("integer overflow", "2000000000 + 2000000000")
-        .testIfErrorContains("integer overflow", "1234567890 * 987654321")
-        .testIfErrorContains("integer overflow", "- 2000000000 - 2000000000")
+        .testEval("2000000000 + 2000000000", "1000000000 + 1000000000 + 1000000000 + 1000000000")
+        .testExpression("1234567890 * 987654321", StarlarkInt.of(1219326311126352690L))
+        .testExpression(
+            "1234567890 * 987654321 * 987654321",
+            StarlarkInt.multiply(StarlarkInt.of(1219326311126352690L), StarlarkInt.of(987654321)))
+        .testEval("- 2000000000 - 2000000000", "-1000000000 - 1000000000 - 1000000000 - 1000000000")
 
         // literal 2147483648 is not allowed, so we compute it
         .setUp("minint = - 2147483647 - 1")
-        .testIfErrorContains("integer overflow", "-minint");
+        .testEval("-minint", "2147483647+1");
   }
 
   @Test
   public void testOperatorPrecedence() throws Exception {
     ev.new Scenario()
-        .testExpression("2 + 3 * 4", 14)
-        .testExpression("2 + 3 // 4", 2)
-        .testExpression("2 * 3 + 4 // -2", 4);
+        .testExpression("2 + 3 * 4", StarlarkInt.of(14))
+        .testExpression("2 + 3 // 4", StarlarkInt.of(2))
+        .testExpression("2 * 3 + 4 // -2", StarlarkInt.of(4));
   }
 
   @Test
@@ -357,22 +363,38 @@ public final class EvaluationTest {
   @Test
   public void testConcatLists() throws Exception {
     ev.new Scenario()
-        .testExactOrder("[1,2] + [3,4]", 1, 2, 3, 4)
-        .testExactOrder("(1,2)", 1, 2)
-        .testExactOrder("(1,2) + (3,4)", 1, 2, 3, 4);
+        .testExactOrder(
+            "[1,2] + [3,4]",
+            StarlarkInt.of(1),
+            StarlarkInt.of(2),
+            StarlarkInt.of(3),
+            StarlarkInt.of(4))
+        .testExactOrder("(1,2)", StarlarkInt.of(1), StarlarkInt.of(2))
+        .testExactOrder(
+            "(1,2) + (3,4)",
+            StarlarkInt.of(1),
+            StarlarkInt.of(2),
+            StarlarkInt.of(3),
+            StarlarkInt.of(4));
 
     // TODO(fwe): cannot be handled by current testing suite
     // list
     Object x = ev.eval("[1,2] + [3,4]");
-    assertThat((Iterable<?>) x).containsExactly(1, 2, 3, 4).inOrder();
+    assertThat((Iterable<?>) x)
+        .containsExactly(StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3), StarlarkInt.of(4))
+        .inOrder();
     assertThat(x).isInstanceOf(StarlarkList.class);
     assertThat(Starlark.isImmutable(x)).isFalse();
 
     // tuple
     x = ev.eval("(1,2) + (3,4)");
-    assertThat((Iterable<?>) x).containsExactly(1, 2, 3, 4).inOrder();
+    assertThat((Iterable<?>) x)
+        .containsExactly(StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3), StarlarkInt.of(4))
+        .inOrder();
     assertThat(x).isInstanceOf(Tuple.class);
-    assertThat(x).isEqualTo(Tuple.of(1, 2, 3, 4));
+    assertThat(x)
+        .isEqualTo(
+            Tuple.of(StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3), StarlarkInt.of(4)));
     assertThat(Starlark.isImmutable(x)).isTrue();
 
     ev.checkEvalError("unsupported binary operation: tuple + list", "(1,2) + [3,4]");
@@ -416,15 +438,20 @@ public final class EvaluationTest {
             "bar/wiz.cc",
             "bar/quux.java",
             "bar/quux.cc")
-        .testExactOrder("[i for i in (1, 2)]", 1, 2)
-        .testExactOrder("[i for i in [2, 3] or [1, 2]]", 2, 3);
+        .testExactOrder("[i for i in (1, 2)]", StarlarkInt.of(1), StarlarkInt.of(2))
+        .testExactOrder("[i for i in [2, 3] or [1, 2]]", StarlarkInt.of(2), StarlarkInt.of(3));
   }
 
   @Test
   public void testNestedListComprehensions() throws Exception {
     ev.new Scenario()
         .setUp("li = [[1, 2], [3, 4]]")
-        .testExactOrder("[j for i in li for j in i]", 1, 2, 3, 4);
+        .testExactOrder(
+            "[j for i in li for j in i]",
+            StarlarkInt.of(1),
+            StarlarkInt.of(2),
+            StarlarkInt.of(3),
+            StarlarkInt.of(4));
     ev.new Scenario()
         .setUp("input = [['abc'], ['def', 'ghi']]\n")
         .testExactOrder(
@@ -566,8 +593,8 @@ public final class EvaluationTest {
   public void testTupleDestructuring() throws Exception {
     ev.new Scenario()
         .setUp("a, b = 1, 2")
-        .testLookup("a", 1)
-        .testLookup("b", 2)
+        .testLookup("a", StarlarkInt.of(1))
+        .testLookup("b", StarlarkInt.of(2))
         .setUp("c, d = {'key1':2, 'key2':3}")
         .testLookup("c", "key1")
         .testLookup("d", "key2");
@@ -575,20 +602,20 @@ public final class EvaluationTest {
 
   @Test
   public void testSingleTuple() throws Exception {
-    ev.new Scenario().setUp("(a,) = [1]").testLookup("a", 1);
+    ev.new Scenario().setUp("(a,) = [1]").testLookup("a", StarlarkInt.of(1));
   }
 
   @Test
   public void testHeterogeneousDict() throws Exception {
     ev.new Scenario()
         .setUp("d = {'str': 1, 2: 3}", "a = d['str']", "b = d[2]")
-        .testLookup("a", 1)
-        .testLookup("b", 3);
+        .testLookup("a", StarlarkInt.of(1))
+        .testLookup("b", StarlarkInt.of(3));
   }
 
   @Test
   public void testAccessDictWithATupleKey() throws Exception {
-    ev.new Scenario().setUp("x = {(1, 2): 3}[1, 2]").testLookup("x", 3);
+    ev.new Scenario().setUp("x = {(1, 2): 3}[1, 2]").testLookup("x", StarlarkInt.of(3));
   }
 
   @Test
@@ -602,26 +629,29 @@ public final class EvaluationTest {
   public void testRecursiveTupleDestructuring() throws Exception {
     ev.new Scenario()
         .setUp("((a, b), (c, d)) = [(1, 2), (3, 4)]")
-        .testLookup("a", 1)
-        .testLookup("b", 2)
-        .testLookup("c", 3)
-        .testLookup("d", 4);
+        .testLookup("a", StarlarkInt.of(1))
+        .testLookup("b", StarlarkInt.of(2))
+        .testLookup("c", StarlarkInt.of(3))
+        .testLookup("d", StarlarkInt.of(4));
   }
 
   @Test
   public void testListComprehensionAtTopLevel() throws Exception {
     // It is allowed to have a loop variable with the same name as a global variable.
     ev.new Scenario()
-        .update("x", 42)
+        .update("x", StarlarkInt.of(42))
         .setUp("y = [x + 1 for x in [1,2,3]]")
-        .testExactOrder("y", 2, 3, 4);
+        .testExactOrder("y", StarlarkInt.of(2), StarlarkInt.of(3), StarlarkInt.of(4));
   }
 
   @Test
   public void testDictComprehensions() throws Exception {
     ev.new Scenario()
         .testExpression("{a : a for a in []}", Collections.emptyMap())
-        .testExpression("{b : b for b in [1, 2]}", ImmutableMap.of(1, 1, 2, 2))
+        .testExpression(
+            "{b : b for b in [1, 2]}",
+            ImmutableMap.of(
+                StarlarkInt.of(1), StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(2)))
         .testExpression(
             "{c : 'v_' + c for c in ['a', 'b']}", ImmutableMap.of("a", "v_a", "b", "v_b"))
         .testExpression(
@@ -629,7 +659,9 @@ public final class EvaluationTest {
         .testExpression(
             "{'k_' + e : 'v_' + e for e in ['a', 'b']}",
             ImmutableMap.of("k_a", "v_a", "k_b", "v_b"))
-        .testExpression("{x+y : x*y for x, y in [[2, 3]]}", ImmutableMap.of(5, 6));
+        .testExpression(
+            "{x+y : x*y for x, y in [[2, 3]]}",
+            ImmutableMap.of(StarlarkInt.of(5), StarlarkInt.of(6)));
   }
 
   @Test
@@ -642,13 +674,24 @@ public final class EvaluationTest {
     ev.new Scenario()
         .testExpression(
             "{x : x * y for x in range(1, 10) if x % 2 == 0 for y in range(1, 10) if y == x}",
-            ImmutableMap.of(2, 4, 4, 16, 6, 36, 8, 64));
+            ImmutableMap.of(
+                StarlarkInt.of(2),
+                StarlarkInt.of(4),
+                StarlarkInt.of(4),
+                StarlarkInt.of(16),
+                StarlarkInt.of(6),
+                StarlarkInt.of(36),
+                StarlarkInt.of(8),
+                StarlarkInt.of(64)));
   }
 
   @Test
   public void testDictComprehensions_multipleKey() throws Exception {
     ev.new Scenario()
-        .testExpression("{x : x for x in [1, 2, 1]}", ImmutableMap.of(1, 1, 2, 2))
+        .testExpression(
+            "{x : x for x in [1, 2, 1]}",
+            ImmutableMap.of(
+                StarlarkInt.of(1), StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(2)))
         .testExpression(
             "{y : y for y in ['ab', 'c', 'a' + 'b']}", ImmutableMap.of("ab", "ab", "c", "c"));
   }
@@ -656,45 +699,44 @@ public final class EvaluationTest {
   @Test
   public void testListConcatenation() throws Exception {
     ev.new Scenario()
-        .testExpression("[1, 2] + [3, 4]", StarlarkList.of(null, 1, 2, 3, 4))
-        .testExpression("(1, 2) + (3, 4)", Tuple.of(1, 2, 3, 4))
+        .testEval("[1, 2] + [3, 4]", "[1, 2, 3, 4]")
+        .testEval("(1, 2) + (3, 4)", "(1, 2, 3, 4)")
         .testIfExactError("unsupported binary operation: list + tuple", "[1, 2] + (3, 4)")
         .testIfExactError("unsupported binary operation: tuple + list", "(1, 2) + [3, 4]");
   }
 
   @Test
   public void testListMultiply() throws Exception {
-    Mutability mu = Mutability.create("test");
     ev.new Scenario()
-        .testExpression("[1, 2, 3] * 1", StarlarkList.of(mu, 1, 2, 3))
-        .testExpression("[1, 2] * 2", StarlarkList.of(mu, 1, 2, 1, 2))
-        .testExpression("[1, 2] * 3", StarlarkList.of(mu, 1, 2, 1, 2, 1, 2))
-        .testExpression("[1, 2] * 4", StarlarkList.of(mu, 1, 2, 1, 2, 1, 2, 1, 2))
-        .testExpression("[8] * 5", StarlarkList.of(mu, 8, 8, 8, 8, 8))
-        .testExpression("[    ] * 10", StarlarkList.empty())
-        .testExpression("[1, 2] * 0", StarlarkList.empty())
-        .testExpression("[1, 2] * -4", StarlarkList.empty())
-        .testExpression("2 * [1, 2]", StarlarkList.of(mu, 1, 2, 1, 2))
-        .testExpression("10 * []", StarlarkList.empty())
-        .testExpression("0 * [1, 2]", StarlarkList.empty())
-        .testExpression("-4 * [1, 2]", StarlarkList.empty());
+        .testEval("[1, 2, 3] * 1", "[1, 2, 3]")
+        .testEval("[1, 2] * 2", "[1, 2, 1, 2]")
+        .testEval("[1, 2] * 3", "[1, 2, 1, 2, 1, 2]")
+        .testEval("[1, 2] * 4", "[1, 2, 1, 2, 1, 2, 1, 2]")
+        .testEval("[8] * 5", "[8, 8, 8, 8, 8]")
+        .testEval("[    ] * 10", "[]")
+        .testEval("[1, 2] * 0", "[]")
+        .testEval("[1, 2] * -4", "[]")
+        .testEval("2 * [1, 2]", "[1, 2, 1, 2]")
+        .testEval("10 * []", "[]")
+        .testEval("0 * [1, 2]", "[]")
+        .testEval("-4 * [1, 2]", "[]");
   }
 
   @Test
   public void testTupleMultiply() throws Exception {
     ev.new Scenario()
-        .testExpression("(1, 2, 3) * 1", Tuple.of(1, 2, 3))
-        .testExpression("(1, 2) * 2", Tuple.of(1, 2, 1, 2))
-        .testExpression("(1, 2) * 3", Tuple.of(1, 2, 1, 2, 1, 2))
-        .testExpression("(1, 2) * 4", Tuple.of(1, 2, 1, 2, 1, 2, 1, 2))
-        .testExpression("(8,) * 5", Tuple.of(8, 8, 8, 8, 8))
-        .testExpression("(    ) * 10", Tuple.empty())
-        .testExpression("(1, 2) * 0", Tuple.empty())
-        .testExpression("(1, 2) * -4", Tuple.empty())
-        .testExpression("2 * (1, 2)", Tuple.of(1, 2, 1, 2))
-        .testExpression("10 * ()", Tuple.empty())
-        .testExpression("0 * (1, 2)", Tuple.empty())
-        .testExpression("-4 * (1, 2)", Tuple.empty());
+        .testEval("(1, 2, 3) * 1", "(1, 2, 3)")
+        .testEval("(1, 2) * 2", "(1, 2, 1, 2)")
+        .testEval("(1, 2) * 3", "(1, 2, 1, 2, 1, 2)")
+        .testEval("(1, 2) * 4", "(1, 2, 1, 2, 1, 2, 1, 2)")
+        .testEval("(8,) * 5", "(8, 8, 8, 8, 8)")
+        .testEval("(    ) * 10", "()")
+        .testEval("(1, 2) * 0", "()")
+        .testEval("(1, 2) * -4", "()")
+        .testEval("2 * (1, 2)", "(1, 2, 1, 2)")
+        .testEval("10 * ()", "()")
+        .testEval("0 * (1, 2)", "()")
+        .testEval("-4 * (1, 2)", "()");
   }
 
   @Test
@@ -809,7 +851,7 @@ public final class EvaluationTest {
 
   @Test
   public void testInCompositeForPrecedence() throws Exception {
-    ev.new Scenario().testExpression("not 'a' in ['a'] or 0", 0);
+    ev.new Scenario().testExpression("not 'a' in ['a'] or 0", StarlarkInt.of(0));
   }
 
   private static StarlarkValue createObjWithStr() {
@@ -913,6 +955,15 @@ public final class EvaluationTest {
       Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
     }
     assertThat(module.getGlobal("x"))
-        .isEqualTo(StarlarkList.of(/*mutability=*/ null, 1, 2, "foo", 4, 1, 2, "foo1"));
+        .isEqualTo(
+            StarlarkList.of(
+                /*mutability=*/ null,
+                StarlarkInt.of(1),
+                StarlarkInt.of(2),
+                "foo",
+                StarlarkInt.of(4),
+                StarlarkInt.of(1),
+                StarlarkInt.of(2),
+                "foo1"));
   }
 }

@@ -454,6 +454,24 @@ public final class StarlarkEvaluationTest {
       throw new InternalError("buggy code");
     }
 
+    @StarlarkMethod(
+        name = "int_conversion",
+        doc = "test implicit StarlarkInt to Integer conversion",
+        parameters = {
+          @Param(name = "a", type = Integer.class),
+          @Param(
+              name = "b",
+              allowedTypes = {
+                @ParamType(type = String.class),
+                @ParamType(type = Integer.class),
+              }),
+          @Param(name = "c"),
+          @Param(name = "d"),
+        })
+    public String intConversion(Object a, Object b, Integer c, Object d) {
+      return String.format("(%s, %s, %s, %s)", a, b, c, d);
+    }
+
     @Override
     public String toString() {
       return "<mock>";
@@ -526,14 +544,14 @@ public final class StarlarkEvaluationTest {
   public void testSimpleIf() throws Exception {
     ev.new Scenario()
         .setUp("def foo():", "  a = 0", "  x = 0", "  if x: a = 5", "  return a", "a = foo()")
-        .testLookup("a", 0);
+        .testLookup("a", StarlarkInt.of(0));
   }
 
   @Test
   public void testIfPass() throws Exception {
     ev.new Scenario()
         .setUp("def foo():", "  a = 1", "  x = True", "  if x: pass", "  return a", "a = foo()")
-        .testLookup("a", 1);
+        .testLookup("a", StarlarkInt.of(1));
   }
 
   @Test
@@ -558,7 +576,7 @@ public final class StarlarkEvaluationTest {
             "    b = 3",
             "  return a + b",
             "x = " + fun + "()")
-        .testLookup("x", expected);
+        .testLookup("x", StarlarkInt.of(expected));
   }
 
   @Test
@@ -578,7 +596,7 @@ public final class StarlarkEvaluationTest {
             "    else: a = 3",
             "  return a",
             "z = " + fun + "()")
-        .testLookup("z", expected);
+        .testLookup("z", StarlarkInt.of(expected));
   }
 
   @Test
@@ -609,7 +627,7 @@ public final class StarlarkEvaluationTest {
             "  else:",
             "    return 3",
             "v = foo()")
-        .testLookup("v", v);
+        .testLookup("v", StarlarkInt.of(v));
   }
 
   @Test
@@ -848,7 +866,9 @@ public final class StarlarkEvaluationTest {
         "    hit = 1",
         "  return [s, hit]",
         "x = foo()");
-    assertThat((Iterable<Object>) ev.lookup("x")).containsExactly(expected, 0).inOrder();
+    assertThat((Iterable<Object>) ev.lookup("x"))
+        .containsExactly(StarlarkInt.of(expected), StarlarkInt.of(0))
+        .inOrder();
   }
 
   @Test
@@ -873,7 +893,7 @@ public final class StarlarkEvaluationTest {
         "       s = s + 1",
         "   return s",
         "x = foo()");
-    assertThat(ev.lookup("x")).isEqualTo(expected);
+    assertThat(ev.lookup("x")).isEqualTo(StarlarkInt.of(expected));
   }
 
   private void flowFromNestedBlocks(String statement, int expected) throws Exception {
@@ -888,7 +908,7 @@ public final class StarlarkEvaluationTest {
         "       s = s + 1",
         "   return s",
         "y = foo2()");
-    assertThat(ev.lookup("y")).isEqualTo(expected);
+    assertThat(ev.lookup("y")).isEqualTo(StarlarkInt.of(expected));
   }
 
   @Test
@@ -924,7 +944,10 @@ public final class StarlarkEvaluationTest {
         "   return [outer, first, second]",
         "x = foo()");
     assertThat((Iterable<Object>) ev.lookup("x"))
-        .containsExactly(outerExpected, firstExpected, secondExpected)
+        .containsExactly(
+            StarlarkInt.of(outerExpected),
+            StarlarkInt.of(firstExpected),
+            StarlarkInt.of(secondExpected))
         .inOrder();
   }
 
@@ -970,7 +993,7 @@ public final class StarlarkEvaluationTest {
   public void testNoneAssignment() throws Exception {
     ev.new Scenario()
         .setUp("def foo(x=None):", "  x = 1", "  x = None", "  return 2", "s = foo()")
-        .testLookup("s", 2);
+        .testLookup("s", StarlarkInt.of(2));
   }
 
   @Test
@@ -1479,7 +1502,7 @@ public final class StarlarkEvaluationTest {
   public void testAugmentedAssignment() throws Exception {
     ev.new Scenario()
         .setUp("def f1(x):", "  x += 1", "  return x", "", "foo = f1(41)")
-        .testLookup("foo", 42);
+        .testLookup("foo", StarlarkInt.of(42));
   }
 
   @Test
@@ -1495,7 +1518,7 @@ public final class StarlarkEvaluationTest {
             "  return value",
             "",
             "f()[1] += 1") // `f()` should be called only once here
-        .testLookup("counter", StarlarkList.of(null, 1));
+        .testLookup("counter", StarlarkList.of(null, StarlarkInt.of(1)));
 
     // Check key position.
     ev.new Scenario()
@@ -1508,7 +1531,7 @@ public final class StarlarkEvaluationTest {
             "  return 1",
             "",
             "value[f()] += 1") // `f()` should be called only once here
-        .testLookup("counter", StarlarkList.of(null, 1));
+        .testLookup("counter", StarlarkList.of(null, StarlarkInt.of(1)));
   }
 
   @Test
@@ -1607,7 +1630,12 @@ public final class StarlarkEvaluationTest {
             "  t2 += (3, 4)",
             "  return t1, t2",
             "tuples = func()")
-        .testLookup("tuples", Tuple.of(Tuple.of(1, 2), Tuple.of(1, 2, 3, 4)));
+        .testLookup(
+            "tuples",
+            Tuple.of(
+                Tuple.of(StarlarkInt.of(1), StarlarkInt.of(2)),
+                Tuple.of(
+                    StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3), StarlarkInt.of(4))));
   }
 
   @Test
@@ -1627,7 +1655,7 @@ public final class StarlarkEvaluationTest {
   public void testDictAssignmentAsLValue() throws Exception {
     ev.new Scenario()
         .setUp("def func():", "  d = {'a' : 1}", "  d['b'] = 2", "  return d", "d = func()")
-        .testLookup("d", ImmutableMap.of("a", 1, "b", 2));
+        .testLookup("d", ImmutableMap.of("a", StarlarkInt.of(1), "b", StarlarkInt.of(2)));
   }
 
   @Test
@@ -1640,7 +1668,9 @@ public final class StarlarkEvaluationTest {
             "  e['d']['b'] = 2",
             "  return e",
             "e = func()")
-        .testLookup("e", ImmutableMap.of("d", ImmutableMap.of("a", 1, "b", 2)));
+        .testLookup(
+            "e",
+            ImmutableMap.of("d", ImmutableMap.of("a", StarlarkInt.of(1), "b", StarlarkInt.of(2))));
   }
 
   @Test
@@ -1674,42 +1704,47 @@ public final class StarlarkEvaluationTest {
     ev.new Scenario()
         .setUp(
             "def func():", "  d = {'a' : 1}", "  d['b'], d['c'] = 2, 3", "  return d", "d = func()")
-        .testLookup("d", ImmutableMap.of("a", 1, "b", 2, "c", 3));
+        .testLookup(
+            "d",
+            ImmutableMap.of(
+                "a", StarlarkInt.of(1), "b", StarlarkInt.of(2), "c", StarlarkInt.of(3)));
   }
 
   @Test
   public void testDictItemPlusEqual() throws Exception {
     ev.new Scenario()
         .setUp("def func():", "  d = {'a' : 2}", "  d['a'] += 3", "  return d", "d = func()")
-        .testLookup("d", ImmutableMap.of("a", 5));
+        .testLookup("d", ImmutableMap.of("a", StarlarkInt.of(5)));
   }
 
   @Test
   public void testDictAssignmentAsLValueSideEffects() throws Exception {
     ev.new Scenario()
         .setUp("def func(d):", "  d['b'] = 2", "d = {'a' : 1}", "func(d)")
-        .testLookup("d", Dict.of((Mutability) null, "a", 1, "b", 2));
+        .testLookup(
+            "d", Dict.of((Mutability) null, "a", StarlarkInt.of(1), "b", StarlarkInt.of(2)));
   }
 
   @Test
   public void testAssignmentToListInDictSideEffect() throws Exception {
     ev.new Scenario()
         .setUp("l = [1, 2]", "d = {0: l}", "d[0].append(3)")
-        .testLookup("l", StarlarkList.of(null, 1, 2, 3));
+        .testLookup(
+            "l", StarlarkList.of(null, StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3)));
   }
 
   @Test
   public void testUserFunctionKeywordArgs() throws Exception {
     ev.new Scenario()
         .setUp("def foo(a, b, c):", "  return a + b + c", "s = foo(1, c=2, b=3)")
-        .testLookup("s", 6);
+        .testLookup("s", StarlarkInt.of(6));
   }
 
   @Test
   public void testFunctionCallOrdering() throws Exception {
     ev.new Scenario()
         .setUp("def func(): return foo() * 2", "def foo(): return 2", "x = func()")
-        .testLookup("x", 4);
+        .testLookup("x", StarlarkInt.of(4));
   }
 
   @Test
@@ -1733,7 +1768,7 @@ public final class StarlarkEvaluationTest {
             "        else:",
             "            a = i",
             "res = beforeEven([1, 3, 4, 5])")
-        .testLookup("res", 3);
+        .testLookup("res", StarlarkInt.of(3));
   }
 
   @Test
@@ -1833,12 +1868,14 @@ public final class StarlarkEvaluationTest {
 
   @Test
   public void testCannotCreateMixedListInStarlark() throws Exception {
-    ev.new Scenario().testExactOrder("['a', 'b', 1, 2]", "a", "b", 1, 2);
+    ev.new Scenario()
+        .testExactOrder("['a', 'b', 1, 2]", "a", "b", StarlarkInt.of(1), StarlarkInt.of(2));
   }
 
   @Test
   public void testCannotConcatListInStarlarkWithDifferentGenericTypes() throws Exception {
-    ev.new Scenario().testExactOrder("[1, 2] + ['a', 'b']", 1, 2, "a", "b");
+    ev.new Scenario()
+        .testExactOrder("[1, 2] + ['a', 'b']", StarlarkInt.of(1), StarlarkInt.of(2), "a", "b");
   }
 
   @Test
@@ -1853,13 +1890,14 @@ public final class StarlarkEvaluationTest {
 
   @Test
   public void testSingletonTuple() throws Exception {
-    ev.new Scenario().testExactOrder("(1,)", 1);
+    ev.new Scenario().testExactOrder("(1,)", StarlarkInt.of(1));
   }
 
   @Test
   public void testDirFindsClassObjectFields() throws Exception {
     ev.new Scenario()
-        .update("s", new SimpleStruct(ImmutableMap.of("a", 1, "b", 2)))
+        .update(
+            "s", new SimpleStruct(ImmutableMap.of("a", StarlarkInt.of(1), "b", StarlarkInt.of(2))))
         .testExactOrder("dir(s)", "a", "b");
   }
 
@@ -1870,6 +1908,7 @@ public final class StarlarkEvaluationTest {
         .testExactOrder(
             "dir(mock)",
             "function",
+            "int_conversion",
             "interrupted_struct_field",
             "is_empty",
             "nullfunc_failing",
@@ -1918,14 +1957,14 @@ public final class StarlarkEvaluationTest {
 
   @Test
   public void testConditionalExpressionAtToplevel() throws Exception {
-    ev.new Scenario().setUp("x = 1 if 2 else 3").testLookup("x", 1);
+    ev.new Scenario().setUp("x = 1 if 2 else 3").testLookup("x", StarlarkInt.of(1));
   }
 
   @Test
   public void testConditionalExpressionInFunction() throws Exception {
     ev.new Scenario()
         .setUp("def foo(a, b, c): return a+b if c else a-b\n")
-        .testExpression("foo(23, 5, 0)", 18);
+        .testExpression("foo(23, 5, 0)", StarlarkInt.of(18));
   }
 
   // SimpleStructWithMethods augments SimpleStruct's fields with annotated Java methods.
@@ -2051,7 +2090,7 @@ public final class StarlarkEvaluationTest {
         "  b = [a for a in range(3)]",
         "  return a",
         "x = foo()");
-    assertThat(ev.lookup("x")).isEqualTo(18);
+    assertThat(ev.lookup("x")).isEqualTo(StarlarkInt.of(18));
   }
 
   @Test
@@ -2062,7 +2101,7 @@ public final class StarlarkEvaluationTest {
         "def f():",
         "  return x",
         "y = [f() for x in [2]][0]");
-    assertThat(ev.lookup("y")).isEqualTo(1);
+    assertThat(ev.lookup("y")).isEqualTo(StarlarkInt.of(1));
   }
 
   @Test
@@ -2082,5 +2121,24 @@ public final class StarlarkEvaluationTest {
             IllegalArgumentException.class,
             () -> Starlark.addMethods(ImmutableMap.builder(), new Mock()));
     assertThat(ex).hasMessageThat().contains("method struct_field has structField=true");
+  }
+
+  @Test
+  public void testIntegerReboxing() throws Exception {
+    ev.new Scenario()
+        .update("mock", new Mock())
+        .setUp("big = 111111111 * 111111111")
+        .testExpression("mock.int_conversion(1, 2, 3, 4)", "(1, 2, 3, 4)")
+        .testExpression("mock.int_conversion(1, 'b', 3, 'd')", "(1, b, 3, d)")
+        .testIfErrorContains(
+            "got 12345678987654321 for a, want value in signed 32-bit range",
+            "mock.int_conversion(big, 0, 0, 0)")
+        .testIfErrorContains(
+            "got 12345678987654321 for b, want value in signed 32-bit range",
+            "mock.int_conversion(0, big, 0, 0)")
+        .testIfErrorContains(
+            "got 12345678987654321 for c, want value in signed 32-bit range",
+            "mock.int_conversion(0, 0, big, 0)")
+        .testExpression("mock.int_conversion(0, 0, 0, big)", "(0, 0, 0, 12345678987654321)");
   }
 }

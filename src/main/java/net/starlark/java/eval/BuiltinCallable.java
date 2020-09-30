@@ -185,6 +185,7 @@ public final class BuiltinCallable implements StarlarkCallable {
       }
 
       Object value = positional[argIndex++];
+      value = param.reboxIntMaybe(value);
       checkParamValue(param, value);
       vector[paramIndex] = value;
     }
@@ -267,6 +268,7 @@ public final class BuiltinCallable implements StarlarkCallable {
         continue;
       }
 
+      value = param.reboxIntMaybe(value);
       checkParamValue(param, value);
 
       // duplicate?

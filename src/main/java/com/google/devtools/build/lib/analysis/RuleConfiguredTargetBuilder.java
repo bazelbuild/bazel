@@ -378,7 +378,8 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   private TestProvider initializeTestProvider(FilesToRunProvider filesToRunProvider) {
-    int explicitShardCount = ruleContext.attributes().get("shard_count", Type.INTEGER);
+    int explicitShardCount =
+        ruleContext.attributes().get("shard_count", Type.INTEGER).toIntUnchecked();
     if (explicitShardCount < 0
         && ruleContext.getRule().isAttributeValueExplicitlySpecified("shard_count")) {
       ruleContext.attributeError("shard_count", "Must not be negative.");

@@ -85,6 +85,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
+import net.starlark.java.eval.StarlarkInt;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -1254,7 +1255,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Module cViaB = bLoads.get(":c.bzl");
     assertThat(cViaB).isSameInstanceAs(cViaA);
 
-    assertThat(cViaA.getGlobal("c")).isEqualTo(0);
+    assertThat(cViaA.getGlobal("c")).isEqualTo(StarlarkInt.of(0));
   }
 
   @Test

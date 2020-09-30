@@ -14,6 +14,7 @@
 package net.starlark.java.syntax;
 
 /** Syntax node for an integer literal. */
+// TODO(adonovan): support literals of arbitrary size.
 public final class IntegerLiteral extends Expression {
   private final String raw;
   private final int tokenOffset;

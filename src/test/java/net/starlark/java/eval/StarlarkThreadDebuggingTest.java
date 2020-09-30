@@ -213,11 +213,12 @@ public class StarlarkThreadDebuggingTest {
 
   @Test
   public void testEvaluateVariableInScope() throws Exception {
-    Module module = Module.withPredeclared(StarlarkSemantics.DEFAULT, ImmutableMap.of("a", 1));
+    Module module =
+        Module.withPredeclared(StarlarkSemantics.DEFAULT, ImmutableMap.of("a", StarlarkInt.of(1)));
 
     StarlarkThread thread = newThread();
     Object a = Starlark.execFile(ParserInput.fromLines("a"), FileOptions.DEFAULT, module, thread);
-    assertThat(a).isEqualTo(1);
+    assertThat(a).isEqualTo(StarlarkInt.of(1));
   }
 
   @Test
@@ -247,6 +248,6 @@ public class StarlarkThreadDebuggingTest {
         .isEqualTo(true);
     Starlark.execFile(ParserInput.fromLines("a = 1"), FileOptions.DEFAULT, module, thread);
     assertThat(Starlark.execFile(ParserInput.fromLines("a"), FileOptions.DEFAULT, module, thread))
-        .isEqualTo(1);
+        .isEqualTo(StarlarkInt.of(1));
   }
 }

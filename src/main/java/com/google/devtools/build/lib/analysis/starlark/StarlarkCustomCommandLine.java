@@ -860,14 +860,14 @@ public class StarlarkCustomCommandLine extends CommandLine {
               throw new CommandLineExpansionException(
                   "Expected map_each to return string, None, or list of strings, "
                       + "found list containing "
-                      + val.getClass().getSimpleName());
+                      + Starlark.type(val));
             }
             consumer.accept((String) val);
           }
         } else if (ret != Starlark.NONE) {
           throw new CommandLineExpansionException(
               "Expected map_each to return string, None, or list of strings, found "
-                  + ret.getClass().getSimpleName());
+                  + Starlark.type(ret));
         }
       }
     } catch (EvalException e) {

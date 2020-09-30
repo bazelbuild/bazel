@@ -38,6 +38,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 
 /**
  * Root of Type symbol hierarchy for values in the build language.
@@ -200,10 +201,12 @@ public abstract class Type<T> {
   }
 
   /**
-   * Implementation of concatenation for this type (e.g. "val1 + val2"). Returns null to
-   * indicate concatenation isn't supported.
+   * Implementation of concatenation for this type, as if by {@code elements[0] + ... +
+   * elements[n-1]}). Returns null to indicate concatenation isn't supported. This method exists to
+   * support deferred additions {@code select + T} for catenable types T such as string, int, and
+   * list.
    */
-  public T concat(@SuppressWarnings("unused") Iterable<T> elements) {
+  public T concat(Iterable<T> elements) {
     return null;
   }
 
@@ -221,8 +224,8 @@ public abstract class Type<T> {
     throw new UnsupportedOperationException(msg);
   }
 
-  /** The type of an integer. */
-  @AutoCodec public static final Type<Integer> INTEGER = new IntegerType();
+  /** The type of a Starlark integer in the signed 32-bit range. */
+  @AutoCodec public static final Type<StarlarkInt> INTEGER = new IntegerType();
 
   /** The type of a string. */
   @AutoCodec public static final Type<String> STRING = new StringType();
@@ -233,11 +236,11 @@ public abstract class Type<T> {
   /** The type of a list of not-yet-typed objects. */
   @AutoCodec public static final ObjectListType OBJECT_LIST = new ObjectListType();
 
-  /** The type of a list of {@linkplain #STRING strings}. */
+  /** The type of a list of strings. */
   @AutoCodec public static final ListType<String> STRING_LIST = ListType.create(STRING);
 
-  /** The type of a list of {@linkplain #INTEGER strings}. */
-  @AutoCodec public static final ListType<Integer> INTEGER_LIST = ListType.create(INTEGER);
+  /** The type of a list of signed 32-bit Starlark integer values. */
+  @AutoCodec public static final ListType<StarlarkInt> INTEGER_LIST = ListType.create(INTEGER);
 
   /** The type of a dictionary of {@linkplain #STRING strings}. */
   @AutoCodec
@@ -317,15 +320,18 @@ public abstract class Type<T> {
     }
   }
 
-  private static class IntegerType extends Type<Integer> {
+  // A Starlark integer in the signed 32-bit range (like Java int).
+  private static class IntegerType extends Type<StarlarkInt> {
     @Override
-    public Integer cast(Object value) {
-      return (Integer) value;
+    public StarlarkInt cast(Object value) {
+      // This cast will fail if passed a java.lang.Integer,
+      // as it is not a legal Starlark value. Use StarlarkInt.
+      return (StarlarkInt) value;
     }
 
     @Override
-    public Integer getDefaultValue() {
-      return 0;
+    public StarlarkInt getDefaultValue() {
+      return StarlarkInt.of(0);
     }
 
     @Override
@@ -338,21 +344,36 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Integer convert(Object x, Object what, Object context)
-        throws ConversionException {
-      if (!(x instanceof Integer)) {
-        throw new ConversionException(this, x, what);
+    public StarlarkInt convert(Object x, Object what, Object context) throws ConversionException {
+      if (x instanceof StarlarkInt) {
+        StarlarkInt i = (StarlarkInt) x;
+        try {
+          i.toIntUnchecked(); // assert signed 32-bit
+        } catch (
+            @SuppressWarnings("UnusedException")
+            IllegalArgumentException ex) {
+          String prefix = what != null ? ("for " + what + ", ") : "";
+          throw new ConversionException(
+              String.format("%sgot %s, want value in signed 32-bit range", prefix, i));
+        }
+        return i;
       }
-      return (Integer) x;
+      if (x instanceof Integer) {
+        throw new IllegalArgumentException("Integer is not a legal Starlark value");
+      }
+      throw new ConversionException(this, x, what);
     }
 
     @Override
-    public Integer concat(Iterable<Integer> elements) {
-      int ans = 0;
-      for (Integer elem : elements) {
-        ans += elem;
+    public StarlarkInt concat(Iterable<StarlarkInt> elements) {
+      StarlarkInt sum = StarlarkInt.of(0);
+      for (StarlarkInt elem : elements) {
+        sum = StarlarkInt.add(sum, elem);
       }
-      return Integer.valueOf(ans);
+      // Perform narrowing conversion to ensure that the result
+      // remains in the signed 32-bit range. This means that
+      // s=select(0x7fffffff); s+s may yield a negative result.
+      return StarlarkInt.of(sum.truncateToInt());
     }
   }
 
@@ -383,7 +404,7 @@ public abstract class Type<T> {
       if (x instanceof Boolean) {
         return (Boolean) x;
       }
-      Integer xAsInteger = INTEGER.convert(x, what, context);
+      int xAsInteger = INTEGER.convert(x, what, context).toIntUnchecked();
       if (xAsInteger == 0) {
         return false;
       } else if (xAsInteger == 1) {

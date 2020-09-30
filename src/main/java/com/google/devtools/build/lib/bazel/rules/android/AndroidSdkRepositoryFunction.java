@@ -136,7 +136,7 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
     Integer defaultApiLevel;
     if (attributes.isAttributeValueExplicitlySpecified("api_level")) {
       try {
-        defaultApiLevel = attributes.get("api_level", Type.INTEGER);
+        defaultApiLevel = attributes.get("api_level", Type.INTEGER).toIntUnchecked();
       } catch (EvalException e) {
         throw new RepositoryFunctionException(e, Transience.PERSISTENT);
       }

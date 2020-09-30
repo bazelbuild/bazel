@@ -449,7 +449,10 @@ final class Eval {
       case INDEX:
         return evalIndex(fr, (IndexExpression) expr);
       case INTEGER_LITERAL:
-        return ((IntegerLiteral) expr).getValue();
+        // TODO(adonovan): opt: avoid allocation by saving
+        // the StarlarkInt in the IntegerLiteral (a temporary hack
+        // until we use a compiled representation).
+        return StarlarkInt.of(((IntegerLiteral) expr).getValue());
       case LIST_EXPR:
         return evalList(fr, (ListExpression) expr);
       case SLICE:

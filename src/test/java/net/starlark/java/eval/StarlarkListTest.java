@@ -33,14 +33,14 @@ public final class StarlarkListTest {
   @Test
   public void testIndex() throws Exception {
     ev.exec("l = [1, '2', 3]");
-    assertThat(ev.eval("l[0]")).isEqualTo(1);
+    assertThat(ev.eval("l[0]")).isEqualTo(StarlarkInt.of(1));
     assertThat(ev.eval("l[1]")).isEqualTo("2");
-    assertThat(ev.eval("l[2]")).isEqualTo(3);
+    assertThat(ev.eval("l[2]")).isEqualTo(StarlarkInt.of(3));
 
     ev.exec("t = (1, '2', 3)");
-    assertThat(ev.eval("t[0]")).isEqualTo(1);
+    assertThat(ev.eval("t[0]")).isEqualTo(StarlarkInt.of(1));
     assertThat(ev.eval("t[1]")).isEqualTo("2");
-    assertThat(ev.eval("t[2]")).isEqualTo(3);
+    assertThat(ev.eval("t[2]")).isEqualTo(StarlarkInt.of(3));
   }
 
   @Test
@@ -145,19 +145,25 @@ public final class StarlarkListTest {
 
   @Test
   public void testListSize() throws Exception {
-    assertThat(ev.eval("len([42, 'hello, world', []])")).isEqualTo(3);
+    assertThat(ev.eval("len([42, 'hello, world', []])")).isEqualTo(StarlarkInt.of(3));
   }
 
   @Test
   public void testListEmpty() throws Exception {
-    assertThat(ev.eval("8 if [1, 2, 3] else 9")).isEqualTo(8);
-    assertThat(ev.eval("8 if [] else 9")).isEqualTo(9);
+    assertThat(ev.eval("8 if [1, 2, 3] else 9")).isEqualTo(StarlarkInt.of(8));
+    assertThat(ev.eval("8 if [] else 9")).isEqualTo(StarlarkInt.of(9));
   }
 
   @Test
   public void testListConcat() throws Exception {
     assertThat(ev.eval("[1, 2] + [3, 4]"))
-        .isEqualTo(StarlarkList.of(/*mutability=*/ null, 1, 2, 3, 4));
+        .isEqualTo(
+            StarlarkList.of(
+                /*mutability=*/ null,
+                StarlarkInt.of(1),
+                StarlarkInt.of(2),
+                StarlarkInt.of(3),
+                StarlarkInt.of(4)));
   }
 
   @Test
@@ -168,10 +174,10 @@ public final class StarlarkListTest {
         "e1 = l[1]",
         "e2 = l[2]",
         "e3 = l[3]");
-    assertThat(ev.lookup("e0")).isEqualTo(1);
-    assertThat(ev.lookup("e1")).isEqualTo(2);
-    assertThat(ev.lookup("e2")).isEqualTo(3);
-    assertThat(ev.lookup("e3")).isEqualTo(4);
+    assertThat(ev.lookup("e0")).isEqualTo(StarlarkInt.of(1));
+    assertThat(ev.lookup("e1")).isEqualTo(StarlarkInt.of(2));
+    assertThat(ev.lookup("e2")).isEqualTo(StarlarkInt.of(3));
+    assertThat(ev.lookup("e3")).isEqualTo(StarlarkInt.of(4));
   }
 
   @Test
@@ -183,16 +189,16 @@ public final class StarlarkListTest {
         "e2 = l[2]",
         "e3 = l[3]",
         "e4 = l[4]");
-    assertThat(ev.lookup("e0")).isEqualTo(1);
-    assertThat(ev.lookup("e1")).isEqualTo(2);
-    assertThat(ev.lookup("e2")).isEqualTo(3);
-    assertThat(ev.lookup("e3")).isEqualTo(4);
-    assertThat(ev.lookup("e4")).isEqualTo(5);
+    assertThat(ev.lookup("e0")).isEqualTo(StarlarkInt.of(1));
+    assertThat(ev.lookup("e1")).isEqualTo(StarlarkInt.of(2));
+    assertThat(ev.lookup("e2")).isEqualTo(StarlarkInt.of(3));
+    assertThat(ev.lookup("e3")).isEqualTo(StarlarkInt.of(4));
+    assertThat(ev.lookup("e4")).isEqualTo(StarlarkInt.of(5));
   }
 
   @Test
   public void testConcatListSize() throws Exception {
-    assertThat(ev.eval("len([1, 2] + [3, 4])")).isEqualTo(4);
+    assertThat(ev.eval("len([1, 2] + [3, 4])")).isEqualTo(StarlarkInt.of(4));
   }
 
   @Test
@@ -225,13 +231,13 @@ public final class StarlarkListTest {
   @Test
   public void testConcatListNotEmpty() throws Exception {
     ev.exec("l = [1, 2] + [3, 4]", "v = 1 if l else 0");
-    assertThat(ev.lookup("v")).isEqualTo(1);
+    assertThat(ev.lookup("v")).isEqualTo(StarlarkInt.of(1));
   }
 
   @Test
   public void testConcatListEmpty() throws Exception {
     ev.exec("l = [] + []", "v = 1 if l else 0");
-    assertThat(ev.lookup("v")).isEqualTo(0);
+    assertThat(ev.lookup("v")).isEqualTo(StarlarkInt.of(0));
   }
 
   @Test
@@ -268,7 +274,9 @@ public final class StarlarkListTest {
   @Test
   public void testMutatorsCheckMutability() throws Exception {
     Mutability mutability = Mutability.create("test");
-    StarlarkList<Object> list = StarlarkList.copyOf(mutability, ImmutableList.of(1, 2, 3));
+    StarlarkList<Object> list =
+        StarlarkList.copyOf(
+            mutability, ImmutableList.of(StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3)));
     mutability.freeze();
 
     // The casts force selection of the Starlark add/remove methods,
@@ -276,27 +284,37 @@ public final class StarlarkListTest {
     // We could enable the List method, but then it would have to
     // report failures using unchecked exceptions.
     EvalException e =
-        assertThrows(EvalException.class, () -> list.add((Object) 4, (Location) null));
-    assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen list value");
-    e = assertThrows(EvalException.class, () -> list.add(0, (Object) 4, (Location) null));
+        assertThrows(
+            EvalException.class, () -> list.add((Object) StarlarkInt.of(4), (Location) null));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen list value");
     e =
         assertThrows(
-            EvalException.class, () -> list.addAll(ImmutableList.of(4, 5, 6), (Location) null));
+            EvalException.class, () -> list.add(0, (Object) StarlarkInt.of(4), (Location) null));
+    assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen list value");
+    e =
+        assertThrows(
+            EvalException.class,
+            () ->
+                list.addAll(
+                    ImmutableList.of(StarlarkInt.of(4), StarlarkInt.of(5), StarlarkInt.of(6)),
+                    (Location) null));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen list value");
     e = assertThrows(EvalException.class, () -> list.remove(0, (Location) null));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen list value");
-    e = assertThrows(EvalException.class, () -> list.set(0, 10, (Location) null));
+    e = assertThrows(EvalException.class, () -> list.set(0, StarlarkInt.of(10), (Location) null));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen list value");
   }
 
   @Test
   public void testCannotMutateAfterShallowFreeze() throws Exception {
     Mutability mutability = Mutability.createAllowingShallowFreeze("test");
-    StarlarkList<Object> list = StarlarkList.copyOf(mutability, ImmutableList.of(1, 2, 3));
+    StarlarkList<Object> list =
+        StarlarkList.copyOf(
+            mutability, ImmutableList.of(StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3)));
     list.unsafeShallowFreeze();
 
-    EvalException e = assertThrows(EvalException.class, () -> list.add((Object) 4, null));
+    EvalException e =
+        assertThrows(EvalException.class, () -> list.add((Object) StarlarkInt.of(4), null));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen list value");
   }
 

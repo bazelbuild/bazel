@@ -55,6 +55,7 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkThread;
 
 /**
@@ -400,7 +401,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
   @Override
   public Descriptor intAttribute(
-      Integer defaultValue,
+      StarlarkInt defaultValue,
       String doc,
       Boolean mandatory,
       Sequence<?> values,

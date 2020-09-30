@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkInt;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -2460,7 +2461,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         new StarlarkProvider.Key(
             Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "PCollector");
     StructImpl collector = (StructImpl) configuredAspect.get(pCollector);
-    assertThat(collector.getValue("attr_value")).isEqualTo(30);
+    assertThat(collector.getValue("attr_value")).isEqualTo(StarlarkInt.of(30));
   }
 
   @Test
@@ -2515,7 +2516,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         new StarlarkProvider.Key(
             Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "PCollector");
     StructImpl collector = (StructImpl) configuredAspect.get(pCollector);
-    assertThat(collector.getValue("attr_value")).isEqualTo(30);
+    assertThat(collector.getValue("attr_value")).isEqualTo(StarlarkInt.of(30));
   }
 
   @Test

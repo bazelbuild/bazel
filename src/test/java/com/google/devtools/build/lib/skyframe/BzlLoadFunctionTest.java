@@ -47,6 +47,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.UUID;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkInt;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -402,7 +403,8 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
 
-    assertThat(result.get(skyKey).getModule().getGlobals()).containsEntry("a_symbol", 5);
+    assertThat(result.get(skyKey).getModule().getGlobals())
+        .containsEntry("a_symbol", StarlarkInt.of(5));
   }
 
   @Test

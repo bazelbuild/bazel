@@ -59,6 +59,7 @@ import java.util.List;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import org.junit.Before;
 import org.junit.Test;
@@ -1412,7 +1413,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     StructImpl declaredProvider = (StructImpl) configuredTarget.get(key);
     assertThat(declaredProvider).isNotNull();
     assertThat(declaredProvider.getProvider().getKey()).isEqualTo(key);
-    assertThat(declaredProvider.getValue("x")).isEqualTo(1);
+    assertThat(declaredProvider.getValue("x")).isEqualTo(StarlarkInt.of(1));
   }
 
   @Test
@@ -1437,7 +1438,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     StructImpl declaredProvider = (StructImpl) configuredTarget.get(key);
     assertThat(declaredProvider).isNotNull();
     assertThat(declaredProvider.getProvider().getKey()).isEqualTo(key);
-    assertThat(declaredProvider.getValue("x")).isEqualTo(1);
+    assertThat(declaredProvider.getValue("x")).isEqualTo(StarlarkInt.of(1));
   }
 
   @Test
@@ -1463,7 +1464,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     StructImpl declaredProvider = (StructImpl) configuredTarget.get(key);
     assertThat(declaredProvider).isNotNull();
     assertThat(declaredProvider.getProvider().getKey()).isEqualTo(key);
-    assertThat(declaredProvider.getValue("x")).isEqualTo(1);
+    assertThat(declaredProvider.getValue("x")).isEqualTo(StarlarkInt.of(1));
   }
 
   @Test

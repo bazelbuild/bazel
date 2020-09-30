@@ -51,6 +51,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkInt;
 
 /** Common utilities for serializing {@link Attribute}s as protocol buffers. */
 public class AttributeFormatter {
@@ -168,11 +169,10 @@ public class AttributeFormatter {
    * Set the appropriate type and value. Since string and string list store values for multiple
    * types, use the toString() method on the objects instead of casting them.
    */
-  @SuppressWarnings("unchecked")
   private static void writeAttributeValueToBuilder(
       AttributeValueBuilderAdapter builder, Type<?> type, Object value) {
     if (type == INTEGER) {
-      builder.setIntValue((Integer) value);
+      builder.setIntValue(((StarlarkInt) value).toIntUnchecked());
     } else if (type == STRING || type == LABEL || type == NODEP_LABEL || type == OUTPUT) {
       builder.setStringValue(value.toString());
     } else if (type == STRING_LIST || type == LABEL_LIST || type == NODEP_LABEL_LIST
@@ -181,8 +181,8 @@ public class AttributeFormatter {
         builder.addStringListValue(entry.toString());
       }
     } else if (type == INTEGER_LIST) {
-      for (Integer entry : (Collection<Integer>) value) {
-        builder.addIntListValue(entry);
+      for (Object elem : (Collection<?>) value) {
+        builder.addIntListValue(((StarlarkInt) elem).toIntUnchecked());
       }
     } else if (type == BOOLEAN) {
       builder.setBooleanValue((Boolean) value);
@@ -199,6 +199,7 @@ public class AttributeFormatter {
       }
       builder.setLicense(licensePb);
     } else if (type == STRING_DICT) {
+      @SuppressWarnings("unchecked")
       Map<String, String> dict = (Map<String, String>) value;
       for (Map.Entry<String, String> keyValueList : dict.entrySet()) {
         StringDictEntry.Builder entry =
@@ -208,6 +209,7 @@ public class AttributeFormatter {
         builder.addStringDictValue(entry);
       }
     } else if (type == STRING_LIST_DICT) {
+      @SuppressWarnings("unchecked")
       Map<String, List<String>> dict = (Map<String, List<String>>) value;
       for (Map.Entry<String, List<String>> dictEntry : dict.entrySet()) {
         StringListDictEntry.Builder entry =
@@ -218,6 +220,7 @@ public class AttributeFormatter {
         builder.addStringListDictValue(entry);
       }
     } else if (type == LABEL_DICT_UNARY) {
+      @SuppressWarnings("unchecked")
       Map<String, Label> dict = (Map<String, Label>) value;
       for (Map.Entry<String, Label> dictEntry : dict.entrySet()) {
         LabelDictUnaryEntry.Builder entry =
@@ -227,6 +230,7 @@ public class AttributeFormatter {
         builder.addLabelDictUnaryValue(entry);
       }
     } else if (type == LABEL_KEYED_STRING_DICT) {
+      @SuppressWarnings("unchecked")
       Map<Label, String> dict = (Map<Label, String>) value;
       for (Map.Entry<Label, String> dictEntry : dict.entrySet()) {
         LabelKeyedStringDictEntry.Builder entry =
@@ -236,6 +240,7 @@ public class AttributeFormatter {
         builder.addLabelKeyedStringDictValue(entry);
       }
     } else if (type == FILESET_ENTRY_LIST) {
+      @SuppressWarnings("unchecked")
       List<FilesetEntry> filesetEntries = (List<FilesetEntry>) value;
       for (FilesetEntry filesetEntry : filesetEntries) {
         Build.FilesetEntry.Builder filesetEntryPb =

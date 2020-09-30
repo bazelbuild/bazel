@@ -435,8 +435,7 @@ public abstract class Args implements CommandLineArgsApi {
     private void validateArgName(Object argName) throws EvalException {
       if (!(argName instanceof String)) {
         throw Starlark.errorf(
-            "expected value of type 'string' for arg name, got '%s'",
-            argName.getClass().getSimpleName());
+            "expected value of type 'string' for arg name, got '%s'", Starlark.type(argName));
       }
     }
 
@@ -444,7 +443,7 @@ public abstract class Args implements CommandLineArgsApi {
       if (!(values instanceof Sequence || values instanceof Depset)) {
         throw Starlark.errorf(
             "expected value of type 'sequence or depset' for values, got '%s'",
-            values.getClass().getSimpleName());
+            Starlark.type(values));
       }
     }
 

@@ -47,6 +47,7 @@ final class EvalUtils {
       new Ordering<Object>() {
         private int compareLists(Sequence<?> o1, Sequence<?> o2) {
           if (o1 instanceof RangeList || o2 instanceof RangeList) {
+            // RangeLists don't support ordered comparison, only equality.
             throw new ComparisonException("Cannot compare range objects");
           }
 
@@ -68,8 +69,9 @@ final class EvalUtils {
           if (o1 instanceof String && o2 instanceof String) {
             return ((String) o1).compareTo((String) o2);
           }
-          if (o1 instanceof Integer && o2 instanceof Integer) {
-            return Integer.compare((Integer) o1, (Integer) o2);
+          if (o1 instanceof StarlarkInt && o2 instanceof StarlarkInt) {
+            // int <=> int
+            return StarlarkInt.compare((StarlarkInt) o1, (StarlarkInt) o2);
           }
 
           o1 = Starlark.fromJava(o1, null);
@@ -186,19 +188,10 @@ final class EvalUtils {
       throws EvalException {
     switch (op) {
       case PLUS:
-        if (x instanceof Integer) {
-          if (y instanceof Integer) {
+        if (x instanceof StarlarkInt) {
+          if (y instanceof StarlarkInt) {
             // int + int
-            int xi = (Integer) x;
-            int yi = (Integer) y;
-            int z = xi + yi;
-            // Overflow Detection, §2-13 Hacker's Delight:
-            // "operands have the same sign and the sum
-            // has a sign opposite to that of the operands."
-            if (((xi ^ z) & (yi ^ z)) < 0) {
-              throw Starlark.errorf("integer overflow in addition");
-            }
-            return z;
+            return StarlarkInt.add((StarlarkInt) x, (StarlarkInt) y);
           }
 
         } else if (x instanceof String) {
@@ -223,81 +216,55 @@ final class EvalUtils {
         break;
 
       case PIPE:
-        if (x instanceof Integer) {
-          if (y instanceof Integer) {
+        if (x instanceof StarlarkInt) {
+          if (y instanceof StarlarkInt) {
             // int | int
-            return ((Integer) x) | (Integer) y;
+            return StarlarkInt.or((StarlarkInt) x, (StarlarkInt) y);
           }
         }
         break;
 
       case AMPERSAND:
-        if (x instanceof Integer && y instanceof Integer) {
+        if (x instanceof StarlarkInt && y instanceof StarlarkInt) {
           // int & int
-          return (Integer) x & (Integer) y;
+          return StarlarkInt.and((StarlarkInt) x, (StarlarkInt) y);
         }
         break;
 
       case CARET:
-        if (x instanceof Integer && y instanceof Integer) {
+        if (x instanceof StarlarkInt && y instanceof StarlarkInt) {
           // int ^ int
-          return (Integer) x ^ (Integer) y;
+          return StarlarkInt.xor((StarlarkInt) x, (StarlarkInt) y);
         }
         break;
 
       case GREATER_GREATER:
-        if (x instanceof Integer && y instanceof Integer) {
-          // int >> int
-          int xi = (Integer) x;
-          int yi = (Integer) y;
-          if (yi < 0) {
-            throw Starlark.errorf("negative shift count: %d", yi);
-          } else if (yi >= Integer.SIZE) {
-            return xi < 0 ? -1 : 0;
-          }
-          return xi >> yi;
+        if (x instanceof StarlarkInt && y instanceof StarlarkInt) {
+          // x >> y
+          return StarlarkInt.shiftRight((StarlarkInt) x, (StarlarkInt) y);
         }
         break;
 
       case LESS_LESS:
-        if (x instanceof Integer && y instanceof Integer) {
-          // int << int
-          int xi = (Integer) x;
-          int yi = (Integer) y;
-          if (yi < 0) {
-            throw Starlark.errorf("negative shift count: %d", yi);
-          }
-          int z = xi << yi; // only uses low 5 bits of yi
-          if ((z >> yi) != xi || yi >= 32) {
-            throw Starlark.errorf("integer overflow in left shift");
-          }
-          return z;
+        if (x instanceof StarlarkInt && y instanceof StarlarkInt) {
+          // x << y
+          return StarlarkInt.shiftLeft((StarlarkInt) x, (StarlarkInt) y);
         }
         break;
 
       case MINUS:
-        if (x instanceof Integer && y instanceof Integer) {
-          // int - int
-          int xi = (Integer) x;
-          int yi = (Integer) y;
-          int z = xi - yi;
-          if (((xi ^ yi) & (xi ^ z)) < 0) {
-            throw Starlark.errorf("integer overflow in subtraction");
-          }
-          return z;
+        if (x instanceof StarlarkInt && y instanceof StarlarkInt) {
+          // x - y
+          return StarlarkInt.subtract((StarlarkInt) x, (StarlarkInt) y);
         }
         break;
 
       case STAR:
-        if (x instanceof Integer) {
-          int xi = (Integer) x;
-          if (y instanceof Integer) {
+        if (x instanceof StarlarkInt) {
+          StarlarkInt xi = (StarlarkInt) x;
+          if (y instanceof StarlarkInt) {
             // int * int
-            long z = (long) xi * (long) (Integer) y;
-            if ((int) z != z) {
-              throw Starlark.errorf("integer overflow in multiplication");
-            }
-            return (int) z;
+            return StarlarkInt.multiply((StarlarkInt) x, (StarlarkInt) y);
           } else if (y instanceof String) {
             // int * string
             return repeatString((String) y, xi);
@@ -310,21 +277,21 @@ final class EvalUtils {
           }
 
         } else if (x instanceof String) {
-          if (y instanceof Integer) {
+          if (y instanceof StarlarkInt) {
             // string * int
-            return repeatString((String) x, (Integer) y);
+            return repeatString((String) x, (StarlarkInt) y);
           }
 
         } else if (x instanceof Tuple) {
-          if (y instanceof Integer) {
+          if (y instanceof StarlarkInt) {
             // tuple * int
-            return ((Tuple<?>) x).repeat((Integer) y);
+            return ((Tuple<?>) x).repeat((StarlarkInt) y);
           }
 
         } else if (x instanceof StarlarkList) {
-          if (y instanceof Integer) {
+          if (y instanceof StarlarkInt) {
             // list * int
-            return ((StarlarkList<?>) x).repeat((Integer) y, mu);
+            return ((StarlarkList<?>) x).repeat((StarlarkInt) y, mu);
           }
         }
         break;
@@ -333,41 +300,17 @@ final class EvalUtils {
         throw Starlark.errorf("The `/` operator is not allowed. For integer division, use `//`.");
 
       case SLASH_SLASH:
-        if (x instanceof Integer && y instanceof Integer) {
-          // int // int
-          int xi = (Integer) x;
-          int yi = (Integer) y;
-          if (yi == 0) {
-            throw Starlark.errorf("integer division by zero");
-          }
-          // http://python-history.blogspot.com/2010/08/why-pythons-integer-division-floors.html
-          int quo = xi / yi;
-          int rem = xi % yi;
-          if ((xi < 0) != (yi < 0) && rem != 0) {
-            quo--;
-          }
-          if (xi == Integer.MIN_VALUE && yi == -1) { // HD 2-13
-            throw Starlark.errorf("integer overflow in division");
-          }
-          return quo;
+        if (x instanceof StarlarkInt && y instanceof StarlarkInt) {
+          // x // y
+          return StarlarkInt.floordiv((StarlarkInt) x, (StarlarkInt) y);
         }
         break;
 
       case PERCENT:
-        if (x instanceof Integer) {
-          if (y instanceof Integer) {
-            // int % int
-            int xi = (Integer) x;
-            int yi = (Integer) y;
-            if (yi == 0) {
-              throw Starlark.errorf("integer modulo by zero");
-            }
-            // In Starlark, the sign of the result is the sign of the divisor.
-            int z = xi % yi;
-            if ((xi < 0) != (yi < 0) && z != 0) {
-              z += yi;
-            }
-            return z;
+        if (x instanceof StarlarkInt) {
+          if (y instanceof StarlarkInt) {
+            // x % y
+            return StarlarkInt.mod((StarlarkInt) x, (StarlarkInt) y);
           }
 
         } else if (x instanceof String) {
@@ -453,7 +396,9 @@ final class EvalUtils {
     }
   }
 
-  private static String repeatString(String s, int n) {
+  private static String repeatString(String s, StarlarkInt in) throws EvalException {
+    int n = in.toInt("repeat");
+    // TODO(adonovan): reject unreasonably large n.
     return n <= 0 ? "" : Strings.repeat(s, n);
   }
 
@@ -464,24 +409,20 @@ final class EvalUtils {
         return !Starlark.truth(x);
 
       case MINUS:
-        if (x instanceof Integer) {
-          int xi = (Integer) x;
-          if (xi == Integer.MIN_VALUE) {
-            throw Starlark.errorf("integer overflow in negation");
-          }
-          return -xi;
+        if (x instanceof StarlarkInt) {
+          return StarlarkInt.uminus((StarlarkInt) x); // -int
         }
         break;
 
       case PLUS:
-        if (x instanceof Integer) {
-          return x;
+        if (x instanceof StarlarkInt) {
+          return x; // +int
         }
         break;
 
       case TILDE:
-        if (x instanceof Integer) {
-          return ~((Integer) x);
+        if (x instanceof StarlarkInt) {
+          return StarlarkInt.bitnot((StarlarkInt) x); // ~int
         }
         break;
 

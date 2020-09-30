@@ -215,14 +215,15 @@ public final class StarlarkList<E> extends AbstractList<E>
   }
 
   /** Returns a new StarlarkList containing n consecutive repeats of this tuple. */
-  public StarlarkList<E> repeat(int n, Mutability mutability) {
-    if (n <= 0) {
+  public StarlarkList<E> repeat(StarlarkInt n, Mutability mutability) throws EvalException {
+    if (n.signum() <= 0) {
       return wrap(mutability, EMPTY_ARRAY);
     }
 
     // TODO(adonovan): reject unreasonably large n.
-    Object[] res = new Object[n * size];
-    for (int i = 0; i < n; i++) {
+    int ni = n.toInt("repeat");
+    Object[] res = new Object[ni * size];
+    for (int i = 0; i < ni; i++) {
       System.arraycopy(elems, 0, res, i * size, size);
     }
     return wrap(mutability, res);

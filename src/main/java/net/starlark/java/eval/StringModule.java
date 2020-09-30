@@ -545,13 +545,13 @@ final class StringModule implements StarlarkValue {
         @Param(name = "sub", type = String.class, doc = "The substring to find."),
         @Param(
             name = "start",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
             name = "end",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
@@ -571,13 +571,13 @@ final class StringModule implements StarlarkValue {
         @Param(name = "sub", type = String.class, doc = "The substring to find."),
         @Param(
             name = "start",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
             name = "end",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
@@ -597,13 +597,13 @@ final class StringModule implements StarlarkValue {
         @Param(name = "sub", type = String.class, doc = "The substring to find."),
         @Param(
             name = "start",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
             name = "end",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
@@ -627,13 +627,13 @@ final class StringModule implements StarlarkValue {
         @Param(name = "sub", type = String.class, doc = "The substring to find."),
         @Param(
             name = "start",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
             name = "end",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
@@ -820,13 +820,13 @@ final class StringModule implements StarlarkValue {
         @Param(name = "sub", type = String.class, doc = "The substring to count."),
         @Param(
             name = "start",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
             name = "end",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
@@ -881,13 +881,13 @@ final class StringModule implements StarlarkValue {
             doc = "The suffix (or tuple of alternative suffixes) to match."),
         @Param(
             name = "start",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "0",
             doc = "Test beginning at this position."),
         @Param(
             name = "end",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "None",
             doc = "optional position at which to stop comparing.")
@@ -968,13 +968,13 @@ final class StringModule implements StarlarkValue {
             doc = "The prefix (or tuple of alternative prefixes) to match."),
         @Param(
             name = "start",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "0",
             doc = "Test beginning at this position."),
         @Param(
             name = "end",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "None",
             doc = "Stop comparing at this position.")

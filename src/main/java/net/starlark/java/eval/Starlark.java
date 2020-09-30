@@ -22,6 +22,7 @@ import com.google.errorprone.annotations.FormatMethod;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Method;
+import java.math.BigInteger;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -93,14 +94,10 @@ public final class Starlark {
   }
 
   /**
-   * Reports whether the argument is a legal Starlark value: a string, boolean, integer, or
-   * StarlarkValue.
+   * Reports whether the argument is a legal Starlark value: a string, boolean, or StarlarkValue.
    */
   public static boolean valid(Object x) {
-    return x instanceof StarlarkValue
-        || x instanceof String
-        || x instanceof Boolean
-        || x instanceof Integer;
+    return x instanceof StarlarkValue || x instanceof String || x instanceof Boolean;
   }
 
   /**
@@ -134,7 +131,7 @@ public final class Starlark {
     // NB: This is used as the basis for accepting objects in Depsets,
     // as well as for accepting objects as keys for Starlark dicts.
 
-    if (x instanceof String || x instanceof Integer || x instanceof Boolean) {
+    if (x instanceof String || x instanceof Boolean) {
       return true;
     } else if (x instanceof StarlarkValue) {
       return ((StarlarkValue) x).isImmutable();
@@ -145,9 +142,9 @@ public final class Starlark {
 
   /**
    * Converts a Java value {@code x} to a Starlark one, if x is not already a valid Starlark value.
-   * A Java List or Map is converted to a Starlark list or dict, respectively, and null becomes
-   * {@link #NONE}. Any other non-Starlark value causes the function to throw
-   * IllegalArgumentException.
+   * An Integer, Long, or BigInteger is converted to a Starlark int, a Java List or Map is converted
+   * to a Starlark list or dict, respectively, and null becomes {@link #NONE}. Any other
+   * non-Starlark value causes the function to throw IllegalArgumentException.
    *
    * <p>This function is applied to the results of StarlarkMethod-annotated Java methods.
    */
@@ -156,14 +153,20 @@ public final class Starlark {
       return NONE;
     } else if (valid(x)) {
       return x;
+    } else if (x instanceof Number) {
+      if (x instanceof Integer) {
+        return StarlarkInt.of((Integer) x);
+      } else if (x instanceof Long) {
+        return StarlarkInt.of((Long) x);
+      } else if (x instanceof BigInteger) {
+        return StarlarkInt.of((BigInteger) x);
+      }
     } else if (x instanceof List) {
       return StarlarkList.copyOf(mutability, (List<?>) x);
     } else if (x instanceof Map) {
       return Dict.copyOf(mutability, (Map<?, ?>) x);
-    } else {
-      throw new IllegalArgumentException(
-          "cannot expose internal type to Starlark: " + x.getClass());
     }
+    throw new IllegalArgumentException("cannot expose internal type to Starlark: " + x.getClass());
   }
 
   /**
@@ -177,8 +180,6 @@ public final class Starlark {
       return ((StarlarkValue) x).truth();
     } else if (x instanceof String) {
       return !((String) x).isEmpty();
-    } else if (x instanceof Integer) {
-      return (Integer) x != 0;
     } else {
       throw new IllegalArgumentException("invalid Starlark value: " + x.getClass());
     }
@@ -263,14 +264,17 @@ public final class Starlark {
    * for reporting error messages involving arbitrary Java classes, for example at the interface
    * between Starlark and Java.
    */
-  // TODO(adonovan): reconsider allowing any classes other than String, Integer, Boolean, and
-  // subclasses of StarlarkValue, with a special exception for Object.class meaning "any Starlark
-  // value" (not: any Java object). Ditto for Depset.ElementType.
   public static String classType(Class<?> c) {
     // Check for "direct hits" first to avoid needing to scan for annotations.
     if (c.equals(String.class)) {
       return "string";
+    } else if (StarlarkInt.class.isAssignableFrom(c)) {
+      return "int";
     } else if (c.equals(Integer.class)) {
+      // Integer is not a legal Starlark value, but it is used for parameter types
+      // in built-in functions; StarlarkBuiltin.fastcall does a range check
+      // and reboxing. Use of this type means "signed 32-bit int value",
+      // but that's a lot for an error message.
       return "int";
     } else if (c.equals(Boolean.class)) {
       return "bool";
@@ -291,6 +295,8 @@ public final class Starlark {
       return "function";
     } else if (c.equals(RangeList.class)) {
       return "range";
+    } else if (c.equals(UnboundMarker.class)) {
+      return "unbound";
     }
 
     StarlarkBuiltin module = StarlarkInterfaceUtils.getStarlarkBuiltin(c);
@@ -436,11 +442,20 @@ public final class Starlark {
     }
   }
 
-  static int toInt(Object x, String name) throws EvalException {
-    if (x instanceof Integer) {
-      return (Integer) x;
+  /**
+   * Returns the signed 32-bit value of a Starlark int. Throws an exception including {@code what}
+   * if x is not a Starlark int or its value is not exactly representable as a Java int.
+   *
+   * @throws IllegalArgumentException if x is an Integer, which is not a Starlark value.
+   */
+  public static int toInt(Object x, String what) throws EvalException {
+    if (x instanceof StarlarkInt) {
+      return ((StarlarkInt) x).toInt(what);
     }
-    throw errorf("got %s for %s, want int", type(x), name);
+    if (x instanceof Integer) {
+      throw new IllegalArgumentException("Integer is not a legal Starlark value");
+    }
+    throw errorf("got %s for %s, want int", type(x), what);
   }
 
   /**
