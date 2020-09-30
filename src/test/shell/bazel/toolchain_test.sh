@@ -533,8 +533,8 @@ EOF
     --toolchain_resolution_debug \
     --incompatible_auto_configure_host_platform \
     //demo:use &> $TEST_log || fail "Build failed"
-  expect_log 'ToolchainResolution:   Type //toolchain:test_toolchain: target @local_config_platform//.*: execution @local_config_platform//:host: Selected toolchain //:test_toolchain_impl_1'
-  expect_log 'ToolchainResolution: Target @local_config_platform//.*: Selected execution platform @local_config_platform//:host, type //toolchain:test_toolchain -> toolchain //:test_toolchain_impl_1'
+  expect_log 'ToolchainResolution:   Type //toolchain:test_toolchain: target platform @local_config_platform//.*: execution @local_config_platform//:host: Selected toolchain //:test_toolchain_impl_1'
+  expect_log 'ToolchainResolution: Target platform @local_config_platform//.*: Selected execution platform @local_config_platform//:host, type //toolchain:test_toolchain -> toolchain //:test_toolchain_impl_1'
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
 }
 
