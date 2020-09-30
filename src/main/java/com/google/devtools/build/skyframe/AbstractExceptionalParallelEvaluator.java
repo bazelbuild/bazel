@@ -170,7 +170,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         informProgressReceiverThatValueIsDone(skyKey, batch.get(skyKey));
       }
       // Note that the 'catastrophe' parameter doesn't really matter here (it's only used for
-      // sanity checking).
+      // checking).
       return constructResultExceptionally(skyKeySet, null, /*catastrophe=*/ false);
     }
 
@@ -190,7 +190,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       // Errors, even cached ones, should halt evaluations not in keepGoing mode.
       if (!cachedErrorKeys.isEmpty()) {
         // Note that the 'catastrophe' parameter doesn't really matter here (it's only used for
-        // sanity checking).
+        // checking).
         return constructResultExceptionally(cachedErrorKeys, null, /*catastrophe=*/ false);
       }
     }

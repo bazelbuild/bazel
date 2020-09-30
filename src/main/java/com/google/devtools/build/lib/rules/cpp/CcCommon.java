@@ -304,9 +304,8 @@ public final class CcCommon {
   }
 
   /**
-   * Returns the files from headers and does some sanity checks. Note that this method reports
-   * warnings to the {@link RuleContext} as a side effect, and so should only be called once for any
-   * given rule.
+   * Returns the files from headers and does some checks. Note that this method reports warnings to
+   * the {@link RuleContext} as a side effect, and so should only be called once for any given rule.
    */
   public static List<Pair<Artifact, Label>> getHeaders(RuleContext ruleContext) {
     Map<Artifact, Label> map = Maps.newLinkedHashMap();
@@ -352,9 +351,8 @@ public final class CcCommon {
   }
 
   /**
-   * Returns the files from headers and does some sanity checks. Note that this method reports
-   * warnings to the {@link RuleContext} as a side effect, and so should only be called once for any
-   * given rule.
+   * Returns the files from headers and does some checks. Note that this method reports warnings to
+   * the {@link RuleContext} as a side effect, and so should only be called once for any given rule.
    */
   public List<Pair<Artifact, Label>> getHeaders() {
     return getHeaders(ruleContext);

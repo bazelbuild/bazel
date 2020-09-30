@@ -217,7 +217,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             && (appearsToHaveObjectFiles(ruleContext.attributes())
                 || featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULE_CODEGEN));
     if (soFilename != null) {
-      if (!soFilename.getPathString().endsWith(".so")) { // Sanity check.
+      if (!soFilename.getPathString().endsWith(".so")) {
         ruleContext.attributeError("outs", "file name must end in '.so'");
       }
       if (createDynamicLibrary) {

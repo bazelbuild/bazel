@@ -543,10 +543,11 @@ public final class StarlarkRuleConfiguredTargetUtil {
 
     if (context.getRuleContext().getRule().isAnalysisTest()) {
       // The Starlark Build API should already throw exception if the rule implementation attempts
-      // to register any actions. This is just a sanity check of this invariant.
+      // to register any actions. This is just a check of this invariant.
       Preconditions.checkState(
           context.getRuleContext().getAnalysisEnvironment().getRegisteredActions().isEmpty(),
-          "%s", context.getRuleContext().getLabel());
+          "%s",
+          context.getRuleContext().getLabel());
 
       executable = context.getRuleContext().createOutputArtifactScript();
     }

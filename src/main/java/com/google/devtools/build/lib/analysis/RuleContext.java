@@ -920,7 +920,7 @@ public final class RuleContext extends TargetContext
       ImmutableList<String> transitionKeys = t.getTransitionKeys();
       if (transitionKeys.isEmpty()) {
         // The split transition is not active, i.e. does not change build configurations.
-        // TODO(jungjw): Investigate if we need to do a sanity check here.
+        // TODO(jungjw): Investigate if we need to do a check here.
         return ImmutableMap.of(Optional.absent(), deps);
       }
       for (String key : transitionKeys) {

@@ -371,7 +371,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    * <p>If the path refers to a directory, recursively removes the contents of the directory.
    *
    * @param path the output to remove
-   * @param root the root containing the output. This is used to sanity-check that we don't delete
+   * @param root the root containing the output. This is used to check that we don't delete
    *     arbitrary files in the file system.
    */
   public static void deleteOutput(Path path, @Nullable ArtifactRoot root) throws IOException {

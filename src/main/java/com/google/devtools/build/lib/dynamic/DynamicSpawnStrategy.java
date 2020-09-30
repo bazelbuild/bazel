@@ -112,7 +112,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
    * @param branchDone semaphore that is expected to receive a permit once {@code branch} terminates
    *     (after {@link InterruptedException} bubbles up through its call stack)
    * @param cancellingStrategy identifier of the strategy that is performing the cancellation. Used
-   *     to prevent cross-cancellations and to sanity-check that the same strategy doesn't issue the
+   *     to prevent cross-cancellations and to check that the same strategy doesn't issue the
    *     cancellation twice.
    * @param strategyThatCancelled name of the first strategy that executed this method, or a null
    *     reference if this is the first time this method is called. If not null, we expect the value
