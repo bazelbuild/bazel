@@ -106,20 +106,6 @@ public final class RemoteOptions extends OptionsBase {
   public String remoteDownloader;
 
   @Option(
-    name = "experimental_remote_downloader_config",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.REMOTE,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Specify a file to configure the remote downloader with. This file consists of lines, "
-            + "each of which starts with a directive (`allow`, `block` or `rewrite`) followed "
-            + "by either a host name (for `allow` and `block`) or two patterns, one to match "
-            + "against, and one to use as a substitute URL, with back-references starting from "
-            + "`$1`. It is possible for multiple `rewrite` directives for the same URL to be "
-            + "give, and in this case multiple URLs will be returned.")
-  public String remoteDownloaderConfig;
-
-  @Option(
       name = "remote_header",
       converter = Converters.AssignmentConverter.class,
       defaultValue = "null",

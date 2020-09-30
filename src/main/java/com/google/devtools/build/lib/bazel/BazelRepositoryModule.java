@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRul
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
-import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledgeImpl;
@@ -284,11 +283,11 @@ public class BazelRepositoryModule extends BlazeModule {
         }
       }
 
-      RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
+      RepositoryOptions repositoryOptions = env.getOptions().getOptions(RepositoryOptions.class);
       UrlRewriter rewriter = UrlRewriter.getDownloaderUrlRewriter(
-        remoteOptions == null ?
+        repositoryOptions == null ?
           null :
-          remoteOptions.remoteDownloaderConfig,
+          repositoryOptions.remoteDownloaderConfig,
         env.getReporter());
       downloadManager.setUrlRewriter(rewriter);
 
