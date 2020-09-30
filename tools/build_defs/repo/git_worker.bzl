@@ -173,7 +173,7 @@ def _git_maybe_shallow(ctx, git_repo, command, *args):
     start = ["git", command]
     args_list = list(args)
     if git_repo.shallow:
-        st = _execute(ctx, git_repo, start + [git_repo.shallow] + args_list)
+        st = _execute(ctx, git_repo, ["git", "-c", "protocol.version=2", command, git_repo.shallow] + args_list)
         if st.return_code == 0:
             return st
     return _execute(ctx, git_repo, start + args_list)
