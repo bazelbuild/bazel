@@ -241,7 +241,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     if (exitCode != 0) {
       builder.setFailureDetail(
           FailureDetail.newBuilder()
-              .setMessage("worker spawn failed")
+              .setMessage("worker spawn failed for " + spawn.getMnemonic())
               .setSpawn(
                   FailureDetails.Spawn.newBuilder()
                       .setCode(FailureDetails.Spawn.Code.NON_ZERO_EXIT)

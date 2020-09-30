@@ -92,7 +92,8 @@ public class Utils {
       boolean cacheHit,
       String runnerName,
       @Nullable InMemoryOutput inMemoryOutput,
-      SpawnMetrics spawnMetrics) {
+      SpawnMetrics spawnMetrics,
+      String mnemonic) {
     SpawnResult.Builder builder =
         new SpawnResult.Builder()
             .setStatus(exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT)
@@ -104,7 +105,7 @@ public class Utils {
     if (exitCode != 0) {
       builder.setFailureDetail(
           FailureDetail.newBuilder()
-              .setMessage("remote spawn failed")
+              .setMessage(mnemonic + " returned a non-zero exit code when running remotely")
               .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.NON_ZERO_EXIT))
               .build());
     }

@@ -516,7 +516,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
             .setFetchTime(fetchTime.elapsed().minus(networkTimeEnd.minus(networkTimeStart)))
             .setTotalTime(totalTime.elapsed())
             .setNetworkTime(networkTimeEnd)
-            .build());
+            .build(),
+        spawn.getMnemonic());
   }
 
   @Override
