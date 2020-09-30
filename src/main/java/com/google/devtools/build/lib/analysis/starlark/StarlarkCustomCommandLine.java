@@ -13,13 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.starlark;
 
-
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -63,6 +63,9 @@ import net.starlark.java.syntax.Location;
 /** Supports ctx.actions.args() from Starlark. */
 @AutoCodec
 public class StarlarkCustomCommandLine extends CommandLine {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private final StarlarkSemantics starlarkSemantics;
   private final ImmutableList<Object> arguments;
   /**
@@ -874,6 +877,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       throw new CommandLineExpansionException(
           errorMessage(e.getMessageWithStack(), loc, e.getCause()));
     } catch (InterruptedException e) {
+      logger.atWarning().withCause(e).log("Interrupted while applying map_each at %s", loc);
       Thread.currentThread().interrupt();
       throw new CommandLineExpansionException(errorMessage("Thread was interrupted", loc, null));
     }
