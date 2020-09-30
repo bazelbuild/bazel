@@ -133,7 +133,8 @@ public class ToolchainResolutionFunction implements SkyFunction {
             .handle(
                 Event.info(
                     String.format(
-                        "ToolchainResolution: Selected execution platform %s, %s",
+                        "ToolchainResolution: Target %s: Selected execution platform %s, %s",
+                        unloadedToolchainContext.targetPlatform().label(),
                         unloadedToolchainContext.executionPlatform().label(), selectedToolchains)));
       }
       return unloadedToolchainContext;
