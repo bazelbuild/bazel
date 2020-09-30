@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
+import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.RuleClass;
 
 /** Rule object implementing "test_suite". */
@@ -29,8 +30,10 @@ public final class TestSuiteRule implements RuleDefinition {
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
         // Technically, test_suite does not use TestConfiguration. But the tests it depends on
-        // will always depend on TestConfiguration, so requiring it here simply acknowledges that.
+        // will always depend on TestConfiguration, so requiring it here simply acknowledges that
+        // and prevents pruning by --trim_test_configuration.
         .requiresConfigurationFragments(TestConfiguration.class)
+        .setMissingFragmentPolicy(TestConfiguration.class, MissingFragmentPolicy.IGNORE)
         .override(
             attr("testonly", BOOLEAN)
                 .value(true)

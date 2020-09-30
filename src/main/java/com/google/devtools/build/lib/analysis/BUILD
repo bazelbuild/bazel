@@ -270,6 +270,7 @@ java_library(
         "test/TestResult.java",
         "test/TestRunnerAction.java",
         "test/TestStrategy.java",
+        "test/TestTagsProvider.java",
         "test/TestTargetExecutionSettings.java",
         "test/TestTargetProperties.java",
     ],
