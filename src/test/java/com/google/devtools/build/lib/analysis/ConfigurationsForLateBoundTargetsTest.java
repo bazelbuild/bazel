@@ -131,8 +131,8 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
             SkyframeExecutorTestUtils.getExistingConfiguredTargets(
                 skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep", ImmutableMap.of())));
     assertThat(getConfiguration(dep)).isEqualTo(getHostConfiguration());
-    // This is technically redundant, but slightly stronger in sanity checking that the host
-    // configuration doesn't happen to match what the patch would have done.
+    // This is technically redundant, but slightly stronger in checking that the host configuration
+    // doesn't happen to match what the patch would have done.
     assertThat(LateBoundSplitUtil.getOptions(getConfiguration(dep)).fooFlag).isEmpty();
   }
 }

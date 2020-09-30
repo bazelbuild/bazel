@@ -110,7 +110,7 @@ public class NinjaParser implements DeclarationConsumer {
 
           // While the absolute offset is typed as long (because of larger ninja files), the
           // fragments are only at most Integer.MAX_VALUE long, so fragmentStart cannot be
-          // larger than that. Sanity check this here.
+          // larger than that. Check this here.
           if (fragmentStart > Integer.MAX_VALUE) {
             throw new GenericParsingException(
                 String.format(
