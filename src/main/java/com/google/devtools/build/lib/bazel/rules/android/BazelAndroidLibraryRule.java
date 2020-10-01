@@ -42,6 +42,7 @@ public class BazelAndroidLibraryRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS --> */
         .setImplicitOutputsFunction(AndroidRuleClasses.ANDROID_LIBRARY_IMPLICIT_OUTPUTS)
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
+        .useToolchainTransition(true)
         .add(
             Allowlist.getAttributeFromAllowlistName("allow_deps_without_srcs")
                 .value(

@@ -125,6 +125,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
             .requiresConfigurationFragments(CppConfiguration.class, ProtoConfiguration.class)
             .requireStarlarkProviders(ProtoInfo.PROVIDER.id())
             .addRequiredToolchains(ccToolchainType)
+            .useToolchainTransition(true)
             .add(
                 attr(PROTO_TOOLCHAIN_ATTR, LABEL)
                     .mandatoryNativeProviders(ImmutableList.of(ProtoLangToolchainProvider.class))
