@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
@@ -2245,32 +2244,4 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .isEqualTo("ObjcCompile");
   }
 
-  protected List<String> linkstampExecPaths(NestedSet<CcLinkingContext.Linkstamp> linkstamps) {
-    return ActionsTestUtil.execPaths(
-        ActionsTestUtil.transform(linkstamps.toList(), CcLinkingContext.Linkstamp::getArtifact));
-  }
-
-  @Test
-  public void testPassesThroughLinkstamps() throws Exception {
-    useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
-
-    scratch.file(
-        "x/BUILD",
-        "objc_library(",
-        "    name = 'foo',",
-        "    deps = [':bar'],",
-        ")",
-        "cc_library(",
-        "    name = 'bar',",
-        "    linkstamp = 'bar.cc',",
-        ")");
-
-    assertThat(
-            linkstampExecPaths(
-                getConfiguredTarget("//x:foo")
-                    .get(CcInfo.PROVIDER)
-                    .getCcLinkingContext()
-                    .getLinkstamps()))
-        .containsExactly("x/bar.cc");
-  }
 }

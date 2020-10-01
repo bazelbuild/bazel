@@ -131,8 +131,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     CcLinkingContext.Builder ccLinkingContext =
         CcLinkingContext.builder()
             .setOwner(label)
-            .addLibraries(libraries.build().asList())
-            .addLinkstamps(objcProvider.get(ObjcProvider.LINKSTAMP).toList());
+            .addLibraries(ImmutableList.copyOf(libraries.build()));
 
     ImmutableList.Builder<LinkOptions> userLinkFlags = ImmutableList.builder();
     for (SdkFramework sdkFramework : objcProvider.get(ObjcProvider.SDK_FRAMEWORK).toList()) {
