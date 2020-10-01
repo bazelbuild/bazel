@@ -510,6 +510,20 @@ public interface JavaCommonApi<
       throws EvalException;
 
   @StarlarkMethod(
+      name = "get_constraints",
+      doc = "Returns a set of constraints added.",
+      parameters = {
+        @Param(
+            name = "java_info",
+            positional = true,
+            named = false,
+            type = JavaInfoApi.class,
+            doc = "The JavaInfo to get constraints from."),
+      },
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
+  Sequence<String> getConstraints(JavaInfoT javaInfo);
+
+  @StarlarkMethod(
       name = "experimental_disable_annotation_processing",
       doc =
           "Returns a copy of the given JavaInfo with any provided annotation processors disabled."
