@@ -98,6 +98,7 @@ public abstract class Type<T> {
    * @param context the label of the current BUILD rule; must be non-null if resolution of
    *     package-relative label strings is required
    * @throws ConversionException if there was a problem performing the type conversion
+   * @throws NullPointerException if x is null.
    */
   public abstract T convert(Object x, Object what, @Nullable Object context)
       throws ConversionException;
@@ -278,8 +279,9 @@ public abstract class Type<T> {
       return printer.toString();
     }
 
+    /** Contructs a conversion error. Throws NullPointerException if value is null. */
     public ConversionException(Type<?> type, Object value, @Nullable Object what) {
-      super(message(type, value, what));
+      super(message(type, Preconditions.checkNotNull(value), what));
     }
 
     public ConversionException(String message) {
@@ -316,7 +318,7 @@ public abstract class Type<T> {
 
     @Override
     public Object convert(Object x, Object what, Object context) {
-      return x;
+      return Preconditions.checkNotNull(x);
     }
   }
 
@@ -549,7 +551,7 @@ public abstract class Type<T> {
     @Override
     public Map<KeyT, ValueT> convert(Object x, Object what, Object context)
         throws ConversionException {
-      if (!(x instanceof Map<?, ?>)) {
+      if (!(x instanceof Map)) {
         throw new ConversionException(this, x, what);
       }
       Map<?, ?> o = (Map<?, ?>) x;
