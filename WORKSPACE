@@ -149,7 +149,7 @@ distdir_tar(
         "java_tools_javac11_linux-v10.0.zip",
         "java_tools_javac11_windows-v10.0.zip",
         "java_tools_javac11_darwin-v10.0.zip",
-        "coverage_output_generator-v2.4.zip",
+        "coverage_output_generator-v2.5.zip",
         # bazelbuid/stardoc
         "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
         # rules_sass
@@ -186,7 +186,7 @@ distdir_tar(
         "java_tools_javac11_linux-v10.0.zip": "69e65353c2cd65780abcbcce4daae973599298273b0f8b4d469eed822cb220d1",
         "java_tools_javac11_windows-v10.0.zip": "d2f62af8daa0a3d55789b605f6582e37038329c64843337c71e64515468e55c4",
         "java_tools_javac11_darwin-v10.0.zip": "64e5de2175dfccb96831573946b80d106edf3801d9db38b564514bf3581d466b",
-        "coverage_output_generator-v2.4.zip": "2fdde0f257c6d2a1b0d9e7e777e2292a9d2a9af79949d04cdb0964bc8b242611",
+        "coverage_output_generator-v2.5.zip": "cd14f1cb4559e4723e63b7e7b06d09fcc3bd7ba58d03f354cdff1439bd936a7d",
         # bazelbuild/stardoc
         "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz": "5a725b777976b77aa122b707d1b6f0f39b6020f66cd427bb111a585599c857b1",
         # rules_sass
@@ -231,8 +231,8 @@ distdir_tar(
         "java_tools_javac11_darwin-v10.0.zip": [
             "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.0/java_tools_javac11_darwin-v10.0.zip",
         ],
-        "coverage_output_generator-v2.4.zip": [
-            "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.4.zip",
+        "coverage_output_generator-v2.5.zip": [
+            "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.5.zip",
         ],
         "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz": [
             "https://mirror.bazel.build/github.com/bazelbuild/stardoc/archive/1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
@@ -530,7 +530,7 @@ distdir_tar(
         "java_tools_javac11_linux-v10.0.zip",
         "java_tools_javac11_windows-v10.0.zip",
         "java_tools_javac11_darwin-v10.0.zip",
-        "coverage_output_generator-v2.4.zip",
+        "coverage_output_generator-v2.5.zip",
         "zulu11.37.17-ca-jdk11.0.6-linux_x64.tar.gz",
         "zulu11.37.48-ca-jdk11.0.6-linux_aarch64.tar.gz",
         "zulu11.37.17-ca-jdk11.0.6-macosx_x64.tar.gz",
@@ -560,7 +560,7 @@ distdir_tar(
         "java_tools_javac11_linux-v10.0.zip": "69e65353c2cd65780abcbcce4daae973599298273b0f8b4d469eed822cb220d1",
         "java_tools_javac11_windows-v10.0.zip": "d2f62af8daa0a3d55789b605f6582e37038329c64843337c71e64515468e55c4",
         "java_tools_javac11_darwin-v10.0.zip": "64e5de2175dfccb96831573946b80d106edf3801d9db38b564514bf3581d466b",
-        "coverage_output_generator-v2.4.zip": "2fdde0f257c6d2a1b0d9e7e777e2292a9d2a9af79949d04cdb0964bc8b242611",
+        "coverage_output_generator-v2.5.zip": "cd14f1cb4559e4723e63b7e7b06d09fcc3bd7ba58d03f354cdff1439bd936a7d",
         "zulu11.37.17-ca-jdk11.0.6-linux_x64.tar.gz": "360626cc19063bc411bfed2914301b908a8f77a7919aaea007a977fa8fb3cde1",
         "zulu11.37.48-ca-jdk11.0.6-linux_aarch64.tar.gz": "a452f1b9682d9f83c1c14e54d1446e1c51b5173a3a05dcb013d380f9508562e4",
         "zulu11.37.17-ca-jdk11.0.6-macosx_x64.tar.gz": "e1fe56769f32e2aaac95e0a8f86b5a323da5af3a3b4bba73f3086391a6cc056f",
@@ -589,7 +589,7 @@ distdir_tar(
         "java_tools_javac11_linux-v10.0.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.0/java_tools_javac11_linux-v10.0.zip"],
         "java_tools_javac11_windows-v10.0.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.0/java_tools_javac11_windows-v10.0.zip"],
         "java_tools_javac11_darwin-v10.0.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.0/java_tools_javac11_darwin-v10.0.zip"],
-        "coverage_output_generator-v2.4.zip": ["https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.4.zip"],
+        "coverage_output_generator-v2.5.zip": ["https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.5.zip"],
         "zulu11.37.17-ca-jdk11.0.6-linux_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-linux_x64.tar.gz"],
         "zulu11.37.48-ca-jdk11.0.6-linux_aarch64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.37.48-ca-jdk11.0.6/zulu11.37.48-ca-jdk11.0.6-linux_aarch64.tar.gz"],
         "zulu11.37.17-ca-jdk11.0.6-macosx_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-macosx_x64.tar.gz"],
@@ -725,9 +725,9 @@ http_archive(
     name = "remote_coverage_tools_for_testing",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "2fdde0f257c6d2a1b0d9e7e777e2292a9d2a9af79949d04cdb0964bc8b242611",
+    sha256 = "cd14f1cb4559e4723e63b7e7b06d09fcc3bd7ba58d03f354cdff1439bd936a7d",
     urls = [
-        "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.4.zip",
+        "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.5.zip",
     ],
 )
 
