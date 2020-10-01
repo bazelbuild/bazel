@@ -1286,6 +1286,19 @@ public final class ParserTest {
   }
 
   @Test
+  public void testPythonGeneratorsAreNotSupported() throws Exception {
+    setFailFast(false);
+    parseFile("y = (expr for vars in expr)");
+    assertContainsError(
+        "syntax error at 'for': Starlark does not support Python-style generator expressions");
+
+    events.clear();
+    parseFile("f(expr for vars in expr)");
+    assertContainsError(
+        "syntax error at 'for': Starlark does not support Python-style generator expressions");
+  }
+
+  @Test
   public void testParseFileStackOverflow() throws Exception {
     StarlarkFile file = StarlarkFile.parse(veryDeepExpression());
     SyntaxError ex = LexerTest.assertContainsError(file.errors(), "internal error: stack overflow");
