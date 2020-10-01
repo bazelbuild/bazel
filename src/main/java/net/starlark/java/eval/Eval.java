@@ -355,11 +355,12 @@ final class Eval {
     // assignments fail when the left side aliases the right,
     // which is a tricky case in Python assignment semantics.
     int nrhs = Starlark.len(x);
-    if (nrhs < 0) {
-      throw Starlark.errorf("got '%s' in sequence assignment", Starlark.type(x));
-    }
-    Iterable<?> rhs = Starlark.toIterable(x); // fails if x is a string
     int nlhs = lhs.size();
+    if (nrhs < 0 || x instanceof String) { // strings are not iterable
+      throw Starlark.errorf(
+          "got '%s' in sequence assignment (want %d-element sequence)", Starlark.type(x), nlhs);
+    }
+    Iterable<?> rhs = Starlark.toIterable(x);
     if (nlhs != nrhs) {
       throw Starlark.errorf(
           "too %s values to unpack (got %d, want %d)", nrhs < nlhs ? "few" : "many", nrhs, nlhs);
@@ -766,10 +767,10 @@ final class Eval {
             Comprehension.For forClause = (Comprehension.For) clause;
 
             Object iterable = eval(fr, forClause.getIterable());
-            Iterable<?> listValue = Starlark.toIterable(iterable);
+            Iterable<?> seq = Starlark.toIterable(iterable);
             EvalUtils.addIterator(iterable);
             try {
-              for (Object elem : listValue) {
+              for (Object elem : seq) {
                 assign(fr, forClause.getVars(), elem);
                 execClauses(index + 1);
               }
