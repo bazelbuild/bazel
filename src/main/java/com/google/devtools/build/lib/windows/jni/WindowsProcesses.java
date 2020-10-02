@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.windows.jni;
 
+import com.google.devtools.build.lib.jni.JniLoader;
 
 /** Process management on Windows. */
 public class WindowsProcesses {
@@ -50,14 +51,14 @@ public class WindowsProcesses {
       String stdoutFile,
       String stderrFile,
       boolean redirectErrorStream) {
-    WindowsJniLoader.loadJni();
+    JniLoader.loadJni();
     return nativeCreateProcess(
         argv0, argvRest, env, cwd, stdoutFile, stderrFile, redirectErrorStream);
   }
 
   public static long createProcess(
       String argv0, String argvRest, byte[] env, String cwd, String stdoutFile, String stderrFile) {
-    WindowsJniLoader.loadJni();
+    JniLoader.loadJni();
     return nativeCreateProcess(argv0, argvRest, env, cwd, stdoutFile, stderrFile, false);
   }
 
@@ -78,7 +79,7 @@ public class WindowsProcesses {
    * @return the number of bytes written
    */
   public static int writeStdin(long process, byte[] bytes, int offset, int length) {
-    WindowsJniLoader.loadJni();
+    JniLoader.loadJni();
     return nativeWriteStdin(process, bytes, offset, length);
   }
 
@@ -86,7 +87,7 @@ public class WindowsProcesses {
 
   /** Returns an opaque identifier of stdout stream for the process. */
   public static long getStdout(long process) {
-    WindowsJniLoader.loadJni();
+    JniLoader.loadJni();
     return nativeGetStdout(process);
   }
 
@@ -94,7 +95,7 @@ public class WindowsProcesses {
 
   /** Returns an opaque identifier of stderr stream for the process. */
   public static long getStderr(long process) {
-    WindowsJniLoader.loadJni();
+    JniLoader.loadJni();
     return nativeGetStderr(process);
   }
 
@@ -109,7 +110,7 @@ public class WindowsProcesses {
    * @return the number of bytes read, 0 on EOF, or -1 if there was an error.
    */
   public static int readStream(long stream, byte[] bytes, int offset, int length) {
-    WindowsJniLoader.loadJni();
+    JniLoader.loadJni();
     return nativeReadStream(stream, bytes, offset, length);
   }
 
@@ -125,7 +126,7 @@ public class WindowsProcesses {
    * <li>2: Something went wrong
    */
   public static int waitFor(long process, long timeout) {
-    WindowsJniLoader.loadJni();
+    JniLoader.loadJni();
     return nativeWaitFor(process, timeout);
   }
 
@@ -136,7 +137,7 @@ public class WindowsProcesses {
    * wrong.
    */
   public static int getExitCode(long process) {
-    WindowsJniLoader.loadJni();
+    JniLoader.loadJni();
     return nativeGetExitCode(process);
   }
 
@@ -144,7 +145,7 @@ public class WindowsProcesses {
 
   /** Returns the process ID of the given process or -1 if there was an error. */
   public static int getProcessPid(long process) {
-    WindowsJniLoader.loadJni();
+    JniLoader.loadJni();
     return nativeGetProcessPid(process);
   }
 
@@ -152,7 +153,7 @@ public class WindowsProcesses {
 
   /** Terminates the given process. Returns true if the termination was successful. */
   public static boolean terminate(long process) {
-    WindowsJniLoader.loadJni();
+    JniLoader.loadJni();
     return nativeTerminate(process);
   }
 
@@ -165,7 +166,7 @@ public class WindowsProcesses {
    * or worse.
    */
   public static void deleteProcess(long process) {
-    WindowsJniLoader.loadJni();
+    JniLoader.loadJni();
     nativeDeleteProcess(process);
   }
 
@@ -178,7 +179,7 @@ public class WindowsProcesses {
    *     #nativeGetStderr(long)}.
    */
   public static void closeStream(long stream) {
-    WindowsJniLoader.loadJni();
+    JniLoader.loadJni();
     nativeCloseStream(stream);
   }
 
@@ -194,14 +195,14 @@ public class WindowsProcesses {
    * failed operation in between.
    */
   public static String processGetLastError(long process) {
-    WindowsJniLoader.loadJni();
+    JniLoader.loadJni();
     return nativeProcessGetLastError(process);
   }
 
   private static native String nativeProcessGetLastError(long process);
 
   public static String streamGetLastError(long process) {
-    WindowsJniLoader.loadJni();
+    JniLoader.loadJni();
     return nativeStreamGetLastError(process);
   }
 
@@ -209,7 +210,7 @@ public class WindowsProcesses {
 
   /** returns the PID of the current process. */
   public static int getpid() {
-    WindowsJniLoader.loadJni();
+    JniLoader.loadJni();
     return nativeGetpid();
   }
 

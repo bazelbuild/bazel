@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.unix;
 
-import com.google.devtools.build.lib.unix.jni.UnixJniLoader;
+import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.util.OS;
 
 /**
@@ -88,7 +88,7 @@ public class ErrnoFileStatus extends FileStatus {
     }
 
     static {
-      UnixJniLoader.loadJni();
+      JniLoader.loadJni();
     }
 
     private native void initErrnoConstants();

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Strings;
+import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem.Code;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DigestFunctionConverter;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.windows.WindowsFileSystem;
@@ -65,18 +67,17 @@ public class BazelFileSystemModule extends BlazeModule {
             e);
       }
     }
-    boolean enableSymLinks = options.enableWindowsSymlinks;
-    if ("0".equals(System.getProperty("io.bazel.EnableJni"))) {
-      // Ignore UnixFileSystem, to be used for bootstrapping.
-      return ModuleFileSystem.create(
-          OS.getCurrent() == OS.WINDOWS
-              ? new WindowsFileSystem(digestHashFunction, enableSymLinks)
-              : new JavaIoFileSystem(digestHashFunction));
+
+    FileSystem fs;
+    if (OS.getCurrent() == OS.WINDOWS) {
+      fs = new WindowsFileSystem(digestHashFunction, options.enableWindowsSymlinks);
+    } else {
+      if (JniLoader.isJniAvailable()) {
+        fs = new UnixFileSystem(digestHashFunction, options.unixDigestHashAttributeName);
+      } else {
+        fs = new JavaIoFileSystem(digestHashFunction);
+      }
     }
-    // The JNI-based UnixFileSystem is faster, but on Windows it is not available.
-    return ModuleFileSystem.create(
-        OS.getCurrent() == OS.WINDOWS
-            ? new WindowsFileSystem(digestHashFunction, enableSymLinks)
-            : new UnixFileSystem(digestHashFunction, options.unixDigestHashAttributeName));
+    return ModuleFileSystem.create(fs);
   }
 }

@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.exec.BinTools;
+import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -1074,7 +1075,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   }
 
   private static SubprocessFactory subprocessFactoryImplementation() {
-    if (!"0".equals(System.getProperty("io.bazel.EnableJni")) && OS.getCurrent() == OS.WINDOWS) {
+    if (JniLoader.isJniAvailable() && OS.getCurrent() == OS.WINDOWS) {
       return WindowsSubprocessFactory.INSTANCE;
     } else {
       return JavaSubprocessFactory.INSTANCE;
@@ -1315,11 +1316,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   /** Loads JNI libraries, if necessary under the current platform. */
   @Nullable
   private static Integer maybeForceJNIByGettingPid(@Nullable PathFragment installBase) {
-    return jniLibsAvailable() ? getPidUsingJNI(installBase) : null;
-  }
-
-  private static boolean jniLibsAvailable() {
-    return !"0".equals(System.getProperty("io.bazel.EnableJni"));
+    return JniLoader.isJniAvailable() ? getPidUsingJNI(installBase) : null;
   }
 
   // Force JNI linking at a moment when we have 'installBase' handy, and print

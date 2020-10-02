@@ -45,14 +45,14 @@ java_library(
     name = "file",
     srcs = ["WindowsFileOperations.java"],
     visibility = [":android-junctions-prod"],
-    deps = [":jni-loader"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/jni"],
 )
 
 java_library(
     name = "processes",
     srcs = ["WindowsProcesses.java"],
     visibility = [":bazel-prod"],
-    deps = [":jni-loader"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/jni"],
 )
 
 # Java interfaces to various native Windows system services.

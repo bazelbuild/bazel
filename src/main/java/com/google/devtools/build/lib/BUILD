@@ -55,6 +55,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/events:srcs",
         "//src/main/java/com/google/devtools/build/lib/exec:srcs",
         "//src/main/java/com/google/devtools/build/lib/graph:srcs",
+        "//src/main/java/com/google/devtools/build/lib/jni:srcs",
         "//src/main/java/com/google/devtools/build/lib/metrics:srcs",
         "//src/main/java/com/google/devtools/build/lib/network:srcs",
         "//src/main/java/com/google/devtools/build/lib/packages:srcs",
@@ -320,6 +321,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:symlink_tree_strategy",
         "//src/main/java/com/google/devtools/build/lib/exec:test_log_helper",
         "//src/main/java/com/google/devtools/build/lib/exec/local:options",
+        "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/metrics:event",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
@@ -502,7 +504,7 @@ genrule(
         # TODO(#11179): Remove when the stub template fix is released.
         "export JARBIN=$(JAVABASE)/bin/jar && " +
         "$(location //src/main/java/com/google/devtools/build/lib/bazel:BazelServer) " +
-        "--jvm_flag=-Dio.bazel.EnableJni=0 --batch " +
+        "--batch " +
         "--install_base=$${TMP} --output_base=$${TMP}/output/ --output_user_root=$${TMP} " +
         "--failure_detail_out=$${TMP}/output/failure_detail.rawproto " +
         "help everything-as-html >> $@ 2>/dev/null && " +
