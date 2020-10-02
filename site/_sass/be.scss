@@ -1,3 +1,5 @@
+@charset "utf-8";
+
 // Build Encyclopedia and Starlark Library
 
 pre.rule-signature {
@@ -65,7 +67,7 @@ ul.hlist li {
 }
 
 ul.hlist li:after {
-  content: " · ";
+  content: ' · ';
   margin: 0 1ex;
   font-weight: bold;
 }
@@ -104,7 +106,7 @@ $toc-color: #757575;
 
 // Command-line Reference
 dt {
-  margin-top: .5em;
+  margin-top: 0.5em;
 }
 
 dd {
