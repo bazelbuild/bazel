@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.jni;
 
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.unix.jni.UnixJniLoader;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.windows.jni.WindowsJniLoader;
+import com.google.devtools.build.runfiles.Runfiles;
+import java.io.IOException;
 
 /** Generic code to interact with the platform-specific JNI code bundle. */
 public final class JniLoader {
@@ -35,10 +35,10 @@ public final class JniLoader {
         case OPENBSD:
         case UNKNOWN:
         case DARWIN:
-          UnixJniLoader.loadJni();
+          System.loadLibrary("unix_jni");
           break;
         case WINDOWS:
-          WindowsJniLoader.loadJni();
+          loadWindowsJni();
           break;
         default:
           throw new AssertionError("switch statement out of sync with OS values");
@@ -49,6 +49,28 @@ public final class JniLoader {
       jniAvailable = false;
     }
     JNI_AVAILABLE = jniAvailable;
+  }
+
+  private static void loadWindowsJni() {
+    try {
+      System.loadLibrary("windows_jni");
+    } catch (UnsatisfiedLinkError ex) {
+      Runfiles runfiles;
+      try {
+        runfiles = Runfiles.create();
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+
+      String rloc = runfiles.rlocation("io_bazel/src/main/native/windows/windows_jni.dll");
+      if (rloc == null) {
+        rloc = runfiles.rlocation("bazel_tools/src/main/native/windows/windows_jni.dll");
+        if (rloc == null) {
+          throw ex;
+        }
+      }
+      System.load(rloc);
+    }
   }
 
   protected JniLoader() {}

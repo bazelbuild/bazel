@@ -4,8 +4,9 @@ package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(
     name = "srcs",
+    testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
+    visibility = ["//src:__subpackages__"],
 )
 
 package_group(
@@ -31,10 +32,6 @@ package_group(
 
 java_library(
     name = "jni",
-    visibility = [
-        ":bazel-prod",
-        ":bazel-tests",
-    ],
     exports = [
         ":file",
         ":processes",
@@ -44,24 +41,11 @@ java_library(
 java_library(
     name = "file",
     srcs = ["WindowsFileOperations.java"],
-    visibility = [":android-junctions-prod"],
     deps = ["//src/main/java/com/google/devtools/build/lib/jni"],
 )
 
 java_library(
     name = "processes",
     srcs = ["WindowsProcesses.java"],
-    visibility = [":bazel-prod"],
     deps = ["//src/main/java/com/google/devtools/build/lib/jni"],
-)
-
-# Java interfaces to various native Windows system services.
-#
-# All programs that depend on libraries in this package will have
-# JNI (native code) dependencies.
-java_library(
-    name = "jni-loader",
-    srcs = ["WindowsJniLoader.java"],
-    data = ["//src/main/native/windows:target-os-native-lib"],
-    deps = ["@bazel_tools//tools/java/runfiles"],
 )

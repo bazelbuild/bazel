@@ -15,10 +15,13 @@ filegroup(
 java_library(
     name = "jni",
     srcs = ["JniLoader.java"],
+    data = [
+        "//src/main/native:target-os-unix-native-lib",
+        "//src/main/native/windows:target-os-native-lib",
+    ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/unix/jni",
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/windows/jni:jni-loader",
         "//third_party:flogger",
+        "@bazel_tools//tools/java/runfiles",
     ],
 )

@@ -82,7 +82,7 @@ filegroup(
     }),
     visibility = [
         "//src:__pkg__",
-        "//src/main/java/com/google/devtools/build/lib/windows/jni:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/jni:__pkg__",
     ],
 )
 

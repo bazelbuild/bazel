@@ -52,7 +52,7 @@ cc_library(
 )
 
 cc_binary(
-    name = "libunix.so",
+    name = "libunix_jni.so",
     srcs = [
         "macros.h",
         "process.cc",
@@ -86,8 +86,8 @@ cc_binary(
 # library extensions.  This is issue #914.
 genrule(
     name = "mac-compat",
-    srcs = ["libunix.so"],
-    outs = ["libunix.dylib"],
+    srcs = ["libunix_jni.so"],
+    outs = ["libunix_jni.dylib"],
     cmd = "cp $< $@",
     output_to_bindir = 1,
     # :target-os-unix-native-lib should be used outside of this package
@@ -99,14 +99,14 @@ genrule(
 filegroup(
     name = "target-os-unix-native-lib",
     srcs = select({
-        "//src/conditions:darwin": ["//src/main/native:libunix.dylib"],
-        "//src/conditions:darwin_x86_64": ["//src/main/native:libunix.dylib"],
+        "//src/conditions:darwin": [":libunix_jni.dylib"],
+        "//src/conditions:darwin_x86_64": [":libunix_jni.dylib"],
         "//src/conditions:windows": [],
-        "//conditions:default": ["//src/main/native:libunix.so"],
+        "//conditions:default": [":libunix_jni.so"],
     }),
     visibility = [
         "//src:__pkg__",
-        "//src/main/java/com/google/devtools/build/lib/unix/jni:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/jni:__pkg__",
     ],
 )
 

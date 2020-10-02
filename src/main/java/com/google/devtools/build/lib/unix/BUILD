@@ -6,9 +6,7 @@ package(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["*"]) + [
-        "//src/main/java/com/google/devtools/build/lib/unix/jni:srcs",
-    ],
+    srcs = glob(["*"]),
     visibility = ["//src:__subpackages__"],
 )
 
