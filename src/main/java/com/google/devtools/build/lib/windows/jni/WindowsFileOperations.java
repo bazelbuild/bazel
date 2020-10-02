@@ -39,6 +39,10 @@ public class WindowsFileOperations {
   // - http://stackoverflow.com/questions/23041983
   // - http://stackoverflow.com/questions/14482421
 
+  static {
+    JniLoader.loadJni();
+  }
+
   private WindowsFileOperations() {
     // Prevent construction
   }
@@ -123,7 +127,6 @@ public class WindowsFileOperations {
 
   /** Determines whether `path` is a junction point or directory symlink. */
   public static boolean isSymlinkOrJunction(String path) throws IOException {
-    JniLoader.loadJni();
     boolean[] result = new boolean[] {false};
     String[] error = new String[] {null};
     switch (nativeIsSymlinkOrJunction(asLongPath(path), result, error)) {
@@ -153,7 +156,6 @@ public class WindowsFileOperations {
    * @throws IOException if the `path` is not found or some other I/O error occurs
    */
   public static String getLongPath(String path) throws IOException {
-    JniLoader.loadJni();
     String[] result = new String[] {null};
     String[] error = new String[] {null};
     if (nativeGetLongPath(asLongPath(path), result, error)) {
@@ -191,7 +193,6 @@ public class WindowsFileOperations {
    * @throws IOException if some error occurs
    */
   public static void createJunction(String name, String target) throws IOException {
-    JniLoader.loadJni();
     String[] error = new String[] {null};
     switch (nativeCreateJunction(asLongPath(name), asLongPath(target), error)) {
       case CREATE_JUNCTION_SUCCESS:
@@ -220,7 +221,6 @@ public class WindowsFileOperations {
   }
 
   public static void createSymlink(String name, String target) throws IOException {
-    JniLoader.loadJni();
     String[] error = new String[] {null};
     switch (nativeCreateSymlink(asLongPath(name), asLongPath(target), error)) {
       case CREATE_SYMLINK_SUCCESS:
@@ -237,7 +237,6 @@ public class WindowsFileOperations {
   }
 
   public static ReadSymlinkOrJunctionResult readSymlinkOrJunction(String name) {
-    JniLoader.loadJni();
     String[] target = new String[] {null};
     String[] error = new String[] {null};
     switch (nativeReadSymlinkOrJunction(asLongPath(name), target, error)) {
@@ -267,7 +266,6 @@ public class WindowsFileOperations {
   }
 
   public static boolean deletePath(String path) throws IOException {
-    JniLoader.loadJni();
     String[] error = new String[] {null};
     int result = nativeDeletePath(asLongPath(path), error);
     switch (result) {

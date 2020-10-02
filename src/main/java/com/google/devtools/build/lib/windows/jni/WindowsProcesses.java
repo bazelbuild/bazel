@@ -20,6 +20,10 @@ import com.google.devtools.build.lib.jni.JniLoader;
 public class WindowsProcesses {
   public static final long INVALID = -1;
 
+  static {
+    JniLoader.loadJni();
+  }
+
   private WindowsProcesses() {
     // Prevent construction
   }
@@ -34,35 +38,16 @@ public class WindowsProcesses {
    *     "foo app.exe")
    * @param argvRest the rest of the command line, i.e. argv[1:] (needs to be quoted Windows style)
    * @param env the environment of the new process. null means inherit that of the Bazel server
-   * @param cwd the working directory of the new process. if null, the same as that of the current
-   *     process
-   * @param stdoutFile the file the stdout should be redirected to. if null, nativeReadStdout will
+   * @param cwd the working directory of the new process. If null, the same as that of the current
+   *     process.
+   * @param stdoutFile the file the stdout should be redirected to. If null, {@link #getStdout} will
    *     work.
-   * @param stderrFile the file the stdout should be redirected to. if null, nativeReadStderr will
+   * @param stderrFile the file the stdout should be redirected to. If null, {@link #getStderr} will
    *     work.
    * @param redirectErrorStream whether we merge the process's standard error and standard output.
    * @return the opaque identifier of the created process
    */
-  public static long createProcess(
-      String argv0,
-      String argvRest,
-      byte[] env,
-      String cwd,
-      String stdoutFile,
-      String stderrFile,
-      boolean redirectErrorStream) {
-    JniLoader.loadJni();
-    return nativeCreateProcess(
-        argv0, argvRest, env, cwd, stdoutFile, stderrFile, redirectErrorStream);
-  }
-
-  public static long createProcess(
-      String argv0, String argvRest, byte[] env, String cwd, String stdoutFile, String stderrFile) {
-    JniLoader.loadJni();
-    return nativeCreateProcess(argv0, argvRest, env, cwd, stdoutFile, stderrFile, false);
-  }
-
-  private static native long nativeCreateProcess(
+  public static native long createProcess(
       String argv0,
       String argvRest,
       byte[] env,
@@ -71,6 +56,11 @@ public class WindowsProcesses {
       String stderrFile,
       boolean redirectErrorStream);
 
+  public static long createProcess(
+      String argv0, String argvRest, byte[] env, String cwd, String stdoutFile, String stderrFile) {
+    return createProcess(argv0, argvRest, env, cwd, stdoutFile, stderrFile, false);
+  }
+
   /**
    * Writes data from the given array to the stdin of the specified process.
    *
@@ -78,43 +68,23 @@ public class WindowsProcesses {
    *
    * @return the number of bytes written
    */
-  public static int writeStdin(long process, byte[] bytes, int offset, int length) {
-    JniLoader.loadJni();
-    return nativeWriteStdin(process, bytes, offset, length);
-  }
-
-  private static native int nativeWriteStdin(long process, byte[] bytes, int offset, int length);
+  public static native int writeStdin(long process, byte[] bytes, int offset, int length);
 
   /** Returns an opaque identifier of stdout stream for the process. */
-  public static long getStdout(long process) {
-    JniLoader.loadJni();
-    return nativeGetStdout(process);
-  }
-
-  private static native long nativeGetStdout(long process);
+  public static native long getStdout(long process);
 
   /** Returns an opaque identifier of stderr stream for the process. */
-  public static long getStderr(long process) {
-    JniLoader.loadJni();
-    return nativeGetStderr(process);
-  }
-
-  private static native long nativeGetStderr(long process);
+  public static native long getStderr(long process);
 
   /**
    * Reads data from the stream into the given array. {@code stream} should come from {@link
-   * #nativeGetStdout(long)} or {@link #nativeGetStderr(long)}.
+   * #getStdout(long)} or {@link #getStderr(long)}.
    *
    * <p>Blocks until either some data was read or the process is terminated.
    *
    * @return the number of bytes read, 0 on EOF, or -1 if there was an error.
    */
-  public static int readStream(long stream, byte[] bytes, int offset, int length) {
-    JniLoader.loadJni();
-    return nativeReadStream(stream, bytes, offset, length);
-  }
-
-  private static native int nativeReadStream(long stream, byte[] bytes, int offset, int length);
+  public static native int readStream(long stream, byte[] bytes, int offset, int length);
 
   /**
    * Waits until the given process terminates. If timeout is non-negative, it indicates the number
@@ -125,39 +95,19 @@ public class WindowsProcesses {
    * <li>1: Timeout
    * <li>2: Something went wrong
    */
-  public static int waitFor(long process, long timeout) {
-    JniLoader.loadJni();
-    return nativeWaitFor(process, timeout);
-  }
-
-  private static native int nativeWaitFor(long process, long timeout);
+  public static native int waitFor(long process, long timeout);
 
   /**
    * Returns the exit code of the process. Throws {@code IllegalStateException} if something goes
    * wrong.
    */
-  public static int getExitCode(long process) {
-    JniLoader.loadJni();
-    return nativeGetExitCode(process);
-  }
-
-  private static native int nativeGetExitCode(long process);
+  public static native int getExitCode(long process);
 
   /** Returns the process ID of the given process or -1 if there was an error. */
-  public static int getProcessPid(long process) {
-    JniLoader.loadJni();
-    return nativeGetProcessPid(process);
-  }
-
-  private static native int nativeGetProcessPid(long process);
+  public static native int getProcessPid(long process);
 
   /** Terminates the given process. Returns true if the termination was successful. */
-  public static boolean terminate(long process) {
-    JniLoader.loadJni();
-    return nativeTerminate(process);
-  }
-
-  private static native boolean nativeTerminate(long process);
+  public static native boolean terminate(long process);
 
   /**
    * Releases the native data structures associated with the process.
@@ -165,25 +115,14 @@ public class WindowsProcesses {
    * <p>Calling any other method on the same process after this call will result in the JVM crashing
    * or worse.
    */
-  public static void deleteProcess(long process) {
-    JniLoader.loadJni();
-    nativeDeleteProcess(process);
-  }
-
-  private static native void nativeDeleteProcess(long process);
+  public static native void deleteProcess(long process);
 
   /**
    * Closes the stream
    *
-   * @param stream should come from {@link #nativeGetStdout(long)} or {@link
-   *     #nativeGetStderr(long)}.
+   * @param stream should come from {@link #getStdout(long)} or {@link #getStderr(long)}.
    */
-  public static void closeStream(long stream) {
-    JniLoader.loadJni();
-    nativeCloseStream(stream);
-  }
-
-  private static native void nativeCloseStream(long stream);
+  public static native void closeStream(long stream);
 
   /**
    * Returns a string representation of the last error caused by any call on the given process or
@@ -194,25 +133,10 @@ public class WindowsProcesses {
    * <p>After this call returns, subsequent calls will return the empty string if there was no
    * failed operation in between.
    */
-  public static String processGetLastError(long process) {
-    JniLoader.loadJni();
-    return nativeProcessGetLastError(process);
-  }
+  public static native String processGetLastError(long process);
 
-  private static native String nativeProcessGetLastError(long process);
+  public static native String streamGetLastError(long process);
 
-  public static String streamGetLastError(long process) {
-    JniLoader.loadJni();
-    return nativeStreamGetLastError(process);
-  }
-
-  private static native String nativeStreamGetLastError(long process);
-
-  /** returns the PID of the current process. */
-  public static int getpid() {
-    JniLoader.loadJni();
-    return nativeGetpid();
-  }
-
-  private static native int nativeGetpid();
+  /** Returns the PID of the current process. */
+  public static native int getpid();
 }
