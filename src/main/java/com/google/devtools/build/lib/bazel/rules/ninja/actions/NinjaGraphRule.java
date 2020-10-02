@@ -78,14 +78,6 @@ public class NinjaGraphRule implements RuleDefinition {
                         + " <execroot>/<output_root> will be a separate directory, not a"
                         + " symlink.</p>"))
         .add(
-            attr("output_root_symlinks", STRING_LIST)
-                .value(ImmutableList.of())
-                .setDoc(
-                    "<p>Output paths under output_root, that should be treated as symlink"
-                        + " artifacts.</p><p>In combination with"
-                        + " --experimental_allow_unresolved_symlinks flag, this allows Ninja"
-                        + " actions to create symlinks, not pointing to the existing file.</p>"))
-        .add(
             attr("working_directory", STRING)
                 .value("")
                 .setDoc(
