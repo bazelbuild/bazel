@@ -226,7 +226,7 @@ public abstract class AbstractPackageLoaderTest {
   @Test
   public void testNonPackageEventsReported() throws Exception {
     path("foo").createDirectoryAndParents();
-    symlink("foo/infinitesymlinkpkg", path("foo"));
+    symlink("foo/infinitesymlinkpkg", path("foo/infinitesymlinkpkg/subdir"));
     PackageIdentifier pkgId = PackageIdentifier.createInMainRepo("foo/infinitesymlinkpkg");
     PackageLoader.Result result;
     try (PackageLoader pkgLoader = newPackageLoader()) {

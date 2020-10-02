@@ -684,6 +684,8 @@ public abstract class GlobFunctionTest {
     FileValue pkgDirValue =
         FileValue.value(
             ImmutableList.of(pkgRootedPath),
+            null,
+            null,
             pkgRootedPath,
             pkgDirFileStateValue,
             pkgRootedPath,

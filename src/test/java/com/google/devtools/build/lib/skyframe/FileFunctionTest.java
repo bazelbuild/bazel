@@ -459,7 +459,16 @@ public class FileFunctionTest {
   @Test
   public void testRecursiveNestingSymlink() throws Exception {
     symlink("a/a", "../a");
-    assertError("a/a/b");
+    file("b");
+    assertNoError("a/a/a/a/b");
+  }
+
+  @Test
+  public void testSimpleUnboundedAncestorSymlinkExpansionChainReported() throws Exception {
+    symlink("a/a", "../a");
+    FileValue v = valueForPath(path("a/a"));
+    assertThat(v.unboundedAncestorSymlinkExpansionChain())
+        .containsExactly(rootedPath("a/a"), rootedPath("a"));
   }
 
   @Test
@@ -1103,7 +1112,7 @@ public class FileFunctionTest {
   public void testSymlinkToPackagePathBoundary() throws Exception {
     Path path = path("this/is/a/path");
     FileSystemUtils.ensureSymbolicLink(path, pkgRoot.asPath());
-    assertError("this/is/a/path");
+    assertNoError("this/is/a/path");
   }
 
   private void runTestSimpleInfiniteSymlinkExpansion(
@@ -1164,20 +1173,24 @@ public class FileFunctionTest {
             .setEventHandler(eventHandler)
             .build();
     EvaluationResult<FileValue> result = driver.evaluate(keys, evaluationContext);
-    assertThat(result.hasError()).isTrue();
-    for (SkyKey key : errorKeys) {
-      ErrorInfo errorInfo = result.getError(key);
-      // FileFunction detects infinite symlink expansion explicitly.
-      assertThat(errorInfo.getCycleInfo()).isEmpty();
-      FileSymlinkInfiniteExpansionException fsiee =
-          (FileSymlinkInfiniteExpansionException) errorInfo.getException();
-      assertThat(fsiee).hasMessageThat().contains("Infinite symlink expansion");
-      assertThat(fsiee.getChain()).containsExactlyElementsIn(expectedChain).inOrder();
+    if (symlinkToAncestor) {
+      assertThat(result.hasError()).isFalse();
+    } else {
+      assertThat(result.hasError()).isTrue();
+      for (SkyKey key : errorKeys) {
+        ErrorInfo errorInfo = result.getError(key);
+        // FileFunction detects infinite symlink expansion explicitly.
+        assertThat(errorInfo.getCycleInfo()).isEmpty();
+        FileSymlinkInfiniteExpansionException fsiee =
+            (FileSymlinkInfiniteExpansionException) errorInfo.getException();
+        assertThat(fsiee).hasMessageThat().contains("Infinite symlink expansion");
+        assertThat(fsiee.getChain()).containsExactlyElementsIn(expectedChain).inOrder();
+      }
+      // Check that the unique symlink expansion error was reported exactly once.
+      assertThat(eventHandler.getEvents()).hasSize(1);
+      assertThat(Iterables.getOnlyElement(eventHandler.getEvents()).getMessage())
+          .contains("infinite symlink expansion detected");
     }
-    // Check that the unique symlink expansion error was reported exactly once.
-    assertThat(eventHandler.getEvents()).hasSize(1);
-    assertThat(Iterables.getOnlyElement(eventHandler.getEvents()).getMessage())
-        .contains("infinite symlink expansion detected");
   }
 
   @Test
@@ -1206,15 +1219,13 @@ public class FileFunctionTest {
   @Test
   public void testInfiniteSymlinkExpansion_symlinkToReferrerToAncestor() throws Exception {
     symlink("d", "a");
-    Path abPath = directory("a/b");
-    Path abcPath = abPath.getChild("c");
+    directory("a/b");
     symlink("a/b/c", "../../d/b");
+    symlink("e", "a/b/c");
+    Path fPath = symlink("f", "e");
 
-    RootedPath rootedPathABC = RootedPath.toRootedPath(pkgRoot, pkgRoot.relativize(abcPath));
-    RootedPath rootedPathAB = RootedPath.toRootedPath(pkgRoot, pkgRoot.relativize(abPath));
-    RootedPath rootedPathDB = RootedPath.toRootedPath(pkgRoot, pkgRoot.relativize(path("d/b")));
-
-    SkyKey keyABC = FileValue.key(rootedPathABC);
+    RootedPath rootedPathF = RootedPath.toRootedPath(pkgRoot, pkgRoot.relativize(fPath));
+    SkyKey keyF = FileValue.key(rootedPathF);
 
     StoredEventHandler eventHandler = new StoredEventHandler();
     SequentialBuildDriver driver = makeDriver();
@@ -1224,25 +1235,16 @@ public class FileFunctionTest {
             .setNumThreads(DEFAULT_THREAD_COUNT)
             .setEventHandler(eventHandler)
             .build();
-    EvaluationResult<FileValue> result =
-        driver.evaluate(ImmutableList.of(keyABC), evaluationContext);
+    EvaluationResult<FileValue> result = driver.evaluate(ImmutableList.of(keyF), evaluationContext);
 
-    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(keyABC).isNotTransient();
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(keyABC)
-        .hasExceptionThat()
-        .isInstanceOf(FileSymlinkInfiniteExpansionException.class);
-    FileSymlinkInfiniteExpansionException fiee =
-        (FileSymlinkInfiniteExpansionException) result.getError(keyABC).getException();
-    assertThat(fiee).hasMessageThat().contains("Infinite symlink expansion");
-    assertThat(fiee.getPathToChain()).isEmpty();
-    assertThat(fiee.getChain())
-        .containsExactly(rootedPathABC, rootedPathDB, rootedPathAB)
+    assertThatEvaluationResult(result).hasNoError();
+    FileValue e = result.get(keyF);
+    assertThat(e.pathToUnboundedAncestorSymlinkExpansionChain())
+        .containsExactly(rootedPath("f"), rootedPath("e"))
         .inOrder();
-
-    assertThat(eventHandler.getEvents()).hasSize(1);
-    assertThat(Iterables.getOnlyElement(eventHandler.getEvents()).getMessage())
-        .contains("infinite symlink expansion detected");
+    assertThat(e.unboundedAncestorSymlinkExpansionChain())
+        .containsExactly(rootedPath("a/b/c"), rootedPath("d/b"), rootedPath("a/b"))
+        .inOrder();
   }
 
   @Test
@@ -1253,10 +1255,6 @@ public class FileFunctionTest {
 
     RootedPath rootedPathDir1AB =
         RootedPath.toRootedPath(pkgRoot, pkgRoot.relativize(path("dir1/a/b")));
-    RootedPath rootedPathDir2B =
-        RootedPath.toRootedPath(pkgRoot, pkgRoot.relativize(path("dir2/b")));
-    RootedPath rootedPathDir1 = RootedPath.toRootedPath(pkgRoot, pkgRoot.relativize(path("dir1")));
-
     SkyKey keyDir1AB = FileValue.key(rootedPathDir1AB);
 
     StoredEventHandler eventHandler = new StoredEventHandler();
@@ -1270,22 +1268,7 @@ public class FileFunctionTest {
     EvaluationResult<FileValue> result =
         driver.evaluate(ImmutableList.of(keyDir1AB), evaluationContext);
 
-    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(keyDir1AB).isNotTransient();
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(keyDir1AB)
-        .hasExceptionThat()
-        .isInstanceOf(FileSymlinkInfiniteExpansionException.class);
-    FileSymlinkInfiniteExpansionException fiee =
-        (FileSymlinkInfiniteExpansionException) result.getError(keyDir1AB).getException();
-    assertThat(fiee).hasMessageThat().contains("Infinite symlink expansion");
-    assertThat(fiee.getPathToChain()).isEmpty();
-    assertThat(fiee.getChain())
-        .containsExactly(rootedPathDir1AB, rootedPathDir2B, rootedPathDir1)
-        .inOrder();
-
-    assertThat(eventHandler.getEvents()).hasSize(1);
-    assertThat(Iterables.getOnlyElement(eventHandler.getEvents()).getMessage())
-        .contains("infinite symlink expansion detected");
+    assertThatEvaluationResult(result).hasNoError();
   }
 
   @Test
