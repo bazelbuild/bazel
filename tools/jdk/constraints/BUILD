@@ -51,53 +51,6 @@ constraint_value(
     constraint_setting = ":runtime",
 )
 
-constraint_setting(name = "language")
-
-constraint_value(
-    name = "java7",
-    constraint_setting = ":language",
-)
-
-constraint_value(
-    name = "java8",
-    constraint_setting = ":language",
-)
-
-constraint_value(
-    name = "java9",
-    constraint_setting = ":language",
-)
-
-constraint_value(
-    name = "java10",
-    constraint_setting = ":language",
-)
-
-constraint_value(
-    name = "java11",
-    constraint_setting = ":language",
-)
-
-constraint_value(
-    name = "java12",
-    constraint_setting = ":language",
-)
-
-constraint_value(
-    name = "java13",
-    constraint_setting = ":language",
-)
-
-constraint_value(
-    name = "java14",
-    constraint_setting = ":language",
-)
-
-constraint_value(
-    name = "java15",
-    constraint_setting = ":language",
-)
-
 constraint_setting(name = "location")
 
 constraint_value(
