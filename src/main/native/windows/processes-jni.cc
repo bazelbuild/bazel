@@ -41,7 +41,7 @@ static std::wstring ToString(const T& e) {
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_getpid(
+Java_com_google_devtools_build_lib_windows_WindowsProcesses_getpid(
     JNIEnv* env, jclass clazz) {
   return GetCurrentProcessId();
 }
@@ -396,7 +396,7 @@ static_assert(sizeof(jchar) == sizeof(WCHAR),
 static jlong PtrAsJlong(void* p) { return reinterpret_cast<jlong>(p); }
 
 extern "C" JNIEXPORT jlong JNICALL
-Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_createProcess(
+Java_com_google_devtools_build_lib_windows_WindowsProcesses_createProcess(
     JNIEnv* env, jclass clazz, jstring java_argv0, jstring java_argv_rest,
     jbyteArray java_env, jstring java_cwd, jstring java_stdout_redirect,
     jstring java_stderr_redirect, jboolean redirectErrorStream) {
@@ -413,7 +413,7 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_createProcess(
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_writeStdin(
+Java_com_google_devtools_build_lib_windows_WindowsProcesses_writeStdin(
     JNIEnv* env, jclass clazz, jlong process_long, jbyteArray java_bytes,
     jint offset, jint length) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
@@ -421,21 +421,21 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_writeStdin(
 }
 
 extern "C" JNIEXPORT jlong JNICALL
-Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_getStdout(
+Java_com_google_devtools_build_lib_windows_WindowsProcesses_getStdout(
     JNIEnv* env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
   return PtrAsJlong(process->GetStdoutStream());
 }
 
 extern "C" JNIEXPORT jlong JNICALL
-Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_getStderr(
+Java_com_google_devtools_build_lib_windows_WindowsProcesses_getStderr(
     JNIEnv* env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
   return PtrAsJlong(process->GetStderrStream());
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_readStream(
+Java_com_google_devtools_build_lib_windows_WindowsProcesses_readStream(
     JNIEnv* env, jclass clazz, jlong stream_long, jbyteArray java_bytes,
     jint offset, jint length) {
   NativeOutputStream* stream =
@@ -444,7 +444,7 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_readStream(
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_getExitCode(
+Java_com_google_devtools_build_lib_windows_WindowsProcesses_getExitCode(
     JNIEnv* env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
   return static_cast<jint>(process->GetExitCode());
@@ -455,7 +455,7 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_getExitCode(
 // 1: Timeout
 // 2: Wait returned with an error
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_waitFor(
+Java_com_google_devtools_build_lib_windows_WindowsProcesses_waitFor(
     JNIEnv* env, jclass clazz, jlong process_long, jlong java_timeout) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
   int res = process->WaitFor(static_cast<int64_t>(java_timeout));
@@ -464,27 +464,27 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_waitFor(
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_getProcessPid(
+Java_com_google_devtools_build_lib_windows_WindowsProcesses_getProcessPid(
     JNIEnv* env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
   return static_cast<jint>(process->GetPid());
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_terminate(
+Java_com_google_devtools_build_lib_windows_WindowsProcesses_terminate(
     JNIEnv* env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
   return process->Terminate() ? JNI_TRUE : JNI_FALSE;
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_deleteProcess(
+Java_com_google_devtools_build_lib_windows_WindowsProcesses_deleteProcess(
     JNIEnv* env, jclass clazz, jlong process_long) {
   delete reinterpret_cast<NativeProcess*>(process_long);
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_closeStream(
+Java_com_google_devtools_build_lib_windows_WindowsProcesses_closeStream(
     JNIEnv* env, jclass clazz, jlong stream_long) {
   NativeOutputStream* stream =
       reinterpret_cast<NativeOutputStream*>(stream_long);
@@ -492,14 +492,14 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_closeStream(
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_processGetLastError(
+Java_com_google_devtools_build_lib_windows_WindowsProcesses_processGetLastError(
     JNIEnv* env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
   return process->GetLastErrorAsString(env);
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_streamGetLastError(
+Java_com_google_devtools_build_lib_windows_WindowsProcesses_streamGetLastError(
     JNIEnv* env, jclass clazz, jlong stream_long) {
   NativeOutputStream* stream =
       reinterpret_cast<NativeOutputStream*>(stream_long);

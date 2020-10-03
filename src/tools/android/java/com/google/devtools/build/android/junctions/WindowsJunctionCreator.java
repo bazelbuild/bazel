@@ -14,7 +14,7 @@
 package com.google.devtools.build.android.junctions;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.windows.jni.WindowsFileOperations;
+import com.google.devtools.build.lib.windows.WindowsFileOperations;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;

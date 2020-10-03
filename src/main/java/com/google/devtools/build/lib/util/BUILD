@@ -46,7 +46,7 @@ java_library(
         ":os",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/unix",
-        "//src/main/java/com/google/devtools/build/lib/windows/jni:processes",
+        "//src/main/java/com/google/devtools/build/lib/windows:processes",
     ],
 )
 
