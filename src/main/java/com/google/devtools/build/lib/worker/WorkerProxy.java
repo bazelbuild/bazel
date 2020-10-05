@@ -78,19 +78,21 @@ final class WorkerProxy extends Worker {
 
   /** Send the WorkRequest to multiplexer. */
   @Override
-  void putRequest(WorkRequest request) throws IOException {
+  void putRequest(WorkRequest request) throws InterruptedException, IOException {
     try {
       workerMultiplexer.resetResponseChecker(workerId);
       workerMultiplexer.putRequest(request);
     } catch (InterruptedException e) {
-      /**
-       * We can't throw InterruptedException to WorkerSpawnRunner because of the principle of
-       * override. InterruptedException will happen when Bazel is waiting for semaphore but user
-       * terminates the process, so we do nothing here.
-       */
       logger.atWarning().withCause(e).log(
           "InterruptedException was caught while sending worker request. "
               + "It could because the multiplexer was interrupted.");
+
+      /**
+       * InterruptedException will happen when Bazel is waiting for semaphore but the
+       * process is terminated. We should not swallow the excpetion because this would 
+       * cause getResponse() to wait indefinitely resulting in a deadlock.
+       */
+      throw e;
     }
   }
 

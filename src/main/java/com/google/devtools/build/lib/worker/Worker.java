@@ -155,7 +155,7 @@ class Worker {
         : Optional.empty();
   }
 
-  void putRequest(WorkRequest request) throws IOException {
+  void putRequest(WorkRequest request) throws InterruptedException, IOException {
     workerProtocol.putRequest(request);
   }
 
