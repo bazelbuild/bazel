@@ -1562,13 +1562,15 @@ public class Package {
       }
 
       targets.put(group.getName(), group);
-      Collection<Event> membershipErrors = group.validateMembership();
-      if (!membershipErrors.isEmpty()) {
-        for (Event error : membershipErrors) {
-          eventHandler.handle(error);
-        }
+      // Invariant: once group is inserted into targets, it must also:
+      // (a) be inserted into environmentGroups, or
+      // (b) have its group.processMemberEnvironments called.
+      // Otherwise it will remain uninitialized,
+      // causing crashes when it is later toString-ed.
+
+      for (Event error : group.validateMembership()) {
+        eventHandler.handle(error);
         setContainsErrors();
-        return;
       }
 
       // For each declared environment, make sure it doesn't also belong to some other group.
@@ -1583,6 +1585,8 @@ public class Package {
                       environment, group.getLabel(), otherGroup.getLabel()),
                   Code.ENVIRONMENT_IN_MULTIPLE_GROUPS));
           setContainsErrors();
+          // Ensure the orphan gets (trivially) initialized.
+          group.processMemberEnvironments(ImmutableMap.of());
         } else {
           environmentGroups.put(environment, group);
         }
