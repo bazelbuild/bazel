@@ -57,7 +57,8 @@ public class BazelAndroidLibraryRule implements RuleDefinition {
         .name("android_library")
         .ancestors(
             BazelJavaRuleClasses.JavaBaseRule.class,
-            AndroidLibraryBaseRule.class)
+            AndroidLibraryBaseRule.class,
+            BazelSdkToolchainRule.class)
         .factoryClass(BazelAndroidLibrary.class)
         .build();
   }
