@@ -425,8 +425,10 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
     }
 
     private void checkSequenceOfJavaInfo(Sequence<?> seq, String field) throws EvalException {
-      if (seq.stream().anyMatch(v -> !(v instanceof JavaInfo))) {
-        throw Starlark.errorf("Expected 'sequence of JavaInfo' for '%s'", field);
+      for (Object v : seq) {
+        if (!(v instanceof JavaInfo)) {
+          throw Starlark.errorf("Expected 'sequence of JavaInfo' for '%s'", field);
+        }
       }
     }
 
