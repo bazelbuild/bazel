@@ -202,7 +202,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       if (protocolFormat == WorkerProtocolFormat.JSON) {
         throw new IOException(
             "Persistent worker protocol format must be set to proto unless"
-                + " --experimental_allow_json_worker_protocol is used");
+                + " --experimental_worker_allow_json_protocol is used");
       }
     }
 
