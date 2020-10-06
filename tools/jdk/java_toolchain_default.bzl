@@ -14,7 +14,7 @@
 
 """Bazel rules for creating Java toolchains."""
 
-DEFAULT_JAVACOPTS = [
+_DEFAULT_JAVACOPTS = [
     "-XDskipDuplicateBridges=true",
     "-g",
     "-parameters",
@@ -25,7 +25,7 @@ JDK8_JVM_OPTS = [
 ]
 
 # JVM options, without patching java.compiler and jdk.compiler modules.
-BASE_JDK9_JVM_OPTS = [
+_BASE_JDK9_JVM_OPTS = [
     # Allow JavaBuilder to access internal javac APIs.
     "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
     "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
@@ -44,8 +44,8 @@ BASE_JDK9_JVM_OPTS = [
 ]
 
 # java_toolchain parameters without specifying javac, java.compiler,
-# and jdk.compiler module
-BASE_TOOLCHAIN_CONFIGURATION = dict(
+# jdk.compiler module, and jvm_opts
+_BASE_TOOLCHAIN_CONFIGURATION = dict(
     forcibly_disable_header_compilation = False,
     genclass = [":GenClass"],
     header_compiler = [":Turbine"],
@@ -54,7 +54,6 @@ BASE_TOOLCHAIN_CONFIGURATION = dict(
     javabuilder = [":JavaBuilder"],
     javac_supports_workers = True,
     jacocorunner = ":jacoco_coverage_runner_filegroup",
-    jvm_opts = BASE_JDK9_JVM_OPTS,
     misc = DEFAULT_JAVACOPTS,
     singlejar = [":singlejar"],
     # Code to enumerate target JVM boot classpath uses host JVM. Because
@@ -70,7 +69,7 @@ JDK9_JVM_OPTS = BASE_JDK9_JVM_OPTS + [
     "--patch-module=jdk.compiler=$(location :jdk_compiler_jar)",
 ]
 
-DEFAULT_TOOLCHAIN_CONFIGURATION = dict(
+_DEFAULT_TOOLCHAIN_CONFIGURATION = dict(
     javac = [":javac_jar"],
     tools = [
         ":java_compiler_jar",
@@ -83,7 +82,7 @@ DEFAULT_TOOLCHAIN_CONFIGURATION = dict(
 def java_toolchain_default(name, **kwargs):
     """Defines a java_toolchain with appropriate defaults for Bazel."""
 
-    toolchain_args = dict(DEFAULT_TOOLCHAIN_CONFIGURATION)
+    toolchain_args = dict(_DEFAULT_TOOLCHAIN_CONFIGURATION)
     toolchain_args.update(kwargs)
     native.java_toolchain(
         name = name,
@@ -93,7 +92,10 @@ def java_toolchain_default(name, **kwargs):
 def java_toolchain_nojavac(name, **kwargs):
     """Defines a java_toolchain without overriding javac for Bazel."""
 
-    toolchain_args = dict(BASE_TOOLCHAIN_CONFIGURATION)
+    toolchain_args = dict(
+        jvm_opts = _BASE_JDK9_JVM_OPTS,
+        **_BASE_TOOLCHAIN_CONFIGURATION
+    )
     toolchain_args.update(kwargs)
     native.java_toolchain(
         name = name,
