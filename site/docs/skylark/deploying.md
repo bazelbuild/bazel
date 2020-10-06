@@ -261,7 +261,7 @@ it to [ci.bazel.build](http://ci.bazel.build).
 
 ## Documentation
 
-See the [Skydoc documentation](https://github.com/bazelbuild/skydoc) for
+See the [Stardoc documentation](https://github.com/bazelbuild/stardoc) for
 instructions on how to comment your rules so that documentation can be generated
 automatically.
 
