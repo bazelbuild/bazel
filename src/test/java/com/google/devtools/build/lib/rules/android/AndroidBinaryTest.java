@@ -1400,7 +1400,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
             .getExecutable();
     assertWithMessage("ProGuard implementation was not correctly taken from the configuration")
         .that(proguardAction.getCommandFilename())
-        .isEqualTo(jkrunchyExecutable.getExecPathString());
+        .endsWith(jkrunchyExecutable.getOutputDirRelativePathString());
   }
 
   @Test
