@@ -54,7 +54,7 @@ _BASE_TOOLCHAIN_CONFIGURATION = dict(
     javabuilder = [":JavaBuilder"],
     javac_supports_workers = True,
     jacocorunner = ":jacoco_coverage_runner_filegroup",
-    misc = DEFAULT_JAVACOPTS,
+    misc = _DEFAULT_JAVACOPTS,
     singlejar = [":singlejar"],
     # Code to enumerate target JVM boot classpath uses host JVM. Because
     # java_runtime-s are involved, its implementation is in @bazel_tools.
@@ -63,7 +63,7 @@ _BASE_TOOLCHAIN_CONFIGURATION = dict(
     target_version = "8",
 )
 
-JDK9_JVM_OPTS = BASE_JDK9_JVM_OPTS + [
+JDK9_JVM_OPTS = _BASE_JDK9_JVM_OPTS + [
     # override the javac in the JDK.
     "--patch-module=java.compiler=$(location :java_compiler_jar)",
     "--patch-module=jdk.compiler=$(location :jdk_compiler_jar)",
@@ -76,7 +76,7 @@ _DEFAULT_TOOLCHAIN_CONFIGURATION = dict(
         ":jdk_compiler_jar",
     ],
     jvm_opts = JDK9_JVM_OPTS,
-    **BASE_TOOLCHAIN_CONFIGURATION
+    **_BASE_TOOLCHAIN_CONFIGURATION
 )
 
 def java_toolchain_default(name, **kwargs):
