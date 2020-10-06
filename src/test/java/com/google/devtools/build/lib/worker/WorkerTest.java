@@ -203,7 +203,7 @@ public final class WorkerTest {
   }
 
   @Test
-  public void testPutRequest_success() throws IOException {
+  public void testPutRequest_success() throws InterruptedException, IOException {
     WorkRequest request = WorkRequest.getDefaultInstance();
 
     TestWorker testWorker = createTestWorker(new byte[0], PROTO);
@@ -227,7 +227,7 @@ public final class WorkerTest {
   }
 
   @Test
-  public void testPutRequest_json_success() throws IOException {
+  public void testPutRequest_json_success() throws InterruptedException, IOException {
     TestWorker testWorker = createTestWorker(new byte[0], JSON);
     testWorker.putRequest(WorkRequest.getDefaultInstance());
 
@@ -245,7 +245,7 @@ public final class WorkerTest {
   }
 
   @Test
-  public void testPutRequest_json_populatedFields_success() throws IOException {
+  public void testPutRequest_json_populatedFields_success() throws InterruptedException, IOException {
     WorkRequest request =
         WorkRequest.newBuilder()
             .addArguments("testRequest")
