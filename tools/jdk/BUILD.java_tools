@@ -52,18 +52,18 @@ java_toolchain_default(
 
 # The 'vanilla' toolchain is an unsupported alternative to the default.
 #
-# It does not provider any of the following features:
+# It does not provide any of the following features:
 #   * Error Prone
 #   * Strict Java Deps
 #   * Header Compilation
 #   * Reduced Classpath Optimization
 #
-# It uses the version of javac from the `--host_javabase` instead of the
-# embedded javac, which may not be source- or bug-compatible with the embedded
-# javac.
+# It uses the version of internal javac from the `--host_javabase` JDK instead
+# of providing a javac. Internal javac may not be source- or bug-compatible with
+# the javac that is provided with other toolchains.
 #
 # However it does allow using a wider range of `--host_javabase`s, including
-# versions newer than the current embedded JDK.
+# versions newer than the current JDK.
 java_toolchain_default(
     name = "toolchain_vanilla",
     forcibly_disable_header_compilation = True,

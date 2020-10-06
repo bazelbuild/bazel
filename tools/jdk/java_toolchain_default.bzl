@@ -14,11 +14,18 @@
 
 """Bazel rules for creating Java toolchains."""
 
+DEFAULT_JAVACOPTS = [
+    "-XDskipDuplicateBridges=true",
+    "-g",
+    "-parameters",
+]
+
 JDK8_JVM_OPTS = [
     "-Xbootclasspath/p:$(location :javac_jar)",
 ]
 
-JDK9_JVM_OPTS = [
+# JVM options, without patching java.compiler and jdk.compiler modules.
+BASE_JDK9_JVM_OPTS = [
     # Allow JavaBuilder to access internal javac APIs.
     "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
     "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
@@ -29,10 +36,6 @@ JDK9_JVM_OPTS = [
     "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
     "--add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
 
-    # override the javac in the JDK.
-    "--patch-module=java.compiler=$(location :java_compiler_jar)",
-    "--patch-module=jdk.compiler=$(location :jdk_compiler_jar)",
-
     # quiet warnings from com.google.protobuf.UnsafeUtil,
     # see: https://github.com/google/protobuf/issues/3781
     # and: https://github.com/bazelbuild/bazel/issues/5599
@@ -40,33 +43,42 @@ JDK9_JVM_OPTS = [
     "--add-opens=java.base/java.lang=ALL-UNNAMED",
 ]
 
-DEFAULT_JAVACOPTS = [
-    "-XDskipDuplicateBridges=true",
-    "-g",
-    "-parameters",
+# java_toolchain parameters without specifying javac, java.compiler,
+# and jdk.compiler module
+BASE_TOOLCHAIN_CONFIGURATION = dict(
+    forcibly_disable_header_compilation = False,
+    genclass = [":GenClass"],
+    header_compiler = [":Turbine"],
+    header_compiler_direct = [":TurbineDirect"],
+    ijar = [":ijar"],
+    javabuilder = [":JavaBuilder"],
+    javac_supports_workers = True,
+    jacocorunner = ":jacoco_coverage_runner_filegroup",
+    jvm_opts = BASE_JDK9_JVM_OPTS,
+    misc = DEFAULT_JAVACOPTS,
+    singlejar = [":singlejar"],
+    # Code to enumerate target JVM boot classpath uses host JVM. Because
+    # java_runtime-s are involved, its implementation is in @bazel_tools.
+    bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath"],
+    source_version = "8",
+    target_version = "8",
+)
+
+JDK9_JVM_OPTS = BASE_JDK9_JVM_OPTS + [
+    # override the javac in the JDK.
+    "--patch-module=java.compiler=$(location :java_compiler_jar)",
+    "--patch-module=jdk.compiler=$(location :jdk_compiler_jar)",
 ]
 
-DEFAULT_TOOLCHAIN_CONFIGURATION = {
-    "forcibly_disable_header_compilation": 0,
-    "genclass": [":GenClass"],
-    "header_compiler": [":Turbine"],
-    "header_compiler_direct": [":TurbineDirect"],
-    "ijar": [":ijar"],
-    "jacocorunner": ":jacoco_coverage_runner_filegroup",
-    "javabuilder": [":JavaBuilder"],
-    "javac": [":javac_jar"],
-    "tools": [
+DEFAULT_TOOLCHAIN_CONFIGURATION = dict(
+    javac = [":javac_jar"],
+    tools = [
         ":java_compiler_jar",
         ":jdk_compiler_jar",
     ],
-    "javac_supports_workers": 1,
-    "jvm_opts": JDK9_JVM_OPTS,
-    "misc": DEFAULT_JAVACOPTS,
-    "singlejar": [":singlejar"],
-    "bootclasspath": ["@bazel_tools//tools/jdk:platformclasspath"],
-    "source_version": "8",
-    "target_version": "8",
-}
+    jvm_opts = JDK9_JVM_OPTS,
+    **BASE_TOOLCHAIN_CONFIGURATION
+)
 
 def java_toolchain_default(name, **kwargs):
     """Defines a java_toolchain with appropriate defaults for Bazel."""
@@ -78,44 +90,10 @@ def java_toolchain_default(name, **kwargs):
         **toolchain_args
     )
 
-JDK_NOJAVAC_JVM_OPTS = [
-    # Allow JavaBuilder to access internal javac APIs.
-    "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-    "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-    "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
-    "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-    "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-    "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-    "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-    "--add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-
-    # quiet warnings from com.google.protobuf.UnsafeUtil,
-    # see: https://github.com/google/protobuf/issues/3781
-    # and: https://github.com/bazelbuild/bazel/issues/5599
-    "--add-opens=java.base/java.nio=ALL-UNNAMED",
-    "--add-opens=java.base/java.lang=ALL-UNNAMED",
-]
-
-NOJAVAC_TOOLCHAIN_CONFIGURATION = {
-    "forcibly_disable_header_compilation": 0,
-    "genclass": [":GenClass"],
-    "header_compiler": [":Turbine"],
-    "header_compiler_direct": [":TurbineDirect"],
-    "ijar": [":ijar"],
-    "javabuilder": [":JavaBuilder"],
-    "javac_supports_workers": 1,
-    "jvm_opts": JDK_NOJAVAC_JVM_OPTS,
-    "misc": DEFAULT_JAVACOPTS,
-    "singlejar": [":singlejar"],
-    "bootclasspath": ["@bazel_tools//tools/jdk:platformclasspath"],
-    "source_version": "8",
-    "target_version": "8",
-}
-
 def java_toolchain_nojavac(name, **kwargs):
     """Defines a java_toolchain without overriding javac for Bazel."""
 
-    toolchain_args = dict(NOJAVAC_TOOLCHAIN_CONFIGURATION)
+    toolchain_args = dict(BASE_TOOLCHAIN_CONFIGURATION)
     toolchain_args.update(kwargs)
     native.java_toolchain(
         name = name,
