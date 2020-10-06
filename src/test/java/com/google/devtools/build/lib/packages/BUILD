@@ -34,7 +34,7 @@ java_library(
 
 java_test(
     name = "PackagesTests",
-    size = "small",
+    size = "medium",
     srcs = glob(
         include = ["*.java"],
         exclude = [
