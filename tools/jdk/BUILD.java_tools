@@ -35,8 +35,18 @@ java_toolchain_default(
     target_version = "8",
 )
 
+# Default to the Java 8 language level.
+# TODO(cushon): consider if/when we should increment this?
 java_toolchain_default(
     name = "legacy_toolchain",
+    source_version = "8",
+    target_version = "8",
+)
+
+# Needed for openbsd
+java_toolchain_default(
+    name = "legacy_toolchain_jvm8",
+    jvm_opts = JDK8_JVM_OPTS,
     source_version = "8",
     target_version = "8",
 )
@@ -67,10 +77,19 @@ java_toolchain_default(
 RELEASES = (8, 9, 10, 11)
 
 [
-    java_toolchain_default(
-        name = "toolchain_java%d" % release,
-        source_version = "%s" % release,
-        target_version = "%s" % release,
+    (
+        java_toolchain_default(
+            name = "toolchain_java%d" % release,
+            source_version = "%s" % release,
+            target_version = "%s" % release,
+        ),
+        # Needed for openbsd
+        java_toolchain_default(
+            name = "toolchain_java%d_jvm8" % release,
+            jvm_opts = JDK8_JVM_OPTS,
+            source_version = "%s" % release,
+            target_version = "%s" % release,
+        ),
     )
     for release in RELEASES
 ]
