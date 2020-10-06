@@ -19,7 +19,6 @@ SUPRESSED_WARNINGS = select({
 
 java_toolchain_default(
     name = "toolchain",
-    jacocorunner = ":jacoco_coverage_runner_filegroup",
     jvm_opts = [
         # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
         # G1 collector and having compact strings enabled.
@@ -97,7 +96,6 @@ RELEASES = (8, 9, 10, 11)
 # A toolchain that targets java 11.
 java_toolchain_default(
     name = "toolchain_jdk_11",
-    jacocorunner = ":jacoco_coverage_runner_filegroup",
     jvm_opts = [
         # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
         # G1 collector and having compact strings enabled.
@@ -111,7 +109,6 @@ java_toolchain_default(
 # A toolchain that targets java 14.
 java_toolchain_nojavac(
     name = "toolchain_jdk_14",
-    jacocorunner = ":jacoco_coverage_runner_filegroup",
     source_version = "14",
     target_version = "14",
 )
@@ -119,7 +116,6 @@ java_toolchain_nojavac(
 # A toolchain that targets java 15.
 java_toolchain_nojavac(
     name = "toolchain_jdk_15",
-    jacocorunner = ":jacoco_coverage_runner_filegroup",
     source_version = "15",
     target_version = "15",
 )
@@ -132,7 +128,6 @@ java_toolchain_nojavac(
 java_toolchain_default(
     name = "prebuilt_toolchain",
     ijar = [":ijar_prebuilt_binary"],
-    jacocorunner = ":jacoco_coverage_runner_filegroup",
     jvm_opts = [
         # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
         # G1 collector and having compact strings enabled.

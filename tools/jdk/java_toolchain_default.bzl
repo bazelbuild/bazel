@@ -52,6 +52,7 @@ DEFAULT_TOOLCHAIN_CONFIGURATION = {
     "header_compiler": [":Turbine"],
     "header_compiler_direct": [":TurbineDirect"],
     "ijar": [":ijar"],
+    "jacocorunner": ":jacoco_coverage_runner_filegroup",
     "javabuilder": [":JavaBuilder"],
     "javac": [":javac_jar"],
     "tools": [
