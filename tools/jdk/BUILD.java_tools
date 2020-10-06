@@ -97,6 +97,14 @@ java_toolchain_nojavac(
     target_version = "14",
 )
 
+# A toolchain that targets java 15.
+java_toolchain_nojavac(
+    name = "toolchain_jdk_15",
+    jacocorunner = ":jacoco_coverage_runner_filegroup",
+    source_version = "15",
+    target_version = "15",
+)
+
 # The new toolchain is using all the pre-built tools, including
 # singlejar and ijar, even on remote execution. This toolchain
 # should be used only when host and execution platform are the
