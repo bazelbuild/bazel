@@ -15,10 +15,13 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.shell.TerminationStatus;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import java.io.InputStream;
@@ -459,17 +462,37 @@ public interface SpawnResult {
     public SpawnResult build() {
       Preconditions.checkArgument(!runnerName.isEmpty());
 
-      if (status == Status.SUCCESS) {
-        Preconditions.checkArgument(exitCode == 0, exitCode);
-      } else if (status == Status.TIMEOUT) {
-        Preconditions.checkArgument(exitCode == POSIX_TIMEOUT_EXIT_CODE, exitCode);
-      } else if (status == Status.NON_ZERO_EXIT || status == Status.OUT_OF_MEMORY) {
-        Preconditions.checkArgument(exitCode != 0, exitCode);
+      switch (status) {
+        case SUCCESS:
+          Preconditions.checkArgument(exitCode == 0, exitCode);
+          Preconditions.checkArgument(failureDetail == null, failureDetail);
+          break;
+        case TIMEOUT:
+          Preconditions.checkArgument(exitCode == POSIX_TIMEOUT_EXIT_CODE, exitCode);
+          // Fall through.
+        default:
+          Preconditions.checkArgument(
+              exitCode != 0,
+              "Failed spawn with status %s had exit code 0 (%s %s)",
+              status,
+              failureMessage,
+              failureDetail);
+          Preconditions.checkArgument(
+              failureDetail != null,
+              "Failed spawn with status %s and exit code %s had no failure detail (%s)",
+              status,
+              exitCode,
+              failureMessage);
+          if (!status.isConsideredUserError()
+              && ExitCode.BUILD_FAILURE.equals(DetailedExitCode.getExitCode(failureDetail))) {
+            BugReport.sendBugReport(
+                new IllegalStateException(
+                    String.format(
+                        "System error %s should not have failure detail %s with 'build failure'"
+                            + " exit code (%s)",
+                        status, failureDetail, failureMessage)));
+          }
       }
-
-      // TODO(mschaller): Once SimpleSpawnResult.Builder's uses have picked up FailureDetails for
-      //  unsuccessful spawns, add a precondition that asserts failureDetail's nullity is the same
-      //  as whether status is SUCCESS.
 
       return new SimpleSpawnResult(this);
     }
@@ -496,11 +519,6 @@ public interface SpawnResult {
 
     public Builder setRunnerName(String runnerName) {
       this.runnerName = runnerName;
-      return this;
-    }
-
-    public Builder setRunnerSubtype(String runnerSubtype) {
-      this.runnerSubtype = runnerSubtype;
       return this;
     }
 

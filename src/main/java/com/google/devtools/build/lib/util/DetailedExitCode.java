@@ -42,7 +42,7 @@ public class DetailedExitCode {
   }
 
   /** Returns the registered {@link ExitCode} associated with a {@link FailureDetail} message. */
-  private static ExitCode getExitCode(FailureDetail failureDetail) {
+  public static ExitCode getExitCode(FailureDetail failureDetail) {
     // TODO(mschaller): Consider specializing for unregistered exit codes here, if absolutely
     //  necessary.
     int numericExitCode = getNumericExitCode(failureDetail);
@@ -123,7 +123,7 @@ public class DetailedExitCode {
    * Returns the numeric exit code associated with a {@link FailureDetail} submessage's subcategory
    * enum value.
    */
-  private static int getNumericExitCode(EnumValueDescriptor subcategoryDescriptor) {
+  public static int getNumericExitCode(EnumValueDescriptor subcategoryDescriptor) {
     checkArgument(
         subcategoryDescriptor.getOptions().hasExtension(FailureDetails.metadata),
         "Enum value %s has no FailureDetails.metadata",

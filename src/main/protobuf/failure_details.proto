@@ -203,7 +203,7 @@ message Spawn {
     // Note: Spawn OUT_OF_MEMORY leads to a BUILD_FAILURE exit_code because the
     // build tool itself did not run out of memory.
     OUT_OF_MEMORY = 3 [(metadata) = { exit_code: 1 }];
-    EXECUTION_FAILED = 4 [(metadata) = { exit_code: 1 }];
+    EXECUTION_FAILED = 4 [(metadata) = { exit_code: 34 }];
     EXECUTION_DENIED = 5 [(metadata) = { exit_code: 1 }];
     REMOTE_CACHE_FAILED = 6 [(metadata) = { exit_code: 34 }];
     COMMAND_LINE_EXPANSION_FAILURE = 7 [(metadata) = { exit_code: 1 }];
