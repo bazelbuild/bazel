@@ -236,7 +236,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
                 .build();
         JavaSourceJarsProvider sourceJarsProvider =
             JavaSourceJarsProvider.create(
-                NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+                NestedSetBuilder.create(Order.STABLE_ORDER, sourceJar),
                 ImmutableList.of(sourceJar));
 
         aspect.addProvider(ruleOutputJarsProvider).addProvider(sourceJarsProvider);
