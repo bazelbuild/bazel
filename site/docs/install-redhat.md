@@ -15,6 +15,8 @@ The commands below must be run either via `sudo` or while logged in as `root`.
 Add `--allowerasing` when installing an upgrade from a previous major
 version of the Bazel package.
 
+[The Bazelisk installer](install-bazelisk.md) is an alternative to package installation.
+
 ## Installing on Fedora 25+
 
 1. The [DNF](https://fedoraproject.org/wiki/DNF) package manager can install

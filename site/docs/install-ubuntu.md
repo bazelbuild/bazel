@@ -21,6 +21,10 @@ Install Bazel on Ubuntu using one of the following methods:
 *   [Use the binary installer](#install-with-installer-ubuntu)
 *   [Compile Bazel from source](install-compile-source.md)
 
+**Note:** For Arm-based systems, the APT repository does not contain an `arm64`
+release, and there is no binary installer available. Either use Bazelisk or
+compile from source.
+
 Bazel comes with two completion scripts. After installing Bazel, you can:
 
 *   Access the [bash completion script](completion.md#bash)
