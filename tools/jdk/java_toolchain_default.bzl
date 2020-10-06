@@ -107,7 +107,7 @@ NOJAVAC_TOOLCHAIN_CONFIGURATION = {
     "jvm_opts": JDK_NOJAVAC_JVM_OPTS,
     "misc": DEFAULT_JAVACOPTS,
     "singlejar": [":singlejar"],
-    "bootclasspath": [":platformclasspath"],
+    "bootclasspath": ["@bazel_tools//tools/jdk:platformclasspath"],
     "source_version": "8",
     "target_version": "8",
 }
