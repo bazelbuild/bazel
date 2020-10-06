@@ -174,7 +174,7 @@ distdir_tar(
         # protocolbuffers/protobuf
         "v3.13.0.tar.gz",
         # grpc/grpc
-        "v1.26.0.tar.gz",
+        "v1.31.1.tar.gz",
         # c-ares/c-ares
         "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
         # protocolbuffers/upb
@@ -211,7 +211,7 @@ distdir_tar(
         # protocolbuffers/protobuf
         "v3.13.0.tar.gz": "9b4ee22c250fe31b16f1a24d61467e40780a3fbb9b91c3b65be2a376ed913a1a",
         # grpc/grpc
-        "v1.26.0.tar.gz": "2fcb7f1ab160d6fd3aaade64520be3e5446fc4c6fa7ba6581afdc4e26094bd81",
+        "v1.31.1.tar.gz": "f20f92a09f7245e2c437fbd729849ffe3b2dd39a46c9378d201f8f95cc9f12ea",
         # c-ares/c-ares
         "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz": "e8c2751ddc70fed9dc6f999acd92e232d5846f009ee1674f8aee81f19b2b915a",
         # protocolbuffers/upb
@@ -290,9 +290,9 @@ distdir_tar(
             "https://github.com/protocolbuffers/protobuf/archive/v3.13.0.tar.gz",
         ],
         # grpc/grpc
-        "v1.26.0.tar.gz": [
-            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.26.0.tar.gz",
-            "https://github.com/grpc/grpc/archive/v1.26.0.tar.gz",
+        "v1.31.1.tar.gz": [
+            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.31.1.tar.gz",
+            "https://github.com/grpc/grpc/archive/v1.31.1.tar.gz",
         ],
         # c-ares/c-ares
         "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz": [
@@ -549,7 +549,7 @@ distdir_tar(
         # protocolbuffers/protobuf
         "v3.13.0.tar.gz",
         # grpc/grpc
-        "v1.26.0.tar.gz",
+        "v1.31.1.tar.gz",
         # c-ares/c-ares
         "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
         # protocolbuffers/upb
@@ -579,7 +579,7 @@ distdir_tar(
         # protocolbuffers/protobuf
         "v3.13.0.tar.gz": "9b4ee22c250fe31b16f1a24d61467e40780a3fbb9b91c3b65be2a376ed913a1a",
         # grpc/grpc
-        "v1.26.0.tar.gz": "2fcb7f1ab160d6fd3aaade64520be3e5446fc4c6fa7ba6581afdc4e26094bd81",
+        "v1.31.1.tar.gz": "f20f92a09f7245e2c437fbd729849ffe3b2dd39a46c9378d201f8f95cc9f12ea",
         # c-ares/c-ares
         "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz": "e8c2751ddc70fed9dc6f999acd92e232d5846f009ee1674f8aee81f19b2b915a",
         # protocolbuffers/upb
@@ -628,9 +628,9 @@ distdir_tar(
             "https://github.com/protocolbuffers/protobuf/archive/v3.13.0.tar.gz",
         ],
         # grpc/grpc
-        "v1.26.0.tar.gz": [
-            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.26.0.tar.gz",
-            "https://github.com/grpc/grpc/archive/v1.26.0.tar.gz",
+        "v1.31.1.tar.gz": [
+            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.31.1.tar.gz",
+            "https://github.com/grpc/grpc/archive/v1.31.1.tar.gz",
         ],
         # c-ares/c-ares
         "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz": [
@@ -1022,30 +1022,15 @@ register_local_rc_exe_toolchains()
 
 register_toolchains("//src/main/res:empty_rc_toolchain")
 
-# Patch upb for grpc due to https://github.com/bazelbuild/bazel/issues/12056
-# TODO: Remove the following after upgrading grpc to a newer version that's not
-# affected by this issue.
-http_archive(
-    name = "upb",
-    patch_args = ["-p1"],
-    patches = ["//third_party/grpc:upb_gcc10_fix.patch"],
-    sha256 = "61d0417abd60e65ed589c9deee7c124fe76a4106831f6ad39464e1525cef1454",
-    strip_prefix = "upb-9effcbcb27f0a665f9f345030188c0b291e32482",
-    urls = [
-        "https://mirror.bazel.build/github.com/protocolbuffers/upb/archive/9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
-        "https://github.com/protocolbuffers/upb/archive/9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
-    ],
-)
-
 http_archive(
     name = "com_github_grpc_grpc",
     patch_args = ["-p1"],
-    patches = ["//third_party/grpc:grpc_1.26.0.patch"],
-    sha256 = "2fcb7f1ab160d6fd3aaade64520be3e5446fc4c6fa7ba6581afdc4e26094bd81",
-    strip_prefix = "grpc-1.26.0",
+    patches = ["//third_party/grpc:grpc_1.31.1.patch"],
+    sha256 = "f20f92a09f7245e2c437fbd729849ffe3b2dd39a46c9378d201f8f95cc9f12ea",
+    strip_prefix = "grpc-1.31.1",
     urls = [
-        "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.26.0.tar.gz",
-        "https://github.com/grpc/grpc/archive/v1.26.0.tar.gz",
+        "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.31.1.tar.gz",
+        "https://github.com/grpc/grpc/archive/v1.31.1.tar.gz",
     ],
 )
 

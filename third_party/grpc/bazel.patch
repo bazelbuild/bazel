@@ -31,7 +31,7 @@ diff --git a/third_party/grpc/bazel/BUILD b/third_party/grpc/bazel/BUILD
 index c3c82c9c0c..6f451a6f24 100644
 --- a/third_party/grpc/bazel/BUILD
 +++ b/third_party/grpc/bazel/BUILD
-@@ -17,3 +17,8 @@ licenses(["notice"])  # Apache v2
+@@ -17,3 +17,18 @@ licenses(["notice"])  # Apache v2
  package(default_visibility = ["//:__subpackages__"])
  
  load(":cc_grpc_library.bzl", "cc_grpc_library")
@@ -40,6 +40,16 @@ index c3c82c9c0c..6f451a6f24 100644
 +    name = "srcs",
 +    srcs = glob(["**"]),
 +)
++
++filegroup(
++    name = "embedded_tools_srcs",
++    srcs = [
++        "BUILD.tools",
++        "cc_grpc_library.bzl",
++        "generate_cc.bzl",
++        "protobuf.bzl",
++    ],
++)
 diff --git a/third_party/grpc/bazel/cc_grpc_library.bzl b/third_party/grpc/bazel/cc_grpc_library.bzl
 index dea493eaf2..0470a294fc 100644
 --- a/third_party/grpc/bazel/cc_grpc_library.bzl
@@ -47,6 +57,7 @@ index dea493eaf2..0470a294fc 100644
 @@ -1,105 +1,58 @@
  """Generates and compiles C++ grpc stubs from proto_library rules."""
  
+-load("@rules_proto//proto:defs.bzl", "proto_library")
 -load("//bazel:generate_cc.bzl", "generate_cc")
 -load("//bazel:protobuf.bzl", "well_known_proto_libs")
 +load(":generate_cc.bzl", "generate_cc")
@@ -127,8 +138,7 @@ index dea493eaf2..0470a294fc 100644
 -        proto_deps += [dep.split(":")[0] + ":" + "_" + dep.split(":")[1] + "_only" for dep in deps if dep.find(":") != -1]
 -        if well_known_protos:
 -            proto_deps += well_known_proto_libs()
--
--        native.proto_library(
+-        proto_library(
 -            name = proto_target,
 -            srcs = srcs,
 -            deps = proto_deps,
