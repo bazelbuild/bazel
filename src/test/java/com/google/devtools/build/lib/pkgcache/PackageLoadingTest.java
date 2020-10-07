@@ -111,7 +111,7 @@ public class PackageLoadingTest extends FoundationTestCase {
   }
 
   private void setUpSkyframe(
-      PackageOptions packageOptions, BuildLanguageOptions starlarkSemanticsOptions) {
+      PackageOptions packageOptions, BuildLanguageOptions buildLanguageOptions) {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             null,
@@ -129,7 +129,7 @@ public class PackageLoadingTest extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
-        starlarkSemanticsOptions,
+        buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));

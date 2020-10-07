@@ -110,7 +110,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
   }
 
   private void setUpSkyframe(
-      PackageOptions packageOptions, BuildLanguageOptions starlarkSemanticsOptions) {
+      PackageOptions packageOptions, BuildLanguageOptions buildLanguageOptions) {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             null,
@@ -124,7 +124,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
-        starlarkSemanticsOptions,
+        buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(clock));

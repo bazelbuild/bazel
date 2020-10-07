@@ -67,7 +67,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
 
   protected LoadingMock loadingMock;
   private PackageOptions packageOptions;
-  private BuildLanguageOptions starlarkSemanticsOptions;
+  private BuildLanguageOptions buildLanguageOptions;
   protected ConfiguredRuleClassProvider ruleClassProvider;
   protected PackageFactory packageFactory;
   protected SkyframeExecutor skyframeExecutor;
@@ -80,7 +80,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   public final void initializeSkyframeExecutor() throws Exception {
     loadingMock = LoadingMock.get();
     packageOptions = parsePackageOptions();
-    starlarkSemanticsOptions = parseBuildLanguageOptions();
+    buildLanguageOptions = parseBuildLanguageOptions();
     List<RuleDefinition> extraRules = getExtraRules();
     if (!extraRules.isEmpty()) {
       ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
@@ -177,7 +177,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
-        starlarkSemanticsOptions,
+        buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
@@ -206,7 +206,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   }
 
   protected void setBuildLanguageOptions(String... options) throws Exception {
-    starlarkSemanticsOptions = parseBuildLanguageOptions(options);
+    buildLanguageOptions = parseBuildLanguageOptions(options);
     setUpSkyframe();
   }
 

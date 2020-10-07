@@ -113,7 +113,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   private void preparePackageLoadingWithCustomStarklarkSemanticsOptions(
-      BuildLanguageOptions starlarkSemanticsOptions, Path... roots) {
+      BuildLanguageOptions buildLanguageOptions, Path... roots) {
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
     packageOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
     packageOptions.showLoadingProgress = true;
@@ -125,7 +125,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
                 Arrays.stream(roots).map(Root::fromPath).collect(ImmutableList.toImmutableList()),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageOptions,
-            starlarkSemanticsOptions,
+            buildLanguageOptions,
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));

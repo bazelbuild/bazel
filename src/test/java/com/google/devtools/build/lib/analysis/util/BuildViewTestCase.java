@@ -216,7 +216,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected OptionsParser optionsParser;
   private PackageOptions packageOptions;
-  private BuildLanguageOptions starlarkSemanticsOptions;
+  private BuildLanguageOptions buildLanguageOptions;
   protected PackageFactory pkgFactory;
 
   protected MockToolsConfig mockToolsConfig;
@@ -267,7 +267,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     initializeMockClient();
 
     packageOptions = parsePackageOptions();
-    starlarkSemanticsOptions = parseBuildLanguageOptions();
+    buildLanguageOptions = parseBuildLanguageOptions();
     workspaceStatusActionFactory = new AnalysisTestUtil.DummyWorkspaceStatusActionFactory();
     mutableActionGraph = new MapBasedActionGraph(actionKeyContext);
     ruleClassProvider = createRuleClassProvider();
@@ -324,7 +324,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             ImmutableList.of(root),
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
         packageOptions,
-        starlarkSemanticsOptions,
+        buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         tsgm);
@@ -401,7 +401,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected StarlarkSemantics getStarlarkSemantics() {
-    return starlarkSemanticsOptions.toStarlarkSemantics();
+    return buildLanguageOptions.toStarlarkSemantics();
   }
 
   protected PackageValidator getPackageValidator() {
@@ -481,7 +481,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
-        starlarkSemanticsOptions,
+        buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
         tsgm);
@@ -504,7 +504,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected void setBuildLanguageOptions(String... options) throws Exception {
-    starlarkSemanticsOptions = parseBuildLanguageOptions(options);
+    buildLanguageOptions = parseBuildLanguageOptions(options);
     setUpSkyframe();
   }
 
@@ -2115,7 +2115,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     @Override
     public StarlarkSemantics getStarlarkSemantics() {
-      return starlarkSemanticsOptions.toStarlarkSemantics();
+      return buildLanguageOptions.toStarlarkSemantics();
     }
 
     @Override
