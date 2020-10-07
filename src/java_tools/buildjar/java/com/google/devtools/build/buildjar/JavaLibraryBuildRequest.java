@@ -195,11 +195,15 @@ public final class JavaLibraryBuildRequest {
   // TODO(b/169793789): kill this with fire if javahotswap starts using jars instead of classes
   @VisibleForTesting
   static Path deriveDirectory(String label, String outputJar, String suffix) throws IOException {
-    if (outputJar == null || label == null) {
-      // TODO(b/169944970): require --output to be set and fix up affected tests
+    if (label == null) {
+      // TODO(b/169944970): require --target_label to be set and fix up affected tests
       return Files.createTempDirectory(suffix);
     }
-    checkArgument(label.contains(":"), label);
+    checkArgument(label != null, "--target_label is required");
+    checkArgument(outputJar != null, "--output is required");
+    checkArgument(
+        label.contains(":"), "--target_label must be a canonical label (containing a `:`)");
+
     Path path = Paths.get(outputJar);
     String name = MoreFiles.getNameWithoutExtension(path);
     String base = label.substring(label.lastIndexOf(':') + 1);
