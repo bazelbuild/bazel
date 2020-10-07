@@ -15,13 +15,20 @@ filegroup(
 java_library(
     name = "jni",
     srcs = ["JniLoader.java"],
-    data = [
-        "//src/main/native:target-os-unix-native-lib",
-        "//src/main/native/windows:target-os-native-lib",
-    ],
+    resources = select({
+        "//src/conditions:darwin": [
+            "//src/main/native:libunix_jni.dylib",
+        ],
+        "//src/conditions:windows": [
+            "//src/main/native/windows:windows_jni.dll",
+        ],
+        "//conditions:default": [
+            "//src/main/native:libunix_jni.so",
+        ],
+    }),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//third_party:flogger",
-        "@bazel_tools//tools/java/runfiles",
+        "//third_party:guava",
     ],
 )

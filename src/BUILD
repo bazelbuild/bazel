@@ -337,8 +337,6 @@ filegroup(
         ":platforms_archive",
         # Ordinary items follow:
         "//src/main/java/net/starlark/java/eval:cpu_profiler",
-        "//src/main/native:target-os-unix-native-lib",
-        "//src/main/native/windows:target-os-native-lib",
         "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",

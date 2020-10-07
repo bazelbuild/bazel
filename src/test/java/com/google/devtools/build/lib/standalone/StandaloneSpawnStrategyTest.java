@@ -95,7 +95,8 @@ public class StandaloneSpawnStrategyTest {
 
   private Path createTestRoot() throws IOException {
     fileSystem = FileSystems.getNativeFileSystem();
-    Path testRoot = fileSystem.getPath(TestUtils.tmpDir());
+    Path testRoot = fileSystem.getPath(TestUtils.tmpDir()).getRelative("test");
+    testRoot.createDirectoryAndParents();
     try {
       testRoot.deleteTreesBelow();
     } catch (IOException e) {
