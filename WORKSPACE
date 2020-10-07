@@ -179,6 +179,8 @@ distdir_tar(
         "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
         # protocolbuffers/upb
         "92e63da73328d01b417cf26c2de7b0a27a0f83af.tar.gz",
+        # google/re2
+        "aecba11114cf1fac5497aeb844b6966106de3eb6.tar.gz",
     ],
     dirname = "derived/distdir",
     sha256 = {
@@ -216,6 +218,8 @@ distdir_tar(
         "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz": "e8c2751ddc70fed9dc6f999acd92e232d5846f009ee1674f8aee81f19b2b915a",
         # protocolbuffers/upb
         "92e63da73328d01b417cf26c2de7b0a27a0f83af.tar.gz": "79f7de61203c4ee5e4fcb2f17c5f3338119d6eb94aca8bce05332d2c1cfee108",
+        # google/re2
+        "aecba11114cf1fac5497aeb844b6966106de3eb6.tar.gz": "9f385e146410a8150b6f4cb1a57eab7ec806ced48d427554b1e754877ff26c3e",
     },
     urls = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": [
@@ -303,6 +307,11 @@ distdir_tar(
         "92e63da73328d01b417cf26c2de7b0a27a0f83af.tar.gz": [
             "https://mirror.bazel.build/github.com/protocolbuffers/upb/archive/92e63da73328d01b417cf26c2de7b0a27a0f83af.tar.gz",
             "https://github.com/protocolbuffers/upb/archive/92e63da73328d01b417cf26c2de7b0a27a0f83af.tar.gz",
+        ],
+        # google/re2
+        "aecba11114cf1fac5497aeb844b6966106de3eb6.tar.gz": [
+            "https://mirror.bazel.build/github.com/google/re2/archive/aecba11114cf1fac5497aeb844b6966106de3eb6.tar.gz",
+            "https://github.com/google/re2/archive/aecba11114cf1fac5497aeb844b6966106de3eb6.tar.gz",
         ],
     },
 )
@@ -554,6 +563,8 @@ distdir_tar(
         "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
         # protocolbuffers/upb
         "92e63da73328d01b417cf26c2de7b0a27a0f83af.tar.gz",
+        # google/re2
+        "aecba11114cf1fac5497aeb844b6966106de3eb6.tar.gz",
     ],
     dirname = "test_WORKSPACE/distdir",
     sha256 = {
@@ -584,6 +595,8 @@ distdir_tar(
         "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz": "e8c2751ddc70fed9dc6f999acd92e232d5846f009ee1674f8aee81f19b2b915a",
         # protocolbuffers/upb
         "92e63da73328d01b417cf26c2de7b0a27a0f83af.tar.gz": "79f7de61203c4ee5e4fcb2f17c5f3338119d6eb94aca8bce05332d2c1cfee108",
+        # google/re2
+        "aecba11114cf1fac5497aeb844b6966106de3eb6.tar.gz": "9f385e146410a8150b6f4cb1a57eab7ec806ced48d427554b1e754877ff26c3e",
     },
     urls = {
         "java_tools_javac11_linux-v10.0.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.0/java_tools_javac11_linux-v10.0.zip"],
@@ -641,6 +654,11 @@ distdir_tar(
         "92e63da73328d01b417cf26c2de7b0a27a0f83af.tar.gz": [
             "https://mirror.bazel.build/github.com/protocolbuffers/upb/archive/92e63da73328d01b417cf26c2de7b0a27a0f83af.tar.gz",
             "https://github.com/protocolbuffers/upb/archive/92e63da73328d01b417cf26c2de7b0a27a0f83af.tar.gz",
+        ],
+        # google/re2
+        "aecba11114cf1fac5497aeb844b6966106de3eb6.tar.gz": [
+            "https://mirror.bazel.build/github.com/google/re2/archive/aecba11114cf1fac5497aeb844b6966106de3eb6.tar.gz",
+            "https://github.com/google/re2/archive/aecba11114cf1fac5497aeb844b6966106de3eb6.tar.gz",
         ],
     },
 )
