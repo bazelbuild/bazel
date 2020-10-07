@@ -253,7 +253,6 @@ public final class SpawnStrategyRegistry
     private final HashMap<String, List<String>> mnemonicToIdentifiers = new HashMap<>();
     private final HashMap<String, List<String>> mnemonicToRemoteIdentifiers = new HashMap<>();
     private final HashMap<String, List<String>> mnemonicToLocalIdentifiers = new HashMap<>();
-    private boolean legacyFilterIterationOrder = false;
     @Nullable private String remoteLocalFallbackStrategyIdentifier;
 
     /**
@@ -262,9 +261,8 @@ public final class SpawnStrategyRegistry
      * progress message} matches the regular expression to only use strategies with the given
      * command-line identifiers, in order.
      *
-     * <p>If multiple filters match the same spawn (including an identical filter) the order of
-     * precedence of calls to this method is determined by {@link
-     * #useLegacyDescriptionFilterPrecedence()}.
+     * <p>If multiple filters match the same spawn (including an identical filter) the order of last
+     * applicable filter registered by this method will be used.
      */
     public Builder addDescriptionFilter(RegexFilter filter, List<String> identifiers) {
       filterAndIdentifiers.add(
@@ -308,18 +306,6 @@ public final class SpawnStrategyRegistry
 
     public Builder registerStrategy(SpawnStrategy strategy, String... commandlineIdentifiers) {
       return registerStrategy(strategy, ImmutableList.copyOf(commandlineIdentifiers));
-    }
-
-    /**
-     * Instructs this collector to use the legacy description filter precedence, i.e. to prefer the
-     * first regular expression filter that matches a spawn over any later registered filters.
-     *
-     * <p>The default behavior of this collector is to prefer the last registered description filter
-     * over any previously registered matching filters.
-     */
-    public Builder useLegacyDescriptionFilterPrecedence() {
-      legacyFilterIterationOrder = true;
-      return this;
     }
 
     /**
@@ -394,11 +380,7 @@ public final class SpawnStrategyRegistry
      *     default strategies but no strategy for that identifier was registered
      */
     public SpawnStrategyRegistry build() throws AbruptExitException {
-      List<FilterAndIdentifiers> orderedFilterAndIdentifiers = filterAndIdentifiers;
-
-      if (!legacyFilterIterationOrder) {
-        orderedFilterAndIdentifiers = Lists.reverse(filterAndIdentifiers);
-      }
+      List<FilterAndIdentifiers> orderedFilterAndIdentifiers = Lists.reverse(filterAndIdentifiers);
 
       ListMultimap<RegexFilter, SpawnStrategy> filterToStrategies = LinkedListMultimap.create();
       for (FilterAndIdentifiers filterAndIdentifier : orderedFilterAndIdentifiers) {
