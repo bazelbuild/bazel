@@ -203,6 +203,30 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_java15_test",
+    srcs = ["bazel_java15_test.sh"],
+    args = [
+        # --java_toolchain and --host_java_toolchain values
+        "@local_java_tools//:toolchain_jdk_15",
+        # java_tools zip to test
+        "src/java_tools_java11.zip",
+    ] + select({
+        # --javabase and --host_javabase values
+        "//src/conditions:darwin": ["@openjdk15_darwin_archive//:runtime"],
+        "//src/conditions:darwin_x86_64": ["@openjdk15_darwin_archive//:runtime"],
+        "//src/conditions:windows": ["@openjdk15_windows_archive//:runtime"],
+        "//src/conditions:linux_x86_64": ["@openjdk15_linux_archive//:runtime"],
+    }),
+    data = [
+        ":test-deps",
+        "//src:java_tools_java11_zip",
+        "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["local"],
+)
+
+sh_test(
     name = "bazel_java_test",
     # TODO(iirina): Investigate if the 'large' and 'eternal' values still apply.
     size = "large",
@@ -220,7 +244,7 @@ sh_test(
     exec_compatible_with = ["//:highcpu_machine"],
 )
 
-JAVA_VERSIONS = ("11", "14")
+JAVA_VERSIONS = ("11", "14", "15")
 
 [
     sh_test(
