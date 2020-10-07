@@ -77,7 +77,12 @@ def compile_cc_file(repository_ctx, src_name, out_name):
              error_msg)
 
 def configure_osx_toolchain(repository_ctx, overriden_tools):
-    """Configure C++ toolchain on macOS."""
+    """Configure C++ toolchain on macOS.
+
+    Args:
+      repository_ctx: The repository context.
+      overriden_tools: dictionary of overriden tools.
+    """
     paths = resolve_labels(repository_ctx, [
         "@bazel_tools//tools/cpp:osx_cc_wrapper.sh.tpl",
         "@bazel_tools//tools/objc:libtool.sh",
