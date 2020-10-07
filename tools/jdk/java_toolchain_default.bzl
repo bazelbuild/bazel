@@ -20,12 +20,8 @@ _DEFAULT_JAVACOPTS = [
     "-parameters",
 ]
 
-JDK8_JVM_OPTS = [
-    "-Xbootclasspath/p:$(location :javac_jar)",
-]
-
 # JVM options, without patching java.compiler and jdk.compiler modules.
-_BASE_JDK9_JVM_OPTS = [
+JDK9_JVM_OPTS = [
     # Allow JavaBuilder to access internal javac APIs.
     "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
     "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
@@ -54,6 +50,7 @@ _BASE_TOOLCHAIN_CONFIGURATION = dict(
     javabuilder = [":JavaBuilder"],
     javac_supports_workers = True,
     jacocorunner = ":jacoco_coverage_runner_filegroup",
+    jvm_opts = JDK9_JVM_OPTS,
     misc = _DEFAULT_JAVACOPTS,
     singlejar = [":singlejar"],
     # Code to enumerate target JVM boot classpath uses host JVM. Because
@@ -63,39 +60,10 @@ _BASE_TOOLCHAIN_CONFIGURATION = dict(
     target_version = "8",
 )
 
-JDK9_JVM_OPTS = _BASE_JDK9_JVM_OPTS + [
-    # override the javac in the JDK.
-    "--patch-module=java.compiler=$(location :java_compiler_jar)",
-    "--patch-module=jdk.compiler=$(location :jdk_compiler_jar)",
-]
-
-_DEFAULT_TOOLCHAIN_CONFIGURATION = dict(
-    javac = [":javac_jar"],
-    tools = [
-        ":java_compiler_jar",
-        ":jdk_compiler_jar",
-    ],
-    jvm_opts = JDK9_JVM_OPTS,
-    **_BASE_TOOLCHAIN_CONFIGURATION
-)
-
 def java_toolchain_default(name, **kwargs):
     """Defines a java_toolchain with appropriate defaults for Bazel."""
 
-    toolchain_args = dict(_DEFAULT_TOOLCHAIN_CONFIGURATION)
-    toolchain_args.update(kwargs)
-    native.java_toolchain(
-        name = name,
-        **toolchain_args
-    )
-
-def java_toolchain_nojavac(name, **kwargs):
-    """Defines a java_toolchain without overriding javac for Bazel."""
-
-    toolchain_args = dict(
-        jvm_opts = _BASE_JDK9_JVM_OPTS,
-        **_BASE_TOOLCHAIN_CONFIGURATION
-    )
+    toolchain_args = dict(_BASE_TOOLCHAIN_CONFIGURATION)
     toolchain_args.update(kwargs)
     native.java_toolchain(
         name = name,
