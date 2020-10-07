@@ -759,5 +759,12 @@ public class BazelJavaSemantics implements JavaSemantics {
 
   @Override
   public void checkDependencyRuleKinds(RuleContext ruleContext) {}
+
+  @Override
+  public boolean shouldSetupJavaBuilderTemporaryDirectories() {
+    // TODO(cushon): remove after release of:
+    // https://github.com/bazelbuild/bazel/commit/2350239c39841a67162c1c3de042397d6c3771e4
+    return true;
+  }
 }
 

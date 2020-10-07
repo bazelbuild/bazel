@@ -511,4 +511,6 @@ public interface JavaSemantics {
   Artifact getObfuscatedConstantStringMap(RuleContext ruleContext) throws InterruptedException;
 
   void checkDependencyRuleKinds(RuleContext ruleContext);
+
+  boolean shouldSetupJavaBuilderTemporaryDirectories();
 }
