@@ -655,9 +655,12 @@ JAVA_VERSIONS = ("11",)
 [
     genrule(
         name = "java_tools_java" + java_version + "_build_zip",
-        srcs = ["remote_java_tools_java" + java_version + "/BUILD"],
+        srcs = [
+            "remote_java_tools_java" + java_version + "/BUILD",
+            "//tools/jdk:java_toolchain_default.bzl",
+        ],
         outs = ["java_tools_java_" + java_version + "_build.zip"],
-        cmd = "zip -jX $@ $<",
+        cmd = "zip -jX $@ $(SRCS)",
     )
     for java_version in JAVA_VERSIONS
 ]
