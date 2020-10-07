@@ -47,14 +47,18 @@ public @interface Param {
 
   /**
    * Type of the parameter, e.g. {@link String}.class or {@link
-   * net.starlark.java.eval.Sequence}.class.
+   * net.starlark.java.eval.Sequence}.class. May not be used in conjunction with {@link
+   * #allowedTypes}. Specifying neither {@code type} nor {@code allowedTypes} is equivalent to
+   * specifying the class of the parameter variable.
    */
-  Class<?> type() default Object.class;
+  // TODO(adonovan): abolish this (and noneable). It creates ambiguity, complexity,and bugs.
+  // Just specify allowedTypes, with empty array meaning "use the class of the parameter itself".
+  Class<?> type() default Void.class;
 
   /**
    * List of allowed types for the parameter if multiple types are allowed.
    *
-   * <p>If using this, {@link #type()} should be set to {@code Object.class}.
+   * <p>May not be used in conjunction with {@link #type}.
    */
   ParamType[] allowedTypes() default {};
 

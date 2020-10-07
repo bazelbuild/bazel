@@ -238,6 +238,7 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
     List<? extends VariableElement> params = method.getParameters();
 
     TypeMirror objectType = getType("java.lang.Object");
+    TypeMirror voidType = getType("java.lang.Void");
 
     boolean allowPositionalNext = true;
     boolean allowPositionalOnlyNext = true;
@@ -258,7 +259,7 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
       }
       VariableElement param = params.get(i);
 
-      checkParameter(param, paramAnnot, objectType);
+      checkParameter(param, paramAnnot, objectType, voidType);
 
       // Check parameter ordering.
       if (paramAnnot.positional()) {
@@ -304,7 +305,8 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
   }
 
   // Checks consistency of a single parameter with its Param annotation.
-  private void checkParameter(Element param, Param paramAnnot, TypeMirror objectType) {
+  private void checkParameter(
+      Element param, Param paramAnnot, TypeMirror objectType, TypeMirror voidType) {
     TypeMirror paramType = param.asType(); // type of the Java method parameter
 
     // A "noneable" parameter variable must accept the value None.
@@ -328,7 +330,7 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
     }
 
     // Check param.type.
-    if (!types.isSameType(getParamType(paramAnnot), objectType)) {
+    if (!types.isSameType(getParamType(paramAnnot), voidType)) {
       // Reject Param.type if not assignable to parameter variable.
       TypeMirror t = getParamType(paramAnnot);
       if (!types.isAssignable(t, types.erasure(paramType))) {

@@ -23,7 +23,7 @@ public @interface ParamType {
    * The Java class of the type, e.g. {@link String}.class or {@link
    * net.starlark.java.eval.Sequence}.class.
    */
-  Class<?> type() default Object.class;
+  Class<?> type();
 
   /**
    * When {@link #type()} is a generic type (e.g., {@link net.starlark.java.eval.Sequence}), specify

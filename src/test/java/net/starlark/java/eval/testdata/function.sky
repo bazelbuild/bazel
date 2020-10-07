@@ -60,3 +60,6 @@ getattr("", "abc") ### 'string' value has no field or method 'abc'
 ---
 x = getattr("", "pop", "clear")
 x() ### 'string' object is not callable
+---
+# Regression test for a type mismatch crash (b/168743413).
+getattr(1, []) ### parameter 'name' got value of type 'list', want 'string'

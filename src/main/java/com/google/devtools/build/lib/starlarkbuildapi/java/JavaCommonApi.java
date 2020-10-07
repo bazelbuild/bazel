@@ -182,14 +182,12 @@ public interface JavaCommonApi<
             name = "java_toolchain",
             positional = false,
             named = true,
-            type = Object.class,
             allowedTypes = {@ParamType(type = JavaToolchainStarlarkApiProviderApi.class)},
             doc = "A JavaToolchainInfo to be used for this compilation. Mandatory."),
         @Param(
             name = "host_javabase",
             positional = false,
             named = true,
-            type = Object.class,
             allowedTypes = {@ParamType(type = JavaRuntimeInfoApi.class)},
             doc = "A JavaRuntimeInfo to be used for this compilation. Mandatory."),
         @Param(
@@ -272,7 +270,6 @@ public interface JavaCommonApi<
             name = "java_toolchain",
             positional = false,
             named = true,
-            type = Object.class,
             allowedTypes = {@ParamType(type = JavaToolchainStarlarkApiProviderApi.class)},
             doc = "A JavaToolchainInfo to used to find the ijar tool."),
       })
@@ -315,7 +312,6 @@ public interface JavaCommonApi<
             name = "java_toolchain",
             positional = false,
             named = true,
-            type = Object.class,
             allowedTypes = {@ParamType(type = JavaToolchainStarlarkApiProviderApi.class)},
             doc = "A JavaToolchainInfo to used to find the stamp_jar tool."),
       })
@@ -378,14 +374,12 @@ public interface JavaCommonApi<
             name = "java_toolchain",
             positional = false,
             named = true,
-            type = Object.class,
             allowedTypes = {@ParamType(type = JavaToolchainStarlarkApiProviderApi.class)},
             doc = "A JavaToolchainInfo to used to find the ijar tool."),
         @Param(
             name = "host_javabase",
             positional = false,
             named = true,
-            type = Object.class,
             allowedTypes = {@ParamType(type = JavaRuntimeInfoApi.class)},
             doc = "A JavaRuntimeInfo to be used for packing sources."),
       },
@@ -409,7 +403,6 @@ public interface JavaCommonApi<
             name = "java_toolchain",
             positional = false,
             named = true,
-            type = Object.class,
             allowedTypes = {@ParamType(type = JavaToolchainStarlarkApiProviderApi.class)},
             doc =
                 "A JavaToolchainInfo to be used for retrieving the ijar "

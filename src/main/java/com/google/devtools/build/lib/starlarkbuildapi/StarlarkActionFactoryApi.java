@@ -240,7 +240,6 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
         @Param(name = "output", type = FileApi.class, doc = "The output file.", named = true),
         @Param(
             name = "content",
-            type = Object.class,
             allowedTypes = {
               @ParamType(type = String.class),
               @ParamType(type = CommandLineArgsApi.class)
@@ -286,7 +285,6 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             doc = "List or depset of the input files of the action."),
         @Param(
             name = "unused_inputs_list",
-            type = Object.class,
             allowedTypes = {
               @ParamType(type = FileApi.class),
             },
@@ -303,7 +301,6 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
                     + "outputs of the action."),
         @Param(
             name = "executable",
-            type = Object.class,
             allowedTypes = {
               @ParamType(type = FileApi.class),
               @ParamType(type = String.class),
@@ -327,10 +324,8 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
                     + "runfiles that are automatically made available to the action."),
         @Param(
             name = "arguments",
-            type = Object.class,
-            allowedTypes = {
-              @ParamType(type = Sequence.class),
-            },
+            type = Sequence.class,
+            generic1 = String.class,
             defaultValue = "[]",
             named = true,
             positional = false,
@@ -496,7 +491,6 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             doc = "A one-word description of the action, for example, CppCompile or GoLink."),
         @Param(
             name = "command",
-            type = Object.class,
             allowedTypes = {
               @ParamType(type = String.class),
               @ParamType(type = Sequence.class, generic1 = String.class),

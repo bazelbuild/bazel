@@ -109,11 +109,15 @@ final class ParamDescriptor {
           reboxInt = true;
         }
       }
+    } else if (param.type() == Void.class) {
+      // If no Param.type type was specified, use the class of the parameter itself.
+      // Interpret primitive boolean parameter as j.l.Boolean.
+      allowedClasses.add(paramClass == Boolean.TYPE ? Boolean.class : paramClass);
     } else {
       allowedClasses.add(param.type());
-      if (param.type() == Integer.class) {
-        reboxInt = true;
-      }
+    }
+    if (param.type() == Integer.class) {
+      reboxInt = true;
     }
     if (param.noneable()) {
       // A few annotations redundantly declare NoneType.
