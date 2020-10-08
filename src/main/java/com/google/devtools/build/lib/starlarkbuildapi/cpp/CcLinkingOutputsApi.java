@@ -44,4 +44,13 @@ public interface CcLinkingOutputsApi<FileT extends FileApi> extends StarlarkValu
       doc = "<a href='File.html'><code>File</code></a> object representing the linked executable.",
       documented = true)
   FileT getExecutable();
+
+  @StarlarkMethod(
+      name = "executable_use_pic",
+      structField = true,
+      allowReturnNones = true,
+      doc = "<a href='bool.html'><code>bool</code></a> set to True if linker was requested to use pic objects,"
+                + " None if not known.",
+      documented = true)
+  Boolean getExecutableUsePic();
 }

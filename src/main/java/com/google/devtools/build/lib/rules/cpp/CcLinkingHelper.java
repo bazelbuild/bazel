@@ -771,6 +771,7 @@ public final class CcLinkingHelper {
     CppLinkAction dynamicLinkAction = dynamicLinkActionBuilder.build();
     if (dynamicLinkType.isExecutable()) {
       ccLinkingOutputs.setExecutable(linkerOutput);
+      ccLinkingOutputs.setExecutableUsePic(usePic);
     }
     actionConstructionContext.registerAction(dynamicLinkAction);
 

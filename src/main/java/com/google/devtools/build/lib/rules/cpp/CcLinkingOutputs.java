@@ -30,6 +30,7 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact> {
 
   @Nullable private final LibraryToLink libraryToLink;
   @Nullable private final Artifact executable;
+  @Nullable private final Boolean executableUsePic;
 
   private final ImmutableList<LtoBackendArtifacts> allLtoArtifacts;
   private final ImmutableList<Artifact> linkActionInputs;
@@ -37,10 +38,12 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact> {
   private CcLinkingOutputs(
       LibraryToLink libraryToLink,
       Artifact executable,
+      Boolean executableUsePic,
       ImmutableList<LtoBackendArtifacts> allLtoArtifacts,
       ImmutableList<Artifact> linkActionInputs) {
     this.libraryToLink = libraryToLink;
     this.executable = executable;
+    this.executableUsePic = executableUsePic;
     this.allLtoArtifacts = allLtoArtifacts;
     this.linkActionInputs = linkActionInputs;
   }
@@ -55,6 +58,12 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact> {
   @Nullable
   public Artifact getExecutable() {
     return executable;
+  }
+
+  @Override
+  @Nullable
+  public Boolean getExecutableUsePic() {
+    return executableUsePic;
   }
 
   public ImmutableList<LtoBackendArtifacts> getAllLtoArtifacts() {
@@ -109,6 +118,7 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact> {
   public static final class Builder {
     private LibraryToLink libraryToLink;
     private Artifact executable;
+    private Boolean executableUsePic;
 
     private Builder() {
       // private to avoid class initialization deadlock between this class and its outer class
@@ -122,7 +132,7 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact> {
 
     public CcLinkingOutputs build() {
       return new CcLinkingOutputs(
-          libraryToLink, executable, allLtoArtifacts.build(), linkActionInputs.build());
+          libraryToLink, executable, executableUsePic, allLtoArtifacts.build(), linkActionInputs.build());
     }
 
     public Builder setLibraryToLink(LibraryToLink libraryToLink) {
@@ -132,6 +142,11 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact> {
 
     public Builder setExecutable(Artifact executable) {
       this.executable = executable;
+      return this;
+    }
+
+    public Builder setExecutableUsePic(boolean executableUsePic) {
+      this.executableUsePic = Boolean.valueOf(executableUsePic);
       return this;
     }
 
