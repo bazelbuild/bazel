@@ -79,7 +79,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   public Sequence<?> glob(
       Sequence<?> include,
       Sequence<?> exclude,
-      Integer excludeDirs,
+      StarlarkInt excludeDirs,
       Object allowEmptyArgument,
       StarlarkThread thread)
       throws EvalException, ConversionException, InterruptedException {
@@ -103,7 +103,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
     try {
       Globber.Token globToken =
-          context.globber.runAsync(includes, excludes, excludeDirs != 0, allowEmpty);
+          context.globber.runAsync(includes, excludes, excludeDirs.signum() != 0, allowEmpty);
       matches = context.globber.fetchUnsorted(globToken);
     } catch (IOException e) {
       String errorMessage =

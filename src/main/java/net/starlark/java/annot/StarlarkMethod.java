@@ -63,15 +63,6 @@ import java.lang.annotation.Target;
  *   <li>Noneable parameter variables must be declared with type Object, as the actual value may be
  *       either {@code None} or some other value, which do not share a superclass other than Object
  *       (or StarlarkValue, which is typically no more descriptive than Object).
- *   <li>A parameter may have type Integer, or have a {@link Param#type} or {@link
- *       Param#allowedTypes} annotation that includes Integer.class, even though Integer is not a
- *       legal Starlark value type. When called from Starlark code, such a parameter accepts
- *       StarlarkInt values, but only in the signed 32-bit value range. These values are "reboxed"
- *       to Integer. Note that reboxing will still occur in the case where the annotation-declared
- *       types include Integer.class but the parameter's type is Object. This means the parameter's
- *       value cannot be assumed to be a legal Starlark value and should not be freely passed to
- *       other functions in the Starlark API that require a legal value. To avoid the range and
- *       legality limitations of reboxing, simply use StarlarkInt in place of Integer.
  *   <li>Parameter variables whose class is generic must be declared using wildcard types. For
  *       example, {@code Sequence<?>} is allowed but {@code Sequence<String>} is forbidden. This is
  *       because the call-time dynamic checks verify the class but cannot verify the type

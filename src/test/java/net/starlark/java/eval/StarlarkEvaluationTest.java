@@ -186,11 +186,11 @@ public final class StarlarkEvaluationTest {
         name = "nullfunc_failing",
         parameters = {
           @Param(name = "p1", type = String.class),
-          @Param(name = "p2", type = Integer.class),
+          @Param(name = "p2", type = StarlarkInt.class),
         },
         documented = false,
         allowReturnNones = false)
-    public StarlarkValue nullfuncFailing(String p1, Integer p2) {
+    public StarlarkValue nullfuncFailing(String p1, StarlarkInt p2) {
       return null;
     }
 
@@ -244,7 +244,7 @@ public final class StarlarkEvaluationTest {
               named = true),
           @Param(
               name = "noneable",
-              type = Integer.class,
+              type = StarlarkInt.class,
               defaultValue = "None",
               noneable = true,
               positional = false,
@@ -253,8 +253,8 @@ public final class StarlarkEvaluationTest {
               name = "multi",
               allowedTypes = {
                 @ParamType(type = String.class),
-                @ParamType(type = Integer.class),
-                @ParamType(type = Sequence.class, generic1 = Integer.class),
+                @ParamType(type = StarlarkInt.class),
+                @ParamType(type = Sequence.class, generic1 = StarlarkInt.class),
               },
               defaultValue = "None",
               noneable = true,
@@ -262,7 +262,7 @@ public final class StarlarkEvaluationTest {
               named = true)
         })
     public String withParams(
-        Integer pos1,
+        StarlarkInt pos1,
         boolean pos2,
         boolean posOrNamed,
         boolean named,
@@ -319,7 +319,7 @@ public final class StarlarkEvaluationTest {
               named = true),
           @Param(
               name = "noneable",
-              type = Integer.class,
+              type = StarlarkInt.class,
               defaultValue = "None",
               noneable = true,
               positional = false,
@@ -328,8 +328,8 @@ public final class StarlarkEvaluationTest {
               name = "multi",
               allowedTypes = {
                 @ParamType(type = String.class),
-                @ParamType(type = Integer.class),
-                @ParamType(type = Sequence.class, generic1 = Integer.class),
+                @ParamType(type = StarlarkInt.class),
+                @ParamType(type = Sequence.class, generic1 = StarlarkInt.class),
               },
               defaultValue = "None",
               noneable = true,
@@ -338,7 +338,7 @@ public final class StarlarkEvaluationTest {
         },
         useStarlarkThread = true)
     public String withParamsAndExtraInterpreterParams(
-        Integer pos1,
+        StarlarkInt pos1,
         boolean pos2,
         boolean posOrNamed,
         boolean named,
@@ -388,14 +388,14 @@ public final class StarlarkEvaluationTest {
         name = "with_args_and_thread",
         documented = false,
         parameters = {
-          @Param(name = "pos1", type = Integer.class),
+          @Param(name = "pos1", type = StarlarkInt.class),
           @Param(name = "pos2", defaultValue = "False", type = Boolean.class),
           @Param(name = "named", type = Boolean.class, positional = false, named = true),
         },
         extraPositionals = @Param(name = "args"),
         useStarlarkThread = true)
     public String withArgsAndThread(
-        Integer pos1, boolean pos2, boolean named, Sequence<?> args, StarlarkThread thread) {
+        StarlarkInt pos1, boolean pos2, boolean named, Sequence<?> args, StarlarkThread thread) {
       String argsString = debugPrintArgs(args);
       return "with_args_and_thread("
           + pos1
@@ -452,24 +452,6 @@ public final class StarlarkEvaluationTest {
     @StarlarkMethod(name = "raise_unchecked_exception", documented = false)
     public void raiseUncheckedException() {
       throw new InternalError("buggy code");
-    }
-
-    @StarlarkMethod(
-        name = "int_conversion",
-        doc = "test implicit StarlarkInt to Integer conversion",
-        parameters = {
-          @Param(name = "a", type = Integer.class),
-          @Param(
-              name = "b",
-              allowedTypes = {
-                @ParamType(type = String.class),
-                @ParamType(type = Integer.class),
-              }),
-          @Param(name = "c"),
-          @Param(name = "d"),
-        })
-    public String intConversion(Object a, Object b, Integer c, Object d) {
-      return String.format("(%s, %s, %s, %s)", a, b, c, d);
     }
 
     @Override
@@ -922,8 +904,8 @@ public final class StarlarkEvaluationTest {
   }
 
   @SuppressWarnings("unchecked")
-  private void nestedLoopsTest(String statement, Integer outerExpected, int firstExpected,
-      int secondExpected) throws Exception {
+  private void nestedLoopsTest(
+      String statement, int outerExpected, int firstExpected, int secondExpected) throws Exception {
     ev.exec(
         "def foo():",
         "   outer = 0",
@@ -1908,7 +1890,6 @@ public final class StarlarkEvaluationTest {
         .testExactOrder(
             "dir(mock)",
             "function",
-            "int_conversion",
             "interrupted_struct_field",
             "is_empty",
             "nullfunc_failing",
@@ -2121,24 +2102,5 @@ public final class StarlarkEvaluationTest {
             IllegalArgumentException.class,
             () -> Starlark.addMethods(ImmutableMap.builder(), new Mock()));
     assertThat(ex).hasMessageThat().contains("method struct_field has structField=true");
-  }
-
-  @Test
-  public void testIntegerReboxing() throws Exception {
-    ev.new Scenario()
-        .update("mock", new Mock())
-        .setUp("big = 111111111 * 111111111")
-        .testExpression("mock.int_conversion(1, 2, 3, 4)", "(1, 2, 3, 4)")
-        .testExpression("mock.int_conversion(1, 'b', 3, 'd')", "(1, b, 3, d)")
-        .testIfErrorContains(
-            "got 12345678987654321 for a, want value in signed 32-bit range",
-            "mock.int_conversion(big, 0, 0, 0)")
-        .testIfErrorContains(
-            "got 12345678987654321 for b, want value in signed 32-bit range",
-            "mock.int_conversion(0, big, 0, 0)")
-        .testIfErrorContains(
-            "got 12345678987654321 for c, want value in signed 32-bit range",
-            "mock.int_conversion(0, 0, big, 0)")
-        .testExpression("mock.int_conversion(0, 0, 0, big)", "(0, 0, 0, 12345678987654321)");
   }
 }

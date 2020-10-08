@@ -89,6 +89,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 
@@ -535,13 +536,14 @@ public class StarlarkRepositoryContext
   @Override
   public StarlarkExecutionResult execute(
       Sequence<?> arguments, // <String> or <StarlarkPath> or <Label> expected
-      Integer timeout,
+      StarlarkInt timeoutI,
       Dict<?, ?> uncheckedEnvironment, // <String, String> expected
       boolean quiet,
       String workingDirectory,
       StarlarkThread thread)
       throws EvalException, RepositoryFunctionException, InterruptedException {
     validateExecuteArguments(arguments);
+    int timeout = Starlark.toInt(timeoutI, "timeout");
 
     Map<String, String> environment =
         Dict.cast(uncheckedEnvironment, String.class, String.class, "environment");
@@ -575,7 +577,7 @@ public class StarlarkRepositoryContext
     env.getListener().post(w);
     createDirectory(outputDirectory);
 
-    long timeoutMillis = Math.round(timeout.longValue() * 1000 * timeoutScaling);
+    long timeoutMillis = Math.round(timeout * 1000L * timeoutScaling);
     if (processWrapper != null) {
       args =
           processWrapper
@@ -622,8 +624,9 @@ public class StarlarkRepositoryContext
   }
 
   @Override
-  public void patch(Object patchFile, Integer strip, StarlarkThread thread)
+  public void patch(Object patchFile, StarlarkInt stripI, StarlarkThread thread)
       throws EvalException, RepositoryFunctionException, InterruptedException {
+    int strip = Starlark.toInt(stripI, "strip");
     StarlarkPath starlarkPath = getPath("patch()", patchFile);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newPatchEvent(

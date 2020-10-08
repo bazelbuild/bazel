@@ -24,8 +24,7 @@ public class StarlarkInterfaceUtils {
 
   /**
    * Returns the more specific class of two classes. Class x is more specific than class y if x is
-   * assignable to y. For example, of Integer.class and Object.class, Integer.class is more
-   * specific.
+   * assignable to y. For example, of String.class and Object.class, String.class is more specific.
    *
    * <p>If either class is null, returns the other class.
    *

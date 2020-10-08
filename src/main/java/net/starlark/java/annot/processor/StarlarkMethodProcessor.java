@@ -329,6 +329,15 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
           paramAnnot.name());
     }
 
+    // Give helpful hint for parameter of type Integer.
+    TypeMirror integerType = getType("java.lang.Integer");
+    if (types.isSameType(paramType, integerType)) {
+      errorf(
+          param,
+          "use StarlarkInt, not Integer for parameter '%s' (and see Starlark.toInt)",
+          paramAnnot.name());
+    }
+
     // Check param.type.
     if (!types.isSameType(getParamType(paramAnnot), voidType)) {
       // Reject Param.type if not assignable to parameter variable.

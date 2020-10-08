@@ -107,7 +107,8 @@ public class TypeTest {
   @Test
   public void testNonString() throws Exception {
     Type.ConversionException e =
-        assertThrows(Type.ConversionException.class, () -> Type.STRING.convert(3, null));
+        assertThrows(
+            Type.ConversionException.class, () -> Type.STRING.convert(StarlarkInt.of(3), null));
     assertThat(e).hasMessageThat().isEqualTo("expected value of type 'string', but got 3 (int)");
   }
 
@@ -242,7 +243,8 @@ public class TypeTest {
   @Test
   public void testNonLabel() throws Exception {
     Type.ConversionException e =
-        assertThrows(Type.ConversionException.class, () -> BuildType.LABEL.convert(3, null));
+        assertThrows(
+            Type.ConversionException.class, () -> BuildType.LABEL.convert(StarlarkInt.of(3), null));
     assertThat(e).hasMessageThat().isEqualTo("expected value of type 'string', but got 3 (int)");
   }
 
@@ -281,7 +283,9 @@ public class TypeTest {
   @Test
   public void testNonStringList() throws Exception {
     Type.ConversionException e =
-        assertThrows(Type.ConversionException.class, () -> Type.STRING_LIST.convert(3, "blah"));
+        assertThrows(
+            Type.ConversionException.class,
+            () -> Type.STRING_LIST.convert(StarlarkInt.of(3), "blah"));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo("expected value of type 'list(string)' for blah, but got 3 (int)");
@@ -289,7 +293,7 @@ public class TypeTest {
 
   @Test
   public void testStringListBadElements() throws Exception {
-    Object input = Arrays.<Object>asList("foo", "bar", 1);
+    Object input = Arrays.<Object>asList("foo", "bar", StarlarkInt.of(1));
     Type.ConversionException e =
         assertThrows(
             Type.ConversionException.class, () -> Type.STRING_LIST.convert(input, "argument quux"));
@@ -326,7 +330,7 @@ public class TypeTest {
     Type.ConversionException e =
         assertThrows(
             Type.ConversionException.class,
-            () -> BuildType.LABEL_LIST.convert(3, "foo", currentRule));
+            () -> BuildType.LABEL_LIST.convert(StarlarkInt.of(3), "foo", currentRule));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo("expected value of type 'list(label)' for foo, but got 3 (int)");
@@ -334,7 +338,7 @@ public class TypeTest {
 
   @Test
   public void testLabelListBadElements() throws Exception {
-    Object list = Arrays.<Object>asList("//foo:bar", 2, "foo");
+    Object list = Arrays.<Object>asList("//foo:bar", StarlarkInt.of(2), "foo");
     Type.ConversionException e =
         assertThrows(
             Type.ConversionException.class,
@@ -375,8 +379,9 @@ public class TypeTest {
 
   @Test
   public void testStringListDictBadFirstElement() throws Exception {
-    Object input = ImmutableMap.of(2, Arrays.asList("foo", "bar"),
-                                   "wiz", Arrays.asList("bang"));
+    Object input =
+        ImmutableMap.of(
+            StarlarkInt.of(2), Arrays.asList("foo", "bar"), "wiz", Arrays.asList("bang"));
     Type.ConversionException e =
         assertThrows(
             Type.ConversionException.class,

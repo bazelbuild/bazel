@@ -78,6 +78,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Tuple;
@@ -1863,7 +1864,7 @@ public abstract class CcModule
       String language,
       String outputType,
       boolean linkDepsStatically,
-      int stamp,
+      StarlarkInt stamp,
       Sequence<?> additionalInputs,
       Object grepIncludes,
       StarlarkThread thread)
@@ -1871,7 +1872,7 @@ public abstract class CcModule
     validateLanguage(language);
     validateOutputType(outputType);
     boolean isStampingEnabled =
-        isStampingEnabled(stamp, actions.getRuleContext().getConfiguration());
+        isStampingEnabled(stamp.toInt("stamp"), actions.getRuleContext().getConfiguration());
     CcToolchainProvider ccToolchainProvider =
         convertFromNoneable(starlarkCcToolchainProvider, null);
     FeatureConfigurationForStarlark featureConfiguration =

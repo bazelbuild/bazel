@@ -17,6 +17,8 @@ package net.starlark.java.eval;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.math.BigInteger;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -50,13 +52,20 @@ public final class EvalUtilsTest {
   @Test
   public void testDataTypeNames() throws Exception {
     assertThat(Starlark.type("foo")).isEqualTo("string");
-    assertThat(Starlark.type(3)).isEqualTo("int");
+    assertThat(Starlark.type(StarlarkInt.of(3))).isEqualTo("int");
     assertThat(Starlark.type(Tuple.of(1, 2, 3))).isEqualTo("tuple");
     assertThat(Starlark.type(makeList(null))).isEqualTo("list");
     assertThat(Starlark.type(makeDict(null))).isEqualTo("dict");
     assertThat(Starlark.type(Starlark.NONE)).isEqualTo("NoneType");
     assertThat(Starlark.type(new MockClassA())).isEqualTo("MockClassA");
     assertThat(Starlark.type(new MockClassB())).isEqualTo("MockClassA");
+
+    // Not legal values, but relied upon by (e.g.) ApiExporter
+    // when formatting the result type of an annotated method.
+    // Other types accepted by fromJava are treated similarly.
+    assertThat(Starlark.type(3)).isEqualTo("int");
+    assertThat(Starlark.type(ImmutableList.of())).isEqualTo("List");
+    assertThat(Starlark.type(ImmutableMap.of())).isEqualTo("Map");
   }
 
   @Test

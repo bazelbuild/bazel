@@ -16,6 +16,7 @@ package net.starlark.java.annot.processor.testsources;
 
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -33,7 +34,7 @@ public class ToggledParamNoDisabledValue implements StarlarkValue {
         @Param(name = "one", named = true, positional = true),
         @Param(name = "two", named = true, enableOnlyWithFlag = FOO, positional = true)
       })
-  public Integer noDisabledValueMethod(Integer one, Integer two) {
+  public Integer noDisabledValueMethod(StarlarkInt one, StarlarkInt two) {
     return 42;
   }
 }

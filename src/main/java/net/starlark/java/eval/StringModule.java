@@ -272,7 +272,7 @@ final class StringModule implements StarlarkValue {
         @Param(name = "new", type = String.class, doc = "The string to replace with."),
         @Param(
             name = "count",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true, // TODO(#11244): Set false once incompatible flag is deleted.
             defaultValue = "unbound",
             doc =
@@ -297,13 +297,16 @@ final class StringModule implements StarlarkValue {
                 + "can temporarily opt out of this change by setting "
                 + "--incompatible_string_replace_count=false.)");
       }
-      if (countUnchecked != Starlark.UNBOUND && (Integer) countUnchecked >= 0) {
-        count = (Integer) countUnchecked;
+      if (countUnchecked != Starlark.UNBOUND) {
+        int x = Starlark.toInt(countUnchecked, "count");
+        if (x >= 0) {
+          count = x;
+        }
       }
     } else {
       if (countUnchecked != Starlark.UNBOUND && countUnchecked != Starlark.NONE) {
         // Negative has same effect as 0 below.
-        count = (Integer) countUnchecked;
+        count = Starlark.toInt(countUnchecked, "count");
       }
     }
 
@@ -340,7 +343,7 @@ final class StringModule implements StarlarkValue {
         @Param(name = "sep", type = String.class, doc = "The string to split on."),
         @Param(
             name = "maxsplit",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "None",
             doc = "The maximum number of splits.")
@@ -353,7 +356,7 @@ final class StringModule implements StarlarkValue {
     }
     int maxSplit = Integer.MAX_VALUE;
     if (maxSplitO != Starlark.NONE) {
-      maxSplit = (Integer) maxSplitO;
+      maxSplit = Starlark.toInt(maxSplitO, "maxsplit");
     }
     ArrayList<String> res = new ArrayList<>();
     int start = 0;
@@ -380,7 +383,7 @@ final class StringModule implements StarlarkValue {
         @Param(name = "sep", type = String.class, doc = "The string to split on."),
         @Param(
             name = "maxsplit",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "None",
             doc = "The maximum number of splits.")
@@ -393,7 +396,7 @@ final class StringModule implements StarlarkValue {
     }
     int maxSplit = Integer.MAX_VALUE;
     if (maxSplitO != Starlark.NONE) {
-      maxSplit = (Integer) maxSplitO;
+      maxSplit = Starlark.toInt(maxSplitO, "maxsplit");
     }
     ArrayList<String> res = new ArrayList<>();
     int end = self.length();

@@ -395,12 +395,12 @@ public final class StarlarkList<E> extends AbstractList<E>
       name = "insert",
       doc = "Inserts an item at a given position.",
       parameters = {
-        @Param(name = "index", type = Integer.class, doc = "The index of the given position."),
+        @Param(name = "index", type = StarlarkInt.class, doc = "The index of the given position."),
         @Param(name = "item", type = Object.class, doc = "The item.", noneable = true)
       })
   @SuppressWarnings("unchecked")
-  public NoneType insert(Integer index, Object item) throws EvalException {
-    add(EvalUtils.toIndex(index, size), (E) item, (Location) null); // unchecked
+  public NoneType insert(StarlarkInt index, Object item) throws EvalException {
+    add(EvalUtils.toIndex(index.toInt("index"), size), (E) item, (Location) null); // unchecked
     return Starlark.NONE;
   }
 
@@ -424,22 +424,22 @@ public final class StarlarkList<E> extends AbstractList<E>
         @Param(name = "x", type = Object.class, doc = "The object to search."),
         @Param(
             name = "start",
-            type = Integer.class,
+            type = StarlarkInt.class,
             defaultValue = "None",
             noneable = true, // TODO(adonovan): this is wrong
-            named = true,
+            named = true, // TODO(adonovan): this is wrong
             doc = "The start index of the list portion to inspect."),
         @Param(
             name = "end",
-            type = Integer.class,
+            type = StarlarkInt.class,
             defaultValue = "None",
             noneable = true, // TODO(adonovan): this is wrong
-            named = true,
+            named = true, // TODO(adonovan): this is wrong
             doc = "The end index of the list portion to inspect.")
       })
   public Integer index(Object x, Object start, Object end) throws EvalException {
-    int i = start == Starlark.NONE ? 0 : EvalUtils.toIndex((Integer) start, size);
-    int j = end == Starlark.NONE ? size : EvalUtils.toIndex((Integer) end, size);
+    int i = start == Starlark.NONE ? 0 : EvalUtils.toIndex(Starlark.toInt(start, "start"), size);
+    int j = end == Starlark.NONE ? size : EvalUtils.toIndex(Starlark.toInt(end, "end"), size);
     for (; i < j; i++) {
       if (elems[i].equals(x)) {
         return i;
@@ -457,13 +457,13 @@ public final class StarlarkList<E> extends AbstractList<E>
       parameters = {
         @Param(
             name = "i",
-            type = Integer.class,
-            noneable = true, // TODO(adonovan): this is wrong
+            type = StarlarkInt.class,
+            noneable = true, // TODO(adonovan): this is not what Python3 does
             defaultValue = "-1",
             doc = "The index of the item.")
       })
   public Object pop(Object i) throws EvalException {
-    int arg = i == Starlark.NONE ? -1 : (Integer) i;
+    int arg = i == Starlark.NONE ? -1 : Starlark.toInt(i, "i");
     int index = EvalUtils.getSequenceIndex(arg, size);
     Object result = elems[index];
     remove(index, (Location) null);

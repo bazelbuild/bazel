@@ -270,12 +270,6 @@ public final class Starlark {
       return "string";
     } else if (StarlarkInt.class.isAssignableFrom(c)) {
       return "int";
-    } else if (c.equals(Integer.class)) {
-      // Integer is not a legal Starlark value, but it is used for parameter types
-      // in built-in functions; StarlarkBuiltin.fastcall does a range check
-      // and reboxing. Use of this type means "signed 32-bit int value",
-      // but that's a lot for an error message.
-      return "int";
     } else if (c.equals(Boolean.class)) {
       return "bool";
     }
@@ -324,6 +318,11 @@ public final class Starlark {
     } else if (Map.class.isAssignableFrom(c)) {
       // Any class of java.util.Map that isn't a Dict.
       return "Map";
+
+    } else if (c.equals(Integer.class)) {
+      // Integer is not a legal Starlark value, but it does appear as
+      // the return type for many built-in functions.
+      return "int";
 
     } else {
       String simpleName = c.getSimpleName();

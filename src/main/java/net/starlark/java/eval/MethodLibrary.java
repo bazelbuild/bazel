@@ -382,7 +382,7 @@ class MethodLibrary {
         @Param(name = "x", type = Object.class, doc = "The string to convert."),
         @Param(
             name = "base",
-            type = Integer.class,
+            type = StarlarkInt.class,
             defaultValue = "unbound",
             doc =
                 "The base used to interpret a string value; defaults to 10. Must be between 2 "
@@ -391,29 +391,25 @@ class MethodLibrary {
                     + "string.",
             named = true)
       })
-  public StarlarkInt intForStarlark(Object x, Object base) throws EvalException {
+  public StarlarkInt intForStarlark(Object x, Object baseO) throws EvalException {
     if (x instanceof String) {
-      if (base == Starlark.UNBOUND) {
-        base = 10;
-      } else if (!(base instanceof Integer)) {
-        throw Starlark.errorf("got %s for base, want int", Starlark.type(base));
-      }
+      int base = baseO == Starlark.UNBOUND ? 10 : Starlark.toInt(baseO, "base");
       try {
-        return StarlarkInt.parse((String) x, (Integer) base);
+        return StarlarkInt.parse((String) x, base);
       } catch (NumberFormatException ex) {
         throw Starlark.errorf("%s", ex.getMessage());
       }
-    } else {
-      if (base != Starlark.UNBOUND) {
-        throw Starlark.errorf("can't convert non-string with explicit base");
-      }
-      if (x instanceof Boolean) {
-        return StarlarkInt.of(((Boolean) x).booleanValue() ? 1 : 0);
-      } else if (x instanceof StarlarkInt) {
-        return (StarlarkInt) x;
-      }
-      throw Starlark.errorf("got %s, want string, int, or bool", Starlark.type(x));
     }
+
+    if (baseO != Starlark.UNBOUND) {
+      throw Starlark.errorf("can't convert non-string with explicit base");
+    }
+    if (x instanceof Boolean) {
+      return StarlarkInt.of(((Boolean) x).booleanValue() ? 1 : 0);
+    } else if (x instanceof StarlarkInt) {
+      return (StarlarkInt) x;
+    }
+    throw Starlark.errorf("got %s, want string, int, or bool", Starlark.type(x));
   }
 
   // TODO(adonovan): move into StarlarkInt.parse in a follow-up.
@@ -534,14 +530,15 @@ class MethodLibrary {
         @Param(name = "list", type = Object.class, doc = "input sequence.", named = true),
         @Param(
             name = "start",
-            type = Integer.class,
+            type = StarlarkInt.class,
             doc = "start index.",
             defaultValue = "0",
             named = true)
       },
       useStarlarkThread = true)
-  public StarlarkList<?> enumerate(Object input, Integer start, StarlarkThread thread)
+  public StarlarkList<?> enumerate(Object input, StarlarkInt startI, StarlarkThread thread)
       throws EvalException {
+    int start = Starlark.toInt(startI, "start");
     Object[] array = Starlark.toArray(input);
     for (int i = 0; i < array.length; i++) {
       array[i] = Tuple.pair(StarlarkInt.of(i + start), array[i]); // update in place
@@ -576,13 +573,13 @@ class MethodLibrary {
       parameters = {
         @Param(
             name = "start_or_stop",
-            type = Integer.class,
+            type = StarlarkInt.class,
             doc =
                 "Value of the start element if stop is provided, "
                     + "otherwise value of stop and the actual start is 0"),
         @Param(
             name = "stop_or_none",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "None",
             doc =
@@ -590,28 +587,28 @@ class MethodLibrary {
                     + "list; generation of the list stops before <code>stop</code> is reached."),
         @Param(
             name = "step",
-            type = Integer.class,
+            type = StarlarkInt.class,
             defaultValue = "1",
             doc = "The increment (default is 1). It may be negative.")
       },
       useStarlarkThread = true)
   public Sequence<StarlarkInt> range(
-      Integer startOrStop, Object stopOrNone, Integer step, StarlarkThread thread)
+      StarlarkInt startOrStop, Object stopOrNone, StarlarkInt stepI, StarlarkThread thread)
       throws EvalException {
     int start;
     int stop;
     if (stopOrNone == Starlark.NONE) {
       start = 0;
-      stop = startOrStop;
-    } else if (stopOrNone instanceof Integer) {
-      start = startOrStop;
-      stop = (Integer) stopOrNone;
+      stop = startOrStop.toInt("stop");
     } else {
-      throw Starlark.errorf("want int, got %s", Starlark.type(stopOrNone));
+      start = startOrStop.toInt("start");
+      stop = Starlark.toInt(stopOrNone, "stop");
     }
+    int step = stepI.toInt("step");
     if (step == 0) {
       throw Starlark.errorf("step cannot be 0");
     }
+    // TODO(adonovan): support arbitrary integers.
     return new RangeList(start, stop, step);
   }
 

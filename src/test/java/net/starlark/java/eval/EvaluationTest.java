@@ -139,7 +139,9 @@ public final class EvaluationTest {
 
     class C {
       long run(int n) throws SyntaxError.Exception, EvalException, InterruptedException {
-        Module module = Module.withPredeclared(StarlarkSemantics.DEFAULT, ImmutableMap.of("n", n));
+        Module module =
+            Module.withPredeclared(
+                StarlarkSemantics.DEFAULT, ImmutableMap.of("n", StarlarkInt.of(n)));
         long steps0 = thread.getExecutedSteps();
         Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
         return thread.getExecutedSteps() - steps0;
