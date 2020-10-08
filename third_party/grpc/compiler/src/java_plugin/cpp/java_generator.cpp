@@ -52,7 +52,7 @@ using google::protobuf::SourceLocation;
 using std::to_string;
 
 // java keywords from: https://docs.oracle.com/javase/specs/jls/se8/html/jls-3.html#jls-3.9
-static std::set<std::string> java_keywords = {
+static std::set<string> java_keywords = {
   "abstract",
   "assert",
   "boolean",
@@ -112,8 +112,8 @@ static std::set<std::string> java_keywords = {
 //   - decapitalize the first letter
 //   - remove embedded underscores & capitalize the following letter
 //  Finally, if the result is a reserved java keyword, append an underscore.
-static std::string MixedLower(const std::string& word) {
-  std::string w;
+static string MixedLower(const string& word) {
+  string w;
   w += tolower(word[0]);
   bool after_underscore = false;
   for (size_t i = 1; i < word.length(); ++i) {
@@ -134,8 +134,8 @@ static std::string MixedLower(const std::string& word) {
 //   - An underscore is inserted where a lower case letter is followed by an
 //     upper case letter.
 //   - All letters are converted to upper case
-static std::string ToAllUpperCase(const std::string& word) {
-  std::string w;
+static string ToAllUpperCase(const string& word) {
+  string w;
   for (size_t i = 0; i < word.length(); ++i) {
     w += toupper(word[i]);
     if ((i < word.length() - 1) && islower(word[i]) && isupper(word[i + 1])) {
@@ -145,29 +145,33 @@ static std::string ToAllUpperCase(const std::string& word) {
   return w;
 }
 
-static inline std::string LowerMethodName(const MethodDescriptor* method) {
+static inline string LowerMethodName(const MethodDescriptor* method) {
   return MixedLower(method->name());
 }
 
-static inline std::string MethodPropertiesFieldName(const MethodDescriptor* method) {
+static inline string MethodPropertiesFieldName(const MethodDescriptor* method) {
   return "METHOD_" + ToAllUpperCase(method->name());
 }
 
-static inline std::string MethodPropertiesGetterName(const MethodDescriptor* method) {
+static inline string MethodPropertiesGetterName(const MethodDescriptor* method) {
   return MixedLower("get_" + method->name() + "_method");
 }
 
-static inline std::string MethodIdFieldName(const MethodDescriptor* method) {
+static inline string MethodIdFieldName(const MethodDescriptor* method) {
   return "METHODID_" + ToAllUpperCase(method->name());
 }
 
-static inline std::string MessageFullJavaName(const Descriptor* desc) {
+static inline bool ShouldGenerateAsLite(const Descriptor* desc) {
+  return false;
+}
+
+static inline string MessageFullJavaName(const Descriptor* desc) {
   return google::protobuf::compiler::java::ClassName(desc);
 }
 
 // TODO(nmittler): Remove once protobuf includes javadoc methods in distribution.
 template <typename ITR>
-static void GrpcSplitStringToIteratorUsing(const std::string& full,
+static void GrpcSplitStringToIteratorUsing(const string& full,
                                        const char* delim,
                                        ITR& result) {
   // Optimize the common case where delim is a single character.
@@ -181,17 +185,17 @@ static void GrpcSplitStringToIteratorUsing(const std::string& full,
       } else {
         const char* start = p;
         while (++p != end && *p != c);
-        *result++ = std::string(start, p - start);
+        *result++ = string(start, p - start);
       }
     }
     return;
   }
 
-  std::string::size_type begin_index, end_index;
+  string::size_type begin_index, end_index;
   begin_index = full.find_first_not_of(delim);
-  while (begin_index != std::string::npos) {
+  while (begin_index != string::npos) {
     end_index = full.find_first_of(delim, begin_index);
-    if (end_index == std::string::npos) {
+    if (end_index == string::npos) {
       *result++ = full.substr(begin_index);
       return;
     }
@@ -201,28 +205,28 @@ static void GrpcSplitStringToIteratorUsing(const std::string& full,
 }
 
 // TODO(nmittler): Remove once protobuf includes javadoc methods in distribution.
-static void GrpcSplitStringUsing(const std::string& full,
+static void GrpcSplitStringUsing(const string& full,
                              const char* delim,
-                             std::vector<std::string>* result) {
-  std::back_insert_iterator< std::vector<std::string> > it(*result);
+                             std::vector<string>* result) {
+  std::back_insert_iterator< std::vector<string> > it(*result);
   GrpcSplitStringToIteratorUsing(full, delim, it);
 }
 
 // TODO(nmittler): Remove once protobuf includes javadoc methods in distribution.
-static std::vector<std::string> GrpcSplit(const std::string& full, const char* delim) {
-  std::vector<std::string> result;
+static std::vector<string> GrpcSplit(const string& full, const char* delim) {
+  std::vector<string> result;
   GrpcSplitStringUsing(full, delim, &result);
   return result;
 }
 
 // TODO(nmittler): Remove once protobuf includes javadoc methods in distribution.
-static std::string GrpcEscapeJavadoc(const std::string& input) {
-  std::string result;
+static string GrpcEscapeJavadoc(const string& input) {
+  string result;
   result.reserve(input.size() * 2);
 
   char prev = '*';
 
-  for (std::string::size_type i = 0; i < input.size(); i++) {
+  for (string::size_type i = 0; i < input.size(); i++) {
     char c = input[i];
     switch (c) {
       case '*':
@@ -276,17 +280,17 @@ static std::string GrpcEscapeJavadoc(const std::string& input) {
 
 // TODO(nmittler): Remove once protobuf includes javadoc methods in distribution.
 template <typename DescriptorType>
-static std::string GrpcGetCommentsForDescriptor(const DescriptorType* descriptor) {
+static string GrpcGetCommentsForDescriptor(const DescriptorType* descriptor) {
   SourceLocation location;
   if (descriptor->GetSourceLocation(&location)) {
     return location.leading_comments.empty() ?
       location.trailing_comments : location.leading_comments;
   }
-  return std::string();
+  return string();
 }
 
 // TODO(nmittler): Remove once protobuf includes javadoc methods in distribution.
-static std::vector<std::string> GrpcGetDocLines(const std::string& comments) {
+static std::vector<string> GrpcGetDocLines(const string& comments) {
   if (!comments.empty()) {
     // TODO(kenton):  Ideally we should parse the comment text as Markdown and
     //   write it back as HTML, but this requires a Markdown parser.  For now
@@ -294,26 +298,26 @@ static std::vector<std::string> GrpcGetDocLines(const std::string& comments) {
 
     // If the comment itself contains block comment start or end markers,
     // HTML-escape them so that they don't accidentally close the doc comment.
-    std::string escapedComments = GrpcEscapeJavadoc(comments);
+    string escapedComments = GrpcEscapeJavadoc(comments);
 
-    std::vector<std::string> lines = GrpcSplit(escapedComments, "\n");
+    std::vector<string> lines = GrpcSplit(escapedComments, "\n");
     while (!lines.empty() && lines.back().empty()) {
       lines.pop_back();
     }
     return lines;
   }
-  return std::vector<std::string>();
+  return std::vector<string>();
 }
 
 // TODO(nmittler): Remove once protobuf includes javadoc methods in distribution.
 template <typename DescriptorType>
-static std::vector<std::string> GrpcGetDocLinesForDescriptor(const DescriptorType* descriptor) {
+static std::vector<string> GrpcGetDocLinesForDescriptor(const DescriptorType* descriptor) {
   return GrpcGetDocLines(GrpcGetCommentsForDescriptor(descriptor));
 }
 
 // TODO(nmittler): Remove once protobuf includes javadoc methods in distribution.
 static void GrpcWriteDocCommentBody(Printer* printer,
-                                    const std::vector<std::string>& lines,
+                                    const std::vector<string>& lines,
                                     bool surroundWithPreTag) {
   if (!lines.empty()) {
     if (surroundWithPreTag) {
@@ -338,9 +342,9 @@ static void GrpcWriteDocCommentBody(Printer* printer,
 }
 
 // TODO(nmittler): Remove once protobuf includes javadoc methods in distribution.
-static void GrpcWriteDocComment(Printer* printer, const std::string& comments) {
+static void GrpcWriteDocComment(Printer* printer, const string& comments) {
   printer->Print("/**\n");
-  std::vector<std::string> lines = GrpcGetDocLines(comments);
+  std::vector<string> lines = GrpcGetDocLines(comments);
   GrpcWriteDocCommentBody(printer, lines, false);
   printer->Print(" */\n");
 }
@@ -351,7 +355,7 @@ static void GrpcWriteServiceDocComment(Printer* printer,
   // Deviating from protobuf to avoid extraneous docs
   // (see https://github.com/google/protobuf/issues/1406);
   printer->Print("/**\n");
-  std::vector<std::string> lines = GrpcGetDocLinesForDescriptor(service);
+  std::vector<string> lines = GrpcGetDocLinesForDescriptor(service);
   GrpcWriteDocCommentBody(printer, lines, true);
   printer->Print(" */\n");
 }
@@ -362,13 +366,13 @@ void GrpcWriteMethodDocComment(Printer* printer,
   // Deviating from protobuf to avoid extraneous docs
   // (see https://github.com/google/protobuf/issues/1406);
   printer->Print("/**\n");
-  std::vector<std::string> lines = GrpcGetDocLinesForDescriptor(method);
+  std::vector<string> lines = GrpcGetDocLinesForDescriptor(method);
   GrpcWriteDocCommentBody(printer, lines, true);
   printer->Print(" */\n");
 }
 
 static void PrintMethodFields(
-    const ServiceDescriptor* service, std::map<std::string, std::string>* vars,
+    const ServiceDescriptor* service, std::map<string, string>* vars,
     Printer* p, ProtoFlavor flavor) {
   p->Print("// Static method descriptors that strictly reflect the proto.\n");
   (*vars)["service_name"] = service->name();
@@ -482,15 +486,15 @@ enum CallType {
 };
 
 static void PrintBindServiceMethodBody(const ServiceDescriptor* service,
-                                   std::map<std::string, std::string>* vars,
+                                   std::map<string, string>* vars,
                                    Printer* p);
 
 // Prints a StubFactory for given service / stub type.
 static void PrintStubFactory(
     const ServiceDescriptor* service,
-    std::map<std::string, std::string>* vars,
+    std::map<string, string>* vars,
     Printer* p, StubType type) {
-  std::string stub_type_name;
+  string stub_type_name;
   switch (type) {
     case ASYNC_CLIENT_IMPL:
       stub_type_name = "";
@@ -519,14 +523,14 @@ static void PrintStubFactory(
 // Prints a client interface or implementation class, or a server interface.
 static void PrintStub(
     const ServiceDescriptor* service,
-    std::map<std::string, std::string>* vars,
+    std::map<string, string>* vars,
     Printer* p, StubType type) {
-  const std::string service_name = service->name();
+  const string service_name = service->name();
   (*vars)["service_name"] = service_name;
   (*vars)["abstract_name"] = service_name + "ImplBase";
-  std::string stub_name = service_name;
-  std::string client_name = service_name;
-  std::string stub_base_class_name = "AbstractStub";
+  string stub_name = service_name;
+  string client_name = service_name;
+  string stub_base_class_name = "AbstractStub";
   CallType call_type;
   bool impl_base = false;
   bool interface = false;
@@ -800,7 +804,7 @@ static bool CompareMethodClientStreaming(const MethodDescriptor* method1,
 // Place all method invocations into a single class to reduce memory footprint
 // on Android.
 static void PrintMethodHandlerClass(const ServiceDescriptor* service,
-                                   std::map<std::string, std::string>* vars,
+                                   std::map<string, string>* vars,
                                    Printer* p) {
   // Sort method ids based on client_streaming() so switch tables are compact.
   std::vector<const MethodDescriptor*> sorted_methods(service->method_count());
@@ -906,7 +910,7 @@ static void PrintMethodHandlerClass(const ServiceDescriptor* service,
 }
 
 static void PrintGetServiceDescriptorMethod(const ServiceDescriptor* service,
-                                   std::map<std::string, std::string>* vars,
+                                   std::map<string, string>* vars,
                                    Printer* p,
                                    ProtoFlavor flavor) {
   (*vars)["service_name"] = service->name();
@@ -1007,7 +1011,7 @@ static void PrintGetServiceDescriptorMethod(const ServiceDescriptor* service,
 }
 
 static void PrintBindServiceMethodBody(const ServiceDescriptor* service,
-                                   std::map<std::string, std::string>* vars,
+                                   std::map<string, string>* vars,
                                    Printer* p) {
   (*vars)["service_name"] = service->name();
   p->Indent();
@@ -1061,7 +1065,7 @@ static void PrintBindServiceMethodBody(const ServiceDescriptor* service,
 }
 
 static void PrintService(const ServiceDescriptor* service,
-                         std::map<std::string, std::string>* vars,
+                         std::map<string, string>* vars,
                          Printer* p,
                          ProtoFlavor flavor,
                          bool disable_version) {
@@ -1191,7 +1195,7 @@ void GenerateService(const ServiceDescriptor* service,
                      bool disable_version) {
   // All non-generated classes must be referred by fully qualified names to
   // avoid collision with generated classes.
-  std::map<std::string, std::string> vars;
+  std::map<string, string> vars;
   vars["String"] = "java.lang.String";
   vars["Deprecated"] = "java.lang.Deprecated";
   vars["Override"] = "java.lang.Override";
@@ -1225,7 +1229,7 @@ void GenerateService(const ServiceDescriptor* service,
       "com.google.common.util.concurrent.ListenableFuture";
 
   Printer printer(out, '$');
-  std::string package_name = ServiceJavaPackage(service->file());
+  string package_name = ServiceJavaPackage(service->file());
   if (!package_name.empty()) {
     printer.Print(
         "package $package_name$;\n\n",
@@ -1241,10 +1245,10 @@ void GenerateService(const ServiceDescriptor* service,
   PrintService(service, &vars, &printer, flavor, disable_version);
 }
 
-std::string ServiceJavaPackage(const FileDescriptor* file) {
-  std::string result = google::protobuf::compiler::java::ClassName(file);
+string ServiceJavaPackage(const FileDescriptor* file) {
+  string result = google::protobuf::compiler::java::ClassName(file);
   size_t last_dot_pos = result.find_last_of('.');
-  if (last_dot_pos != std::string::npos) {
+  if (last_dot_pos != string::npos) {
     result.resize(last_dot_pos);
   } else {
     result = "";
@@ -1252,7 +1256,7 @@ std::string ServiceJavaPackage(const FileDescriptor* file) {
   return result;
 }
 
-std::string ServiceClassName(const google::protobuf::ServiceDescriptor* service) {
+string ServiceClassName(const google::protobuf::ServiceDescriptor* service) {
   return service->name() + "Grpc";
 }
 

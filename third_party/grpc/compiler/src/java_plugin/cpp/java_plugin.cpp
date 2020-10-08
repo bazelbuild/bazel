@@ -27,8 +27,8 @@
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/io/zero_copy_stream.h>
 
-static std::string JavaPackageToDir(const std::string& package_name) {
-  std::string package_dir = package_name;
+static string JavaPackageToDir(const string& package_name) {
+  string package_dir = package_name;
   for (size_t i = 0; i < package_dir.size(); ++i) {
     if (package_dir[i] == '.') {
       package_dir[i] = '/';
@@ -43,15 +43,11 @@ class JavaGrpcGenerator : public google::protobuf::compiler::CodeGenerator {
   JavaGrpcGenerator() {}
   virtual ~JavaGrpcGenerator() {}
 
-  uint64_t GetSupportedFeatures() const override {
-    return FEATURE_PROTO3_OPTIONAL;
-  }
-
   virtual bool Generate(const google::protobuf::FileDescriptor* file,
-                        const std::string& parameter,
+                        const string& parameter,
                         google::protobuf::compiler::GeneratorContext* context,
-                        std::string* error) const override {
-    std::vector<std::pair<std::string, std::string> > options;
+                        string* error) const {
+    std::vector<std::pair<string, string> > options;
     google::protobuf::compiler::ParseGeneratorParameter(parameter, &options);
 
     java_grpc_generator::ProtoFlavor flavor =
@@ -66,11 +62,11 @@ class JavaGrpcGenerator : public google::protobuf::compiler::CodeGenerator {
       }
     }
 
-    std::string package_name = java_grpc_generator::ServiceJavaPackage(file);
-    std::string package_filename = JavaPackageToDir(package_name);
+    string package_name = java_grpc_generator::ServiceJavaPackage(file);
+    string package_filename = JavaPackageToDir(package_name);
     for (int i = 0; i < file->service_count(); ++i) {
       const google::protobuf::ServiceDescriptor* service = file->service(i);
-      std::string filename = package_filename
+      string filename = package_filename
           + java_grpc_generator::ServiceClassName(service) + ".java";
       std::unique_ptr<google::protobuf::io::ZeroCopyOutputStream> output(
           context->Open(filename));

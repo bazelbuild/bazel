@@ -32,14 +32,14 @@ filegroup(
 distrib_jar_filegroup(
     name = "bootstrap-grpc-jars",
     srcs = [
-        "grpc-api-1.31.1.jar",
-        "grpc-auth-1.31.1.jar",
-        "grpc-context-1.31.1.jar",
-        "grpc-core-1.31.1.jar",
-        "grpc-netty-1.31.1.jar",
-        "grpc-protobuf-1.31.1.jar",
-        "grpc-protobuf-lite-1.31.1.jar",
-        "grpc-stub-1.31.1.jar",
+        "grpc-api-1.26.0.jar",
+        "grpc-auth-1.26.0.jar",
+        "grpc-context-1.26.0.jar",
+        "grpc-core-1.26.0.jar",
+        "grpc-netty-1.26.0.jar",
+        "grpc-protobuf-1.26.0.jar",
+        "grpc-protobuf-lite-1.26.0.jar",
+        "grpc-stub-1.26.0.jar",
     ],
     enable_distributions = ["debian"],
 )
