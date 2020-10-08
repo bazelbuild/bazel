@@ -14,6 +14,7 @@
 
 package com.google.devtools.coverageoutputgenerator;
 
+import static com.google.devtools.coverageoutputgenerator.Constants.CC_EXTENSIONS;
 import static com.google.devtools.coverageoutputgenerator.Constants.GCOV_EXTENSION;
 import static com.google.devtools.coverageoutputgenerator.Constants.GCOV_JSON_EXTENSION;
 import static com.google.devtools.coverageoutputgenerator.Constants.PROFDATA_EXTENSION;
@@ -218,8 +219,12 @@ public class Main {
   }
 
   private static boolean isCcFile(String filename) {
-    return filename.endsWith(".cc") || filename.endsWith(".c") || filename.endsWith(".cpp")
-        || filename.endsWith(".hh") || filename.endsWith(".h") || filename.endsWith(".hpp");
+    for (String ccExtension : CC_EXTENSIONS) {
+      if (filename.endsWith(ccExtension)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static List<File> getGcovInfoFiles(List<File> filesInCoverageDir) {
