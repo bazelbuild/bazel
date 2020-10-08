@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 /** A remote work executor that uses gRPC for communicating the work, inputs and outputs. */
@@ -57,9 +58,13 @@ class GrpcRemoteExecutor {
   }
 
   private ExecutionBlockingStub execBlockingStub() {
-    return ExecutionGrpc.newBlockingStub(channel)
+    ExecutionBlockingStub stub =  ExecutionGrpc.newBlockingStub(channel)
         .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
         .withCallCredentials(callCredentials);
+        if (options.remoteExecuteTimeout != null){
+          stub = stub.withDeadlineAfter(options.remoteExecuteTimeout.getSeconds(), TimeUnit.SECONDS);
+        }
+        return stub;
   }
 
   private void handleStatus(Status statusProto, @Nullable ExecuteResponse resp) {
