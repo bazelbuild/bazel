@@ -34,5 +34,7 @@ public @interface ParamType {
    * runtime, so the Java method signature should use a generic type of Object and cast
    * appropriately.
    */
+  // TODO(adonovan): make this an array---a non-breaking change for most clients---
+  // ideally of the same length as the number of type parameters of type().
   Class<?> generic1() default Object.class;
 }

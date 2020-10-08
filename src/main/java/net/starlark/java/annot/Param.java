@@ -51,12 +51,17 @@ public @interface Param {
    * #allowedTypes}. Specifying neither {@code type} nor {@code allowedTypes} is equivalent to
    * specifying the class of the parameter variable.
    */
-  // TODO(adonovan): abolish this (and noneable). It creates ambiguity, complexity,and bugs.
-  // Just specify allowedTypes, with empty array meaning "use the class of the parameter itself".
+  // Deprecated. Use allowedTypes.
   Class<?> type() default Void.class;
 
   /**
-   * List of allowed types for the parameter if multiple types are allowed.
+   * List of allowed types for the parameter.
+   *
+   * <p>The array may be omitted, in which case the parameter accepts any value whose class is
+   * assignable to the class of the parameter variable.
+   *
+   * <p>If a function should accept None, NoneType should be in this list. (Currently one may set
+   * {@link #noneable} to achieve the same effect, but it is going away.)
    *
    * <p>May not be used in conjunction with {@link #type}.
    */
@@ -71,24 +76,18 @@ public @interface Param {
    * runtime, so the Java method signature should use a generic type of Object and cast
    * appropriately.
    */
+  // Deprecated. Use allowedTypes.
   Class<?> generic1() default Object.class;
 
   /**
-   * Indicates whether this parameter accepts {@code None} as a value, its allowed types
-   * notwithstanding.
+   * Indicates whether this parameter accepts {@code None} as a value, even if NoneType was not
+   * among {@link #allowedTypes}.
    *
    * <p>If true, {@code None} is accepted as a valid input in addition to the types mentioned by
    * {@link #type} or {@link #allowedTypes}. In this case, the Java type of the corresponding method
    * parameter must be {@code Object}.
-   *
-   * <p>If false, this parameter cannot be passed {@code None}, even if it would otherwise be
-   * allowed by {@code type} or {@code allowedTypes}.
    */
-  // TODO(starlark-team): Allow None as a value when noneable is false and the type is Object. But
-  // look out for unwanted user-visible changes in the signatures of builtins.
-  // TODO(140932420): Consider simplifying noneable by converting None to null, so that the Java
-  // type need not be Object. But note that we still have the same problem for params whose default
-  // value is the special "unbound" sentinel.
+  // Deprecated. Use allowedTypes={..., @ParamType(type=NoneType)}.
   boolean noneable() default false;
 
   /**
@@ -160,8 +159,4 @@ public @interface Param {
    * {@link #defaultValue}.)
    */
   String valueWhenDisabled() default "";
-
-  // TODO(bazel-team): parse the type from a single field in Starlark syntax,
-  // and allow a Union as "ThisType or ThatType or NoneType":
-  // String type() default "Object";
 }

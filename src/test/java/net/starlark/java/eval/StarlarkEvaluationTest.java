@@ -237,7 +237,7 @@ public final class StarlarkEvaluationTest {
               positional = false,
               named = true),
           @Param(
-              name = "nonNoneable",
+              name = "acceptsAny",
               type = Object.class,
               defaultValue = "\"a\"",
               positional = false,
@@ -267,7 +267,7 @@ public final class StarlarkEvaluationTest {
         boolean posOrNamed,
         boolean named,
         boolean optionalNamed,
-        Object nonNoneable,
+        Object acceptsAny,
         Object noneable,
         Object multi) {
       return "with_params("
@@ -281,7 +281,7 @@ public final class StarlarkEvaluationTest {
           + ", "
           + optionalNamed
           + ", "
-          + nonNoneable
+          + acceptsAny
           + (noneable != Starlark.NONE ? ", " + noneable : "")
           + (multi != Starlark.NONE ? ", " + multi : "")
           + ")";
@@ -312,7 +312,7 @@ public final class StarlarkEvaluationTest {
               positional = false,
               named = true),
           @Param(
-              name = "nonNoneable",
+              name = "acceptsAny",
               type = Object.class,
               defaultValue = "\"a\"",
               positional = false,
@@ -343,7 +343,7 @@ public final class StarlarkEvaluationTest {
         boolean posOrNamed,
         boolean named,
         boolean optionalNamed,
-        Object nonNoneable,
+        Object acceptsAny,
         Object noneable,
         Object multi,
         StarlarkThread thread) {
@@ -358,7 +358,7 @@ public final class StarlarkEvaluationTest {
           + ", "
           + optionalNamed
           + ", "
-          + nonNoneable
+          + acceptsAny
           + (noneable != Starlark.NONE ? ", " + noneable : "")
           + (multi != Starlark.NONE ? ", " + multi : "")
           + ", "
@@ -1166,9 +1166,9 @@ public final class StarlarkEvaluationTest {
     ev.new Scenario()
         .update("mock", new Mock())
         .setUp("")
-        .testIfExactError(
-            "in call to with_params(), parameter 'nonNoneable' cannot be None",
-            "mock.with_params(1, True, True, named=True, optionalNamed=False, nonNoneable=None)");
+        .testExpression(
+            "mock.with_params(1, True, True, named=True, optionalNamed=False, acceptsAny=None)",
+            "with_params(1, true, true, true, false, None)");
 
     ev.new Scenario()
         .update("mock", new Mock())
