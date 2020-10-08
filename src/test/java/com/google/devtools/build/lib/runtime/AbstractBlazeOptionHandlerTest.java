@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.devtools.common.options.Converters.BLAZE_ALIASING_FLAG;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -50,6 +52,8 @@ public abstract class AbstractBlazeOptionHandlerTest {
                 ClientOptions.class,
                 CoreOptions.class)
             .allowResidue(true)
+            .skipStarlarkOptionPrefixes()
+            .withAliasFlag(BLAZE_ALIASING_FLAG)
             .build();
     String productName = TestConstants.PRODUCT_NAME;
     ServerDirectories serverDirectories =
