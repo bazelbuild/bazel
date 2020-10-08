@@ -61,7 +61,7 @@ class GrpcRemoteExecutor {
     ExecutionBlockingStub stub =  ExecutionGrpc.newBlockingStub(channel)
         .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
         .withCallCredentials(callCredentials);
-        if (options.remoteExecuteTimeout != null){
+        if (options.remoteExecuteTimeout != null) {
           stub = stub.withDeadlineAfter(options.remoteExecuteTimeout.getSeconds(), TimeUnit.SECONDS);
         }
         return stub;
