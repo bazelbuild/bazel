@@ -3,6 +3,8 @@ markdown: kramdown
 kramdown:
   syntax_highlighter: rouge
   toc_levels: "2,3"
+  gfm_quirks:
+    - fake_to_fix_options_parsing
 highlighter: rouge
 
 paginate: 10
