@@ -50,6 +50,23 @@ public class CommonQueryOptions extends OptionsBase {
   public List<String> universeScope;
 
   @Option(
+      name = "line_terminator_null",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help = "Whether each format is terminated with \\0 instead of newline.")
+  public boolean lineTerminatorNull;
+
+  /** Ugly workaround since line terminator option default has to be constant expression. */
+  public String getLineTerminator() {
+    if (lineTerminatorNull) {
+      return "\0";
+    }
+
+    return System.lineSeparator();
+  }
+
+  @Option(
       name = "infer_universe_scope",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.QUERY,
@@ -253,4 +270,30 @@ public class CommonQueryOptions extends OptionsBase {
               + "precise mode is not completely precise: the decision whether to compute an aspect "
               + "is decided in the analysis phase, which is not run during 'bazel query'.")
   public AspectResolver.Mode aspectDeps;
+
+  ///////////////////////////////////////////////////////////
+  // GRAPH OUTPUT FORMATTER OPTIONS                        //
+  ///////////////////////////////////////////////////////////
+
+  @Option(
+      name = "graph:node_limit",
+      defaultValue = "512",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "The maximum length of the label string for a graph node in the output.  Longer labels"
+              + " will be truncated; -1 means no truncation.  This option is only applicable to"
+              + " --output=graph.")
+  public int graphNodeStringLimit;
+
+  @Option(
+      name = "graph:factored",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "If true, then the graph will be emitted 'factored', i.e. topologically-equivalent nodes "
+              + "will be merged together and their labels concatenated. This option is only "
+              + "applicable to --output=graph.")
+  public boolean graphFactored;
 }
