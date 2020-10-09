@@ -635,11 +635,6 @@ public final class PackageFactory {
     Map<String, Object> env = new HashMap<>();
     env.putAll(ruleClassProvider.getEnvironment());
 
-    // TODO(#11437): We *should* be able to uncomment the following line, but the native module is
-    // added prematurely (without its rule-logic fields) and overridden unconditionally. There's no
-    // reason for this now that ASTFileLookupFunction observes the correct predeclared env.
-    // Preconditions.checkState(!predeclared.containsKey("native"));
-
     // Determine the "native" module.
     // TODO(#11954): Use the same "native" object for both BUILD- and WORKSPACE-loaded .bzls, and
     // just have it be a dynamic error to call the wrong thing at the wrong time. This is a breaking
@@ -668,9 +663,6 @@ public final class PackageFactory {
 
     // Clear out rule-specific symbols like CcInfo.
     env.keySet().removeAll(ruleClassProvider.getNativeRuleSpecificBindings().keySet());
-    // TODO(#11437): We shouldn't have to delete the (not fully formed) "native" object here; see
-    // above TODO in createUninjectedBuildBzlEnv().
-    env.remove("native");
 
     // TODO(#11437): To support inspection of StarlarkSemantics via _internal, we'll have to let
     // this method be parameterized by the StarlarkSemantics, which means it'll need to be computed
