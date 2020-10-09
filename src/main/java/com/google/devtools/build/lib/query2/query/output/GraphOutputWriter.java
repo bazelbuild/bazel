@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.query.output;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
@@ -27,7 +29,6 @@ import com.google.devtools.build.lib.packages.Target;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -108,7 +109,7 @@ public final class GraphOutputWriter<T>  {
    */
   public void write(
       Digraph<T> graph, @Nullable ConditionalEdges conditionalEdges, OutputStream out) {
-    PrintWriter printWriter = new PrintWriter(new OutputStreamWriter(out, StandardCharsets.UTF_8));
+    PrintWriter printWriter = new PrintWriter(new OutputStreamWriter(out, UTF_8));
      if (mergeEquivalentNodes) {
        outputFactored(graph, conditionalEdges, printWriter);
      } else {
