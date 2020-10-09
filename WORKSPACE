@@ -223,7 +223,7 @@ distdir_tar(
         # google/re2
         "aecba11114cf1fac5497aeb844b6966106de3eb6.tar.gz": "9f385e146410a8150b6f4cb1a57eab7ec806ced48d427554b1e754877ff26c3e",
         # abseil/abseil-cpp
-	"df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz": "f368a8476f4e2e0eccf8a7318b98dafbe30b2600f4e3cf52636e5eb145aba06a",
+        "df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz": "f368a8476f4e2e0eccf8a7318b98dafbe30b2600f4e3cf52636e5eb145aba06a",
     },
     urls = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": [
@@ -609,7 +609,7 @@ distdir_tar(
         # google/re2
         "aecba11114cf1fac5497aeb844b6966106de3eb6.tar.gz": "9f385e146410a8150b6f4cb1a57eab7ec806ced48d427554b1e754877ff26c3e",
         # abseil/abseil-cpp
-	"df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz": "f368a8476f4e2e0eccf8a7318b98dafbe30b2600f4e3cf52636e5eb145aba06a",
+        "df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz": "f368a8476f4e2e0eccf8a7318b98dafbe30b2600f4e3cf52636e5eb145aba06a",
     },
     urls = {
         "java_tools_javac11_linux-v10.0.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.0/java_tools_javac11_linux-v10.0.zip"],
