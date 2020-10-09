@@ -31,7 +31,7 @@ diff --git a/third_party/grpc/bazel/BUILD b/third_party/grpc/bazel/BUILD
 index c3c82c9c0c..6f451a6f24 100644
 --- a/third_party/grpc/bazel/BUILD
 +++ b/third_party/grpc/bazel/BUILD
-@@ -17,3 +17,8 @@ licenses(["notice"])  # Apache v2
+@@ -17,3 +17,18 @@ licenses(["notice"])  # Apache v2
  package(default_visibility = ["//:__subpackages__"])
  
  load(":cc_grpc_library.bzl", "cc_grpc_library")
@@ -39,6 +39,16 @@ index c3c82c9c0c..6f451a6f24 100644
 +filegroup(
 +    name = "srcs",
 +    srcs = glob(["**"]),
++)
++
++filegroup(
++    name = "embedded_tools_srcs",
++    srcs = [
++        "BUILD.tools",
++        "cc_grpc_library.bzl",
++        "generate_cc.bzl",
++        "protobuf.bzl",
++    ],
 +)
 diff --git a/third_party/grpc/bazel/cc_grpc_library.bzl b/third_party/grpc/bazel/cc_grpc_library.bzl
 index dea493eaf2..0470a294fc 100644
