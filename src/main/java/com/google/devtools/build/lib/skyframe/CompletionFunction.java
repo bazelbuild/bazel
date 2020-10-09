@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -62,6 +63,7 @@ public final class CompletionFunction<
         KeyT extends TopLevelActionLookupKey,
         FailureT>
     implements SkyFunction {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** A strategy for completing the build. */
   interface Completor<
@@ -216,6 +218,7 @@ public final class CompletionFunction<
                 value,
                 key);
           } else {
+            logger.atInfo().log("Adding %s with %s", input, artifactValue);
             builtArtifactsBuilder.add(input);
             ActionInputMapHelper.addToMap(
                 inputMap,
