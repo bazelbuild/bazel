@@ -147,7 +147,6 @@ java_binary(
     name = "BazelServer",
     javacopts = [
         "-Xlint:all",
-        "-Xlint:-path",
     ],
     main_class = "com.google.devtools.build.lib.bazel.Bazel",
     runtime_deps = [
