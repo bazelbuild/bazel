@@ -56,11 +56,11 @@ enum ProtoFlavor {
 };
 
 // Returns the package name of the gRPC services defined in the given file.
-string ServiceJavaPackage(const google::protobuf::FileDescriptor* file);
+std::string ServiceJavaPackage(const google::protobuf::FileDescriptor* file);
 
 // Returns the name of the outer class that wraps in all the generated code for
 // the given service.
-string ServiceClassName(const google::protobuf::ServiceDescriptor* service);
+std::string ServiceClassName(const google::protobuf::ServiceDescriptor* service);
 
 // Writes the generated service interface into the given ZeroCopyOutputStream
 void GenerateService(const google::protobuf::ServiceDescriptor* service,
