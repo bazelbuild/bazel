@@ -1780,7 +1780,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(getFirstArtifactEndingWith(linkAction.getInputs(),
         "package/libDylib2Lib.a")).isNull();
 
-    // Sanity check that the identical binary without dylibs would be fully linked.
+    // Check that the identical binary without dylibs would be fully linked.
     Action alternateLipobinAction = lipoBinAction("//package:alternate");
     Artifact alternateBinArtifact = getFirstArtifactEndingWith(alternateLipobinAction.getInputs(),
         "package/alternate_bin");

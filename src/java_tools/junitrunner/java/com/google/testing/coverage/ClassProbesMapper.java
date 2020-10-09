@@ -54,6 +54,6 @@ public class ClassProbesMapper extends ClassProbesVisitor {
 
   @Override
   public void visitTotalProbeCount(int count) {
-    // Nothing to do. Maybe perform some sanity checks here.
+    // Nothing to do. Maybe perform some checks here.
   }
 }

@@ -222,7 +222,7 @@ final class ConfigExpander {
         for (String arg : rcArgs.getArgs()) {
           expansion.add(arg);
           if (arg.length() >= 8 && arg.substring(0, 8).equals("--config")) {
-            // We have a config. For sanity, because we don't want to worry about formatting,
+            // We have a config. Because we don't want to worry about formatting,
             // we will only accept --config=value, and will not accept value on a following line.
             int charOfConfigValue = arg.indexOf('=');
             if (charOfConfigValue < 0) {

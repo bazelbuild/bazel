@@ -472,7 +472,7 @@ function test_blaze_run_with_custom_test_tmpdir() {
     # Translate from `/*` to a windows path.
     tmpdir="$(cygpath -m "${tmpdir}")"
   fi
-  # Sanity check to ensure we execute the intended scenario.
+  # Check that we execute the intended scenario.
   if [[ "${tmpdir}" == "${TEST_TMPDIR}"* ]]; then
     fail "Temp folder potentially overlaps with the exec root"
   fi

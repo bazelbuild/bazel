@@ -102,7 +102,7 @@ public class ActionTester {
         firstAction = action;
       }
     }
-    // Sanity check that the count is correct.
+    // Check that the count is correct.
     assertThat(
             Actions.canBeShared(
                 actionKeyContext,

@@ -178,7 +178,7 @@ public class DesugarFunctionalTest {
         new MethodReferenceInSubclass(ImmutableList.of("Sergey", "Larry", "Alex"));
     assertThat(methodrefUse.containsE()).containsExactly("Sergey", "Alex");
     assertThat(methodrefUse.startsWithL()).containsExactly("Larry");
-    // Test sanity: make sure sub- and superclass have bridge methods with matching descriptors but
+    // Check to make sure sub- and superclass have bridge methods with matching descriptors but
     // different names
     Method superclassBridge = findOnlyBridge(MethodReferenceSuperclass.class);
     Method subclassBridge = findOnlyBridge(MethodReferenceInSubclass.class);
@@ -285,7 +285,7 @@ public class DesugarFunctionalTest {
     // Expect String apply(Number) and any expected bridges
     assertThat(ConcreteFunction.toInt().getClass().getDeclaredMethods())
         .hasLength(expectedBridgesFromSameTarget + 1);
-    // Sanity check that we only copied over methods, no fields, from the functional interface
+    // Check that we only copied over methods, no fields, from the functional interface
     assertThrows(
         NoSuchFieldException.class,
         () ->
@@ -293,7 +293,7 @@ public class DesugarFunctionalTest {
                 .getClass()
                 .getDeclaredField("DO_NOT_COPY_INTO_LAMBDA_CLASSES"));
     assertThat(SpecializedFunction.class.getDeclaredField("DO_NOT_COPY_INTO_LAMBDA_CLASSES"))
-        .isNotNull(); // test sanity
+        .isNotNull();
   }
 
   /** Tests lambdas with bridge methods when the implemented interface is in a separate target. */
@@ -317,7 +317,7 @@ public class DesugarFunctionalTest {
         .isEqualTo(expectLambdaMethodsInInterfaces);
   }
 
-  /** Sanity-checks that the resource file included in the original Jar is still there unchanged. */
+  /** Checks that the resource file included in the original Jar is still there unchanged. */
   @Test
   public void testResourcePreserved() throws Exception {
     try (InputStream content = Lambda.class.getResource("testresource.txt").openStream()) {
