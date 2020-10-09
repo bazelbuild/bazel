@@ -865,7 +865,7 @@ public class CppLinkActionBuilder {
       variables =
           LinkBuildVariables.setupVariables(
               getLinkType().linkerOrArchiver().equals(LinkerOrArchiver.LINKER),
-              configuration.getBinDirectory().getExecPath(),
+              configuration.getBinDirectory(repositoryName).getExecPath(),
               output.getExecPathString(),
               linkType.equals(LinkTargetType.DYNAMIC_LIBRARY),
               paramFile != null ? paramFile.getExecPathString() : null,

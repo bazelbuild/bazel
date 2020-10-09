@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Provider;
@@ -1806,7 +1807,8 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     StarlarkRuleContext ctx = createRuleContext("//foo:bar");
     setRuleContext(ctx);
     Object result = ev.eval("ruleContext.bin_dir.path");
-    assertThat(result).isEqualTo(ctx.getConfiguration().getBinFragment().getPathString());
+    assertThat(result)
+        .isEqualTo(ctx.getConfiguration().getBinFragment(RepositoryName.MAIN).getPathString());
   }
 
   @Test

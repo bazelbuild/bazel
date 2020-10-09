@@ -82,9 +82,9 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     this.ruleContext = ruleContext;
   }
 
-  ArtifactRoot newFileRoot() throws EvalException {
+  ArtifactRoot newFileRoot() {
     return context.isForAspect()
-        ? ruleContext.getConfiguration().getBinDirectory(ruleContext.getRule().getRepository())
+        ? ruleContext.getBinDirectory()
         : ruleContext.getBinOrGenfilesDirectory();
   }
 

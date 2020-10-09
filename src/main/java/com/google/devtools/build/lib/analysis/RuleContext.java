@@ -319,6 +319,18 @@ public final class RuleContext extends TargetContext
     return getConfiguration().getBinDirectory(rule.getRepository());
   }
 
+  public ArtifactRoot getGenfilesDirectory() {
+    return getConfiguration().getGenfilesDirectory(rule.getRepository());
+  }
+
+  public PathFragment getBinFragment() {
+    return getConfiguration().getBinFragment(rule.getRepository());
+  }
+
+  public PathFragment getGenfilesFragment() {
+    return getConfiguration().getGenfilesFragment(rule.getRepository());
+  }
+
   @Override
   public ArtifactRoot getMiddlemanDirectory() {
     return getConfiguration().getMiddlemanDirectory(rule.getRepository());

@@ -720,7 +720,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
   public Artifact getOutputArtifact(String relpath) {
     return ActionsTestUtil.createArtifactWithExecPath(
         getTargetConfiguration().getBinDirectory(RepositoryName.MAIN),
-        getTargetConfiguration().getBinFragment().getRelative(relpath));
+        getTargetConfiguration().getBinFragment(RepositoryName.MAIN).getRelative(relpath));
   }
 
   private Artifact scratchArtifact(String s) {

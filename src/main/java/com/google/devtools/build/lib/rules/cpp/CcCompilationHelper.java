@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -994,13 +995,13 @@ public final class CcCompilationHelper {
             .getAnalysisEnvironment()
             .getStarlarkSemantics()
             .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT);
-    PathFragment repositoryPath =
-        label.getPackageIdentifier().getRepository().getExecPath(siblingRepositoryLayout);
+    RepositoryName repositoryName = label.getPackageIdentifier().getRepository();
+    PathFragment repositoryPath = repositoryName.getExecPath(siblingRepositoryLayout);
     ccCompilationContextBuilder.addQuoteIncludeDir(repositoryPath);
     ccCompilationContextBuilder.addQuoteIncludeDir(
-        configuration.getGenfilesFragment().getRelative(repositoryPath));
+        configuration.getGenfilesFragment(repositoryName).getRelative(repositoryPath));
     ccCompilationContextBuilder.addQuoteIncludeDir(
-        configuration.getBinFragment().getRelative(repositoryPath));
+        configuration.getBinFragment(repositoryName).getRelative(repositoryPath));
 
     ccCompilationContextBuilder.addSystemIncludeDirs(systemIncludeDirs);
     ccCompilationContextBuilder.addFrameworkIncludeDirs(frameworkIncludeDirs);

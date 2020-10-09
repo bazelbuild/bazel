@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
@@ -1214,8 +1215,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         ")");
     ConfiguredTarget target = getConfiguredTarget("//foo");
     CppCompileAction action = getCppCompileAction(target);
-    String genfilesDir = getConfiguration(target).getGenfilesFragment().toString();
-    String binDir = getConfiguration(target).getBinFragment().toString();
+    String genfilesDir =
+        getConfiguration(target).getGenfilesFragment(RepositoryName.MAIN).toString();
+    String binDir = getConfiguration(target).getBinFragment(RepositoryName.MAIN).toString();
     // Local include paths come first.
     assertContainsSublist(
         action.getCompilerOptions(),

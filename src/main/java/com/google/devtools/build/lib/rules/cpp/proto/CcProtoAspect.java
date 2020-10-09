@@ -457,7 +457,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
         throws InterruptedException {
       PathFragment protoRootFragment = PathFragment.create(protoInfo.getDirectProtoSourceRoot());
       String genfilesPath;
-      PathFragment genfilesFragment = ruleContext.getConfiguration().getGenfilesFragment();
+      PathFragment genfilesFragment = ruleContext.getGenfilesFragment();
       if (protoRootFragment.startsWith(genfilesFragment)) {
         genfilesPath = protoRootFragment.getPathString();
       } else {

@@ -131,6 +131,8 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   private final Supplier<BuildConfigurationEvent> buildEventSupplier;
 
+  private final boolean siblingRepositoryLayout;
+
   /**
    * Returns true if this configuration is semantically equal to the other, with the possible
    * exception that the other has fewer fragments.
@@ -227,7 +229,8 @@ public class BuildConfiguration implements BuildConfigurationApi {
       BuildOptions.OptionsDiffForReconstruction buildOptionsDiff,
       ImmutableSet<String> reservedActionMnemonics,
       ActionEnvironment actionEnvironment,
-      String repositoryName) {
+      String repositoryName,
+      boolean siblingRepositoryLayout) {
     this(
         directories,
         fragmentsMap,
@@ -235,7 +238,8 @@ public class BuildConfiguration implements BuildConfigurationApi {
         buildOptionsDiff,
         reservedActionMnemonics,
         actionEnvironment,
-        RepositoryName.createFromValidStrippedName(repositoryName));
+        RepositoryName.createFromValidStrippedName(repositoryName),
+        siblingRepositoryLayout);
   }
 
   @AutoCodec.VisibleForSerialization
@@ -247,7 +251,8 @@ public class BuildConfiguration implements BuildConfigurationApi {
       BuildOptions.OptionsDiffForReconstruction buildOptionsDiff,
       ImmutableSet<String> reservedActionMnemonics,
       ActionEnvironment actionEnvironment,
-      RepositoryName mainRepositoryName) {
+      RepositoryName mainRepositoryName,
+      boolean siblingRepositoryLayout) {
     // this.directories = directories;
     this.fragments = makeFragmentsMap(fragmentsMap);
     this.fragmentClassSet = FragmentClassSet.of(this.fragments.keySet());
@@ -256,8 +261,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
     this.buildOptionsDiff = buildOptionsDiff;
     this.options = buildOptions.get(CoreOptions.class);
     this.outputDirectories =
-        new OutputDirectories(directories, options, fragments, mainRepositoryName);
+        new OutputDirectories(
+            directories, options, fragments, mainRepositoryName, siblingRepositoryLayout);
     this.mainRepositoryName = mainRepositoryName;
+    this.siblingRepositoryLayout = siblingRepositoryLayout;
 
     // We can't use an ImmutableMap.Builder here; we need the ability to add entries with keys that
     // are already in the map so that the same define can be specified on the command line twice,
@@ -286,8 +293,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
     // the bin directory and the genfiles directory
     // These variables will be used on Windows as well, so we need to make sure
     // that paths use the correct system file-separator.
-    globalMakeEnvBuilder.put("BINDIR", getBinDirectory().getExecPath().getPathString());
-    globalMakeEnvBuilder.put("GENDIR", getGenfilesDirectory().getExecPath().getPathString());
+    globalMakeEnvBuilder.put(
+        "BINDIR", getBinDirectory(RepositoryName.MAIN).getExecPath().getPathString());
+    globalMakeEnvBuilder.put(
+        "GENDIR", getGenfilesDirectory(RepositoryName.MAIN).getExecPath().getPathString());
     globalMakeEnv = globalMakeEnvBuilder.build();
 
     checksum = buildOptions.computeChecksum();
@@ -323,7 +332,8 @@ public class BuildConfiguration implements BuildConfigurationApi {
             BuildOptions.diffForReconstruction(defaultBuildOptions, options),
             reservedActionMnemonics,
             actionEnv,
-            mainRepositoryName.strippedName());
+            mainRepositoryName.strippedName(),
+            siblingRepositoryLayout);
     return newConfig;
   }
 
@@ -370,29 +380,36 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return outputDirectories.getOutputDirectory();
   }
 
+  /** @deprecated Use {@link #getBinDirectory} instead. */
   @Override
+  @Deprecated
   public ArtifactRoot getBinDir() {
-    return outputDirectories.getBinDirectory();
-  }
-
-  /** Returns the bin directory for this build configuration. */
-  public ArtifactRoot getBinDirectory() {
-    return outputDirectories.getBinDirectory();
+    return outputDirectories.getBinDirectory(RepositoryName.MAIN);
   }
 
   /**
-   * TODO(kchodorow): This (and the other get*Directory functions) won't work with external
+   * Returns the bin directory for this build configuration.
+   *
+   * <p>TODO(kchodorow): This (and the other get*Directory functions) won't work with external
    * repositories without changes to how ArtifactFactory resolves derived roots. This is not an
    * issue right now because it only effects Blaze's include scanning (internal) and Bazel's
    * repositories (external) but will need to be fixed.
+   *
+   * @deprecated Use {@code RuleContext#getBinDirectory} instead whenever possible.
    */
+  @Deprecated
   public ArtifactRoot getBinDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getBinDirectory();
+    return outputDirectories.getBinDirectory(repositoryName);
   }
 
-  /** Returns a relative path to the bin directory at execution time. */
-  public PathFragment getBinFragment() {
-    return outputDirectories.getBinDirectory().getExecPath();
+  /**
+   * Returns a relative path to the bin directory at execution time.
+   *
+   * @deprecated Use {@code RuleContext#getBinFragment} instead whenever possible.
+   */
+  @Deprecated
+  public PathFragment getBinFragment(RepositoryName repositoryName) {
+    return outputDirectories.getBinDirectory(repositoryName).getExecPath();
   }
 
   /** Returns the include directory for this build configuration. */
@@ -400,18 +417,21 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return outputDirectories.getIncludeDirectory();
   }
 
+  /** @deprecated Use {@link #getGenfilesDirectory} instead. */
   @Override
+  @Deprecated
   public ArtifactRoot getGenfilesDir() {
-    return outputDirectories.getGenfilesDirectory();
+    return outputDirectories.getGenfilesDirectory(RepositoryName.MAIN);
   }
 
-  /** Returns the genfiles directory for this build configuration. */
-  public ArtifactRoot getGenfilesDirectory() {
-    return outputDirectories.getGenfilesDirectory();
-  }
-
+  /**
+   * Returns the genfiles directory for this build configuration.
+   *
+   * @deprecated Use {@code RuleContext#getGenfilesDirectory} instead whenever possible.
+   */
+  @Deprecated
   public ArtifactRoot getGenfilesDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getGenfilesDirectory();
+    return outputDirectories.getGenfilesDirectory(repositoryName);
   }
 
   public boolean hasSeparateGenfilesDirectory() {
@@ -432,9 +452,14 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return outputDirectories.getTestLogsDirectory();
   }
 
-  /** Returns a relative path to the genfiles directory at execution time. */
-  public PathFragment getGenfilesFragment() {
-    return outputDirectories.getGenfilesFragment();
+  /**
+   * Returns a relative path to the genfiles directory at execution time.
+   *
+   * @deprecated Use {@code RuleContext#getGenfilesFragment} instead whenever possible.
+   */
+  @Deprecated
+  public PathFragment getGenfilesFragment(RepositoryName repositoryName) {
+    return outputDirectories.getGenfilesFragment(repositoryName);
   }
 
   /**

@@ -633,10 +633,9 @@ public final class CcCommon {
       // must have manifested in includesPath already.
       PathFragment outIncludesPath = packageSourceRoot.getRelative(includesAttr);
       if (ruleContext.getConfiguration().hasSeparateGenfilesDirectory()) {
-        result.add(
-            ruleContext.getConfiguration().getGenfilesFragment().getRelative(outIncludesPath));
+        result.add(ruleContext.getGenfilesFragment().getRelative(outIncludesPath));
       }
-      result.add(ruleContext.getConfiguration().getBinFragment().getRelative(outIncludesPath));
+      result.add(ruleContext.getBinFragment().getRelative(outIncludesPath));
     }
     return result;
   }

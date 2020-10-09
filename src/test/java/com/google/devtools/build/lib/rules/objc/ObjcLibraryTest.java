@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
@@ -1458,7 +1459,9 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 .add("-iquote", ".")
                 .add(
                     "-iquote",
-                    getAppleCrosstoolConfiguration().getGenfilesFragment().getSafePathString())
+                    getAppleCrosstoolConfiguration()
+                        .getGenfilesFragment(RepositoryName.MAIN)
+                        .getSafePathString())
                 .add("-include", "objc/some.pch")
                 .add("-fobjc-arc")
                 .add("-c", "objc/a.m")
@@ -1686,8 +1689,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .write();
     CommandAction compileAction = compileAction("//lib:lib", "a.o");
     BuildConfiguration config = getAppleCrosstoolConfiguration();
-    assertContainsSublist(compileAction.getArguments(), ImmutableList.of(
-        "-iquote", config.getGenfilesFragment().getSafePathString()));
+    assertContainsSublist(
+        compileAction.getArguments(),
+        ImmutableList.of(
+            "-iquote", config.getGenfilesFragment(RepositoryName.MAIN).getSafePathString()));
   }
 
   @Test

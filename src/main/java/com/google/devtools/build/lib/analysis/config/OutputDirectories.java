@@ -131,11 +131,15 @@ public class OutputDirectories {
 
   private final boolean mergeGenfilesDirectory;
 
+  @SuppressWarnings("unused")
+  private final boolean siblingRepositoryLayout;
+
   OutputDirectories(
       BlazeDirectories directories,
       CoreOptions options,
       ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments,
-      RepositoryName mainRepositoryName) {
+      RepositoryName mainRepositoryName,
+      boolean siblingRepositoryLayout) {
     this.directories = directories;
     this.mnemonic = buildMnemonic(options, fragments);
     this.outputDirName =
@@ -156,6 +160,7 @@ public class OutputDirectories {
         OutputDirectory.MIDDLEMAN.getRoot(outputDirName, directories, mainRepositoryName);
 
     this.mergeGenfilesDirectory = options.mergeGenfilesDirectory;
+    this.siblingRepositoryLayout = siblingRepositoryLayout;
   }
 
   private String buildMnemonic(
@@ -179,7 +184,7 @@ public class OutputDirectories {
   }
 
   /** Returns the bin directory for this build configuration. */
-  ArtifactRoot getBinDirectory() {
+  ArtifactRoot getBinDirectory(RepositoryName repositoryName) {
     return binDirectory;
   }
 
@@ -189,8 +194,8 @@ public class OutputDirectories {
   }
 
   /** Returns the genfiles directory for this build configuration. */
-  ArtifactRoot getGenfilesDirectory() {
-    return mergeGenfilesDirectory ? binDirectory : genfilesDirectory;
+  ArtifactRoot getGenfilesDirectory(RepositoryName repositoryName) {
+    return mergeGenfilesDirectory ? getBinDirectory(repositoryName) : genfilesDirectory;
   }
 
   /**
@@ -208,8 +213,8 @@ public class OutputDirectories {
   }
 
   /** Returns a relative path to the genfiles directory at execution time. */
-  PathFragment getGenfilesFragment() {
-    return getGenfilesDirectory().getExecPath();
+  PathFragment getGenfilesFragment(RepositoryName repositoryName) {
+    return getGenfilesDirectory(repositoryName).getExecPath();
   }
 
   /**

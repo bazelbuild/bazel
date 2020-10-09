@@ -877,7 +877,8 @@ public class BuildEventStreamerTest extends FoundationTestCase {
             BuildOptions.diffForReconstruction(defaultBuildOptions, defaultBuildOptions),
             /* reservedActionMnemonics= */ ImmutableSet.of(),
             ActionEnvironment.EMPTY,
-            "workspace");
+            "workspace",
+            /* siblingRepositoryLayout= */ false);
     BuildEvent firstWithConfiguration =
         new GenericConfigurationEvent(testId("first"), configuration.toBuildEvent());
     BuildEvent secondWithConfiguration =

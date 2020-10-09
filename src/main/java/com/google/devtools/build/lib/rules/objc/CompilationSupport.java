@@ -1285,7 +1285,9 @@ public class CompilationSupport {
       // Unfortunately, this cache contains non-hermetic information, thus we avoid declaring it as
       // an implicit output (as outputs must be hermetic).
       String cachePath =
-          buildConfiguration.getGenfilesFragment() + "/" + OBJC_MODULE_CACHE_DIR_NAME;
+          buildConfiguration.getGenfilesFragment(ruleContext.getRepository())
+              + "/"
+              + OBJC_MODULE_CACHE_DIR_NAME;
       copts.add("-fmodules-cache-path=" + cachePath);
     }
     return copts;

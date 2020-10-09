@@ -721,7 +721,6 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     PathFragment objcFileRootRelativePath =
         ruleContext.getUniqueDirectory(j2objcHeaderBase(ruleContext));
     PathFragment objcFileRootExecPath = ruleContext
-        .getConfiguration()
         .getBinFragment()
         .getRelative(objcFileRootRelativePath);
 
@@ -768,7 +767,6 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   private static PathFragment getProtoOutputRoot(RuleContext ruleContext)
       throws InterruptedException {
     return ruleContext
-        .getConfiguration()
         .getGenfilesFragment()
         .getRelative(
             ruleContext
@@ -812,7 +810,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       RuleContext ruleContext,
       PathFragment objcFileRootExecPath,
       Collection<Artifact> sourcesToTranslate) {
-    PathFragment genRoot = ruleContext.getConfiguration().getGenfilesFragment();
+    PathFragment genRoot = ruleContext.getGenfilesFragment();
     List<PathFragment> headerSearchPaths = new ArrayList<>();
     headerSearchPaths.add(objcFileRootExecPath);
     // We add another header search path with gen root if we have generated sources to translate.

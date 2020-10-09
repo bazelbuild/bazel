@@ -1489,7 +1489,6 @@ java_library(
         "config/OutputDirectories.java",
     ],
     deps = [
-        ":actions/compression",
         ":blaze_directories",
         ":config/build_options",
         ":config/compilation_mode",

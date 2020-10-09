@@ -2272,7 +2272,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         .isEqualTo(
             String.format(
                 "%s%s.extra_action_dummy",
-                targetConfig.getGenfilesFragment(), convertLabelToPath(targetLabel)));
+                targetConfig.getGenfilesFragment(RepositoryName.MAIN),
+                convertLabelToPath(targetLabel)));
 
     return (PseudoAction<?>) pseudoAction;
   }
