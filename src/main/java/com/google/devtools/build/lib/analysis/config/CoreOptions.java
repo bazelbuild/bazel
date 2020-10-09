@@ -929,6 +929,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
     host.outputDirectoryName = "host";
     host.transitionDirectoryNameFragment = transitionDirectoryNameFragment;
+    host.affectedByStarlarkTransition = affectedByStarlarkTransition;
     host.compilationMode = hostCompilationMode;
     host.isHost = true;
     host.isExec = false;
