@@ -155,18 +155,19 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
 
     // A certain subset of output formatters support "streaming" results - the formatter is called
     // multiple times where each call has only a some of the full query results (see
-    // StreamedOutputFormatter for details). Post-analysis queries don't do this. But the reason is
+    // StreamedOutputFormatter for details). cquery and aquery don't do this. But the reason is
     // subtle and hard to follow. Post-analysis output formatters inherit from Callback, which
     // declares "void process(Iterable<T> partialResult)". Its javadoc says that the subinterface
     // BatchCallback may stream partial results. But post-analysis callbacks don't inherit
     // BatchCallback!
     //
     // To protect against accidental feature regression (like implementing a callback that
-    // accidentally inherits BatchCallback), we explicitly disable streaming here. The
-    // aggregating callback collects the entire query's results (even if they're streamed). Once the
-    // complete query finishes, we replay the full results back to the original callback. That way
-    // callback implementations can safely assume they're only called once and the results for that
-    // call are indeed complete.
+    // accidentally inherits BatchCallback), we explicitly disable streaming here. The aggregating
+    // callback collects the entire query's results, even if the query was evaluated in a streaming
+    // manner. Note that streaming query evaluation is a distinct concept from streaming output
+    // formatting. Once the complete query finishes, we replay the full results back to the original
+    // callback. That way callback implementations can safely assume they're only called once and
+    // the results for that call are indeed complete.
     AggregateAllOutputFormatterCallback<T, Set<T>> aggregateResultsCallback =
         QueryUtil.newOrderedAggregateAllOutputFormatterCallback(postAnalysisQueryEnvironment);
     QueryEvalResult result =
