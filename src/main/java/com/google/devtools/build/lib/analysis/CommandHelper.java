@@ -126,8 +126,23 @@ public final class CommandHelper {
    * [1] https://msdn.microsoft.com/en-us/library/ms682425(VS.85).aspx
    * [2] https://support.microsoft.com/en-us/kb/830473.
    */
+  // TODO(ulfjack): Remove this field (this may be referenced by non-oss code).
   @VisibleForTesting
-  public static int maxCommandLength = OS.getCurrent() == OS.WINDOWS ? 8000 : 64000;
+  public static int maxCommandLength = getMaxCommandLength(OS.getCurrent());
+
+  /**
+   * Maximum total command-line length, in bytes, not counting "/bin/bash -c ".
+   * If the command is very long, then we write the command to a script file,
+   * to avoid overflowing any limits on command-line length.
+   * For short commands, we just use /bin/bash -c command.
+   *
+   * Maximum command line length on Windows is 32767[1], but for cmd.exe it is 8192[2].
+   * [1] https://msdn.microsoft.com/en-us/library/ms682425(VS.85).aspx
+   * [2] https://support.microsoft.com/en-us/kb/830473.
+   */
+  private static int getMaxCommandLength(OS os) {
+    return os == OS.WINDOWS ? 8000 : 64000;
+  }
 
   /** {@link RunfilesSupplier}s for tools used by this rule. */
   private final Sequence<RunfilesSupplier> toolsRunfilesSuppliers;
@@ -282,7 +297,7 @@ public final class CommandHelper {
       RuleContext ruleContext, String command, CommandConstructor constructor) {
     List<String> argv;
     Artifact scriptFileArtifact = null;
-    if (command.length() <= maxCommandLength) {
+    if (command.length() <= getMaxCommandLength(ruleContext.getHostConfiguration().getOS())) {
       argv = constructor.asExecArgv(command);
     } else {
       // Use script file.
@@ -302,18 +317,18 @@ public final class CommandHelper {
    */
   @Nullable
   public static Artifact commandHelperScriptMaybe(
-      RuleContext ruleCtx, String command, CommandConstructor constructor) {
-    if (command.length() <= maxCommandLength) {
+      RuleContext ruleContext, String command, CommandConstructor constructor) {
+    if (command.length() <= getMaxCommandLength(ruleContext.getHostConfiguration().getOS())) {
       return null;
     } else {
-      return constructor.commandAsScript(ruleCtx, command);
+      return constructor.commandAsScript(ruleContext, command);
     }
   }
 
   /**
    * Builds the set of command-line arguments using the specified shell path. Creates a bash script
-   * if the command line is longer than the allowed maximum {@link #maxCommandLength}. Fixes up the
-   * input artifact list with the created bash script when required.
+   * if the command line is longer than some allowed maximum. Fixes up the input artifact list with
+   * the created bash script when required.
    */
   public List<String> buildCommandLine(
       String command, NestedSetBuilder<Artifact> inputs, CommandConstructor constructor) {
@@ -327,8 +342,8 @@ public final class CommandHelper {
 
   /**
    * Builds the set of command-line arguments. Creates a bash script if the command line is longer
-   * than the allowed maximum {@link #maxCommandLength}. Fixes up the input artifact list with the
-   * created bash script when required.
+   * than some allowed maximum. Fixes up the input artifact list with the created bash script when
+   * required.
    */
   public List<String> buildCommandLine(
       String command, List<Artifact> inputs, CommandConstructor constructor) {

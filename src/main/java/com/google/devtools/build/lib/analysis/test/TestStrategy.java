@@ -165,10 +165,7 @@ public abstract class TestStrategy implements TestActionContext {
   public static ImmutableList<String> expandedArgsFromAction(TestRunnerAction testAction)
       throws CommandLineExpansionException {
     List<String> args = Lists.newArrayList();
-    // TODO(ulfjack): `executedOnWindows` is incorrect for remote execution, where we need to
-    // consider the target configuration, not the machine Bazel happens to run on. Change this to
-    // something like: testAction.getConfiguration().getTargetOS() == OS.WINDOWS
-    final boolean executedOnWindows = (OS.getCurrent() == OS.WINDOWS);
+    final boolean executedOnWindows = testAction.getConfiguration().getOS() == OS.WINDOWS;
 
     Artifact testSetup = testAction.getTestSetupScript();
     args.add(testSetup.getExecPath().getCallablePathString());
