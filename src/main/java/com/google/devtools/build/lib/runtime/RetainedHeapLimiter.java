@@ -14,10 +14,13 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -42,13 +45,15 @@ import javax.management.NotificationListener;
 import javax.management.openmbean.CompositeData;
 
 /**
- * Monitor the size of the retained heap and exit promptly if it grows too large. Specifically,
- * check the size of the tenured space after each major GC; if it exceeds {@link
- * #occupiedHeapPercentageThreshold}%, call {@code System.gc()} to trigger a stop-the-world
+ * Monitors the size of the retained heap and exit promptly if it grows too large.
+ *
+ * <p>Specifically, checks the size of the tenured space after each major GC; if it exceeds {@link
+ * #occupiedHeapPercentageThreshold}%, call {@link System#gc()} to trigger a stop-the-world
  * collection; if it's still more than {@link #occupiedHeapPercentageThreshold}% full, exit with an
  * {@link OutOfMemoryError}.
  */
-class RetainedHeapLimiter implements NotificationListener {
+final class RetainedHeapLimiter implements NotificationListener {
+
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final long MIN_TIME_BETWEEN_TRIGGERED_GC_MILLISECONDS = 60000;
 
@@ -56,14 +61,16 @@ class RetainedHeapLimiter implements NotificationListener {
   private final ImmutableList<NotificationEmitter> tenuredGcEmitters;
   private OptionalInt occupiedHeapPercentageThreshold = OptionalInt.empty();
   private final AtomicLong lastTriggeredGcInMilliseconds = new AtomicLong();
+  private final BugReporter bugReporter;
 
-  RetainedHeapLimiter() {
-    this(ManagementFactory.getGarbageCollectorMXBeans());
+  static RetainedHeapLimiter create(BugReporter bugReporter) {
+    return createFromBeans(ManagementFactory.getGarbageCollectorMXBeans(), bugReporter);
   }
 
   @VisibleForTesting
-  RetainedHeapLimiter(List<GarbageCollectorMXBean> gcBeans) {
-    tenuredGcEmitters = findTenuredCollectorBeans(gcBeans);
+  static RetainedHeapLimiter createFromBeans(
+      List<GarbageCollectorMXBean> gcBeans, BugReporter bugReporter) {
+    ImmutableList<NotificationEmitter> tenuredGcEmitters = findTenuredCollectorBeans(gcBeans);
     if (tenuredGcEmitters.isEmpty()) {
       logger.atSevere().log(
           "Unable to find tenured collector from %s: names were %s. "
@@ -72,8 +79,15 @@ class RetainedHeapLimiter implements NotificationListener {
           gcBeans.stream()
               .map(GarbageCollectorMXBean::getMemoryPoolNames)
               .map(Arrays::asList)
-              .collect(ImmutableList.toImmutableList()));
+              .collect(toImmutableList()));
     }
+    return new RetainedHeapLimiter(tenuredGcEmitters, bugReporter);
+  }
+
+  private RetainedHeapLimiter(
+      ImmutableList<NotificationEmitter> tenuredGcEmitters, BugReporter bugReporter) {
+    this.tenuredGcEmitters = checkNotNull(tenuredGcEmitters);
+    this.bugReporter = checkNotNull(bugReporter);
   }
 
   @ThreadSafety.ThreadCompatible // Can only be called on the logical main Bazel thread.
@@ -189,7 +203,7 @@ class RetainedHeapLimiter implements NotificationListener {
             System.err.println(exitMsg);
             logger.atInfo().log(exitMsg);
             // Exits the runtime.
-            BugReport.handleCrash(new OutOfMemoryError(exitMsg));
+            bugReporter.handleCrash(new OutOfMemoryError(exitMsg));
           } else if (System.currentTimeMillis() - lastTriggeredGcInMilliseconds.get()
               > MIN_TIME_BETWEEN_TRIGGERED_GC_MILLISECONDS) {
             logger.atInfo().log(

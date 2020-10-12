@@ -181,7 +181,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private final BuildEventArtifactUploaderFactoryMap buildEventArtifactUploaderFactoryMap;
   private final ActionKeyContext actionKeyContext;
   private final ImmutableMap<String, AuthHeadersProvider> authHeadersProviderMap;
-  private final RetainedHeapLimiter retainedHeapLimiter = new RetainedHeapLimiter();
+  private final RetainedHeapLimiter retainedHeapLimiter;
   @Nullable private final RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory;
   private final Supplier<Downloader> downloaderSupplier;
 
@@ -233,6 +233,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     this.queryOutputFormatters = queryOutputFormatters;
     this.eventBusExceptionHandler = eventBusExceptionHandler;
     this.bugReporter = bugReporter;
+    retainedHeapLimiter = RetainedHeapLimiter.create(bugReporter);
 
     CommandNameCache.CommandNameCacheInstance.INSTANCE.setCommandNameCache(
         new CommandNameCacheImpl(getCommandMap()));

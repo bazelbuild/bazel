@@ -14,40 +14,51 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.withSettings;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.sun.management.GarbageCollectionNotificationInfo;
+import com.sun.management.GcInfo;
 import java.lang.management.GarbageCollectorMXBean;
+import java.lang.management.MemoryUsage;
+import java.util.List;
 import javax.management.ListenerNotFoundException;
+import javax.management.Notification;
 import javax.management.NotificationEmitter;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.Mockito;
 
-/**
- * Basic tests for {@link RetainedHeapLimiter}. More realistic tests are hard because {@link
- * RetainedHeapLimiter} intentionally crashes the JVM.
- */
+/** Tests for {@link RetainedHeapLimiter}. */
 @RunWith(JUnit4.class)
-public class RetainedHeapLimiterTest {
+public final class RetainedHeapLimiterTest {
+
+  private interface NotificationBean extends GarbageCollectorMXBean, NotificationEmitter {}
+
+  private final NotificationBean mockBean = mock(NotificationBean.class);
+  private final GarbageCollectorMXBean mockUselessBean = mock(GarbageCollectorMXBean.class);
+
+  @Before
+  public void initMocks() {
+    when(mockBean.getMemoryPoolNames()).thenReturn(new String[] {"not tenured", "CMS Old Gen"});
+    when(mockUselessBean.getMemoryPoolNames()).thenReturn(new String[] {"assistant", "adjunct"});
+  }
+
   @Test
   public void findBeans() {
-    GarbageCollectorMXBean mockUselessBean = Mockito.mock(GarbageCollectorMXBean.class);
-    String[] untenuredPoolNames = {"assistant", "adjunct"};
-    Mockito.when(mockUselessBean.getMemoryPoolNames()).thenReturn(untenuredPoolNames);
-    GarbageCollectorMXBean mockBean =
-        Mockito.mock(
-            GarbageCollectorMXBean.class,
-            withSettings().extraInterfaces(NotificationEmitter.class));
-    String[] poolNames = {"not tenured", "CMS Old Gen"};
-    Mockito.when(mockBean.getMemoryPoolNames()).thenReturn(poolNames);
     assertThat(
             RetainedHeapLimiter.findTenuredCollectorBeans(
                 ImmutableList.of(mockUselessBean, mockBean)))
@@ -56,53 +67,38 @@ public class RetainedHeapLimiterTest {
 
   @Test
   public void smoke() throws AbruptExitException, ListenerNotFoundException {
-    GarbageCollectorMXBean mockUselessBean = Mockito.mock(GarbageCollectorMXBean.class);
-    String[] untenuredPoolNames = {"assistant", "adjunct"};
-    Mockito.when(mockUselessBean.getMemoryPoolNames()).thenReturn(untenuredPoolNames);
-    GarbageCollectorMXBean mockBean =
-        Mockito.mock(
-            GarbageCollectorMXBean.class,
-            withSettings().extraInterfaces(NotificationEmitter.class));
-    String[] poolNames = {"not tenured", "CMS Old Gen"};
-    Mockito.when(mockBean.getMemoryPoolNames()).thenReturn(poolNames);
-
     RetainedHeapLimiter underTest =
-        new RetainedHeapLimiter(ImmutableList.of(mockUselessBean, mockBean));
+        RetainedHeapLimiter.createFromBeans(
+            ImmutableList.of(mockUselessBean, mockBean), BugReporter.defaultInstance());
+
     underTest.updateThreshold(100);
-    Mockito.verify((NotificationEmitter) mockBean, never())
-        .addNotificationListener(underTest, null, null);
-    Mockito.verify((NotificationEmitter) mockBean, never())
-        .removeNotificationListener(underTest, null, null);
+    verify(mockBean, never()).addNotificationListener(underTest, null, null);
+    verify(mockBean, never()).removeNotificationListener(underTest, null, null);
 
     underTest.updateThreshold(90);
-    Mockito.verify((NotificationEmitter) mockBean, times(1))
-        .addNotificationListener(underTest, null, null);
-    Mockito.verify((NotificationEmitter) mockBean, never())
-        .removeNotificationListener(underTest, null, null);
+    verify(mockBean).addNotificationListener(underTest, null, null);
+    verify(mockBean, never()).removeNotificationListener(underTest, null, null);
 
     underTest.updateThreshold(80);
     // No additional calls.
-    Mockito.verify((NotificationEmitter) mockBean, times(1))
-        .addNotificationListener(underTest, null, null);
-    Mockito.verify((NotificationEmitter) mockBean, never())
-        .removeNotificationListener(underTest, null, null);
+    verify(mockBean).addNotificationListener(underTest, null, null);
+    verify(mockBean, never()).removeNotificationListener(underTest, null, null);
 
     underTest.updateThreshold(100);
-    Mockito.verify((NotificationEmitter) mockBean, times(1))
-        .addNotificationListener(underTest, null, null);
-    Mockito.verify((NotificationEmitter) mockBean, times(1))
-        .removeNotificationListener(underTest, null, null);
+    verify(mockBean).addNotificationListener(underTest, null, null);
+    verify(mockBean).removeNotificationListener(underTest, null, null);
   }
 
   @Test
   public void noTenuredSpaceFound() throws AbruptExitException {
-    GarbageCollectorMXBean mockUselessBean = Mockito.mock(GarbageCollectorMXBean.class);
-    String[] untenuredPoolNames = {"assistant", "adjunct"};
-    Mockito.when(mockUselessBean.getMemoryPoolNames()).thenReturn(untenuredPoolNames);
-    RetainedHeapLimiter underTest = new RetainedHeapLimiter(ImmutableList.of(mockUselessBean));
-    Mockito.verify(mockUselessBean, Mockito.times(2)).getMemoryPoolNames();
+    RetainedHeapLimiter underTest =
+        RetainedHeapLimiter.createFromBeans(
+            ImmutableList.of(mockUselessBean), BugReporter.defaultInstance());
+    verify(mockUselessBean, times(2)).getMemoryPoolNames();
+
     underTest.updateThreshold(100);
-    Mockito.verifyNoMoreInteractions(mockUselessBean);
+    verifyNoMoreInteractions(mockUselessBean);
+
     AbruptExitException e =
         assertThrows(AbruptExitException.class, () -> underTest.updateThreshold(80));
     FailureDetails.FailureDetail failureDetail = e.getDetailedExitCode().getFailureDetail();
@@ -112,5 +108,67 @@ public class RetainedHeapLimiterTest {
         .isEqualTo(
             FailureDetails.MemoryOptions.Code
                 .EXPERIMENTAL_OOM_MORE_EAGERLY_NO_TENURED_COLLECTORS_FOUND);
+  }
+
+  @Test
+  public void underThreshold_noOom() throws Exception {
+    RetainedHeapLimiter underTest =
+        RetainedHeapLimiter.createFromBeans(
+            ImmutableList.of(mockBean), BugReporter.defaultInstance());
+    underTest.updateThreshold(90);
+
+    underTest.handleNotification(percentUsedAfterForcedGc(89), null);
+  }
+
+  @Test
+  public void overThreshold_oom() throws Exception {
+    class OomThrowingBugReporter implements BugReporter {
+      @Override
+      public void sendBugReport(Throwable exception) {
+        throw new IllegalStateException(exception);
+      }
+
+      @Override
+      public void sendBugReport(Throwable exception, List<String> args, String... values) {
+        throw new IllegalStateException(exception);
+      }
+
+      @Override
+      public RuntimeException handleCrash(Throwable exception, String... args) {
+        assertThat(exception).isInstanceOf(OutOfMemoryError.class);
+        throw (OutOfMemoryError) exception;
+      }
+    }
+    RetainedHeapLimiter underTest =
+        RetainedHeapLimiter.createFromBeans(
+            ImmutableList.of(mockBean), new OomThrowingBugReporter());
+    underTest.updateThreshold(90);
+
+    OutOfMemoryError oom =
+        assertThrows(
+            OutOfMemoryError.class,
+            () -> underTest.handleNotification(percentUsedAfterForcedGc(91), null));
+
+    assertThat(oom).hasMessageThat().contains("forcing exit due to GC thrashing");
+    assertThat(oom).hasMessageThat().contains("tenured space is more than 90% occupied");
+  }
+
+  private static Notification percentUsedAfterForcedGc(int percentUsed) {
+    checkArgument(percentUsed >= 0 && percentUsed <= 100, percentUsed);
+    MemoryUsage memoryUsage = mock(MemoryUsage.class);
+    when(memoryUsage.getUsed()).thenReturn((long) percentUsed);
+    when(memoryUsage.getMax()).thenReturn(100L);
+
+    GcInfo gcInfo = mock(GcInfo.class);
+    when(gcInfo.getMemoryUsageAfterGc()).thenReturn(ImmutableMap.of("CMS Old Gen", memoryUsage));
+
+    GarbageCollectionNotificationInfo notificationInfo =
+        new GarbageCollectionNotificationInfo("name", "action", "System.gc()", gcInfo);
+
+    Notification notification =
+        new Notification(
+            GarbageCollectionNotificationInfo.GARBAGE_COLLECTION_NOTIFICATION, "test", 123);
+    notification.setUserData(notificationInfo.toCompositeData(null));
+    return notification;
   }
 }
