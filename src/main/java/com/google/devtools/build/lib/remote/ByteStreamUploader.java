@@ -36,6 +36,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ProgressiveBackoff;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.remote.util.Utils;
 import io.grpc.CallOptions;
 import io.grpc.Channel;
 import io.grpc.ClientCall;
@@ -352,29 +353,18 @@ class ByteStreamUploader extends AbstractReferenceCounted {
       AtomicLong committedOffset = new AtomicLong(0);
 
       ListenableFuture<Void> callFuture =
-          callAndQueryOnFailureWithRetrier(ctx, committedOffset, progressiveBackoff);
-
-      callFuture =
-          Futures.catchingAsync(
-              callFuture,
-              Exception.class,
-              (e) -> {
-                Status status = Status.fromThrowable(e);
-                if (status != null
-                    && (status.getCode() == Code.UNAUTHENTICATED
-                        || status.getCode() == Code.PERMISSION_DENIED)) {
-                  try {
-                    callCredentialsProvider.refresh();
-                  } catch (IOException ioe) {
-                    e.addSuppressed(ioe);
-                    return Futures.immediateFailedFuture(e);
-                  }
-                  return callAndQueryOnFailureWithRetrier(ctx, committedOffset, progressiveBackoff);
-                } else {
-                  return Futures.immediateFailedFuture(e);
-                }
-              },
-              MoreExecutors.directExecutor());
+          Utils.refreshIfUnauthenticatedAsync(
+              () ->
+                  retrier.executeAsync(
+                      () -> {
+                        if (committedOffset.get() < chunker.getSize()) {
+                          return ctx.call(
+                              () -> callAndQueryOnFailure(committedOffset, progressiveBackoff));
+                        }
+                        return Futures.immediateFuture(null);
+                      },
+                      progressiveBackoff),
+              callCredentialsProvider);
 
       return Futures.transformAsync(
           callFuture,
@@ -397,18 +387,6 @@ class ByteStreamUploader extends AbstractReferenceCounted {
           .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
           .withCallCredentials(callCredentialsProvider.getCallCredentials())
           .withDeadlineAfter(callTimeoutSecs, SECONDS);
-    }
-
-    private ListenableFuture<Void> callAndQueryOnFailureWithRetrier(
-        Context ctx, AtomicLong committedOffset, ProgressiveBackoff progressiveBackoff) {
-      return retrier.executeAsync(
-          () -> {
-            if (committedOffset.get() < chunker.getSize()) {
-              return ctx.call(() -> callAndQueryOnFailure(committedOffset, progressiveBackoff));
-            }
-            return Futures.immediateFuture(null);
-          },
-          progressiveBackoff);
     }
 
     private ListenableFuture<Void> callAndQueryOnFailure(

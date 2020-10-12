@@ -237,7 +237,7 @@ public class GrpcCacheClientTest {
             remoteOptions.remoteTimeout.getSeconds(),
             retrier);
     return new GrpcCacheClient(
-        channel.retain(), creds, remoteOptions, retrier, DIGEST_UTIL, uploader);
+        channel.retain(), callCredentialsProvider, remoteOptions, retrier, DIGEST_UTIL, uploader);
   }
 
   private static byte[] downloadBlob(GrpcCacheClient cacheClient, Digest digest)
