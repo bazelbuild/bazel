@@ -261,7 +261,8 @@ public class GrpcRemoteExecutionClientTest {
     GrpcRemoteExecutor executor =
         new GrpcRemoteExecutor(channel.retain(), null, retrier, remoteOptions);
     CallCredentialsProvider callCredentialsProvider =
-        GoogleAuthUtils.newCallCredentialsProvider(Options.getDefaults(AuthAndTLSOptions.class));
+        GoogleAuthUtils.newCallCredentialsProvider(
+            GoogleAuthUtils.newCredentials(Options.getDefaults(AuthAndTLSOptions.class)));
     CallCredentials creds = callCredentialsProvider.getCallCredentials();
     ByteStreamUploader uploader =
         new ByteStreamUploader(

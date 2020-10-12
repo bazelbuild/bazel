@@ -19,6 +19,7 @@ import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.auth.Credentials;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
@@ -43,6 +44,9 @@ import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
+import com.google.devtools.build.lib.authandtls.Netrc;
+import com.google.devtools.build.lib.authandtls.NetrcCredentials;
+import com.google.devtools.build.lib.authandtls.NetrcParser;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
@@ -83,6 +87,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
@@ -94,6 +99,7 @@ import io.grpc.ManagedChannel;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executors;
@@ -153,7 +159,7 @@ public final class RemoteModule extends BlazeModule {
     return !Strings.isNullOrEmpty(options.remoteDownloader);
   }
 
-  private void verifyServerCapabilities(
+  private static void verifyServerCapabilities(
       RemoteOptions remoteOptions,
       ReferenceCountedChannel channel,
       CallCredentials credentials,
@@ -182,6 +188,36 @@ public final class RemoteModule extends BlazeModule {
         digestUtil.getDigestFunction(),
         env.getReporter(),
         requirement);
+  }
+
+  private void initHttpAndDiskCache(
+      CommandEnvironment env,
+      AuthAndTLSOptions authAndTlsOptions,
+      RemoteOptions remoteOptions,
+      DigestUtil digestUtil) {
+    Credentials creds;
+    try {
+      creds = newCredentials(env, authAndTlsOptions, remoteOptions);
+    } catch (IOException e) {
+      handleInitFailure(env, e, Code.CREDENTIALS_INIT_FAILURE);
+      return;
+    }
+    RemoteCacheClient cacheClient;
+    try {
+      cacheClient =
+          RemoteCacheClientFactory.create(
+              remoteOptions,
+              creds,
+              Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory"),
+              digestUtil);
+    } catch (IOException e) {
+      handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
+      return;
+    }
+    RemoteCache remoteCache = new RemoteCache(cacheClient, remoteOptions, digestUtil);
+    actionContextProvider =
+        RemoteActionContextProvider.createForRemoteCaching(
+            env, remoteCache, /* retryScheduler= */ null, digestUtil);
   }
 
   @Override
@@ -248,29 +284,7 @@ public final class RemoteModule extends BlazeModule {
     cleanAndCreateRemoteLogsDir(logDir);
 
     if ((enableHttpCache || enableDiskCache) && !enableGrpcCache) {
-      Credentials creds;
-      try {
-        creds = GoogleAuthUtils.newCredentials(authAndTlsOptions);
-      } catch (IOException e) {
-        handleInitFailure(env, e, Code.CREDENTIALS_INIT_FAILURE);
-        return;
-      }
-      RemoteCacheClient cacheClient;
-      try {
-        cacheClient =
-            RemoteCacheClientFactory.create(
-                remoteOptions,
-                creds,
-                Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory"),
-                digestUtil);
-      } catch (IOException e) {
-        handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
-        return;
-      }
-      RemoteCache remoteCache = new RemoteCache(cacheClient, remoteOptions, digestUtil);
-      actionContextProvider =
-          RemoteActionContextProvider.createForRemoteCaching(
-              env, remoteCache, /* retryScheduler= */ null, digestUtil);
+      initHttpAndDiskCache(env, authAndTlsOptions, remoteOptions, digestUtil);
       return;
     }
 
@@ -382,7 +396,9 @@ public final class RemoteModule extends BlazeModule {
 
     CallCredentialsProvider callCredentialsProvider;
     try {
-      callCredentialsProvider = GoogleAuthUtils.newCallCredentialsProvider(authAndTlsOptions);
+      callCredentialsProvider =
+          GoogleAuthUtils.newCallCredentialsProvider(
+              newCredentials(env, authAndTlsOptions, remoteOptions));
     } catch (IOException e) {
       handleInitFailure(env, e, Code.CREDENTIALS_INIT_FAILURE);
       return;
@@ -686,7 +702,7 @@ public final class RemoteModule extends BlazeModule {
     }
   }
 
-  private void checkClientServerCompatibility(
+  private static void checkClientServerCompatibility(
       ServerCapabilities capabilities,
       RemoteOptions remoteOptions,
       DigestFunction.Value digestFunction,
@@ -926,5 +942,81 @@ public final class RemoteModule extends BlazeModule {
   @VisibleForTesting
   RemoteActionContextProvider getActionContextProvider() {
     return actionContextProvider;
+  }
+
+  /**
+   * Create a new {@link Credentials} object by parsing the .netrc file with following order to
+   * search it:
+   *
+   * <ol>
+   *   <li>If environment variable $NETRC exists, use it as the path to the .netrc file
+   *   <li>Fallback to $HOME/.netrc
+   * </ol>
+   *
+   * @return the {@link Credentials} object or {@code null} if there is no .netrc file.
+   * @throws IOException in case the credentials can't be constructed.
+   */
+  @VisibleForTesting
+  static Credentials newCredentialsFromNetrc(Map<String, String> clientEnv, FileSystem fileSystem)
+      throws IOException {
+    String netrcFileString =
+        Optional.ofNullable(clientEnv.get("NETRC"))
+            .orElseGet(
+                () ->
+                    Optional.ofNullable(clientEnv.get("HOME"))
+                        .map(home -> home + "/.netrc")
+                        .orElse(null));
+    if (netrcFileString == null) {
+      return null;
+    }
+
+    Path netrcFile = fileSystem.getPath(netrcFileString);
+    if (netrcFile.exists()) {
+      try {
+        Netrc netrc = NetrcParser.parseAndClose(netrcFile.getInputStream());
+        return new NetrcCredentials(netrc);
+      } catch (IOException e) {
+        throw new IOException(
+            "Failed to parse " + netrcFile.getPathString() + ": " + e.getMessage(), e);
+      }
+    } else {
+      return null;
+    }
+  }
+
+  /**
+   * Create a new {@link Credentials} with following order:
+   *
+   * <ol>
+   *   <li>If authentication enabled by flags, use it to create credentials
+   *   <li>Use .netrc to provide credentials if exists
+   *   <li>Otherwise, return {@code null}
+   * </ol>
+   *
+   * @throws IOException in case the credentials can't be constructed.
+   */
+  private static Credentials newCredentials(
+      CommandEnvironment env, AuthAndTLSOptions authAndTlsOptions, RemoteOptions remoteOptions)
+      throws IOException {
+    Credentials creds = GoogleAuthUtils.newCredentials(authAndTlsOptions);
+
+    // Fallback to .netrc if it exists
+    if (creds == null) {
+      try {
+        creds = newCredentialsFromNetrc(env.getClientEnv(), env.getRuntime().getFileSystem());
+      } catch (IOException e) {
+        env.getReporter().handle(Event.warn(e.getMessage()));
+      }
+
+      if (creds != null && Ascii.toLowerCase(remoteOptions.remoteCache).startsWith("http://")) {
+        env.getReporter()
+            .handle(
+                Event.warn(
+                    "Username and password from .netrc is transmitted in plaintext."
+                        + " Please consider using an HTTPS endpoint."));
+      }
+    }
+
+    return creds;
   }
 }
