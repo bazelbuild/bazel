@@ -30,7 +30,7 @@ filegroup(
 )
 
 distrib_jar_filegroup(
-    name = "bootstrap-grpc-jars",
+    name = "bootstrap-grpc-jars-1.31.1",
     srcs = [
         "grpc-api-1.31.1.jar",
         "grpc-auth-1.31.1.jar",
@@ -45,8 +45,8 @@ distrib_jar_filegroup(
 )
 
 distrib_java_import(
-    name = "grpc-jar",
-    jars = [":bootstrap-grpc-jars"],
+    name = "grpc-jar-1.31.1",
+    jars = [":bootstrap-grpc-jars-1.31.1"],
     runtime_deps = [
         "//third_party:netty",
         "//third_party:opencensus-api",
@@ -58,16 +58,9 @@ distrib_java_import(
     enable_distributions = ["debian"],
 )
 
-distrib_cc_binary(
-    name = "grpc-java-plugin",
-    enable_distributions = ["debian"],
-    srcs = [
-        "compiler/src/java_plugin/cpp/java_generator.cpp",
-        "compiler/src/java_plugin/cpp/java_generator.h",
-        "compiler/src/java_plugin/cpp/java_plugin.cpp",
-    ],
-    copts = ["-w"],
-    deps = ["//third_party/protobuf:protoc_lib"],
+alias(
+    name = "grpc-java-plugin-1.31.1",
+    actual = "//third_party/grpc/compiler-1.31.1:grpc-java-plugin",
 )
 
 alias(

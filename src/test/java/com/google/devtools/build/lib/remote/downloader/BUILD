@@ -42,7 +42,7 @@ java_test(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
-        "//third_party/grpc:grpc-jar",
+        "//third_party/grpc:grpc-jar-1.31.1",
         "//third_party/protobuf:protobuf_java",
         "@remoteapis//:build_bazel_remote_asset_v1_remote_asset_java_grpc",
         "@remoteapis//:build_bazel_remote_asset_v1_remote_asset_java_proto",

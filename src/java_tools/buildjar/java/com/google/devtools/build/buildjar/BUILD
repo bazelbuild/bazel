@@ -161,7 +161,7 @@ bootstrap_java_library(
         "//third_party:bootstrap_guava_and_error_prone-jars",
         "//third_party:jsr305-jars",
         "//third_party/java/jacoco:core-jars",
-        "//third_party/grpc:bootstrap-grpc-jars",
+        "//third_party/grpc:bootstrap-grpc-jars-1.31.1",
         "//third_party:tomcat_annotations_api-jars",
     ],
     neverlink_jars = ["//third_party/java/jdk/langtools:javac_jar"],

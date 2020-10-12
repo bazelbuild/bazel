@@ -19,7 +19,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/protobuf:remote_execution_log_java_proto",
         "//third_party:jsr305",
-        "//third_party/grpc:grpc-jar",
+        "//third_party/grpc:grpc-jar-1.31.1",
         "//third_party/protobuf:protobuf_java",
         "@googleapis//:google_bytestream_bytestream_java_grpc",
         "@googleapis//:google_bytestream_bytestream_java_proto",

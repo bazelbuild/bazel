@@ -25,7 +25,7 @@ java_test(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
-        "//third_party/grpc:grpc-jar",
+        "//third_party/grpc:grpc-jar-1.31.1",
         "//third_party/protobuf:protobuf_java",
         "//third_party/protobuf:protobuf_java_util",
         "@googleapis//:google_devtools_build_v1_build_events_java_proto",

@@ -42,12 +42,12 @@ bind(
 # //external:guava
 bind(
     name = "grpc-java-plugin",
-    actual = "//third_party/grpc:grpc-java-plugin",
+    actual = "//third_party/grpc:grpc-java-plugin-1.31.1",
 )
 
 bind(
     name = "grpc-jar",
-    actual = "//third_party/grpc:grpc-jar",
+    actual = "//third_party/grpc:grpc-jar-1.31.1",
 )
 
 bind(
