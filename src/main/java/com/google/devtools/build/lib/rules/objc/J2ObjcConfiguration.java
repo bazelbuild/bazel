@@ -40,24 +40,24 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
   /**
    * Always-on flags for J2ObjC translation. These flags are always used when invoking the J2ObjC
    * transpiler, and cannot be overridden by user-specified flags in {@link
-   * J2ObjcCommandLineOptions}. See http://j2objc.org/docs/j2objc.html for flag documentation.
+   * J2ObjcCommandLineOptions}. See https://j2objc.org/reference/j2objc.html for flag documentation.
    */
-  private static final ImmutableList<String> J2OBJC_ALWAYS_ON_TRANSLATION_FLAGS = ImmutableList.of(
-      "-encoding",
-      "UTF-8",
-      "--doc-comments",
-      "-XcombineJars");
+  private static final ImmutableList<String> J2OBJC_ALWAYS_ON_TRANSLATION_FLAGS =
+      ImmutableList.of("-encoding", "UTF-8", "--doc-comments", "-XcombineJars");
 
   /**
    * Default flags for J2ObjC translation. These flags are used by default when invoking the J2ObjC
    * transpiler, but can be overridden by user-specified flags in {@link J2ObjcCommandLineOptions}.
-   * See http://j2objc.org/docs/j2objc.html for flag documentation.
+   * See https://j2objc.org/reference/j2objc.html for flag documentation.
    */
   private static final ImmutableList<String> J2OBJC_DEFAULT_TRANSLATION_FLAGS =
       ImmutableList.of("-g");
 
+  /** The j2objc flag to generate ARC-compatible code. */
+  private static final String J2OBJC_USE_ARC_FLAG = "-use-arc";
+
   /**
-   * Disallowed flags for J2ObjC translation. See http://j2objc.org/docs/j2objc.html for flag
+   * Disallowed flags for J2ObjC translation. See https://j2objc.org/reference/j2objc.html for flag
    * documentation.
    */
   static final ImmutableList<String> J2OBJC_BLACKLISTED_TRANSLATION_FLAGS =
@@ -157,6 +157,11 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
    */
   public boolean experimentalShorterHeaderPath() {
     return experimentalShorterHeaderPath;
+  }
+
+  /** Returns whether objc_library should build generated files using ARC (-fobjc-arc). */
+  public boolean compileWithARC() {
+    return translationFlags.contains(J2OBJC_USE_ARC_FLAG);
   }
 
   @Override

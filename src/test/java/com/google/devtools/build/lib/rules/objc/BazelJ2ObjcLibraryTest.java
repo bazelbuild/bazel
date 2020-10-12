@@ -909,6 +909,20 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   }
 
   @Test
+  public void testObjcCompileArcAction() throws Exception {
+    useConfiguration("--j2objc_translation_flags=-use-arc");
+    Artifact archive = j2objcArchive("//java/com/google/dummy/test:transpile", "test");
+    CommandAction compileAction = getObjcCompileAction(archive, "test.o");
+    assertThat(Artifact.toOutputDirRelativePaths(compileAction.getPossibleInputsForTesting()))
+        .containsAtLeast(
+            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "third_party/java/j2objc/jre_core.h",
+            "java/com/google/dummy/test/_j2objc/test/java/com/google/dummy/test/test.h",
+            "java/com/google/dummy/test/_j2objc/test/java/com/google/dummy/test/test.m");
+    assertThat(compileAction.getArguments())
+        .containsAtLeast("-fobjc-arc", "-fobjc-arc-exceptions", "-fno-strict-overflow");
+  }
+
+  @Test
   public void testJ2ObjcSourcesCompilationAndLinking() throws Exception {
     addSimpleBinaryTarget("//java/com/google/dummy/test:transpile");
 

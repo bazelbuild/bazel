@@ -89,9 +89,6 @@ import java.util.List;
 public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectFactory {
   public static final String NAME = "J2ObjcAspect";
 
-  private static final ExtraCompileArgs EXTRA_COMPILE_ARGS = new ExtraCompileArgs(
-      "-fno-strict-overflow");
-
   private static LabelLateBoundDefault<ProtoConfiguration> getProtoToolchainLabel(
       String defaultValue) {
     return LabelLateBoundDefault.fromTargetConfiguration(
@@ -273,10 +270,14 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 .setIntermediateArtifacts(ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext))
                 .doNotUsePch()
                 .build();
+        ExtraCompileArgs extraCompileArgs =
+            j2objcCompileWithARC(ruleContext)
+                ? new ExtraCompileArgs("-fno-strict-overflow", "-fobjc-arc-exceptions")
+                : new ExtraCompileArgs("-fno-strict-overflow");
 
         compilationSupport
             .registerCompileAndArchiveActions(
-                common, EXTRA_COMPILE_ARGS, ImmutableList.<PathFragment>of())
+                common, extraCompileArgs, ImmutableList.<PathFragment>of())
             .registerFullyLinkAction(
                 compilationSupport.getObjcProvider(),
                 ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB));
@@ -714,6 +715,10 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     return ruleContext.getTreeArtifact(rootRelativePath, ruleContext.getBinOrGenfilesDirectory());
   }
 
+  private static boolean j2objcCompileWithARC(RuleContext ruleContext) {
+    return ruleContext.getFragment(J2ObjcConfiguration.class).compileWithARC();
+  }
+
   private static J2ObjcSource javaJ2ObjcSource(
       RuleContext ruleContext,
       ImmutableList<Artifact> javaInputSourceFiles,
@@ -745,7 +750,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         objcHdrs,
         objcFileRootExecPath,
         SourceType.JAVA,
-        headerSearchPaths);
+        headerSearchPaths,
+        j2objcCompileWithARC(ruleContext));
   }
 
   private static J2ObjcSource protoJ2ObjcSource(
@@ -761,7 +767,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         ProtoCommon.getGeneratedOutputs(ruleContext, protoSources, ".j2objc.pb.h"),
         objcFileRootExecPath,
         SourceType.PROTO,
-        headerSearchPaths);
+        headerSearchPaths,
+        /*compileWithARC=*/ false); // generated protos do not support ARC.
   }
 
   private static PathFragment getProtoOutputRoot(RuleContext ruleContext)
@@ -839,12 +846,16 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext);
 
     if (!transpiledSources.isEmpty() || !transpiledHeaders.isEmpty()) {
-      CompilationArtifacts compilationArtifacts = new CompilationArtifacts.Builder()
-          .addNonArcSrcs(transpiledSources)
-          .setIntermediateArtifacts(intermediateArtifacts)
-          .addAdditionalHdrs(transpiledHeaders)
-          .build();
-      builder.setCompilationArtifacts(compilationArtifacts);
+      CompilationArtifacts.Builder compilationArtifactsBuilder =
+          new CompilationArtifacts.Builder()
+              .setIntermediateArtifacts(intermediateArtifacts)
+              .addAdditionalHdrs(transpiledHeaders);
+      if (j2objcCompileWithARC(ruleContext)) {
+        compilationArtifactsBuilder.addSrcs(transpiledSources);
+      } else {
+        compilationArtifactsBuilder.addNonArcSrcs(transpiledSources);
+      }
+      builder.setCompilationArtifacts(compilationArtifactsBuilder.build());
       builder.setHasModuleMap();
     }
 
