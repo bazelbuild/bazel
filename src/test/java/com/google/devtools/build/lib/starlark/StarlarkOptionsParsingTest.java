@@ -45,19 +45,6 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
     assertThat(result.getResidue()).isEmpty();
   }
 
-  // test --flag value
-  @Test
-  public void testFlagSpaceValueForm() throws Exception {
-    writeBasicIntFlag();
-
-    OptionsParsingResult result = parseStarlarkOptions("--//test:my_int_setting 666");
-
-    assertThat(result.getStarlarkOptions()).hasSize(1);
-    assertThat(result.getStarlarkOptions().get("//test:my_int_setting"))
-        .isEqualTo(StarlarkInt.of(666));
-    assertThat(result.getResidue()).isEmpty();
-  }
-
   // test --@workspace//flag=value
   @Test
   public void testFlagNameWithWorkspace() throws Exception {
@@ -83,21 +70,6 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
         assertThrows(
             OptionsParsingException.class,
             () -> parseStarlarkOptions("--//fake_flag=blahblahblah"));
-
-    assertThat(e).hasMessageThat().contains("Error loading option //fake_flag");
-    assertThat(e.getInvalidArgument()).isEqualTo("//fake_flag");
-  }
-
-  // test --fake_flag value
-  @Test
-  public void testBadFlag_spaceForm() throws Exception {
-    scratch.file("test/BUILD");
-    reporter.removeHandler(failFastHandler);
-
-    OptionsParsingException e =
-        assertThrows(
-            OptionsParsingException.class,
-            () -> parseStarlarkOptions("--//fake_flag blahblahblah"));
 
     assertThat(e).hasMessageThat().contains("Error loading option //fake_flag");
     assertThat(e.getInvalidArgument()).isEqualTo("//fake_flag");
