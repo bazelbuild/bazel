@@ -16,12 +16,17 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -35,7 +40,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.management.ListenerNotFoundException;
@@ -60,6 +64,8 @@ final class RetainedHeapLimiter implements NotificationListener {
   private final AtomicBoolean throwingOom = new AtomicBoolean(false);
   private final ImmutableList<NotificationEmitter> tenuredGcEmitters;
   private OptionalInt occupiedHeapPercentageThreshold = OptionalInt.empty();
+  private String oomMessage = "";
+  private EventHandler eventHandler = NullEventHandler.INSTANCE;
   private final AtomicLong lastTriggeredGcInMilliseconds = new AtomicLong();
   private final BugReporter bugReporter;
 
@@ -91,7 +97,8 @@ final class RetainedHeapLimiter implements NotificationListener {
   }
 
   @ThreadSafety.ThreadCompatible // Can only be called on the logical main Bazel thread.
-  void updateThreshold(int occupiedHeapPercentageThreshold) throws AbruptExitException {
+  void update(int occupiedHeapPercentageThreshold, String oomMessage, EventHandler eventHandler)
+      throws AbruptExitException {
     if (tenuredGcEmitters.isEmpty() && occupiedHeapPercentageThreshold != 100) {
       throw new AbruptExitException(
           DetailedExitCode.of(
@@ -138,12 +145,22 @@ final class RetainedHeapLimiter implements NotificationListener {
         try {
           emitter.removeNotificationListener(this, null, null);
         } catch (ListenerNotFoundException e) {
-          logger.atWarning().log("Couldn't remove self as listener from %s", emitter);
+          logger.atWarning().withCause(e).log("Couldn't remove self as listener from %s", emitter);
         }
       }
     } else if (!alreadyInstalled && shouldBeInstalled) {
       tenuredGcEmitters.forEach(e -> e.addNotificationListener(this, null, null));
     }
+    this.oomMessage = oomMessage;
+    this.eventHandler = eventHandler;
+  }
+
+  /**
+   * Resets the event handler to {@link NullEventHandler#INSTANCE}, releasing any other event
+   * handler passed to {@link #update}.
+   */
+  void resetEventHandler() {
+    eventHandler = NullEventHandler.INSTANCE;
   }
 
   @VisibleForTesting
@@ -162,7 +179,7 @@ final class RetainedHeapLimiter implements NotificationListener {
     return builder.build();
   }
 
-  // Can be called concurrently, handles concurrent calls with #updateThreshold gracefully.
+  // Can be called concurrently, handles concurrent calls with #update gracefully.
   @ThreadSafety.ThreadSafe
   @Override
   public void handleNotification(Notification notification, Object handback) {
@@ -175,7 +192,7 @@ final class RetainedHeapLimiter implements NotificationListener {
     OptionalInt occupiedHeapPercentageThreshold = this.occupiedHeapPercentageThreshold;
     if (!occupiedHeapPercentageThreshold.isPresent()) {
       // Presumably failure above to uninstall this listener, or a racy GC.
-      logger.atInfo().atMostEvery(1, TimeUnit.MINUTES).log(
+      logger.atInfo().atMostEvery(1, MINUTES).log(
           "Got notification %s when should be disabled", notification);
       return;
     }
@@ -194,17 +211,23 @@ final class RetainedHeapLimiter implements NotificationListener {
         if (percentUsed > occupiedHeapPercentageThreshold.getAsInt()) {
           if (info.getGcCause().equals("System.gc()") && !throwingOom.getAndSet(true)) {
             // Assume we got here from a GC initiated by the other branch.
-            String exitMsg =
+            String exitMsg = BugReport.constructOomExitMessage(oomMessage);
+            eventHandler.handle(Event.error(exitMsg));
+            String detailedExitMsg =
                 String.format(
-                    "RetainedHeapLimiter forcing exit due to GC thrashing: After back-to-back full "
-                        + "GCs, the tenured space is more than %s%% occupied (%s out of a tenured "
-                        + "space size of %s)",
-                    occupiedHeapPercentageThreshold.getAsInt(), space.getUsed(), space.getMax());
-            System.err.println(exitMsg);
-            logger.atInfo().log(exitMsg);
+                    "%s RetainedHeapLimiter forcing exit due to GC thrashing: After back-to-back"
+                        + " full GCs, the tenured space is more than %s%% occupied (%s out of"
+                        + " a tenured space size of %s).",
+                    exitMsg,
+                    occupiedHeapPercentageThreshold.getAsInt(),
+                    space.getUsed(),
+                    space.getMax());
+            logger.atSevere().log(detailedExitMsg);
             // Exits the runtime.
-            bugReporter.handleCrash(new OutOfMemoryError(exitMsg));
-          } else if (System.currentTimeMillis() - lastTriggeredGcInMilliseconds.get()
+            throw bugReporter.handleCrash(new OutOfMemoryError(detailedExitMsg));
+          }
+
+          if (System.currentTimeMillis() - lastTriggeredGcInMilliseconds.get()
               > MIN_TIME_BETWEEN_TRIGGERED_GC_MILLISECONDS) {
             logger.atInfo().log(
                 "Triggering a full GC with %s tenured space used out of a tenured space size of %s",
