@@ -1006,10 +1006,7 @@ Bazel execution can result in following exit codes:
 -   `36` - Local Environmental Issue, suspected permanent.
 -   `37` - Unhandled Exception / Internal Bazel Error.
 -   `38` - Reserved for Google-internal use.
--   `40-44` - Reserved for errors in Bazel's command line launcher,
-    `bazel.cc` that are not command line
-    related. Typically these are related to bazel server
-    being unable to launch itself.
+-   `41-44` - Reserved for Google-internal use.
 -   `45` - Error publishing results to the Build Event Service.
 
 **Return codes for commands `bazel build`, `bazel test`:**

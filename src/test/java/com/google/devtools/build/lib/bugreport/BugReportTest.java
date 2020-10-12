@@ -74,12 +74,12 @@ public class BugReportTest {
         SecurityException.class,
         () ->
             BugReport.handleCrashWithoutSendingBugReport(
-                functionForStackFrameTest(), ExitCode.RESERVED));
+                functionForStackFrameTest(), ExitCode.BLAZE_INTERNAL_ERROR));
 
     Path exitStatusFile =
         folderForExitStatusFile.toPath().resolve("exit_code_to_use_on_abrupt_exit");
     List<String> strings = Files.readAllLines(exitStatusFile, StandardCharsets.UTF_8);
-    assertThat(strings).containsExactly("40");
+    assertThat(strings).containsExactly("37");
 
     FailureDetail failureDetail =
         FailureDetail.parseFrom(
@@ -101,7 +101,7 @@ public class BugReportTest {
         ArgumentCaptor.forClass(DetailedExitCode.class);
     verify(mockRuntime).cleanUpForCrash(exitCodeCaptor.capture());
     DetailedExitCode exitCode = exitCodeCaptor.getValue();
-    assertThat(exitCode.getExitCode()).isEqualTo(ExitCode.RESERVED);
+    assertThat(exitCode.getExitCode()).isEqualTo(ExitCode.BLAZE_INTERNAL_ERROR);
     assertThat(exitCode.getFailureDetail()).isEqualTo(failureDetail);
   }
 
