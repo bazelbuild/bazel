@@ -20,7 +20,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -102,7 +102,7 @@ public class JavaRuleClasses {
       return builder
           .add(
               attr(HOST_JAVA_RUNTIME_ATTRIBUTE_NAME, LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(HostTransition.createFactory())
                   .value(JavaSemantics.hostJdkAttribute(env))
                   .mandatoryProviders(ToolchainInfo.PROVIDER.id()))
           .build();

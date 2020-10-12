@@ -24,7 +24,7 @@ import static com.google.devtools.build.lib.rules.android.AndroidRuleClasses.get
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
@@ -93,7 +93,7 @@ public class AndroidLocalTestBaseRule implements RuleDefinition {
         // rule so they're not defined in multiple places
         .add(
             attr("$android_resources_busybox", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(HostTransition.createFactory())
                 .exec()
                 .value(environment.getToolsLabel(AndroidRuleClasses.DEFAULT_RESOURCES_BUSYBOX)))
         .add(
