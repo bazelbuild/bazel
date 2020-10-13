@@ -463,7 +463,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public String describe() {
+  public final String describe() {
     String progressMessage = getProgressMessage();
     return progressMessage != null ? progressMessage : defaultProgressMessage();
   }

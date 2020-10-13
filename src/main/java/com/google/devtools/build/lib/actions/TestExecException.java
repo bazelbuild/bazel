@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.actions;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction;
-import com.google.devtools.build.lib.util.DetailedExitCode;
 
 /** An TestExecException that is related to the failure of a TestAction. */
 public final class TestExecException extends ExecException {
@@ -28,14 +27,10 @@ public final class TestExecException extends ExecException {
   }
 
   @Override
-  public ActionExecutionException toActionExecutionException(String messagePrefix, Action action) {
-    String message = String.format("%s: %s", messagePrefix + " failed", getMessage());
-    DetailedExitCode code =
-        DetailedExitCode.of(
-            FailureDetail.newBuilder()
-                .setMessage(message)
-                .setTestAction(TestAction.newBuilder().setCode(detailedCode))
-                .build());
-    return new ActionExecutionException(message, this, action, isCatastrophic(), code);
+  protected FailureDetail getFailureDetail(String message) {
+    return FailureDetail.newBuilder()
+        .setTestAction(TestAction.newBuilder().setCode(detailedCode))
+        .setMessage(message)
+        .build();
   }
 }
