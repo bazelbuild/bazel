@@ -214,7 +214,8 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       filesBuilder.addAll(outputs);
       createProtoCompileAction(outputs);
 
-      CompilationInfo compilationInfo = compilationHelper.compile(ruleContext::ruleError);
+      CompilationInfo compilationInfo =
+          compilationHelper.compile(ruleContext, ruleContext::ruleError);
       CcCompilationOutputs ccCompilationOutputs = compilationInfo.getCcCompilationOutputs();
       CcLinkingHelper ccLinkingHelper = initializeLinkingHelper(featureConfiguration, deps);
       if (ccToolchain(ruleContext).supportsInterfaceSharedLibraries(featureConfiguration)) {
