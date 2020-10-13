@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
-import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -33,8 +32,8 @@ import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -133,8 +132,7 @@ public final class JavaCompileActionBuilder {
     }
   }
 
-  private final ActionOwner owner;
-  private final BuildConfiguration configuration;
+  private final RuleContext ruleContext;
   private final JavaToolchainProvider toolchain;
   private PathFragment javaExecutable;
   private NestedSet<Artifact> javabaseInputs = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
@@ -169,10 +167,8 @@ public final class JavaCompileActionBuilder {
   private JavaClasspathMode classpathMode;
   private Artifact manifestOutput;
 
-  public JavaCompileActionBuilder(
-      ActionOwner owner, BuildConfiguration configuration, JavaToolchainProvider toolchain) {
-    this.owner = owner;
-    this.configuration = configuration;
+  public JavaCompileActionBuilder(RuleContext ruleContext, JavaToolchainProvider toolchain) {
+    this.ruleContext = ruleContext;
     this.toolchain = toolchain;
   }
 
@@ -199,7 +195,7 @@ public final class JavaCompileActionBuilder {
       compileTimeDependencyArtifacts = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
 
-    Preconditions.checkState(javaExecutable != null, owner);
+    Preconditions.checkState(javaExecutable != null, ruleContext.getActionOwner());
 
     CustomCommandLine.Builder executableLine = CustomCommandLine.builder();
     NestedSetBuilder<Artifact> toolsBuilder = NestedSetBuilder.compileOrder();
@@ -224,7 +220,7 @@ public final class JavaCompileActionBuilder {
     toolsBuilder.addTransitive(toolsJars);
 
     ActionEnvironment actionEnvironment =
-        configuration.getActionEnvironment().addFixedVariables(UTF8_ENVIRONMENT);
+        ruleContext.getConfiguration().getActionEnvironment().addFixedVariables(UTF8_ENVIRONMENT);
 
     NestedSetBuilder<Artifact> mandatoryInputs = NestedSetBuilder.stableOrder();
     mandatoryInputs
@@ -258,7 +254,8 @@ public final class JavaCompileActionBuilder {
     }
 
     if (outputs.depsProto() != null) {
-      JavaConfiguration javaConfiguration = configuration.getFragment(JavaConfiguration.class);
+      JavaConfiguration javaConfiguration =
+          ruleContext.getConfiguration().getFragment(JavaConfiguration.class);
       if (javaConfiguration.inmemoryJdepsFiles()) {
         executionInfo =
             ImmutableMap.<String, String>builderWithExpectedSize(this.executionInfo.size() + 1)
@@ -274,7 +271,7 @@ public final class JavaCompileActionBuilder {
     mandatoryInputs.addTransitive(tools);
     return new JavaCompileAction(
         /* compilationType= */ JavaCompileAction.CompilationType.JAVAC,
-        /* owner= */ owner,
+        /* owner= */ ruleContext.getActionOwner(),
         /* env= */ actionEnvironment,
         /* tools= */ tools,
         /* runfilesSupplier= */ runfilesSupplier,
@@ -292,7 +289,7 @@ public final class JavaCompileActionBuilder {
         /* extraActionInfoSupplier= */ extraActionInfoSupplier,
         /* executableLine= */ executableLine.build(),
         /* flagLine= */ buildParamFileContents(internedJcopts),
-        /* configuration= */ configuration,
+        /* configuration= */ ruleContext.getConfiguration(),
         /* dependencyArtifacts= */ compileTimeDependencyArtifacts,
         /* outputDepsProto= */ outputs.depsProto(),
         /* classpathMode= */ classpathMode);
@@ -363,10 +360,7 @@ public final class JavaCompileActionBuilder {
     if (coverageArtifact != null) {
       result.add("--post_processor");
       result.addExecPath(JACOCO_INSTRUMENTATION_PROCESSOR, coverageArtifact);
-      result.addPath(
-          configuration
-              .getCoverageMetadataDirectory(targetLabel.getPackageIdentifier().getRepository())
-              .getExecPath());
+      result.addPath(ruleContext.getCoverageMetadataDirectory().getExecPath());
       result.add("-*Test");
       result.add("-*TestCase");
     }

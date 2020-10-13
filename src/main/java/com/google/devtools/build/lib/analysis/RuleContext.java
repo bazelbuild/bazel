@@ -319,8 +319,20 @@ public final class RuleContext extends TargetContext
     return getConfiguration().getBinDirectory(rule.getRepository());
   }
 
+  public ArtifactRoot getIncludeDirectory() {
+    return getConfiguration().getIncludeDirectory(rule.getRepository());
+  }
+
   public ArtifactRoot getGenfilesDirectory() {
     return getConfiguration().getGenfilesDirectory(rule.getRepository());
+  }
+
+  public ArtifactRoot getCoverageMetadataDirectory() {
+    return getConfiguration().getCoverageMetadataDirectory(rule.getRepository());
+  }
+
+  public ArtifactRoot getTestLogsDirectory() {
+    return getConfiguration().getTestLogsDirectory(rule.getRepository());
   }
 
   public PathFragment getBinFragment() {

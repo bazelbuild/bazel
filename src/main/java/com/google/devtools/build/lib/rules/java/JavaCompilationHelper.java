@@ -255,9 +255,7 @@ public final class JavaCompilationHelper {
       createResourceJarAction(originalOutput, ImmutableList.copyOf(resourceJars));
     }
 
-    JavaCompileActionBuilder builder =
-        new JavaCompileActionBuilder(
-            ruleContext.getActionOwner(), ruleContext.getConfiguration(), javaToolchain);
+    JavaCompileActionBuilder builder = new JavaCompileActionBuilder(ruleContext, javaToolchain);
 
     JavaClasspathMode classpathMode = getJavaConfiguration().getReduceJavaClasspath();
     if (javaToolchain.getReducedClasspathIncompatibleTargets().contains(ruleContext.getLabel())) {

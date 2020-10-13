@@ -594,8 +594,7 @@ public class CppHelper {
         true,
         true,
         solibDir,
-        solibDirOverride,
-        configuration);
+        solibDirOverride);
   }
 
   @VisibleForTesting
@@ -608,15 +607,7 @@ public class CppHelper {
       String solibDir,
       BuildConfiguration configuration) {
     return getMiddlemanInternal(
-        ruleContext,
-        owner,
-        purpose,
-        artifacts,
-        useSolibSymlinks,
-        false,
-        solibDir,
-        null,
-        configuration);
+        ruleContext, owner, purpose, artifacts, useSolibSymlinks, false, solibDir, null);
   }
 
   /** Internal implementation for getAggregatingMiddlemanForCppRuntimes. */
@@ -628,8 +619,7 @@ public class CppHelper {
       boolean useSolibSymlinks,
       boolean isCppRuntime,
       String solibDir,
-      String solibDirOverride,
-      BuildConfiguration configuration) {
+      String solibDirOverride) {
     MiddlemanFactory factory = ruleContext.getAnalysisEnvironment().getMiddlemanFactory();
     if (useSolibSymlinks) {
       NestedSetBuilder<Artifact> symlinkedArtifacts = NestedSetBuilder.stableOrder();
@@ -657,7 +647,7 @@ public class CppHelper {
             ruleContext.getPackageDirectory(),
             purpose,
             artifacts,
-            configuration.getMiddlemanDirectory(ruleContext.getRule().getRepository())));
+            ruleContext.getMiddlemanDirectory()));
   }
 
   /** Returns the FDO build subtype. */
