@@ -32,3 +32,12 @@ filegroup(
     ],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
+
+filegroup(
+    name = "zstd_test_archive",
+    testonly = 1,
+    srcs = [
+        "zstd_test_archive.tar.zst",
+    ],
+    visibility = ["//src/test/shell/bazel:__pkg__"],
+)
