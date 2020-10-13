@@ -1923,9 +1923,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         } catch (IOException e) {
           throw new EnvironmentalExecException(
                   e, createFailureDetail("OutErr copy failure", Code.COPY_OUT_ERR_FAILURE))
-              .toActionExecutionException(
-                  getRawProgressMessage(),
-                  CppCompileAction.this);
+              .toActionExecutionException(CppCompileAction.this);
         }
       }
     }
