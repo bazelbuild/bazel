@@ -14,16 +14,45 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.runtime.BlazeOptionHandler.BAD_OPTION_TAG;
+import static com.google.devtools.common.options.Converters.BLAZE_ALIASING_FLAG;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.TestOptions;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests --flag_alias functionality in {@link BlazeOptionHandler}. */
 @RunWith(JUnit4.class)
-public final class FlagAliasTest extends AbstractBlazeOptionHandlerTest {
+public final class FlagAliasTest {
+
+  private StoredEventHandler eventHandler;
+  private OptionsParser parser;
+  private BlazeOptionHandler optionHandler;
+
+  @Before
+  public void setUp() throws Exception {
+    ImmutableList<Class<? extends OptionsBase>> optionsClasses =
+        ImmutableList.of(
+            TestOptions.class, CommonCommandOptions.class, ClientOptions.class, CoreOptions.class);
+
+    BlazeOptionHandlerTestHelper helper =
+        new BlazeOptionHandlerTestHelper(
+            optionsClasses,
+            /* allowResidue= */ true,
+            /* aliasFlag= */ BLAZE_ALIASING_FLAG,
+            /* skipStarlarkPrefixes= */ true);
+    eventHandler = helper.getEventHandler();
+    parser = helper.getOptionsParser();
+    optionHandler = helper.getOptionHandler();
+  }
 
   @Test
   public void useAliasWithoutSettingFeature() {
@@ -190,6 +219,20 @@ public final class FlagAliasTest extends AbstractBlazeOptionHandlerTest {
   }
 
   @Test
+  public void useAliasWithNoBooleanSyntax() {
+    ImmutableList<String> args =
+        ImmutableList.of(
+            "c0",
+            "--rc_source=/somewhere/.blazerc",
+            "--experimental_enable_flag_alias",
+            "--flag_alias=foo=//bar",
+            "--nofoo");
+    optionHandler.parseOptions(args, eventHandler);
+    assertThat(eventHandler.getEvents())
+        .contains(Event.error("--nofoo :: Unrecognized option: --nofoo").withTag(BAD_OPTION_TAG));
+  }
+
+  @Test
   public void lastRepeatMappingTakesPrecedence() {
     ImmutableList<String> args =
         ImmutableList.of(
@@ -258,9 +301,7 @@ public final class FlagAliasTest extends AbstractBlazeOptionHandlerTest {
             "--flag_alias=foo=//bar");
     optionHandler.parseOptions(args, eventHandler);
     assertThat(eventHandler.getEvents())
-        .contains(
-            Event.error("--foo=7 :: Unrecognized option: --foo=7")
-                .withTag(BlazeOptionHandler.BAD_OPTION_TAG));
+        .contains(Event.error("--foo=7 :: Unrecognized option: --foo=7").withTag(BAD_OPTION_TAG));
   }
 
   @Test
@@ -274,8 +315,6 @@ public final class FlagAliasTest extends AbstractBlazeOptionHandlerTest {
             "--flag_alias=foo=//bar");
     optionHandler.parseOptions(args, eventHandler);
     assertThat(eventHandler.getEvents())
-        .contains(
-            Event.error("--foo=7 :: Unrecognized option: --foo=7")
-                .withTag(BlazeOptionHandler.BAD_OPTION_TAG));
+        .contains(Event.error("--foo=7 :: Unrecognized option: --foo=7").withTag(BAD_OPTION_TAG));
   }
 }

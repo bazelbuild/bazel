@@ -13,53 +13,43 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import static com.google.devtools.common.options.Converters.BLAZE_ALIASING_FLAG;
-
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bazel.rules.BazelRulesModule;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.TestOptions;
-import org.junit.Before;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import java.util.List;
+import javax.annotation.Nullable;
 
-// TODO(b/132346407): Consider refactoring into a helper object instead of an abstract class
-/** Abstract class for setting up tests that make use of {@link BlazeOptionHandler}. */
-@RunWith(JUnit4.class)
-public abstract class AbstractBlazeOptionHandlerTest {
+/** Helper class for setting up tests that make use of {@link BlazeOptionHandler}. */
+class BlazeOptionHandlerTestHelper {
 
-  protected final Scratch scratch = new Scratch();
-  protected final StoredEventHandler eventHandler = new StoredEventHandler();
-  protected OptionsParser parser;
-  protected BlazeRuntime runtime;
-  protected BlazeOptionHandler optionHandler;
+  private final Scratch scratch = new Scratch();
+  private final StoredEventHandler eventHandler = new StoredEventHandler();
+  private final OptionsParser parser;
+  private final BlazeOptionHandler optionHandler;
 
-  @Before
-  public void initStuff() throws Exception {
-    parser =
-        OptionsParser.builder()
-            .optionsClasses(
-                TestOptions.class,
-                CommonCommandOptions.class,
-                ClientOptions.class,
-                CoreOptions.class)
-            .allowResidue(true)
-            .skipStarlarkOptionPrefixes()
-            .withAliasFlag(BLAZE_ALIASING_FLAG)
-            .build();
+  public BlazeOptionHandlerTestHelper(
+      List<Class<? extends OptionsBase>> optionsClasses,
+      boolean allowResidue,
+      @Nullable String aliasFlag,
+      boolean skipStarlarkPrefixes)
+      throws Exception {
+    parser = createOptionsParser(optionsClasses, allowResidue, aliasFlag, skipStarlarkPrefixes);
+
     String productName = TestConstants.PRODUCT_NAME;
     ServerDirectories serverDirectories =
         new ServerDirectories(
             scratch.dir("install_base"), scratch.dir("output_base"), scratch.dir("user_root"));
-    this.runtime =
+
+    BlazeRuntime runtime =
         new BlazeRuntime.Builder()
             .setFileSystem(scratch.getFileSystem())
             .setServerDirectories(serverDirectories)
@@ -68,7 +58,7 @@ public abstract class AbstractBlazeOptionHandlerTest {
                 OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build())
             .addBlazeModule(new BazelRulesModule())
             .build();
-    this.runtime.overrideCommands(ImmutableList.of(new C0Command()));
+    runtime.overrideCommands(ImmutableList.of(new C0Command()));
 
     BlazeDirectories directories =
         new BlazeDirectories(
@@ -86,6 +76,42 @@ public abstract class AbstractBlazeOptionHandlerTest {
             C0Command.class.getAnnotation(Command.class),
             parser,
             InvocationPolicy.getDefaultInstance());
+  }
+
+  public BlazeOptionHandlerTestHelper(
+      List<Class<? extends OptionsBase>> optionsClasses, boolean allowResidue) throws Exception {
+    this(optionsClasses, allowResidue, /* aliasFlag= */ null, /* skipStarlarkPrefixes= */ false);
+  }
+
+  private static OptionsParser createOptionsParser(
+      List<Class<? extends OptionsBase>> optionsClasses,
+      boolean allowResidue,
+      @Nullable String aliasFlag,
+      boolean skipStarlarkPrefixes) {
+
+    OptionsParser.Builder optionsParserBuilder =
+        OptionsParser.builder()
+            .optionsClasses(optionsClasses)
+            .allowResidue(allowResidue)
+            .withAliasFlag(aliasFlag);
+
+    if (skipStarlarkPrefixes) {
+      optionsParserBuilder.skipStarlarkOptionPrefixes();
+    }
+
+    return optionsParserBuilder.build();
+  }
+
+  public OptionsParser getOptionsParser() {
+    return parser;
+  }
+
+  public StoredEventHandler getEventHandler() {
+    return eventHandler;
+  }
+
+  public BlazeOptionHandler getOptionHandler() {
+    return optionHandler;
   }
 
   /** Custom command for testing. */
