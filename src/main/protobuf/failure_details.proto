@@ -609,7 +609,9 @@ message Query {
     QUERY_STDOUT_FLUSH_FAILURE = 13 [(metadata) = { exit_code: 36 }];
     ANALYSIS_QUERY_PREREQ_UNMET = 14 [(metadata) = { exit_code: 2 }];
     QUERY_RESULTS_FLUSH_FAILURE = 15 [(metadata) = { exit_code: 36 }];
-    reserved 16;
+    // Deprecated - folded into SYNTAX_ERROR.
+    DEPRECATED_UNCLOSED_QUOTATION_EXPRESSION_ERROR = 16
+        [(metadata) = { exit_code: 2 }];
     VARIABLE_NAME_INVALID = 17 [(metadata) = { exit_code: 7 }];
     VARIABLE_UNDEFINED = 18 [(metadata) = { exit_code: 7 }];
     BUILDFILES_AND_LOADFILES_CANNOT_USE_OUTPUT_LOCATION_ERROR = 19
@@ -625,7 +627,16 @@ message Query {
     ARGUMENTS_MISSING = 28 [(metadata) = { exit_code: 7 }];
     RBUILDFILES_FUNCTION_REQUIRES_SKYQUERY = 29 [(metadata) = { exit_code: 7 }];
     FULL_TARGETS_NOT_SUPPORTED = 30 [(metadata) = { exit_code: 7 }];
-    reserved 31 to 34;
+    // Deprecated - folded into SYNTAX_ERROR.
+    DEPRECATED_UNEXPECTED_TOKEN_ERROR = 31 [(metadata) = { exit_code: 2 }];
+    // Deprecated - folded into SYNTAX_ERROR.
+    DEPRECATED_INTEGER_LITERAL_MISSING = 32 [(metadata) = { exit_code: 2 }];
+    // Deprecated - folded into SYNTAX_ERROR.
+    DEPRECATED_INVALID_STARTING_CHARACTER_ERROR = 33
+        [(metadata) = { exit_code: 2 }];
+    // Deprecated - folded into SYNTAX_ERROR.
+    DEPRECATED_PREMATURE_END_OF_INPUT_ERROR = 34
+        [(metadata) = { exit_code: 2 }];
     // Indicates the user specified invalid query syntax.
     SYNTAX_ERROR = 35 [(metadata) = { exit_code: 2 }];
     OUTPUT_FORMATTER_IO_EXCEPTION = 36 [(metadata) = { exit_code: 36 }];
