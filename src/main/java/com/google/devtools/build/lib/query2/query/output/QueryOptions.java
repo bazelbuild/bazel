@@ -231,6 +231,18 @@ public class QueryOptions extends CommonQueryOptions {
       help = "If true, and graphless query is enabled, sorts the output alphabetically.")
   public boolean forceSortForGraphlessGenquery;
 
+  @Option(
+      name = "experimental_query_failure_exit_code_behavior",
+      defaultValue = "three_and_seven",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      converter = QueryFailureExitCodeBehaviorConverter.class,
+      help =
+          "Determines exit code for query failures: three_and_seven means keep-going queries will"
+              + " return 3, no-keep-going will return 7; seven means all failed queries will"
+              + " return 7; underlying means failed queries will return the underlying exit code")
+  public QueryFailureExitCodeBehavior queryFailureExitCodeBehavior;
+
   /** Ugly workaround since line terminator option default has to be constant expression. */
   public String getLineTerminator() {
     if (lineTerminatorNull) {
@@ -248,5 +260,20 @@ public class QueryOptions extends CommonQueryOptions {
       settings.add(Setting.TESTS_EXPRESSION_STRICT);
     }
     return settings;
+  }
+
+  /** Possible values for --experimental_query_failure_exit_code_behavior. */
+  public enum QueryFailureExitCodeBehavior {
+    THREE_AND_SEVEN,
+    SEVEN,
+    UNDERLYING
+  }
+
+  /** Converter for {@link QueryFailureExitCodeBehavior}. */
+  public static class QueryFailureExitCodeBehaviorConverter
+      extends EnumConverter<QueryFailureExitCodeBehavior> {
+    public QueryFailureExitCodeBehaviorConverter() {
+      super(QueryFailureExitCodeBehavior.class, "query failure exit code behavior");
+    }
   }
 }

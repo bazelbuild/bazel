@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.WalkableGraph;
-import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.TriState;
 import java.io.IOException;
@@ -66,10 +65,6 @@ import java.util.function.Function;
  * requires {@link QueryEnvironment}
  */
 public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
-
-  @Override
-  public void editOptions(OptionsParser optionsParser) { }
-
   /**
    * Exit codes:
    *   0   on successful evaluation.
@@ -202,14 +197,29 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
             if (queryEvalResult.getSuccess()) {
               return BlazeCommandResult.success();
             }
-            // The numerical exit code expected by query users in this case is always 3
-            // (corresponding to ExitCode.PARTIAL_ANALYSIS_FAILURE), which is why the command
-            // result returned here overrides any numerical code associated with the
-            // detailedExitCode in the eval result.
-            return BlazeCommandResult.detailedExitCode(
-                DetailedExitCode.of(
-                    ExitCode.PARTIAL_ANALYSIS_FAILURE,
-                    queryEvalResult.getDetailedExitCode().getFailureDetail()));
+            switch (queryOptions.queryFailureExitCodeBehavior) {
+              case THREE_AND_SEVEN:
+                // The numerical exit code expected by query users in this case is always 3
+                // (corresponding to ExitCode.PARTIAL_ANALYSIS_FAILURE), which is why the command
+                // result returned here overrides any numerical code associated with the
+                // detailedExitCode in the eval result.
+                return BlazeCommandResult.detailedExitCode(
+                    DetailedExitCode.of(
+                        ExitCode.PARTIAL_ANALYSIS_FAILURE,
+                        queryEvalResult.getDetailedExitCode().getFailureDetail()));
+              case SEVEN:
+                return BlazeCommandResult.detailedExitCode(
+                    DetailedExitCode.of(
+                        ExitCode.ANALYSIS_FAILURE,
+                        queryEvalResult.getDetailedExitCode().getFailureDetail()));
+              case UNDERLYING:
+                return BlazeCommandResult.detailedExitCode(queryEvalResult.getDetailedExitCode());
+            }
+            throw new IllegalStateException(
+                "Unknown option: "
+                    + queryOptions.queryFailureExitCodeBehavior
+                    + ", "
+                    + queryEvalResult.getDetailedExitCode());
           });
     } catch (QueryRuntimeHelperException e) {
       env.getReporter().handle(Event.error(e.getMessage()));

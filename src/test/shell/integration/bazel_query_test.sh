@@ -675,4 +675,54 @@ function test_infer_universe_scope_defers_to_universe_scope_value() {
   expect_log //b:b
 }
 
+function test_query_failure_exit_code_behavior() {
+  bazel query //targetdoesnotexist >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 7 "$exit_code"
+  bazel query --keep_going //targetdoesnotexist >& "$TEST_log" \
+      && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 3 "$exit_code"
+
+  bazel query '$x' >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 7 "$exit_code"
+  bazel query --keep_going '$x' >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 7 "$exit_code"
+
+  bazel query \
+      --experimental_query_failure_exit_code_behavior=underlying \
+      //targetdoesnotexist >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 1 "$exit_code"
+  bazel query --keep_going \
+      --experimental_query_failure_exit_code_behavior=underlying \
+      //targetdoesnotexist >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 1 "$exit_code"
+
+  bazel query \
+      --experimental_query_failure_exit_code_behavior=underlying \
+      '$x' >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 7 "$exit_code"
+  bazel query --keep_going \
+      --experimental_query_failure_exit_code_behavior=underlying \
+      '$x' >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 7 "$exit_code"
+
+  bazel query \
+      --experimental_query_failure_exit_code_behavior=seven \
+      //targetdoesnotexist >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 7 "$exit_code"
+  bazel query --keep_going \
+      --experimental_query_failure_exit_code_behavior=seven \
+      //targetdoesnotexist >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  assert_equals 7 "$exit_code"
+}
+
 run_suite "${PRODUCT_NAME} query tests"
