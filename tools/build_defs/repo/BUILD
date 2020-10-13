@@ -4,6 +4,8 @@ load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 licenses(["notice"])  # Apache 2.0
 
+exports_files(glob(["*.bzl"]))
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
