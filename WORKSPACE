@@ -539,6 +539,20 @@ http_archive(
     ],
 )
 
+http_archive(
+    name = "com_github_luben_zstd_jni",
+    urls = [
+        # TODO: Uncomment after publishing libraryto the mirror.
+        # "https://mirror.bazel.build/github.com/luben/zstd-jni/archive/v1.4.5-4.tar.gz",
+        "https://github.com/luben/zstd-jni/archive/v1.4.5-4.tar.gz",
+    ],
+    sha256 = "32611d23976e6e8266d423e0c5300bdf2c756e1027a41852ea6c329e135eef91",
+    patches = ["//third_party/zstd-jni:zstd-jni_1.4.5-4.patch"],
+    patch_args = ["-p1"],
+    strip_prefix = "zstd-jni-1.4.5-4",
+    build_file = "//third_party/zstd-jni:BUILD.bazel",
+)
+
 # For testing, have an distdir_tar with all the archives implicit in every
 # WORKSPACE, to that they don't have to be refetched for every test
 # calling `bazel sync`.

@@ -15,12 +15,12 @@ filegroup(
 genrule(
     name = "copy_link_jni_md_header",
     srcs = select({
-        "//src/conditions:darwin": ["//tools/jdk:jni_md_header-darwin"],
-        "//src/conditions:darwin_x86_64": ["//tools/jdk:jni_md_header-darwin"],
-        "//src/conditions:freebsd": ["//tools/jdk:jni_md_header-freebsd"],
-        "//src/conditions:openbsd": ["//tools/jdk:jni_md_header-openbsd"],
-        "//src/conditions:windows": ["//tools/jdk:jni_md_header-windows"],
-        "//conditions:default": ["//tools/jdk:jni_md_header-linux"],
+        "@io_bazel//src/conditions:darwin": ["@io_bazel//tools/jdk:jni_md_header-darwin"],
+        "@io_bazel//src/conditions:darwin_x86_64": ["@io_bazel//tools/jdk:jni_md_header-darwin"],
+        "@io_bazel//src/conditions:freebsd": ["@io_bazel//tools/jdk:jni_md_header-freebsd"],
+        "@io_bazel//src/conditions:openbsd": ["@io_bazel//tools/jdk:jni_md_header-openbsd"],
+        "@io_bazel//src/conditions:windows": ["@io_bazel//tools/jdk:jni_md_header-windows"],
+        "@io_bazel//conditions:default": ["@io_bazel//tools/jdk:jni_md_header-linux"],
     }),
     outs = ["jni_md.h"],
     cmd = "cp -f $< $@",
@@ -28,7 +28,7 @@ genrule(
 
 genrule(
     name = "copy_link_jni_header",
-    srcs = ["//tools/jdk:jni_header"],
+    srcs = ["@io_bazel//tools/jdk:jni_header"],
     outs = ["jni.h"],
     cmd = "cp -f $< $@",
 )
@@ -106,13 +106,13 @@ genrule(
 filegroup(
     name = "zstd-native-lib",
     srcs = select({
-        "//src/conditions:darwin": ["//third_party/zstd-jni:libzstd-jni.dylib"],
-        "//src/conditions:darwin_x86_64": ["//third_party/zstd-jni:libzstd-jni.dylib"],
-        "//src/conditions:windows": ["//third_party/zstd-jni:libzstd-jni.dll"],
-        "//conditions:default": ["//third_party/zstd-jni:libzstd-jni.so"],
+        "@io_bazel//src/conditions:darwin": ["libzstd-jni.dylib"],
+        "@io_bazel//src/conditions:darwin_x86_64": ["libzstd-jni.dylib"],
+        "@io_bazel//src/conditions:windows": ["libzstd-jni.dll"],
+        "@io_bazel//conditions:default": ["libzstd-jni.so"],
     }),
     visibility = [
-        "//src:__pkg__",
+        "@io_bazel//src:__pkg__",
     ],
 )
 

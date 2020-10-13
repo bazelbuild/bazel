@@ -144,7 +144,7 @@ distrib_java_import(
     enable_distributions = ["debian"],
     jars = ["apache_commons_compress/apache-commons-compress-1.19.jar"],
     deps = [
-        "//third_party/zstd-jni",
+        "@com_github_luben_zstd_jni//:zstd-jni",
     ],
 )
 
