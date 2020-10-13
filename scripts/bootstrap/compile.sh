@@ -397,10 +397,11 @@ function build_jni() {
     cp "$tmp_output" "$output"
     chmod 0555 "$output"
 
-    JNI_FLAGS="-Dio.bazel.EnableJni=1 -Djava.library.path=${output_dir}"
+    JNI_FLAGS="-Djava.library.path=${output_dir}"
   else
-    # We don't need JNI on other platforms.
-    JNI_FLAGS="-Dio.bazel.EnableJni=0"
+    # We don't need JNI on other platforms. The Java NIO file system fallback is
+    # sufficient.
+    true
   fi
 }
 

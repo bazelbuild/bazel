@@ -711,11 +711,11 @@ public class BazelJavaSemantics implements JavaSemantics {
       if (JavaSemantics.useLegacyJavaTest(ruleContext)) {
         TestConfiguration testConfiguration =
             ruleContext.getConfiguration().getFragment(TestConfiguration.class);
-        if (testConfiguration.getTestArguments().isEmpty()
+        if ((testConfiguration == null || testConfiguration.getTestArguments().isEmpty())
             && !ruleContext.attributes().isAttributeValueExplicitlySpecified("args")) {
           ImmutableList.Builder<String> builder = ImmutableList.builder();
           for (Artifact artifact : sources) {
-            PathFragment path = artifact.getOutputDirRelativePath();
+            PathFragment path = artifact.getRepositoryRelativePath();
             String className = JavaUtil.getJavaFullClassname(FileSystemUtils.removeExtension(path));
             if (className != null) {
               builder.add(className);
@@ -759,5 +759,12 @@ public class BazelJavaSemantics implements JavaSemantics {
 
   @Override
   public void checkDependencyRuleKinds(RuleContext ruleContext) {}
+
+  @Override
+  public boolean shouldSetupJavaBuilderTemporaryDirectories() {
+    // TODO(cushon): remove after release of:
+    // https://github.com/bazelbuild/bazel/commit/2350239c39841a67162c1c3de042397d6c3771e4
+    return true;
+  }
 }
 

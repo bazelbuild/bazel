@@ -122,7 +122,7 @@ public class NinjaActionsHelper {
           }
           enqueuer.accept(target.getAllInputs());
         } else {
-          // Sanity check that the Ninja action we're skipping (because its outputs are already
+          // Verify that the Ninja action we're skipping (because its outputs are already
           // being symlinked using output_root_inputs) has only symlink outputs specified in
           // output_root_inputs. Otherwise we might skip some other outputs.
           List<PathFragment> outputsInOutputRootInputsSymlinks = new ArrayList<>();

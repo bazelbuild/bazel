@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -23,7 +24,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LibraryToLinkApi;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 
@@ -35,7 +35,7 @@ import net.starlark.java.eval.EvalException;
             + "you will be broken when it is removed."
             + "Information about the C++ libraries to be linked into Java targets.",
     documented = true,
-    category = StarlarkDocumentationCategory.PROVIDER)
+    category = DocCategory.PROVIDER)
 public interface JavaNativeLibraryInfoApi<
         FileT extends FileApi, LibraryToLinkT extends LibraryToLinkApi<FileT>>
     extends StructApi {

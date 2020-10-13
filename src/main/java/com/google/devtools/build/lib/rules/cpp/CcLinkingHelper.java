@@ -202,6 +202,10 @@ public final class CcLinkingHelper {
       Preconditions.checkArgument(!Link.SHARED_LIBRARY_FILETYPES.matches(basename));
       this.nonCodeLinkerInputs.add(nonCodeLinkerInput);
     }
+    if (fdoContext.getPropellerOptimizeInputFile() != null
+        && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
+      this.nonCodeLinkerInputs.add(fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
+    }
     return this;
   }
 

@@ -285,6 +285,9 @@ public final class Attribute implements Comparable<Attribute> {
     public AllowedValueSet(Iterable<?> values) {
       Preconditions.checkNotNull(values);
       Preconditions.checkArgument(!Iterables.isEmpty(values));
+      for (Object v : values) {
+        Starlark.checkValid(v);
+      }
       allowedValues = ImmutableSet.copyOf(values);
     }
 

@@ -270,6 +270,7 @@ java_library(
         "test/TestResult.java",
         "test/TestRunnerAction.java",
         "test/TestStrategy.java",
+        "test/TestTagsProvider.java",
         "test/TestTargetExecutionSettings.java",
         "test/TestTargetProperties.java",
     ],
@@ -1152,6 +1153,10 @@ java_library(
 java_library(
     name = "view_creation_failed_exception",
     srcs = ["ViewCreationFailedException.java"],
+    deps = [
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
+    ],
 )
 
 java_library(
@@ -1484,7 +1489,6 @@ java_library(
         "config/OutputDirectories.java",
     ],
     deps = [
-        ":actions/compression",
         ":blaze_directories",
         ":config/build_options",
         ":config/compilation_mode",
@@ -1590,6 +1594,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
     ],
 )
@@ -1897,6 +1902,9 @@ java_library(
         ":constraints/supported_environments_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:jsr305",
     ],
 )
@@ -1989,6 +1997,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration_value",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -2099,6 +2108,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

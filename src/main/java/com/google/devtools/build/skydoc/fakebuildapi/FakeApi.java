@@ -56,6 +56,7 @@ import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigStarlarkCo
 import com.google.devtools.build.skydoc.fakebuildapi.cpp.FakeCcInfo;
 import com.google.devtools.build.skydoc.fakebuildapi.cpp.FakeCcModule;
 import com.google.devtools.build.skydoc.fakebuildapi.cpp.FakeCcToolchainConfigInfo;
+import com.google.devtools.build.skydoc.fakebuildapi.cpp.FakeDebugPackageInfo;
 import com.google.devtools.build.skydoc.fakebuildapi.cpp.FakeGoWrapCcHelper;
 import com.google.devtools.build.skydoc.fakebuildapi.cpp.FakePyCcLinkParamsProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.cpp.FakePyWrapCcHelper;
@@ -151,6 +152,7 @@ public final class FakeApi {
     new CcBootstrap(
             new FakeCcModule(),
             new FakeCcInfo.Provider(),
+            new FakeDebugPackageInfo.Provider(),
             new FakeCcToolchainConfigInfo.Provider(),
             new FakePyWrapCcHelper(),
             new FakeGoWrapCcHelper(),

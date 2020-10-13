@@ -34,6 +34,7 @@ import java.nio.file.Path;
 import java.util.Enumeration;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 
 /** An implementation of the JavaBuilder that uses in-process javac to compile java files. */
@@ -100,7 +101,8 @@ public class SimpleJavaLibraryBuilder implements Closeable {
    *
    * @param build A JavaLibraryBuildRequest request object describing what to compile
    */
-  public BlazeJavacResult compileJavaLibrary(final JavaLibraryBuildRequest build) throws Exception {
+  private BlazeJavacResult compileJavaLibrary(final JavaLibraryBuildRequest build)
+      throws Exception {
     prepareSourceCompilation(build);
     if (build.getSourceFiles().isEmpty()) {
       return BlazeJavacResult.ok();
@@ -109,6 +111,7 @@ public class SimpleJavaLibraryBuilder implements Closeable {
   }
 
   /** Perform the build. */
+  @CheckReturnValue
   public BlazeJavacResult run(JavaLibraryBuildRequest build) throws Exception {
     BlazeJavacResult result = BlazeJavacResult.error("");
     try {

@@ -144,6 +144,7 @@ message FailureDetail {
     Analysis analysis = 174;
     PackageLoading package_loading = 175;
     Toolchain toolchain = 177;
+    StarlarkLoading starlark_loading = 179;
   }
 
   reserved 102; // For internal use
@@ -160,6 +161,8 @@ message FailureDetail {
   reserved 155 to 157; // For internal use
   reserved 165; // For internal use
   reserved 170 to 171; // For internal use
+  reserved 176; // For internal use
+  reserved 178; // For internal use
 }
 
 message Interrupted {
@@ -200,7 +203,7 @@ message Spawn {
     // Note: Spawn OUT_OF_MEMORY leads to a BUILD_FAILURE exit_code because the
     // build tool itself did not run out of memory.
     OUT_OF_MEMORY = 3 [(metadata) = { exit_code: 1 }];
-    EXECUTION_FAILED = 4 [(metadata) = { exit_code: 1 }];
+    EXECUTION_FAILED = 4 [(metadata) = { exit_code: 34 }];
     EXECUTION_DENIED = 5 [(metadata) = { exit_code: 1 }];
     REMOTE_CACHE_FAILED = 6 [(metadata) = { exit_code: 34 }];
     COMMAND_LINE_EXPANSION_FAILURE = 7 [(metadata) = { exit_code: 1 }];
@@ -606,8 +609,7 @@ message Query {
     QUERY_STDOUT_FLUSH_FAILURE = 13 [(metadata) = { exit_code: 36 }];
     ANALYSIS_QUERY_PREREQ_UNMET = 14 [(metadata) = { exit_code: 2 }];
     QUERY_RESULTS_FLUSH_FAILURE = 15 [(metadata) = { exit_code: 36 }];
-    // TODO(b/167277482): Delete when internal references are cleaned up.
-    UNCLOSED_QUOTATION_EXPRESSION_ERROR = 16 [(metadata) = { exit_code: 2 }];
+    reserved 16;
     VARIABLE_NAME_INVALID = 17 [(metadata) = { exit_code: 7 }];
     VARIABLE_UNDEFINED = 18 [(metadata) = { exit_code: 7 }];
     BUILDFILES_AND_LOADFILES_CANNOT_USE_OUTPUT_LOCATION_ERROR = 19
@@ -623,11 +625,7 @@ message Query {
     ARGUMENTS_MISSING = 28 [(metadata) = { exit_code: 7 }];
     RBUILDFILES_FUNCTION_REQUIRES_SKYQUERY = 29 [(metadata) = { exit_code: 7 }];
     FULL_TARGETS_NOT_SUPPORTED = 30 [(metadata) = { exit_code: 7 }];
-    // TODO(b/167277482): Delete 31-34 when internal references are cleaned up.
-    UNEXPECTED_TOKEN_ERROR = 31 [(metadata) = { exit_code: 2 }];
-    INTEGER_LITERAL_MISSING = 32 [(metadata) = { exit_code: 2 }];
-    INVALID_STARTING_CHARACTER_ERROR = 33 [(metadata) = { exit_code: 2 }];
-    PREMATURE_END_OF_INPUT_ERROR = 34 [(metadata) = { exit_code: 2 }];
+    reserved 31 to 34;
     // Indicates the user specified invalid query syntax.
     SYNTAX_ERROR = 35 [(metadata) = { exit_code: 2 }];
     OUTPUT_FORMATTER_IO_EXCEPTION = 36 [(metadata) = { exit_code: 36 }];
@@ -1020,6 +1018,13 @@ message FailAction {
   enum Code {
     FAIL_ACTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     INTENTIONAL_FAILURE = 1 [(metadata) = { exit_code: 1 }];
+    INCORRECT_PYTHON_VERSION = 2 [(metadata) = { exit_code: 1 }];
+    PROGUARD_SPECS_MISSING = 3 [(metadata) = { exit_code: 1 }];
+    DYNAMIC_LINKING_NOT_SUPPORTED = 4 [(metadata) = { exit_code: 1 }];
+    SOURCE_FILES_MISSING = 5 [(metadata) = { exit_code: 1 }];
+    INCORRECT_TOOLCHAIN = 6 [(metadata) = { exit_code: 1 }];
+    FRAGMENT_CLASS_MISSING = 7 [(metadata) = { exit_code: 1 }];
+    reserved 8, 9; // For internal use
   }
 
   Code code = 1;
@@ -1102,6 +1107,19 @@ message Analysis {
     NOT_ALL_TARGETS_ANALYZED = 3 [(metadata) = { exit_code: 1 }];
     CYCLE = 4 [(metadata) = { exit_code: 1 }];
     PARAMETERIZED_TOP_LEVEL_ASPECT_INVALID = 5 [(metadata) = { exit_code: 1 }];
+    ASPECT_LABEL_SYNTAX_ERROR = 6 [(metadata) = { exit_code: 1 }];
+    ASPECT_PREREQ_UNMET = 7 [(metadata) = { exit_code: 1 }];
+    ASPECT_NOT_FOUND = 8 [(metadata) = { exit_code: 1 }];
+    ACTION_CONFLICT = 9 [(metadata) = { exit_code: 1 }];
+    ARTIFACT_PREFIX_CONFLICT = 10 [(metadata) = { exit_code: 1 }];
+    UNEXPECTED_ANALYSIS_EXCEPTION = 11 [(metadata) = { exit_code: 1 }];
+    TARGETS_MISSING_ENVIRONMENTS = 12 [(metadata) = { exit_code: 1 }];
+    INVALID_ENVIRONMENT = 13 [(metadata) = { exit_code: 1 }];
+    ENVIRONMENT_MISSING_FROM_GROUPS = 14 [(metadata) = { exit_code: 1 }];
+    EXEC_GROUP_MISSING = 15 [(metadata) = { exit_code: 1 }];
+    INVALID_EXECUTION_PLATFORM = 16 [(metadata) = { exit_code: 1 }];
+    ASPECT_CREATION_FAILED = 17 [(metadata) = { exit_code: 1 }];
+    CONFIGURED_VALUE_CREATION_FAILED = 18 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -1146,15 +1164,6 @@ message PackageLoading {
   Code code = 1;
 }
 
-message Blueprint {
-  enum Code {
-    BLUEPRINT_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
-    UNSUPPORTED_COMMAND = 1 [(metadata) = { exit_code: 2 }];
-  }
-
-  Code code = 1;
-}
-
 message Toolchain {
   enum Code {
     TOOLCHAIN_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
@@ -1165,6 +1174,23 @@ message Toolchain {
     NO_MATCHING_EXECUTION_PLATFORM = 5 [(metadata) = { exit_code: 1 }];
     NO_MATCHING_TOOLCHAIN = 6 [(metadata) = { exit_code: 1 }];
     INVALID_TOOLCHAIN_TYPE = 7 [(metadata) = { exit_code: 1 }];
+  }
+
+  Code code = 1;
+}
+
+message StarlarkLoading {
+  enum Code {
+    STARLARK_LOADING_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    CYCLE = 1 [(metadata) = { exit_code: 1 }];
+    COMPILE_ERROR = 2 [(metadata) = { exit_code: 1 }];
+    PARSE_ERROR = 3 [(metadata) = { exit_code: 1 }];
+    EVAL_ERROR = 4 [(metadata) = { exit_code: 1 }];
+    CONTAINING_PACKAGE_NOT_FOUND = 5 [(metadata) = { exit_code: 1 }];
+    PACKAGE_NOT_FOUND = 6 [(metadata) = { exit_code: 1 }];
+    IO_ERROR = 7 [(metadata) = { exit_code: 1 }];
+    LABEL_CROSSES_PACKAGE_BOUNDARY = 8 [(metadata) = { exit_code: 1 }];
+    BUILTINS_ERROR = 9 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;

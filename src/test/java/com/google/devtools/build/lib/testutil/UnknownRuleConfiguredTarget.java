@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 
 /**
  * A null implementation of ConfiguredTarget for rules we don't know how to build.
@@ -55,7 +56,8 @@ public class UnknownRuleConfiguredTarget implements RuleConfiguredTargetFactory 
         new FailAction(
             context.getActionOwner(),
             filesToBuild.toList(),
-            "cannot build " + rule.getRuleClass() + " rules such as " + rule.getLabel()));
+            "cannot build " + rule.getRuleClass() + " rules such as " + rule.getLabel(),
+            Code.FAIL_ACTION_UNKNOWN));
     return new RuleConfiguredTargetBuilder(context)
         .setFilesToBuild(filesToBuild)
         .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))

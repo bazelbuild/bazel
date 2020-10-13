@@ -213,7 +213,7 @@ public abstract class DependencyResolver {
    * representing the given target and configuration.
    *
    * <p>Otherwise {@code aspects} represents an aspect path. The function returns dependent nodes of
-   * the entire path applied to given target and configuration. These are the depenent nodes of the
+   * the entire path applied to given target and configuration. These are the dependent nodes of the
    * last aspect in the path.
    *
    * <p>This also implements the first step of applying configuration transitions, namely, split

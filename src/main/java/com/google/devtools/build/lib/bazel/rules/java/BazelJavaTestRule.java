@@ -23,6 +23,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.BaseJavaBinaryRule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -55,7 +56,10 @@ public final class BazelJavaTestRule implements RuleDefinition {
         .override(attr("use_testrunner", BOOLEAN).value(true))
         .override(attr(":java_launcher", LABEL).value(JavaSemantics.JAVA_LAUNCHER))
         // Input files for test actions collecting code coverage
-        .add(attr(":lcov_merger", LABEL).value(BaseRuleClasses.getCoverageOutputGeneratorLabel()))
+        .add(
+            attr(":lcov_merger", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .value(BaseRuleClasses.getCoverageOutputGeneratorLabel()))
         .add(
             attr("$jacocorunner", LABEL)
                 .value(env.getToolsLabel("//tools/jdk:JacocoCoverageRunner")))
@@ -95,6 +99,7 @@ public final class BazelJavaTestRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("test_class", STRING))
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
+        .useToolchainTransition(true)
         .build();
   }
 

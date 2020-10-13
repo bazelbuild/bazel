@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.rules.ninja.actions;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -32,7 +31,7 @@ public final class NinjaGraphProvider implements TransitiveInfoProvider {
   private final PathFragment workingDirectory;
   private final ImmutableSortedMap<PathFragment, NinjaTarget> targetsMap;
   private final ImmutableSortedMap<PathFragment, PhonyTarget> phonyTargetsMap;
-  private final ImmutableSortedSet<PathFragment> outputRootSymlinks;
+  private final ImmutableSet<PathFragment> outputRootSymlinks;
   private final ImmutableSet<PathFragment> outputRootInputsSymlinks;
 
   public NinjaGraphProvider(
@@ -40,7 +39,7 @@ public final class NinjaGraphProvider implements TransitiveInfoProvider {
       PathFragment workingDirectory,
       ImmutableSortedMap<PathFragment, NinjaTarget> targetsMap,
       ImmutableSortedMap<PathFragment, PhonyTarget> phonyTargetsMap,
-      ImmutableSortedSet<PathFragment> outputRootSymlinks,
+      ImmutableSet<PathFragment> outputRootSymlinks,
       ImmutableSet<PathFragment> outputRootInputsSymlinks) {
 
     this.outputRoot = outputRoot;
@@ -68,7 +67,7 @@ public final class NinjaGraphProvider implements TransitiveInfoProvider {
   }
 
   /** Output paths under output_root, that should be treated as symlink artifacts. */
-  public ImmutableSortedSet<PathFragment> getOutputRootSymlinks() {
+  public ImmutableSet<PathFragment> getOutputRootSymlinks() {
     return outputRootSymlinks;
   }
 

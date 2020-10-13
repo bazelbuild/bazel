@@ -14,14 +14,14 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.eval.StarlarkValue;
 
 /** The interface for late bound defaults in Starlark. */
 @StarlarkBuiltin(
     name = "LateBoundDefault",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc =
         "Represents a late-bound default attribute value of type 'Label'. The value of a"
             + " LateBoundDefault is only resolvable in the context of a rule implementation"

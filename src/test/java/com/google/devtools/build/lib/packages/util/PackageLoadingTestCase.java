@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
@@ -66,18 +67,20 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
 
   protected LoadingMock loadingMock;
   private PackageOptions packageOptions;
-  private BuildLanguageOptions starlarkSemanticsOptions;
+  private BuildLanguageOptions buildLanguageOptions;
   protected ConfiguredRuleClassProvider ruleClassProvider;
   protected PackageFactory packageFactory;
   protected SkyframeExecutor skyframeExecutor;
   protected BlazeDirectories directories;
+  protected PackageValidator validator = null;
+
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   @Before
   public final void initializeSkyframeExecutor() throws Exception {
     loadingMock = LoadingMock.get();
     packageOptions = parsePackageOptions();
-    starlarkSemanticsOptions = parseBuildLanguageOptions();
+    buildLanguageOptions = parseBuildLanguageOptions();
     List<RuleDefinition> extraRules = getExtraRules();
     if (!extraRules.isEmpty()) {
       ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
@@ -99,6 +102,13 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
         loadingMock
             .getPackageFactoryBuilderForTesting(directories)
             .setEnvironmentExtensions(getEnvironmentExtensions())
+            .setPackageValidator(
+                (pkg, handler) -> {
+                  // Delegate to late-bound this.validator.
+                  if (validator != null) {
+                    validator.validate(pkg, handler);
+                  }
+                })
             .build(ruleClassProvider, fileSystem);
     skyframeExecutor = createSkyframeExecutor();
     setUpSkyframe();
@@ -167,7 +177,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
-        starlarkSemanticsOptions,
+        buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
@@ -196,7 +206,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   }
 
   protected void setBuildLanguageOptions(String... options) throws Exception {
-    starlarkSemanticsOptions = parseBuildLanguageOptions(options);
+    buildLanguageOptions = parseBuildLanguageOptions(options);
     setUpSkyframe();
   }
 
@@ -304,10 +314,9 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   }
 
   /**
-   * Invalidates all existing packages below the usual rootDirectory. Must be called _after_ the
-   * files are modified.
-   *
-   * @throws InterruptedException
+   * Called after files are modified to invalidate all file-system nodes below rootDirectory. It
+   * does not unconditionally invalidate PackageValue nodes; if no file-system nodes have changed,
+   * packages may not be reloaded.
    */
   protected void invalidatePackages() throws InterruptedException {
     skyframeExecutor.invalidateFilesUnderPathForTesting(

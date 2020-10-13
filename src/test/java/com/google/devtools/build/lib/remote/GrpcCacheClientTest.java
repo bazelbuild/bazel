@@ -214,7 +214,8 @@ public class GrpcCacheClientTest {
     CallCredentialsProvider callCredentialsProvider;
     try (InputStream in = scratch.resolve(authTlsOptions.googleCredentials).getInputStream()) {
       callCredentialsProvider =
-          GoogleAuthUtils.newCallCredentialsProvider(in, authTlsOptions.googleAuthScopes);
+          GoogleAuthUtils.newCallCredentialsProvider(
+              GoogleAuthUtils.newCredentials(in, authTlsOptions.googleAuthScopes));
     }
     CallCredentials creds = callCredentialsProvider.getCallCredentials();
 
@@ -236,7 +237,7 @@ public class GrpcCacheClientTest {
             remoteOptions.remoteTimeout.getSeconds(),
             retrier);
     return new GrpcCacheClient(
-        channel.retain(), creds, remoteOptions, retrier, DIGEST_UTIL, uploader);
+        channel.retain(), callCredentialsProvider, remoteOptions, retrier, DIGEST_UTIL, uploader);
   }
 
   private static byte[] downloadBlob(GrpcCacheClient cacheClient, Digest digest)

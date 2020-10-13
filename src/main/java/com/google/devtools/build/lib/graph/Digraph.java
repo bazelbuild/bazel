@@ -80,9 +80,8 @@ public final class Digraph<T> implements Cloneable {
   public Digraph() {}
 
   /**
-   * Sanity-check: assert that a node is indeed a member of this graph and not
-   * another one.  Perform this check whenever a function is supplied a node by
-   * the user.
+   * Check that a node is indeed a member of this graph and not another one. Perform this check
+   * whenever a function is supplied a node by the user.
    */
   private final void checkNode(Node<T> node) {
     if (getNode(node.getLabel()) != node) {

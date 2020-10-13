@@ -221,8 +221,8 @@ EOF
       || fail "External change to action cache misdetected"
 
   # For completeness, make the changes to the same output file visibile and
-  # ensure Blaze notices them.  This is to sanity-check that we actually
-  # modified the right output file above.
+  # ensure Blaze notices them.  This is to check that we actually modified the
+  # right output file above.
   touch "${output_file}"
   bazel build package:foo >>"${TEST_log}" 2>&1 || fail "Should build"
   [[ "$(cat "${output_file}")" == foo ]] \

@@ -32,6 +32,7 @@ java_library(
     deps = [
         ":cpp_interface",
         ":denied_implicit_outputs_marker_provider",
+        "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",

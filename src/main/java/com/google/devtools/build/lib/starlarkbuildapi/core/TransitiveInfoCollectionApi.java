@@ -14,14 +14,14 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.core;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Interface for a build target. */
 @StarlarkBuiltin(
     name = "Target",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc =
         "A BUILD target. It is essentially a <code>struct</code> with the following fields:"
             + "<ul><li><h3 id=\"modules.Target.label\">label</h3><code><a class=\"anchor\""

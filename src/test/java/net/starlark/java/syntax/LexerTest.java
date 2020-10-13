@@ -192,7 +192,7 @@ public class LexerTest {
         .isEqualTo("INT IN LPAREN STRING AND LBRACKET RBRACKET RPAREN NEWLINE EOF");
 
     assertThat(values(tokens("0or()"))).isEqualTo("INT(0) IDENTIFIER(r) LPAREN RPAREN NEWLINE EOF");
-    assertThat(lastError).isEqualTo("/some/path.txt:1: invalid base-8 integer constant: 0o");
+    assertThat(lastError).isEqualTo("/some/path.txt:1: invalid base-8 integer literal: 0o");
   }
 
   @Test
@@ -223,17 +223,17 @@ public class LexerTest {
     assertThat(values(tokens("0O77"))).isEqualTo("INT(63) NEWLINE EOF");
 
     // octal (bad)
-    assertThat(values(tokens("012349-"))).isEqualTo("INT(0) MINUS NEWLINE EOF");
+    assertThat(values(tokens("0o12349-"))).isEqualTo("INT(0) MINUS NEWLINE EOF");
     assertThat(lastError.toString())
-        .isEqualTo("/some/path.txt:1: invalid base-8 integer constant: 012349");
+        .isEqualTo("/some/path.txt:1: invalid base-8 integer literal: 0o12349");
 
     assertThat(values(tokens("0o"))).isEqualTo("INT(0) NEWLINE EOF");
     assertThat(lastError.toString())
-        .isEqualTo("/some/path.txt:1: invalid base-8 integer constant: 0o");
+        .isEqualTo("/some/path.txt:1: invalid base-8 integer literal: 0o");
 
-    assertThat(values(tokens("012345"))).isEqualTo("INT(5349) NEWLINE EOF");
+    assertThat(values(tokens("012345"))).isEqualTo("INT(0) NEWLINE EOF");
     assertThat(lastError.toString())
-        .isEqualTo("/some/path.txt:1: invalid octal value `012345`, should be: `0o12345`");
+        .isEqualTo("/some/path.txt:1: invalid octal literal: 012345 (use '0o12345')");
 
     // hexadecimal (uppercase)
     assertThat(values(tokens("0X12345F-"))).isEqualTo("INT(1193055) MINUS NEWLINE EOF");
@@ -243,6 +243,15 @@ public class LexerTest {
 
     // hexadecimal (lowercase) [note: "g" cause termination of token]
     assertThat(values(tokens("0x12345g-"))).isEqualTo("INT(74565) IDENTIFIER(g) MINUS NEWLINE EOF");
+
+    // long
+    assertThat(values(tokens("1234567890 0x123456789ABCDEF")))
+        .isEqualTo("INT(1234567890) INT(81985529216486895) NEWLINE EOF");
+    // big
+    assertThat(values(tokens("123456789123456789123456789 0xABCDEFABCDEFABCDEFABCDEFABCDEF")))
+        .isEqualTo(
+            "INT(123456789123456789123456789) INT(892059645479943313385225296292859375) NEWLINE"
+                + " EOF");
   }
 
   @Test
@@ -251,13 +260,14 @@ public class LexerTest {
 
     assertThat(values(tokens("1.2.345"))).isEqualTo("INT(1) DOT INT(2) DOT INT(345) NEWLINE EOF");
 
+    // TODO(adonovan): parse floating point numbers.
     assertThat(values(tokens("1.0E10"))).isEqualTo("INT(1) DOT INT(0) NEWLINE EOF");
     assertThat(lastError.toString())
-        .isEqualTo("/some/path.txt:1: invalid base-8 integer constant: 0E10");
+        .isEqualTo("/some/path.txt:1: invalid octal literal: 0E10 (use '0oE10')");
 
     assertThat(values(tokens("1.03E-10"))).isEqualTo("INT(1) DOT INT(0) MINUS INT(10) NEWLINE EOF");
     assertThat(lastError.toString())
-        .isEqualTo("/some/path.txt:1: invalid base-8 integer constant: 03E");
+        .isEqualTo("/some/path.txt:1: invalid octal literal: 03E (use '0o3E')");
 
     assertThat(values(tokens(". 123"))).isEqualTo("DOT INT(123) NEWLINE EOF");
     assertThat(values(tokens(".123"))).isEqualTo("DOT INT(123) NEWLINE EOF");

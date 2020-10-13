@@ -478,9 +478,12 @@ public final class SkyframeBuildView {
     Collection<Exception> reportedExceptions = Sets.newHashSet();
     for (Map.Entry<ActionAnalysisMetadata, ConflictException> bad : actionConflicts.entrySet()) {
       ConflictException ex = bad.getValue();
+      DetailedExitCode detailedExitCode;
       try {
         ex.rethrowTyped();
+        throw new IllegalStateException("ConflictException.rethrowTyped must throw");
       } catch (ActionConflictException ace) {
+        detailedExitCode = ace.getDetailedExitCode();
         ace.reportTo(eventHandler);
         if (keepGoing) {
           eventHandler.handle(
@@ -490,13 +493,14 @@ public final class SkyframeBuildView {
                       + "': it will not be built"));
         }
       } catch (ArtifactPrefixConflictException apce) {
+        detailedExitCode = apce.getDetailedExitCode();
         if (reportedExceptions.add(apce)) {
           eventHandler.handle(Event.error(apce.getMessage()));
         }
       }
       // TODO(ulfjack): Don't throw here in the nokeep_going case, but report all known issues.
       if (!keepGoing) {
-        throw new ViewCreationFailedException(ex);
+        throw new ViewCreationFailedException(detailedExitCode.getFailureDetail(), ex);
       }
     }
 
@@ -644,7 +648,7 @@ public final class SkyframeBuildView {
     for (Map.Entry<SkyKey, ErrorInfo> errorEntry : result.errorMap().entrySet()) {
       SkyKey errorKey = errorEntry.getKey();
       ErrorInfo errorInfo = errorEntry.getValue();
-      assertSaneAnalysisError(errorInfo, errorKey, result.getWalkableGraph());
+      assertValidAnalysisException(errorInfo, errorKey, result.getWalkableGraph());
       skyframeExecutor
           .getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), errorKey, eventHandler);
       Exception cause = errorInfo.getException();
@@ -653,18 +657,12 @@ public final class SkyframeBuildView {
       if (errorKey.argument() instanceof AspectValueKey) {
         // We skip Aspects in the keepGoing case; the failures should already have been reported to
         // the event handler.
-        if (!keepGoing) {
+        if (!keepGoing && noKeepGoingException == null) {
           AspectValueKey aspectKey = (AspectValueKey) errorKey.argument();
           String errorMsg =
               String.format(
                   "Analysis of aspect '%s' failed; build aborted", aspectKey.getDescription());
-          if (noKeepGoingException == null) {
-            if (cause != null) {
-              noKeepGoingException = new ViewCreationFailedException(errorMsg, cause);
-            } else {
-              noKeepGoingException = new ViewCreationFailedException(errorMsg);
-            }
-          }
+          noKeepGoingException = createViewCreationFailedException(cause, errorMsg);
         }
         continue;
       }
@@ -720,11 +718,7 @@ public final class SkyframeBuildView {
                     Order.STABLE_ORDER,
                     new LabelCause(
                         analysisRootCause,
-                        DetailedExitCode.of(
-                            FailureDetail.newBuilder()
-                                .setMessage("Dependency cycle")
-                                .setAnalysis(Analysis.newBuilder().setCode(Code.CYCLE))
-                                .build())))
+                        DetailedExitCode.of(createFailureDetail("Dependency cycle", Code.CYCLE))))
                 // TODO(ulfjack): We need to report the dependency cycle here. How?
                 : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       } else if (cause instanceof ActionConflictException) {
@@ -738,12 +732,14 @@ public final class SkyframeBuildView {
             configurationLookupSupplier.get().get(label.getConfigurationKey());
         ConfigurationId configId = configuration.getEventId().getConfiguration();
         AnalysisFailedCause analysisFailedCause =
-            new AnalysisFailedCause(topLevelLabel, configId, cause.getMessage());
+            new AnalysisFailedCause(
+                topLevelLabel, configId, ((NoSuchPackageException) cause).getDetailedExitCode());
         rootCauses = NestedSetBuilder.create(Order.STABLE_ORDER, analysisFailedCause);
       } else {
         // TODO(ulfjack): Report something!
         rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       }
+
       if (keepGoing) {
         eventHandler.handle(
             Event.warn(
@@ -753,12 +749,9 @@ public final class SkyframeBuildView {
       } else if (noKeepGoingException == null) {
         String errorMsg =
             String.format("Analysis of target '%s' failed; build aborted", topLevelLabel);
-        if (cause != null) {
-          noKeepGoingException = new ViewCreationFailedException(errorMsg, cause);
-        } else {
-          noKeepGoingException = new ViewCreationFailedException(errorMsg);
-        }
+        noKeepGoingException = createViewCreationFailedException(cause, errorMsg);
       }
+
       if (!inTest) {
         BuildConfiguration configuration =
             configurationLookupSupplier.get().get(label.getConfigurationKey());
@@ -771,6 +764,41 @@ public final class SkyframeBuildView {
       }
     }
     return Pair.of(hasLoadingError, noKeepGoingException);
+  }
+
+  private static ViewCreationFailedException createViewCreationFailedException(
+      @Nullable Exception e, String errorMsg) {
+    if (e == null) {
+      return new ViewCreationFailedException(
+          errorMsg, createFailureDetail(errorMsg + " due to cycle", Code.CYCLE));
+    }
+    return new ViewCreationFailedException(
+        errorMsg, maybeContextualizeFailureDetail(e, errorMsg), e);
+  }
+
+  /**
+   * Returns a {@link FailureDetail} with message prefixed by {@code errorMsg} derived from the
+   * failure detail in {@code e} if it's a {@link DetailedException}, and otherwise returns one with
+   * {@code errorMsg} and {@link Code#UNEXPECTED_ANALYSIS_EXCEPTION}.
+   */
+  private static FailureDetail maybeContextualizeFailureDetail(
+      @Nullable Exception e, String errorMsg) {
+    DetailedException detailedException = convertToAnalysisException(e);
+    if (detailedException == null) {
+      return createFailureDetail(errorMsg, Code.UNEXPECTED_ANALYSIS_EXCEPTION);
+    }
+    FailureDetail originalFailureDetail =
+        detailedException.getDetailedExitCode().getFailureDetail();
+    return originalFailureDetail.toBuilder()
+        .setMessage(errorMsg + ": " + originalFailureDetail.getMessage())
+        .build();
+  }
+
+  private static FailureDetail createFailureDetail(String errorMessage, Code code) {
+    return FailureDetail.newBuilder()
+        .setMessage(errorMessage)
+        .setAnalysis(Analysis.newBuilder().setCode(code))
+        .build();
   }
 
   /** Returns a map of collected package names to root paths. */
@@ -805,50 +833,61 @@ public final class SkyframeBuildView {
     return null;
   }
 
-  private static void assertSaneAnalysisError(
+  private static void assertValidAnalysisException(
       ErrorInfo errorInfo, SkyKey key, WalkableGraph walkableGraph) throws InterruptedException {
     Throwable cause = errorInfo.getException();
-    // We should only be trying to configure targets when the loading phase succeeds, meaning
-    // that the only errors should be analysis errors.
-    if (cause != null && !isSaneAnalysisError(cause)) {
-      // Walk the graph to find a path to the lowest-level node that threw unexpected exception.
-      List<SkyKey> path = new ArrayList<>();
-      try {
-        SkyKey currentKey = key;
-        boolean foundDep;
-        do {
-          path.add(currentKey);
-          foundDep = false;
+    if (cause == null) {
+      // Cycle.
+      return;
+    }
 
-          Map<SkyKey, Exception> missingMap =
-              walkableGraph.getMissingAndExceptions(ImmutableList.of(currentKey));
-          if (missingMap.containsKey(currentKey) && missingMap.get(currentKey) == null) {
-            // This can happen in a no-keep-going build, where we don't write the bubbled-up error
-            // nodes to the graph.
+    if (convertToAnalysisException(cause) != null) {
+      // Valid exception type.
+      return;
+    }
+
+    // Walk the graph to find a path to the lowest-level node that threw unexpected exception.
+    List<SkyKey> path = new ArrayList<>();
+    try {
+      SkyKey currentKey = key;
+      boolean foundDep;
+      do {
+        path.add(currentKey);
+        foundDep = false;
+
+        Map<SkyKey, Exception> missingMap =
+            walkableGraph.getMissingAndExceptions(ImmutableList.of(currentKey));
+        if (missingMap.containsKey(currentKey) && missingMap.get(currentKey) == null) {
+          // This can happen in a no-keep-going build, where we don't write the bubbled-up error
+          // nodes to the graph.
+          break;
+        }
+
+        for (SkyKey dep : walkableGraph.getDirectDeps(currentKey)) {
+          if (cause.equals(walkableGraph.getException(dep))) {
+            currentKey = dep;
+            foundDep = true;
             break;
           }
-
-          for (SkyKey dep : walkableGraph.getDirectDeps(currentKey)) {
-            if (cause.equals(walkableGraph.getException(dep))) {
-              currentKey = dep;
-              foundDep = true;
-              break;
-            }
-          }
-        } while (foundDep);
-      } finally {
-        BugReport.sendBugReport(
-            new IllegalStateException(
-                "Unexpected analysis error: " + key + " -> " + errorInfo + ", (" + path + ")"));
-      }
+        }
+      } while (foundDep);
+    } finally {
+      BugReport.sendBugReport(
+          new IllegalStateException(
+              "Unexpected analysis error: " + key + " -> " + errorInfo + ", (" + path + ")"));
     }
   }
 
-  private static boolean isSaneAnalysisError(Throwable cause) {
-    return cause instanceof SaneAnalysisException
-        // Only if we run the reduced loading phase and then analyze with --nokeep_going.
+  @Nullable
+  private static DetailedException convertToAnalysisException(Throwable cause) {
+    // The cause may be NoSuch{Target,Package}Exception if we run the reduced loading phase and then
+    // analyze with --nokeep_going.
+    if (cause instanceof SaneAnalysisException
         || cause instanceof NoSuchTargetException
-        || cause instanceof NoSuchPackageException;
+        || cause instanceof NoSuchPackageException) {
+      return (DetailedException) cause;
+    }
+    return null;
   }
 
   public ArtifactFactory getArtifactFactory() {

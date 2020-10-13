@@ -1204,7 +1204,7 @@ def finddef(name):
       return repo["definition_information"]
 EOF
 
-  bazel build --record_rule_instantiation_callstack //:ext_def
+  bazel build //:ext_def
 
   cat `bazel info bazel-genfiles`/ext_def.txt > "${TEST_log}"
   inplace-sed -e "s?$(pwd)/?PWD/?g" -e "s?$TEST_TMPDIR/?TEST_TMPDIR/?g" "${TEST_log}"

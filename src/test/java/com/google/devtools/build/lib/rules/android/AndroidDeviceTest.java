@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.InputFile;
 import java.util.HashSet;
 import java.util.List;
@@ -147,7 +148,7 @@ public class AndroidDeviceTest extends BuildViewTestCase {
             "--bios_files=" + Joiner.on(",").join(biosFilesExecPathStrings),
             "--source_properties_file=" + SOURCE_PROPERTIES,
             "--generate_output_dir="
-                + targetConfig.getBinFragment()
+                + targetConfig.getBinFragment(RepositoryName.MAIN)
                 + "/tools/android/emulated_device/nexus_6_images",
             "--adb_static=" + getToolDependencyExecPathString("//tools/android:adb_static"),
             "--emulator_x86="
@@ -299,7 +300,7 @@ public class AndroidDeviceTest extends BuildViewTestCase {
             "--bios_files=" + Joiner.on(",").join(biosFilesExecPathStrings),
             "--source_properties_file=" + SOURCE_PROPERTIES,
             "--generate_output_dir="
-                + targetConfig.getBinFragment()
+                + targetConfig.getBinFragment(RepositoryName.MAIN)
                 + "/tools/android/emulated_device/nexus_6_images",
             "--adb_static=" + getToolDependencyExecPathString("//tools/android:adb_static"),
             "--emulator_x86="

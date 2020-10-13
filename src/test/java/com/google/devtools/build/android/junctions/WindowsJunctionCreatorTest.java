@@ -70,7 +70,7 @@ public class WindowsJunctionCreatorTest {
         assertThat((Object) jc.create(file)).isEqualTo(fileViaJunc);
         // Assert that the junction now exists.
         assertThat(junc.toFile().exists()).isTrue();
-        // Sanity check: the `file` should still exist.
+        // Assert that `file` should still exist.
         assertThat(file.toFile().exists()).isTrue();
         // Assert that the junction indeed points to `dir`, by asserting the existence of `file`
         // through the junction.

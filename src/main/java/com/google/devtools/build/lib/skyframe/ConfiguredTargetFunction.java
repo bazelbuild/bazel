@@ -79,9 +79,12 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -225,7 +228,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       target = pkg.getTarget(label.getName());
     } catch (NoSuchTargetException e) {
       throw new ConfiguredTargetFunctionException(
-          new ConfiguredValueCreationException(e.getMessage(), label, configuration));
+          new ConfiguredValueCreationException(
+              e.getMessage(), label, configuration, e.getDetailedExitCode()));
     }
     if (pkg.containsErrors()) {
       FailureDetail failureDetail = pkg.contextualizeFailureDetailForTarget(target);
@@ -305,9 +309,13 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       // attributes.
       if (!transitiveRootCauses.isEmpty()
           && !Objects.equals(configConditions, NO_CONFIG_CONDITIONS)) {
+        NestedSet<Cause> causes = transitiveRootCauses.build();
         throw new ConfiguredTargetFunctionException(
             new ConfiguredValueCreationException(
-                "Cannot compute config conditions", configuration, transitiveRootCauses.build()));
+                "Cannot compute config conditions",
+                configuration,
+                causes,
+                getPrioritizedDetailedExitCode(causes)));
       }
 
       // Calculate the dependencies of this target.
@@ -328,9 +336,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               transitiveRootCauses,
               defaultBuildOptions);
       if (!transitiveRootCauses.isEmpty()) {
+        NestedSet<Cause> causes = transitiveRootCauses.build();
         throw new ConfiguredTargetFunctionException(
             new ConfiguredValueCreationException(
-                "Analysis failed", configuration, transitiveRootCauses.build()));
+                "Analysis failed", configuration, causes, getPrioritizedDetailedExitCode(causes)));
       }
       if (env.valuesMissing()) {
         return null;
@@ -408,7 +417,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         env.getListener().handle(Event.error(cause.getMessage()));
         throw new ConfiguredTargetFunctionException(
             new ConfiguredValueCreationException(
-                cause.getMessage(), target.getLabel(), configuration));
+                cause.getMessage(), target.getLabel(), configuration, cause.getDetailedExitCode()));
       } else if (e.getCause() instanceof TransitionException) {
         TransitionException cause = (TransitionException) e.getCause();
         env.getListener().handle(Event.error(cause.getMessage()));
@@ -422,24 +431,23 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     } catch (AspectCreationException e) {
       throw new ConfiguredTargetFunctionException(
           new ConfiguredValueCreationException(
-              e.getMessage(),
-              configuration,
-              e.getCauses()));
+              e.getMessage(), configuration, e.getCauses(), e.getDetailedExitCode()));
     } catch (ToolchainException e) {
       // We need to throw a ConfiguredValueCreationException, so either find one or make one.
       ConfiguredValueCreationException cvce = asConfiguredValueCreationException(e);
       if (cvce == null) {
         cvce =
-            new ConfiguredValueCreationException(e.getMessage(), target.getLabel(), configuration);
+            new ConfiguredValueCreationException(
+                e.getMessage(), target.getLabel(), configuration, e.getDetailedExitCode());
       }
 
-      env.getListener()
-          .handle(
-              Event.error(
-                  String.format(
-                      "While resolving toolchains for target %s: %s",
-                      target.getLabel(), e.getMessage())));
+      String message =
+          String.format(
+              "While resolving toolchains for target %s: %s", target.getLabel(), e.getMessage());
+      env.getListener().handle(Event.error(message));
       throw new ConfiguredTargetFunctionException(cvce);
+    } catch (ConfiguredValueCreationException e) {
+      throw new ConfiguredTargetFunctionException(e);
     } finally {
       cpuBoundSemaphore.release();
     }
@@ -631,7 +639,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution,
       NestedSetBuilder<Cause> transitiveRootCauses,
       BuildOptions defaultBuildOptions)
-      throws DependencyEvaluationException, ConfiguredTargetFunctionException,
+      throws DependencyEvaluationException, ConfiguredValueCreationException,
           AspectCreationException, InterruptedException {
     // Create the map from attributes to set of (target, transition) pairs.
     OrderedSetMultimap<DependencyKind, DependencyKey> initialDependencies;
@@ -702,8 +710,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       env.getListener().handle(
           Event.error(ctgValue.getTarget().getLocation(), e.getMessage()));
 
-      throw new ConfiguredTargetFunctionException(
-          new ConfiguredValueCreationException(e.getMessage(), label, configuration));
+      throw new ConfiguredValueCreationException(e.getMessage(), label, configuration);
     }
   }
 
@@ -848,6 +855,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       throws DependencyEvaluationException, InterruptedException {
     boolean missedValues = env.valuesMissing();
     String failWithMessage = null;
+    DetailedExitCode detailedExitCode = null;
     // Naively we would like to just fetch all requested ConfiguredTargets, together with their
     // Packages. However, some ConfiguredTargets are AliasConfiguredTargets, which means that their
     // associated Targets (and therefore associated Packages) don't correspond to their own Labels.
@@ -946,7 +954,12 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           }
         } catch (ConfiguredValueCreationException e) {
           transitiveRootCauses.addTransitive(e.getRootCauses());
-          failWithMessage = e.getMessage();
+          detailedExitCode =
+              DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
+                  e.getDetailedExitCode(), detailedExitCode);
+          if (e.getDetailedExitCode().equals(detailedExitCode)) {
+            failWithMessage = e.getMessage();
+          }
         }
       }
       if (aliasDepsToRedo.isEmpty()) {
@@ -958,7 +971,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     if (failWithMessage != null) {
       throw new DependencyEvaluationException(
           new ConfiguredValueCreationException(
-              failWithMessage, ctgValue.getConfiguration(), transitiveRootCauses.build()));
+              failWithMessage,
+              ctgValue.getConfiguration(),
+              transitiveRootCauses.build(),
+              detailedExitCode));
     } else if (missedValues) {
       return null;
     } else {
@@ -1026,7 +1042,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                               configuration == null
                                   ? null
                                   : configuration.getEventId().getConfiguration(),
-                              event.getMessage()))
+                              createDetailedExitCode(
+                                  event.getMessage(), Code.CONFIGURED_VALUE_CREATION_FAILED)))
                   .collect(Collectors.toList()));
       throw new ConfiguredTargetFunctionException(
           new ConfiguredValueCreationException(
@@ -1069,6 +1086,25 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               ? null
               : transitivePackagesForPackageRootResolution.build());
     }
+  }
+
+  private static DetailedExitCode createDetailedExitCode(String message, Code code) {
+    return DetailedExitCode.of(
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setAnalysis(Analysis.newBuilder().setCode(code))
+            .build());
+  }
+
+  static DetailedExitCode getPrioritizedDetailedExitCode(NestedSet<Cause> causes) {
+    DetailedExitCode[] prioritizedDetailedExitCodeWrapper = {null};
+    causes.forEachElement(
+        o -> true,
+        c ->
+            prioritizedDetailedExitCodeWrapper[0] =
+                DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
+                    prioritizedDetailedExitCodeWrapper[0], c.getDetailedExitCode()));
+    return prioritizedDetailedExitCodeWrapper[0];
   }
 
   /**

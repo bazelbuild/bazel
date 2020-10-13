@@ -30,11 +30,11 @@ public class EnablingAndDisablingFlag implements StarlarkValue {
       documented = false,
       parameters = {
         @Param(name = "one", type = String.class, named = true),
-        @Param(name = "two", type = Integer.class, named = true),
+        @Param(name = "two", type = StarlarkInt.class, named = true),
       },
       enableOnlyWithFlag = FOO,
       disableWithFlag = FOO)
-  public String someMethod(String one, Integer two) {
+  public String someMethod(String one, StarlarkInt two) {
     return "foo";
   }
 }

@@ -446,11 +446,11 @@ function test_output_same_config_as_generating_target() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
 
-  rm -rf tools/whitelists/function_transition_whitelist
-  mkdir -p tools/whitelists/function_transition_whitelist
-  cat > tools/whitelists/function_transition_whitelist/BUILD <<EOF
+  rm -rf tools/allowlists/function_transition_allowlist
+  mkdir -p tools/allowlists/function_transition_allowlist
+  cat > tools/allowlists/function_transition_allowlist/BUILD <<EOF
 package_group(
-    name = "function_transition_whitelist",
+    name = "function_transition_allowlist",
     packages = [
         "//...",
     ],
@@ -479,7 +479,7 @@ rule_class_transition_rule = rule(
     _rule_class_transition_rule_impl,
     cfg = _rule_class_transition,
     attrs = {
-        "_whitelist_function_transition": attr.label(default = "//tools/whitelists/function_transition_whitelist"),
+        "_allowlist_function_transition": attr.label(default = "//tools/allowlists/function_transition_allowlist"),
     },
     outputs = {"artifact": "%{name}.output"},
 )

@@ -41,7 +41,7 @@ index 7bb6b8bdb9..7644107b70 100644
 +        #     deps = ios_test_deps,
 +        # )
  
- def grpc_cc_test(name, srcs = [], deps = [], external_deps = [], args = [], data = [], uses_polling = True, language = "C++", size = "medium", timeout = None, tags = [], exec_compatible_with = [], exec_properties = {}, shard_count = None):
+ def grpc_cc_test(name, srcs = [], deps = [], external_deps = [], args = [], data = [], uses_polling = True, language = "C++", size = "medium", timeout = None, tags = [], exec_compatible_with = [], exec_properties = {}, shard_count = None, flaky = None):
      copts = if_mac(["-DGRPC_CFSTREAM"])
 diff --git a/bazel/grpc_deps.bzl b/bazel/grpc_deps.bzl
 index 09fcad95a2..9b737e5deb 100644
@@ -56,30 +56,6 @@ index 09fcad95a2..9b737e5deb 100644
      )
  
      native.bind(
-@@ -164,7 +164,10 @@ def grpc_deps():
-             build_file = "@com_github_grpc_grpc//third_party:cares/cares.BUILD",
-             sha256 = "e8c2751ddc70fed9dc6f999acd92e232d5846f009ee1674f8aee81f19b2b915a",
-             strip_prefix = "c-ares-e982924acee7f7313b4baa4ee5ec000c5e373c30",
--            url = "https://github.com/c-ares/c-ares/archive/e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
-+            urls = [
-+                "https://mirror.bazel.build/github.com/c-ares/c-ares/archive/e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
-+                "https://github.com/c-ares/c-ares/archive/e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
-+            ],
-         )
- 
-     if "com_google_absl" not in native.existing_rules():
-@@ -209,7 +212,10 @@ def grpc_deps():
-             name = "upb",
-             sha256 = "61d0417abd60e65ed589c9deee7c124fe76a4106831f6ad39464e1525cef1454",
-             strip_prefix = "upb-9effcbcb27f0a665f9f345030188c0b291e32482",
--            url = "https://github.com/protocolbuffers/upb/archive/9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
-+            urls = [
-+                "https://mirror.bazel.build/github.com/protocolbuffers/upb/archive/9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
-+                "https://github.com/protocolbuffers/upb/archive/9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
-+            ],
-         )
-     if "envoy_api" not in native.existing_rules():
-         http_archive(
 diff --git a/bazel/grpc_extra_deps.bzl b/bazel/grpc_extra_deps.bzl
 index 4c1dfad2e8..f63c54ddef 100644
 --- a/bazel/grpc_extra_deps.bzl

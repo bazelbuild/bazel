@@ -38,7 +38,9 @@ public final class FunctionTest {
         .inOrder();
     assertThat(f.hasVarargs()).isTrue();
     assertThat(f.hasKwargs()).isTrue();
-    assertThat(getDefaults(f)).containsExactly(null, 1, null, 2, null, null).inOrder();
+    assertThat(getDefaults(f))
+        .containsExactly(null, StarlarkInt.of(1), null, StarlarkInt.of(2), null, null)
+        .inOrder();
 
     // same, sans varargs
     ev.exec("def g(a, b=1, *, c, d=2, **kwargs): pass");
@@ -46,7 +48,9 @@ public final class FunctionTest {
     assertThat(g.getParameterNames()).containsExactly("a", "b", "c", "d", "kwargs").inOrder();
     assertThat(g.hasVarargs()).isFalse();
     assertThat(g.hasKwargs()).isTrue();
-    assertThat(getDefaults(g)).containsExactly(null, 1, null, 2, null).inOrder();
+    assertThat(getDefaults(g))
+        .containsExactly(null, StarlarkInt.of(1), null, StarlarkInt.of(2), null)
+        .inOrder();
   }
 
   private static List<Object> getDefaults(StarlarkFunction fn) {
@@ -66,7 +70,7 @@ public final class FunctionTest {
         "  outer_func(a)",
         "func(1)",
         "func(2)");
-    assertThat(params).containsExactly(1, 2).inOrder();
+    assertThat(params).containsExactly(StarlarkInt.of(1), StarlarkInt.of(2)).inOrder();
   }
 
   private void createOuterFunction(final List<Object> params) throws Exception {
@@ -90,12 +94,12 @@ public final class FunctionTest {
 
   @Test
   public void testFunctionDefNoEffectOutsideScope() throws Exception {
-    ev.update("a", 1);
+    ev.update("a", StarlarkInt.of(1));
     ev.exec(
         "def func():", //
         "  a = 2",
         "func()\n");
-    assertThat(ev.lookup("a")).isEqualTo(1);
+    assertThat(ev.lookup("a")).isEqualTo(StarlarkInt.of(1));
   }
 
   @Test
@@ -106,7 +110,7 @@ public final class FunctionTest {
         "  b = a",
         "  return b",
         "c = func()\n");
-    assertThat(ev.lookup("c")).isEqualTo(1);
+    assertThat(ev.lookup("c")).isEqualTo(StarlarkInt.of(1));
   }
 
   @Test
@@ -118,7 +122,7 @@ public final class FunctionTest {
         "  b = a",
         "  return b",
         "c = func()\n");
-    assertThat(ev.lookup("c")).isEqualTo(2);
+    assertThat(ev.lookup("c")).isEqualTo(StarlarkInt.of(2));
   }
 
   @Test
@@ -156,14 +160,16 @@ public final class FunctionTest {
         "  a = 3",
         "  return b",
         "c = func()\n");
-    assertThat(ev.lookup("c")).isEqualTo(2);
+    assertThat(ev.lookup("c")).isEqualTo(StarlarkInt.of(2));
   }
 
   @SuppressWarnings("unchecked")
   @Test
   public void testStarlarkGlobalComprehensionIsAllowed() throws Exception {
     ev.exec("a = [i for i in [1, 2, 3]]\n");
-    assertThat((Iterable<Object>) ev.lookup("a")).containsExactly(1, 2, 3).inOrder();
+    assertThat((Iterable<Object>) ev.lookup("a"))
+        .containsExactly(StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3))
+        .inOrder();
   }
 
   @Test
@@ -172,7 +178,7 @@ public final class FunctionTest {
         "def func():", //
         "  return 2",
         "b = func()\n");
-    assertThat(ev.lookup("b")).isEqualTo(2);
+    assertThat(ev.lookup("b")).isEqualTo(StarlarkInt.of(2));
   }
 
   @Test
@@ -182,7 +188,7 @@ public final class FunctionTest {
         "  for i in [1, 2, 3, 4, 5]:",
         "    return i",
         "b = func()\n");
-    assertThat(ev.lookup("b")).isEqualTo(1);
+    assertThat(ev.lookup("b")).isEqualTo(StarlarkInt.of(1));
   }
 
   @Test
@@ -195,8 +201,8 @@ public final class FunctionTest {
         "  return b",
         "c = func(0)",
         "d = func(1)\n");
-    assertThat(ev.lookup("c")).isEqualTo(1);
-    assertThat(ev.lookup("d")).isEqualTo(2);
+    assertThat(ev.lookup("c")).isEqualTo(StarlarkInt.of(1));
+    assertThat(ev.lookup("d")).isEqualTo(StarlarkInt.of(2));
   }
 
   @Test
@@ -210,7 +216,7 @@ public final class FunctionTest {
         "  func2(b)",
         "func1(1)",
         "func1(2)\n");
-    assertThat(params).containsExactly(1, 2).inOrder();
+    assertThat(params).containsExactly(StarlarkInt.of(1), StarlarkInt.of(2)).inOrder();
   }
 
   @Test
@@ -222,7 +228,7 @@ public final class FunctionTest {
         "def func1():",
         "  return func2()",
         "b = func1()\n");
-    assertThat(ev.lookup("b")).isEqualTo(1);
+    assertThat(ev.lookup("b")).isEqualTo(StarlarkInt.of(1));
   }
 
   @Test
@@ -235,7 +241,7 @@ public final class FunctionTest {
         "  dummy = a",
         "  return func2(2)",
         "b = func1()\n");
-    assertThat(ev.lookup("b")).isEqualTo(0);
+    assertThat(ev.lookup("b")).isEqualTo(StarlarkInt.of(0));
   }
 
   @Test
@@ -252,7 +258,7 @@ public final class FunctionTest {
         "def func(): return {'a' : 1}", //
         "d = func()",
         "a = d['a']\n");
-    assertThat(ev.lookup("a")).isEqualTo(1);
+    assertThat(ev.lookup("a")).isEqualTo(StarlarkInt.of(1));
   }
 
   @Test
@@ -261,7 +267,7 @@ public final class FunctionTest {
         "def func(): return [1, 2, 3]", //
         "d = func()",
         "a = d[1]\n");
-    assertThat(ev.lookup("a")).isEqualTo(2);
+    assertThat(ev.lookup("a")).isEqualTo(StarlarkInt.of(2));
   }
 
   @Test
@@ -271,7 +277,7 @@ public final class FunctionTest {
         "  return a + 1",
         "alias = func",
         "r = alias(1)");
-    assertThat(ev.lookup("r")).isEqualTo(2);
+    assertThat(ev.lookup("r")).isEqualTo(StarlarkInt.of(2));
   }
 
   @Test
@@ -280,7 +286,7 @@ public final class FunctionTest {
         "def func(a, b, c):", //
         "  return a + b + c",
         "v = func(1, c = 2, b = 3)");
-    assertThat(ev.lookup("v")).isEqualTo(6);
+    assertThat(ev.lookup("v")).isEqualTo(StarlarkInt.of(6));
   }
 
   private String functionWithOptionalArgs() {
@@ -448,7 +454,7 @@ public final class FunctionTest {
         "  a = 3",
         "  return foo()",
         "v = bar()\n");
-    assertThat(ev.lookup("v")).isEqualTo(2);
+    assertThat(ev.lookup("v")).isEqualTo(StarlarkInt.of(2));
   }
 
   @Test

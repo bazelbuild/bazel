@@ -125,6 +125,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
             .requiresConfigurationFragments(CppConfiguration.class, ProtoConfiguration.class)
             .requireStarlarkProviders(ProtoInfo.PROVIDER.id())
             .addRequiredToolchains(ccToolchainType)
+            .useToolchainTransition(true)
             .add(
                 attr(PROTO_TOOLCHAIN_ATTR, LABEL)
                     .mandatoryNativeProviders(ImmutableList.of(ProtoLangToolchainProvider.class))
@@ -456,7 +457,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
         throws InterruptedException {
       PathFragment protoRootFragment = PathFragment.create(protoInfo.getDirectProtoSourceRoot());
       String genfilesPath;
-      PathFragment genfilesFragment = ruleContext.getConfiguration().getGenfilesFragment();
+      PathFragment genfilesFragment = ruleContext.getGenfilesFragment();
       if (protoRootFragment.startsWith(genfilesFragment)) {
         genfilesPath = protoRootFragment.getPathString();
       } else {

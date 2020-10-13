@@ -173,7 +173,9 @@ class ObjcVariablesExtension implements VariablesExtension {
             .toString());
     builder.addStringVariable(
         OBJC_MODULE_CACHE_KEY,
-        buildConfiguration.getGenfilesFragment() + "/" + OBJC_MODULE_CACHE_DIR_NAME);
+        buildConfiguration.getGenfilesFragment(ruleContext.getRepository())
+            + "/"
+            + OBJC_MODULE_CACHE_DIR_NAME);
   }
 
   private void addArchiveVariables(CcToolchainVariables.Builder builder) {

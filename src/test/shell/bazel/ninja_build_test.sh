@@ -559,4 +559,73 @@ EOF
   expect_log "HELLOGOODBYE"
 }
 
+function test_switching_directory_from_source_to_toplevel_output_directory() {
+
+  mkdir -p out n
+  touch WORKSPACE
+
+  cat > BUILD <<'EOF'
+genrule(
+    name = "top",
+    srcs = [],
+    outs = ["topo"],
+    cmd = "echo TOP > $@",
+)
+
+ninja_graph(
+    name = "g",
+    main = "n/x.ninja",
+    ninja_srcs = ["n/x.ninja"],
+    output_root = "out",
+    output_root_inputs = ["input"],
+)
+
+ninja_build(
+    name = "b",
+    ninja_graph = ":g",
+    output_groups = {"o": ["out/outfile"]},
+)
+EOF
+
+  cat > n/x.ninja <<'EOF'
+rule cmd
+  command = ${cmd}
+
+build out/outfile: cmd out/input
+  cmd = echo OUTFILE > out/outfile
+EOF
+
+  echo 123 > out/input
+
+  # Clean+expunge to ensure that 'out' is created as a symlink in the execroot
+  bazel clean --expunge
+
+  bazel build --experimental_ninja_actions //:top
+  # test that the 'out' directory has been symlinked, since SymlinkForest
+  # has a mode where it symlinks only the packages that have been loaded.
+  execroot="$(bazel info --experimental_ninja_actions execution_root)"
+  test -L "$execroot/out" || fail "$execroot/out should be a symlink"
+
+  # switch the "out" directory from a source directory to a toplevel output directory
+  cat > WORKSPACE <<'EOF'
+toplevel_output_directories(paths=["out"])
+EOF
+
+  bazel build --experimental_ninja_actions //:b
+  # when switching 'out' to an output directory, it should be a real directory
+  # and not a symlink, with a symlink to the output_root_symlink in it as
+  # created by the SymlinkActions in NinjaGraph.createSymlinkActions().
+  execroot="$(bazel info --experimental_ninja_actions execution_root)"
+  if [[ -L "$execroot/out" ]]; then fail "$execroot/out should not be a symlink"; fi
+  test -d "$execroot/out" || fail "$execroot/out should be a directory"
+  test -L "$execroot/out/input" || fail "$execroot/out/input should be a symlink"
+
+  # now switch "out" back to a source directory, do a build, and $execroot/out
+  # should be back to a symlink to the directory in the source tree.
+  echo "" > WORKSPACE
+  bazel build --experimental_ninja_actions //:top
+  execroot="$(bazel info --experimental_ninja_actions execution_root)"
+  test -L "$execroot/out" || fail "$execroot/out should be a symlink"
+}
+
 run_suite "ninja_build rule tests"

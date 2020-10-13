@@ -31,7 +31,6 @@ final class ParamDescriptor {
 
   private final String name;
   @Nullable private final Object defaultValue;
-  private final boolean noneable;
   private final boolean named;
   private final boolean positional;
   private final List<Class<?>> allowedClasses; // non-empty
@@ -42,14 +41,14 @@ final class ParamDescriptor {
   private ParamDescriptor(
       String name,
       String defaultExpr,
-      boolean noneable,
       boolean named,
       boolean positional,
       List<Class<?>> allowedClasses,
       @Nullable String disabledByFlag) {
     this.name = name;
+    // TODO(adonovan): apply the same validation logic to the default value
+    // as we do to caller-supplied values (see BuiltinCallable.checkParamValue).
     this.defaultValue = defaultExpr.isEmpty() ? null : evalDefault(name, defaultExpr);
-    this.noneable = noneable;
     this.named = named;
     this.positional = positional;
     this.allowedClasses = allowedClasses;
@@ -60,7 +59,7 @@ final class ParamDescriptor {
    * Returns a {@link ParamDescriptor} representing the given raw {@link Param} annotation and the
    * given semantics.
    */
-  static ParamDescriptor of(Param param, StarlarkSemantics starlarkSemantics) {
+  static ParamDescriptor of(Param param, Class<?> paramClass, StarlarkSemantics starlarkSemantics) {
     String defaultExpr = param.defaultValue();
     String disabledByFlag = null;
     if (!starlarkSemantics.isFeatureEnabledBasedOnTogglingFlags(
@@ -80,20 +79,21 @@ final class ParamDescriptor {
       for (ParamType pt : allowedTypes) {
         allowedClasses.add(pt.type());
       }
+    } else if (param.type() == Void.class) {
+      // If no Param.type type was specified, use the class of the parameter itself.
+      // Interpret primitive boolean parameter as j.l.Boolean.
+      allowedClasses.add(paramClass == Boolean.TYPE ? Boolean.class : paramClass);
     } else {
       allowedClasses.add(param.type());
     }
-    if (param.noneable()) {
-      // A few annotations redundantly declare NoneType.
-      if (!allowedClasses.contains(NoneType.class)) {
-        allowedClasses.add(NoneType.class);
-      }
+
+    if (param.noneable() && !allowedClasses.contains(NoneType.class)) {
+      allowedClasses.add(NoneType.class);
     }
 
     return new ParamDescriptor(
         param.name(),
         defaultExpr,
-        param.noneable(),
         param.named(),
         param.positional(),
         allowedClasses,
@@ -112,11 +112,6 @@ final class ParamDescriptor {
 
   List<Class<?>> getAllowedClasses() {
     return allowedClasses;
-  }
-
-  /** @see Param#noneable() */
-  boolean isNoneable() {
-    return noneable;
   }
 
   /** @see Param#positional() */
@@ -166,9 +161,9 @@ final class ParamDescriptor {
     } else if (expr.equals("unbound")) {
       return Starlark.UNBOUND;
     } else if (expr.equals("0")) {
-      return 0;
+      return StarlarkInt.of(0);
     } else if (expr.equals("1")) {
-      return 1;
+      return StarlarkInt.of(1);
     } else if (expr.equals("[]")) {
       return StarlarkList.empty();
     } else if (expr.equals("()")) {

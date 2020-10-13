@@ -217,7 +217,7 @@ public class DynamicSpawnStrategyTest {
 
   @Before
   public void setUp() throws Exception {
-    testRoot = FileSystems.getNativeFileSystem().getPath(TestUtils.tmpDir());
+    testRoot = FileSystems.getNativeFileSystem().getPath(TestUtils.tmpDir()).getRelative("test");
     testRoot.deleteTreesBelow();
     outErr = new FileOutErr(testRoot.getRelative("stdout"), testRoot.getRelative("stderr"));
   }

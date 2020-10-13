@@ -18,10 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,31 +31,22 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class EnvironmentGroupTest extends PackageLoadingTestCase {
 
-  private Package pkg;
   private EnvironmentGroup group;
 
   @Before
   public final void createPackage() throws Exception {
-    Path buildfile =
-        scratch.file(
-            "pkg/BUILD",
-            "environment(name='foo', fulfills = [':bar', ':baz'])",
-            "environment(name='bar', fulfills = [':baz'])",
-            "environment(name='baz')",
-            "environment(name='not_in_group')",
-            "environment_group(",
-            "    name = 'group',",
-            "    environments = [':foo', ':bar', ':baz'],",
-            "    defaults = [':foo'],",
-            ")");
-    pkg =
-        packageFactory.createPackageForTesting(
-            PackageIdentifier.createInMainRepo("pkg"),
-            RootedPath.toRootedPath(root, buildfile),
-            getPackageManager(),
-            reporter);
-
-    group = (EnvironmentGroup) pkg.getTarget("group");
+    scratch.file(
+        "pkg/BUILD",
+        "environment(name='foo', fulfills = [':bar', ':baz'])",
+        "environment(name='bar', fulfills = [':baz'])",
+        "environment(name='baz')",
+        "environment(name='not_in_group')",
+        "environment_group(",
+        "    name = 'group',",
+        "    environments = [':foo', ':bar', ':baz'],",
+        "    defaults = [':foo'],",
+        ")");
+    group = (EnvironmentGroup) getTarget("//pkg:group");
   }
 
   @Test
@@ -115,17 +103,11 @@ public class EnvironmentGroupTest extends PackageLoadingTestCase {
 
   @Test
   public void emptyGroupsNotAllowed() throws Exception {
-    Path buildfile = scratch.file(
-        "a/BUILD",
-        "environment_group(name = 'empty_group', environments = [], defaults = [])");
+    scratch.file(
+        "a/BUILD", "environment_group(name = 'empty_group', environments = [], defaults = [])");
     reporter.removeHandler(failFastHandler);
-    Package emptyGroupPkg =
-        packageFactory.createPackageForTesting(
-            PackageIdentifier.createInMainRepo("a"),
-            RootedPath.toRootedPath(root, buildfile),
-            getPackageManager(),
-            reporter);
-    assertThat(emptyGroupPkg.containsErrors()).isTrue();
+    Package pkg = getTarget("//a:BUILD").getPackage();
+    assertThat(pkg.containsErrors()).isTrue();
     assertContainsEvent(
         "environment group empty_group must contain at least one environment");
   }

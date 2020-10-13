@@ -114,11 +114,23 @@ public class SymlinkForest {
   @VisibleForTesting
   @ThreadSafety.ThreadSafe
   void deleteTreesBelowNotPrefixed(Path dir, String prefix) throws IOException {
+
     for (Path p : dir.getDirectoryEntries()) {
-      if (!p.getBaseName().startsWith(prefix)
-          && !notSymlinkedInExecrootDirectories.contains(p.getBaseName())) {
-        p.deleteTree();
+
+      if (p.getBaseName().startsWith(prefix)) {
+        continue;
       }
+
+      // If the path in question is a toplevel output directory, then it should not be deleted
+      // from the execroot here because it was not created as part of symlink forest creation,
+      // unless it is a symlink. If the path in question is a toplevel output directory and it is
+      // a symlink, then this means that it was created as part of a previous build where it was
+      // not a toplevel output directory at the time, and should be deleted.
+      if (notSymlinkedInExecrootDirectories.contains(p.getBaseName()) && !p.isSymbolicLink()) {
+        continue;
+      }
+
+      p.deleteTree();
     }
   }
 

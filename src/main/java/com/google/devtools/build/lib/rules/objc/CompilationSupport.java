@@ -486,7 +486,8 @@ public class CompilationSupport {
             featureConfiguration,
             ruleContext,
             /* generateHeaderTokensGroup= */ true,
-            /* addSelfHeaderTokens= */ true);
+            /* addSelfHeaderTokens= */ true,
+            /* generateHiddenTopLevelGroup= */ true);
 
     Map<String, NestedSet<Artifact>> nonArcOutputGroups =
         CcCompilationHelper.buildOutputGroupsForEmittingCompileProviders(
@@ -497,7 +498,8 @@ public class CompilationSupport {
             featureConfiguration,
             ruleContext,
             /* generateHeaderTokensGroup= */ true,
-            /* addSelfHeaderTokens= */ false);
+            /* addSelfHeaderTokens= */ false,
+            /* generateHiddenTopLevelGroup= */ true);
 
     Map<String, NestedSet<Artifact>> mergedOutputGroups =
         CcCommon.mergeOutputGroups(ImmutableList.of(arcOutputGroups, nonArcOutputGroups));
@@ -1125,7 +1127,8 @@ public class CompilationSupport {
       J2ObjcMappingFileProvider j2ObjcMappingFileProvider,
       J2ObjcEntryClassProvider j2ObjcEntryClassProvider,
       ExtraLinkArgs extraLinkArgs,
-      Iterable<Artifact> extraLinkInputs)
+      Iterable<Artifact> extraLinkInputs,
+      boolean isStampingEnabled)
       throws InterruptedException, RuleErrorException {
     Iterable<Artifact> prunedJ2ObjcArchives =
         computeAndStripPrunedJ2ObjcArchives(
@@ -1186,7 +1189,7 @@ public class CompilationSupport {
                 getFeatureConfiguration(ruleContext, toolchain, buildConfiguration),
                 createObjcCppSemantics())
             .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
-            .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
+            .setIsStampingEnabled(isStampingEnabled)
             .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget() || ruleContext.isTestTarget())
             .setMnemonic("ObjcLink")
             .addActionInputs(bazelBuiltLibraries)
@@ -1283,7 +1286,9 @@ public class CompilationSupport {
       // Unfortunately, this cache contains non-hermetic information, thus we avoid declaring it as
       // an implicit output (as outputs must be hermetic).
       String cachePath =
-          buildConfiguration.getGenfilesFragment() + "/" + OBJC_MODULE_CACHE_DIR_NAME;
+          buildConfiguration.getGenfilesFragment(ruleContext.getRepository())
+              + "/"
+              + OBJC_MODULE_CACHE_DIR_NAME;
       copts.add("-fmodules-cache-path=" + cachePath);
     }
     return copts;

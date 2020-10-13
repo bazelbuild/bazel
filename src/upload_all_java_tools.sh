@@ -48,7 +48,7 @@ bazel_version=$(bazel info release | cut -d' ' -f2)
 
 # Passing the same commit_hash and timestamp to all targets to mark all the artifacts
 # uploaded on GCS with the same identifier.
-for java_version in 11 14; do
+for java_version in 11; do
 
     bazel build //src:java_tools_java${java_version}_zip
     zip_path=${PWD}/bazel-bin/src/java_tools_java${java_version}.zip

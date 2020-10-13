@@ -536,8 +536,7 @@ class UiStateTracker {
     Action action = event.getAction();
     Artifact actionId = action.getPrimaryOutput();
 
-    checkState(activeActions.containsKey(actionId));
-    activeActions.remove(actionId);
+    checkNotNull(activeActions.remove(actionId), "%s %s", actionId, event);
 
     if (action.getOwner() != null) {
       Label owner = action.getOwner().getLabel();

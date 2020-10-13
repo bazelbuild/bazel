@@ -34,11 +34,6 @@ public class TargetParsingException extends Exception implements DetailedExcepti
     this.detailedExitCode = DetailedExitCode.of(createFailureDetail(message, code));
   }
 
-  public TargetParsingException(String message, Throwable cause, FailureDetail failureDetail) {
-    super(Preconditions.checkNotNull(message), cause);
-    this.detailedExitCode = DetailedExitCode.of(Preconditions.checkNotNull(failureDetail));
-  }
-
   public TargetParsingException(
       String message, Throwable cause, DetailedExitCode detailedExitCode) {
     super(Preconditions.checkNotNull(message), cause);

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
+import net.starlark.java.eval.StarlarkInt;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -82,7 +83,7 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
             .add(attr("size", STRING).value("medium"))
             .add(attr("timeout", STRING))
             .add(attr("flaky", BOOLEAN).value(false))
-            .add(attr("shard_count", INTEGER).value(-1))
+            .add(attr("shard_count", INTEGER).value(StarlarkInt.of(-1)))
             .add(attr("local", BOOLEAN))
             .build();
     assertThat(ruleClassA.hasBinaryOutput()).isTrue();

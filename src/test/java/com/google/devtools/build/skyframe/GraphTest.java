@@ -40,7 +40,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.Before;
 import org.junit.Test;
 
-/** Base class for sanity tests on {@link EvaluableGraph} implementations. */
+/** Base class for tests on {@link EvaluableGraph} implementations. */
 public abstract class GraphTest {
   protected ProcessableGraph graph;
   protected TestRunnableWrapper wrapper;

@@ -26,6 +26,7 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Tuple;
 
@@ -355,7 +356,7 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "0",
-            type = Integer.class),
+            type = StarlarkInt.class),
         @Param(
             name = "additional_inputs",
             doc = "For additional inputs to the linking action, e.g.: linking scripts.",
@@ -382,7 +383,7 @@ public interface BazelCcModuleApi<
       String language,
       String outputType,
       boolean linkDepsStatically,
-      int stamp,
+      StarlarkInt stamp,
       Sequence<?> additionalInputs, // <FileT> expected
       Object grepIncludes,
       StarlarkThread thread)

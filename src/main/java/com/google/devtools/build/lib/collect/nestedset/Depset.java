@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -22,7 +23,6 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkInterfaceUtils;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Debug;
@@ -31,6 +31,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
@@ -52,7 +53,7 @@ import net.starlark.java.eval.StarlarkValue;
  */
 @StarlarkBuiltin(
     name = "depset",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc =
         "<p>A specialized data structure that supports efficient merge operations and has a"
             + " defined traversal order. Commonly used for accumulating data from transitive"
@@ -407,7 +408,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
    * A ElementType represents the type of elements in a Depset.
    *
    * <p>Call {@link #of} to obtain the ElementType for a Java class. The class must be a legal
-   * Starlark value class, such as String, Integer, Boolean, or a subclass of StarlarkValue.
+   * Starlark value class, such as String, Boolean, or a subclass of StarlarkValue.
    *
    * <p>An element type represents only the top-most type identifier of an element value. That is,
    * an element type may represent "list" but not "list of string".
@@ -444,15 +445,22 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
       return new ElementType(getTypeClass(cls));
     }
 
-    // Returns the Java class representing the Starlark type of an instance of cls,
-    // which must be one of String, Integer, or Boolean (in which case the result is cls),
-    // or a StarlarkModule-annotated Starlark value class or one of its subclasses,
-    // in which case the result is the annotated class.
+    // If cls is a valid Starlark type, returns the canonical Java class for that
+    // Starlark type (which may be an ancestor); otherwise throws IllegalArgumentException.
+    //
+    // If cls is String or Boolean, cls is returned. Otherwise, the
+    // @StarlarkBuiltin-annotated ancestor of cls is returned if it exists (it may
+    // be cls itself), or cls is returned if there is no such ancestor.
     //
     // TODO(adonovan): consider publishing something like this as Starlark.typeClass.
     private static Class<?> getTypeClass(Class<?> cls) {
-      if (cls == String.class || cls == Integer.class || cls == Boolean.class) {
+      if (cls == String.class || cls == Boolean.class) {
         return cls; // fast path for common case
+      }
+      if (cls == StarlarkInt.class) {
+        // StarlarkInt doesn't currently have a StarlarkBuiltin annotation
+        // because stardoc can't handle a type and a function with the same name.
+        return cls;
       }
       Class<?> superclass = StarlarkInterfaceUtils.getParentWithStarlarkBuiltin(cls);
       if (superclass != null) {

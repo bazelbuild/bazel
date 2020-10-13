@@ -11,16 +11,22 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+package com.google.devtools.build.docgen.annot;
 
-package com.google.devtools.coverageoutputgenerator;
+/** Sections of the API reference for the Bazel build language. */
+public final class DocCategory {
 
-/**
- * Exception indicating two source coverage objects cannot be merged together due to irreconcilable
- * differences.
- */
-public class IncompatibleMergeException extends Exception {
+  private DocCategory() {} // uninstantiable
 
-  public IncompatibleMergeException(String message) {
-    super(message);
-  }
+  public static final String CONFIGURATION_FRAGMENT = "CONFIGURATION_FRAGMENT";
+
+  // TODO(adonovan): be more rigorous about distinguishing providers
+  // from provider instances (aka structs/infos).
+  public static final String PROVIDER = "PROVIDER";
+
+  public static final String BUILTIN = "BUILTIN";
+
+  public static final String TOP_LEVEL_TYPE = "TOP_LEVEL_TYPE";
+
+  public static final String NONE = "NONE";
 }

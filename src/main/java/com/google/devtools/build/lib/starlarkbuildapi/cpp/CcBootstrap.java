@@ -43,6 +43,7 @@ public class CcBootstrap implements Bootstrap {
       ccModule;
 
   private final CcInfoApi.Provider<? extends FileApi> ccInfoProvider;
+  private final DebugPackageInfoApi.Provider<? extends FileApi> debugPackageInfoProvider;
   private final CcToolchainConfigInfoApi.Provider ccToolchainConfigInfoProvider;
   private final PyWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?> pyWrapCcHelper;
   private final GoWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?> goWrapCcHelper;
@@ -67,6 +68,7 @@ public class CcBootstrap implements Bootstrap {
               ? extends CcCompilationOutputsApi<? extends FileApi>>
           ccModule,
       CcInfoApi.Provider<? extends FileApi> ccInfoProvider,
+      DebugPackageInfoApi.Provider<? extends FileApi> debugPackageInfoProvider,
       CcToolchainConfigInfoApi.Provider ccToolchainConfigInfoProvider,
       PyWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?> pyWrapCcHelper,
       GoWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?> goWrapCcHelper,
@@ -74,6 +76,7 @@ public class CcBootstrap implements Bootstrap {
       PyCcLinkParamsProviderApi.Provider pyCcLinkInfoParamsInfoProvider) {
     this.ccModule = ccModule;
     this.ccInfoProvider = ccInfoProvider;
+    this.debugPackageInfoProvider = debugPackageInfoProvider;
     this.ccToolchainConfigInfoProvider = ccToolchainConfigInfoProvider;
     this.pyWrapCcHelper = pyWrapCcHelper;
     this.goWrapCcHelper = goWrapCcHelper;
@@ -85,6 +88,7 @@ public class CcBootstrap implements Bootstrap {
   public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
     builder.put("cc_common", ccModule);
     builder.put("CcInfo", ccInfoProvider);
+    builder.put("DebugPackageInfo", debugPackageInfoProvider);
     builder.put("CcToolchainConfigInfo", ccToolchainConfigInfoProvider);
     builder.put(
         "py_wrap_cc_helper_do_not_use",

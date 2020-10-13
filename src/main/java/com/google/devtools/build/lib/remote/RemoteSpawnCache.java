@@ -209,10 +209,11 @@ final class RemoteSpawnCache implements SpawnCache {
           SpawnResult spawnResult =
               createSpawnResult(
                   result.getExitCode(),
-                  /* cacheHit= */ true,
+                  /*cacheHit=*/ true,
                   "remote",
                   inMemoryOutput,
-                  spawnMetrics.build());
+                  spawnMetrics.build(),
+                  spawn.getMnemonic());
           return SpawnCache.success(spawnResult);
         }
       } catch (CacheNotFoundException e) {

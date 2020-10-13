@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueIn
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 
 /** Fake implementation of {@link JavaCommonApi}. */
@@ -140,6 +141,11 @@ public class FakeJavaCommon
   @Override
   public FakeJavaInfo addConstraints(FakeJavaInfo javaInfo, Sequence<?> constraints) {
     return new FakeJavaInfo();
+  }
+
+  @Override
+  public Sequence<String> getConstraints(FakeJavaInfo javaInfo) {
+    return StarlarkList.empty();
   }
 
   @Override

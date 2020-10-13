@@ -582,16 +582,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
               + " (zero means no limit).")
   public long maxComputationSteps;
 
-  @Option(
-      name = "record_rule_instantiation_callstack",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      help =
-          "(deprecated) Causes each rule to record the callstack at the moment of its"
-              + " instantiation")
-  public boolean recordRuleInstantiationCallstack;
-
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a

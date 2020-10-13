@@ -228,8 +228,8 @@ public class NinjaPipelineTest {
     assertThat(exception)
         .hasMessageThat()
         .isEqualTo(
-            "Ninja file requested from 'test.ninja' "
-                + "not declared in 'srcs' attribute of 'ninja_target'.");
+            "Ninja file 'subfile.ninja' requested from 'test.ninja' "
+                + "not declared in 'ninja_srcs' attribute of 'ninja_target'.");
   }
 
   @Test

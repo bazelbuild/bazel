@@ -40,6 +40,7 @@ java_library(
         "StarlarkCallable.java",
         "StarlarkFunction.java",
         "StarlarkIndexable.java",
+        "StarlarkInt.java",
         "StarlarkIterable.java",
         "StarlarkList.java",
         "StarlarkSemantics.java",

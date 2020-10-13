@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 
 /**
@@ -32,7 +32,7 @@ import net.starlark.java.annot.StarlarkMethod;
 @StarlarkBuiltin(
     name = "PyWrapCcInfo",
     documented = false,
-    category = StarlarkDocumentationCategory.PROVIDER,
+    category = DocCategory.PROVIDER,
     doc = "")
 public interface PyWrapCcInfoApi<FileT extends FileApi> extends StructApi {
 

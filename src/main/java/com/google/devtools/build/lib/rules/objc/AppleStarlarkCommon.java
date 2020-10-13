@@ -21,6 +21,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -48,6 +49,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
@@ -246,15 +248,19 @@ public class AppleStarlarkCommon
       StarlarkRuleContext starlarkRuleContext,
       Sequence<?> extraLinkopts,
       Sequence<?> extraLinkInputs,
+      StarlarkInt stamp,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     try {
       RuleContext ruleContext = starlarkRuleContext.getRuleContext();
+      boolean isStampingEnabled =
+          isStampingEnabled(stamp.toInt("stamp"), ruleContext.getConfiguration());
       AppleBinaryOutput appleBinaryOutput =
           AppleBinary.linkMultiArchBinary(
               ruleContext,
               ImmutableList.copyOf(Sequence.cast(extraLinkopts, String.class, "extra_linkopts")),
-              Sequence.cast(extraLinkInputs, Artifact.class, "extra_link_inputs"));
+              Sequence.cast(extraLinkInputs, Artifact.class, "extra_link_inputs"),
+              isStampingEnabled);
       return createAppleBinaryOutputStarlarkStruct(appleBinaryOutput, thread);
     } catch (RuleErrorException | ActionConflictException exception) {
       throw new EvalException(exception);
@@ -296,5 +302,21 @@ public class AppleStarlarkCommon
             "debug_outputs_provider", output.getDebugOutputsProvider(),
             "output_groups", Dict.copyOf(thread.mutability(), outputGroups));
     return StarlarkInfo.create(constructor, fields, Location.BUILTIN);
+  }
+
+  private static boolean isStampingEnabled(int stamp, BuildConfiguration config)
+      throws EvalException {
+    if (stamp == 0) {
+      return false;
+    }
+    if (stamp == 1) {
+      return true;
+    }
+    if (stamp == -1) {
+      return config.stampBinaries();
+    }
+    throw Starlark.errorf(
+        "stamp value %d is not supported; must be 0 (disabled), 1 (enabled), or -1 (default)",
+        stamp);
   }
 }

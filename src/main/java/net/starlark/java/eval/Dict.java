@@ -28,7 +28,6 @@ import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.syntax.Location;
 
@@ -42,7 +41,7 @@ import net.starlark.java.syntax.Location;
  */
 @StarlarkBuiltin(
     name = "dict",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = "core",
     doc =
         "dict is a built-in type representing an associative mapping or <i>dictionary</i>. A"
             + " dictionary supports indexing using <code>d[k]</code> and key membership testing"

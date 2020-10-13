@@ -103,6 +103,11 @@ import net.starlark.java.eval.Starlark;
  *       affect the result of a build, such as timestamp files.
  *   <li>A 'Fileset' special Artifact. This is a legacy type of Artifact and should not be used by
  *       new rule implementations.
+ *   <li>A 'symlink' special Artifact. While a symlink can also be represented by a regular
+ *       Artifact, using a symlink special Artifact would result in deriving the Artifact's SkyValue
+ *       from the symlinks themselves (lstat, not stat), and not following the symlinks like in
+ *       regular Artifacts. The underlying symlink can be unresolved, otherwise known as a dangling
+ *       symlink.
  * </ul>
  *
  * <p>While Artifact implements {@link SkyKey} for memory-saving purposes, Skyframe requests
@@ -652,6 +657,17 @@ public abstract class Artifact
     return getPathForLocationExpansion();
   }
 
+  /**
+   * Returns the path to this artifact relative to its repository root. As a result, the returned
+   * path always starts with a corresponding package name, if exists.
+   */
+  public PathFragment getRepositoryRelativePath() {
+    PathFragment fullPath = getPathForLocationExpansion();
+    return fullPath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)
+        ? fullPath.subFragment(2)
+        : fullPath;
+  }
+
   /** Returns this.getExecPath().getPathString(). */
   @Override
   public final String getExecPathString() {
@@ -664,6 +680,10 @@ public abstract class Artifact
 
   public final String getOutputDirRelativePathString() {
     return getOutputDirRelativePath().getPathString();
+  }
+
+  public final String getRepositoryRelativePathString() {
+    return getRepositoryRelativePath().getPathString();
   }
 
   @Override
@@ -883,6 +903,11 @@ public abstract class Artifact
     @Override
     public PathFragment getPathForLocationExpansion() {
       return getExecPath();
+    }
+
+    @Override
+    public PathFragment getRepositoryRelativePath() {
+      return root.isExternalSourceRoot() ? getExecPath().subFragment(2) : getExecPath();
     }
 
     @Override
@@ -1112,6 +1137,15 @@ public abstract class Artifact
           rootPathFragment.subFragment(
               0, rootPathFragment.segmentCount() - artifactRoot.getExecPath().segmentCount());
       return rootPath.getFileSystem().getPath(execRootPath);
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static ArchivedTreeArtifact createForDeserialization(
+        SpecialArtifact treeArtifact, ArtifactRoot root, PathFragment execPath) {
+      ArchivedTreeArtifact result = new ArchivedTreeArtifact(treeArtifact, root, execPath);
+      result.setGeneratingActionKey(treeArtifact.getGeneratingActionKey());
+      return result;
     }
   }
 

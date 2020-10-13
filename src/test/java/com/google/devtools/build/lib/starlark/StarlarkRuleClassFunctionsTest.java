@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
-import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import javax.annotation.Nullable;
@@ -62,6 +61,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.ParserInput;
@@ -78,7 +78,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
-  private final EvaluationTestCase ev = new BazelEvaluationTestCase();
+  private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
 
   private StarlarkRuleContext createRuleContext(String label) throws Exception {
     return new StarlarkRuleContext(
@@ -625,7 +625,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void incompatibleDataTransition() throws Exception {
     EvalException expected =
         assertThrows(EvalException.class, () -> ev.eval("attr.label(cfg = 'data')"));
-    assertThat(expected).hasMessageThat().contains("cfg must be either 'host' or 'target'");
+    assertThat(expected).hasMessageThat().contains("cfg must be either 'host', 'target'");
   }
 
   @Test
@@ -640,8 +640,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void testAttrIntValues() throws Exception {
     Attribute attr = buildAttribute("a1", "attr.int(values = [1, 2])");
     PredicateWithMessage<Object> predicate = attr.getAllowedValues();
-    assertThat(predicate.apply(2)).isTrue();
-    assertThat(predicate.apply(3)).isFalse();
+    assertThat(predicate.apply(StarlarkInt.of(2))).isTrue();
+    assertThat(predicate.apply(StarlarkInt.of(3))).isFalse();
   }
 
   @Test
@@ -735,7 +735,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(c.hasAttr("a1", Type.STRING)).isTrue();
   }
 
-  private static void evalAndExport(EvaluationTestCase ev, String... lines) throws Exception {
+  private static void evalAndExport(BazelEvaluationTestCase ev, String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
     Module module = ev.getModule();
     StarlarkFile file = StarlarkFile.parse(input);
@@ -894,7 +894,50 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "r1 = rule(impl, attrs = {'a1': attr.int(default = 40+2)})");
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
     Attribute a = c.getAttributeByName("a1");
-    assertThat(a.getDefaultValueUnchecked()).isEqualTo(42);
+    assertThat(a.getDefaultValueUnchecked()).isEqualTo(StarlarkInt.of(42));
+  }
+
+  @Test
+  public void testIntDefaultValueMustBeInt32() throws Exception {
+    // This is a test of the loading phase. Move somewhere more appropriate.
+    ev.checkEvalErrorContains(
+        "for parameter 'default' of attribute '', got 4294967296, want value in signed 32-bit"
+            + " range",
+        "attr.int(default = 0x10000 * 0x10000)");
+    ev.checkEvalErrorContains(
+        "for element 0 of parameter 'default' of attribute '', got 4294967296, want value in"
+            + " signed 32-bit range",
+        "attr.int_list(default = [0x10000 * 0x10000])");
+  }
+
+  @Test
+  public void testIntAttributeValueMustBeInt32() throws Exception {
+    // This is a test of the loading phase. Move somewhere more appropriate.
+    scratch.file(
+        "p/inc.bzl", //
+        "def _impl(ctx): pass",
+        "r = rule(_impl, attrs = dict(i=attr.int()))");
+    scratch.file(
+        "p/BUILD", //
+        "load('inc.bzl', 'r')",
+        "r(name = 'p', i = 0x10000 * 0x10000)");
+    AssertionError expected = assertThrows(AssertionError.class, () -> createRuleContext("//p"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains(
+            "for attribute 'i' in 'r' rule, got 4294967296, want value in signed 32-bit range");
+  }
+
+  @Test
+  public void testIntegerConcatTruncates() throws Exception {
+    // The Type.INTEGER.concat operator, as used to resolve select(int)+select(int)
+    // after rule construction, has a range of int32.
+    scratch.file(
+        "p/BUILD", //
+        "s = select({'//conditions:default': -0x7fffffff})", // -0x7fffffff + -0x7fffffff = 2
+        "cc_test(name='c', shard_count = s+s)");
+    StarlarkRuleContext context = createRuleContext("//p:c");
+    assertThat(context.getAttr().getValue("shard_count")).isEqualTo(StarlarkInt.of(2));
   }
 
   @Test
@@ -1127,8 +1170,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     // TODO(fwe): cannot be handled by current testing suite
     ev.exec("x = struct(a = 1, b = 2)");
     ClassObject x = (ClassObject) ev.lookup("x");
-    assertThat(x.getValue("a")).isEqualTo(1);
-    assertThat(x.getValue("b")).isEqualTo(2);
+    assertThat(x.getValue("a")).isEqualTo(StarlarkInt.of(1));
+    assertThat(x.getValue("b")).isEqualTo(StarlarkInt.of(2));
   }
 
   @Test
@@ -1163,8 +1206,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @Test
   public void testStructAccessingFieldsFromStarlark() throws Exception {
     ev.exec("x = struct(a = 1, b = 2)", "x1 = x.a", "x2 = x.b");
-    assertThat(ev.lookup("x1")).isEqualTo(1);
-    assertThat(ev.lookup("x2")).isEqualTo(2);
+    assertThat(ev.lookup("x1")).isEqualTo(StarlarkInt.of(1));
+    assertThat(ev.lookup("x2")).isEqualTo(StarlarkInt.of(2));
   }
 
   @Test
@@ -1190,7 +1233,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @Test
   public void testStructAccessingFunctionFieldWithArgs() throws Exception {
     ev.exec("def f(x): return x+5", "x = struct(a = f, b = 2)", "x1 = x.a(1)");
-    assertThat(ev.lookup("x1")).isEqualTo(6);
+    assertThat(ev.lookup("x1")).isEqualTo(StarlarkInt.of(6));
   }
 
   @Test
@@ -1218,10 +1261,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "y = struct(c = 1, d = 2)",
         "z = x + y\n");
     StructImpl z = (StructImpl) ev.lookup("z");
-    assertThat(z.getValue("a")).isEqualTo(1);
-    assertThat(z.getValue("b")).isEqualTo(2);
-    assertThat(z.getValue("c")).isEqualTo(1);
-    assertThat(z.getValue("d")).isEqualTo(2);
+    assertThat(z.getValue("a")).isEqualTo(StarlarkInt.of(1));
+    assertThat(z.getValue("b")).isEqualTo(StarlarkInt.of(2));
+    assertThat(z.getValue("c")).isEqualTo(StarlarkInt.of(1));
+    assertThat(z.getValue("d")).isEqualTo(StarlarkInt.of(2));
   }
 
   @Test
@@ -1244,10 +1287,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "  return x",
         "x = func()");
     StructImpl x = (StructImpl) ev.lookup("x");
-    assertThat(x.getValue("a")).isEqualTo(1);
-    assertThat(x.getValue("b")).isEqualTo(2);
-    assertThat(x.getValue("c")).isEqualTo(1);
-    assertThat(x.getValue("d")).isEqualTo(2);
+    assertThat(x.getValue("a")).isEqualTo(StarlarkInt.of(1));
+    assertThat(x.getValue("b")).isEqualTo(StarlarkInt.of(2));
+    assertThat(x.getValue("c")).isEqualTo(StarlarkInt.of(1));
+    assertThat(x.getValue("d")).isEqualTo(StarlarkInt.of(2));
   }
 
   @Test
@@ -1302,7 +1345,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "s = struct(x = {'a' : 1})", //
         "s.x['b'] = 2\n");
     assertThat(((StructImpl) ev.lookup("s")).getValue("x"))
-        .isEqualTo(ImmutableMap.of("a", 1, "b", 2));
+        .isEqualTo(ImmutableMap.of("a", StarlarkInt.of(1), "b", StarlarkInt.of(2)));
   }
 
   @Test
@@ -1325,21 +1368,22 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
                 StarlarkList.<Object>of(
                     mu,
                     StructProvider.STRUCT.create(
-                        ImmutableMap.<String, Object>of("x", Dict.<Object, Object>of(mu, 1, 1)),
+                        ImmutableMap.<String, Object>of(
+                            "x", Dict.<Object, Object>of(mu, StarlarkInt.of(1), StarlarkInt.of(1))),
                         "no field '%s'"),
                     Tuple.of()),
             "b", Tuple.of(),
-            "c", Dict.<Object, Object>of(mu, 2, 2)),
+            "c", Dict.<Object, Object>of(mu, StarlarkInt.of(2), StarlarkInt.of(2))),
         "no field '%s'");
   }
 
   @Test
   public void testStructMutabilityShallow() throws Exception {
-    assertThat(Starlark.isImmutable(makeStruct("a", 1))).isTrue();
+    assertThat(Starlark.isImmutable(makeStruct("a", StarlarkInt.of(1)))).isTrue();
   }
 
   private static StarlarkList<Object> makeList(@Nullable Mutability mu) {
-    return StarlarkList.<Object>of(mu, 1, 2, 3);
+    return StarlarkList.<Object>of(mu, StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3));
   }
 
   @Test
@@ -1357,7 +1401,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @Test
   public void declaredProviders() throws Exception {
     evalAndExport(ev, "data = provider()", "d = data(x = 1, y ='abc')", "d_x = d.x", "d_y = d.y");
-    assertThat(ev.lookup("d_x")).isEqualTo(1);
+    assertThat(ev.lookup("d_x")).isEqualTo(StarlarkInt.of(1));
     assertThat(ev.lookup("d_y")).isEqualTo("abc");
     StarlarkProvider dataConstructor = (StarlarkProvider) ev.lookup("data");
     StructImpl data = (StructImpl) ev.lookup("d");
@@ -1377,7 +1421,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "dxy = dx + dy",
         "x = dxy.x",
         "y = dxy.y");
-    assertThat(ev.lookup("x")).isEqualTo(1);
+    assertThat(ev.lookup("x")).isEqualTo(StarlarkInt.of(1));
     assertThat(ev.lookup("y")).isEqualTo("abc");
     StarlarkProvider dataConstructor = (StarlarkProvider) ev.lookup("data");
     StructImpl dx = (StructImpl) ev.lookup("dx");
@@ -1407,8 +1451,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "d3 = d1 + d2",
         "f1 = d3.f1",
         "f2 = d3.f2");
-    assertThat(ev.lookup("f1")).isEqualTo(4);
-    assertThat(ev.lookup("f2")).isEqualTo(5);
+    assertThat(ev.lookup("f1")).isEqualTo(StarlarkInt.of(4));
+    assertThat(ev.lookup("f2")).isEqualTo(StarlarkInt.of(5));
   }
 
   @Test
@@ -1633,8 +1677,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     StarlarkInfo p1 = (StarlarkInfo) ev.lookup("p1");
 
     assertThat(p1.getProvider()).isEqualTo(p);
-    assertThat(ev.lookup("x")).isEqualTo(1);
-    assertThat(ev.lookup("y")).isEqualTo(2);
+    assertThat(ev.lookup("x")).isEqualTo(StarlarkInt.of(1));
+    assertThat(ev.lookup("y")).isEqualTo(StarlarkInt.of(2));
   }
 
   @Test
@@ -1649,8 +1693,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     StarlarkInfo p1 = (StarlarkInfo) ev.lookup("p1");
 
     assertThat(p1.getProvider()).isEqualTo(p);
-    assertThat(ev.lookup("x")).isEqualTo(1);
-    assertThat(ev.lookup("y")).isEqualTo(2);
+    assertThat(ev.lookup("x")).isEqualTo(StarlarkInt.of(1));
+    assertThat(ev.lookup("y")).isEqualTo(StarlarkInt.of(2));
   }
 
   @Test
@@ -1664,7 +1708,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     StarlarkInfo p1 = (StarlarkInfo) ev.lookup("p1");
 
     assertThat(p1.getProvider()).isEqualTo(p);
-    assertThat(ev.lookup("y")).isEqualTo(2);
+    assertThat(ev.lookup("y")).isEqualTo(StarlarkInt.of(2));
   }
 
   @Test

@@ -500,6 +500,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
         "build_config/build.ninja",
         "rule symlink_rule",
         "  command = ln -s fictive-file ${out}",
+        "  symlink_outputs = $out",
         "build dangling_symlink: symlink_rule");
 
     ConfiguredTarget configuredTarget =
@@ -508,8 +509,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
             "ninja_target",
             "ninja_graph(name = 'graph', output_root = 'build_config',",
             " working_directory = 'build_config',",
-            " main = 'build_config/build.ninja',",
-            " output_root_symlinks = ['dangling_symlink'])",
+            " main = 'build_config/build.ninja')",
             "ninja_build(name = 'ninja_target', ninja_graph = 'graph',",
             " output_groups= {'main': ['dangling_symlink']})");
     assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
@@ -541,6 +541,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
         "rule cat",
         "  command = cat ${in} > ${out}",
         "build dangling_symlink: symlink_rule",
+        "  symlink_outputs = dangling_symlink",
         "build mybuild: cat dangling_symlink");
 
     ConfiguredTarget configuredTarget =
@@ -549,8 +550,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
             "ninja_target",
             "ninja_graph(name = 'graph', output_root = 'build_config',",
             " working_directory = 'build_config',",
-            " main = 'build_config/build.ninja',",
-            " output_root_symlinks = ['dangling_symlink'])",
+            " main = 'build_config/build.ninja')",
             "ninja_build(name = 'ninja_target', ninja_graph = 'graph',",
             " output_groups= {'main': ['mybuild']})");
     assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);

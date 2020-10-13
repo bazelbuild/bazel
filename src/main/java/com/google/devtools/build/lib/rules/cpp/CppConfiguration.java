@@ -618,6 +618,22 @@ public final class CppConfiguration extends Fragment
     return cppOptions.csFdoProfileLabel;
   }
 
+  public Label getPropellerOptimizeLabel() {
+    return cppOptions.propellerOptimizeLabel;
+  }
+
+  /**
+   * @deprecated Unsafe because it returns a value from target configuration even in the host
+   *     configuration.
+   */
+  @Deprecated
+  Label getPropellerOptimizeLabelUnsafeSinceItCanReturnValueFromWrongConfiguration() {
+    if (cppOptions.fdoInstrumentForBuild != null || cppOptions.csFdoInstrumentForBuild != null) {
+      return null;
+    }
+    return cppOptions.getPropellerOptimizeLabel();
+  }
+
   /**
    * @deprecated Unsafe because it returns a value from target configuration even in the host
    *     configuration.

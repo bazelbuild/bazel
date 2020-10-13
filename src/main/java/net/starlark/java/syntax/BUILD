@@ -33,7 +33,7 @@ java_library(
         "Identifier.java",
         "IfStatement.java",
         "IndexExpression.java",
-        "IntegerLiteral.java",
+        "IntLiteral.java",
         "Lexer.java",
         "ListExpression.java",
         "LoadStatement.java",

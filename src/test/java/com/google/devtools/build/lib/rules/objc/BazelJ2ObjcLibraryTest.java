@@ -145,7 +145,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ConfiguredTarget target = getConfiguredTarget("//java/com/google/test:transpile");
     ObjcProvider provider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    String genfilesFragment = getConfiguration(target).getGenfilesFragment().toString();
+    String genfilesFragment =
+        getConfiguration(target).getGenfilesFragment(RepositoryName.MAIN).toString();
     assertThat(Artifact.toOutputDirRelativePaths(provider.get(ObjcProvider.LIBRARY)))
         .containsExactly(
             TestConstants.TOOLS_REPOSITORY_PATH_PREFIX
@@ -367,7 +368,10 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     assertThat(objcProvider.header().toList()).contains(headerFile);
     assertThat(objcProvider.get(ObjcProvider.SOURCE).toList()).contains(sourceFile);
     assertThat(objcProvider.include())
-        .contains(getConfiguration(target).getGenfilesFragment().getRelative("external/bla"));
+        .contains(
+            getConfiguration(target)
+                .getGenfilesFragment(RepositoryName.create("@bla"))
+                .getRelative("external/bla"));
   }
 
   @Test
@@ -905,6 +909,20 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   }
 
   @Test
+  public void testObjcCompileArcAction() throws Exception {
+    useConfiguration("--j2objc_translation_flags=-use-arc");
+    Artifact archive = j2objcArchive("//java/com/google/dummy/test:transpile", "test");
+    CommandAction compileAction = getObjcCompileAction(archive, "test.o");
+    assertThat(Artifact.toOutputDirRelativePaths(compileAction.getPossibleInputsForTesting()))
+        .containsAtLeast(
+            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "third_party/java/j2objc/jre_core.h",
+            "java/com/google/dummy/test/_j2objc/test/java/com/google/dummy/test/test.h",
+            "java/com/google/dummy/test/_j2objc/test/java/com/google/dummy/test/test.m");
+    assertThat(compileAction.getArguments())
+        .containsAtLeast("-fobjc-arc", "-fobjc-arc-exceptions", "-fno-strict-overflow");
+  }
+
+  @Test
   public void testJ2ObjcSourcesCompilationAndLinking() throws Exception {
     addSimpleBinaryTarget("//java/com/google/dummy/test:transpile");
 
@@ -1223,8 +1241,9 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     ConfiguredTarget j2objcLibraryTarget =
         getConfiguredTarget("//java/com/google/dummy/test:transpile");
     String genfilesFragment =
-        getConfiguration(j2objcLibraryTarget).getGenfilesFragment().toString();
-    String binFragment = getConfiguration(j2objcLibraryTarget).getBinFragment().toString();
+        getConfiguration(j2objcLibraryTarget).getGenfilesFragment(RepositoryName.MAIN).toString();
+    String binFragment =
+        getConfiguration(j2objcLibraryTarget).getBinFragment(RepositoryName.MAIN).toString();
 
     String commandLine = Joiner.on(" ").join(compileAction.getArguments());
     ImmutableList<String> expectedArgs =

@@ -79,17 +79,11 @@ java_library(
     srcs = ["SourceFileCoverage.java"],
     deps = [
         ":BranchCoverage",
-        ":IncompatibleMergeException",
         ":LineCoverage",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
-)
-
-java_library(
-    name = "IncompatibleMergeException",
-    srcs = ["IncompatibleMergeException.java"],
 )
 
 java_library(
@@ -160,7 +154,6 @@ java_library(
     srcs = ["Coverage.java"],
     deps = [
         ":Constants",
-        ":IncompatibleMergeException",
         ":SourceFileCoverage",
         "//third_party:guava",
     ],
@@ -185,7 +178,6 @@ java_library(
         ":Coverage",
         ":GcovJsonParser",
         ":GcovParser",
-        ":IncompatibleMergeException",
         ":LcovMergerFlags",
         ":LcovParser",
         ":LcovPrinter",

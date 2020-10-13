@@ -16,6 +16,7 @@ package net.starlark.java.annot.processor.testsources;
 
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Test case for a class with multiple StarlarkMethod methods which have selfCall=true. */
@@ -26,15 +27,15 @@ public class MultipleSelfCallMethods implements StarlarkValue {
       selfCall = true,
       parameters = {
         @Param(name = "one", type = String.class, named = true),
-        @Param(name = "two", type = Integer.class, named = true),
+        @Param(name = "two", type = StarlarkInt.class, named = true),
       },
       documented = false)
-  public Integer selfCallMethod(String one, Integer two) {
+  public StarlarkInt selfCallMethod(String one, StarlarkInt two) {
     return 0;
   }
 
   @StarlarkMethod(name = "selfCallMethodTwo", selfCall = true, documented = false)
-  public Integer selfCallMethodTwo() {
+  public StarlarkInt selfCallMethodTwo() {
     return 0;
   }
 }

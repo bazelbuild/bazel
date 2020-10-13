@@ -787,7 +787,7 @@ public class RunCommand implements BlazeCommand  {
    * *_test rules, *_binary rules, aliases, generated outputs, and inputs.
    *
    * <p>Determining definitively whether a rule produces an executable can only be done after
-   * analysis; this is only an early sanity check to quickly catch most mistakes.
+   * analysis. This is only an early check to quickly catch most mistakes.
    */
   private static boolean isExecutable(Target target) {
     return isPlainFile(target)

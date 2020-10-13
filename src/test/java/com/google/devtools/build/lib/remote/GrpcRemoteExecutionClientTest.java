@@ -89,7 +89,6 @@ import com.google.rpc.Code;
 import com.google.rpc.PreconditionFailure;
 import com.google.rpc.PreconditionFailure.Violation;
 import io.grpc.BindableService;
-import io.grpc.CallCredentials;
 import io.grpc.Metadata;
 import io.grpc.Server;
 import io.grpc.ServerCall;
@@ -259,10 +258,10 @@ public class GrpcRemoteExecutionClientTest {
                 .directExecutor()
                 .build());
     GrpcRemoteExecutor executor =
-        new GrpcRemoteExecutor(channel.retain(), null, retrier, remoteOptions);
+        new GrpcRemoteExecutor(channel.retain(), CallCredentialsProvider.NO_CREDENTIALS, retrier);
     CallCredentialsProvider callCredentialsProvider =
-        GoogleAuthUtils.newCallCredentialsProvider(Options.getDefaults(AuthAndTLSOptions.class));
-    CallCredentials creds = callCredentialsProvider.getCallCredentials();
+        GoogleAuthUtils.newCallCredentialsProvider(
+            GoogleAuthUtils.newCredentials(Options.getDefaults(AuthAndTLSOptions.class)));
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             remoteOptions.remoteInstanceName,
@@ -271,7 +270,13 @@ public class GrpcRemoteExecutionClientTest {
             remoteOptions.remoteTimeout.getSeconds(),
             retrier);
     GrpcCacheClient cacheProtocol =
-        new GrpcCacheClient(channel.retain(), creds, remoteOptions, retrier, DIGEST_UTIL, uploader);
+        new GrpcCacheClient(
+            channel.retain(),
+            callCredentialsProvider,
+            remoteOptions,
+            retrier,
+            DIGEST_UTIL,
+            uploader);
     RemoteExecutionCache remoteCache =
         new RemoteExecutionCache(cacheProtocol, remoteOptions, DIGEST_UTIL);
     client =

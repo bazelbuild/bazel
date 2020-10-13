@@ -52,7 +52,8 @@ public class WindowsFileSystemTest {
   @Before
   public void loadJni() throws Exception {
     fs = new WindowsFileSystem(DigestHashFunction.SHA256, /*createSymbolicLinks=*/ false);
-    scratchRoot = fs.getPath(System.getenv("TEST_TMPDIR")).getRelative("x");
+    scratchRoot = fs.getPath(System.getenv("TEST_TMPDIR")).getRelative("test").getRelative("x");
+    scratchRoot.createDirectoryAndParents();
     testUtil = new WindowsTestUtil(scratchRoot.getPathString());
     cleanupScratchDir();
   }

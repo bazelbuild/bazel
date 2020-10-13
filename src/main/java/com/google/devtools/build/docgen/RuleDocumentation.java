@@ -76,11 +76,15 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
       throws BuildEncyclopediaDocException {
     Preconditions.checkNotNull(ruleName);
     this.ruleName = ruleName;
-    try {
-      this.ruleType = RuleType.valueOf(ruleType);
-    } catch (IllegalArgumentException e) {
-      throw new BuildEncyclopediaDocException(
-          fileName, startLineCount, "Invalid rule type " + ruleType);
+    if (flags.contains(DocgenConsts.FLAG_GENERIC_RULE)) {
+      this.ruleType = RuleType.OTHER;
+    } else {
+      try {
+        this.ruleType = RuleType.valueOf(ruleType);
+      } catch (IllegalArgumentException e) {
+        throw new BuildEncyclopediaDocException(
+            fileName, startLineCount, "Invalid rule type " + ruleType);
+      }
     }
     this.ruleFamily = ruleFamily;
     this.htmlDocumentation = htmlDocumentation;

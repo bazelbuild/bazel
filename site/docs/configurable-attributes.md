@@ -992,3 +992,7 @@ Then compare this output against the settings expected by each `config_setting`.
 `//myapp:foo` may exist in different configurations in the same build. See the
 [cquery docs](cquery.html) for guidance on using `somepath` to get the right
 one.
+
+Caution: To prevent restarting the Bazel server, invoke `bazel config` with the
+same command line flags as the `bazel cquery`. The `config` command relies on
+the configuration nodes from the still-running server of the previous command.

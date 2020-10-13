@@ -77,11 +77,23 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
             env.getSkyframeExecutor().getTransitiveConfigurationKeys(),
             queryRuntimeHelper,
             queryExpression);
-      } catch (QueryException | IOException e) {
+      } catch (QueryException e) {
+        String errorMessage = "Error doing post analysis query";
         if (!request.getKeepGoing()) {
-          throw new ViewCreationFailedException("Error doing post analysis query", e);
+          throw new ViewCreationFailedException(errorMessage, e.getFailureDetail(), e);
         }
-        env.getReporter().error(null, "Error doing post analysis query", e);
+        env.getReporter().error(null, errorMessage, e);
+      } catch (IOException e) {
+        String errorMessage = "I/O error doing post analysis query";
+        if (!request.getKeepGoing()) {
+          FailureDetail failureDetail =
+              FailureDetail.newBuilder()
+                  .setMessage(errorMessage + ": " + e.getMessage())
+                  .setQuery(Query.newBuilder().setCode(Code.OUTPUT_FORMATTER_IO_EXCEPTION))
+                  .build();
+          throw new ViewCreationFailedException(errorMessage, failureDetail, e);
+        }
+        env.getReporter().error(null, errorMessage, e);
       } catch (QueryRuntimeHelperException e) {
         throw new ExitException(DetailedExitCode.of(e.getFailureDetail()));
       }

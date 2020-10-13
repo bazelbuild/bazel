@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.starlark.util.StarlarkOptionsTestCase;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
+import net.starlark.java.eval.StarlarkInt;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -39,19 +40,8 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
     OptionsParsingResult result = parseStarlarkOptions("--//test:my_int_setting=666");
 
     assertThat(result.getStarlarkOptions()).hasSize(1);
-    assertThat(result.getStarlarkOptions().get("//test:my_int_setting")).isEqualTo(666);
-    assertThat(result.getResidue()).isEmpty();
-  }
-
-  // test --flag value
-  @Test
-  public void testFlagSpaceValueForm() throws Exception {
-    writeBasicIntFlag();
-
-    OptionsParsingResult result = parseStarlarkOptions("--//test:my_int_setting 666");
-
-    assertThat(result.getStarlarkOptions()).hasSize(1);
-    assertThat(result.getStarlarkOptions().get("//test:my_int_setting")).isEqualTo(666);
+    assertThat(result.getStarlarkOptions().get("//test:my_int_setting"))
+        .isEqualTo(StarlarkInt.of(666));
     assertThat(result.getResidue()).isEmpty();
   }
 
@@ -66,7 +56,7 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
 
     assertThat(result.getStarlarkOptions()).hasSize(1);
     assertThat(result.getStarlarkOptions().get("@starlark_options_test//test:my_int_setting"))
-        .isEqualTo(666);
+        .isEqualTo(StarlarkInt.of(666));
     assertThat(result.getResidue()).isEmpty();
   }
 
@@ -80,21 +70,6 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
         assertThrows(
             OptionsParsingException.class,
             () -> parseStarlarkOptions("--//fake_flag=blahblahblah"));
-
-    assertThat(e).hasMessageThat().contains("Error loading option //fake_flag");
-    assertThat(e.getInvalidArgument()).isEqualTo("//fake_flag");
-  }
-
-  // test --fake_flag value
-  @Test
-  public void testBadFlag_spaceForm() throws Exception {
-    scratch.file("test/BUILD");
-    reporter.removeHandler(failFastHandler);
-
-    OptionsParsingException e =
-        assertThrows(
-            OptionsParsingException.class,
-            () -> parseStarlarkOptions("--//fake_flag blahblahblah"));
 
     assertThat(e).hasMessageThat().contains("Error loading option //fake_flag");
     assertThat(e.getInvalidArgument()).isEqualTo("//fake_flag");
@@ -206,7 +181,8 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
         parseStarlarkOptions("--//test:my_int_setting=4 --//test:my_int_setting=7");
 
     assertThat(result.getStarlarkOptions()).hasSize(1);
-    assertThat(result.getStarlarkOptions().get("//test:my_int_setting")).isEqualTo(7);
+    assertThat(result.getStarlarkOptions().get("//test:my_int_setting"))
+        .isEqualTo(StarlarkInt.of(7));
     assertThat(result.getResidue()).isEmpty();
   }
 
@@ -232,8 +208,10 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
 
     assertThat(result.getResidue()).isEmpty();
     assertThat(result.getStarlarkOptions()).hasSize(2);
-    assertThat(result.getStarlarkOptions().get("//test:my_int_setting")).isEqualTo(0);
-    assertThat(result.getStarlarkOptions().get("//test:my_other_int_setting")).isEqualTo(0);
+    assertThat(result.getStarlarkOptions().get("//test:my_int_setting"))
+        .isEqualTo(StarlarkInt.of(0));
+    assertThat(result.getStarlarkOptions().get("//test:my_other_int_setting"))
+        .isEqualTo(StarlarkInt.of(0));
   }
 
   // test --non_build_setting
@@ -318,7 +296,8 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
 
     OptionsParsingResult result = parseStarlarkOptions("--//test:my_int_setting=15");
 
-    assertThat(result.getStarlarkOptions().get("//test:my_int_setting")).isEqualTo(15);
+    assertThat(result.getStarlarkOptions().get("//test:my_int_setting"))
+        .isEqualTo(StarlarkInt.of(15));
   }
 
   @Test

@@ -501,7 +501,7 @@ function test_test_start_times() {
 }
 
 function test_test_attempts_multi_runs() {
-  # Sanity check on individual test attempts. Even in more complicated
+  # Check individual test attempts. Even in more complicated
   # situations, with some test rerun and some not, all events are properly
   # announced by the test actions (and not chained into the progress events).
   ( bazel test --build_event_text_file=$TEST_log \
@@ -513,7 +513,7 @@ function test_test_attempts_multi_runs() {
 }
 
 function test_test_attempts_multi_runs_flake_detection() {
-  # Sanity check on individual test attempts. Even in more complicated
+  # Check individual test attempts. Even in more complicated
   # situations, with some test rerun and some not, all events are properly
   # announced by the test actions (and not chained into the progress events).
   ( bazel test --build_event_text_file=$TEST_log \
@@ -1025,7 +1025,7 @@ function test_tool_command_line() {
   bazel build --experimental_tool_command_line="foo bar" --build_event_text_file=$TEST_log \
     || fail "build failed"
 
-  # Sanity check the arglist
+  # Check the arglist
   expect_log_once 'args: "build"'
   expect_log_once 'args: "--experimental_tool_command_line='
 

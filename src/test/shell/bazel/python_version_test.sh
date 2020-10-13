@@ -67,7 +67,7 @@ fi
 
 #### TESTS #############################################################
 
-# Sanity test that our environment setup works.
+# Check that our environment setup works.
 function test_can_run_py_binaries() {
   mkdir -p test
 

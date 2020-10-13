@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -24,7 +24,7 @@ import net.starlark.java.eval.StarlarkValue;
 /** The {@code _internal} Starlark object, visible only to {@code @builtins} .bzls. */
 @StarlarkBuiltin(
     name = "_internal",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     documented = false,
     doc =
         "A module accessible only to @builtins .bzls, that permits access to the original "

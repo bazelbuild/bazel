@@ -22,7 +22,6 @@ import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.windows.jni.WindowsProcesses;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.File;
 import java.nio.file.Files;

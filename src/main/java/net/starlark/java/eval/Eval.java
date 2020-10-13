@@ -16,6 +16,7 @@ package net.starlark.java.eval;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -38,7 +39,7 @@ import net.starlark.java.syntax.ForStatement;
 import net.starlark.java.syntax.Identifier;
 import net.starlark.java.syntax.IfStatement;
 import net.starlark.java.syntax.IndexExpression;
-import net.starlark.java.syntax.IntegerLiteral;
+import net.starlark.java.syntax.IntLiteral;
 import net.starlark.java.syntax.ListExpression;
 import net.starlark.java.syntax.LoadStatement;
 import net.starlark.java.syntax.Location;
@@ -354,11 +355,12 @@ final class Eval {
     // assignments fail when the left side aliases the right,
     // which is a tricky case in Python assignment semantics.
     int nrhs = Starlark.len(x);
-    if (nrhs < 0) {
-      throw Starlark.errorf("got '%s' in sequence assignment", Starlark.type(x));
-    }
-    Iterable<?> rhs = Starlark.toIterable(x); // fails if x is a string
     int nlhs = lhs.size();
+    if (nrhs < 0 || x instanceof String) { // strings are not iterable
+      throw Starlark.errorf(
+          "got '%s' in sequence assignment (want %d-element sequence)", Starlark.type(x), nlhs);
+    }
+    Iterable<?> rhs = Starlark.toIterable(x);
     if (nlhs != nrhs) {
       throw Starlark.errorf(
           "too %s values to unpack (got %d, want %d)", nrhs < nlhs ? "few" : "many", nrhs, nlhs);
@@ -448,8 +450,18 @@ final class Eval {
         return evalIdentifier(fr, (Identifier) expr);
       case INDEX:
         return evalIndex(fr, (IndexExpression) expr);
-      case INTEGER_LITERAL:
-        return ((IntegerLiteral) expr).getValue();
+      case INT_LITERAL:
+        // TODO(adonovan): opt: avoid allocation by saving
+        // the StarlarkInt in the IntLiteral (a temporary hack
+        // until we use a compiled representation).
+        Number n = ((IntLiteral) expr).getValue();
+        if (n instanceof Integer) {
+          return StarlarkInt.of((Integer) n);
+        } else if (n instanceof Long) {
+          return StarlarkInt.of((Long) n);
+        } else {
+          return StarlarkInt.of((BigInteger) n);
+        }
       case LIST_EXPR:
         return evalList(fr, (ListExpression) expr);
       case SLICE:
@@ -755,10 +767,10 @@ final class Eval {
             Comprehension.For forClause = (Comprehension.For) clause;
 
             Object iterable = eval(fr, forClause.getIterable());
-            Iterable<?> listValue = Starlark.toIterable(iterable);
+            Iterable<?> seq = Starlark.toIterable(iterable);
             EvalUtils.addIterator(iterable);
             try {
-              for (Object elem : listValue) {
+              for (Object elem : seq) {
                 assign(fr, forClause.getVars(), elem);
                 execClauses(index + 1);
               }

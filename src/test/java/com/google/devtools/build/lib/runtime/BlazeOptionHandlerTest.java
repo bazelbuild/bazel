@@ -312,7 +312,7 @@ public class BlazeOptionHandlerTest extends AbstractBlazeOptionHandlerTest {
                     eventHandler, structuredArgsFrom2SimpleRcsWithOnlyResidue()));
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes()).isEmpty();
-    assertThat(e).hasMessageThat().contains("Config value other is not defined in any .rc file");
+    assertThat(e).hasMessageThat().contains("Config value 'other' is not defined in any .rc file");
   }
 
   @Test
@@ -322,7 +322,9 @@ public class BlazeOptionHandlerTest extends AbstractBlazeOptionHandlerTest {
         assertThrows(
             OptionsParsingException.class,
             () -> optionHandler.expandConfigOptions(eventHandler, ArrayListMultimap.create()));
-    assertThat(e).hasMessageThat().contains("Config value invalid is not defined in any .rc file");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Config value 'invalid' is not defined in any .rc file");
   }
 
   @Test

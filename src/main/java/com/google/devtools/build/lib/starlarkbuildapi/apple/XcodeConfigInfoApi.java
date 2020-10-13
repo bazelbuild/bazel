@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -30,7 +30,7 @@ import net.starlark.java.eval.EvalException;
  */
 @StarlarkBuiltin(
     name = "XcodeVersionConfig",
-    category = StarlarkDocumentationCategory.PROVIDER,
+    category = DocCategory.PROVIDER,
     doc = "The set of Apple versions computed from command line options and the xcode_config rule.")
 public interface XcodeConfigInfoApi<
         ApplePlatformApiT extends ApplePlatformApi,
@@ -90,11 +90,7 @@ public interface XcodeConfigInfoApi<
   public Dict<String, String> getExecutionRequirementsDict();
 
   /** An interface for the provider of {@link XcodeConfigInfoApi}. */
-  @StarlarkBuiltin(
-      name = "Provider",
-      category = StarlarkDocumentationCategory.PROVIDER,
-      documented = false,
-      doc = "")
+  @StarlarkBuiltin(name = "Provider", category = DocCategory.PROVIDER, documented = false, doc = "")
   interface XcodeConfigProviderApi extends ProviderApi {
 
     @StarlarkMethod(

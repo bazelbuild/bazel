@@ -238,6 +238,7 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
     List<? extends VariableElement> params = method.getParameters();
 
     TypeMirror objectType = getType("java.lang.Object");
+    TypeMirror voidType = getType("java.lang.Void");
 
     boolean allowPositionalNext = true;
     boolean allowPositionalOnlyNext = true;
@@ -258,7 +259,7 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
       }
       VariableElement param = params.get(i);
 
-      checkParameter(param, paramAnnot, objectType);
+      checkParameter(param, paramAnnot, objectType, voidType);
 
       // Check parameter ordering.
       if (paramAnnot.positional()) {
@@ -304,31 +305,21 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
   }
 
   // Checks consistency of a single parameter with its Param annotation.
-  private void checkParameter(Element param, Param paramAnnot, TypeMirror objectType) {
+  private void checkParameter(
+      Element param, Param paramAnnot, TypeMirror objectType, TypeMirror voidType) {
     TypeMirror paramType = param.asType(); // type of the Java method parameter
 
-    // A "noneable" parameter variable must accept the value None.
-    // A parameter whose default is None must be noneable.
-    if (paramAnnot.noneable()) {
-      if (!types.isSameType(paramType, objectType)) {
-        errorf(
-            param,
-            "Expected type 'Object' but got type '%s' for noneable parameter '%s'. The argument"
-                + " for a noneable parameter may be None, so the java parameter must be"
-                + " compatible with the type of None as well as possible non-None values.",
-            paramType,
-            param.getSimpleName());
-      }
-    } else if (paramAnnot.defaultValue().equals("None")) {
+    // Give helpful hint for parameter of type Integer.
+    TypeMirror integerType = getType("java.lang.Integer");
+    if (types.isSameType(paramType, integerType)) {
       errorf(
           param,
-          "Parameter '%s' has 'None' default value but is not noneable. (If this is intended"
-              + " as a mandatory parameter, leave the defaultValue field empty)",
+          "use StarlarkInt, not Integer for parameter '%s' (and see Starlark.toInt)",
           paramAnnot.name());
     }
 
     // Check param.type.
-    if (!types.isSameType(getParamType(paramAnnot), objectType)) {
+    if (!types.isSameType(getParamType(paramAnnot), voidType)) {
       // Reject Param.type if not assignable to parameter variable.
       TypeMirror t = getParamType(paramAnnot);
       if (!types.isAssignable(t, types.erasure(paramType))) {
@@ -350,16 +341,23 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
       }
     }
 
-    // Reject an Param.allowed_type if not assignable to parameter variable.
+    TypeMirror noneType = getType("net.starlark.java.eval.NoneType");
+    boolean allowsNoneType = false;
+
+    // Reject an entry of Param.allowedTypes if not assignable to the parameter variable.
     for (ParamType paramTypeAnnot : paramAnnot.allowedTypes()) {
       TypeMirror t = getParamTypeType(paramTypeAnnot);
       if (!types.isAssignable(t, types.erasure(paramType))) {
         errorf(
             param,
-            "annotated allowed_type %s of parameter '%s' is not assignable to variable of type %s",
+            "annotated allowedTypes entry %s of parameter '%s' is not assignable to variable of "
+                + "type %s",
             t,
             paramAnnot.name(),
             paramType);
+      }
+      if (types.isSameType(t, noneType)) {
+        allowsNoneType = true;
       }
     }
 
@@ -378,6 +376,26 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
               paramType);
         }
       }
+    }
+
+    // A "noneable" parameter variable must accept the value None.
+    // A parameter whose default is None must be noneable.
+    if (paramAnnot.noneable()) {
+      if (!types.isSameType(paramType, objectType)) {
+        errorf(
+            param,
+            "Expected type 'Object' but got type '%s' for noneable parameter '%s'. The argument"
+                + " for a noneable parameter may be None, so the java parameter must be"
+                + " compatible with the type of None as well as possible non-None values.",
+            paramType,
+            param.getSimpleName());
+      }
+    } else if (paramAnnot.defaultValue().equals("None") && !allowsNoneType) {
+      errorf(
+          param,
+          "Parameter '%s' has 'None' default value but is not noneable. (If this is intended"
+              + " as a mandatory parameter, leave the defaultValue field empty)",
+          paramAnnot.name());
     }
 
     // Check sense of flag-controlled parameters.

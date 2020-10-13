@@ -60,7 +60,7 @@ public final class BazelGenRuleRule implements RuleDefinition {
 
 }
 
-/*<!-- #BLAZE_RULE (NAME = genrule, TYPE = OTHER, FAMILY = General)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = genrule, FAMILY = General)[GENERIC_RULE] -->
 
 <p>A <code>genrule</code> generates one or more files using a user-defined Bash command.</p>
 

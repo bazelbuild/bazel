@@ -18,6 +18,7 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -36,7 +37,6 @@ import java.util.Arrays;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -51,10 +51,7 @@ import net.starlark.java.eval.StarlarkValue;
  *
  * <p>Parsing is robust against bad input, for example, from the command line.
  */
-@StarlarkBuiltin(
-    name = "Label",
-    category = StarlarkDocumentationCategory.BUILTIN,
-    doc = "A BUILD target identifier.")
+@StarlarkBuiltin(name = "Label", category = DocCategory.BUILTIN, doc = "A BUILD target identifier.")
 @AutoCodec
 @Immutable
 @ThreadSafe

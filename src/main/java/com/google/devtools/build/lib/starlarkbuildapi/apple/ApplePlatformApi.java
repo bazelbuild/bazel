@@ -14,15 +14,15 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
 
 /** An interface for an object representing an Apple platform. */
 @StarlarkBuiltin(
     name = "apple_platform",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc =
         "Corresponds to Xcode's notion of a platform as would be found in"
             + " <code>Xcode.app/Contents/Developer/Platforms</code>. Each platform represents an"

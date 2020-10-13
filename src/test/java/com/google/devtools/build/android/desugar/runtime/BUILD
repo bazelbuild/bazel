@@ -96,6 +96,24 @@ java_test(
     ],
 )
 
+java_test(
+    name = "UnsignedIntsTest",
+    srcs = ["UnsignedIntsTest.java"],
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:primitives",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
+    name = "UnsignedLongsTest",
+    srcs = ["UnsignedLongsTest.java"],
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:primitives",
+        "//third_party:junit4",
+    ],
+)
+
 test_suite(
     name = "windows_tests",
     tags = [

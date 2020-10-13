@@ -29,6 +29,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -208,7 +209,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
           sb,
           key + ": \"" + escapeDoubleQuotesAndBackslashesAndNewlines((String) value) + "\"",
           indent);
-    } else if (value instanceof Integer) {
+    } else if (value instanceof StarlarkInt) {
       print(sb, key + ": " + value, indent);
     } else if (value instanceof Boolean) {
       // We're relying on the fact that Java converts Booleans to Strings in the same way
@@ -306,7 +307,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
       sb.append("]");
     } else if (value instanceof String) {
       appendJSONStringLiteral(sb, (String) value);
-    } else if (value instanceof Integer || value instanceof Boolean) {
+    } else if (value instanceof StarlarkInt || value instanceof Boolean) {
       sb.append(value);
     } else {
       throw Starlark.errorf(

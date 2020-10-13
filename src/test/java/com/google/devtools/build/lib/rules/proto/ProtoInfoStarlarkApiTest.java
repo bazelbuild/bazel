@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -128,7 +129,7 @@ public class ProtoInfoStarlarkApiTest extends BuildViewTestCase {
 
     ConfiguredTarget ct = getConfiguredTarget("//third_party/foo:myRule");
     String protoSourceRoot = (String) getMyInfoFromTarget(ct).getValue("fetched_proto_source_root");
-    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
+    String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
 
     assertThat(protoSourceRoot).isEqualTo(genfiles + "/third_party/foo/_virtual_imports/myProto");
   }

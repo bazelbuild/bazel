@@ -170,6 +170,7 @@ public class AppleBinaryRule implements RuleDefinition {
                 (rule) -> AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION,
                 new ConfigFeatureFlagTransitionFactory("feature_flags")))
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
+        .useToolchainTransition(true)
         .build();
   }
 

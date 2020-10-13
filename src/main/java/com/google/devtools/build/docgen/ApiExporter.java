@@ -279,7 +279,7 @@ public class ApiExporter {
   private static void printUsage(OptionsParser parser) {
     System.err.println(
         "Usage: api_exporter_bin -n product_name -p rule_class_provider (-i input_dir)+\n"
-            + "   -f outputFile [-b blacklist] [-h]\n\n"
+            + "   -f outputFile [-b denylist] [-h]\n\n"
             + "Exports all Starlark builtins to a file including the embedded native rules.\n"
             + "The product name (-n), rule class provider (-p), output file (-f) and at least \n"
             + " one input_dir (-i) must be specified.\n");
@@ -310,7 +310,7 @@ public class ApiExporter {
     try {
       SymbolFamilies symbols =
           new SymbolFamilies(
-              options.productName, options.provider, options.inputDirs, options.blacklist);
+              options.productName, options.provider, options.inputDirs, options.denylist);
       Builtins.Builder builtins = Builtins.newBuilder();
 
       appendTypes(builtins, symbols.getTypes(), symbols.getNativeRules());

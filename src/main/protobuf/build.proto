@@ -322,7 +322,7 @@ message Rule {
   // the frame for the rule function itself is omitted.
   // The file name may be relative to package's source root directory.
   //
-  // Requires --record_rule_instantiation_callstack=true.
+  // Requires --proto:instantiation_stack=true.
   repeated string instantiation_stack = 13;
 
   // The Starlark call stack for the definition of the rule class of this

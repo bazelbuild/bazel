@@ -71,13 +71,6 @@ public final class AqueryCommand implements BlazeCommand {
     // TODO(twerth): Reduce overlap with CqueryCommand.
     AqueryOptions aqueryOptions = options.getOptions(AqueryOptions.class);
     boolean queryCurrentSkyframeState = aqueryOptions.queryCurrentSkyframeState;
-    if (aqueryOptions.protoV2) {
-      env.getReporter()
-          .handle(
-              Event.warn(
-                  "Note that --incompatible_proto_output_v2 is still experimental "
-                      + "and its API will change in the future."));
-    }
 
     // When querying for the state of Skyframe, it's possible to omit the query expression.
     if (options.getResidue().isEmpty() && !queryCurrentSkyframeState) {

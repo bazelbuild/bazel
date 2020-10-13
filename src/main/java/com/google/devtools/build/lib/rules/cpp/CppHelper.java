@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
+import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -490,7 +491,8 @@ public class CppHelper {
               ImmutableList.of(linuxDefault),
               String.format(
                   "the given toolchain supports creation of %s instead of %s",
-                  result.getExecPathString(), linuxDefault.getExecPathString())));
+                  result.getExecPathString(), linuxDefault.getExecPathString()),
+              Code.INCORRECT_TOOLCHAIN));
     }
 
     return result;
