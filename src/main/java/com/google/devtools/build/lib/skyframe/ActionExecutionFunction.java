@@ -1317,17 +1317,20 @@ public class ActionExecutionFunction implements SkyFunction {
     ImmutableList<Artifact> allInputsList = allInputs.toList();
 
     // Some keys have more than 1 corresponding Artifact (e.g. actions with 2 outputs).
-    Multimap<SkyKey, Artifact> skyKeyToArtifactOrSet =
+    // For Artifacts whose Artifact::key isn't itself.
+    Multimap<SkyKey, Artifact> skyKeyToArtifactSet =
         MultimapBuilder.hashKeys().hashSetValues().build();
-    allInputsList.forEach(input -> skyKeyToArtifactOrSet.put(Artifact.key(input), input));
+    allInputsList.forEach(
+        input -> {
+          SkyKey key = Artifact.key(input);
+          if (key != input) {
+            skyKeyToArtifactSet.put(key, input);
+          }
+        });
 
     ActionExecutionFunctionExceptionHandler actionExecutionFunctionExceptionHandler =
         new ActionExecutionFunctionExceptionHandler(
-            skyKeyToArtifactOrSet,
-            inputDeps,
-            action,
-            mandatoryInputs,
-            skyframeActionExecutor);
+            skyKeyToArtifactSet, inputDeps, action, mandatoryInputs, skyframeActionExecutor);
 
     actionExecutionFunctionExceptionHandler.accumulateAndThrowExceptions();
 
@@ -1536,7 +1539,7 @@ public class ActionExecutionFunction implements SkyFunction {
 
   /** Helper subclass for the error-handling logic for ActionExecutionFunction#accumulateInputs. */
   private static final class ActionExecutionFunctionExceptionHandler {
-    private final Multimap<SkyKey, Artifact> skyKeyToArtifactSet;
+    private final Multimap<SkyKey, Artifact> skyKeyToDerivedArtifactSet;
     private final Map<
             SkyKey,
             ValueOrException3<
@@ -1550,7 +1553,7 @@ public class ActionExecutionFunction implements SkyFunction {
     private ActionExecutionException firstActionExecutionException;
 
     ActionExecutionFunctionExceptionHandler(
-        Multimap<SkyKey, Artifact> skyKeyToArtifactSet,
+        Multimap<SkyKey, Artifact> skyKeyToDerivedArtifactSet,
         Map<
                 SkyKey,
                 ValueOrException3<
@@ -1559,7 +1562,7 @@ public class ActionExecutionFunction implements SkyFunction {
         Action action,
         Set<Artifact> mandatoryInputs,
         SkyframeActionExecutor skyframeActionExecutor) {
-      this.skyKeyToArtifactSet = skyKeyToArtifactSet;
+      this.skyKeyToDerivedArtifactSet = skyKeyToDerivedArtifactSet;
       this.inputDeps = inputDeps;
       this.action = action;
       this.mandatoryInputs = mandatoryInputs;
@@ -1584,13 +1587,9 @@ public class ActionExecutionFunction implements SkyFunction {
           }
           ArtifactNestedSetFunction.getInstance().updateValueForKey(key, value);
         } catch (IOException e) {
-          for (Artifact input : skyKeyToArtifactSet.get(key)) {
-            handleIOException(input, e);
-          }
+          handleIOExceptionFromSkykey(key, e);
         } catch (ActionExecutionException e) {
-          for (Artifact input : skyKeyToArtifactSet.get(key)) {
-            handleActionExecutionException(input, e);
-          }
+          handleActionExecutionExceptionFromSkykey(key, e);
         } catch (ArtifactNestedSetEvalException e) {
           for (Pair<SkyKey, Exception> skyKeyAndException : e.getNestedExceptions().toList()) {
             SkyKey skyKey = skyKeyAndException.getFirst();
@@ -1601,18 +1600,37 @@ public class ActionExecutionFunction implements SkyFunction {
                 "Unexpected exception type: %s, key: %s",
                 inputException,
                 skyKey);
-            for (Artifact input : skyKeyToArtifactSet.get(skyKey)) {
-              if (inputException instanceof IOException) {
-                handleIOException(input, (IOException) inputException);
-              } else {
-                handleActionExecutionException(input, (ActionExecutionException) inputException);
-              }
+            if (inputException instanceof IOException) {
+              handleIOExceptionFromSkykey(skyKey, (IOException) inputException);
+              continue;
             }
+            handleActionExecutionExceptionFromSkykey(
+                skyKey, (ActionExecutionException) inputException);
           }
         }
       }
 
       maybeThrowException();
+    }
+
+    private void handleActionExecutionExceptionFromSkykey(SkyKey key, ActionExecutionException e) {
+      if (key instanceof Artifact) {
+        handleActionExecutionExceptionPerArtifact((Artifact) key, e);
+        return;
+      }
+      for (Artifact input : skyKeyToDerivedArtifactSet.get(key)) {
+        handleActionExecutionExceptionPerArtifact(input, e);
+      }
+    }
+
+    private void handleIOExceptionFromSkykey(SkyKey key, IOException e) {
+      if (key instanceof Artifact) {
+        handleIOExceptionPerArtifact((Artifact) key, e);
+        return;
+      }
+      for (Artifact input : skyKeyToDerivedArtifactSet.get(key)) {
+        handleIOExceptionPerArtifact(input, e);
+      }
     }
 
     void accumulateMissingFileArtifactValue(Artifact input, MissingFileArtifactValue value) {
@@ -1658,7 +1676,8 @@ public class ActionExecutionFunction implements SkyFunction {
           || mandatoryInputs.contains(input);
     }
 
-    private void handleActionExecutionException(Artifact input, ActionExecutionException e) {
+    private void handleActionExecutionExceptionPerArtifact(
+        Artifact input, ActionExecutionException e) {
       if (isMandatory(input)) {
         // Prefer a catastrophic exception as the one we propagate.
         if (firstActionExecutionException == null
@@ -1669,7 +1688,7 @@ public class ActionExecutionFunction implements SkyFunction {
       }
     }
 
-    private void handleIOException(Artifact input, IOException e) {
+    private void handleIOExceptionPerArtifact(Artifact input, IOException e) {
       if (!input.isSourceArtifact()) {
         BugReport.sendBugReport(
             new IllegalStateException(
