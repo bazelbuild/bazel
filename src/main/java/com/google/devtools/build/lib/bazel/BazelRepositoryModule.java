@@ -283,11 +283,10 @@ public class BazelRepositoryModule extends BlazeModule {
         }
       }
 
-      RepositoryOptions repositoryOptions = env.getOptions().getOptions(RepositoryOptions.class);
       UrlRewriter rewriter = UrlRewriter.getDownloaderUrlRewriter(
-        repositoryOptions == null ?
+        repoOptions == null ?
           null :
-          repositoryOptions.remoteDownloaderConfig,
+          repoOptions.downloaderConfig,
         env.getReporter());
       downloadManager.setUrlRewriter(rewriter);
 

@@ -1,4 +1,4 @@
-// Copyright 2019 The Bazel Authors. All rights reserved.
+// Copyright 2020 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,6 +27,37 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+/**
+ * Models the downloader config file. This file has a line-based format,
+ * with each line starting with a directive and then the action to take.
+ * These directives are:
+ * <ul>
+ *   <li>{@code allow hostName} Will allow access to the given host and
+ *       subdomains
+ *   <li>{@code block hostName] Will block access to the given host and
+ *       subdomains
+ *   <li>{@code rewrite pattern pattern} Rewrite a URL using the given
+ *       pattern. Back references are numbered from `$1`
+ * </ul>
+ * The directives are applied in the order `rewrite, allow, block'. An
+ * example config may look like:
+ *
+ * <pre>
+ *     block mvnrepository.com
+ *     block maven-central.storage.googleapis.com
+ *     block gitblit.github.io
+ *     rewrite repo.maven.apache.org/maven2/(.*) artifacts.mycorp.com/libs-release/$1
+ *
+ *     block github.com
+ *     rewrite github.com/([^/]+)/([^/]+)/releases/download/([^/]+)/(.*) artifacts.mycorp.com/github-releases/$1/$2/releases/download/$3/$4
+ *     rewrite github.com/([^/]+)/([^/]+)/archive/(.+).(tar.gz|zip) artifacts.mycorp.com/api/vcs/downloadRelease/github.com/$1/$2/$3?ext=$4
+ * </pre>
+ *
+ * In addition, you can block all hosts using the @{code *} wildcard.
+ * <p>
+ * Comments within the config file are allowed, and must be on their own
+ * line preceded by a {@code #}.
+ */
 class UrlRewriterConfig {
 
   private static final Splitter SPLITTER = Splitter.on(Pattern.compile("\\s+")).omitEmptyStrings().trimResults();
@@ -38,6 +69,11 @@ class UrlRewriterConfig {
   // A set of patterns matching "everything in the url after the scheme" to rewrite rules.
   private final ImmutableMultimap<Pattern, String> rewrites;
 
+  /**
+   * Constructor to use. The {@code config} will be read to completion.
+   *
+   * @throws UncheckedIOException If any processing problems occur.
+   */
   public UrlRewriterConfig(Reader config) {
     ImmutableSet.Builder<String> allowList = ImmutableSet.builder();
     ImmutableSet.Builder<String> blockList = ImmutableSet.builder();
@@ -92,14 +128,24 @@ class UrlRewriterConfig {
     this.rewrites = rewrites.build();
   }
 
+  /**
+   * @return All {@code allow} directives.
+   */
   public Set<String> getAllowList() {
     return allowList;
   }
 
+  /**
+   * @return All {@code block} directives.
+   */
   public Set<String> getBlockList() {
     return blockList;
   }
 
+  /**
+   * @return A {@link Map} of {@link Pattern} to match against, and the
+   *   rewriting changes to apply when matched.
+   */
   public Map<Pattern, Collection<String>> getRewrites() {
     return rewrites.asMap();
   }

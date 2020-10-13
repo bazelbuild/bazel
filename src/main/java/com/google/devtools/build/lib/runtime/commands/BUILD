@@ -63,7 +63,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/query2/common:universe-scope",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/build/lib/query2/query/output",
-        "//src/main/java/com/google/devtools/build/lib/remote/options:options",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands/events",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands/info",
         "//src/main/java/com/google/devtools/build/lib/shell",

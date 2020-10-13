@@ -1,4 +1,4 @@
-// Copyright 2019 The Bazel Authors. All rights reserved.
+// Copyright 2020 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -39,6 +40,15 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Helper class for taking URLs and converting them according to an
+ * optional config specified by
+ * {@link com.google.devtools.build.lib.bazel.repository.RepositoryOptions#downloaderConfig}.
+ * <p>
+ * The primary reason for doing this is to allow a bazel user to redirect
+ * particular URLs to (eg.) local mirrors without needing to rewrite third
+ * party rulesets.
+ */
 public class UrlRewriter {
 
   private final Set<String> REWRITABLE_SCHEMES = ImmutableSet.of("http", "https");
@@ -47,7 +57,8 @@ public class UrlRewriter {
   private final Function<URL, Set<URL>> rewriter;
   private final Consumer<String> log;
 
-  public UrlRewriter(Consumer<String> log, Reader reader) {
+  @VisibleForTesting
+  UrlRewriter(Consumer<String> log, Reader reader) {
     this.log = Preconditions.checkNotNull(log);
     Preconditions.checkNotNull(reader, "UrlRewriterConfig source must be set");
     this.config = new UrlRewriterConfig(reader);
@@ -55,20 +66,35 @@ public class UrlRewriter {
     this.rewriter = this::rewrite;
   }
 
-  public static UrlRewriter getDownloaderUrlRewriter(String remoteDownloaderConfig, Reporter reporter) {
+  /**
+   * Obtain a new {@code UrlRewriter} configured with the specified config file.
+   *
+   * @param downloaderConfig Path to the config file to use. May be null.
+   * @param reporter Used for logging when URLs are rewritten.
+   */
+  public static UrlRewriter getDownloaderUrlRewriter(String downloaderConfig, Reporter reporter) {
     Consumer<String> log = str -> reporter.handle(Event.info(str));
 
-    if (Strings.isNullOrEmpty(remoteDownloaderConfig)) {
+    if (Strings.isNullOrEmpty(downloaderConfig)) {
       return new UrlRewriter(log, new StringReader(""));
     }
 
-    try (BufferedReader reader = Files.newBufferedReader(Paths.get(remoteDownloaderConfig))) {
+    try (BufferedReader reader = Files.newBufferedReader(Paths.get(downloaderConfig))) {
       return new UrlRewriter(log, reader);
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
   }
 
+  /**
+   * Rewrites {@code urls} using the configuration provided to
+   * {@link #getDownloaderUrlRewriter(String, Reporter)}. The returned
+   * list of URLs may be empty if the configuration used blocks all
+   * the input URLs.
+   *
+   * @param urls The input list of {@link URL}s. May be empty.
+   * @return The amended lists of URLs.
+   */
   public List<URL> amend(List<URL> urls) {
     Objects.requireNonNull(urls, "URLS to check must be set but may be empty");
 
