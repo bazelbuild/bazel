@@ -79,8 +79,9 @@ public final class StarlarkList<E> extends AbstractList<E>
   }
 
   @Override
-  public boolean isHashable() {
-    return false; // even a frozen list is unhashable in Starlark
+  public void checkHashable() throws EvalException {
+    // Even a frozen list is unhashable.
+    throw Starlark.errorf("unhashable type: 'list'");
   }
 
   @Override

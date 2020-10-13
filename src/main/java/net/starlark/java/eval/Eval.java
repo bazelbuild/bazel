@@ -795,7 +795,7 @@ final class Eval {
           DictExpression.Entry body = (DictExpression.Entry) comp.getBody();
           Object k = eval(fr, body.getKey());
           try {
-            EvalUtils.checkHashable(k);
+            Starlark.checkHashable(k);
             Object v = eval(fr, body.getValue());
             dict.put(k, v, (Location) null);
           } catch (EvalException ex) {

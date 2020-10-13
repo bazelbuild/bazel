@@ -56,8 +56,9 @@ public abstract class Args implements CommandLineArgsApi {
   }
 
   @Override
-  public boolean isHashable() {
-    return false; // even a frozen Args is not hashable
+  public void checkHashable() throws EvalException {
+    // Even a frozen Args is not hashable.
+    throw Starlark.errorf("unhashable type: '%s'", Starlark.type(this));
   }
 
   @Override

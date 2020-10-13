@@ -46,9 +46,4 @@ public class InternalModule implements StarlarkValue {
   public boolean isImmutable() {
     return true;
   }
-
-  @Override
-  public boolean isHashable() {
-    return true;
-  }
 }

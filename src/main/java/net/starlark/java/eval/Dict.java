@@ -142,18 +142,19 @@ public final class Dict<K, V>
   }
 
   @Override
-  public boolean isHashable() {
-    return false; // even a frozen dict is unhashable
+  public void checkHashable() throws EvalException {
+    // Even a frozen dict is unhashable.
+    throw Starlark.errorf("unhashable type: 'dict'");
   }
 
   @Override
   public int hashCode() {
-    return contents.hashCode(); // not called by Dict.put (because !isHashable)
+    return contents.hashCode();
   }
 
   @Override
   public boolean equals(Object o) {
-    return contents.equals(o); // not called by Dict.put (because !isHashable)
+    return contents.equals(o);
   }
 
   @Override
@@ -419,7 +420,7 @@ public final class Dict<K, V>
    */
   public void put(K key, V value, Location unused) throws EvalException {
     Starlark.checkMutable(this);
-    EvalUtils.checkHashable(key);
+    Starlark.checkHashable(key);
     contents.put(key, value);
   }
 
@@ -435,7 +436,7 @@ public final class Dict<K, V>
     Starlark.checkMutable(this);
     for (Map.Entry<KK, VV> e : map.entrySet()) {
       KK k = e.getKey();
-      EvalUtils.checkHashable(k);
+      Starlark.checkHashable(k);
       contents.put(k, e.getValue());
     }
   }
@@ -530,7 +531,7 @@ public final class Dict<K, V>
 
   @Override
   public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
-    EvalUtils.checkHashable(key);
+    Starlark.checkHashable(key);
     return this.containsKey(key);
   }
 

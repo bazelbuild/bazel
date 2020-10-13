@@ -95,43 +95,6 @@ final class EvalUtils {
         }
       };
 
-  /** Throws EvalException if x is not hashable. */
-  static void checkHashable(Object x) throws EvalException {
-    if (!isHashable(x)) {
-      // This results in confusing errors such as "unhashable type: tuple".
-      // TODO(adonovan): ideally the error message would explain which
-      // element of, say, a tuple is unhashable. The only practical way
-      // to implement this is by implementing isHashable as a call to
-      // Object.hashCode within a try/catch, and requiring all
-      // unhashable Starlark values to throw a particular unchecked exception
-      // with a helpful error message.
-      throw Starlark.errorf("unhashable type: '%s'", Starlark.type(x));
-    }
-  }
-
-  /**
-   * Reports whether a legal Starlark value is considered hashable to Starlark, and thus suitable as
-   * a key in a dict.
-   */
-  static boolean isHashable(Object o) {
-    // Bazel makes widespread assumptions that all Starlark values can be hashed
-    // by Java code, so we cannot implement isHashable by having
-    // StarlarkValue.hashCode throw an unchecked exception, which would be more
-    // efficient. Instead, before inserting a value in a dict, we must first ask
-    // it whether it isHashable, and then call its hashCode method only if so.
-    // For structs and tuples, this unfortunately visits the object graph twice.
-    //
-    // One subtlety: the struct.isHashable recursively asks whether its
-    // elements are immutable, not hashable. Consequently, even though a list
-    // may not be used as a dict key (even if frozen), a struct containing
-    // a list is hashable. TODO(adonovan): fix this inconsistency.
-    // Requires an incompatible change flag.
-    if (o instanceof StarlarkValue) {
-      return ((StarlarkValue) o).isHashable();
-    }
-    return Starlark.isImmutable(o);
-  }
-
   static void addIterator(Object x) {
     if (x instanceof Mutability.Freezable) {
       ((Mutability.Freezable) x).updateIteratorCount(+1);

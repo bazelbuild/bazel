@@ -115,13 +115,10 @@ public final class Tuple<E> extends AbstractList<E> implements Sequence<E> {
   }
 
   @Override
-  public boolean isHashable() {
+  public void checkHashable() throws EvalException {
     for (Object x : elems) {
-      if (!EvalUtils.isHashable(x)) {
-        return false;
-      }
+      Starlark.checkHashable(x);
     }
-    return true;
   }
 
   @Override

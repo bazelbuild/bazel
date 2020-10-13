@@ -141,6 +141,20 @@ public final class Starlark {
   }
 
   /**
+   * Returns normally if the Starlark value is hashable and thus suitable as a dict key.
+   *
+   * @throws EvalException otherwise.
+   */
+  public static void checkHashable(Object x) throws EvalException {
+    if (x instanceof StarlarkValue) {
+      ((StarlarkValue) x).checkHashable();
+    } else {
+      Starlark.checkValid(x);
+      // String and Boolean are hashable.
+    }
+  }
+
+  /**
    * Converts a Java value {@code x} to a Starlark one, if x is not already a valid Starlark value.
    * An Integer, Long, or BigInteger is converted to a Starlark int, a Java List or Map is converted
    * to a Starlark list or dict, respectively, and null becomes {@link #NONE}. Any other
