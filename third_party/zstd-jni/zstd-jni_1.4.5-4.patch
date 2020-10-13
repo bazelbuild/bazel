@@ -1,5 +1,4 @@
 diff --git a/src/main/java/com/github/luben/zstd/util/Native.java b/src/main/java/com/github/luben/zstd/util/Native.java
-index 93bedb4ffd..a2b3402c15 100644
 --- a/src/main/java/com/github/luben/zstd/util/Native.java
 +++ b/src/main/java/com/github/luben/zstd/util/Native.java
 @@ -1,19 +1,15 @@
@@ -160,7 +159,6 @@ index 93bedb4ffd..a2b3402c15 100644
      }
  }
 diff --git a/src/main/native/jni_fast_zstd.c b/src/main/native/jni_fast_zstd.c
-index 7321c4ffeb..a6e3090d0f 100644
 --- a/src/main/native/jni_fast_zstd.c
 +++ b/src/main/native/jni_fast_zstd.c
 @@ -23,7 +23,7 @@ JNIEXPORT void JNICALL Java_com_github_luben_zstd_ZstdDictCompress_init
@@ -218,7 +216,6 @@ index 7321c4ffeb..a6e3090d0f 100644
      (*env)->ReleasePrimitiveArrayCritical(env, src, src_buff, JNI_ABORT);
  E2: (*env)->ReleasePrimitiveArrayCritical(env, dst, dst_buff, 0);
 diff --git a/src/main/native/jni_zdict.c b/src/main/native/jni_zdict.c
-index 274c5203aa..570001096e 100644
 --- a/src/main/native/jni_zdict.c
 +++ b/src/main/native/jni_zdict.c
 @@ -34,7 +34,7 @@ JNIEXPORT jlong Java_com_github_luben_zstd_Zstd_trainFromBuffer

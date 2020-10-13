@@ -123,7 +123,7 @@ java_library(
             "src/main/java/**/*.java",
         ],
     ),
-    visibility = ["//visibility:public"],
     data = [":zstd-native-lib"],
+    visibility = ["//visibility:public"],
     deps = ["@bazel_tools//tools/java/runfiles"],
 )
