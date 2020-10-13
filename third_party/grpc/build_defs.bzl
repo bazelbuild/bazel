@@ -1,6 +1,6 @@
 """BUILD rules to generate gRPC service interfaces.
 You need to load the rules in your BUILD file for use, like:
-load("//third_party/grpc:build_defs-1.31.1.bzl", "java_grpc_library")
+load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
 """
 
 load("@rules_cc//cc:defs.bzl", "cc_library")
@@ -113,7 +113,7 @@ def java_grpc_library(name, srcs, deps, enable_deprecated = None, visibility = N
         deps = [
             "@io_bazel//third_party:javax_annotations",
             "@io_bazel//third_party:jsr305",
-            "@io_bazel//third_party/grpc:grpc-jar-1.31.1",
+            "@io_bazel//third_party/grpc:grpc-jar",
             "@io_bazel//third_party:guava",
             "@com_google_protobuf//:protobuf_java",
         ] + deps,

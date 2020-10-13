@@ -17,7 +17,7 @@
 # How to update the Java plugin:
 
 1. Checkout tag `v1.31.1` from https://github.com/grpc/grpc-java
-2. `cp -R <grpc-java git tree>/compiler/src/java_plugin third_party/grpc/compiler-1.31.1/src`
+2. `cp -R <grpc-java git tree>/compiler/src/java_plugin third_party/grpc/compiler/src`
 
 # How to update the Java code:
 
