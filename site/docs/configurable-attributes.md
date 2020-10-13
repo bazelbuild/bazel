@@ -192,9 +192,8 @@ documented. In practice, most flags that "make sense" work.
 
 You can model your own project-specific flags with
 [Starlark build
-settings](skylark/config.html#user-defined-build-settings). Unlike built-in
-flags, these are defined as build targets, so Bazel references them with target
-labels.
+settings][BuildSettings]. Unlike built-in flags, these are defined as build
+targets, so Bazel references them with target labels.
 
 These are triggered with [`config_setting`](be/general.html#config_setting)'s
 [`flag_values`](be/general.html#config_setting.flag_values)
@@ -996,3 +995,5 @@ one.
 Caution: To prevent restarting the Bazel server, invoke `bazel config` with the
 same command line flags as the `bazel cquery`. The `config` command relies on
 the configuration nodes from the still-running server of the previous command.
+
+[BuildSettings]: skylark/config.html#user-defined-build-settings
