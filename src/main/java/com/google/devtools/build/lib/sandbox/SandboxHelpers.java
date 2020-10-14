@@ -60,6 +60,50 @@ public final class SandboxHelpers {
     this.delayVirtualInputMaterialization = delayVirtualInputMaterialization;
   }
 
+  /**
+   * Writes a virtual input file so that the final file is always consistent to all readers.
+   *
+   * <p>This function exists to aid dynamic scheduling. Param files are inputs, so they need to be
+   * written without holding the output lock. When we have competing unsandboxed spawn runners (like
+   * persistent workers), it's possible for them to clash in these writes, either encountering
+   * missing file errors or encountering incomplete data. But given that we can assume both spawn
+   * runners will write the same contents, we can write those as temporary files and then perform a
+   * rename, which has atomic semantics on Unix, and thus keep all readers always seeing consistent
+   * contents.
+   *
+   * @param input the virtual input file to write
+   * @param outputPath final path where the virtual input file ought to live
+   * @param uniqueSuffix a filename extension that is different between the local spawn runners and
+   *     the remote ones
+   * @throws IOException if we fail to write the virtual input file
+   */
+  // TODO(b/150963503): We are using atomic file system moves for synchronization... but Bazel
+  // should not be able to reach this state. Which means we should probably be doing some other
+  // form of synchronization in-process before touching the file system.
+  public static void atomicallyWriteVirtualInput(
+      VirtualActionInput input, Path outputPath, String uniqueSuffix) throws IOException {
+    Path tmpPath = outputPath.getFileSystem().getPath(outputPath.getPathString() + uniqueSuffix);
+    tmpPath.getParentDirectory().createDirectoryAndParents();
+    try {
+      try (OutputStream outputStream = tmpPath.getOutputStream()) {
+        input.writeTo(outputStream);
+      }
+      // We expect the following to replace the params file atomically in case we are using
+      // the dynamic scheduler and we are racing the remote strategy writing this same file.
+      tmpPath.renameTo(outputPath);
+      tmpPath = null; // Avoid unnecessary deletion attempt.
+    } finally {
+      try {
+        if (tmpPath != null) {
+          // Make sure we don't leave temp files behind if we are interrupted.
+          tmpPath.delete();
+        }
+      } catch (IOException e) {
+        // Ignore.
+      }
+    }
+  }
+
   /** Wrapper class for the inputs of a sandbox. */
   public static final class SandboxInputs {
     private final Map<PathFragment, Path> files;
@@ -98,13 +142,17 @@ public final class SandboxHelpers {
       if (input instanceof ParamFileActionInput) {
         ParamFileActionInput paramFileInput = (ParamFileActionInput) input;
         Path outputPath = execroot.getRelative(paramFileInput.getExecPath());
-        if (needsDelete && outputPath.exists()) {
-          outputPath.delete();
-        }
+        if (needsDelete) {
+          if (outputPath.exists()) {
+            outputPath.delete();
+          }
 
-        outputPath.getParentDirectory().createDirectoryAndParents();
-        try (OutputStream outputStream = outputPath.getOutputStream()) {
-          paramFileInput.writeTo(outputStream);
+          outputPath.getParentDirectory().createDirectoryAndParents();
+          try (OutputStream outputStream = outputPath.getOutputStream()) {
+            paramFileInput.writeTo(outputStream);
+          }
+        } else {
+          atomicallyWriteVirtualInput(paramFileInput, outputPath, ".sandbox");
         }
       } else {
         // TODO(b/150963503): We can turn this into an unreachable code path when the old
