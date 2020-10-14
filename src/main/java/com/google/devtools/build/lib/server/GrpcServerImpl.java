@@ -390,7 +390,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       server =
           NettyServerBuilder.forAddress(address).addService(this).directExecutor()
               // disable auto flow control https://github.com/bazelbuild/bazel/issues/12264
-              .flowControlWindow(NettyServerBuilder.DEFAULT_FLOW_CONTROL_WINDOW);
+              .flowControlWindow(NettyServerBuilder.DEFAULT_FLOW_CONTROL_WINDOW)
 	      .build().start();
     } catch (IOException ipv6Exception) {
       address = new InetSocketAddress("127.0.0.1", port);
