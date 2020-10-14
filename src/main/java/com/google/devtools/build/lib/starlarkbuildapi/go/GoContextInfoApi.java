@@ -14,17 +14,17 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.go;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /** Information about the transitive closure of a target that is relevant to Go compilation. */
 @StarlarkBuiltin(
     name = "GoContextInfo",
     doc = "",
     documented = false,
-    category = StarlarkDocumentationCategory.PROVIDER)
+    category = DocCategory.PROVIDER)
 public interface GoContextInfoApi extends StructApi {
 
   /** Provider for GoContextInfo objects. */

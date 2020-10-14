@@ -85,10 +85,15 @@ public class PrinterTest {
 
   @Test
   public void testFormatPositional() throws Exception {
-    assertThat(Starlark.formatWithList("%s %d", Tuple.of("foo", 3))).isEqualTo("foo 3");
-    assertThat(Starlark.format("%s %d", "foo", 3)).isEqualTo("foo 3");
+    assertThat(Starlark.formatWithList("%s %d", Tuple.of("foo", StarlarkInt.of(3))))
+        .isEqualTo("foo 3");
+    assertThat(Starlark.format("%s %d", "foo", StarlarkInt.of(3))).isEqualTo("foo 3");
 
-    assertThat(Starlark.format("%s %s %s", 1, null, 3)).isEqualTo("1 null 3");
+    // %d allows Integer or StarlarkInt
+    assertThat(Starlark.format("%d %d", StarlarkInt.of(123), 456)).isEqualTo("123 456");
+
+    assertThat(Starlark.format("%s %s %s", StarlarkInt.of(1), null, StarlarkInt.of(3)))
+        .isEqualTo("1 null 3");
 
     // Note: formatToString doesn't perform scalar x -> (x) conversion;
     // The %-operator is responsible for that.
@@ -102,11 +107,19 @@ public class PrinterTest {
         "%%s", "foo");
     checkFormatPositionalFails("unsupported format character \" \" at index 1 in \"% %s\"",
         "% %s", "foo");
-    assertThat(Starlark.format("%s", StarlarkList.of(null, 1, 2, 3))).isEqualTo("[1, 2, 3]");
-    assertThat(Starlark.format("%s", Tuple.of(1, 2, 3))).isEqualTo("(1, 2, 3)");
+    assertThat(
+            Starlark.format(
+                "%s",
+                StarlarkList.of(null, StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3))))
+        .isEqualTo("[1, 2, 3]");
+    assertThat(
+            Starlark.format(
+                "%s", Tuple.of(StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3))))
+        .isEqualTo("(1, 2, 3)");
     assertThat(Starlark.format("%s", StarlarkList.of(null))).isEqualTo("[]");
     assertThat(Starlark.format("%s", Tuple.of())).isEqualTo("()");
-    assertThat(Starlark.format("%% %d %r %s", 1, "2", "3")).isEqualTo("% 1 \"2\" 3");
+    assertThat(Starlark.format("%% %d %r %s", StarlarkInt.of(1), "2", "3"))
+        .isEqualTo("% 1 \"2\" 3");
 
     checkFormatPositionalFails(
         "invalid argument \"1\" for format pattern %d",

@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Wraps an Android Manifest and provides utilities for working with it */
@@ -25,5 +25,5 @@ import net.starlark.java.eval.StarlarkValue;
             + "you will be broken when it is removed."
             + "Wraps an Android Manifest and provides utilities to work with it.",
     documented = false,
-    category = StarlarkDocumentationCategory.PROVIDER)
+    category = DocCategory.PROVIDER)
 public interface AndroidManifestApi extends StarlarkValue {}

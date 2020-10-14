@@ -85,6 +85,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
+import net.starlark.java.eval.StarlarkInt;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -112,7 +113,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   private void preparePackageLoadingWithCustomStarklarkSemanticsOptions(
-      BuildLanguageOptions starlarkSemanticsOptions, Path... roots) {
+      BuildLanguageOptions buildLanguageOptions, Path... roots) {
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
     packageOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
     packageOptions.showLoadingProgress = true;
@@ -124,7 +125,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
                 Arrays.stream(roots).map(Root::fromPath).collect(ImmutableList.toImmutableList()),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageOptions,
-            starlarkSemanticsOptions,
+            buildLanguageOptions,
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
@@ -1254,7 +1255,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Module cViaB = bLoads.get(":c.bzl");
     assertThat(cViaB).isSameInstanceAs(cViaA);
 
-    assertThat(cViaA.getGlobal("c")).isEqualTo(0);
+    assertThat(cViaA.getGlobal("c")).isEqualTo(StarlarkInt.of(0));
   }
 
   @Test

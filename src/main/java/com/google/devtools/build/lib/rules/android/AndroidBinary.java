@@ -81,6 +81,7 @@ import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.java.OneVersionCheckActionBuilder;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
+import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -89,6 +90,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkInt;
 
 /** An implementation for the "android_binary" rule. */
 public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
@@ -806,10 +808,12 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   @Nullable
   private static Integer getProguardOptimizationPasses(RuleContext ruleContext) {
     if (ruleContext.attributes().has("proguard_optimization_passes", Type.INTEGER)) {
-      return ruleContext.attributes().get("proguard_optimization_passes", Type.INTEGER);
-    } else {
-      return null;
+      StarlarkInt i = ruleContext.attributes().get("proguard_optimization_passes", Type.INTEGER);
+      if (i != null) {
+        return i.toIntUnchecked();
+      }
     }
+    return null;
   }
 
   private static ProguardOutput createEmptyProguardAction(
@@ -833,7 +837,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         new FailAction(
             ruleContext.getActionOwner(),
             failures.build().toSet(),
-            String.format("Can't run Proguard without proguard_specs")));
+            "Can't run Proguard without proguard_specs",
+            Code.PROGUARD_SPECS_MISSING));
     return new ProguardOutput(deployJarArtifact, null, null, null, null, null, null);
   }
 
@@ -1037,7 +1042,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               + "\" not supported by this version of the Android SDK");
     }
 
-    int dexShards = ruleContext.attributes().get("dex_shards", Type.INTEGER);
+    int dexShards = ruleContext.attributes().get("dex_shards", Type.INTEGER).toIntUnchecked();
     if (dexShards > 1) {
       if (multidexMode == MultidexMode.OFF) {
         ruleContext.throwWithRuleError(".dex sharding is only available in multidex mode");

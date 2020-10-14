@@ -14,16 +14,14 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.unix.NativePosixSystem;
-
 import java.io.IOException;
 
 /**
  * This class estimates the local host's resource capacity for Darwin.
  */
 public class LocalHostResourceManagerDarwin {
-  private static final Boolean JNI_UNAVAILABLE =
-      "0".equals(System.getProperty("io.bazel.EnableJni"));
 
   private static int getLogicalCpuCount() throws IOException {
     return (int) NativePosixSystem.sysctlbynameGetLong("hw.logicalcpu");
@@ -34,9 +32,10 @@ public class LocalHostResourceManagerDarwin {
   }
 
   public static ResourceSet getLocalHostResources() {
-    if (JNI_UNAVAILABLE) {
+    if (!JniLoader.isJniAvailable()) {
       return null;
     }
+
     try {
       int logicalCpuCount = getLogicalCpuCount();
       double ramMb = getMemoryInMb();

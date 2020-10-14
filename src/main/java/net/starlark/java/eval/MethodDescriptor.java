@@ -20,6 +20,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
 
 /**
@@ -85,6 +86,12 @@ final class MethodDescriptor {
     // This happens when the interface is public but the implementation classes
     // have reduced visibility.
     method.setAccessible(true);
+
+    Class<?>[] paramClasses = method.getParameterTypes();
+    Param[] paramAnnots = annotation.parameters();
+    ParamDescriptor[] params = new ParamDescriptor[paramAnnots.length];
+    Arrays.setAll(params, i -> ParamDescriptor.of(paramAnnots[i], paramClasses[i], semantics));
+
     return new MethodDescriptor(
         method,
         annotation,
@@ -92,9 +99,7 @@ final class MethodDescriptor {
         annotation.doc(),
         annotation.documented(),
         annotation.structField(),
-        Arrays.stream(annotation.parameters())
-            .map(param -> ParamDescriptor.of(param, semantics))
-            .toArray(ParamDescriptor[]::new),
+        params,
         !annotation.extraPositionals().name().isEmpty(),
         !annotation.extraKeywords().name().isEmpty(),
         annotation.selfCall(),

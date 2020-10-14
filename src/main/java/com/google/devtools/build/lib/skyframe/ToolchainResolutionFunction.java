@@ -20,10 +20,10 @@ import static java.util.stream.Collectors.joining;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashBasedTable;
-import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
@@ -123,7 +123,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
       UnloadedToolchainContext unloadedToolchainContext = builder.build();
       if (debug) {
         String selectedToolchains =
-            unloadedToolchainContext.toolchainTypeToResolved().entrySet().stream()
+            unloadedToolchainContext.toolchainTypeToResolved().entries().stream()
                 .map(
                     e ->
                         String.format(
@@ -133,8 +133,11 @@ public class ToolchainResolutionFunction implements SkyFunction {
             .handle(
                 Event.info(
                     String.format(
-                        "ToolchainResolution: Selected execution platform %s, %s",
-                        unloadedToolchainContext.executionPlatform().label(), selectedToolchains)));
+                        "ToolchainResolution: Target platform %s: Selected execution platform %s,"
+                            + " %s",
+                        unloadedToolchainContext.targetPlatform().label(),
+                        unloadedToolchainContext.executionPlatform().label(),
+                        selectedToolchains)));
       }
       return unloadedToolchainContext;
     } catch (ToolchainException e) {
@@ -447,7 +450,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
 
     Map<ToolchainTypeInfo, Label> toolchains =
         resolvedToolchains.row(selectedExecutionPlatformKey.get());
-    builder.setToolchainTypeToResolved(ImmutableBiMap.copyOf(toolchains));
+    builder.setToolchainTypeToResolved(ImmutableSetMultimap.copyOf(toolchains.entrySet()));
   }
 
   /**

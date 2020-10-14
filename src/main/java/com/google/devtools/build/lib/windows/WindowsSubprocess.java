@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.windows;
 
 import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.shell.Subprocess;
-import com.google.devtools.build.lib.windows.jni.WindowsProcesses;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;

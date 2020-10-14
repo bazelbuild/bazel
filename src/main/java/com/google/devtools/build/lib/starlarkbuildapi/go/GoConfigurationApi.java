@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.go;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.eval.StarlarkValue;
 
 /** A configuration fragment for Go. */
 @StarlarkBuiltin(
     name = "go",
     doc = "A configuration fragment for Go.",
-    category = StarlarkDocumentationCategory.CONFIGURATION_FRAGMENT)
+    category = DocCategory.CONFIGURATION_FRAGMENT)
 public interface GoConfigurationApi extends StarlarkValue {}

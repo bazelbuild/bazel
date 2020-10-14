@@ -18,6 +18,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -34,13 +35,13 @@ public class ToggledKwargsParam implements StarlarkValue {
       documented = false,
       parameters = {
         @Param(name = "one", type = String.class, named = true),
-        @Param(name = "two", type = Integer.class, named = true),
+        @Param(name = "two", type = StarlarkInt.class, named = true),
       },
       extraPositionals = @Param(name = "args"),
       extraKeywords = @Param(name = "kwargs", enableOnlyWithFlag = FOO),
       useStarlarkThread = true)
   public String toggledKwargsMethod(
-      String one, Integer two, Sequence<?> args, Dict<?, ?> kwargs, StarlarkThread thread) {
+      String one, StarlarkInt two, Sequence<?> args, Dict<?, ?> kwargs, StarlarkThread thread) {
     return "cat";
   }
 }

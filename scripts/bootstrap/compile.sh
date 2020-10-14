@@ -27,13 +27,8 @@ fi
 GOOGLE_API_PROTOS="$(grep -o '".*\.proto"' third_party/googleapis/BUILD.bazel | sed 's/"//g' | sed 's|^|third_party/googleapis/|g')"
 PROTO_FILES=$(find third_party/remoteapis ${GOOGLE_API_PROTOS} third_party/pprof src/main/protobuf src/main/java/com/google/devtools/build/lib/buildeventstream/proto src/main/java/com/google/devtools/build/skyframe src/main/java/com/google/devtools/build/lib/skyframe/proto src/main/java/com/google/devtools/build/lib/bazel/debug src/main/java/com/google/devtools/build/lib/starlarkdebug/proto -name "*.proto")
 LIBRARY_JARS=$(find $ADDITIONAL_JARS third_party -name '*.jar' | grep -Fv JavaBuilder | grep -Fv third_party/guava | grep -ve 'third_party/grpc/grpc.*jar' | tr "\n" " ")
-GRPC_JAVA_VERSION=1.20.0
+GRPC_JAVA_VERSION=1.31.1
 GRPC_LIBRARY_JARS=$(find third_party/grpc -name '*.jar' | grep -e ".*${GRPC_JAVA_VERSION}.*jar" | tr "\n" " ")
-# TODO(pcloudy): Remove this after upgrading gRPC to 1.26.0
-if [ -z "${GRPC_LIBRARY_JARS}" ]; then
-  GRPC_JAVA_VERSION=1.26.0
-  GRPC_LIBRARY_JARS=$(find third_party/grpc -name '*.jar' | grep -e ".*${GRPC_JAVA_VERSION}.*jar" | tr "\n" " ")
-fi
 GUAVA_VERSION=25.1
 GUAVA_JARS=$(find third_party/guava -name '*.jar' | grep -e ".*${GUAVA_VERSION}.*jar" | tr "\n" " ")
 LIBRARY_JARS="${LIBRARY_JARS} ${GRPC_LIBRARY_JARS} ${GUAVA_JARS}"
@@ -397,10 +392,11 @@ function build_jni() {
     cp "$tmp_output" "$output"
     chmod 0555 "$output"
 
-    JNI_FLAGS="-Dio.bazel.EnableJni=1 -Djava.library.path=${output_dir}"
+    JNI_FLAGS="-Djava.library.path=${output_dir}"
   else
-    # We don't need JNI on other platforms.
-    JNI_FLAGS="-Dio.bazel.EnableJni=0"
+    # We don't need JNI on other platforms. The Java NIO file system fallback is
+    # sufficient.
+    true
   fi
 }
 

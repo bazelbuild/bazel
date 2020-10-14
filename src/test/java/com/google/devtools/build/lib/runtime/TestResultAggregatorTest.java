@@ -51,7 +51,7 @@ public class TestResultAggregatorTest {
     when(mockParams.getTimeout()).thenReturn(TestTimeout.LONG);
     when(mockParams.getTestStatusArtifacts())
         .thenReturn(ImmutableList.<Artifact.DerivedArtifact>of());
-    TestProvider testProvider = new TestProvider(mockParams, ImmutableList.<String>of());
+    TestProvider testProvider = new TestProvider(mockParams);
 
     ConfiguredTarget mockTarget = mock(ConfiguredTarget.class);
     when(mockTarget.getProvider(TestProvider.class)).thenReturn(testProvider);

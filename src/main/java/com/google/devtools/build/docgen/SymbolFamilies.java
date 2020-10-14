@@ -40,12 +40,12 @@ public class SymbolFamilies {
   private final ImmutableMap<String, Object> bzlGlobals;
 
   public SymbolFamilies(
-      String productName, String provider, List<String> inputDirs, String blackList)
+      String productName, String provider, List<String> inputDirs, String denyList)
       throws NoSuchMethodException, ClassPathException, InvocationTargetException,
           IllegalAccessException, BuildEncyclopediaDocException, ClassNotFoundException,
           IOException {
     this.nativeRules =
-        ImmutableList.copyOf(collectNativeRules(productName, provider, inputDirs, blackList));
+        ImmutableList.copyOf(collectNativeRules(productName, provider, inputDirs, denyList));
     this.globals = Starlark.UNIVERSE;
 
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
@@ -92,12 +92,12 @@ public class SymbolFamilies {
    * and in BZL files as methods of the native package.
    */
   private List<RuleDocumentation> collectNativeRules(
-      String productName, String provider, List<String> inputDirs, String blackList)
+      String productName, String provider, List<String> inputDirs, String denyList)
       throws NoSuchMethodException, InvocationTargetException, IllegalAccessException,
           BuildEncyclopediaDocException, ClassNotFoundException, IOException {
     ProtoFileBuildEncyclopediaProcessor processor =
         new ProtoFileBuildEncyclopediaProcessor(productName, createRuleClassProvider(provider));
-    processor.generateDocumentation(inputDirs, "", blackList);
+    processor.generateDocumentation(inputDirs, "", denyList);
     return processor.getNativeRules();
   }
 

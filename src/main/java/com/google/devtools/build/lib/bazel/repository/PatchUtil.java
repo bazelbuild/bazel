@@ -626,7 +626,7 @@ public class PatchUtil {
           boolean isRenaming = isGitDiff && hasRenameFrom && hasRenameTo;
 
           if (!patchContent.isEmpty() || isRenaming || filePermission != -1) {
-            // We collected something useful, let's do some sanity checks before applying the patch.
+            // We collected something useful, let's do some checks before applying the patch.
             int patchStartLocation = i + 1 - patchContent.size();
 
             checkPatchContentIsComplete(

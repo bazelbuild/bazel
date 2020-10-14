@@ -15,16 +15,16 @@
 package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 
 /** A provider that holds debug outputs of an apple_binary target. */
 @StarlarkBuiltin(
     name = "AppleDebugOutputs",
-    category = StarlarkDocumentationCategory.PROVIDER,
+    category = DocCategory.PROVIDER,
     doc = "A provider that holds debug outputs of an apple_binary target.")
 public interface AppleDebugOutputsApi<FileT extends FileApi> extends StructApi {
 

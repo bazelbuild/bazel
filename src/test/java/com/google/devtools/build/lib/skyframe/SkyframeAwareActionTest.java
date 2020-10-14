@@ -376,7 +376,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     }
   }
 
-  /** Sanity check: ensure that a file's ctime was updated from an older value. */
+  /** Ensure that a file's ctime was updated from an older value. */
   private static void checkCtimeUpdated(Path path, long oldCtime) throws IOException {
     if (oldCtime >= path.stat().getLastChangeTime()) {
       throw new IllegalStateException(String.format("path=(%s), ctime=(%d)", path, oldCtime));
@@ -398,7 +398,6 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
       // than the time at the setCommandStartTime() call. Therefore setting
       // System.currentTimeMillis() is guaranteed to advance the file's ctime.
       path.setLastModifiedTime(System.currentTimeMillis());
-      // Sanity check: ensure that updating the file's mtime indeed advanced its ctime.
       checkCtimeUpdated(path, ctime);
     }
 
@@ -407,7 +406,6 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
       // Ensure enough time elapsed for file updates to have a visible effect on the file's ctime.
       TimestampGranularityUtils.waitForTimestampGranularity(ctime, reporter.getOutErr());
       appendToFile(path);
-      // Sanity check: ensure that appending to the file indeed advanced its ctime.
       checkCtimeUpdated(path, ctime);
     }
 
@@ -454,7 +452,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         null,
         /* trustRemoteArtifacts= */ false);
 
-    // Sanity check that our invalidation receiver is working correctly. We'll rely on it again.
+    // Check that our invalidation receiver is working correctly. We'll rely on it again.
     SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
     TrackingEvaluationProgressReceiver.EvaluatedEntry evaluatedAction =
         progressReceiver.getEvalutedEntry(actionKey);

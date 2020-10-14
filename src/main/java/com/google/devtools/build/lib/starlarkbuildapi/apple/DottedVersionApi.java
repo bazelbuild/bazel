@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -26,7 +26,7 @@ import net.starlark.java.eval.StarlarkValue;
  */
 @StarlarkBuiltin(
     name = "DottedVersion",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc =
         "A value representing a version with multiple components, separated by periods, such as "
             + "1.2.3.4.")

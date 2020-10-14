@@ -14,6 +14,7 @@
 
 package com.google.devtools.coverageoutputgenerator;
 
+import static com.google.devtools.coverageoutputgenerator.Constants.CC_EXTENSIONS;
 import static com.google.devtools.coverageoutputgenerator.Constants.GCOV_EXTENSION;
 import static com.google.devtools.coverageoutputgenerator.Constants.GCOV_JSON_EXTENSION;
 import static com.google.devtools.coverageoutputgenerator.Constants.PROFDATA_EXTENSION;
@@ -75,26 +76,18 @@ public class Main {
         flags.coverageDir() != null
             ? getCoverageFilesInDir(flags.coverageDir())
             : Collections.emptyList();
-    Coverage coverage;
-    try {
-      coverage =
-          Coverage.merge(
-              parseFiles(
-                  getTracefiles(flags, filesInCoverageDir),
-                  LcovParser::parse,
-                  flags.parseParallelism()),
-              parseFiles(
-                  getGcovInfoFiles(filesInCoverageDir),
-                  GcovParser::parse,
-                  flags.parseParallelism()),
-              parseFiles(
-                  getGcovJsonInfoFiles(filesInCoverageDir),
-                  GcovJsonParser::parse,
-                  flags.parseParallelism()));
-    } catch (IncompatibleMergeException e) {
-      logger.log(Level.SEVERE, e.getMessage());
-      return 1;
-    }
+    Coverage coverage =
+        Coverage.merge(
+            parseFiles(
+                getTracefiles(flags, filesInCoverageDir),
+                LcovParser::parse,
+                flags.parseParallelism()),
+            parseFiles(
+                getGcovInfoFiles(filesInCoverageDir), GcovParser::parse, flags.parseParallelism()),
+            parseFiles(
+                getGcovJsonInfoFiles(filesInCoverageDir),
+                GcovJsonParser::parse,
+                flags.parseParallelism()));
 
     if (flags.sourcesToReplaceFile() != null) {
       coverage.maybeReplaceSourceFileNames(getMapFromFile(flags.sourcesToReplaceFile()));
@@ -226,8 +219,12 @@ public class Main {
   }
 
   private static boolean isCcFile(String filename) {
-    return filename.endsWith(".cc") || filename.endsWith(".c") || filename.endsWith(".cpp")
-        || filename.endsWith(".hh") || filename.endsWith(".h") || filename.endsWith(".hpp");
+    for (String ccExtension : CC_EXTENSIONS) {
+      if (filename.endsWith(ccExtension)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static List<File> getGcovInfoFiles(List<File> filesInCoverageDir) {
@@ -331,7 +328,7 @@ public class Main {
         for (SourceFileCoverage sourceFileCoverage : sourceFilesCoverage) {
           coverage.add(sourceFileCoverage);
         }
-      } catch (IOException | IncompatibleMergeException e) {
+      } catch (IOException e) {
         logger.log(
             Level.SEVERE,
             "File " + file.getAbsolutePath() + " could not be parsed due to: " + e.getMessage(),
@@ -351,7 +348,7 @@ public class Main {
             () ->
                 partitions.parallelStream()
                     .map((p) -> parseFilesSequentially(p, parser))
-                    .reduce((c1, c2) -> Coverage.mergeUnchecked(c1, c2))
+                    .reduce((c1, c2) -> Coverage.merge(c1, c2))
                     .orElse(Coverage.create()))
         .get();
   }

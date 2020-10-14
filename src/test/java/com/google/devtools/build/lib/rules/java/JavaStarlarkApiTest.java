@@ -1373,6 +1373,37 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testJavaInfoSequenceParametersTypeChecked() throws Exception {
+    scratch.file(
+        "foo/bad_rules.bzl",
+        "def make_file(ctx):",
+        "  f = ctx.actions.declare_file('out')",
+        "  ctx.actions.write(f, 'out')",
+        "  return f",
+        "def _deps_impl(ctx):",
+        "  f = make_file(ctx)",
+        "  return JavaInfo(output_jar=f, compile_jar=f, deps=[f])",
+        "def _runtime_deps_impl(ctx):",
+        "  f = make_file(ctx)",
+        "  return JavaInfo(output_jar=f, compile_jar=f, runtime_deps=[f])",
+        "def _exports_impl(ctx):",
+        "  f = make_file(ctx)",
+        "  return JavaInfo(output_jar=f, compile_jar=f, exports=[f])",
+        "bad_deps = rule(_deps_impl)",
+        "bad_runtime_deps = rule(_runtime_deps_impl)",
+        "bad_exports = rule(_exports_impl)");
+    scratch.file(
+        "foo/BUILD",
+        "load(':bad_rules.bzl', 'bad_deps', 'bad_runtime_deps', 'bad_exports')",
+        "bad_deps(name='bad_deps')",
+        "bad_runtime_deps(name='bad_runtime_deps')",
+        "bad_exports(name='bad_exports')");
+    checkError("//foo:bad_deps", "Expected 'sequence of JavaInfo'");
+    checkError("//foo:bad_runtime_deps", "Expected 'sequence of JavaInfo'");
+    checkError("//foo:bad_exports", "Expected 'sequence of JavaInfo'");
+  }
+
+  @Test
   public void javaInfoSourceJarsExposed() throws Exception {
     scratch.file(
         "foo/extension.bzl",

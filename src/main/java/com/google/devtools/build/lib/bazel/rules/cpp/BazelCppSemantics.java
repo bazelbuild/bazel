@@ -95,7 +95,7 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
   }
 
   @Override
-  public boolean needsDotdInputPruning() {
+  public boolean needsDotdInputPruning(BuildConfiguration configuration) {
     return true;
   }
 

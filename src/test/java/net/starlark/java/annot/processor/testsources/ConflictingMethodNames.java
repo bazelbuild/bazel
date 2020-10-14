@@ -16,6 +16,7 @@ package net.starlark.java.annot.processor.testsources;
 
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -39,9 +40,9 @@ public class ConflictingMethodNames implements StarlarkValue {
       documented = false,
       parameters = {
         @Param(name = "one", type = String.class, named = true),
-        @Param(name = "two", type = Integer.class, named = true),
+        @Param(name = "two", type = StarlarkInt.class, named = true),
       })
-  public String conflictingMethodTwo(String one, Integer two) {
+  public String conflictingMethodTwo(String one, StarlarkInt two) {
     return "foo";
   }
 }

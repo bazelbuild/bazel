@@ -30,20 +30,20 @@ public class SinglePageBuildEncyclopediaProcessor extends BuildEncyclopediaProce
   }
 
   /**
-   * Collects and processes all the rule and attribute documentation in inputDirs and
-   * generates the Build Encyclopedia into the outputDir.
+   * Collects and processes all the rule and attribute documentation in inputDirs and generates the
+   * Build Encyclopedia into the outputDir.
    *
    * @param inputDirs list of directory to scan for document in the source code
    * @param outputDir output directory where to write the build encyclopedia
-   * @param blackList optional path to a file listing rules to not document
+   * @param denyList optional path to a file listing rules to not document
    */
   @Override
-  public void generateDocumentation(List<String> inputDirs, String outputDir, String blackList)
+  public void generateDocumentation(List<String> inputDirs, String outputDir, String denyList)
       throws BuildEncyclopediaDocException, IOException {
     BuildDocCollector collector = new BuildDocCollector(productName, ruleClassProvider, false);
     RuleLinkExpander expander = new RuleLinkExpander(productName, true);
-    Map<String, RuleDocumentation> ruleDocEntries = collector.collect(
-        inputDirs, blackList, expander);
+    Map<String, RuleDocumentation> ruleDocEntries =
+        collector.collect(inputDirs, denyList, expander);
     warnAboutUndocumentedRules(
         Sets.difference(ruleClassProvider.getRuleClassMap().keySet(), ruleDocEntries.keySet()));
     RuleFamilies ruleFamilies = assembleRuleFamilies(ruleDocEntries.values());

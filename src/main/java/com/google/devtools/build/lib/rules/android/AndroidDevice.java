@@ -202,12 +202,14 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
         RuleContext ruleContext, ImmutableMap<String, String> executionInfo) {
       this.ruleContext = ruleContext;
       this.constraints = executionInfo;
-      horizontalResolution = ruleContext.attributes().get("horizontal_resolution", Type.INTEGER);
-      verticalResolution = ruleContext.attributes().get("vertical_resolution", Type.INTEGER);
-      ram = ruleContext.attributes().get("ram", Type.INTEGER);
-      density = ruleContext.attributes().get("screen_density", Type.INTEGER);
-      cache = ruleContext.attributes().get("cache", Type.INTEGER);
-      vmHeap = ruleContext.attributes().get("vm_heap", Type.INTEGER);
+      horizontalResolution =
+          ruleContext.attributes().get("horizontal_resolution", Type.INTEGER).toIntUnchecked();
+      verticalResolution =
+          ruleContext.attributes().get("vertical_resolution", Type.INTEGER).toIntUnchecked();
+      ram = ruleContext.attributes().get("ram", Type.INTEGER).toIntUnchecked();
+      density = ruleContext.attributes().get("screen_density", Type.INTEGER).toIntUnchecked();
+      cache = ruleContext.attributes().get("cache", Type.INTEGER).toIntUnchecked();
+      vmHeap = ruleContext.attributes().get("vm_heap", Type.INTEGER).toIntUnchecked();
 
       defaultProperties =
           Optional.fromNullable(ruleContext.getPrerequisiteArtifact("default_properties"));

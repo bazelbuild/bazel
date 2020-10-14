@@ -59,7 +59,7 @@ public final class BindRule implements RuleDefinition {
         .build();
   }
 }
-/*<!-- #BLAZE_RULE (NAME = bind, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = bind, FAMILY = Workspace)[GENERIC_RULE] -->
 
 <em><p>Warning: use of <code>bind()</code> is not recommended. See "<a
 href="https://github.com/bazelbuild/bazel/issues/1952">Consider removing bind</a>" for a long

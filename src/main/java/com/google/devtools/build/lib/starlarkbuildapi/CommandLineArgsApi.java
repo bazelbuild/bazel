@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -29,7 +29,7 @@ import net.starlark.java.eval.StarlarkValue;
 /** Command line args module. */
 @StarlarkBuiltin(
     name = "Args",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc =
         "An object that encapsulates, in a memory-efficient way, the data needed to build part or "
             + "all of a command line."

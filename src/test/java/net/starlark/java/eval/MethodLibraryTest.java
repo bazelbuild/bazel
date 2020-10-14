@@ -312,13 +312,13 @@ public final class MethodLibraryTest {
   public void testDictionaryAccess() throws Exception {
     ev.new Scenario()
         .testEval("{1: ['foo']}[1]", "['foo']")
-        .testExpression("{'4': 8}['4']", 8)
+        .testExpression("{'4': 8}['4']", StarlarkInt.of(8))
         .testExpression("{'a': 'aa', 'b': 'bb', 'c': 'cc'}['b']", "bb");
   }
 
   @Test
   public void testDictionaryVariableAccess() throws Exception {
-    ev.new Scenario().setUp("d = {'a' : 1}", "a = d['a']").testLookup("a", 1);
+    ev.new Scenario().setUp("d = {'a' : 1}", "a = d['a']").testLookup("a", StarlarkInt.of(1));
   }
 
   @Test
@@ -482,12 +482,12 @@ public final class MethodLibraryTest {
   @Test
   public void testListIndexMethod() throws Exception {
     ev.new Scenario()
-        .testExpression("['a', 'b', 'c'].index('a')", 0)
-        .testExpression("['a', 'b', 'c'].index('b')", 1)
-        .testExpression("['a', 'b', 'c'].index('c')", 2)
-        .testExpression("[2, 4, 6].index(4)", 1)
-        .testExpression("[2, 4, 6].index(4)", 1)
-        .testExpression("[0, 1, [1]].index([1])", 2)
+        .testExpression("['a', 'b', 'c'].index('a')", StarlarkInt.of(0))
+        .testExpression("['a', 'b', 'c'].index('b')", StarlarkInt.of(1))
+        .testExpression("['a', 'b', 'c'].index('c')", StarlarkInt.of(2))
+        .testExpression("[2, 4, 6].index(4)", StarlarkInt.of(1))
+        .testExpression("[2, 4, 6].index(4)", StarlarkInt.of(1))
+        .testExpression("[0, 1, [1]].index([1])", StarlarkInt.of(2))
         .testIfErrorContains("item \"a\" not found in list", "[1, 2].index('a')")
         .testIfErrorContains("item 0 not found in list", "[].index(0)");
   }
@@ -496,8 +496,8 @@ public final class MethodLibraryTest {
   public void testHash() throws Exception {
     // We specify the same string hashing algorithm as String.hashCode().
     ev.new Scenario()
-        .testExpression("hash('starlark')", "starlark".hashCode())
-        .testExpression("hash('google')", "google".hashCode())
+        .testExpression("hash('starlark')", StarlarkInt.of("starlark".hashCode()))
+        .testExpression("hash('google')", StarlarkInt.of("google".hashCode()))
         .testIfErrorContains(
             "in call to hash(), parameter 'value' got value of type 'NoneType', want 'string'",
             "hash(None)");
@@ -507,7 +507,7 @@ public final class MethodLibraryTest {
   public void testRangeType() throws Exception {
     ev.new Scenario()
         .setUp("a = range(3)")
-        .testExpression("len(a)", 3)
+        .testExpression("len(a)", StarlarkInt.of(3))
         .testExpression("str(a)", "range(0, 3)")
         .testExpression("str(range(1,2,3))", "range(1, 2, 3)")
         .testExpression("repr(a)", "range(0, 3)")
@@ -529,11 +529,11 @@ public final class MethodLibraryTest {
         .testExpression("str(list(range(5, 0, -1)))", "[5, 4, 3, 2, 1]")
         .testExpression("str(list(range(5, 0, -10)))", "[5]")
         .testExpression("str(list(range(0, -3, -2)))", "[0, -2]")
-        .testExpression("range(3)[-1]", 2)
+        .testExpression("range(3)[-1]", StarlarkInt.of(2))
         .testIfErrorContains(
             "index out of range (index is 3, but sequence has 3 elements)", "range(3)[3]")
         .testExpression("str(range(5)[1:])", "range(1, 5)")
-        .testExpression("len(range(5)[1:])", 4)
+        .testExpression("len(range(5)[1:])", StarlarkInt.of(4))
         .testExpression("str(range(5)[:2])", "range(0, 2)")
         .testExpression("str(range(10)[1:9:2])", "range(1, 9, 2)")
         .testExpression("str(list(range(10)[1:9:2]))", "[1, 3, 5, 7]")
@@ -600,17 +600,17 @@ public final class MethodLibraryTest {
 
   @Test
   public void testLenOnString() throws Exception {
-    ev.new Scenario().testExpression("len('abc')", 3);
+    ev.new Scenario().testExpression("len('abc')", StarlarkInt.of(3));
   }
 
   @Test
   public void testLenOnList() throws Exception {
-    ev.new Scenario().testExpression("len([1,2,3])", 3);
+    ev.new Scenario().testExpression("len([1,2,3])", StarlarkInt.of(3));
   }
 
   @Test
   public void testLenOnDict() throws Exception {
-    ev.new Scenario().testExpression("len({'a' : 1, 'b' : 2})", 2);
+    ev.new Scenario().testExpression("len({'a' : 1, 'b' : 2})", StarlarkInt.of(2));
   }
 
   @Test

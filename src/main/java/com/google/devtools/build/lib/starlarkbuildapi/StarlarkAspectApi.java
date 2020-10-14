@@ -14,14 +14,14 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.eval.StarlarkValue;
 
 /** The interface for Starlark-defined aspects in the Build API. */
 @StarlarkBuiltin(
     name = "Aspect",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc =
         "For more information about Aspects, please consult the <a href=\"globals.html#aspect\">"
             + "documentation of the aspect function</a> or the "

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.buildjar;
 
+import static com.google.common.base.StandardSystemProperty.JAVA_HOME;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -91,11 +92,7 @@ public class VanillaJavaBuilderTest {
                 "--output",
                 output.toString(),
                 "--bootclasspath",
-                Paths.get(System.getProperty("java.home")).resolve("lib/rt.jar").toString(),
-                "--tempdir",
-                temporaryFolder.newFolder().toString(),
-                "--classdir",
-                temporaryFolder.newFolder().toString()));
+                Paths.get(JAVA_HOME.value()).resolve("lib/rt.jar").toString()));
 
     assertThat(result.output()).isEmpty();
     assertThat(result.ok()).isTrue();
@@ -136,11 +133,7 @@ public class VanillaJavaBuilderTest {
                 "--output",
                 output.toString(),
                 "--bootclasspath",
-                Paths.get(System.getProperty("java.home")).resolve("lib/rt.jar").toString(),
-                "--tempdir",
-                temporaryFolder.newFolder().toString(),
-                "--classdir",
-                temporaryFolder.newFolder().toString()));
+                Paths.get(System.getProperty("java.home")).resolve("lib/rt.jar").toString()));
 
     assertThat(result.output()).contains("possible fall-through");
     assertThat(result.ok()).isFalse();
@@ -175,11 +168,7 @@ public class VanillaJavaBuilderTest {
                 "--sources",
                 source.toString(),
                 "--output",
-                output.toString(),
-                "--tempdir",
-                temporaryFolder.newFolder().toString(),
-                "--classdir",
-                temporaryFolder.newFolder().toString()));
+                output.toString()));
 
     assertThat(result.output()).contains("note: Some messages have been simplified");
     assertThat(result.ok()).isFalse();
@@ -221,11 +210,7 @@ public class VanillaJavaBuilderTest {
                 "--output",
                 output.toString(),
                 "--bootclasspath",
-                Paths.get(System.getProperty("java.home")).resolve("lib/rt.jar").toString(),
-                "--tempdir",
-                temporaryFolder.newFolder().toString(),
-                "--classdir",
-                classDir.toString()));
+                Paths.get(System.getProperty("java.home")).resolve("lib/rt.jar").toString()));
 
     assertThat(result.output()).isEmpty();
     assertThat(result.ok()).isTrue();
@@ -267,11 +252,7 @@ public class VanillaJavaBuilderTest {
                 "--output",
                 output.toString(),
                 "--bootclasspath",
-                Paths.get(System.getProperty("java.home")).resolve("lib/rt.jar").toString(),
-                "--tempdir",
-                temporaryFolder.newFolder().toString(),
-                "--classdir",
-                temporaryFolder.newFolder().toString()));
+                Paths.get(System.getProperty("java.home")).resolve("lib/rt.jar").toString()));
 
     assertThat(result.output()).isEmpty();
     assertThat(result.ok()).isTrue();
@@ -314,11 +295,7 @@ public class VanillaJavaBuilderTest {
                 "--native_header_output",
                 nativeHeaderOutput.toString(),
                 "--bootclasspath",
-                Paths.get(System.getProperty("java.home")).resolve("lib/rt.jar").toString(),
-                "--tempdir",
-                temporaryFolder.newFolder().toString(),
-                "--classdir",
-                temporaryFolder.newFolder().toString()));
+                Paths.get(System.getProperty("java.home")).resolve("lib/rt.jar").toString()));
 
     assertThat(result.output()).isEmpty();
     assertThat(result.ok()).isTrue();

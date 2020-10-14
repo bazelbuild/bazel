@@ -18,6 +18,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
@@ -48,7 +49,7 @@ public class GoldenCase implements StarlarkValue {
       documented = false,
       parameters = {
         @Param(name = "one", type = String.class, named = true),
-        @Param(name = "two", type = Integer.class, named = true),
+        @Param(name = "two", type = StarlarkInt.class, named = true),
         @Param(
             name = "three",
             type = String.class,
@@ -56,7 +57,7 @@ public class GoldenCase implements StarlarkValue {
             defaultValue = "None",
             noneable = true),
       })
-  public String threeArgMethod(String one, Integer two, Object three) {
+  public String threeArgMethod(String one, StarlarkInt two, Object three) {
     return "bar";
   }
 
@@ -65,12 +66,12 @@ public class GoldenCase implements StarlarkValue {
       documented = false,
       parameters = {
         @Param(name = "one", type = String.class, named = true),
-        @Param(name = "two", type = Integer.class, named = true),
+        @Param(name = "two", type = StarlarkInt.class, named = true),
         @Param(name = "three", type = String.class, named = true),
       },
       useStarlarkThread = true)
   public String threeArgMethodWithParams(
-      String one, Integer two, String three, StarlarkThread thread) {
+      String one, StarlarkInt two, String three, StarlarkThread thread) {
     return "baz";
   }
 
@@ -105,12 +106,12 @@ public class GoldenCase implements StarlarkValue {
       documented = false,
       parameters = {
         @Param(name = "one", type = String.class, named = true),
-        @Param(name = "two", type = Integer.class, named = true),
+        @Param(name = "two", type = StarlarkInt.class, named = true),
       },
       extraKeywords = @Param(name = "kwargs"),
       useStarlarkThread = true)
   public String twoArgMethodWithParamsAndInfoAndKwargs(
-      String one, Integer two, Dict<String, Object> kwargs, StarlarkThread thread) {
+      String one, StarlarkInt two, Dict<String, Object> kwargs, StarlarkThread thread) {
     return "blep";
   }
 
@@ -119,13 +120,13 @@ public class GoldenCase implements StarlarkValue {
       documented = false,
       parameters = {
         @Param(name = "one", type = String.class, named = true),
-        @Param(name = "two", type = Integer.class, named = true),
+        @Param(name = "two", type = StarlarkInt.class, named = true),
       },
       extraPositionals = @Param(name = "args"),
       extraKeywords = @Param(name = "kwargs"),
       useStarlarkThread = true)
   public String twoArgMethodWithParamsAndInfoAndKwargs(
-      String one, Integer two, Sequence<?> args, Dict<?, ?> kwargs, StarlarkThread thread) {
+      String one, StarlarkInt two, Sequence<?> args, Dict<?, ?> kwargs, StarlarkThread thread) {
     return "yar";
   }
 
@@ -134,10 +135,10 @@ public class GoldenCase implements StarlarkValue {
       selfCall = true,
       parameters = {
         @Param(name = "one", type = String.class, named = true),
-        @Param(name = "two", type = Integer.class, named = true),
+        @Param(name = "two", type = StarlarkInt.class, named = true),
       },
       documented = false)
-  public Integer selfCallMethod(String one, Integer two) {
+  public Integer selfCallMethod(String one, StarlarkInt two) {
     return 0;
   }
 

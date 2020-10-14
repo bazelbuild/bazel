@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import java.io.IOException;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -29,7 +29,7 @@ import net.starlark.java.eval.StarlarkValue;
 /** Interface for actions in Starlark. */
 @StarlarkBuiltin(
     name = "Action",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc =
         "An action created during rule analysis."
             + "<p>This object is visible for the purpose of testing, and may be obtained from an "

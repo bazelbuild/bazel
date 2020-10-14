@@ -41,6 +41,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.eval.StarlarkInt;
 
 /**
  * Info item for the build language. It is deprecated, it still works, when explicitly requested,
@@ -134,7 +135,7 @@ public final class BuildLanguageInfoItem extends InfoItem {
     } else if (t == Type.STRING) {
       b.setString((String) v);
     } else if (t == Type.INTEGER) {
-      b.setInt((Integer) v);
+      b.setInt(((StarlarkInt) v).toIntUnchecked());
     } else if (t == Type.BOOLEAN) {
       b.setBool((Boolean) v);
     } else if (t == BuildType.TRISTATE) {

@@ -298,7 +298,7 @@ public class BazelRepositoryModule extends BlazeModule {
         httpDownloader.setTimeoutScaling((float) repoOptions.httpTimeoutScaling);
       } else {
         env.getReporter()
-            .handle(Event.warn("Ingoring request to scale http timeouts by a non-positive factor"));
+            .handle(Event.warn("Ignoring request to scale http timeouts by a non-positive factor"));
         httpDownloader.setTimeoutScaling(1.0f);
       }
 

@@ -24,6 +24,7 @@ java_library(
     deps = [
         ":LabelValidator",
         ":cmdline-primitives",
+        "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",

@@ -582,16 +582,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
               + " (zero means no limit).")
   public long maxComputationSteps;
 
-  @Option(
-      name = "record_rule_instantiation_callstack",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      help =
-          "Causes each rule to record the callstack at the moment of its instantiation, at a"
-              + " modest cost in memory. The stack is visible in some forms of query output.")
-  public boolean recordRuleInstantiationCallstack;
-
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -663,7 +653,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
                 INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO,
                 incompatibleObjcProviderRemoveCompileInfo)
             .set(MAX_COMPUTATION_STEPS, maxComputationSteps)
-            .setBool(RECORD_RULE_INSTANTIATION_CALLSTACK, recordRuleInstantiationCallstack)
             .build();
     return INTERNER.intern(semantics);
   }
@@ -734,7 +723,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   public static final String INCOMPATIBLE_VISIBILITY_PRIVATE_ATTRIBUTES_AT_DEFINITION =
       "-incompatible_visibility_private_attributes_at_definition";
   public static final String RECORD_RULE_INSTANTIATION_CALLSTACK =
-      "-record_rule_instantiation_callstack";
+      "+record_rule_instantiation_callstack";
 
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =

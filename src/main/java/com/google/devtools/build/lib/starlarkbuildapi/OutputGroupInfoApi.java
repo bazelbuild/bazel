@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -27,7 +27,7 @@ import net.starlark.java.eval.EvalException;
 /** Interface for an info object that indicates what output groups a rule has. */
 @StarlarkBuiltin(
     name = "OutputGroupInfo",
-    category = StarlarkDocumentationCategory.PROVIDER,
+    category = DocCategory.PROVIDER,
     doc =
         "A provider that indicates what output groups a rule has.<br>"
             + "See <a href=\"../rules.$DOC_EXT#requesting-output-files\">Requesting output files"

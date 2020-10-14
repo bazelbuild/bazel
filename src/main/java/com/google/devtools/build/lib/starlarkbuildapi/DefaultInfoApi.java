@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkThread;
@@ -28,7 +28,7 @@ import net.starlark.java.eval.StarlarkThread;
 /** A provider that gives general information about a target's direct and transitive files. */
 @StarlarkBuiltin(
     name = "DefaultInfo",
-    category = StarlarkDocumentationCategory.PROVIDER,
+    category = DocCategory.PROVIDER,
     doc =
         "A provider that gives general information about a target's direct and transitive files. "
             + "Every rule type has this provider, even if it is not returned explicitly by the "

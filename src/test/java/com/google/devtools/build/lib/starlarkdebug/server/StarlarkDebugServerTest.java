@@ -56,6 +56,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
@@ -443,12 +444,12 @@ public class StarlarkDebugServerTest {
             .addScope(
                 Scope.newBuilder()
                     .setName("local")
-                    .addBinding(getValueProto("a", 2))
-                    .addBinding(getValueProto("b", 1)))
+                    .addBinding(getValueProto("a", StarlarkInt.of(2)))
+                    .addBinding(getValueProto("b", StarlarkInt.of(1))))
             .addScope(
                 Scope.newBuilder()
                     .setName("global")
-                    .addBinding(getValueProto("c", 3))
+                    .addBinding(getValueProto("c", StarlarkInt.of(3)))
                     .addBinding(getValueProto("fn", module.getGlobal("fn"))))
             .build());
 
@@ -464,8 +465,8 @@ public class StarlarkDebugServerTest {
             .addScope(
                 Scope.newBuilder()
                     .setName("global")
-                    .addBinding(getValueProto("a", 1))
-                    .addBinding(getValueProto("c", 3))
+                    .addBinding(getValueProto("a", StarlarkInt.of(1)))
+                    .addBinding(getValueProto("c", StarlarkInt.of(3)))
                     .addBinding(getValueProto("fn", module.getGlobal("fn"))))
             .build());
   }
@@ -493,7 +494,8 @@ public class StarlarkDebugServerTest {
                     EvaluateRequest.newBuilder().setThreadId(threadId).setStatement("x[1]").build())
                 .build());
     assertThat(response.hasEvaluate()).isTrue();
-    assertThat(response.getEvaluate().getResult()).isEqualTo(getValueProto("Evaluation result", 2));
+    assertThat(response.getEvaluate().getResult())
+        .isEqualTo(getValueProto("Evaluation result", StarlarkInt.of(2)));
   }
 
   @Test
@@ -526,7 +528,9 @@ public class StarlarkDebugServerTest {
 
     ListFramesResponse frames = listFrames(threadId);
     assertThat(frames.getFrame(0).getScope(0).getBindingList())
-        .contains(getValueProto("x", StarlarkList.of(/*mutability=*/ null, 5, 6)));
+        .contains(
+            getValueProto(
+                "x", StarlarkList.of(/*mutability=*/ null, StarlarkInt.of(5), StarlarkInt.of(6))));
   }
 
   @Test

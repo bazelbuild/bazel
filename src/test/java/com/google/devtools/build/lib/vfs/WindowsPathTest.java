@@ -137,7 +137,7 @@ public class WindowsPathTest extends PathAbstractTest {
     assertThat(osPathPolicy.needsToNormalize("will~1.exi"))
         .isEqualTo(WindowsOsPathPolicy.NEEDS_SHORT_PATH_NORMALIZATION);
     assertThat(osPathPolicy.needsToNormalize("d:/no-normalization"))
-        .isEqualTo(WindowsOsPathPolicy.NORMALIZED); // Sanity check
+        .isEqualTo(WindowsOsPathPolicy.NORMALIZED);
   }
 
   private static String normalize(OsPathPolicy osPathPolicy, String str) {

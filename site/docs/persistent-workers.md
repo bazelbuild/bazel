@@ -119,6 +119,11 @@ flag makes each worker request use a separate sandbox directory for all its
 inputs. Setting up the sandbox takes some extra time, especially on MacOS, but
 gives a better correctness guarantee.
 
+You can use the `--experimental_worker_allow_json_protocol` flag to allow
+workers to communicate with Bazel through JSON instead of protocol buffers
+(protobuf). The worker and the rule that consumes it can then be modified to
+support JSON.
+
 The
 [`--worker_quit_after_build`](command-line-reference.html#flag--worker_quit_after_build)
 flag is mainly useful for debugging and profiling. This flag forces all workers
@@ -157,8 +162,12 @@ the tool, as well as shutting down workers on exit. Each worker instance is
 assigned (but not chrooted to) a separate working directory under
 `<outputBase>/bazel-workers`.
 
-The Bazel server communicates with the worker using stdin/stdout. The
-compilation requests are sent as using
+The Bazel server communicates with the worker using stdin/stdout. It supports
+the use of protocol buffers or JSON strings. Support for JSON is experimental
+and thus subject to change. It is guarded behind the
+`--experimental_worker_allow_json_protocol` flag.
+
+When using protobuf, the compilation requests are sent as
 [`WorkerRequest`](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/worker_protocol.proto)
 protocol buffers in standard binary format, and responses are similarly returned
 as
@@ -166,7 +175,15 @@ as
 protocol buffers. Each protocol buffer is preceded by its length in varint
 format (see
 [`MessageLite.writeDelimitedTo()`](https://developers.google.com/protocol-buffers/docs/reference/java/com/google/protobuf/MessageLite.html#writeDelimitedTo-java.io.OutputStream-).
-The request proto's `args` field should contain a list of strings that describe
+
+JSON requests uphold the same structure as the protobuf, but uses standard JSON.
+Bazel stores the requests as protobufs and converts them to JSON using
+[protobuf's JSON format](https://source.corp.google.com/piper///depot/google3/java/com/google/protobuf/util/JsonFormat.java)
+Responses are parsed by a JSON parser into the same structure as the
+WorkResponse protobuf, then converted to proto manually.
+JSON requests and responses are not preceded by a size indicator.
+
+The request's `args` field should contain a list of strings that describe
 the action to be done. The `inputs` field may contain input file names and their
 hash digests, allowing the caching of intermediate results without having to
 recompute the digest.
@@ -179,7 +196,10 @@ that should be logged should go to stderr. The wrapper should make sure that
 what the tool writes on stdout is appropriately redirected.
 
 To enable the `worker` strategy for an action, the `execution_requirements` for
-that action must include `{"supports-workers": "1"}`. You can also add a
+that action must include `{"supports-workers": "1"}`. It can also include a
+`requires-worker-protocol` requirement specifying whether Bazel should
+communicate with that worker using `json` or `proto`. This is required for JSON
+but is optional for proto since proto is the default. You can also add a
 `worker-key-mnemonic` to the `execution_requirements` section, allowing the
 mnemonic for workers to be separate from the mnemonic for the action. This can
 be useful when the same executable is used for several mnemonics, though it
@@ -194,7 +214,7 @@ argument starting with a literal `@`, start the argument with `@@` instead. If
 an argument is also an external repository label, it will not be considered a
 flag-file argument.
 
-This example shows a Starlark configuration:
+This example shows a Starlark configuration for a worker that uses JSON:
 
 ```python
 args_file = ctx.actions.declare_file(ctx.label.name + "_args_file")
@@ -208,10 +228,10 @@ ctx.actions.run(
     inputs = inputs,
     outputs = outputs,
     arguments = [ "-max_mem=4G",  "@%s" % args_file.path],
-    execution_requirements = { "supports-workers" : "1" }
+    execution_requirements = {
+        "supports-workers" : "1", "requires-worker-protocol" : "json" }
 )
 ```
-
 With this definition, the first use of this action would start with executing
 the command line `/bin/some_compiler -max_mem=4G --persistent_worker`. A request
 to compile `Foo.java` would then look like:
@@ -224,8 +244,22 @@ inputs: [
 ]
 ```
 
-The worker receives this in binary-encoded protobuffer format on `stdin`. The
-`WorkerKey` is derived from the mnemonic and the shared flags, so if this
+The worker receives this on stdin in JSON format (because
+"requires-worker-protocol" is set to JSON, and
+`--experimental_worker_allow_json_protocol` is passed to the build to enable
+this option). To communicate with the associated worker using binary-encoded
+protobuf instead of json, `requires-worker-protocol` would be set to `proto`,
+like this:
+```
+  execution_requirements = {
+    "supports-workers" : "1" ,
+    "requires-worker-protocol" : "proto"
+  }
+```
+If you do not include `requires-worker-protocol` in the execution requirements,
+Bazel will default the worker communication to use protobuf.
+
+Bazel derives the `WorkerKey` from the mnemonic and the shared flags, so if this
 configuration allowed changing the `max_mem` parameter, a separate worker would
 be spawned for each value used. This can lead to excessive memory consumption if
 too many variations are used.
@@ -244,8 +278,8 @@ Using the `worker` strategy by default does not run the action in a sandbox,
 similar to the `local` strategy. You can set the `--worker_sandboxing` flag to
 run all workers inside sandboxes, making sure each execution of the tool only
 sees the input files it's supposed to have. The tool may still leak information
-between requests internally, for instance through a cache. Using the
-experimental `dynamic` strategy
+between requests internally, for instance through a cache. Using `dynamic`
+strategy
 [requires workers to be sandboxed](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/exec/SpawnStrategyRegistry.java).
 
 To allow correct use of compiler caches with workers, a digest is passed along

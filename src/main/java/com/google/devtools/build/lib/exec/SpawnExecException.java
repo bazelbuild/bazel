@@ -14,19 +14,13 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Spawn;
-import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
-import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 
 /**
  * A specialization of {@link ExecException} that indicates something went wrong when trying to
@@ -42,7 +36,7 @@ public class SpawnExecException extends ExecException {
     checkArgument(
         !Status.SUCCESS.equals(result.status()),
         "Can't create exception with successful spawn result.");
-    this.result = Preconditions.checkNotNull(result);
+    this.result = checkNotNull(result);
     this.forciblyRunRemotely = forciblyRunRemotely;
   }
 
@@ -50,7 +44,7 @@ public class SpawnExecException extends ExecException {
   public SpawnExecException(
       String message, SpawnResult result, boolean forciblyRunRemotely, boolean catastrophe) {
     super(message, catastrophe);
-    this.result = Preconditions.checkNotNull(result);
+    this.result = checkNotNull(result);
     this.forciblyRunRemotely = forciblyRunRemotely;
   }
 
@@ -64,28 +58,12 @@ public class SpawnExecException extends ExecException {
   }
 
   @Override
-  public ActionExecutionException toActionExecutionException(String messagePrefix, Action action) {
-    if (messagePrefix == null) {
-      messagePrefix = action.describe();
-    }
-    String message =
-        result.getDetailMessage(messagePrefix, getMessage(), isCatastrophic(), forciblyRunRemotely);
-    return new ActionExecutionException(
-        message, this, action, isCatastrophic(), getDetailedExitCode());
+  protected String getMessageForActionExecutionException() {
+    return result.getDetailMessage(getMessage(), isCatastrophic(), forciblyRunRemotely);
   }
 
-  /** Return detailed exit code depending on the spawn result. */
-  private DetailedExitCode getDetailedExitCode() {
-    ExitCode exitCode =
-        result.status().isConsideredUserError() ? ExitCode.BUILD_FAILURE : ExitCode.REMOTE_ERROR;
-    if (result.failureDetail() == null) {
-      return DetailedExitCode.of(
-          exitCode,
-          FailureDetail.newBuilder()
-              .setMessage("spawn failed")
-              .setSpawn(Spawn.newBuilder().setCode(Code.UNSPECIFIED_EXECUTION_FAILURE))
-              .build());
-    }
-    return DetailedExitCode.of(exitCode, result.failureDetail());
+  @Override
+  protected FailureDetail getFailureDetail(String message) {
+    return checkNotNull(result.failureDetail(), this);
   }
 }

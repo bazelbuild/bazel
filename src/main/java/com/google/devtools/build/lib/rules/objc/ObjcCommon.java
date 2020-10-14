@@ -422,7 +422,10 @@ public final class ObjcCommon {
             .addPublicTextualHeaders(filterFileset(attributes.textualHdrs().toList()))
             .addDefines(attributes.defines())
             .addIncludes(
-                attributes.headerSearchPaths(buildConfiguration.getGenfilesFragment()).toList())
+                attributes
+                    .headerSearchPaths(
+                        buildConfiguration.getGenfilesFragment(context.getRepository()))
+                    .toList())
             .addIncludes(sdkIncludes);
       }
 

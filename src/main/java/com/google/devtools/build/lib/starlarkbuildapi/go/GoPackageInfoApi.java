@@ -14,17 +14,17 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.go;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /** Contains the metadata for a Go package. Used to generate .gopackage files. */
 @StarlarkBuiltin(
     name = "GoPackageInfo",
     doc = "",
     documented = false,
-    category = StarlarkDocumentationCategory.PROVIDER)
+    category = DocCategory.PROVIDER)
 public interface GoPackageInfoApi extends StructApi {
 
   /** Provider for GoPackageInfo objects. */

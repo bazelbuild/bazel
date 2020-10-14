@@ -156,7 +156,7 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
           configId =  configuration.getEventId().getConfiguration();
         }
         env.getListener().post(new AnalysisRootCauseEvent(configuration, label, e.getMessage()));
-        rootCauses.add(new AnalysisFailedCause(label, configId, e.getMessage()));
+        rootCauses.add(new AnalysisFailedCause(label, configId, e.getDetailedExitCode()));
         missingEdgeHook(fromTarget, entry.getKey(), label, e);
         continue;
       }

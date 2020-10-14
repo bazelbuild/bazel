@@ -147,6 +147,10 @@ public final class ScriptTest {
         } catch (SyntaxError.Exception ex) {
           // parser/resolver errors
           for (SyntaxError err : ex.errors()) {
+            // TODO(adonovan): don't allow expectations to match static errors;
+            // they should be a different test suite. It is dangerous to mix
+            // them in a chunk otherwise the presence of a static error causes
+            // the program not to run the dynamic assertions.
             if (!expected(expectations, err.message())) {
               System.err.println(err); // includes location
               ok = false;

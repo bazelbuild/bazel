@@ -37,6 +37,7 @@ import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.FileOptions;
@@ -64,8 +65,8 @@ public final class AllocationTrackerTest {
   private class SamplerValue implements HasBinary {
     @Override
     public Object binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
-      if (op == TokenKind.PLUS && thisLeft && that instanceof Integer) {
-        int size = (Integer) that;
+      if (op == TokenKind.PLUS && thisLeft && that instanceof StarlarkInt) {
+        int size = ((StarlarkInt) that).toIntUnchecked(); // test values are small
         Object obj = new Object();
         live.add(obj); // ensure that obj outlives the test assertions
         tracker.sampleAllocation(1, "", obj, size);

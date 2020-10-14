@@ -208,6 +208,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testStarlarkSymlinkFileFromRepository() throws Exception {
+    // This test creates a symbolic link BUILD -> bar.txt.
     scratch.file("/repo2/bar.txt", "filegroup(name='bar', srcs=['foo.txt'], path='foo')");
     scratch.file("/repo2/BUILD");
     scratch.file("/repo2/WORKSPACE");
@@ -513,5 +514,24 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
     invalidatePackages();
     getConfiguredTarget("//:x");
     assertContainsEvent("'repository rule repo' can only be called during workspace loading");
+  }
+
+  @Test
+  public void testPackageAndRepositoryNameFunctionsInExternalRepository() throws Exception {
+    // @foo repo
+    scratch.file("/foo/WORKSPACE", "!"); // why is this unread file needed?
+    scratch.file("/foo/p/BUILD", "print('repo='+repository_name()+' pkg='+package_name())");
+    // main repo
+    scratch.overwriteFile(
+        "WORKSPACE",
+        new ImmutableList.Builder<String>()
+            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
+            .add("local_repository(name='foo', path='/foo')")
+            .build());
+
+    invalidatePackages(); // why is this needed?
+
+    getConfiguredTarget("@foo//p:BUILD"); // (loadPackage(@foo//p) would suffice)
+    assertContainsEvent("repo=@foo pkg=p");
   }
 }

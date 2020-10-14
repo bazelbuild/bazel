@@ -17,6 +17,7 @@ package com.google.devtools.build.android.desugar.runtime;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.math.BigInteger;
 import java.util.Random;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -85,6 +86,26 @@ public class UnsignedLongsTest {
           dividend
               - (divisor * UnsignedLongs.divideUnsigned(dividend, divisor)
                   + UnsignedLongs.remainderUnsigned(dividend, divisor)));
+    }
+  }
+
+  @Test
+  public void testToString() {
+    String[] tests = {
+      "0",
+      "ffffffffffffffff",
+      "7fffffffffffffff",
+      "ff1a618b7f65ea12",
+      "5a4316b8c153ac4d",
+      "6cf78a4b139a4e2a"
+    };
+    int[] bases = {2, 5, 7, 8, 10, 16};
+    for (int base : bases) {
+      for (String x : tests) {
+        BigInteger xValue = new BigInteger(x, 16);
+        long xLong = xValue.longValue(); // signed
+        assertEquals(xValue.toString(base), UnsignedLongs.toString(xLong, base));
+      }
     }
   }
 }

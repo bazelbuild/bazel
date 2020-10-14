@@ -240,8 +240,8 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
 
     /**
      * Returns the environment and its group. An {@link Environment} rule only "supports" one
-     * environment: itself. Extract that from its more generic provider interface and sanity
-     * check that that's in fact what we see.
+     * environment: itself. Extract that from its more generic provider interface and check that
+     * it's in fact what we see.
      */
     private EnvironmentWithGroup resolveEnvironment(TransitiveInfoCollection envRule) {
       SupportedEnvironmentsProvider prereq =

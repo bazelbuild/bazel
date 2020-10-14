@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.OutputFilter.RegexOutputFilter;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
@@ -170,7 +171,8 @@ public class BuildViewTest extends BuildViewTestBase {
             ctad.getConfiguration()
                 .getBinDirectory(output.getLabel().getPackageIdentifier().getRepository()));
     assertThat(outputArtifact.getExecPath())
-        .isEqualTo(ctad.getConfiguration().getBinFragment().getRelative("pkg/a.out"));
+        .isEqualTo(
+            ctad.getConfiguration().getBinFragment(RepositoryName.MAIN).getRelative("pkg/a.out"));
     assertThat(outputArtifact.getRootRelativePath()).isEqualTo(PathFragment.create("pkg/a.out"));
 
     Action action = getGeneratingAction(outputArtifact);

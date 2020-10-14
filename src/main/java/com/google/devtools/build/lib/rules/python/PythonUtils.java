@@ -128,8 +128,7 @@ public final class PythonUtils {
               rootRelativePath));
       return null;
     }
-    ArtifactRoot root =
-        ruleContext.getConfiguration().getGenfilesDirectory(ruleContext.getRule().getRepository());
+    ArtifactRoot root = ruleContext.getGenfilesDirectory();
     return ruleContext.getDerivedArtifact(rootRelativePath, root);
   }
 

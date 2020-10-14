@@ -33,24 +33,20 @@ import net.starlark.java.annot.StarlarkMethod;
  */
 public final class StarlarkBuiltinDoc extends StarlarkDoc {
   private final StarlarkBuiltin module;
+  private final String title;
   private final Class<?> classObject;
   private final Multimap<String, StarlarkJavaMethodDoc> javaMethods;
   private TreeMap<String, StarlarkMethodDoc> methodMap;
-  private final String title;
   @Nullable private StarlarkConstructorMethodDoc javaConstructor;
 
-  public StarlarkBuiltinDoc(StarlarkBuiltin module, Class<?> classObject) {
+  public StarlarkBuiltinDoc(StarlarkBuiltin module, String title, Class<?> classObject) {
     this.module =
         Preconditions.checkNotNull(
             module, "Class has to be annotated with StarlarkBuiltin: %s", classObject);
+    this.title = title;
     this.classObject = classObject;
     this.methodMap = new TreeMap<>(Collator.getInstance(Locale.US));
     this.javaMethods = HashMultimap.<String, StarlarkJavaMethodDoc>create();
-    if (module.title().isEmpty()) {
-      this.title = module.name();
-    } else {
-      this.title = module.title();
-    }
   }
 
   @Override

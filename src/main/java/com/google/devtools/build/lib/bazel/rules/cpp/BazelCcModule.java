@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.BazelCcModuleApi;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Tuple;
@@ -129,7 +130,7 @@ public class BazelCcModule extends CcModule
       String language,
       String outputType,
       boolean linkDepsStatically,
-      int stamp,
+      StarlarkInt stamp,
       Sequence<?> additionalInputs, // <Artifact> expected
       Object grepIncludes,
       StarlarkThread thread)

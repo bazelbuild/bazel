@@ -68,6 +68,7 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
@@ -129,7 +130,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
             .value(Label.parseAbsolute("//default:label", ImmutableMap.of()))
             .build(),
         attr("my-labellist-attr", LABEL_LIST).mandatory().legacyAllowAnyFileType().build(),
-        attr("my-integer-attr", INTEGER).value(42).build(),
+        attr("my-integer-attr", INTEGER).value(StarlarkInt.of(42)).build(),
         attr("my-string-attr2", STRING).mandatory().value((String) null).build(),
         attr("my-stringlist-attr", STRING_LIST).build(),
         attr("my-sorted-stringlist-attr", STRING_LIST).orderIndependent().build());
@@ -194,7 +195,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     assertThat(ruleClassA.getAttribute(1).getDefaultValue(null))
         .isEqualTo(Label.parseAbsolute("//default:label", ImmutableMap.of()));
     assertThat(ruleClassA.getAttribute(2).getDefaultValue(null)).isEqualTo(Collections.emptyList());
-    assertThat(ruleClassA.getAttribute(3).getDefaultValue(null)).isEqualTo(42);
+    assertThat(ruleClassA.getAttribute(3).getDefaultValue(null)).isEqualTo(StarlarkInt.of(42));
     // default explicitly specified
     assertThat(ruleClassA.getAttribute(4).getDefaultValue(null)).isNull();
     assertThat(ruleClassA.getAttribute(5).getDefaultValue(null)).isEqualTo(Collections.emptyList());
@@ -386,7 +387,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     AttributeMap attributes = RawAttributeMapper.of(rule);
     assertThat(attributes.get("my-label-attr", BuildType.LABEL).toString())
         .isEqualTo("//default:label");
-    assertThat(attributes.get("my-integer-attr", Type.INTEGER).intValue()).isEqualTo(42);
+    assertThat(attributes.get("my-integer-attr", Type.INTEGER).toIntUnchecked()).isEqualTo(42);
     // missing attribute -> default chosen based on type
     assertThat(attributes.get("my-string-attr", Type.STRING)).isEmpty();
     assertThat(attributes.get("my-labellist-attr", BuildType.LABEL_LIST)).isEmpty();

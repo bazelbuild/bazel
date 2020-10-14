@@ -273,7 +273,7 @@ public final class DependencyModule {
   private void collectDependenciesFromArtifact(Path path) throws IOException {
     try (BufferedInputStream bis = new BufferedInputStream(Files.newInputStream(path))) {
       Dependencies deps = Dependencies.parseFrom(bis);
-      // Sanity check to make sure we have a valid proto.
+      // Quick check to make sure we have a valid proto.
       if (!deps.hasRuleLabel()) {
         throw new IOException("Could not parse Deps.Dependencies message from proto.");
       }

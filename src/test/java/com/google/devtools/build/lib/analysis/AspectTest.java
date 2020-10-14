@@ -622,7 +622,7 @@ public class AspectTest extends AnalysisTestCase {
         "extra_action(name='xa', cmd='echo dont-care')",
         "action_listener(name='listener', mnemonics=['Mnemonic'], extra_actions=[':xa'])");
 
-    // Sanity check: //x:d injects an aspect which produces some extra-action.
+    // Check: //x:d injects an aspect which produces some extra-action.
     {
       AnalysisResult analysisResult = update("//x:d");
 

@@ -14,23 +14,24 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.repository;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Starlark API for the repository_rule's context. */
 @StarlarkBuiltin(
     name = "repository_ctx",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc =
         "The context of the repository rule containing"
             + " helper functions and information about attributes. You get a repository_ctx object"
@@ -236,7 +237,6 @@ public interface StarlarkRepositoryContextApi<RepositoryFunctionExceptionT exten
                     + "execute."),
         @Param(
             name = "timeout",
-            type = Integer.class,
             named = true,
             defaultValue = "600",
             doc = "maximum duration of the command in seconds (default is 600 seconds)."),
@@ -263,7 +263,7 @@ public interface StarlarkRepositoryContextApi<RepositoryFunctionExceptionT exten
       })
   StarlarkExecutionResultApi execute(
       Sequence<?> arguments,
-      Integer timeout,
+      StarlarkInt timeout,
       Dict<?, ?> environment, // <String, String> expected
       boolean quiet,
       String workingDirectory,
@@ -313,12 +313,11 @@ public interface StarlarkRepositoryContextApi<RepositoryFunctionExceptionT exten
                     + "If it's a relative path, it will resolve to the repository directory."),
         @Param(
             name = "strip",
-            type = Integer.class,
             named = true,
             defaultValue = "0",
             doc = "strip the specified number of leading components from file names."),
       })
-  void patch(Object patchFile, Integer strip, StarlarkThread thread)
+  void patch(Object patchFile, StarlarkInt strip, StarlarkThread thread)
       throws EvalException, RepositoryFunctionExceptionT, InterruptedException;
 
   @StarlarkMethod(

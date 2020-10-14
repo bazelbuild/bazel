@@ -52,7 +52,7 @@ public class StringUtilitiesTest {
 
   // Tests of StringUtilities.combineKeys()
 
-  /** Simple sanity test of format */
+  /** Simple test of format */
   @Test
   public void combineKeysFormat() {
     assertThat(combineKeys("a", "b!c", "<d>")).isEqualTo("<a><b!!c><!<d!>>");

@@ -132,7 +132,7 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
     return of(
         ArrayType.valueOf(proto.getValueType()),
         proto.getListValueList(),
-        ImmutableMap.copyOf(proto.getAttribute()));
+        ImmutableMap.copyOf(proto.getAttributeMap()));
   }
 
   public static XmlResourceValue from(Value proto, Visibility visibility) {

@@ -162,7 +162,7 @@ skydoc_test(
     input_file = "testdata/filter_rules_test/input.bzl",
     symbol_names = [
         "my_rule",
-        "whitelisted_dep_rule",
+        "allowlisted_dep_rule",
     ],
     deps = [
         "testdata/filter_rules_test/dep.bzl",

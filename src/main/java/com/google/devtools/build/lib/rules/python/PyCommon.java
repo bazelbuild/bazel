@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
+import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OS;
@@ -596,7 +597,11 @@ public final class PyCommon {
       return false;
     } else {
       ruleContext.registerAction(
-          new FailAction(ruleContext.getActionOwner(), ImmutableList.of(executable), error));
+          new FailAction(
+              ruleContext.getActionOwner(),
+              ImmutableList.of(executable),
+              error,
+              Code.INCORRECT_PYTHON_VERSION));
       return true;
     }
   }

@@ -47,7 +47,7 @@ public class WorkerOptions extends OptionsBase {
   public Void experimentalPersistentJavac;
 
   @Option(
-      name = "experimental_allow_json_worker_protocol",
+      name = "experimental_worker_allow_json_protocol",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},

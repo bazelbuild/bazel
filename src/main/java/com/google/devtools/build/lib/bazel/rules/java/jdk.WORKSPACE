@@ -202,6 +202,42 @@ maybe(
 # This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     http_archive,
+    name = "remotejdk15_linux",
+    build_file = "@bazel_tools//tools/jdk:jdk.BUILD",
+    strip_prefix = "zulu15.27.17-ca-jdk15.0.0-linux_x64",
+    urls = [
+        "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu15.27.17-ca-jdk15.0.0-linux_x64.tar.gz",
+        "https://cdn.azul.com/zulu/bin/zulu15.27.17-ca-jdk15.0.0-linux_x64.tar.gz"
+    ],
+)
+
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    http_archive,
+    name = "remotejdk15_macos",
+    build_file = "@bazel_tools//tools/jdk:jdk.BUILD",
+    strip_prefix = "zulu15.27.17-ca-jdk15.0.0-macosx_x64",
+    urls = [
+        "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu15.27.17-ca-jdk15.0.0-macosx_x64.tar.gz",
+        "https://cdn.azul.com/zulu/bin/zulu15.27.17-ca-jdk15.0.0-macosx_x64.tar.gz",
+    ],
+)
+
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    http_archive,
+    name = "remotejdk15_win",
+    build_file = "@bazel_tools//tools/jdk:jdk.BUILD",
+    strip_prefix = "zulu15.27.17-ca-jdk15.0.0-win_x64",
+    urls = [
+        "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu15.27.17-ca-jdk15.0.0-win_x64.zip",
+        "https://cdn.azul.com/zulu/bin/zulu15.27.17-ca-jdk15.0.0-win_x64.zip"
+    ],
+)
+
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    http_archive,
     name = "remote_java_tools_linux",
     sha256 = "69e65353c2cd65780abcbcce4daae973599298273b0f8b4d469eed822cb220d1",
     urls = [

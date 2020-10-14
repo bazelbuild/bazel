@@ -25,6 +25,7 @@ import net.starlark.java.eval.ClassObject;
 import net.starlark.java.eval.Debug;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -66,6 +67,9 @@ final class DebuggerSerialization {
     }
     if (value instanceof Debug.ValueWithDebugAttributes) {
       return true;
+    }
+    if (value instanceof StarlarkInt) {
+      return false;
     }
     if (value instanceof ClassObject || value instanceof StarlarkValue) {
       // assuming ClassObject's have at least one child as a temporary optimization

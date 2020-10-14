@@ -301,7 +301,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   }
 
   protected String getAndroidJarPath() throws Exception {
-    return getAndroidSdk().getAndroidJar().getPackagePathString();
+    return getAndroidSdk().getAndroidJar().getExecPathString();
   }
 
   protected String getAndroidJarFilename() throws Exception {
@@ -313,7 +313,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   }
 
   protected String getMainDexClassesPath() throws Exception {
-    return getAndroidSdk().getMainDexClasses().getPackagePathString();
+    return getAndroidSdk().getMainDexClasses().getExecPathString();
   }
 
   protected String getMainDexClassesFilename() throws Exception {

@@ -514,7 +514,7 @@ final class ActionMetadataHandler implements MetadataHandler {
     }
 
     if (type.isSymlink()) {
-      // We never create a FileArtifactValue for an unresolved symlink without a digest (calling
+      // We always create a FileArtifactValue for an unresolved symlink with a digest (calling
       // readlink() is easy, unlike checksumming a potentially huge file).
       checkNotNull(fileDigest, "%s missing digest", value);
       return value;

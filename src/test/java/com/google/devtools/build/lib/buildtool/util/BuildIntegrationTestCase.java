@@ -28,7 +28,6 @@ import com.google.common.eventbus.SubscriberExceptionContext;
 import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -95,7 +94,6 @@ import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.CommandUtils;
-import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -137,22 +135,11 @@ public abstract class BuildIntegrationTestCase {
     }
 
     @Override
-    public ActionExecutionException toActionExecutionException(
-        String messagePrefix, Action action) {
-      String message = messagePrefix + getMessage();
-      // Append cause.getMessage() if it's different from getMessage(). It typically
-      // isn't but if it is we'd like to surface cause.getMessage() as part of the
-      // exception message.
-      if (getCause() != null && !getMessage().equals(getCause().getMessage())) {
-        message += ": " + getCause().getMessage();
-      }
-      // The detailed code doesn't matter, but it should be well-formed.
-      DetailedExitCode code =
-          DetailedExitCode.of(
-              FailureDetail.newBuilder()
-                  .setSpawn(Spawn.newBuilder().setCode(Code.NON_ZERO_EXIT))
-                  .build());
-      return new ActionExecutionException(message, getCause(), action, true, code);
+    protected FailureDetail getFailureDetail(String message) {
+      return FailureDetail.newBuilder()
+          .setSpawn(Spawn.newBuilder().setCode(Code.NON_ZERO_EXIT))
+          .setMessage(message)
+          .build();
     }
   }
 

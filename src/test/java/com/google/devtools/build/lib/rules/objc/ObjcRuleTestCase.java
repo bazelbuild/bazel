@@ -578,7 +578,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(provider.include())
         .containsExactly(
             PathFragment.create("x/incdir"),
-            getAppleCrosstoolConfiguration().getGenfilesFragment().getRelative("x/incdir"));
+            getAppleCrosstoolConfiguration()
+                .getGenfilesFragment(RepositoryName.MAIN)
+                .getRelative("x/incdir"));
   }
 
   protected void checkCompilesWithHdrs(RuleType ruleType) throws Exception {
@@ -954,8 +956,13 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       BuildConfiguration configuration, String... unrootedPaths) {
     ImmutableList.Builder<String> rootedPaths = new ImmutableList.Builder<>();
     for (String unrootedPath : unrootedPaths) {
-      rootedPaths.add(unrootedPath)
-          .add(configuration.getGenfilesFragment().getRelative(unrootedPath).getSafePathString());
+      rootedPaths
+          .add(unrootedPath)
+          .add(
+              configuration
+                  .getGenfilesFragment(RepositoryName.MAIN)
+                  .getRelative(unrootedPath)
+                  .getSafePathString());
     }
     return rootedPaths.build();
   }
@@ -1153,7 +1160,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   /** Returns the directory where objc modules will be cached. */
   protected String getModulesCachePath() throws InterruptedException {
-    return getAppleCrosstoolConfiguration().getGenfilesFragment()
+    return getAppleCrosstoolConfiguration().getGenfilesFragment(RepositoryName.MAIN)
         + "/"
         + CompilationSupport.OBJC_MODULE_CACHE_DIR_NAME;
   }
@@ -1780,7 +1787,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(getFirstArtifactEndingWith(linkAction.getInputs(),
         "package/libDylib2Lib.a")).isNull();
 
-    // Sanity check that the identical binary without dylibs would be fully linked.
+    // Check that the identical binary without dylibs would be fully linked.
     Action alternateLipobinAction = lipoBinAction("//package:alternate");
     Artifact alternateBinArtifact = getFirstArtifactEndingWith(alternateLipobinAction.getInputs(),
         "package/alternate_bin");

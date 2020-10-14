@@ -87,6 +87,7 @@ public class BazelAndroidLocalTestRule implements RuleDefinition {
         .cfg(
             new ConfigFeatureFlagTransitionFactory(AndroidFeatureFlagSetProvider.FEATURE_FLAG_ATTR))
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(environment))
+        .useToolchainTransition(true)
         .build();
   }
 

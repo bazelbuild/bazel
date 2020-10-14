@@ -60,7 +60,7 @@ public final class MockCppSemantics implements CppSemantics {
   }
 
   @Override
-  public boolean needsDotdInputPruning() {
+  public boolean needsDotdInputPruning(BuildConfiguration configuration) {
     return true;
   }
 

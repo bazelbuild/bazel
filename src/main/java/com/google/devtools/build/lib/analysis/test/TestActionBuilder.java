@@ -160,7 +160,7 @@ public final class TestActionBuilder {
     BuildConfiguration config = ruleContext.getConfiguration();
     TestConfiguration testConfiguration = config.getFragment(TestConfiguration.class);
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
-    ArtifactRoot root = config.getTestLogsDirectory(ruleContext.getRule().getRepository());
+    ArtifactRoot root = ruleContext.getTestLogsDirectory();
 
     // TODO(laszlocsomor), TODO(ulfjack): `isExecutedOnWindows` should use the execution platform,
     // not the host platform. Once Bazel can tell apart these platforms, fix the right side of this

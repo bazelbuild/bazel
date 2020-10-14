@@ -337,7 +337,7 @@ public class BazelJavaSemantics implements JavaSemantics {
                   + "\nexport TEST_RUNTIME_CLASSPATH_FILE=${JAVA_RUNFILES}"
                   + File.separator
                   + workspacePrefix
-                  + testRuntimeClasspathArtifact.getPackagePathString()));
+                  + testRuntimeClasspathArtifact.getRepositoryRelativePathString()));
     } else {
       arguments.add(
           new ComputedClasspathSubstitution(classpath, workspacePrefix, isRunfilesEnabled));
@@ -365,7 +365,7 @@ public class BazelJavaSemantics implements JavaSemantics {
                 "export JACOCO_METADATA_JAR=${JAVA_RUNFILES}/"
                     + workspacePrefix
                     + "/"
-                    + runtimeClassPathArtifact.getPackagePathString()));
+                    + runtimeClassPathArtifact.getRepositoryRelativePathString()));
       } else {
         // Remove the placeholder in the stub otherwise bazel coverage fails.
         arguments.add(Substitution.of(JavaSemantics.JACOCO_METADATA_PLACEHOLDER, ""));
@@ -436,7 +436,7 @@ public class BazelJavaSemantics implements JavaSemantics {
             .addJoinedValues(
                 "classpath",
                 ";",
-                Iterables.transform(classpath.toList(), Artifact.PACKAGE_PATH_STRING))
+                Iterables.transform(classpath.toList(), Artifact.OUTPUT_DIR_RELATIVE_PATH_STRING))
             // TODO(laszlocsomor): Change the Launcher to accept multiple jvm_flags entries. As of
             // 2019-02-13 the Launcher accepts just one jvm_flags entry, which contains all the
             // flags, joined by TAB characters. The Launcher splits up the string to get the
@@ -711,11 +711,11 @@ public class BazelJavaSemantics implements JavaSemantics {
       if (JavaSemantics.useLegacyJavaTest(ruleContext)) {
         TestConfiguration testConfiguration =
             ruleContext.getConfiguration().getFragment(TestConfiguration.class);
-        if (testConfiguration.getTestArguments().isEmpty()
+        if ((testConfiguration == null || testConfiguration.getTestArguments().isEmpty())
             && !ruleContext.attributes().isAttributeValueExplicitlySpecified("args")) {
           ImmutableList.Builder<String> builder = ImmutableList.builder();
           for (Artifact artifact : sources) {
-            PathFragment path = artifact.getPackagePath();
+            PathFragment path = artifact.getRepositoryRelativePath();
             String className = JavaUtil.getJavaFullClassname(FileSystemUtils.removeExtension(path));
             if (className != null) {
               builder.add(className);
@@ -759,5 +759,12 @@ public class BazelJavaSemantics implements JavaSemantics {
 
   @Override
   public void checkDependencyRuleKinds(RuleContext ruleContext) {}
+
+  @Override
+  public boolean shouldSetupJavaBuilderTemporaryDirectories() {
+    // TODO(cushon): remove after release of:
+    // https://github.com/bazelbuild/bazel/commit/2350239c39841a67162c1c3de042397d6c3771e4
+    return true;
+  }
 }
 

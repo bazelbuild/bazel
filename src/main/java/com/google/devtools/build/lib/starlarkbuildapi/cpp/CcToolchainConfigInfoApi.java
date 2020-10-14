@@ -14,16 +14,16 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 
 /** Additional layer of configurability for c++ rules through features and actions. */
 @StarlarkBuiltin(
     name = "CcToolchainConfigInfo",
-    category = StarlarkDocumentationCategory.PROVIDER,
+    category = DocCategory.PROVIDER,
     doc =
         "Additional layer of configurability for C++ rules. Encapsulates platform-dependent "
             + "specifics of C++ actions through features and action configs. It is used to "

@@ -310,7 +310,6 @@ java_library(
         "//src/main/protobuf:analysis_v2_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
-        "//third_party:error_prone_annotations",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -848,6 +847,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/causes",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:jsr305",
     ],
 )
@@ -1055,6 +1056,7 @@ java_library(
     name = "collect_packages_under_directory_function",
     srcs = ["CollectPackagesUnderDirectoryFunction.java"],
     deps = [
+        "process_package_directory",
         ":collect_packages_under_directory_value",
         ":recursive_directory_traversal_function",
         ":recursive_pkg_key",
@@ -1209,7 +1211,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/causes",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:jsr305",
     ],
 )
@@ -1521,6 +1524,8 @@ java_library(
     srcs = ["GlobFunction.java"],
     deps = [
         ":directory_listing_value",
+        ":file_symlink_infinite_expansion_exception",
+        ":file_symlink_infinite_expansion_uniqueness_function",
         ":glob_descriptor",
         ":glob_value",
         ":ignored_package_prefixes_value",
@@ -1610,7 +1615,7 @@ java_library(
         ":broken_diff_awareness_exception",
         ":diff_awareness",
         ":incompatible_view_exception",
-        "//src/main/java/com/google/devtools/build/lib/unix/jni",
+        "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
@@ -2017,6 +2022,8 @@ java_library(
         ":directory_listing_value",
         ":dirents",
         ":file_symlink_exception",
+        ":file_symlink_infinite_expansion_exception",
+        ":file_symlink_infinite_expansion_uniqueness_function",
         ":package_lookup_value",
         ":process_package_directory_result",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
@@ -2092,6 +2099,8 @@ java_library(
     deps = [
         ":action_execution_value",
         ":directory_listing_value",
+        ":file_symlink_infinite_expansion_exception",
+        ":file_symlink_infinite_expansion_uniqueness_function",
         ":package_lookup_value",
         ":sky_functions",
         ":tree_artifact_value",
@@ -2279,6 +2288,9 @@ java_library(
 java_library(
     name = "sane_analysis_exception",
     srcs = ["SaneAnalysisException.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
+    ],
 )
 
 java_library(

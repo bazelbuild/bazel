@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcCompilationContextApi;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkValue;
@@ -30,7 +30,7 @@ import net.starlark.java.eval.StarlarkValue;
  */
 @StarlarkBuiltin(
     name = "ObjcProvider",
-    category = StarlarkDocumentationCategory.PROVIDER,
+    category = DocCategory.PROVIDER,
     doc = "A provider for compilation and linking of objc.")
 public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue {
 

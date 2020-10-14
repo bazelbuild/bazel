@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -72,5 +73,13 @@ class AggregatingArtifactValue implements SkyValue {
   @Override
   public int hashCode() {
     return 31 * 31 * directoryInputs.hashCode() + 31 * fileInputs.hashCode() + metadata.hashCode();
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("fileInputs", fileInputs)
+        .add("directoryInputs", directoryInputs)
+        .toString();
   }
 }

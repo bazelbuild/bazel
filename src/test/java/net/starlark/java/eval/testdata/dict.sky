@@ -108,3 +108,7 @@ len in {} ### unhashable type: 'function'
 dict().get({}) ### unhashable type: 'dict'
 ---
 {1: 2}.get(len) ### unhashable type: 'function'
+---
+# For composite keys, the error message relates to the
+# unhashable subelement of the key, not the key itself.
+{(0, "", True, [0]): None} ### unhashable type: 'list'

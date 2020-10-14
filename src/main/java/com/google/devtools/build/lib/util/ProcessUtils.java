@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.util;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.windows.jni.WindowsProcesses;
+import com.google.devtools.build.lib.windows.WindowsProcesses;
 
 /**
  * OS Process related utilities.

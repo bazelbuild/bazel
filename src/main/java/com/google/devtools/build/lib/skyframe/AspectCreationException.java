@@ -17,9 +17,14 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
+import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import javax.annotation.Nullable;
 
 /** An exception indicating that there was a problem creating an aspect. */
@@ -29,30 +34,70 @@ public final class AspectCreationException extends Exception implements SaneAnal
   }
 
   private final NestedSet<Cause> causes;
+  // TODO(b/138456686): if warranted by a need for finer-grained details, replace the constructors
+  //  that specify the general Code.ASPECT_CREATION_FAILED
+  private final DetailedExitCode detailedExitCode;
 
-  public AspectCreationException(String message, NestedSet<Cause> causes) {
+  public AspectCreationException(
+      String message, NestedSet<Cause> causes, DetailedExitCode detailedExitCode) {
     super(message);
     this.causes = causes;
+    this.detailedExitCode = detailedExitCode;
+  }
+
+  public AspectCreationException(
+      String message,
+      Label currentTarget,
+      @Nullable BuildConfiguration configuration,
+      DetailedExitCode detailedExitCode) {
+    this(
+        message,
+        NestedSetBuilder.<Cause>stableOrder()
+            .add(new AnalysisFailedCause(currentTarget, toId(configuration), detailedExitCode))
+            .build(),
+        detailedExitCode);
   }
 
   public AspectCreationException(
       String message, Label currentTarget, @Nullable BuildConfiguration configuration) {
     this(
         message,
-        NestedSetBuilder.<Cause>stableOrder()
-            .add(new AnalysisFailedCause(currentTarget, toId(configuration), message))
-            .build());
+        currentTarget,
+        configuration,
+        createDetailedExitCode(message, Code.ASPECT_CREATION_FAILED));
+  }
+
+  public AspectCreationException(
+      String message, Label currentTarget, DetailedExitCode detailedExitCode) {
+    this(message, currentTarget, null, detailedExitCode);
   }
 
   public AspectCreationException(String message, Label currentTarget) {
-    this(message, currentTarget, null);
+    this(
+        message, currentTarget, null, createDetailedExitCode(message, Code.ASPECT_CREATION_FAILED));
   }
 
-  public AspectCreationException(String message, Cause cause) {
-    this(message, NestedSetBuilder.<Cause>stableOrder().add(cause).build());
+  public AspectCreationException(String message, LabelCause cause) {
+    this(
+        message,
+        NestedSetBuilder.<Cause>stableOrder().add(cause).build(),
+        cause.getDetailedExitCode());
   }
 
   public NestedSet<Cause> getCauses() {
     return causes;
+  }
+
+  @Override
+  public DetailedExitCode getDetailedExitCode() {
+    return detailedExitCode;
+  }
+
+  private static DetailedExitCode createDetailedExitCode(String message, Code code) {
+    return DetailedExitCode.of(
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setAnalysis(Analysis.newBuilder().setCode(code))
+            .build());
   }
 }

@@ -68,12 +68,6 @@ public class ExitCode {
   public static final ExitCode PERSISTENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR =
       ExitCode.create(45, "PERSISTENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR");
 
-  public static final ExitCode RESERVED = ExitCode.createInfrastructureFailure(40, "RESERVED");
-
-  /*
-    exit codes [50..60] and 253 are reserved for site specific wrappers to Bazel.
-   */
-
   /**
    * Creates and returns an ExitCode.  Requires a unique exit code number.
    *

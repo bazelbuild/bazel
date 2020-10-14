@@ -37,8 +37,8 @@ import org.junit.runners.JUnit4;
 /**
  * Simple tests for {@link BazelPackageLoader}.
  *
- * <p>Bazel's unit and integration tests do sanity checks with {@link BazelPackageLoader} under the
- * covers, so we get pretty exhaustive correctness tests for free.
+ * <p>Bazel's unit and integration tests do consistency checks with {@link BazelPackageLoader} under
+ * the covers, so we get pretty exhaustive correctness tests for free.
  */
 @RunWith(JUnit4.class)
 public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {

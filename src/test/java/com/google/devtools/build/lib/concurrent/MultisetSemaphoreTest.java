@@ -160,7 +160,7 @@ public class MultisetSemaphoreTest {
       Thread.currentThread().interrupt();
       throw new InterruptedException();
     }
-    // And the counters we used for sanity checks were correctly reset to 0.
+    // And the counters were correctly reset to 0.
     assertThat(numThreadsJustAfterAcquireInFirstRound.get()).isEqualTo(0);
     assertThat(numThreadsJustAfterAcquireInSecondRound.get()).isEqualTo(0);
     // And all M Runnables completed the second round.
