@@ -30,11 +30,13 @@ from collections import OrderedDict
 import multiprocessing
 import os
 import pipes  # swap to shlex once on Python 3
-import Queue
 import re
 import shutil
 import subprocess
 import threading
+
+from six.moves import queue as Queue  # pylint: disable=redefined-builtin
+from six.moves import xrange  # pylint: disable=redefined-builtin
 
 PRUNED_SRC_CONTENT = 'static int DUMMY_unused __attribute__((unused,used)) = 0;'
 

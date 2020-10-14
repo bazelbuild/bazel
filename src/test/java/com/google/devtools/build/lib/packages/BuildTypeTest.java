@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -139,7 +140,7 @@ public class BuildTypeTest {
             ConversionException.class,
             () ->
                 BuildType.LABEL_KEYED_STRING_DICT.convert(
-                    ImmutableMap.of(1, "OK"), null, currentRule));
+                    ImmutableMap.of(StarlarkInt.of(1), "OK"), null, currentRule));
     assertThat(expected)
         .hasMessageThat()
         .isEqualTo("expected value of type 'string' for dict key element, but got 1 (int)");
@@ -152,7 +153,7 @@ public class BuildTypeTest {
             ConversionException.class,
             () ->
                 BuildType.LABEL_KEYED_STRING_DICT.convert(
-                    ImmutableMap.of("//actually/a:label", 3), null, currentRule));
+                    ImmutableMap.of("//actually/a:label", StarlarkInt.of(3)), null, currentRule));
     assertThat(expected)
         .hasMessageThat()
         .isEqualTo("expected value of type 'string' for dict value element, but got 3 (int)");

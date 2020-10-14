@@ -98,7 +98,7 @@ public class CcToolchainProviderHelper {
     String purposePrefix = attributes.getPurposePrefix();
     String runtimeSolibDirBase = attributes.getRuntimeSolibDirBase();
     final PathFragment runtimeSolibDir =
-        configuration.getBinFragment().getRelative(runtimeSolibDirBase);
+        ruleContext.getBinFragment().getRelative(runtimeSolibDirBase);
     String solibDirectory = "_solib_" + toolchainConfigInfo.getTargetCpu();
     PathFragment defaultSysroot =
         CppConfiguration.computeDefaultSysroot(toolchainConfigInfo.getBuiltinSysroot());

@@ -48,6 +48,7 @@ public class FdoHelper {
     FdoInputFile fdoInputFile = null;
     FdoInputFile csFdoInputFile = null;
     FdoInputFile prefetchHints = null;
+    PropellerOptimizeInputFile propellerOptimizeInputFile = null;
     Artifact protoProfileArtifact = null;
     Pair<FdoInputFile, Artifact> fdoInputs = null;
     if (configuration.getCompilationMode() == CompilationMode.OPT) {
@@ -57,6 +58,13 @@ public class FdoHelper {
         FdoPrefetchHintsProvider provider = attributes.getFdoPrefetch();
         prefetchHints = provider.getInputFile();
       }
+      if (cppConfiguration
+              .getPropellerOptimizeLabelUnsafeSinceItCanReturnValueFromWrongConfiguration()
+          != null) {
+        PropellerOptimizeProvider provider = attributes.getPropellerOptimize();
+        propellerOptimizeInputFile = provider.getInputFile();
+      }
+
       if (cppConfiguration.getFdoPathUnsafeSinceItCanReturnValueFromWrongConfiguration() != null) {
         PathFragment fdoZip =
             cppConfiguration.getFdoPathUnsafeSinceItCanReturnValueFromWrongConfiguration();
@@ -205,7 +213,8 @@ public class FdoHelper {
           new FdoContext.BranchFdoProfile(branchFdoMode, profileArtifact, protoProfileArtifact);
     }
     Artifact prefetchHintsArtifact = getPrefetchHintsArtifact(prefetchHints, ruleContext);
-    return new FdoContext(branchFdoProfile, prefetchHintsArtifact);
+
+    return new FdoContext(branchFdoProfile, prefetchHintsArtifact, propellerOptimizeInputFile);
   }
 
   /**

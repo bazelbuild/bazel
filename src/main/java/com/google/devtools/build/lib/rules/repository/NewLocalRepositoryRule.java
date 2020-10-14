@@ -83,7 +83,7 @@ public class NewLocalRepositoryRule implements RuleDefinition {
         .build();
   }
 }
-/*<!-- #BLAZE_RULE (NAME = new_local_repository, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = new_local_repository, FAMILY = Workspace)[GENERIC_RULE] -->
 
 <p>Allows a local directory to be turned into a Bazel repository. This means that the current
   repository can define and use targets from anywhere on the filesystem.</p>

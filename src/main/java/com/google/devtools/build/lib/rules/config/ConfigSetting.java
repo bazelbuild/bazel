@@ -301,7 +301,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
           if (selectRestriction.isVisibleWithinToolsPackage()) {
             errorMessage +=
                 String.format(
-                    " (it is whitelisted to %s//tools/... only)",
+                    " (it is allowlisted to %s//tools/... only)",
                     getToolsRepository(ruleContext).getDefaultCanonicalForm());
           }
           if (selectRestriction.getErrorMessage() != null) {

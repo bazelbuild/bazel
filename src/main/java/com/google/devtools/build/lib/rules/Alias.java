@@ -107,7 +107,7 @@ public class Alias implements RuleConfiguredTargetFactory {
   }
 }
 
-/*<!-- #BLAZE_RULE (NAME = alias, TYPE = OTHER, FAMILY = General)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = alias, FAMILY = General)[GENERIC_RULE] -->
 
 <p>
   The <code>alias</code> rule creates another name a rule can be referred to as.

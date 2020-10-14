@@ -89,7 +89,7 @@ public final class BazelFilegroupRule implements RuleDefinition {
   }
 }
 
-/*<!-- #BLAZE_RULE (NAME = filegroup, TYPE = BINARY, FAMILY = General)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = filegroup, FAMILY = General)[GENERIC_RULE] -->
 
 <p>
   Use <code>filegroup</code> to give a convenient name to a collection of targets.

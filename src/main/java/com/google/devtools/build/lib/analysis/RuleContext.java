@@ -89,8 +89,12 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.SaneAnalysisException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -313,6 +317,30 @@ public final class RuleContext extends TargetContext
   @Override
   public ArtifactRoot getBinDirectory() {
     return getConfiguration().getBinDirectory(rule.getRepository());
+  }
+
+  public ArtifactRoot getIncludeDirectory() {
+    return getConfiguration().getIncludeDirectory(rule.getRepository());
+  }
+
+  public ArtifactRoot getGenfilesDirectory() {
+    return getConfiguration().getGenfilesDirectory(rule.getRepository());
+  }
+
+  public ArtifactRoot getCoverageMetadataDirectory() {
+    return getConfiguration().getCoverageMetadataDirectory(rule.getRepository());
+  }
+
+  public ArtifactRoot getTestLogsDirectory() {
+    return getConfiguration().getTestLogsDirectory(rule.getRepository());
+  }
+
+  public PathFragment getBinFragment() {
+    return getConfiguration().getBinFragment(rule.getRepository());
+  }
+
+  public PathFragment getGenfilesFragment() {
+    return getConfiguration().getGenfilesFragment(rule.getRepository());
   }
 
   @Override
@@ -916,7 +944,7 @@ public final class RuleContext extends TargetContext
       ImmutableList<String> transitionKeys = t.getTransitionKeys();
       if (transitionKeys.isEmpty()) {
         // The split transition is not active, i.e. does not change build configurations.
-        // TODO(jungjw): Investigate if we need to do a sanity check here.
+        // TODO(jungjw): Investigate if we need to do a check here.
         return ImmutableMap.of(Optional.absent(), deps);
       }
       for (String key : transitionKeys) {
@@ -1219,16 +1247,11 @@ public final class RuleContext extends TargetContext
   }
 
   public boolean targetPlatformHasConstraint(ConstraintValueInfo constraintValue) {
-    if (toolchainContexts == null
-        || toolchainContexts.getDefaultToolchainContext().targetPlatform() == null) {
+    if (toolchainContexts == null || toolchainContexts.getTargetPlatform() == null) {
       return false;
     }
     // All toolchain contexts should have the same target platform so we access via the default.
-    return toolchainContexts
-        .getDefaultToolchainContext()
-        .targetPlatform()
-        .constraints()
-        .hasConstraintValue(constraintValue);
+    return toolchainContexts.getTargetPlatform().constraints().hasConstraintValue(constraintValue);
   }
 
   public ConstraintSemantics<RuleContext> getConstraintSemantics() {
@@ -1337,6 +1360,15 @@ public final class RuleContext extends TargetContext
       implements SaneAnalysisException {
     InvalidExecGroupException(String message) {
       super(message);
+    }
+
+    @Override
+    public DetailedExitCode getDetailedExitCode() {
+      return DetailedExitCode.of(
+          FailureDetail.newBuilder()
+              .setMessage(getMessage())
+              .setAnalysis(Analysis.newBuilder().setCode(Code.EXEC_GROUP_MISSING))
+              .build());
     }
   }
 

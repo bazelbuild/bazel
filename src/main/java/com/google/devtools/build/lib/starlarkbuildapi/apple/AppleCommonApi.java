@@ -30,6 +30,7 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -361,6 +362,18 @@ public interface AppleCommonApi<
             positional = false,
             defaultValue = "[]",
             doc = "Extra files to pass to the linker action."),
+        @Param(
+            name = "stamp",
+            type = StarlarkInt.class,
+            named = true,
+            positional = false,
+            defaultValue = "-1",
+            doc =
+                "Whether to include build information in the linked binary. If 1, build "
+                    + "information is always included. If 0, build information is always excluded. "
+                    + "If -1 (the default), then the behavior is determined by the --[no]stamp "
+                    + "flag. This should be set to 0 when generating the executable output for "
+                    + "test rules.")
       },
       useStarlarkThread = true)
   // TODO(b/70937317): Iterate on, improve, and solidify this API.
@@ -368,6 +381,7 @@ public interface AppleCommonApi<
       StarlarkRuleContextT starlarkRuleContext,
       Sequence<?> extraLinkopts, // <String> expected.
       Sequence<?> extraLinkInputs, // <? extends FileApi> expected.
+      StarlarkInt stamp,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 

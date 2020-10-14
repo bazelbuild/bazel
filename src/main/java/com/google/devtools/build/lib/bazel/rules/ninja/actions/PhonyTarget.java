@@ -25,9 +25,19 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 /**
- * Helper class to represent "evaluated" phony target: it contains the List with direct non-phony
- * inputs to the phony target (PathFragments), the list with direct phony inputs; and it contains
- * the flag whether this phony target is always dirty, i.e. must be rebuild each time.
+ * Helper class to represent "evaluated" Ninja phony target.
+ *
+ * <p>"phony" is a special rule in Ninja that behaves somewhat like an alias for targets.
+ *
+ * <p>e.g. `build foo: phony bar/qux.txt` makes `foo` a phony target for the `bar/qux.txt` non-phony
+ * target, so `ninja foo` will run the commands that build `bar/qux.txt`. For more information, see
+ * the docs for Ninja phony targets:
+ *
+ * <p>https://ninja-build.org/manual.html#_the_literal_phony_literal_rule
+ *
+ * <p>A PhonyTarget contains the List with direct non-phony inputs to the phony target
+ * (PathFragments), the list with direct phony inputs; and it contains the flag whether this phony
+ * target is always dirty, i.e. must be rebuild each time.
  *
  * <p>Always-dirty phony targets are those which do not have any inputs: "build alias: phony". All
  * non-phony direct dependants of those actions automatically also always-dirty (but not the

@@ -26,7 +26,6 @@ import java.util.regex.Pattern;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 
 /**
@@ -40,7 +39,7 @@ import net.starlark.java.annot.StarlarkMethod;
  */
 @StarlarkBuiltin(
     name = "string",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = "core",
     doc =
         "A language built-in type to support strings. "
             + "Examples of string literals:<br>"
@@ -273,7 +272,7 @@ final class StringModule implements StarlarkValue {
         @Param(name = "new", type = String.class, doc = "The string to replace with."),
         @Param(
             name = "count",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true, // TODO(#11244): Set false once incompatible flag is deleted.
             defaultValue = "unbound",
             doc =
@@ -298,13 +297,16 @@ final class StringModule implements StarlarkValue {
                 + "can temporarily opt out of this change by setting "
                 + "--incompatible_string_replace_count=false.)");
       }
-      if (countUnchecked != Starlark.UNBOUND && (Integer) countUnchecked >= 0) {
-        count = (Integer) countUnchecked;
+      if (countUnchecked != Starlark.UNBOUND) {
+        int x = Starlark.toInt(countUnchecked, "count");
+        if (x >= 0) {
+          count = x;
+        }
       }
     } else {
       if (countUnchecked != Starlark.UNBOUND && countUnchecked != Starlark.NONE) {
         // Negative has same effect as 0 below.
-        count = (Integer) countUnchecked;
+        count = Starlark.toInt(countUnchecked, "count");
       }
     }
 
@@ -341,7 +343,7 @@ final class StringModule implements StarlarkValue {
         @Param(name = "sep", type = String.class, doc = "The string to split on."),
         @Param(
             name = "maxsplit",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "None",
             doc = "The maximum number of splits.")
@@ -354,7 +356,7 @@ final class StringModule implements StarlarkValue {
     }
     int maxSplit = Integer.MAX_VALUE;
     if (maxSplitO != Starlark.NONE) {
-      maxSplit = (Integer) maxSplitO;
+      maxSplit = Starlark.toInt(maxSplitO, "maxsplit");
     }
     ArrayList<String> res = new ArrayList<>();
     int start = 0;
@@ -381,7 +383,7 @@ final class StringModule implements StarlarkValue {
         @Param(name = "sep", type = String.class, doc = "The string to split on."),
         @Param(
             name = "maxsplit",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "None",
             doc = "The maximum number of splits.")
@@ -394,7 +396,7 @@ final class StringModule implements StarlarkValue {
     }
     int maxSplit = Integer.MAX_VALUE;
     if (maxSplitO != Starlark.NONE) {
-      maxSplit = (Integer) maxSplitO;
+      maxSplit = Starlark.toInt(maxSplitO, "maxsplit");
     }
     ArrayList<String> res = new ArrayList<>();
     int end = self.length();
@@ -546,13 +548,13 @@ final class StringModule implements StarlarkValue {
         @Param(name = "sub", type = String.class, doc = "The substring to find."),
         @Param(
             name = "start",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
             name = "end",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
@@ -572,13 +574,13 @@ final class StringModule implements StarlarkValue {
         @Param(name = "sub", type = String.class, doc = "The substring to find."),
         @Param(
             name = "start",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
             name = "end",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
@@ -598,13 +600,13 @@ final class StringModule implements StarlarkValue {
         @Param(name = "sub", type = String.class, doc = "The substring to find."),
         @Param(
             name = "start",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
             name = "end",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
@@ -628,13 +630,13 @@ final class StringModule implements StarlarkValue {
         @Param(name = "sub", type = String.class, doc = "The substring to find."),
         @Param(
             name = "start",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
             name = "end",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
@@ -821,13 +823,13 @@ final class StringModule implements StarlarkValue {
         @Param(name = "sub", type = String.class, doc = "The substring to count."),
         @Param(
             name = "start",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
             name = "end",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
@@ -882,13 +884,13 @@ final class StringModule implements StarlarkValue {
             doc = "The suffix (or tuple of alternative suffixes) to match."),
         @Param(
             name = "start",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "0",
             doc = "Test beginning at this position."),
         @Param(
             name = "end",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "None",
             doc = "optional position at which to stop comparing.")
@@ -969,13 +971,13 @@ final class StringModule implements StarlarkValue {
             doc = "The prefix (or tuple of alternative prefixes) to match."),
         @Param(
             name = "start",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "0",
             doc = "Test beginning at this position."),
         @Param(
             name = "end",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "None",
             doc = "Stop comparing at this position.")

@@ -424,6 +424,14 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
       super(STARLARK_NAME, JavaInfo.class);
     }
 
+    private void checkSequenceOfJavaInfo(Sequence<?> seq, String field) throws EvalException {
+      for (Object v : seq) {
+        if (!(v instanceof JavaInfo)) {
+          throw Starlark.errorf("Expected 'sequence of JavaInfo' for '%s'", field);
+        }
+      }
+    }
+
     @Override
     @SuppressWarnings({"unchecked"})
     public JavaInfo javaInfo(
@@ -444,6 +452,9 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
       if (compileJar == null) {
         throw Starlark.errorf("Expected 'File' for 'compile_jar', found 'None'");
       }
+      checkSequenceOfJavaInfo(deps, "deps");
+      checkSequenceOfJavaInfo(runtimeDeps, "runtime_deps");
+      checkSequenceOfJavaInfo(exports, "exports");
       return JavaInfoBuildHelper.getInstance()
           .createJavaInfo(
               outputJar,

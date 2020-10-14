@@ -55,16 +55,21 @@ toolchain(
 
 java_runtime(name = "dummy_java_runtime")
 
+# Points to toolchain[":runtime_toolchain_type"] (was :legacy_current_java_runtime)
 java_runtime_alias(name = "current_java_runtime")
 
+# Host configuration of ":current_java_runtime"
 java_host_runtime_alias(name = "current_host_java_runtime")
 
+# Points to toolchain[":toolchain_type"] (was :legacy_current_java_toolchain)
 java_toolchain_alias(name = "current_java_toolchain")
 
 # This exists to support the migration to toolchain resolution.
 # TODO(cushon): delete once the migration is complete.
+# Points to --javabase/--host_javabase, defaults ":jdk"/":remote_jdk11"
 legacy_java_runtime_alias(name = "legacy_current_java_runtime")
 
+# Points to --java_toolchain/--host_java_toolchain, defaults ":toolchain"/":remote_toolchain"
 legacy_java_toolchain_alias(name = "legacy_current_java_toolchain")
 
 # Used to set --host_javabase or --javabase to a local JDK without having to define
@@ -435,6 +440,7 @@ filegroup(
         "default_java_toolchain.bzl",
         "fail_rule.bzl",
         "java_toolchain_alias.bzl",
+        "java_toolchain_default.bzl",
         "jdk.BUILD",
         "local_java_repository.bzl",
         "nosystemjdk/README",

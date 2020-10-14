@@ -27,7 +27,10 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 @AutoCodec
 public class FdoContext implements TransitiveInfoProvider {
   public static FdoContext getDisabledContext() {
-    return new FdoContext(/* branchFdoProfile= */ null, /* prefetchHintsArtifact= */ null);
+    return new FdoContext(
+        /* branchFdoProfile= */ null,
+        /* prefetchHintsArtifact= */ null,
+        /* propellerOptimizeInputFile= */ null);
   }
 
   /** The Branch FDO mode we are operating in. */
@@ -86,11 +89,16 @@ public class FdoContext implements TransitiveInfoProvider {
 
   private final BranchFdoProfile branchFdoProfile;
   private final Artifact prefetchHintsArtifact;
+  private final PropellerOptimizeInputFile propellerOptimizeInputFile;
 
   @AutoCodec.Instantiator
-  public FdoContext(BranchFdoProfile branchFdoProfile, Artifact prefetchHintsArtifact) {
+  public FdoContext(
+      BranchFdoProfile branchFdoProfile,
+      Artifact prefetchHintsArtifact,
+      PropellerOptimizeInputFile propellerOptimizeInputFile) {
     this.branchFdoProfile = branchFdoProfile;
     this.prefetchHintsArtifact = prefetchHintsArtifact;
+    this.propellerOptimizeInputFile = propellerOptimizeInputFile;
   }
 
   public BranchFdoProfile getBranchFdoProfile() {
@@ -101,11 +109,17 @@ public class FdoContext implements TransitiveInfoProvider {
     return prefetchHintsArtifact;
   }
 
+  public PropellerOptimizeInputFile getPropellerOptimizeInputFile() {
+    return propellerOptimizeInputFile;
+  }
+
   boolean hasArtifacts(CppConfiguration cppConfiguration) {
     if (cppConfiguration.isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
       // We don't want FDO for host configuration
       return false;
     }
-    return getBranchFdoProfile() != null || getPrefetchHintsArtifact() != null;
+    return getBranchFdoProfile() != null
+        || getPrefetchHintsArtifact() != null
+        || getPropellerOptimizeInputFile() != null;
   }
 }

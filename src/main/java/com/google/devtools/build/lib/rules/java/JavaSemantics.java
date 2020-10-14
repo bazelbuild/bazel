@@ -320,9 +320,19 @@ public interface JavaSemantics {
    */
   boolean isJavaExecutableSubstitution();
 
+  /**
+   * Returns true if target is a test target, has TestConfiguration, and persistent test runner set.
+   *
+   * <p>Note that no TestConfiguration implies the TestConfiguration was pruned in some parent of
+   * the rule. Therefore, TestTarget not currently being analyzed as part of top-level and thus
+   * persistent test runner is not especially relevant.
+   */
   static boolean isTestTargetAndPersistentTestRunner(RuleContext ruleContext) {
-    return ruleContext.isTestTarget()
-        && ruleContext.getFragment(TestConfiguration.class).isPersistentTestRunner();
+    if (!ruleContext.isTestTarget()) {
+      return false;
+    }
+    TestConfiguration testConfiguration = ruleContext.getFragment(TestConfiguration.class);
+    return testConfiguration != null && testConfiguration.isPersistentTestRunner();
   }
 
   static Runfiles getTestSupportRunfiles(RuleContext ruleContext) {
@@ -501,4 +511,6 @@ public interface JavaSemantics {
   Artifact getObfuscatedConstantStringMap(RuleContext ruleContext) throws InterruptedException;
 
   void checkDependencyRuleKinds(RuleContext ruleContext);
+
+  boolean shouldSetupJavaBuilderTemporaryDirectories();
 }

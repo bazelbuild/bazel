@@ -42,13 +42,13 @@ import javax.annotation.Nullable;
  * <p>Note, code in this class must be extremely robust. There's nothing worse than a crash-handler
  * that itself crashes!
  */
-public abstract class BugReport {
+public final class BugReport {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   static final BugReporter REPORTER_INSTANCE = new DefaultBugReporter();
 
-  private static BlazeVersionInfo versionInfo = BlazeVersionInfo.instance();
+  private static final BlazeVersionInfo VERSION_INFO = BlazeVersionInfo.instance();
 
   private static BlazeRuntimeInterface runtime = null;
 
@@ -123,7 +123,7 @@ public abstract class BugReport {
       throw new IllegalStateException(
           "Bug reports in tests should crash: " + args + ", " + Arrays.toString(values), exception);
     }
-    if (!versionInfo.isReleasedBlaze()) {
+    if (!VERSION_INFO.isReleasedBlaze()) {
       logger.atInfo().log("(Not a released binary; not logged.)");
       return;
     }
@@ -140,7 +140,7 @@ public abstract class BugReport {
   }
 
   private static void logThrowableToConsole(Throwable throwable) {
-    BugReport.printBug(OutErr.SYSTEM_OUT_ERR, throwable, /* oomMessage = */ null);
+    BugReport.printBug(OutErr.SYSTEM_OUT_ERR, throwable, /*oomMessage=*/ null);
     System.err.println("ERROR: " + getProductName() + " crash in async thread:");
     throwable.printStackTrace();
   }
@@ -206,11 +206,12 @@ public abstract class BugReport {
         } else {
           logThrowableToConsole(throwable);
         }
+        // TODO(b/167592709): remove verbose logging when bug resolved.
+        logger.atInfo().log("Finished logging crash, runtime: %s", runtime);
         try {
           if (runtime != null) {
             runtime.cleanUpForCrash(detailedExitCode);
           }
-          // TODO(b/167592709): remove verbose logging when bug resolved.
           logger.atInfo().log("Finished runtime cleanup");
           CustomExitCodePublisher.maybeWriteExitStatusFile(numericExitCode);
           logger.atInfo().log("Wrote exit status file");
@@ -251,13 +252,6 @@ public abstract class BugReport {
     throw new IllegalStateException("never get here", throwable);
   }
 
-  /** Get exit code corresponding to throwable. */
-  public static ExitCode getExitCodeForThrowable(Throwable throwable) {
-    return (Throwables.getRootCause(throwable) instanceof OutOfMemoryError)
-        ? ExitCode.OOM_ERROR
-        : ExitCode.BLAZE_INTERNAL_ERROR;
-  }
-
   private static void printThrowableTo(OutErr outErr, Throwable e) {
     PrintStream err = new PrintStream(outErr.getErrorStream());
     e.printStackTrace(err);
@@ -271,18 +265,17 @@ public abstract class BugReport {
    * @param outErr where to write the output
    * @param e the exception thrown
    */
-  public static void printBug(OutErr outErr, Throwable e, String oomMessage) {
+  public static void printBug(OutErr outErr, Throwable e, @Nullable String oomMessage) {
     if (e instanceof OutOfMemoryError) {
-      outErr.printErr(
-          e.getMessage()
-              + "\n\nERROR: "
-              + getProductName()
-              + " ran out of memory and crashed."
-              + (isNullOrEmpty(oomMessage) ? "" : (" " + oomMessage))
-              + "\n");
+      outErr.printErr("ERROR: " + constructOomExitMessage(oomMessage));
     } else {
       printThrowableTo(outErr, e);
     }
+  }
+
+  public static String constructOomExitMessage(@Nullable String extraInfo) {
+    String msg = getProductName() + " ran out of memory and crashed.";
+    return isNullOrEmpty(extraInfo) ? msg : msg + " " + extraInfo;
   }
 
   /**

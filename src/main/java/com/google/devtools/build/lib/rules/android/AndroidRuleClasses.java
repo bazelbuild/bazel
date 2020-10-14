@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkInt;
 
 /** Rule definitions for Android rules. */
 public final class AndroidRuleClasses {
@@ -804,7 +805,7 @@ public final class AndroidRuleClasses {
           Note that each shard will result in at least one dex in the final app. For this reason,
           setting this to more than 1 is not recommended for release binaries.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("dex_shards", INTEGER).value(1))
+          .add(attr("dex_shards", INTEGER).value(StarlarkInt.of(1)))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(incremental_dexing) -->
           Force the target to be built with or without incremental dexing, overriding defaults
           and --incremental_dexing flag.

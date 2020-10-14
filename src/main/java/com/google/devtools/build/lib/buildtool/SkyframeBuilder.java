@@ -20,6 +20,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
@@ -50,6 +51,7 @@ import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.Builder;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TopDownActionCache;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -76,6 +78,7 @@ import javax.annotation.Nullable;
  */
 @VisibleForTesting
 public class SkyframeBuilder implements Builder {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final ResourceManager resourceManager;
   private final SkyframeExecutor skyframeExecutor;
@@ -276,22 +279,42 @@ public class SkyframeBuilder implements Builder {
         //   2. First non-infrastructure error with non-null exit code
         //   3. If the build fails but no interpretable error is specified, BUILD_FAILURE.
         DetailedExitCode detailedExitCode = null;
+        Throwable undetailedCause = null;
         for (Map.Entry<SkyKey, ErrorInfo> error : result.errorMap().entrySet()) {
           Throwable cause = error.getValue().getException();
-          if (cause instanceof ActionExecutionException) {
+          if (cause instanceof DetailedException) {
             // Update global exit code when current exit code is not null and global exit code has
             // a lower 'reporting' priority.
             detailedExitCode =
                 DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
-                    detailedExitCode, ((ActionExecutionException) cause).getDetailedExitCode());
+                    detailedExitCode, ((DetailedException) cause).getDetailedExitCode());
+            if (!(cause instanceof ActionExecutionException)
+                && !(cause instanceof MissingInputFileException)) {
+              logger.atWarning().withCause(cause).log(
+                  "Non-action-execution/missing-input exception for %s", error);
+            }
+          } else {
+            undetailedCause = cause;
           }
         }
-
-        return detailedExitCode != null
-            ? detailedExitCode
-            : createDetailedExitCode(
-                "keep_going execution failed without an action failure",
-                Code.NON_ACTION_EXECUTION_FAILURE);
+        if (detailedExitCode != null) {
+          return detailedExitCode;
+        }
+        if (undetailedCause == null) {
+          logger.atWarning().log("No exceptions found despite error in %s", result);
+          return createDetailedExitCode(
+              "keep_going execution failed without an action failure",
+              Code.NON_ACTION_EXECUTION_FAILURE);
+        }
+        logger.atWarning().withCause(undetailedCause).log(
+            "No detailed exception found in %s", result);
+        return createDetailedExitCode(
+            "keep_going execution failed without an action failure: "
+                + undetailedCause.getMessage()
+                + " ("
+                + undetailedCause.getClass().getSimpleName()
+                + ")",
+            Code.NON_ACTION_EXECUTION_FAILURE);
       }
       ErrorInfo errorInfo = Preconditions.checkNotNull(result.getError(), result);
       Exception exception = errorInfo.getException();

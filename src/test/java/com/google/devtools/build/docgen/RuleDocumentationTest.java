@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.docgen.DocgenConsts.RuleType;
 import com.google.devtools.build.docgen.testutil.TestData.TestRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -181,5 +182,18 @@ public class RuleDocumentationTest {
   public void testHashCode() throws BuildEncyclopediaDocException {
     assertThat(new RuleDocumentation("rule", "OTHER", "FOO", "y", 0, "", NO_FLAGS).hashCode())
         .isEqualTo(new RuleDocumentation("rule", "OTHER", "FOO", "x", 0, "", NO_FLAGS).hashCode());
+  }
+
+  @Test
+  public void testRuleTypeIsOtherForGenericRules() throws Exception {
+    assertThat(
+            new RuleDocumentation(
+                    "rule", "BINARY", "FOO", "y", 0, "", ImmutableSet.of("GENERIC_RULE"))
+                .getRuleType())
+        .isEqualTo(RuleType.OTHER);
+    assertThat(
+            new RuleDocumentation("rule", null, "FOO", "y", 0, "", ImmutableSet.of("GENERIC_RULE"))
+                .getRuleType())
+        .isEqualTo(RuleType.OTHER);
   }
 }

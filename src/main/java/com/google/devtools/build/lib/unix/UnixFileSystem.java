@@ -408,8 +408,8 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   protected byte[] getFastDigest(Path path) throws IOException {
-    // Attempt to obtain the digest from an extended attribute attached to the file. This prevents
-    // the checksum from being recomputed unnecessarily.
+    // Attempt to obtain the digest from an extended attribute attached to the file. This is much
+    // faster than reading and digesting the file's contents on the fly, especially for large files.
     return hashAttributeName.isEmpty() ? null : getxattr(path, hashAttributeName, true);
   }
 

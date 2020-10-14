@@ -415,7 +415,7 @@ public final class InvocationPolicyEnforcer {
       List<String> subflagValue,
       OptionInstanceOrigin subflagOrigin,
       FlagPolicyWithContext originalPolicy) {
-    // Some sanity checks.
+    // Some checks.
     OptionDefinition subflag = subflagDesc.getOptionDefinition();
     Verify.verify(originalPolicy.policy.getOperationCase().equals(OperationCase.SET_VALUE));
     if (!subflag.allowsMultiple()) {

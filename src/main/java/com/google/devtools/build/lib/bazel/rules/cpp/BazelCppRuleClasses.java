@@ -108,6 +108,7 @@ public class BazelCppRuleClasses {
           .setPreferredDependencyPredicate(Predicates.<String>or(CPP_SOURCE, C_SOURCE, CPP_HEADER))
           .requiresConfigurationFragments(PlatformConfiguration.class)
           .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
+          .useToolchainTransition(true)
           .build();
     }
 

@@ -42,6 +42,9 @@ import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
@@ -64,6 +67,11 @@ import org.mockito.MockitoAnnotations;
 @RunWith(JUnit4.class)
 @TestSpec(size = Suite.SMALL_TESTS)
 public class AbstractSpawnStrategyTest {
+  private static final FailureDetail NON_ZERO_EXIT_DETAILS =
+      FailureDetail.newBuilder()
+          .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.NON_ZERO_EXIT))
+          .build();
+
   private static class TestedSpawnStrategy extends AbstractSpawnStrategy {
     public TestedSpawnStrategy(Path execRoot, SpawnRunner spawnRunner) {
       super(execRoot, spawnRunner, /*verboseFailures=*/ true);
@@ -116,6 +124,7 @@ public class AbstractSpawnStrategyTest {
         new SpawnResult.Builder()
             .setStatus(Status.NON_ZERO_EXIT)
             .setExitCode(1)
+            .setFailureDetail(NON_ZERO_EXIT_DETAILS)
             .setRunnerName("test")
             .build();
     when(spawnRunner.execAsync(any(Spawn.class), any(SpawnExecutionContext.class)))
@@ -188,6 +197,7 @@ public class AbstractSpawnStrategyTest {
         new SpawnResult.Builder()
             .setStatus(Status.NON_ZERO_EXIT)
             .setExitCode(1)
+            .setFailureDetail(NON_ZERO_EXIT_DETAILS)
             .setRunnerName("test")
             .build();
     when(spawnRunner.execAsync(any(Spawn.class), any(SpawnExecutionContext.class)))
@@ -383,6 +393,7 @@ public class AbstractSpawnStrategyTest {
                 new SpawnResult.Builder()
                     .setStatus(Status.NON_ZERO_EXIT)
                     .setExitCode(23)
+                    .setFailureDetail(NON_ZERO_EXIT_DETAILS)
                     .setRunnerName("runner")
                     .build()));
     when(actionExecutionContext.getMetadataProvider()).thenReturn(mock(MetadataProvider.class));

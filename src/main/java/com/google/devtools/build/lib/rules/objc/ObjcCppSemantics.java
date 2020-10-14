@@ -107,7 +107,7 @@ public class ObjcCppSemantics implements CppSemantics {
   }
 
   @Override
-  public boolean needsDotdInputPruning() {
+  public boolean needsDotdInputPruning(BuildConfiguration configuration) {
     return config.getDotdPruningPlan() == DotdPruningMode.USE;
   }
 

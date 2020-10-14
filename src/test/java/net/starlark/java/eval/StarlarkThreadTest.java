@@ -41,10 +41,10 @@ public final class StarlarkThreadTest {
   @Test
   public void testDoubleUpdateSucceeds() throws Exception {
     assertThat(ev.lookup("VERSION")).isNull();
-    ev.update("VERSION", 42);
-    assertThat(ev.lookup("VERSION")).isEqualTo(42);
-    ev.update("VERSION", 43);
-    assertThat(ev.lookup("VERSION")).isEqualTo(43);
+    ev.update("VERSION", StarlarkInt.of(42));
+    assertThat(ev.lookup("VERSION")).isEqualTo(StarlarkInt.of(42));
+    ev.update("VERSION", StarlarkInt.of(43));
+    assertThat(ev.lookup("VERSION")).isEqualTo(StarlarkInt.of(43));
   }
 
   // Test assign through interpreter, ev.lookup through API:
@@ -87,7 +87,7 @@ public final class StarlarkThreadTest {
       StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
       Starlark.execFile(ParserInput.fromLines("True = 123"), FileOptions.DEFAULT, module, thread);
     }
-    assertThat(module.getGlobal("True")).isEqualTo(123);
+    assertThat(module.getGlobal("True")).isEqualTo(StarlarkInt.of(123));
   }
 
   @Test

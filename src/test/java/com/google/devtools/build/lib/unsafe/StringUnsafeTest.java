@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.unsafe;
 import static com.google.common.truth.Truth.assertThat;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -44,8 +45,14 @@ public class StringUnsafeTest {
     StringUnsafe stringUnsafe = StringUnsafe.getInstance();
     assertThat(ByteBuffer.wrap(stringUnsafe.getByteArray("hello")))
         .isEqualTo(StandardCharsets.ISO_8859_1.encode("hello"));
-    assertThat(ByteBuffer.wrap(stringUnsafe.getByteArray("lambda λ")))
-        .isEqualTo(StandardCharsets.UTF_16LE.encode("lambda λ"));
+
+    if (ByteOrder.nativeOrder().equals(ByteOrder.BIG_ENDIAN)) {
+      assertThat(ByteBuffer.wrap(stringUnsafe.getByteArray("lambda λ")))
+          .isEqualTo(StandardCharsets.UTF_16BE.encode("lambda λ"));
+    } else {
+      assertThat(ByteBuffer.wrap(stringUnsafe.getByteArray("lambda λ")))
+          .isEqualTo(StandardCharsets.UTF_16LE.encode("lambda λ"));
+    }
   }
 
   @Test

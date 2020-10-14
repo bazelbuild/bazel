@@ -74,15 +74,15 @@ public class ConfigSettingTest extends BuildViewTestCase {
         OptionsParser.getOptionDefinitionByName(DummyTestOptions.class, "nonselectable_option");
 
     @Option(
-        name = "nonselectable_whitelisted_option",
+        name = "nonselectable_allowlisted_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "true")
-    public boolean nonselectableWhitelistedOption;
+    public boolean nonselectableAllowlistedOption;
 
-    private static final OptionDefinition NONSELECTABLE_WHITELISTED_OPTION_DEFINITION =
+    private static final OptionDefinition NONSELECTABLE_ALLOWLISTED_OPTION_DEFINITION =
         OptionsParser.getOptionDefinitionByName(
-            DummyTestOptions.class, "nonselectable_whitelisted_option");
+            DummyTestOptions.class, "nonselectable_allowlisted_option");
 
     @Option(
         name = "nonselectable_custom_message_option",
@@ -100,7 +100,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
       return ImmutableMap.of(
           NONSELECTABLE_OPTION_DEFINITION,
           new SelectRestriction(/*visibleWithinToolsPackage=*/ false, /*errorMessage=*/ null),
-          NONSELECTABLE_WHITELISTED_OPTION_DEFINITION,
+          NONSELECTABLE_ALLOWLISTED_OPTION_DEFINITION,
           new SelectRestriction(/*visibleWithinToolsPackage=*/ true, /*errorMessage=*/ null),
           NONSELECTABLE_CUSTOM_MESSAGE_OPTION_DEFINITION,
           new SelectRestriction(
@@ -287,34 +287,34 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   /**
-   * Tests that whitelisted non-selectable options can't be accessed outside of the tools package.
+   * Tests that allowlisted non-selectable options can't be accessed outside of the tools package.
    */
   @Test
-  public void nonselectableWhitelistedOption_OutOfToolsPackage() throws Exception {
+  public void nonselectableAllowlistedOption_OutOfToolsPackage() throws Exception {
     checkError(
         "foo",
         "badoption",
         String.format(
-            "option 'nonselectable_whitelisted_option' cannot be used in a config_setting (it is "
-                + "whitelisted to %s//tools/... only)",
+            "option 'nonselectable_allowlisted_option' cannot be used in a config_setting (it is "
+                + "allowlisted to %s//tools/... only)",
             RepositoryName.create(TestConstants.TOOLS_REPOSITORY).getDefaultCanonicalForm()),
         "config_setting(",
         "    name = 'badoption',",
         "    values = {",
-        "        'nonselectable_whitelisted_option': 'true',",
+        "        'nonselectable_allowlisted_option': 'true',",
         "    },",
         ")");
   }
 
-  /** Tests that whitelisted non-selectable options can be accessed within the tools package. */
+  /** Tests that allowlisted non-selectable options can be accessed within the tools package. */
   @Test
-  public void nonselectableWhitelistedOption_InToolsPackage() throws Exception {
+  public void nonselectableAllowlistedOption_InToolsPackage() throws Exception {
     scratch.file(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/pkg/BUILD",
         "config_setting(",
         "    name = 'foo',",
         "    values = {",
-        "        'nonselectable_whitelisted_option': 'true',",
+        "        'nonselectable_allowlisted_option': 'true',",
         "    })");
     String fooLabel = TestConstants.TOOLS_REPOSITORY + "//tools/pkg:foo";
     assertThat(getConfigMatchingProvider(fooLabel).matches()).isTrue();

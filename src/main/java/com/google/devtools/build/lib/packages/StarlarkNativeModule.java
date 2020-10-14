@@ -47,6 +47,7 @@ import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
@@ -78,7 +79,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   public Sequence<?> glob(
       Sequence<?> include,
       Sequence<?> exclude,
-      Integer excludeDirs,
+      StarlarkInt excludeDirs,
       Object allowEmptyArgument,
       StarlarkThread thread)
       throws EvalException, ConversionException, InterruptedException {
@@ -102,7 +103,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
     try {
       Globber.Token globToken =
-          context.globber.runAsync(includes, excludes, excludeDirs != 0, allowEmpty);
+          context.globber.runAsync(includes, excludes, excludeDirs.signum() != 0, allowEmpty);
       matches = context.globber.fetchUnsorted(globToken);
     } catch (IOException e) {
       String errorMessage =
@@ -329,27 +330,22 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   @Nullable
   private static Object starlarkifyValue(Mutability mu, Object val, Package pkg)
       throws NotRepresentableException {
-    if (val == null) {
-      return null;
-    }
-    if (val instanceof Boolean) {
-      return val;
-    }
-    if (val instanceof Integer) {
-      return val;
-    }
-    if (val instanceof String) {
+    // easy cases
+    if (val == null
+        || val instanceof Boolean
+        || val instanceof String
+        || val instanceof StarlarkInt) {
       return val;
     }
 
     if (val instanceof TriState) {
       switch ((TriState) val) {
         case AUTO:
-          return -1;
+          return StarlarkInt.of(-1);
         case YES:
-          return 1;
+          return StarlarkInt.of(1);
         case NO:
-          return 0;
+          return StarlarkInt.of(0);
       }
     }
 

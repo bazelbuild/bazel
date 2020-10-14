@@ -153,8 +153,7 @@ class SourceFileCoverage {
    *
    * @return a new {@link SourceFileCoverage} that contains the merged coverage.
    */
-  static SourceFileCoverage merge(SourceFileCoverage source1, SourceFileCoverage source2)
-      throws IncompatibleMergeException {
+  static SourceFileCoverage merge(SourceFileCoverage source1, SourceFileCoverage source2) {
     assert source1.sourceFileName.equals(source2.sourceFileName);
     SourceFileCoverage merged = new SourceFileCoverage(source2.sourceFileName);
 

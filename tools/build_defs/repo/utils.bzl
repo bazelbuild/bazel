@@ -15,7 +15,7 @@
 
 ### Setup
 
-These utility are intended to be used by other repository rules. They
+These utilities are intended to be used by other repository rules. They
 can be loaded as follows.
 
 ```python
@@ -31,11 +31,11 @@ load(
 def workspace_and_buildfile(ctx):
     """Utility function for writing WORKSPACE and, if requested, a BUILD file.
 
-    This rule is inteded to be used in the implementation function of a
+    This rule is intended to be used in the implementation function of a
     repository rule.
     It assumes the parameters `name`, `build_file`, `build_file_content`,
     `workspace_file`, and `workspace_file_content` to be
-    present in `ctx.attr`, the latter four possibly with value None.
+    present in `ctx.attr`; the latter four possibly with value None.
 
     Args:
       ctx: The repository context of the repository rule calling this utility
@@ -72,8 +72,8 @@ def _use_native_patch(patch_args):
 def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_tool = None, patch_args = None):
     """Implementation of patching an already extracted repository.
 
-    This rule is inteded to be used in the implementation function of
-    a repository rule. Ifthe parameters `patches`, `patch_tool`,
+    This rule is intended to be used in the implementation function of
+    a repository rule. If the parameters `patches`, `patch_tool`,
     `patch_args`, `patch_cmds` and `patch_cmds_win` are not specified
     then they are taken from `ctx.attr`.
 
@@ -290,7 +290,7 @@ def read_netrc(ctx, filename):
     return netrc
 
 def use_netrc(netrc, urls, patterns):
-    """compute an auth dict from a parsed netrc file and a list of URLs
+    """Compute an auth dict from a parsed netrc file and a list of URLs.
 
     Args:
       netrc: a netrc file already parsed to a dict, e.g., as obtained from

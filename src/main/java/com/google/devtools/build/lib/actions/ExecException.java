@@ -14,6 +14,11 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.base.Strings;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.errorprone.annotations.ForOverride;
+
 /**
  * An exception indication that the execution of an action has failed OR could not be attempted OR
  * could not be finished OR had something else wrong.
@@ -81,7 +86,7 @@ public abstract class ExecException extends Exception {
    * @param action failed action
    * @return ActionExecutionException object describing the action failure
    */
-  public ActionExecutionException toActionExecutionException(Action action) {
+  public final ActionExecutionException toActionExecutionException(Action action) {
     return toActionExecutionException("", action);
   }
 
@@ -94,6 +99,28 @@ public abstract class ExecException extends Exception {
    * @param action failed action
    * @return ActionExecutionException object describing the action failure
    */
-  public abstract ActionExecutionException toActionExecutionException(
-      String messagePrefix, Action action);
+  public final ActionExecutionException toActionExecutionException(
+      String messagePrefix, Action action) {
+    String message =
+        String.format(
+            "%s failed: %s",
+            Strings.isNullOrEmpty(messagePrefix) ? action.describe() : messagePrefix,
+            getMessageForActionExecutionException());
+    return toActionExecutionException(
+        message, action, DetailedExitCode.of(getFailureDetail(message)));
+  }
+
+  @ForOverride
+  protected ActionExecutionException toActionExecutionException(
+      String message, Action action, DetailedExitCode code) {
+    return new ActionExecutionException(message, this, action, isCatastrophic(), code);
+  }
+
+  @ForOverride
+  protected String getMessageForActionExecutionException() {
+    return getMessage();
+  }
+
+  @ForOverride
+  protected abstract FailureDetail getFailureDetail(String message);
 }

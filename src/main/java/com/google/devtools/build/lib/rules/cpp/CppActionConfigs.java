@@ -382,6 +382,29 @@ public class CppActionConfigs {
                         "    }",
                         "  }")));
       }
+      if (!existingFeatureNames.contains(CppRuleClasses.PROPELLER_OPTIMIZE)) {
+        featureBuilder.add(
+            getFeature(
+                Joiner.on("\n")
+                    .join(
+                        "  name: 'propeller_optimize'",
+                        "  flag_set {",
+                        "    action: 'c-compile'",
+                        "    action: 'c++-compile'",
+                        "    action: 'lto-backend'",
+                        "    flag_group {",
+                        "      expand_if_all_available: 'propeller_optimize_cc_path'",
+                        "      flag: '-fbasic-block-sections=list=%{propeller_optimize_cc_path}'",
+                        "    }",
+                        "  }",
+                        "  flag_set {",
+                        "    action: 'c++-link-executable'",
+                        "    flag_group {",
+                        "      expand_if_true: 'propeller_optimize_ld_path'",
+                        "      flag: '-Wl,--symbol-ordering-file=%{propeller_optimize_ld_path}'",
+                        "    }",
+                        "  }")));
+      }
 
       if (!existingFeatureNames.contains(CppRuleClasses.BUILD_INTERFACE_LIBRARIES)) {
         featureBuilder.add(

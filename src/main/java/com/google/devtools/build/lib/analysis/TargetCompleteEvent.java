@@ -59,9 +59,11 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.function.Function;
 import javax.annotation.Nullable;
@@ -333,12 +335,24 @@ public final class TargetCompleteEvent
 
   public static BuildEventStreamProtos.File.Builder newFileFromArtifact(
       String name, Artifact artifact, PathFragment relPath) {
-    File.Builder builder =
-        File.newBuilder()
-            .setName(
-                name == null
-                    ? artifact.getRootRelativePath().getRelative(relPath).getPathString()
-                    : name);
+    File.Builder builder = File.newBuilder();
+    if (name == null) {
+      String pathString = artifact.getRootRelativePath().getRelative(relPath).getPathString();
+      if (OS.getCurrent() != OS.WINDOWS) {
+        // TODO(b/36360490): Unix file names are currently always Latin-1 strings, even if they
+        // contain UTF-8 bytes. Protobuf specifies string fields to contain UTF-8 and passing a
+        // "Latin-1 with UTF-8 bytes" string will lead to double-encoding the bytes with the high
+        // bit set. Until we address the pervasive use of "Latin-1 with UTF-8 bytes" throughout
+        // Bazel (eg. by standardizing on UTF-8 on Unix systems) we will need to silently swap out
+        // the encoding at the protobuf library boundary. Windows does not suffer from this issue
+        // due to the corresponding OS APIs supporting UTF-16.
+        pathString =
+            new String(pathString.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
+      }
+      builder.setName(pathString);
+    } else {
+      builder.setName(name);
+    }
     builder.addAllPathPrefix(artifact.getRoot().getComponents());
     return builder;
   }

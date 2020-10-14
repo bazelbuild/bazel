@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.python.PyProviderUtils;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
-import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -65,6 +64,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import org.junit.Before;
 import org.junit.Test;
@@ -80,7 +80,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         getRuleContextForStarlark(getConfiguredTarget(label)), null, getStarlarkSemantics());
   }
 
-  private final EvaluationTestCase ev = new BazelEvaluationTestCase();
+  private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
 
   /** A test rule that exercises the semantics of mandatory providers. */
   private static final MockRule TESTING_RULE_FOR_MANDATORY_PROVIDERS =
@@ -2615,7 +2615,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             "BuildSettingInfo");
     StructImpl buildSettingInfo = (StructImpl) buildSetting.get(key);
 
-    assertThat(buildSettingInfo.getValue("value")).isEqualTo(24);
+    assertThat(buildSettingInfo.getValue("value")).isEqualTo(StarlarkInt.of(24));
   }
 
   @Test
@@ -2629,7 +2629,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             "BuildSettingInfo");
     StructImpl buildSettingInfo = (StructImpl) buildSetting.get(key);
 
-    assertThat(buildSettingInfo.getValue("value")).isEqualTo(42);
+    assertThat(buildSettingInfo.getValue("value")).isEqualTo(StarlarkInt.of(42));
   }
 
   @Test

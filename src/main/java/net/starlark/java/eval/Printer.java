@@ -140,7 +140,7 @@ public class Printer {
    * TODO(adonovan): disallow that.
    */
   public Printer repr(Object o) {
-    // atomic values
+    // atomic values (leaves of the object graph)
     if (o == null) {
       // Java null is not a valid Starlark value, but sometimes printers are used on non-Starlark
       // values such as Locations or Nodes.
@@ -150,20 +150,24 @@ public class Printer {
       appendQuoted((String) o);
       return this;
 
-    } else if (o instanceof Integer) {
-      this.buffer.append((int) o);
+    } else if (o instanceof StarlarkInt) {
+      ((StarlarkInt) o).repr(this);
       return this;
 
     } else if (o instanceof Boolean) {
       this.append(((boolean) o) ? "True" : "False");
       return this;
 
-    } else if (o instanceof Class) { // (a non-Starlark value)
+    } else if (o instanceof Integer) { // a non-Starlark value
+      this.buffer.append((int) o);
+      return this;
+
+    } else if (o instanceof Class) { // a non-Starlark value
       this.append(Starlark.classType((Class<?>) o));
       return this;
     }
 
-    // compound values
+    // compound values (may form cycles in the object graph)
 
     if (!push(o)) {
       return this.append("..."); // elided cycle
@@ -324,11 +328,11 @@ public class Printer {
           Object argument = arguments.get(a++);
           switch (directive) {
             case 'd':
-              if (!(argument instanceof Integer)) {
+              if (!(argument instanceof StarlarkInt || argument instanceof Integer)) {
                 throw new MissingFormatWidthException(
                     "invalid argument " + Starlark.repr(argument) + " for format pattern %d");
               }
-              printer.append(argument.toString());
+              printer.repr(argument);
               continue;
 
             case 'r':

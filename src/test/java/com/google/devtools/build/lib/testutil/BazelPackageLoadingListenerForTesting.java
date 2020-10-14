@@ -30,8 +30,8 @@ import com.google.devtools.build.lib.vfs.Root;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /**
- * A {@link PackageLoadingListener} for use in tests that a sanity check with {@link
- * BazelPackageLoader} for each loaded package, for the sake of getting pretty nice test coverage.
+ * A {@link PackageLoadingListener} for use in tests that a check with {@link BazelPackageLoader}
+ * for each loaded package, for the sake of getting pretty nice test coverage.
  */
 public class BazelPackageLoadingListenerForTesting implements PackageLoadingListener {
   private final ConfiguredRuleClassProvider ruleClassProvider;

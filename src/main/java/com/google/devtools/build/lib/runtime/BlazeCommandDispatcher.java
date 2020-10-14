@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.devtools.build.lib.runtime.BlazeOptionHandler.BAD_OPTION_TAG;
 import static com.google.devtools.build.lib.runtime.BlazeOptionHandler.ERROR_SEPARATOR;
+import static com.google.devtools.common.options.Converters.BLAZE_ALIASING_FLAG;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -326,8 +327,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     boolean profileExplicitlyDisabled =
         options.containsExplicitOption("experimental_generate_json_trace_profile")
             && !commonOptions.enableTracer;
-    if (commandSupportsProfile
-        && !profileExplicitlyDisabled) {
+    if (commandSupportsProfile && !profileExplicitlyDisabled) {
       commonOptions.enableTracer = true;
       if (!options.containsExplicitOption("experimental_profile_cpu_usage")) {
         commonOptions.enableCpuUsageProfiling = true;
@@ -445,8 +445,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         reporter.addHandler(handler);
         env.getEventBus().register(handler);
 
-        int oomMoreEagerlyThreshold = commonOptions.oomMoreEagerlyThreshold;
-        runtime.getRetainedHeapLimiter().updateThreshold(oomMoreEagerlyThreshold);
+        runtime
+            .getRetainedHeapLimiter()
+            .update(commonOptions.oomMoreEagerlyThreshold, commonOptions.oomMessage, reporter);
 
         // We register an ANSI-allowing handler associated with {@code handler} so that ANSI control
         // codes can be re-introduced later even if blaze is invoked with --color=no. This is useful
@@ -738,6 +739,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             .optionsData(optionsData)
             .skipStarlarkOptionPrefixes()
             .allowResidue(annotation.allowResidue())
+            .withAliasFlag(BLAZE_ALIASING_FLAG)
             .build();
     return parser;
   }

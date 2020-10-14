@@ -385,9 +385,10 @@ public final class Profiler {
     this.actionCountTimeSeries =
         new TimeSeries(Duration.ofNanos(actionCountStartTime).toMillis(), ACTION_COUNT_BUCKET_MS);
 
-    // sanity check for current limitation on the number of supported types due
-    // to using enum.ordinal() to store them instead of EnumSet for performance reasons.
-    Preconditions.checkState(TASK_COUNT < 256,
+    // Check for current limitation on the number of supported types due to using enum.ordinal() to
+    // store them instead of EnumSet for performance reasons.
+    Preconditions.checkState(
+        TASK_COUNT < 256,
         "The profiler implementation supports only up to 255 different ProfilerTask values.");
 
     // reset state for the new profiling session

@@ -257,7 +257,7 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
       assertThat(text).isEqualTo(Joiner.on('\n').join(expected));
     }
 
-    // sanity-check that annotation processing doesn't interfere with stripping
+    // Check that annotation processing doesn't interfere with stripping
     {
       String text = textify(outputs.get("Hello.class"));
       String[] expected = {

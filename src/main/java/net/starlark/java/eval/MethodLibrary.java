@@ -19,6 +19,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -29,7 +30,6 @@ import java.util.NoSuchElementException;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 
 /** The universal predeclared functions of core Starlark. */
@@ -336,7 +336,7 @@ class MethodLibrary {
     return Starlark.truth(x);
   }
 
-  private final ImmutableMap<String, Integer> intPrefixes =
+  private static final ImmutableMap<String, Integer> INT_PREFIXES =
       ImmutableMap.of("0b", 2, "0o", 8, "0x", 16);
 
   @StarlarkMethod(
@@ -382,7 +382,7 @@ class MethodLibrary {
         @Param(name = "x", type = Object.class, doc = "The string to convert."),
         @Param(
             name = "base",
-            type = Object.class,
+            type = StarlarkInt.class,
             defaultValue = "unbound",
             doc =
                 "The base used to interpret a string value; defaults to 10. Must be between 2 "
@@ -391,33 +391,34 @@ class MethodLibrary {
                     + "string.",
             named = true)
       })
-  public Integer convertToInt(Object x, Object base) throws EvalException {
+  public StarlarkInt intForStarlark(Object x, Object baseO) throws EvalException {
     if (x instanceof String) {
-      if (base == Starlark.UNBOUND) {
-        base = 10;
-      } else if (!(base instanceof Integer)) {
-        throw Starlark.errorf("base must be an integer (got '%s')", Starlark.type(base));
+      int base = baseO == Starlark.UNBOUND ? 10 : Starlark.toInt(baseO, "base");
+      try {
+        return StarlarkInt.parse((String) x, base);
+      } catch (NumberFormatException ex) {
+        throw Starlark.errorf("%s", ex.getMessage());
       }
-      return fromString((String) x, (Integer) base);
-    } else {
-      if (base != Starlark.UNBOUND) {
-        throw Starlark.errorf("int() can't convert non-string with explicit base");
-      }
-      if (x instanceof Boolean) {
-        return ((Boolean) x).booleanValue() ? 1 : 0;
-      } else if (x instanceof Integer) {
-        return (Integer) x;
-      }
-      throw Starlark.errorf("%s is not of type string or int or bool", Starlark.repr(x));
     }
+
+    if (baseO != Starlark.UNBOUND) {
+      throw Starlark.errorf("can't convert non-string with explicit base");
+    }
+    if (x instanceof Boolean) {
+      return StarlarkInt.of(((Boolean) x).booleanValue() ? 1 : 0);
+    } else if (x instanceof StarlarkInt) {
+      return (StarlarkInt) x;
+    }
+    throw Starlark.errorf("got %s, want string, int, or bool", Starlark.type(x));
   }
 
-  private int fromString(String string, int base) throws EvalException {
+  // TODO(adonovan): move into StarlarkInt.parse in a follow-up.
+  static StarlarkInt parseInt(String string, int base) throws NumberFormatException {
     String stringForErrors = string;
 
     boolean isNegative = false;
     if (string.isEmpty()) {
-      throw Starlark.errorf("string argument to int() cannot be empty");
+      throw new NumberFormatException("empty string");
     }
     char c = string.charAt(0);
     if (c == '+') {
@@ -436,9 +437,8 @@ class MethodLibrary {
         if (string.length() > 1 && string.startsWith("0")) {
           // We don't infer the base when input starts with '0' (due
           // to confusion between octal and decimal).
-          throw Starlark.errorf(
-              "cannot infer base for int() when value begins with a 0: %s",
-              Starlark.repr(stringForErrors));
+          throw new NumberFormatException(
+              "cannot infer base when string begins with a 0: " + Starlark.repr(stringForErrors));
         }
         base = 10;
       }
@@ -446,33 +446,43 @@ class MethodLibrary {
       // Strip prefix. Infer base from prefix if unknown (base == 0), or else verify its
       // consistency.
       digits = string.substring(prefix.length());
-      int expectedBase = intPrefixes.get(prefix);
+      int expectedBase = INT_PREFIXES.get(prefix);
       if (base == 0) {
         base = expectedBase;
       } else if (base != expectedBase) {
-        throw Starlark.errorf(
-            "invalid literal for int() with base %d: %s", base, Starlark.repr(stringForErrors));
+        throw new NumberFormatException(
+            String.format(
+                "invalid base-%d literal: %s (%s prefix wants base %d)",
+                base, Starlark.repr(stringForErrors), prefix, expectedBase));
       }
     }
 
     if (base < 2 || base > 36) {
-      throw Starlark.errorf("int() base must be >= 2 and <= 36");
+      throw new NumberFormatException(
+          String.format("invalid base %d (want 2 <= base <= 36)", base));
     }
+    StarlarkInt result;
     try {
-      // Negate by prepending a negative symbol, rather than by using arithmetic on the
-      // result, to handle the edge case of -2^31 correctly.
-      String parseable = isNegative ? "-" + digits : digits;
-      return Integer.parseInt(parseable, base);
-    } catch (NumberFormatException | ArithmeticException e) {
-      throw Starlark.errorf(
-          "invalid literal for int() with base %d: %s", base, Starlark.repr(stringForErrors));
+      result = StarlarkInt.of(Long.parseLong(digits, base));
+    } catch (
+        @SuppressWarnings("UnusedException")
+        NumberFormatException unused1) {
+      try {
+        result = StarlarkInt.of(new BigInteger(digits, base));
+      } catch (
+          @SuppressWarnings("UnusedException")
+          NumberFormatException unused2) {
+        throw new NumberFormatException(
+            String.format("invalid base-%d literal: %s", base, Starlark.repr(stringForErrors)));
+      }
     }
+    return isNegative ? StarlarkInt.uminus(result) : result;
   }
 
   @Nullable
-  private String getIntegerPrefix(String value) {
+  private static String getIntegerPrefix(String value) {
     value = Ascii.toLowerCase(value);
-    for (String prefix : intPrefixes.keySet()) {
+    for (String prefix : INT_PREFIXES.keySet()) {
       if (value.startsWith(prefix)) {
         return prefix;
       }
@@ -520,17 +530,18 @@ class MethodLibrary {
         @Param(name = "list", type = Object.class, doc = "input sequence.", named = true),
         @Param(
             name = "start",
-            type = Integer.class,
+            type = StarlarkInt.class,
             doc = "start index.",
             defaultValue = "0",
             named = true)
       },
       useStarlarkThread = true)
-  public StarlarkList<?> enumerate(Object input, Integer start, StarlarkThread thread)
+  public StarlarkList<?> enumerate(Object input, StarlarkInt startI, StarlarkThread thread)
       throws EvalException {
+    int start = Starlark.toInt(startI, "start");
     Object[] array = Starlark.toArray(input);
     for (int i = 0; i < array.length; i++) {
-      array[i] = Tuple.pair(i + start, array[i]); // update in place
+      array[i] = Tuple.pair(StarlarkInt.of(i + start), array[i]); // update in place
     }
     return StarlarkList.wrap(thread.mutability(), array);
   }
@@ -562,13 +573,13 @@ class MethodLibrary {
       parameters = {
         @Param(
             name = "start_or_stop",
-            type = Integer.class,
+            type = StarlarkInt.class,
             doc =
                 "Value of the start element if stop is provided, "
                     + "otherwise value of stop and the actual start is 0"),
         @Param(
             name = "stop_or_none",
-            type = Integer.class,
+            type = StarlarkInt.class,
             noneable = true,
             defaultValue = "None",
             doc =
@@ -576,28 +587,28 @@ class MethodLibrary {
                     + "list; generation of the list stops before <code>stop</code> is reached."),
         @Param(
             name = "step",
-            type = Integer.class,
+            type = StarlarkInt.class,
             defaultValue = "1",
             doc = "The increment (default is 1). It may be negative.")
       },
       useStarlarkThread = true)
-  public Sequence<Integer> range(
-      Integer startOrStop, Object stopOrNone, Integer step, StarlarkThread thread)
+  public Sequence<StarlarkInt> range(
+      StarlarkInt startOrStop, Object stopOrNone, StarlarkInt stepI, StarlarkThread thread)
       throws EvalException {
     int start;
     int stop;
     if (stopOrNone == Starlark.NONE) {
       start = 0;
-      stop = startOrStop;
-    } else if (stopOrNone instanceof Integer) {
-      start = startOrStop;
-      stop = (Integer) stopOrNone;
+      stop = startOrStop.toInt("stop");
     } else {
-      throw Starlark.errorf("want int, got %s", Starlark.type(stopOrNone));
+      start = startOrStop.toInt("start");
+      stop = Starlark.toInt(stopOrNone, "stop");
     }
+    int step = stepI.toInt("step");
     if (step == 0) {
       throw Starlark.errorf("step cannot be 0");
     }
+    // TODO(adonovan): support arbitrary integers.
     return new RangeList(start, stop, step);
   }
 
@@ -793,13 +804,10 @@ class MethodLibrary {
   /** Starlark int type. */
   @StarlarkBuiltin(
       name = "int",
-      category = StarlarkDocumentationCategory.BUILTIN,
+      category = "core",
       doc =
-          "A type to represent integers. It can represent any number between -2147483648 and "
-              + "2147483647 (included). "
-              + "Examples of int values:<br>"
-              + "<pre class=\"language-python\">"
-              + "153\n"
+          "The type of integers in Starlark. Starlark integers may be of any magnitude; arithmetic"
+              + " is exact. Examples of int values:<br><pre class=\"language-python\">153\n"
               + "0x2A  # hexadecimal literal\n"
               + "0o54  # octal literal\n"
               + "23 * 2 + 5\n"
@@ -812,7 +820,7 @@ class MethodLibrary {
   /** Starlark bool type. */
   @StarlarkBuiltin(
       name = "bool",
-      category = StarlarkDocumentationCategory.BUILTIN,
+      category = "core",
       doc =
           "A type to represent booleans. There are only two possible values: "
               + "<a href=\"globals.html#True\">True</a> and "

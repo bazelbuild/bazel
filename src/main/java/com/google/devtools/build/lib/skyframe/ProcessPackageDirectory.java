@@ -96,6 +96,23 @@ public final class ProcessPackageDirectory {
       return ProcessPackageDirectoryResult.EMPTY_RESULT;
     }
 
+    if (fileValue.unboundedAncestorSymlinkExpansionChain() != null) {
+      SkyKey uniquenessKey =
+          FileSymlinkInfiniteExpansionUniquenessFunction.key(
+              fileValue.unboundedAncestorSymlinkExpansionChain());
+      env.getValue(uniquenessKey);
+      if (env.valuesMissing()) {
+        return null;
+      }
+
+      FileSymlinkInfiniteExpansionException symlinkException =
+          new FileSymlinkInfiniteExpansionException(
+              fileValue.pathToUnboundedAncestorSymlinkExpansionChain(),
+              fileValue.unboundedAncestorSymlinkExpansionChain());
+      return reportErrorAndReturn(
+          symlinkException.getMessage(), symlinkException, rootRelativePath, env.getListener());
+    }
+
     PackageIdentifier packageId = PackageIdentifier.create(repositoryName, rootRelativePath);
 
     if ((packageId.getRepository().isDefault() || packageId.getRepository().isMain())

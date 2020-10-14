@@ -1,3 +1,96 @@
+## Release 3.6.0 (2020-10-06)
+
+```
+Baseline: aa0d97c0bfc4c09ec6f45303aa80052ba28afbd9
+
+Cherry picks:
+
+   + 32c88da98f301333dc447b75564459165368d418:
+     Patch RuleContext for android_binary.deps to restore legacy
+     behavior.
+   + db9fc88fed387f09067a9250a731f8bf9ad74b05:
+     android_test also needs the legacy behavior in
+     RuleContext.getPrerequisites.
+   + 144d5149a0c50e464dd1be0769fed2ce33ab26a4:
+     Update android_sdk_repository to create a valid, but useless,
+     repository
+   + bb11f9235da52eb3b3e462ce0286f1a89188cb89:
+     Patch upb to fix build error with gcc 10
+   + 9f06be482aea3fcadeaf8fca6e48b32f224eba2e:
+     Patch upb to fix build error with gcc 10 (third_party)
+   + b67b75e3a62f5433d812993f3702f431b6967e86:
+     Fix issue where libtool_check_unique isn't found for sandbox
+     builds
+```
+
+Incompatible changes:
+
+  - `--experimental_ui_limit_console_output` is removed. Users of
+    `--experimental_ui_limit_console_output=1` for silencing terminal
+    output should use `--ui_event_filters=` instead.
+  - --proto:instantiation_stack must be enabled in addition to
+    --record_rule_instantiation_callstack to see call stack in proto
+    output from blaze query.
+
+New features:
+
+  - cc_common.compile support for include_prefix/strip_include_prefix
+  - Multiplexed persistent workers: Use
+    --experimental_worker_max_multiplex_instances to configure the
+    number of WorkRequests that are sent concurrently to one worker
+    process. The --worker_max_instances flag will no longer be used
+    to determine max instances for multiplex workers, since the two
+    have different resource requirements. Multiplex workers will by
+    default have a max instances of 8.
+
+Important changes:
+
+  - The prelude file (//tools/build_rules:prelude_bazel) is now
+    processed as a Starlark module, rather than being sourced into
+    the BUILD file textually. This may cause slight breakages
+    depending on the content of the prelude file. (Use of the prelude
+    file is discouraged as it will be removed in the long term.)
+  - Removed --experimental_ignore_deprecated_instrumentation_spec and
+    cleaned up the old deprecated behavior.
+  - Added CODEBASE.md, a description of the Bazel codebase.
+  - Removed the flag --experimental_transparent_compression.
+  - Removed the flag --experimental_action_args.
+  - Stop needlessly parsing WORKSPACE files from external
+    repositories.
+  - Dot ('.') is now allowed in workspace names. See
+    https://github.com/bazelbuild/bazel/issues/11837.
+  - This change can cause memory and performance regressions for some
+    builds with C++ dependencies, due to extra actions being executed.
+    RELNOTES: None
+  - Building Android apps for legacy multi-dex (pre-L) now require a
+    main-dex list if the application does not fit into a single DEX
+    file.
+  - Puts the experimental_worker_multiplex flag to use.
+  - In Starlark, the Args object supports a new parameter file format
+    'flag_per_line', compatible with the Abseil flags library.
+  - The flag --incompatible_no_support_tools_in_action_inputs is
+    removed.
+  - Support for NDK 21 added
+  - Bazel will now skip printing action stdout/stderr contents if
+    they exceed --experimental_ui_max_stdouterr_memory_bytes.
+  - The Starlark interpreter now correctly emits an error
+     if the operand of the first loop in a list comprehension
+     refers to a variable bound by a later loop, such as y in
+     this example:
+       [e1 for x in f(y) in e2 for y in e3] # error: undefined y
+                      ^
+     This may cause latent dynamic errors to become static errors.
+  - Added support for a 'supports-graceful-termination' execution
+    requirement and tag, which causes Bazel to send a SIGTERM to any
+    tagged
+    actions before sending a delayed SIGKILL. This is to give
+    actions, and more
+    specifically tests, a chance to clean up after themselves.
+  - Non-android targets can again be built when
+    android_sdk_repository is present but invalid.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Daniel Wagner-Hall, Dave MacLachlan, David Ostrovsky, Emil Kattainen, George Gensure, Greg Estren, Keith Smiley, mai12, Mai Hussien, Michael Eisel, Per Halvor Tryggeseth, Ruixin Bao, Samuel Giddins, Steeve Morin, Thi Doan, Tom de Goede, Ulf Adams, Zhongpeng Lin.
+
 ## Release 3.5.0 (2020-09-02)
 
 ```

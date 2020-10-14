@@ -81,7 +81,7 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
                   key.getMnemonic(),
                   workTypeName,
                   workerId,
-                  logFile)));
+                  worker.getLogFile())));
     }
     return worker;
   }

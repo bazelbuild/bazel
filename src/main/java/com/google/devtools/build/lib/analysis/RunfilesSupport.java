@@ -226,9 +226,7 @@ public final class RunfilesSupport {
             : context.getPackageDirectory().getRelative(context.getLabel().getName());
     String basename = relativePath.getBaseName();
     PathFragment inputManifestPath = relativePath.replaceName(basename + INPUT_MANIFEST_EXT);
-    return context.getDerivedArtifact(
-        inputManifestPath,
-        context.getConfiguration().getBinDirectory(context.getRule().getRepository()));
+    return context.getDerivedArtifact(inputManifestPath, context.getBinDirectory());
   }
 
   /**

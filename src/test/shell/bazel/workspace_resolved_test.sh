@@ -52,7 +52,7 @@ trivial_rule(
 EOF
 
   bazel clean --expunge
-  bazel build --experimental_repository_resolved_file=../repo.bzl --record_rule_instantiation_callstack @ext//... \
+  bazel build --experimental_repository_resolved_file=../repo.bzl @ext//... \
         > "${TEST_log}" 2>&1 || fail "Expected success"
   inplace-sed -e "s?$(pwd)?PWD?g" "$TEST_log"
   bazel shutdown
@@ -1182,7 +1182,6 @@ foo()
 EOF
 
   bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir \
-        --record_rule_instantiation_callstack \
         --experimental_repository_resolved_file=resolved.bzl
 
   echo; cat resolved.bzl; echo
@@ -1205,7 +1204,7 @@ def finddef(name):
       return repo["definition_information"]
 EOF
 
-  bazel build --record_rule_instantiation_callstack //:ext_def
+  bazel build //:ext_def
 
   cat `bazel info bazel-genfiles`/ext_def.txt > "${TEST_log}"
   inplace-sed -e "s?$(pwd)/?PWD/?g" -e "s?$TEST_TMPDIR/?TEST_TMPDIR/?g" "${TEST_log}"

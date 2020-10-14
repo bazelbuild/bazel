@@ -14,17 +14,14 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Returns information about executables produced by a target and the files needed to run it. */
-@StarlarkBuiltin(
-    name = "FilesToRunProvider",
-    doc = "",
-    category = StarlarkDocumentationCategory.PROVIDER)
+@StarlarkBuiltin(name = "FilesToRunProvider", doc = "", category = DocCategory.PROVIDER)
 public interface FilesToRunProviderApi<FileT extends FileApi> extends StarlarkValue {
 
   @StarlarkMethod(

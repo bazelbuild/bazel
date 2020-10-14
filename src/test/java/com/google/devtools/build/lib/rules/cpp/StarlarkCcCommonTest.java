@@ -6556,4 +6556,109 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "//b:import_objects_no_pic_lib",
         "If you pass 'pic_objects' you must also pass a 'pic_static_library'");
   }
+
+  private void setupDebugPackageProviderTest(String fission) throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.PER_OBJECT_DEBUG_INFO));
+    useConfiguration(fission);
+    scratch.file(
+        "a/rule.bzl",
+        "def _impl(ctx):",
+        "    out = ctx.actions.declare_file(ctx.label.name)",
+        "    ctx.actions.run_shell(",
+        "        inputs = [ctx.executable.cc_binary],",
+        "        tools = [],",
+        "        outputs = [out],",
+        "        command = 'cp %s %s' % (ctx.executable.cc_binary.path, out.path),",
+        "    )",
+        "    wrapped_defaultinfo = ctx.attr.cc_binary[DefaultInfo]",
+        "    runfiles = ctx.runfiles(files = [out])",
+        "    wrapped_default_runfiles = wrapped_defaultinfo.default_runfiles.files.to_list()",
+        "    if ctx.executable.cc_binary in wrapped_default_runfiles:",
+        "        wrapped_default_runfiles.remove(ctx.executable.cc_binary)",
+        "    result = [",
+        "        DefaultInfo(",
+        "            executable = out,",
+        "            files = depset([out]),",
+        "            runfiles = runfiles.merge(ctx.runfiles(files = wrapped_default_runfiles)),",
+        "        ),",
+        "    ]",
+        "    if ctx.file.stripped_file:",
+        "        wrapped_dbginfo = ctx.attr.cc_binary[DebugPackageInfo]",
+        "        result.append(",
+        "            DebugPackageInfo(",
+        "                target_label = ctx.label,",
+        "                stripped_file = ctx.file.stripped_file \\",
+        "                                if wrapped_dbginfo.stripped_file else None,",
+        "                unstripped_file = out,",
+        "                dwp_file = ctx.file.dwp_file if wrapped_dbginfo.dwp_file else None,",
+        "            ),",
+        "        )",
+        "    return result",
+        "wrapped_binary = rule(",
+        "    _impl,",
+        "    attrs = {",
+        "        'cc_binary': attr.label(",
+        "            allow_single_file = True,",
+        "            mandatory = True,",
+        "            executable = True,",
+        "            cfg = 'target',",
+        "        ),",
+        "        'stripped_file': attr.label(",
+        "            allow_single_file = True,",
+        "            default = None,",
+        "        ),",
+        "        'dwp_file': attr.label(",
+        "            allow_single_file = True,",
+        "            default = None,",
+        "        )",
+        "    },",
+        "    executable = True,",
+        ")");
+    scratch.file(
+        "a/BUILD",
+        "load(':rule.bzl', 'wrapped_binary')",
+        "wrapped_binary(name = 'w',",
+        "    cc_binary = ':native_binary',",
+        "    stripped_file = ':w.stripped',",
+        "    dwp_file = ':w.dwp',",
+        ")",
+        "wrapped_binary(name = 'w.stripped',",
+        "    cc_binary = ':native_binary.stripped'",
+        ")",
+        "wrapped_binary(name = 'w.dwp',",
+        "    cc_binary = ':native_binary.dwp'",
+        ")",
+        "cc_binary(name = 'native_binary',",
+        "    srcs = ['main.cc']",
+        ")");
+    scratch.file("a/main.cc", "int main() {}");
+  }
+
+  @Test
+  public void testDebugPackageProviderFissionDisabled() throws Exception {
+    setupDebugPackageProviderTest("--fission=no");
+    ConfiguredTarget target = getConfiguredTarget("//a:w");
+    assertNoEvents();
+    assertThat(target).isNotNull();
+    DebugPackageProvider debugPackageProvider = target.get(DebugPackageProvider.PROVIDER);
+    assertThat(debugPackageProvider.getStrippedArtifact().getFilename()).isEqualTo("w.stripped");
+    assertThat(debugPackageProvider.getUnstrippedArtifact().getFilename()).isEqualTo("w");
+    assertThat(debugPackageProvider.getDwpArtifact()).isNull();
+  }
+
+  @Test
+  public void testDebugPackageProviderFissionEnabled() throws Exception {
+    setupDebugPackageProviderTest("--fission=yes");
+    ConfiguredTarget target = getConfiguredTarget("//a:w");
+    assertNoEvents();
+    assertThat(target).isNotNull();
+    DebugPackageProvider debugPackageProvider = target.get(DebugPackageProvider.PROVIDER);
+    assertThat(debugPackageProvider.getStrippedArtifact().getFilename()).isEqualTo("w.stripped");
+    assertThat(debugPackageProvider.getUnstrippedArtifact().getFilename()).isEqualTo("w");
+    assertThat(debugPackageProvider.getDwpArtifact().getFilename()).isEqualTo("w.dwp");
+  }
 }

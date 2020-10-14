@@ -217,7 +217,7 @@ public class NestedSetStore {
               fingerprintToContents.put(fingerprint, contents);
               // There may already be an entry here, but it's better to put a fingerprint result
               // with an immediate future, since then later readers won't need to block
-              // unnecessarily. It would be nice to sanity check the old value, but Cache#put
+              // unnecessarily. It would be nice to check the old value, but Cache#put
               // doesn't provide it to us.
               contentsToFingerprint.put(
                   contents,

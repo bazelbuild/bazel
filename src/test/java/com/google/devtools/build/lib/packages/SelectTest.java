@@ -22,6 +22,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.FileOptions;
@@ -55,7 +56,7 @@ public class SelectTest {
   public void testSelect() throws Exception {
     SelectorList result = (SelectorList) eval("select({'a': 1})");
     assertThat(((SelectorValue) Iterables.getOnlyElement(result.getElements())).getDictionary())
-        .containsExactly("a", 1);
+        .containsExactly("a", StarlarkInt.of(1));
   }
 
   @Test

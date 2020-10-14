@@ -78,6 +78,8 @@ public class CriticalPathComponent {
 
   /** Name of the runner used for the spawn. */
   @Nullable private String longestPhaseSpawnRunnerName;
+  /** Details about the runner used for the spawn. */
+  @Nullable private String longestPhaseSpawnRunnerSubtype;
   /** An unique identifier of the component for one build execution */
   private final int id;
 
@@ -193,7 +195,8 @@ public class CriticalPathComponent {
    * the longestPhaseSpawnRunnerName to the longest running spawn runner name across all phases if
    * it exists.
    */
-  void addSpawnResult(SpawnMetrics metrics, @Nullable String runnerName, boolean wasRemote) {
+  void addSpawnResult(
+      SpawnMetrics metrics, @Nullable String runnerName, String runnerSubtype, boolean wasRemote) {
     // Mark this component as having remote components if _any_ spawn result contributing
     // to it contains meaningful remote metrics. Subsequent non-remote spawns in an action
     // must not reset this flag.
@@ -212,6 +215,7 @@ public class CriticalPathComponent {
 
     if (runnerName != null && metrics.totalTime().compareTo(this.longestRunningTotalDuration) > 0) {
       this.longestPhaseSpawnRunnerName = runnerName;
+      this.longestPhaseSpawnRunnerSubtype = runnerSubtype;
       this.longestRunningTotalDuration = metrics.totalTime();
     }
   }
@@ -237,6 +241,12 @@ public class CriticalPathComponent {
   @Nullable
   public String getLongestPhaseSpawnRunnerName() {
     return longestPhaseSpawnRunnerName;
+  }
+
+  /** Like getLongestPhaseSpawnRunnerName(), but returns the runner details. */
+  @Nullable
+  public String getLongestPhaseSpawnRunnerSubtype() {
+    return longestPhaseSpawnRunnerSubtype;
   }
 
   /**

@@ -262,7 +262,9 @@ public class CppCompileActionBuilder {
     NestedSet<Artifact> prunableHeaders = buildPrunableHeaders();
 
     configuration.modifyExecutionInfo(
-        executionInfo, CppCompileAction.actionNameToMnemonic(getActionName()));
+        executionInfo,
+        CppCompileAction.actionNameToMnemonic(
+            getActionName(), featureConfiguration, cppConfiguration.useCppCompileHeaderMnemonic()));
 
     // Copying the collections is needed to make the builder reusable.
     CppCompileAction action;
@@ -323,6 +325,10 @@ public class CppCompileActionBuilder {
     realMandatoryInputsBuilder.add(Preconditions.checkNotNull(sourceFile));
     if (grepIncludes != null) {
       realMandatoryInputsBuilder.add(grepIncludes);
+    }
+    if (!shouldScanIncludes && dotdFile == null) {
+      realMandatoryInputsBuilder.addTransitive(ccCompilationContext.getDeclaredIncludeSrcs());
+      realMandatoryInputsBuilder.addAll(additionalPrunableHeaders);
     }
     return realMandatoryInputsBuilder.build();
   }
@@ -442,6 +448,7 @@ public class CppCompileActionBuilder {
             configuration);
     if (CppFileTypes.headerDiscoveryRequired(sourceFile)
         && !useHeaderModules()
+        && cppSemantics.needsDotdInputPruning(configuration)
         && !featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
       String dotdFileName =
           CppHelper.getDotdFileName(ruleErrorConsumer, ccToolchain, outputCategory, outputName);

@@ -52,6 +52,11 @@ from google.protobuf import text_format
 from src.main.protobuf import analysis_v2_pb2
 from tools.aquery_differ.resolvers.dep_set_resolver import DepSetResolver
 from tools.aquery_differ.resolvers.path_fragment_resolver import PathFragmentResolver
+# pylint: disable=g-import-not-at-top
+# resource lib isn't available on Windows.
+if os.name != "nt":
+  import resource
+# pylint: enable=g-import-not-at-top
 
 flags.DEFINE_string("before", None, "Aquery output before the change")
 flags.DEFINE_string("after", None, "Aquery output after the change")
@@ -60,6 +65,9 @@ flags.DEFINE_enum(
     "The format of the aquery proto input. One of 'proto' and 'textproto.")
 flags.DEFINE_multi_enum("attrs", ["cmdline"], ["inputs", "cmdline"],
                         "Attributes of the actions to be compared.")
+flags.DEFINE_integer(
+    "max_mem_alloc_mb", 3072,
+    "Amount of max memory available for aquery_differ, in MB.")
 flags.mark_flag_as_required("before")
 flags.mark_flag_as_required("after")
 
@@ -260,23 +268,38 @@ def main(unused_argv):
   after_file = to_absolute_path(flags.FLAGS.after)
   input_type = flags.FLAGS.input_type
   attrs = flags.FLAGS.attrs
+  max_mem_alloc_mb = flags.FLAGS.max_mem_alloc_mb
+
+  # resource lib isn't available on Windows.
+  if os.name != "nt":
+    max_heap_bytes = max_mem_alloc_mb * 1024 * 1024
+    resource.setrlimit(resource.RLIMIT_AS, (max_heap_bytes, max_heap_bytes))
 
   before_proto = analysis_v2_pb2.ActionGraphContainer()
   after_proto = analysis_v2_pb2.ActionGraphContainer()
-  if input_type == "proto":
-    with open(before_file, "rb") as f:
-      before_proto.ParseFromString(f.read())
-    with open(after_file, "rb") as f:
-      after_proto.ParseFromString(f.read())
-  else:
-    with open(before_file, "r") as f:
-      before_text = f.read()
-      text_format.Merge(before_text, before_proto)
-    with open(after_file, "r") as f:
-      after_text = f.read()
-      text_format.Merge(after_text, after_proto)
+  try:
+    if input_type == "proto":
+      with open(before_file, "rb") as f:
+        before_proto.ParseFromString(f.read())
+      with open(after_file, "rb") as f:
+        after_proto.ParseFromString(f.read())
+    else:
+      with open(before_file, "r") as f:
+        before_text = f.read()
+        text_format.Merge(before_text, before_proto)
+      with open(after_file, "r") as f:
+        after_text = f.read()
+        text_format.Merge(after_text, after_proto)
 
-  _aquery_diff(before_proto, after_proto, attrs, before_file, after_file)
+    _aquery_diff(before_proto, after_proto, attrs, before_file, after_file)
+  except MemoryError:
+    print(
+        "aquery_differ is known to cause OOM issue with large inputs. More details: b/154620006.",
+        file=sys.stderr)
+    print(
+        "Max mem space of {}MB exceeded".format(max_mem_alloc_mb),
+        file=sys.stderr)
+    sys.exit(1)
 
 
 if __name__ == "__main__":

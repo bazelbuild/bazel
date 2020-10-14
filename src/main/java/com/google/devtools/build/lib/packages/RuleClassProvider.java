@@ -70,10 +70,13 @@ public interface RuleClassProvider extends RuleDefinitionContext {
   ImmutableMap<String, Object> getNativeRuleSpecificBindings();
 
   /**
-   * Returns the predeclared environment for a loading-phase thread. Includes "native", though its
-   * value may be inappropriate for a WORKSPACE file. Excludes universal bindings (e.g. True, len).
+   * Returns the Starlark builtins registered with this RuleClassProvider.
+   *
+   * <p>Does not account for builtins injection. Excludes universal bindings (e.g. True, len).
+   *
+   * <p>See {@link PackageFactory#getUninjectedBuildBzlNativeBindings} for the canonical
+   * determination of the bzl environment (before injection).
    */
-  // TODO(adonovan, brandjon): update doc comment. And does it really include native?
   ImmutableMap<String, Object> getEnvironment();
 
   /**

@@ -81,6 +81,7 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
   private final TransitiveInfoCollection fdoOptimize;
   private final ImmutableList<Artifact> fdoOptimizeArtifacts;
   private final FdoPrefetchHintsProvider fdoPrefetch;
+  private final PropellerOptimizeProvider propellerOptimize;
   private final TransitiveInfoCollection moduleMap;
   private final Artifact moduleMapArtifact;
   private final Artifact zipper;
@@ -173,6 +174,8 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
         ruleContext.getPrerequisiteArtifacts(CcToolchainRule.FDO_OPTIMIZE_ATTR).list();
     this.fdoPrefetch =
         ruleContext.getPrerequisite(":fdo_prefetch_hints", FdoPrefetchHintsProvider.PROVIDER);
+    this.propellerOptimize =
+        ruleContext.getPrerequisite(":propeller_optimize", PropellerOptimizeProvider.PROVIDER);
     this.moduleMap = ruleContext.getPrerequisite("module_map");
     this.moduleMapArtifact = ruleContext.getPrerequisiteArtifact("module_map");
     this.zipper = ruleContext.getPrerequisiteArtifact(":zipper");
@@ -238,6 +241,10 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
 
   public FdoPrefetchHintsProvider getFdoPrefetch() {
     return fdoPrefetch;
+  }
+
+  public PropellerOptimizeProvider getPropellerOptimize() {
+    return propellerOptimize;
   }
 
   public String getToolchainIdentifier() {

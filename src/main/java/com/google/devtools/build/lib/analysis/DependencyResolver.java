@@ -80,6 +80,17 @@ public abstract class DependencyResolver {
   // TODO(#10523): Remove this when the migration period for toolchain transitions has ended.
   public static boolean shouldUseToolchainTransition(
       @Nullable BuildConfiguration configuration, Target target) {
+    return shouldUseToolchainTransition(
+        configuration, target instanceof Rule ? (Rule) target : null);
+  }
+
+  /**
+   * Returns whether or not to use the new toolchain transition. Checks the global incompatible
+   * change flag and the rule's toolchain transition readiness attribute.
+   */
+  // TODO(#10523): Remove this when the migration period for toolchain transitions has ended.
+  public static boolean shouldUseToolchainTransition(
+      @Nullable BuildConfiguration configuration, @Nullable Rule rule) {
     // Check whether the global incompatible change flag is set.
     if (configuration != null) {
       PlatformOptions platformOptions = configuration.getOptions().get(PlatformOptions.class);
@@ -89,7 +100,7 @@ public abstract class DependencyResolver {
     }
 
     // Check the rule definition to see if it is ready.
-    if (target instanceof Rule && ((Rule) target).getRuleClassObject().useToolchainTransition()) {
+    if (rule != null && rule.getRuleClassObject().useToolchainTransition()) {
       return true;
     }
 
@@ -202,7 +213,7 @@ public abstract class DependencyResolver {
    * representing the given target and configuration.
    *
    * <p>Otherwise {@code aspects} represents an aspect path. The function returns dependent nodes of
-   * the entire path applied to given target and configuration. These are the depenent nodes of the
+   * the entire path applied to given target and configuration. These are the dependent nodes of the
    * last aspect in the path.
    *
    * <p>This also implements the first step of applying configuration transitions, namely, split
@@ -313,6 +324,8 @@ public abstract class DependencyResolver {
         // a missing toolchain a bit better.
         // TODO(lberki): This special-casing is weird. Find a better way to depend on toolchains.
         // TODO(#10523): Remove check when this is fully released.
+        // This logic needs to stay in sync with the dep finding logic in
+        // //third_party/bazel/src/main/java/com/google/devtools/build/lib/analysis/Util.java#findImplicitDeps.
         if (useToolchainTransition) {
           ToolchainDependencyKind tdk = (ToolchainDependencyKind) entry.getKey();
           ToolchainContext toolchainContext =

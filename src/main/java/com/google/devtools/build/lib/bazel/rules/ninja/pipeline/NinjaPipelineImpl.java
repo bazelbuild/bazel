@@ -175,8 +175,8 @@ public class NinjaPipelineImpl implements NinjaPipeline {
     if (!this.includedOrSubninjaFiles.contains(childPath)) {
       throw new GenericParsingException(
           String.format(
-              "Ninja file requested from '%s' " + "not declared in 'srcs' attribute of '%s'.",
-              parentNinjaFileName, this.ownerTargetName));
+              "Ninja file '%s' requested from '%s' not declared in 'ninja_srcs' attribute of '%s'.",
+              rawText, parentNinjaFileName, this.ownerTargetName));
     }
     return childPath;
   }

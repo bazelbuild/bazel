@@ -337,8 +337,6 @@ filegroup(
         ":platforms_archive",
         # Ordinary items follow:
         "//src/main/java/net/starlark/java/eval:cpu_profiler",
-        "//src/main/native:target-os-unix-native-lib",
-        "//src/main/native/windows:target-os-native-lib",
         "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",
@@ -570,9 +568,7 @@ JAVA_TOOLS_DEPLOY_JARS = [
     "//conditions:default": [],
 })
 
-JAVA_VERSIONS = ("11", "14")
-
-# TODO(davido): Hard code the javac 11 for now; it is required for default toolchain.
+JAVA_VERSIONS = ("11",)
 
 [
     genrule(
@@ -659,9 +655,12 @@ JAVA_VERSIONS = ("11", "14")
 [
     genrule(
         name = "java_tools_java" + java_version + "_build_zip",
-        srcs = ["remote_java_tools_java" + java_version + "/BUILD"],
+        srcs = [
+            "remote_java_tools_java" + java_version + "/BUILD",
+            "//tools/jdk:java_toolchain_default.bzl",
+        ],
         outs = ["java_tools_java_" + java_version + "_build.zip"],
-        cmd = "zip -jX $@ $<",
+        cmd = "zip -jX $@ $(SRCS)",
     )
     for java_version in JAVA_VERSIONS
 ]
@@ -754,6 +753,9 @@ filegroup(
         "@openjdk14_darwin_archive//:WORKSPACE",
         "@openjdk14_linux_archive//:WORKSPACE",
         "@openjdk14_windows_archive//:WORKSPACE",
+        "@openjdk15_darwin_archive//:WORKSPACE",
+        "@openjdk15_linux_archive//:WORKSPACE",
+        "@openjdk15_windows_archive//:WORKSPACE",
         "@openjdk_linux_aarch64_minimal//file",
         "@openjdk_linux_minimal//file",
         "@openjdk_macos_minimal//file",
@@ -763,9 +765,6 @@ filegroup(
         "@remote_java_tools_javac11_test_darwin//:WORKSPACE",
         "@remote_java_tools_javac11_test_linux//:WORKSPACE",
         "@remote_java_tools_javac11_test_windows//:WORKSPACE",
-        "@remote_java_tools_javac14_test_darwin//:WORKSPACE",
-        "@remote_java_tools_javac14_test_linux//:WORKSPACE",
-        "@remote_java_tools_javac14_test_windows//:WORKSPACE",
         "@remote_java_tools_linux_for_testing//:WORKSPACE",
         "@remote_java_tools_windows_for_testing//:WORKSPACE",
         "@remotejdk11_linux_aarch64_for_testing//:WORKSPACE",
@@ -777,6 +776,9 @@ filegroup(
         "@remotejdk14_linux_for_testing//:WORKSPACE",
         "@remotejdk14_macos_for_testing//:WORKSPACE",
         "@remotejdk14_win_for_testing//:WORKSPACE",
+        "@remotejdk15_linux_for_testing//:WORKSPACE",
+        "@remotejdk15_macos_for_testing//:WORKSPACE",
+        "@remotejdk15_win_for_testing//:WORKSPACE",
         "@rules_cc//:WORKSPACE",
         "@rules_java//:WORKSPACE",
         "@rules_pkg//:WORKSPACE",

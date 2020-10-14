@@ -331,9 +331,7 @@ public class BuildViewForTesting {
         getConfigurableAttributeKeysForTesting(
             eventHandler,
             ctgNode,
-            toolchainContexts == null
-                ? null
-                : toolchainContexts.getDefaultToolchainContext().targetPlatform()),
+            toolchainContexts == null ? null : toolchainContexts.getTargetPlatform()),
         toolchainContexts,
         DependencyResolver.shouldUseToolchainTransition(configuration, target),
         ruleClassProvider.getTrimmingTransitionFactory());
@@ -519,11 +517,12 @@ public class BuildViewForTesting {
         skyframeExecutor.getSkyFunctionEnvironmentForTesting(eventHandler);
 
     Map<String, ToolchainContextKey> toolchainContextKeys = new HashMap<>();
+    BuildConfigurationValue.Key configurationKey = BuildConfigurationValue.key(targetConfig);
     for (Map.Entry<String, ExecGroup> execGroup : execGroups.entrySet()) {
       toolchainContextKeys.put(
           execGroup.getKey(),
           ToolchainContextKey.key()
-              .configurationKey(BuildConfigurationValue.key(targetConfig))
+              .configurationKey(configurationKey)
               .requiredToolchainTypeLabels(execGroup.getValue().requiredToolchains())
               .build());
     }
@@ -531,7 +530,7 @@ public class BuildViewForTesting {
     toolchainContextKeys.put(
         targetUnloadedToolchainContextKey,
         ToolchainContextKey.key()
-            .configurationKey(BuildConfigurationValue.key(targetConfig))
+            .configurationKey(configurationKey)
             .requiredToolchainTypeLabels(requiredToolchains)
             .build());
 

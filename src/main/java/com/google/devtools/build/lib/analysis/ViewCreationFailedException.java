@@ -13,23 +13,35 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+
 /**
- * An exception indicating that there was a problem during the view
- * construction (loading and analysis phases) for one or more targets, that the
- * configured target graph could not be successfully constructed, and that
- * a build cannot be started.
+ * An exception indicating that there was a problem during the view construction (loading and
+ * analysis phases) for one or more targets, that the configured target graph could not be
+ * successfully constructed, and that a build cannot be started.
  */
 public class ViewCreationFailedException extends Exception {
 
-  public ViewCreationFailedException(String message) {
+  private final FailureDetail failureDetail;
+
+  public ViewCreationFailedException(String message, FailureDetail failureDetail) {
     super(message);
+    this.failureDetail = checkNotNull(failureDetail);
   }
 
-  public ViewCreationFailedException(String message, Throwable cause) {
+  public ViewCreationFailedException(String message, FailureDetail failureDetail, Throwable cause) {
     super(message + ": " + cause.getMessage(), cause);
+    this.failureDetail = checkNotNull(failureDetail);
   }
 
-  public ViewCreationFailedException(Throwable cause) {
+  public ViewCreationFailedException(FailureDetail failureDetail, Throwable cause) {
     super(cause);
+    this.failureDetail = checkNotNull(failureDetail);
+  }
+
+  public FailureDetail getFailureDetail() {
+    return failureDetail;
   }
 }

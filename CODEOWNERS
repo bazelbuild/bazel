@@ -59,9 +59,9 @@ android/ @ahumesky
 
 /src/main/java/com/google/devtools/build/lib/rules/ @lberki
 
-# Skylark
+# Starlark
 
-/src/main/java/com/google/devtools/build/lib/syntax/ @brandjon @laurentlb @alandonovan
+/src/main/java/net/starlark/java/ @alandonovan @brandjon
 
 /tools/coverage/ @lberki
 /tools/test/collect_coverage.sh @lberki

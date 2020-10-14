@@ -46,6 +46,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -1050,7 +1051,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
                 .getOptions()
                 .getStarlarkOptions()
                 .get(Label.parseAbsoluteUnchecked("//test/starlark:the-answer")))
-        .isEqualTo(42);
+        .isEqualTo(StarlarkInt.of(42));
   }
 
   @Test
@@ -1084,7 +1085,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
                 .getOptions()
                 .getStarlarkOptions()
                 .get(Label.parseAbsoluteUnchecked("//test/starlark:the-answer")))
-        .isEqualTo(42);
+        .isEqualTo(StarlarkInt.of(42));
   }
 
   private CoreOptions getCoreOptions(ConfiguredTarget target) {

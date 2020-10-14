@@ -283,6 +283,9 @@ EOF
         "openjdk14_darwin_archive"
         "openjdk14_linux_archive"
         "openjdk14_windows_archive"
+        "openjdk15_darwin_archive"
+        "openjdk15_linux_archive"
+        "openjdk15_windows_archive"
         "openjdk_linux_aarch64_minimal"
         "openjdk_linux_minimal"
         "openjdk_macos_minimal"
@@ -292,9 +295,6 @@ EOF
         "remote_java_tools_javac11_test_darwin"
         "remote_java_tools_javac11_test_linux"
         "remote_java_tools_javac11_test_windows"
-        "remote_java_tools_javac14_test_darwin"
-        "remote_java_tools_javac14_test_linux"
-        "remote_java_tools_javac14_test_windows"
         "remote_java_tools_linux_for_testing"
         "remote_java_tools_windows_for_testing"
         "remotejdk11_linux_for_testing"
@@ -306,6 +306,9 @@ EOF
         "remotejdk14_linux_for_testing"
         "remotejdk14_macos_for_testing"
         "remotejdk14_win_for_testing"
+        "remotejdk15_linux_for_testing"
+        "remotejdk15_macos_for_testing"
+        "remotejdk15_win_for_testing"
         "rules_cc"
         "rules_java"
         "rules_pkg"
@@ -339,11 +342,13 @@ function setup_android_sdk_support() {
   local android=$(dirname $android_jar)
   local platforms=$(dirname $android)
   ANDROID_SDK=$(dirname $platforms)
+
 cat >> WORKSPACE <<EOF
 android_sdk_repository(
     name = "androidsdk",
     path = "$ANDROID_SDK",
 )
+register_toolchains("//tools/android:all")
 EOF
 }
 

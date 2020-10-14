@@ -123,6 +123,12 @@ public final class CcToolchainRule implements RuleDefinition {
           null,
           (rule, attributes, cppConfig) -> cppConfig.getFdoPrefetchHintsLabel());
 
+  private static final LabelLateBoundDefault<?> PROPELLER_OPTIMIZE =
+      LabelLateBoundDefault.fromTargetConfiguration(
+          CppConfiguration.class,
+          null,
+          (rule, attributes, cppConfig) -> cppConfig.getPropellerOptimizeLabel());
+
   /**
    * Returns true if zipper should be loaded. We load the zipper executable if FDO optimization is
    * enabled through --fdo_optimize or --fdo_profile
@@ -371,6 +377,12 @@ public final class CcToolchainRule implements RuleDefinition {
                 .allowedRuleClasses("fdo_prefetch_hints")
                 .mandatoryProviders(ImmutableList.of(FdoPrefetchHintsProvider.PROVIDER.id()))
                 .value(FDO_PREFETCH_HINTS)
+                .cfg(NoTransition.createFactory()))
+        .add(
+            attr(":propeller_optimize", LABEL)
+                .allowedRuleClasses("propeller_optimize")
+                .mandatoryProviders(ImmutableList.of(PropellerOptimizeProvider.PROVIDER.id()))
+                .value(PROPELLER_OPTIMIZE)
                 // Should be in the target configuration
                 .cfg(NoTransition.createFactory()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(toolchain_identifier) -->

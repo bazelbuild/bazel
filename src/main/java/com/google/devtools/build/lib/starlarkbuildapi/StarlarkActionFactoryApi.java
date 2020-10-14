@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -30,7 +30,7 @@ import net.starlark.java.eval.StarlarkValue;
 /** Module providing functions to create actions. */
 @StarlarkBuiltin(
     name = "actions",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc =
         "Module providing functions to create actions. "
             + "Access this module using <a href=\"ctx.html#actions\"><code>ctx.actions</code></a>.")
@@ -240,7 +240,6 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
         @Param(name = "output", type = FileApi.class, doc = "The output file.", named = true),
         @Param(
             name = "content",
-            type = Object.class,
             allowedTypes = {
               @ParamType(type = String.class),
               @ParamType(type = CommandLineArgsApi.class)
@@ -286,7 +285,6 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             doc = "List or depset of the input files of the action."),
         @Param(
             name = "unused_inputs_list",
-            type = Object.class,
             allowedTypes = {
               @ParamType(type = FileApi.class),
             },
@@ -303,7 +301,6 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
                     + "outputs of the action."),
         @Param(
             name = "executable",
-            type = Object.class,
             allowedTypes = {
               @ParamType(type = FileApi.class),
               @ParamType(type = String.class),
@@ -327,10 +324,8 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
                     + "runfiles that are automatically made available to the action."),
         @Param(
             name = "arguments",
-            type = Object.class,
-            allowedTypes = {
-              @ParamType(type = Sequence.class),
-            },
+            type = Sequence.class,
+            generic1 = String.class,
             defaultValue = "[]",
             named = true,
             positional = false,
@@ -496,7 +491,6 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             doc = "A one-word description of the action, for example, CppCompile or GoLink."),
         @Param(
             name = "command",
-            type = Object.class,
             allowedTypes = {
               @ParamType(type = String.class),
               @ParamType(type = Sequence.class, generic1 = String.class),

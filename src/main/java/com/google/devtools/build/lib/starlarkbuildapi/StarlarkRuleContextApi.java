@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -28,7 +29,6 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.ClassObject;
 import net.starlark.java.eval.Dict;
@@ -41,7 +41,7 @@ import net.starlark.java.eval.Tuple;
 /** Interface for a context object given to rule implementation functions. */
 @StarlarkBuiltin(
     name = "ctx",
-    category = StarlarkDocumentationCategory.BUILTIN,
+    category = DocCategory.BUILTIN,
     doc =
         "A context object that is passed to the implementation function for a rule or aspect. It"
             + " provides access to the information and methods needed to analyze the current"

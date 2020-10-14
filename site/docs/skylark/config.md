@@ -238,14 +238,22 @@ kotlin_binary = rule(
 
 ```
 
-#### Settings Build Settings on the command line
+#### Using build settings on the command line
 
-Build settings are set on the command line like any other flag. Boolean build
-settings understand no-prefixes and both equals and space syntaxes are supported.
-The name of build settings is their full target path:
+Similar to most native flags, you can use the command line to set build settings
+[that are marked as flags](#the-build-setting-rule-parameter). The build
+setting's name is its full target path using `name=value` syntax:
 
 ```shell
-$ bazel build //my/target --//example:favorite_flavor="PAMPLEMOUSSE"
+$ bazel build //my/target --//example:string_flag=some-value # allowed
+$ bazel build //my/target --//example:string_flag some-value # not allowed
+```
+
+Special boolean syntax is supported:
+
+```shell
+$ bazel build //my/target --//example:boolean_flag
+$ bazel build //my/target --no//example:boolean_flag
 ```
 
 There are plans to implement shorthand mapping of flag labels so users don't

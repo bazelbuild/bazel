@@ -301,8 +301,8 @@ public class JavaCommon {
   }
 
   /**
-   * Sanity checks the given runtime dependencies, and emits errors if there is a problem. Also
-   * called by {@link #initCommon()} for the current target's runtime dependencies.
+   * Checks the given runtime dependencies, and emits errors if there is a problem. Also called by
+   * {@link #initCommon()} for the current target's runtime dependencies.
    */
   public static void checkRuntimeDeps(
       RuleContext ruleContext, List<TransitiveInfoCollection> runtimeDepInfo) {

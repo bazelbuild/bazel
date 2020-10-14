@@ -14,15 +14,15 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /** Provider for structs containing actions created during the analysis of a rule. */
 @StarlarkBuiltin(
     name = "Actions",
     doc = "<b>Deprecated and subject to imminent removal. Please do not use.</b>",
     documented = false,
-    category = StarlarkDocumentationCategory.PROVIDER)
+    category = DocCategory.PROVIDER)
 // TODO(cparsons): Deprecate and remove this API.
 public interface ActionsInfoProviderApi extends ProviderApi {}

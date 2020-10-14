@@ -16,12 +16,12 @@ package net.starlark.java.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
-/** Syntax node for a for loop statement. */
+/** Syntax node for a for loop statement, {@code for vars in iterable: ...}. */
 public final class ForStatement extends Statement {
 
   private final int forOffset;
   private final Expression vars;
-  private final Expression collection;
+  private final Expression iterable;
   private final ImmutableList<Statement> body; // non-empty if well formed
 
   /** Constructs a for loop statement. */
@@ -29,26 +29,30 @@ public final class ForStatement extends Statement {
       FileLocations locs,
       int forOffset,
       Expression vars,
-      Expression collection,
+      Expression iterable,
       ImmutableList<Statement> body) {
     super(locs);
     this.forOffset = forOffset;
     this.vars = Preconditions.checkNotNull(vars);
-    this.collection = Preconditions.checkNotNull(collection);
+    this.iterable = Preconditions.checkNotNull(iterable);
     this.body = body;
   }
 
+  /**
+   * Returns variables assigned by each iteration. May be a compound target such as {@code (a[b],
+   * c.d)}.
+   */
   public Expression getVars() {
     return vars;
   }
 
-  /**
-   * @return The collection we iterate on, e.g. `col` in `for x in col:`
-   */
+  /** Returns the iterable value. */
+  // TODO(adonovan): rename to getIterable.
   public Expression getCollection() {
-    return collection;
+    return iterable;
   }
 
+  /** Returns the statements of the loop body. Non-empty if parsing succeeded. */
   public ImmutableList<Statement> getBody() {
     return body;
   }
@@ -61,13 +65,13 @@ public final class ForStatement extends Statement {
   @Override
   public int getEndOffset() {
     return body.isEmpty()
-        ? collection.getEndOffset() // wrong, but tree is ill formed
+        ? iterable.getEndOffset() // wrong, but tree is ill formed
         : body.get(body.size() - 1).getEndOffset();
   }
 
   @Override
   public String toString() {
-    return "for " + vars + " in " + collection + ": ...\n";
+    return "for " + vars + " in " + iterable + ": ...\n";
   }
 
   @Override

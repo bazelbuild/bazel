@@ -26,6 +26,7 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
@@ -37,7 +38,7 @@ public class FakeStarlarkNativeModuleApi implements StarlarkNativeModuleApi, Cla
   public Sequence<?> glob(
       Sequence<?> include,
       Sequence<?> exclude,
-      Integer excludeDirectories,
+      StarlarkInt excludeDirectories,
       Object allowEmpty,
       StarlarkThread thread)
       throws EvalException, InterruptedException {

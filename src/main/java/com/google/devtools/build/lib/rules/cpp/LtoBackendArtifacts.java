@@ -97,7 +97,7 @@ public final class LtoBackendArtifacts {
       List<String> userCompileFlags)
       throws RuleErrorException {
     this.bitcodeFile = bitcodeFile;
-    PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getPackagePath());
+    PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getOutputDirRelativePath());
 
     objectFile =
         linkArtifactFactory.create(actionConstructionContext, repositoryName, configuration, obj);
@@ -151,7 +151,7 @@ public final class LtoBackendArtifacts {
       throws RuleErrorException {
     this.bitcodeFile = bitcodeFile;
 
-    PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getPackagePath());
+    PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getOutputDirRelativePath());
     objectFile =
         linkArtifactFactory.create(actionConstructionContext, repositoryName, configuration, obj);
     imports = null;
@@ -265,7 +265,7 @@ public final class LtoBackendArtifacts {
               actionConstructionContext,
               repositoryName,
               configuration,
-              FileSystemUtils.replaceExtension(objectFile.getPackagePath(), ".dwo"));
+              FileSystemUtils.replaceExtension(objectFile.getOutputDirRelativePath(), ".dwo"));
       builder.addOutput(dwoFile);
       buildVariablesBuilder.addStringVariable(
           CompileBuildVariables.PER_OBJECT_DEBUG_INFO_FILE.getVariableName(),
@@ -340,6 +340,20 @@ public final class LtoBackendArtifacts {
     if (prefetch != null) {
       buildVariables.addStringVariable("fdo_prefetch_hints_path", prefetch.getExecPathString());
       builder.addInput(fdoContext.getPrefetchHintsArtifact());
+    }
+    if (fdoContext.getPropellerOptimizeInputFile() != null
+        && fdoContext.getPropellerOptimizeInputFile().getCcArtifact() != null) {
+      buildVariables.addStringVariable(
+          "propeller_optimize_cc_path",
+          fdoContext.getPropellerOptimizeInputFile().getCcArtifact().getExecPathString());
+      builder.addInput(fdoContext.getPropellerOptimizeInputFile().getCcArtifact());
+    }
+    if (fdoContext.getPropellerOptimizeInputFile() != null
+        && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
+      buildVariables.addStringVariable(
+          "propeller_optimize_ld_path",
+          fdoContext.getPropellerOptimizeInputFile().getLdArtifact().getExecPathString());
+      builder.addInput(fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
     }
     if (!featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
         && !featureConfiguration.isEnabled(CppRuleClasses.CS_FDO_OPTIMIZE)

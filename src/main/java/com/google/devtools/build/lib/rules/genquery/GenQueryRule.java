@@ -80,7 +80,7 @@ public final class GenQueryRule implements RuleDefinition {
   }
 }
 
-/*<!-- #BLAZE_RULE (NAME = genquery, TYPE = LIBRARY, FAMILY = General)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = genquery, FAMILY = General)[GENERIC_RULE] -->
 
   <p>
   <code>genquery()</code> runs a query specified in the

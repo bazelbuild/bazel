@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis.starlark;
 import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
@@ -110,14 +109,6 @@ import net.starlark.java.eval.Tuple;
  */
 public final class StarlarkRuleContext implements StarlarkRuleContextApi<ConstraintValueInfo> {
 
-  public static final Function<Attribute, Object> ATTRIBUTE_VALUE_EXTRACTOR_FOR_ASPECT =
-      new Function<Attribute, Object>() {
-        @Nullable
-        @Override
-        public Object apply(Attribute attribute) {
-          return attribute.getDefaultValue(null);
-        }
-      };
   public static final String EXECUTABLE_OUTPUT_NAME = "executable";
 
   // This field is a copy of the info from ruleContext, stored separately so it can be accessed
@@ -238,7 +229,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       StarlarkAttributesCollection.Builder aspectBuilder =
           StarlarkAttributesCollection.builder(this);
       for (Attribute attribute : attributes) {
-        aspectBuilder.addAttribute(attribute, attribute.getDefaultValue(null));
+        aspectBuilder.addAttribute(attribute, attribute.getDefaultValue(ruleContext.getRule()));
       }
       this.attributesCollection = aspectBuilder.build();
 
@@ -255,7 +246,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
           continue;
         }
         for (Attribute attribute : aspect.getDefinition().getAttributes().values()) {
-          ruleBuilder.addAttribute(attribute, attribute.getDefaultValue(null));
+          ruleBuilder.addAttribute(attribute, attribute.getDefaultValue(ruleContext.getRule()));
         }
       }
 

@@ -39,8 +39,6 @@ public final class UnsignedLongs {
    * Compares the two specified {@code long} values, treating them as unsigned values between {@code
    * 0} and {@code 2^64 - 1} inclusive.
    *
-   * <p><b>Java 8 users:</b> use {@link Long#compareUnsigned(long, long)} instead.
-   *
    * @param a the first unsigned {@code long} to compare
    * @param b the second unsigned {@code long} to compare
    * @return a negative value if {@code a} is less than {@code b}; a positive value if {@code a} is
@@ -117,5 +115,64 @@ public final class UnsignedLongs {
     long quotient = ((dividend >>> 1) / divisor) << 1;
     long rem = dividend - quotient * divisor;
     return rem - (compare(rem, divisor) >= 0 ? divisor : 0);
+  }
+
+  /** Returns a string representation of x, where x is treated as unsigned. */
+  public static String toString(long x) {
+    return toString(x, 10);
+  }
+
+  /**
+   * Returns a string representation of {@code x} for the given radix, where {@code x} is treated as
+   * unsigned.
+   *
+   * @param x the value to convert to a string.
+   * @param radix the radix to use while working with {@code x}
+   * @throws IllegalArgumentException if {@code radix} is not between {@link Character#MIN_RADIX}
+   *     and {@link Character#MAX_RADIX}.
+   */
+  public static String toString(long x, int radix) {
+    if (radix < Character.MIN_RADIX || radix > Character.MAX_RADIX) {
+      throw new IllegalArgumentException(
+          "radix (" + radix + ") must be between Character.MIN_RADIX and Character.MAX_RADIX");
+    }
+    if (x == 0) {
+      // Simply return "0"
+      return "0";
+    } else if (x > 0) {
+      return Long.toString(x, radix);
+    } else {
+      char[] buf = new char[64];
+      int i = buf.length;
+      if ((radix & (radix - 1)) == 0) {
+        // Radix is a power of two so we can avoid division.
+        int shift = Integer.numberOfTrailingZeros(radix);
+        int mask = radix - 1;
+        do {
+          buf[--i] = Character.forDigit(((int) x) & mask, radix);
+          x >>>= shift;
+        } while (x != 0);
+      } else {
+        // Separate off the last digit using unsigned division. That will leave
+        // a number that is nonnegative as a signed integer.
+        long quotient;
+        if ((radix & 1) == 0) {
+          // Fast path for the usual case where the radix is even.
+          quotient = (x >>> 1) / (radix >>> 1);
+        } else {
+          quotient = divideUnsigned(x, radix);
+        }
+        long rem = x - quotient * radix;
+        buf[--i] = Character.forDigit((int) rem, radix);
+        x = quotient;
+        // Simple modulo/division approach
+        while (x > 0) {
+          buf[--i] = Character.forDigit((int) (x % radix), radix);
+          x /= radix;
+        }
+      }
+      // Generate string
+      return new String(buf, i, buf.length - i);
+    }
   }
 }

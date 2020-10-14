@@ -56,7 +56,6 @@ java_test(
         "testdata/function.sky",
         "testdata/int.sky",
         "testdata/int_constructor.sky",
-        "testdata/int_function.sky",
         "testdata/list_mutation.sky",
         "testdata/list_slices.sky",
         "testdata/min_max.sky",

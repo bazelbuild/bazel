@@ -305,7 +305,8 @@ public class LocalSpawnRunner implements SpawnRunner {
             .setStatus(Status.EXECUTION_DENIED)
             .setExitCode(LOCAL_EXEC_ERROR)
             .setExecutorHostname(hostName)
-            .setFailureDetail(makeFailureDetail(LOCAL_EXEC_ERROR, Status.EXECUTION_DENIED))
+            .setFailureDetail(
+                makeFailureDetail(LOCAL_EXEC_ERROR, Status.EXECUTION_DENIED, actionType))
             .build();
       }
 
@@ -410,7 +411,8 @@ public class LocalSpawnRunner implements SpawnRunner {
               .setStatus(Status.EXECUTION_FAILED)
               .setExitCode(LOCAL_EXEC_ERROR)
               .setExecutorHostname(hostName)
-              .setFailureDetail(makeFailureDetail(LOCAL_EXEC_ERROR, Status.EXECUTION_FAILED))
+              .setFailureDetail(
+                  makeFailureDetail(LOCAL_EXEC_ERROR, Status.EXECUTION_FAILED, actionType))
               .build();
         }
         setState(State.SUCCESS);
@@ -431,7 +433,7 @@ public class LocalSpawnRunner implements SpawnRunner {
                 .setExecutorHostname(hostName)
                 .setWallTime(wallTime);
         if (status != Status.SUCCESS) {
-          spawnResultBuilder.setFailureDetail(makeFailureDetail(exitCode, status));
+          spawnResultBuilder.setFailureDetail(makeFailureDetail(exitCode, status, actionType));
         }
         if (statisticsPath != null) {
           ExecutionStatistics.getResourceUsage(statisticsPath)
@@ -509,7 +511,7 @@ public class LocalSpawnRunner implements SpawnRunner {
     }
   }
 
-  private static FailureDetail makeFailureDetail(int exitCode, Status status) {
+  private static FailureDetail makeFailureDetail(int exitCode, Status status, String actionType) {
     FailureDetails.Spawn.Builder spawnFailure = FailureDetails.Spawn.newBuilder();
     switch (status) {
       case SUCCESS:
@@ -540,7 +542,7 @@ public class LocalSpawnRunner implements SpawnRunner {
         break;
     }
     return FailureDetail.newBuilder()
-        .setMessage("local spawn failed")
+        .setMessage("local spawn failed for " + actionType)
         .setSpawn(spawnFailure)
         .build();
   }

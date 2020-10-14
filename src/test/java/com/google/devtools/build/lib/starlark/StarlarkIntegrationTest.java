@@ -59,6 +59,7 @@ import java.util.List;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import org.junit.Before;
 import org.junit.Test;
@@ -250,31 +251,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     assertThat(ccTarget.getAttr("generator_name")).isEqualTo("");
     assertThat(ccTarget.getAttr("generator_function")).isEqualTo("");
     assertThat(ccTarget.getAttr("generator_location")).isEqualTo("");
-  }
-
-  @Test
-  public void testGeneratorAttributesWhenCallstackEnabled_macro() throws Exception {
-    // generator_* attributes are derived using alternative logic from the call stack when
-    // --record_rule_instantiation_callstack is enabled. This test exercises that.
-    scratch.file(
-        "mypkg/inc.bzl",
-        "def _impl(ctx):",
-        "  pass",
-        "",
-        "myrule = rule(implementation = _impl)",
-        "",
-        "def f(name):",
-        "  g()",
-        "",
-        "def g():",
-        "  myrule(name='a')",
-        "");
-    scratch.file("mypkg/BUILD", "load(':inc.bzl', 'f')", "f(name='foo')");
-    setBuildLanguageOptions("--record_rule_instantiation_callstack");
-    Rule rule = (Rule) getTarget("//mypkg:a");
-    assertThat(rule.getAttr("generator_function")).isEqualTo("f");
-    assertThat(rule.getAttr("generator_location")).isEqualTo("mypkg/BUILD:2:2");
-    assertThat(rule.getAttr("generator_name")).isEqualTo("foo");
   }
 
   @Test
@@ -1437,7 +1413,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     StructImpl declaredProvider = (StructImpl) configuredTarget.get(key);
     assertThat(declaredProvider).isNotNull();
     assertThat(declaredProvider.getProvider().getKey()).isEqualTo(key);
-    assertThat(declaredProvider.getValue("x")).isEqualTo(1);
+    assertThat(declaredProvider.getValue("x")).isEqualTo(StarlarkInt.of(1));
   }
 
   @Test
@@ -1462,7 +1438,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     StructImpl declaredProvider = (StructImpl) configuredTarget.get(key);
     assertThat(declaredProvider).isNotNull();
     assertThat(declaredProvider.getProvider().getKey()).isEqualTo(key);
-    assertThat(declaredProvider.getValue("x")).isEqualTo(1);
+    assertThat(declaredProvider.getValue("x")).isEqualTo(StarlarkInt.of(1));
   }
 
   @Test
@@ -1488,7 +1464,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     StructImpl declaredProvider = (StructImpl) configuredTarget.get(key);
     assertThat(declaredProvider).isNotNull();
     assertThat(declaredProvider.getProvider().getKey()).isEqualTo(key);
-    assertThat(declaredProvider.getValue("x")).isEqualTo(1);
+    assertThat(declaredProvider.getValue("x")).isEqualTo(StarlarkInt.of(1));
   }
 
   @Test
@@ -3265,7 +3241,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:r");
-    assertContainsEvent("unhashable type: 'tuple'");
+    assertContainsEvent("unhashable type: 'dict'");
   }
 
   @Test

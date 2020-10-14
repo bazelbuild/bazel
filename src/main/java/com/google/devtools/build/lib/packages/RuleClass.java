@@ -2020,7 +2020,7 @@ public class RuleClass {
   }
 
   /**
-   * Same as {@link #createRule}, except without some internal sanity checks.
+   * Same as {@link #createRule}, except without some internal checks.
    *
    * <p>Don't call this function unless you know what you're doing.
    */

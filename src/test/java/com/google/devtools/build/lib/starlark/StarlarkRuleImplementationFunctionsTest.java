@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Provider;
@@ -74,6 +75,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import org.junit.Before;
@@ -1511,7 +1513,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
         .isEqualTo(
             new StarlarkProvider.Key(
                 Label.parseAbsolute("//test:foo.bzl", ImmutableMap.of()), "foo_provider"));
-    assertThat(((StructImpl) provider).getValue("a")).isEqualTo(123);
+    assertThat(((StructImpl) provider).getValue("a")).isEqualTo(StarlarkInt.of(123));
   }
 
   @Test
@@ -1805,7 +1807,8 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     StarlarkRuleContext ctx = createRuleContext("//foo:bar");
     setRuleContext(ctx);
     Object result = ev.eval("ruleContext.bin_dir.path");
-    assertThat(result).isEqualTo(ctx.getConfiguration().getBinFragment().getPathString());
+    assertThat(result)
+        .isEqualTo(ctx.getConfiguration().getBinFragment(RepositoryName.MAIN).getPathString());
   }
 
   @Test
@@ -2311,15 +2314,15 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   public void testArgsAddInvalidTypesForArgAndValues() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     ev.checkEvalErrorContains(
-        "expected value of type 'string' for arg name, got 'Integer'",
+        "expected value of type 'string' for arg name, got 'int'",
         "args = ruleContext.actions.args()",
         "args.add(1, 'value')");
     ev.checkEvalErrorContains(
-        "expected value of type 'string' for arg name, got 'Integer'",
+        "expected value of type 'string' for arg name, got 'int'",
         "args = ruleContext.actions.args()",
         "args.add_all(1, [1, 2])");
     ev.checkEvalErrorContains(
-        "expected value of type 'sequence or depset' for values, got 'Integer'",
+        "expected value of type 'sequence or depset' for values, got 'int'",
         "args = ruleContext.actions.args()",
         "args.add_all(1)");
     ev.checkEvalErrorContains(
@@ -2417,7 +2420,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     CommandLineExpansionException e =
         assertThrows(CommandLineExpansionException.class, () -> action.getArguments());
     assertThat(e.getMessage())
-        .contains("Expected map_each to return string, None, or list of strings, found Integer");
+        .contains("Expected map_each to return string, None, or list of strings, found int");
   }
 
   @Test

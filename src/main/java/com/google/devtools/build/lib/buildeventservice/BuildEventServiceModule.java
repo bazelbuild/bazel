@@ -485,7 +485,8 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
       throw new RuntimeException(
           String.format(
               "Unexpected Exception '%s' when closing BEP transports, this is a bug.",
-              e.getCause().getMessage()));
+              e.getCause().getMessage()),
+          e);
     } finally {
       if (besUploadModeIsSynchronous) {
         cancelAndResetPendingUploads();

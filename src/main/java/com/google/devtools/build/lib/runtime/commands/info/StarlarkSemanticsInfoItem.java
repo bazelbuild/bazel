@@ -41,11 +41,11 @@ public final class StarlarkSemanticsInfoItem extends InfoItem {
 
   @Override
   public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env) {
-    BuildLanguageOptions starlarkSemanticsOptions =
+    BuildLanguageOptions buildLanguageOptions =
         commandOptions.getOptions(BuildLanguageOptions.class);
     SkyframeExecutor skyframeExecutor = env.getBlazeWorkspace().getSkyframeExecutor();
     StarlarkSemantics effectiveStarlarkSemantics =
-        skyframeExecutor.getEffectiveStarlarkSemantics(starlarkSemanticsOptions);
+        skyframeExecutor.getEffectiveStarlarkSemantics(buildLanguageOptions);
     return print(effectiveStarlarkSemantics);
   }
 }
