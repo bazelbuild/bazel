@@ -49,7 +49,7 @@ def _get_escaped_xcode_cxx_inc_directories(repository_ctx, cc, xcode_toolchains)
     include_dirs.append("/Applications/")
     return include_dirs
 
-def compile_cc_file(repository_ctx, src_name, out_name):
+def _compile_cc_file(repository_ctx, src_name, out_name):
     xcrun_result = repository_ctx.execute([
         "env",
         "-i",
@@ -60,6 +60,7 @@ def compile_cc_file(repository_ctx, src_name, out_name):
         "-mmacosx-version-min=10.9",
         "-std=c++11",
         "-lc++",
+        "-O3",
         "-o",
         out_name,
         src_name,
@@ -139,11 +140,11 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
         libtool_check_unique_src_path = str(repository_ctx.path(
             paths["@bazel_tools//tools/objc:libtool_check_unique.cc"],
         ))
-        compile_cc_file(repository_ctx, libtool_check_unique_src_path, "libtool_check_unique")
+        _compile_cc_file(repository_ctx, libtool_check_unique_src_path, "libtool_check_unique")
         wrapped_clang_src_path = str(repository_ctx.path(
             paths["@bazel_tools//tools/osx/crosstool:wrapped_clang.cc"],
         ))
-        compile_cc_file(repository_ctx, wrapped_clang_src_path, "wrapped_clang")
+        _compile_cc_file(repository_ctx, wrapped_clang_src_path, "wrapped_clang")
         repository_ctx.symlink("wrapped_clang", "wrapped_clang_pp")
 
         tool_paths = {}
