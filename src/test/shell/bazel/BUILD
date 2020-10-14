@@ -1343,3 +1343,17 @@ sh_test(
     tags = ["no_windows"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
+
+sh_test(
+    name = "verify_workspace",
+    srcs = ["verify_workspace.sh"],
+    data = [
+        ":test-deps",
+        "//:workspace-file",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = [
+        "no_windows",
+        "requires-network",
+    ],
+)
