@@ -22,8 +22,8 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkInterfaceUtils;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Debug;
 import net.starlark.java.eval.Dict;
@@ -462,7 +462,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
         // because stardoc can't handle a type and a function with the same name.
         return cls;
       }
-      Class<?> superclass = StarlarkInterfaceUtils.getParentWithStarlarkBuiltin(cls);
+      Class<?> superclass = StarlarkAnnotations.getParentWithStarlarkBuiltin(cls);
       if (superclass != null) {
         return superclass;
       }

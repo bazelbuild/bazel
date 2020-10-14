@@ -27,7 +27,7 @@ import java.lang.annotation.Target;
  * corresponding {@code @StarlarkMethod} annotation, if it has one, by scanning all methods of the
  * same name in its class hierarchy, without worrying about complications like overloading or
  * generics. The lookup functionality is implemented by {@link
- * StarlarkInterfaceUtils#getStarlarkMethod}.
+ * StarlarkAnnotations#getStarlarkMethod}.
  *
  * <p>Methods having this annotation must satisfy the following requirements, which are enforced at
  * compile time by {@link StarlarkMethodProcessor}:

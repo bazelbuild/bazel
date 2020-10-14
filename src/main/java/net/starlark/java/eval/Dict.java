@@ -180,7 +180,7 @@ public final class Dict<K, V>
       allowReturnNones = true,
       useStarlarkThread = true)
   // TODO(adonovan): This method is named get2 as a temporary workaround for a bug in
-  // StarlarkInterfaceUtils.getStarlarkMethod. The two 'get' methods cause it to get
+  // StarlarkAnnotations.getStarlarkMethod. The two 'get' methods cause it to get
   // confused as to which one has the annotation. Fix it and remove "2" suffix.
   public Object get2(Object key, Object defaultValue, StarlarkThread thread) throws EvalException {
     Object v = this.get(key);

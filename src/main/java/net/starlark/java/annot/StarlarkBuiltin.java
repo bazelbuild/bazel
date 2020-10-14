@@ -35,7 +35,7 @@ import java.lang.annotation.Target;
  * the minimum element in the partial order of all annotations defined on C and its ancestors, where
  * the order relationship is X < Y if X annotates a subtype of what Y annotates.) The lookup logic
  * for retrieving a class's {@link StarlarkBuiltin} is implemented by {@link
- * StarlarkInterfaceUtils#getStarlarkBuiltin}.
+ * StarlarkAnnotations#getStarlarkBuiltin}.
  *
  * <p>Inheriting an annotation is useful when the class is an implementation detail, such as a
  * concrete implementation of an abstract interface. Overriding an annotation is useful when the

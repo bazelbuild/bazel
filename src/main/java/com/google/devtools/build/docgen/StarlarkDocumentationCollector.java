@@ -28,8 +28,8 @@ import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkInterfaceUtils;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -246,7 +246,7 @@ final class StarlarkDocumentationCollector {
   private static void collectConstructor(Map<String, StarlarkBuiltinDoc> modules, Method method) {
     Preconditions.checkNotNull(method.getAnnotation(StarlarkConstructor.class));
 
-    StarlarkBuiltin builtinType = StarlarkInterfaceUtils.getStarlarkBuiltin(method.getReturnType());
+    StarlarkBuiltin builtinType = StarlarkAnnotations.getStarlarkBuiltin(method.getReturnType());
     if (builtinType == null || !builtinType.documented()) {
       // The class of the constructed object type has no documentation, so no place to add
       // constructor information.

@@ -19,7 +19,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import net.starlark.java.annot.Param;
-import net.starlark.java.annot.StarlarkInterfaceUtils;
+import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Starlark;
 
@@ -137,6 +137,6 @@ public final class StarlarkJavaMethodDoc extends StarlarkMethodDoc {
 
   @Override
   public Boolean isCallable() {
-    return !StarlarkInterfaceUtils.getStarlarkMethod(this.method).structField();
+    return !StarlarkAnnotations.getStarlarkMethod(this.method).structField();
   }
 }

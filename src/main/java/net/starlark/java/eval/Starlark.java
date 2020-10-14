@@ -30,8 +30,8 @@ import java.util.Set;
 import java.util.TreeSet;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
+import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkInterfaceUtils;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Expression;
@@ -307,7 +307,7 @@ public final class Starlark {
       return "unbound";
     }
 
-    StarlarkBuiltin module = StarlarkInterfaceUtils.getStarlarkBuiltin(c);
+    StarlarkBuiltin module = StarlarkAnnotations.getStarlarkBuiltin(c);
     if (module != null) {
       return module.name();
 
@@ -673,7 +673,7 @@ public final class Starlark {
    *
    * <p>Most callers should use {@link #dir} and {@link #getattr} instead.
    */
-  // TODO(adonovan): move to StarlarkInterfaceUtils; it's a static property of the annotations.
+  // TODO(adonovan): move to StarlarkAnnotations; it's a static property of the annotations.
   public static ImmutableMap<Method, StarlarkMethod> getMethodAnnotations(Class<?> clazz) {
     ImmutableMap.Builder<Method, StarlarkMethod> result = ImmutableMap.builder();
     for (MethodDescriptor desc :
@@ -740,7 +740,7 @@ public final class Starlark {
    */
   public static void addModule(ImmutableMap.Builder<String, Object> env, Object v) {
     Class<?> cls = v.getClass();
-    StarlarkBuiltin annot = StarlarkInterfaceUtils.getStarlarkBuiltin(cls);
+    StarlarkBuiltin annot = StarlarkAnnotations.getStarlarkBuiltin(cls);
     if (annot == null) {
       throw new IllegalArgumentException(cls.getName() + " is not annotated with @StarlarkBuiltin");
     }
