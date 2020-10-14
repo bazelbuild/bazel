@@ -2211,7 +2211,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testCppCompileActionMnemonicOfSrc() throws Exception {
+  public void testSrcCompileActionMnemonic() throws Exception {
     MockObjcSupport.setupCcToolchainConfig(
         mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
     useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
@@ -2224,29 +2224,39 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testCppCompileActionMnemonicOfPrivateHdr() throws Exception {
+  public void testHeaderCompileActionMnemonic() throws Exception {
     MockObjcSupport.setupCcToolchainConfig(
         mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
     useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
 
     ConfiguredTarget x =
-        scratchConfiguredTarget("foo", "x", "objc_library(name = 'x', srcs = ['y.h'])");
+        scratchConfiguredTarget(
+            "foo", "x", "objc_library(name = 'x', srcs = ['y.h'], hdrs = ['z.h'])");
 
     assertThat(getGeneratingCompileAction("_objs/x/arc/y.h.processed", x).getMnemonic())
         .isEqualTo("ObjcCompile");
-  }
-
-  @Test
-  public void testCppCompileActionMnemonicOfPublicHdr() throws Exception {
-    MockObjcSupport.setupCcToolchainConfig(
-        mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
-    useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
-
-    ConfiguredTarget x =
-        scratchConfiguredTarget("foo", "x", "objc_library(name = 'x', hdrs = ['z.h'])");
-
     assertThat(getGeneratingCompileAction("_objs/x/arc/z.h.processed", x).getMnemonic())
         .isEqualTo("ObjcCompile");
   }
 
+  @Test
+  public void testIncompatibleUseCppCompileHeaderMnemonic() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration(
+        "--incompatible_use_cpp_compile_header_mnemonic",
+        "--features=parse_headers",
+        "--process_headers_in_dependencies");
+
+    ConfiguredTarget x =
+        scratchConfiguredTarget(
+            "foo", "x", "objc_library(name = 'x', srcs = ['a.m', 'y.h'], hdrs = ['z.h'])");
+
+    assertThat(getGeneratingCompileAction("_objs/x/arc/a.o", x).getMnemonic())
+        .isEqualTo("ObjcCompile");
+    assertThat(getGeneratingCompileAction("_objs/x/arc/y.h.processed", x).getMnemonic())
+        .isEqualTo("ObjcCompileHeader");
+    assertThat(getGeneratingCompileAction("_objs/x/arc/z.h.processed", x).getMnemonic())
+        .isEqualTo("ObjcCompileHeader");
+  }
 }

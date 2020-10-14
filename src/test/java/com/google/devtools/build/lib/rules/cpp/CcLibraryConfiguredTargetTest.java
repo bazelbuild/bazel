@@ -1148,7 +1148,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCppCompileActionMnemonicOfSrc() throws Exception {
+  public void testSrcCompileActionMnemonic() throws Exception {
     AnalysisMock.get()
         .ccSupport()
         .setupCcToolchainConfig(
@@ -1163,7 +1163,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCppCompileActionMnemonicOfPrivateHdr() throws Exception {
+  public void testHeaderCompileActionMnemonic() throws Exception {
     AnalysisMock.get()
         .ccSupport()
         .setupCcToolchainConfig(
@@ -1172,26 +1172,36 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
 
     ConfiguredTarget x =
-        scratchConfiguredTarget("foo", "x", "cc_library(name = 'x', srcs = ['y.h'])");
+        scratchConfiguredTarget(
+            "foo", "x", "cc_library(name = 'x', srcs = ['y.h'], hdrs = ['z.h'])");
 
     assertThat(getGeneratingCompileAction("_objs/x/y.h.processed", x).getMnemonic())
+        .isEqualTo("CppCompile");
+    assertThat(getGeneratingCompileAction("_objs/x/z.h.processed", x).getMnemonic())
         .isEqualTo("CppCompile");
   }
 
   @Test
-  public void testCppCompileActionMnemonicOfPublicHdr() throws Exception {
+  public void testIncompatibleUseCppCompileHeaderMnemonic() throws Exception {
     AnalysisMock.get()
         .ccSupport()
         .setupCcToolchainConfig(
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.PARSE_HEADERS));
-    useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
+    useConfiguration(
+        "--incompatible_use_cpp_compile_header_mnemonic",
+        "--features=parse_headers",
+        "--process_headers_in_dependencies");
 
     ConfiguredTarget x =
-        scratchConfiguredTarget("foo", "x", "cc_library(name = 'x', hdrs = ['z.h'])");
+        scratchConfiguredTarget(
+            "foo", "x", "cc_library(name = 'x', srcs = ['a.cc', 'y.h'], hdrs = ['z.h'])");
 
+    assertThat(getGeneratingCompileAction("_objs/x/a.o", x).getMnemonic()).isEqualTo("CppCompile");
+    assertThat(getGeneratingCompileAction("_objs/x/y.h.processed", x).getMnemonic())
+        .isEqualTo("CppCompileHeader");
     assertThat(getGeneratingCompileAction("_objs/x/z.h.processed", x).getMnemonic())
-        .isEqualTo("CppCompile");
+        .isEqualTo("CppCompileHeader");
   }
 
   private CppCompileAction getGeneratingCompileAction(

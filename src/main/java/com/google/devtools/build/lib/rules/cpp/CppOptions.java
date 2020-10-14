@@ -1025,6 +1025,18 @@ public class CppOptions extends FragmentOptions {
       help = "If enabled, set strict header checking in the Starlark API")
   public boolean forceStrictHeaderCheckFromStarlark;
 
+  @Option(
+      name = "incompatible_use_cpp_compile_header_mnemonic",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If enabled, give distinguishing mnemonic to header processing actions")
+  public boolean useCppCompileHeaderMnemonic;
+
   /** See {@link #targetLibcTopLabel} documentation. * */
   @Override
   public FragmentOptions getNormalized() {
