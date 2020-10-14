@@ -315,7 +315,7 @@ public class CompilationSupport {
       result.doNotGenerateModuleMap();
     }
 
-    return result.compile(ruleContext, ruleContext::ruleError);
+    return result.compile(ruleContext);
   }
 
   private static class CompilationResult {

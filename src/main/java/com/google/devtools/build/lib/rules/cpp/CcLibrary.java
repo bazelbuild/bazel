@@ -306,8 +306,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
               Code.SOURCE_FILES_MISSING));
     }
 
-    CompilationInfo compilationInfo =
-        compilationHelper.compile(ruleContext, ruleContext::ruleError);
+    CompilationInfo compilationInfo = compilationHelper.compile(ruleContext);
     CcCompilationOutputs precompiledFilesObjects =
         CcCompilationOutputs.builder()
             .addObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ true))
