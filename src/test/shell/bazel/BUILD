@@ -1352,4 +1352,8 @@ sh_test(
         "//:workspace-file",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    tags = [
+        "no_windows",
+        "requires-network",
+    ],
 )

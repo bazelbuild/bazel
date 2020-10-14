@@ -52,7 +52,7 @@ function test_verify_urls() {
     perl -pe 's#.*"(https?://[^"]+)".*#$1#g' | \
     sort -u); do
     #echo "Checking ${url}"
-    if ! curl --head -silent --fail --output /dev/null "${url}"; then
+    if ! curl --head -silent --fail --output /dev/null --retry 3 "${url}"; then
       #fail "URL ${url} is invalid."
       invalid_urls+=("${url}")
     fi
@@ -63,4 +63,4 @@ function test_verify_urls() {
   fi
 }
 
-run_suite "verofy_workspace"
+run_suite "verify_workspace"
