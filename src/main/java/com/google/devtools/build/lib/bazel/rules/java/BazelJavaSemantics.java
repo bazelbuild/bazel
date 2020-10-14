@@ -337,7 +337,7 @@ public class BazelJavaSemantics implements JavaSemantics {
                   + "\nexport TEST_RUNTIME_CLASSPATH_FILE=${JAVA_RUNFILES}"
                   + File.separator
                   + workspacePrefix
-                  + testRuntimeClasspathArtifact.getOutputDirRelativePathString()));
+                  + testRuntimeClasspathArtifact.getRepositoryRelativePathString()));
     } else {
       arguments.add(
           new ComputedClasspathSubstitution(classpath, workspacePrefix, isRunfilesEnabled));
@@ -365,7 +365,7 @@ public class BazelJavaSemantics implements JavaSemantics {
                 "export JACOCO_METADATA_JAR=${JAVA_RUNFILES}/"
                     + workspacePrefix
                     + "/"
-                    + runtimeClassPathArtifact.getOutputDirRelativePathString()));
+                    + runtimeClassPathArtifact.getRepositoryRelativePathString()));
       } else {
         // Remove the placeholder in the stub otherwise bazel coverage fails.
         arguments.add(Substitution.of(JavaSemantics.JACOCO_METADATA_PLACEHOLDER, ""));
