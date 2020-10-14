@@ -45,7 +45,7 @@ diff --git a/src/main/java/com/github/luben/zstd/util/Native.java b/src/main/jav
      }
  
      private static boolean loaded = false;
-@@ -51,89 +43,37 @@ public enum Native {
+@@ -51,89 +43,34 @@ public enum Native {
      }
  
      public static synchronized void load() {
@@ -143,19 +143,17 @@ diff --git a/src/main/java/com/github/luben/zstd/util/Native.java b/src/main/jav
 -                }
 -            } catch (IOException e) {
 -                // ignore
+-            }
 +
-+        String rloc = runfiles.rlocation("io_bazel/third_party/zstd-jni/" + libraryFilename());
++        String rloc = runfiles.rlocation("external/com_github_luben_zstd_jni/" + libraryFilename());
 +        if (rloc == null) {
-+            rloc = runfiles.rlocation("bazel_tools/third_party/zstd-jni/" + libraryFilename());
-+            if (rloc == null) {
-+                throw new RuntimeException("Unable to find JNI library in runfiles: " + libraryFilename());
-             }
-         }
++            throw new RuntimeException("Unable to find JNI library in runfiles: " + libraryFilename());
++        }
 +        try {
 +            System.load(rloc);
 +        } catch (UnsatisfiedLinkError e) {
 +            throw new RuntimeException("Unable to load JNI library from runfiles: " + rloc, e);
-+        }
+         }
      }
  }
 diff --git a/src/main/native/jni_fast_zstd.c b/src/main/native/jni_fast_zstd.c
