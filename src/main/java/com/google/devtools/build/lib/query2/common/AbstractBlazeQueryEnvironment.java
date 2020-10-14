@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.common;
 
+import static java.util.concurrent.TimeUnit.MINUTES;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -250,6 +252,8 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
       }
       throw new QueryException(expression, message, Query.Code.BUILD_FILE_ERROR);
     }
+    logger.atWarning().atMostEvery(1, MINUTES).log(
+        "Null detailed exit code for %s %s", message, expression);
     eventHandler.handle(createErrorEvent(expression, message, detailedExitCode));
   }
 
@@ -334,6 +338,9 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
                   detailedExitCode.getFailureDetail().toBuilder()
                       .setMessage(eventMessage)
                       .build()));
+    } else {
+      logger.atWarning().atMostEvery(1, MINUTES).log(
+          "Null detailed exit code for %s %s", message, expr);
     }
     return event;
   }
