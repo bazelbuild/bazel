@@ -1390,24 +1390,6 @@ public abstract class Artifact
   }
 
   /**
-   * Lazily converts artifacts into output-dir-relative path strings. Middleman artifacts are
-   * ignored by this method.
-   */
-  public static Iterable<String> toOutputDirRelativePaths(NestedSet<Artifact> artifacts) {
-    return toOutputDirRelativePaths(artifacts.toList());
-  }
-
-  /**
-   * Lazily converts artifacts into output-dir-relative path strings. Middleman artifacts are
-   * ignored by this method.
-   */
-  public static Iterable<String> toOutputDirRelativePaths(Iterable<Artifact> artifacts) {
-    return Iterables.transform(
-        Iterables.filter(artifacts, MIDDLEMAN_FILTER),
-        artifact -> artifact.getOutputDirRelativePath().getPathString());
-  }
-
-  /**
    * Converts a collection of artifacts into execution-time path strings, and returns those as an
    * immutable list. Middleman artifacts are ignored by this method.
    *
