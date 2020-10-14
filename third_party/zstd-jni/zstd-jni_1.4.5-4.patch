@@ -145,9 +145,9 @@ diff --git a/src/main/java/com/github/luben/zstd/util/Native.java b/src/main/jav
 -                // ignore
 -            }
 +
-+        String rloc = runfiles.rlocation("external/com_github_luben_zstd_jni/" + libraryFilename());
++        String rloc = runfiles.rlocation("com_github_luben_zstd_jni/" + libraryFilename());
 +        if (rloc == null) {
-+            throw new RuntimeException("Unable to find JNI library in runfiles: " + libraryFilename());
++            throw new RuntimeException("Unable to find JNI library in runfiles: " + rloc);
 +        }
 +        try {
 +            System.load(rloc);
