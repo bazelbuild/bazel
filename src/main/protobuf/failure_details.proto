@@ -643,6 +643,8 @@ message Query {
     SKYQUERY_TRANSITIVE_TARGET_ERROR = 37 [(metadata) = { exit_code: 7 }];
     SKYQUERY_TARGET_EXCEPTION = 38 [(metadata) = { exit_code: 7 }];
     INVALID_LABEL_IN_TEST_SUITE = 39 [(metadata) = { exit_code: 7 }];
+    // Indicates any usage of flags that must not be combined.
+    ILLEGAL_FLAG_COMBINATION = 40 [(metadata) = { exit_code: 2 }];
 
     reserved 7 to 12; // For internal use
   }
@@ -840,6 +842,8 @@ message ConfigurableQuery {
     TARGET_MISSING = 9 [(metadata) = { exit_code: 2 }];
     STARLARK_SYNTAX_ERROR = 10 [(metadata) = { exit_code: 2 }];
     STARLARK_EVAL_ERROR = 11 [(metadata) = { exit_code: 2 }];
+    // Indicates failure to correctly define a format function
+    FORMAT_FUNCTION_ERROR = 12 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
