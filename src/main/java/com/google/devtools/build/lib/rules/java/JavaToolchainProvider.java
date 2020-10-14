@@ -98,6 +98,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       ImmutableListMultimap<String, String> compatibleJavacOptions,
       ImmutableList<JavaPackageConfigurationProvider> packageConfiguration,
       FilesToRunProvider jacocoRunner,
+      FilesToRunProvider proguardAllowlister,
       JavaSemantics javaSemantics) {
     return new JavaToolchainProvider(
         label,
@@ -128,6 +129,7 @@ public class JavaToolchainProvider extends ToolchainInfo
         javacSupportsMultiplexWorkers,
         packageConfiguration,
         jacocoRunner,
+        proguardAllowlister,
         javaSemantics);
   }
 
@@ -159,6 +161,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   private final boolean javacSupportsMultiplexWorkers;
   private final ImmutableList<JavaPackageConfigurationProvider> packageConfiguration;
   private final FilesToRunProvider jacocoRunner;
+  private final FilesToRunProvider proguardAllowlister;
   private final JavaSemantics javaSemantics;
 
   @VisibleForSerialization
@@ -191,6 +194,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       boolean javacSupportsMultiplexWorkers,
       ImmutableList<JavaPackageConfigurationProvider> packageConfiguration,
       FilesToRunProvider jacocoRunner,
+      FilesToRunProvider proguardAllowlister,
       JavaSemantics javaSemantics) {
     super(ImmutableMap.of(), Location.BUILTIN);
 
@@ -222,6 +226,7 @@ public class JavaToolchainProvider extends ToolchainInfo
     this.javacSupportsMultiplexWorkers = javacSupportsMultiplexWorkers;
     this.packageConfiguration = packageConfiguration;
     this.jacocoRunner = jacocoRunner;
+    this.proguardAllowlister = proguardAllowlister;
     this.javaSemantics = javaSemantics;
   }
 
@@ -395,6 +400,10 @@ public class JavaToolchainProvider extends ToolchainInfo
 
   public FilesToRunProvider getJacocoRunner() {
     return jacocoRunner;
+  }
+
+  public FilesToRunProvider getProguardAllowlister() {
+    return proguardAllowlister;
   }
 
   public JavaSemantics getJavaSemantics() {

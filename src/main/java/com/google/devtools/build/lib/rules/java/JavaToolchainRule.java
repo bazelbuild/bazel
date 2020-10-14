@@ -283,6 +283,15 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
                 .cfg(ExecutionTransitionFactory.create())
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(proguard_allowlister) -->
+        Label of the Proguard allowlister.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("proguard_allowlister", LABEL)
+                // This needs to be in the execution configuration.
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec())
         .build();
   }
 

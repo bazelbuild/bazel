@@ -92,6 +92,8 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
     Artifact resourceJarBuilder = ruleContext.getPrerequisiteArtifact("resourcejar");
     Artifact timezoneData = ruleContext.getPrerequisiteArtifact("timezone_data");
     FilesToRunProvider ijar = ruleContext.getExecutablePrerequisite("ijar");
+    FilesToRunProvider proguardAllowlister =
+        ruleContext.getExecutablePrerequisite("proguard_allowlister");
     ImmutableListMultimap<String, String> compatibleJavacOptions =
         getCompatibleJavacOptions(ruleContext);
 
@@ -159,6 +161,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             compatibleJavacOptions,
             packageConfiguration,
             jacocoRunner,
+            proguardAllowlister,
             semantics);
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
