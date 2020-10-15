@@ -653,7 +653,7 @@ public abstract class Artifact
    * an overhaul, it must be preferred over {@link Artifact#getPathForLocationExpansion} whenever
    * possible.
    */
-  public final PathFragment getOutputDirRelativePath() {
+  public final PathFragment getOutputDirRelativePath(boolean siblingRepositoryLayout) {
     return getPathForLocationExpansion();
   }
 
@@ -791,7 +791,7 @@ public abstract class Artifact
    * runfiles tree. For local targets, it returns the rootRelativePath.
    */
   public final PathFragment getRunfilesPath() {
-    PathFragment relativePath = getOutputDirRelativePath();
+    PathFragment relativePath = getOutputDirRelativePath(false);
     // We can't use root.isExternalSource() here since it needs to handle derived artifacts too.
     if (relativePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
       // Turn external/repo/foo into ../repo/foo.
@@ -1333,7 +1333,7 @@ public abstract class Artifact
       artifact -> artifact.getRootRelativePath().getPathString();
 
   public static final Function<Artifact, String> OUTPUT_DIR_RELATIVE_PATH_STRING =
-      artifact -> artifact.getOutputDirRelativePath().getPathString();
+      artifact -> artifact.getOutputDirRelativePath(false).getPathString();
 
   /**
    * Converts a collection of artifacts into execution-time path strings, and

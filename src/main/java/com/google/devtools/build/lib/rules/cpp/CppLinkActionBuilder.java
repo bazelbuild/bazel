@@ -331,7 +331,7 @@ public class CppLinkActionBuilder {
       PathFragment ltoOutputRootPrefix,
       boolean createSharedNonLto,
       List<String> argv)
-      throws RuleErrorException {
+      throws RuleErrorException, InterruptedException {
     // Depending on whether LTO indexing is allowed, generate an LTO backend
     // that will be fed the results of the indexing step, or a dummy LTO backend
     // that simply compiles the bitcode into native code without any index-based
@@ -397,7 +397,7 @@ public class CppLinkActionBuilder {
       NestedSet<LinkerInputs.LibraryToLink> uniqueLibraries,
       boolean allowLtoIndexing,
       boolean includeLinkStaticInLtoIndexing)
-      throws RuleErrorException {
+      throws RuleErrorException, InterruptedException {
     Set<Artifact> compiled = new LinkedHashSet<>();
     for (LinkerInputs.LibraryToLink lib : uniqueLibraries.toList()) {
       compiled.addAll(lib.getLtoCompilationContext().getBitcodeFiles());
@@ -480,7 +480,7 @@ public class CppLinkActionBuilder {
   }
 
   private ImmutableMap<Artifact, LtoBackendArtifacts> createSharedNonLtoArtifacts(
-      boolean isLtoIndexing) throws RuleErrorException {
+      boolean isLtoIndexing) throws RuleErrorException, InterruptedException {
     // Only create the shared LTO artifacts for a statically linked library that has bitcode files.
     if (ltoCompilationContext == null
         || isLtoIndexing

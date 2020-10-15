@@ -518,20 +518,29 @@ public class ProtoCommon {
   // Protocol compiler invocation stuff.
 
   /**
-   * Each language-specific initialization method will call this to construct
-   * Artifacts representing its protocol compiler outputs.
+   * Each language-specific initialization method will call this to construct Artifacts representing
+   * its protocol compiler outputs.
    *
-   * @param extension Remove ".proto" and replace it with this to produce
-   *                  the output file name, e.g. ".pb.cc".
-   * @param pythonNames If true, replace hyphens in the file name
-   *              with underscores, as required for Python modules.
+   * @param extension Remove ".proto" and replace it with this to produce the output file name, e.g.
+   *     ".pb.cc".
+   * @param pythonNames If true, replace hyphens in the file name with underscores, as required for
+   *     Python modules.
    */
-  public static ImmutableList<Artifact> getGeneratedOutputs(RuleContext ruleContext,
-      ImmutableList<Artifact> protoSources, String extension, boolean pythonNames) {
+  public static ImmutableList<Artifact> getGeneratedOutputs(
+      RuleContext ruleContext,
+      ImmutableList<Artifact> protoSources,
+      String extension,
+      boolean pythonNames)
+      throws InterruptedException {
     ImmutableList.Builder<Artifact> outputsBuilder = new ImmutableList.Builder<>();
     ArtifactRoot genfiles = ruleContext.getGenfilesDirectory();
     for (Artifact src : protoSources) {
-      PathFragment srcPath = src.getOutputDirRelativePath();
+      PathFragment srcPath =
+          src.getOutputDirRelativePath(
+              ruleContext
+                  .getAnalysisEnvironment()
+                  .getStarlarkSemantics()
+                  .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
       if (pythonNames) {
         srcPath = srcPath.replaceName(srcPath.getBaseName().replace('-', '_'));
       }
@@ -546,14 +555,15 @@ public class ProtoCommon {
   }
 
   /**
-   * Each language-specific initialization method will call this to construct
-   * Artifacts representing its protocol compiler outputs.
+   * Each language-specific initialization method will call this to construct Artifacts representing
+   * its protocol compiler outputs.
    *
-   * @param extension Remove ".proto" and replace it with this to produce
-   *                  the output file name, e.g. ".pb.cc".
+   * @param extension Remove ".proto" and replace it with this to produce the output file name, e.g.
+   *     ".pb.cc".
    */
-  public static ImmutableList<Artifact> getGeneratedOutputs(RuleContext ruleContext,
-      ImmutableList<Artifact> protoSources, String extension) {
+  public static ImmutableList<Artifact> getGeneratedOutputs(
+      RuleContext ruleContext, ImmutableList<Artifact> protoSources, String extension)
+      throws InterruptedException {
     return getGeneratedOutputs(ruleContext, protoSources, extension, false);
   }
 
