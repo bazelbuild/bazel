@@ -94,8 +94,24 @@ public class TestTargetProperties {
 
     Map<String, String> executionInfo = Maps.newLinkedHashMap();
     executionInfo.putAll(TargetUtils.getExecutionInfo(rule));
-    if (TargetUtils.isLocalTestRule(rule) || TargetUtils.isExclusiveTestRule(rule)) {
-      executionInfo.put(ExecutionRequirements.LOCAL, "");
+
+    boolean incompatibleExclusiveTestSandboxed = false;
+
+    TestConfiguration testConfiguration = ruleContext.getFragment(TestConfiguration.class);
+    if (testConfiguration != null) {
+      incompatibleExclusiveTestSandboxed = testConfiguration.incompatibleExclusiveTestSandboxed();
+    }
+
+    if (incompatibleExclusiveTestSandboxed) {
+      if (TargetUtils.isLocalTestRule(rule)) {
+        executionInfo.put(ExecutionRequirements.LOCAL, "");
+      } else if (TargetUtils.isExclusiveTestRule(rule)) {
+        executionInfo.put(ExecutionRequirements.NO_REMOTE_EXEC, "");
+      }
+    } else {
+      if (TargetUtils.isLocalTestRule(rule) || TargetUtils.isExclusiveTestRule(rule)) {
+        executionInfo.put(ExecutionRequirements.LOCAL, "");
+      }
     }
 
     if (executionRequirements != null) {
