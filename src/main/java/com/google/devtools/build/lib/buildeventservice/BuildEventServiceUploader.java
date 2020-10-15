@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.buildeventservice;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.v1.BuildStatus.Result.COMMAND_FAILED;
 import static com.google.devtools.build.v1.BuildStatus.Result.COMMAND_SUCCEEDED;
 import static com.google.devtools.build.v1.BuildStatus.Result.UNKNOWN_STATUS;
@@ -273,12 +272,10 @@ public final class BuildEventServiceUploader implements Runnable {
   }
 
   private DetailedExitCode logAndSetException(
-      String message, ExitCode exitCode, BuildProgress.Code bpCode, Throwable cause) {
-    checkState(!exitCode.equals(ExitCode.SUCCESS));
+      String message, BuildProgress.Code bpCode, Throwable cause) {
     logger.atSevere().log(message);
     DetailedExitCode detailedExitCode =
         DetailedExitCode.of(
-            exitCode,
             FailureDetail.newBuilder()
                 .setMessage(message + " " + besClient.userReadableError(cause))
                 .setBuildProgress(BuildProgress.newBuilder().setCode(bpCode).build())
@@ -319,8 +316,7 @@ public final class BuildEventServiceUploader implements Runnable {
           isTransient
               ? ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR
               : ExitCode.PERSISTENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR;
-      DetailedExitCode detailedExitCode =
-          logAndSetException(e.extendedMessage, exitCode, e.bpCode, e);
+      DetailedExitCode detailedExitCode = logAndSetException(e.extendedMessage, e.bpCode, e);
       eventBus.post(
           new BuildEventServiceAvailabilityEvent(exitCode, detailedExitCode.getFailureDetail()));
     } catch (LocalFileUploadException e) {
@@ -328,7 +324,6 @@ public final class BuildEventServiceUploader implements Runnable {
       DetailedExitCode detailedExitCode =
           logAndSetException(
               "The Build Event Protocol local file upload failed:",
-              ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
               BuildProgress.Code.BES_UPLOAD_LOCAL_FILE_ERROR,
               e.getCause());
       eventBus.post(

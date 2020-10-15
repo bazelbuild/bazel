@@ -1289,7 +1289,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     } catch (IOException e) {
       throw createFilesystemExitException(
           "Cannot enumerate embedded binaries: " + e.getMessage(),
-          ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
           Filesystem.Code.EMBEDDED_BINARIES_ENUMERATION_FAILURE,
           e);
     }
@@ -1299,10 +1298,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   }
 
   private static AbruptExitException createFilesystemExitException(
-      String message, ExitCode exitCode, Filesystem.Code detailedCode, Exception e) {
+      String message, Filesystem.Code detailedCode, Exception e) {
     return new AbruptExitException(
         DetailedExitCode.of(
-            exitCode,
             FailureDetail.newBuilder()
                 .setMessage(message)
                 .setFilesystem(Filesystem.newBuilder().setCode(detailedCode))
@@ -1650,14 +1648,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     } catch (IOException e) {
       throw createFilesystemExitException(
           "Server pid file read failed: " + e.getMessage(),
-          ExitCode.BUILD_FAILURE,
           Filesystem.Code.SERVER_PID_TXT_FILE_READ_FAILURE,
           e);
     } catch (NumberFormatException e) {
       // Invalid contents (not a number) is more likely than not a filesystem issue.
       throw createFilesystemExitException(
           "Server pid file corrupted: " + e.getMessage(),
-          ExitCode.BUILD_FAILURE,
           Filesystem.Code.SERVER_PID_TXT_FILE_READ_FAILURE,
           new IOException(e));
     }

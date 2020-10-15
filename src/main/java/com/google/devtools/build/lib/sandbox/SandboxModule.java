@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -152,7 +151,6 @@ public final class SandboxModule extends BlazeModule {
     } catch (IOException e) {
       throw new AbruptExitException(
           DetailedExitCode.of(
-              ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
               FailureDetail.newBuilder()
                   .setMessage(String.format("Failed to initialize sandbox: %s", e.getMessage()))
                   .setSandbox(

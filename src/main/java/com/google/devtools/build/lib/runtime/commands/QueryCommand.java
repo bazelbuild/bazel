@@ -90,7 +90,6 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
       return Either.ofLeft(
           BlazeCommandResult.detailedExitCode(
               DetailedExitCode.of(
-                  ExitCode.COMMAND_LINE_ERROR,
                   FailureDetail.newBuilder()
                       .setMessage(e.getMessage())
                       .setQuery(

@@ -162,7 +162,6 @@ import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSup
 import com.google.devtools.build.lib.skyframe.trimming.TrimmedConfigurationCache;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -2659,7 +2658,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     } catch (UserExecException e) {
       throw new AbruptExitException(
           DetailedExitCode.of(
-              ExitCode.COMMAND_LINE_ERROR,
               FailureDetail.newBuilder()
                   .setMessage(e.getMessage())
                   .setRemoteOptions(

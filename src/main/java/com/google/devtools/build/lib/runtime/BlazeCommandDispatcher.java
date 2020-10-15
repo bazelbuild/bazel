@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.AnsiStrippingOutputStream;
 import com.google.devtools.build.lib.util.DebugLoggerConfigurator;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
@@ -165,7 +164,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               "Command '%s' not found. Try '%s help'.", commandName, runtime.getProductName()));
       return createDetailedCommandResult(
           String.format("Command '%s' not found.", commandName),
-          ExitCode.COMMAND_LINE_ERROR,
           FailureDetails.Command.Code.COMMAND_NOT_FOUND);
     }
 
@@ -205,7 +203,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             outErr.printErrLn(message);
             return createDetailedCommandResult(
                 message,
-                ExitCode.LOCK_HELD_NOBLOCK_FOR_LOCK,
                 FailureDetails.Command.Code.ANOTHER_COMMAND_RUNNING);
 
           default:
@@ -229,7 +226,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         outErr.printErrLn(message);
         return createDetailedCommandResult(
             message,
-            ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
             FailureDetails.Command.Code.PREVIOUSLY_SHUTDOWN);
       }
       BlazeCommandResult result =
@@ -357,7 +353,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         outErr.printErrLn(message);
         return createDetailedCommandResult(
             message,
-            ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
             FailureDetails.Command.Code.STARLARK_CPU_PROFILE_FILE_INITIALIZATION_FAILURE);
       }
       try {
@@ -367,7 +362,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         outErr.printErrLn(message);
         return createDetailedCommandResult(
             message,
-            ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
             FailureDetails.Command.Code.STARLARK_CPU_PROFILING_INITIALIZATION_FAILURE);
       }
     }
@@ -375,7 +369,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     BlazeCommandResult result =
         createDetailedCommandResult(
             "Unknown command failure",
-            ExitCode.BLAZE_INTERNAL_ERROR,
             FailureDetails.Command.Code.COMMAND_FAILURE_UNKNOWN);
     boolean afterCommandCalled = false;
     Reporter reporter = env.getReporter();
@@ -606,7 +599,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             result =
                 createDetailedCommandResult(
                     message,
-                    ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
                     FailureDetails.Command.Code.STARLARK_CPU_PROFILE_FILE_WRITE_FAILURE);
           }
         }
@@ -767,10 +759,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
   }
 
   private static BlazeCommandResult createDetailedCommandResult(
-      String message, ExitCode exitCode, FailureDetails.Command.Code detailedCode) {
+      String message, FailureDetails.Command.Code detailedCode) {
     return BlazeCommandResult.detailedExitCode(
         DetailedExitCode.of(
-            exitCode,
             FailureDetail.newBuilder()
                 .setMessage(message)
                 .setCommand(FailureDetails.Command.newBuilder().setCode(detailedCode))

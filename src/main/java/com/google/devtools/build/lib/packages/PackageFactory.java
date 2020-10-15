@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -786,7 +785,6 @@ public final class PackageFactory {
           pkg.getPackageIdentifier(),
           message,
           DetailedExitCode.of(
-              ExitCode.BUILD_FAILURE,
               FailureDetail.newBuilder()
                   .setMessage(message)
                   .setPackageLoading(

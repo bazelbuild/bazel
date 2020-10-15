@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.sun.management.GarbageCollectionNotificationInfo;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
@@ -102,7 +101,6 @@ final class RetainedHeapLimiter implements NotificationListener {
     if (tenuredGcEmitters.isEmpty() && occupiedHeapPercentageThreshold != 100) {
       throw new AbruptExitException(
           DetailedExitCode.of(
-              ExitCode.COMMAND_LINE_ERROR,
               FailureDetail.newBuilder()
                   .setMessage(
                       "No tenured GC collectors were found: unable to watch for GC events to exit"
@@ -120,7 +118,6 @@ final class RetainedHeapLimiter implements NotificationListener {
     if (occupiedHeapPercentageThreshold < 0 || occupiedHeapPercentageThreshold > 100) {
       throw new AbruptExitException(
           DetailedExitCode.of(
-              ExitCode.COMMAND_LINE_ERROR,
               FailureDetail.newBuilder()
                   .setMessage(
                       "--experimental_oom_more_eagerly_threshold must be a percent between "
