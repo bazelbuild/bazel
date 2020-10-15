@@ -1,4 +1,4 @@
-// Copyright 2019 The Bazel Authors. All rights reserved.
+// Copyright 2020 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,9 +23,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link ConfiguredTargetCycleReporter}. */
+/** Tests for {@link TargetCycleReporter}. */
 @RunWith(JUnit4.class)
-public class ConfiguredTargetCycleReporterTest extends BuildViewTestCase {
+public class TargetCycleReporterTest extends BuildViewTestCase {
 
   /**
    * Regression test for b/142966884 : Blaze crashes when building with --aspects and --keep_going
@@ -34,7 +34,7 @@ public class ConfiguredTargetCycleReporterTest extends BuildViewTestCase {
    * path that happens to make the cycle.
    *
    * <p>That results in top-level keys that aren't {@link ConfiguredTargetKey} in {@link
-   * ConfiguredTargetCycleReporter#getAdditionalMessageAboutCycle}.
+   * TargetCycleReporter#getAdditionalMessageAboutCycle}.
    */
   @Test
   public void loadingPhaseCycleWithDifferentTopLevelKeyTypes() throws Exception {
@@ -43,8 +43,7 @@ public class ConfiguredTargetCycleReporterTest extends BuildViewTestCase {
         "genrule(name = 'a', srcs = [], outs = ['a.o'], cmd = 'echo uh > $@')",
         "genrule(name = 'b', srcs = [], outs = ['b.o'], cmd = 'echo hi > $@', visibility = [':c'])",
         "genrule(name = 'c', srcs = [], outs = ['c.o'], cmd = 'echo hi > $@')");
-    ConfiguredTargetCycleReporter cycleReporter =
-        new ConfiguredTargetCycleReporter(getPackageManager());
+    TargetCycleReporter cycleReporter = new TargetCycleReporter(getPackageManager());
     CycleInfo cycle =
         new CycleInfo(
             ImmutableList.of(
@@ -58,7 +57,7 @@ public class ConfiguredTargetCycleReporterTest extends BuildViewTestCase {
             .build();
     assertThat(cycleReporter.getAdditionalMessageAboutCycle(reporter, ctKey, cycle))
         .contains(
-            "The cycle is caused by a visibility edge from //foo:b to the non-package-group "
+            "The cycle is caused by a visibility edge from //foo:b to the non-package_group "
                 + "target //foo:c");
 
     SkyKey aspectKey =
@@ -66,7 +65,7 @@ public class ConfiguredTargetCycleReporterTest extends BuildViewTestCase {
             ctKey, ImmutableList.of(), null, BuildConfigurationValue.key(targetConfig));
     assertThat(cycleReporter.getAdditionalMessageAboutCycle(reporter, aspectKey, cycle))
         .contains(
-            "The cycle is caused by a visibility edge from //foo:b to the non-package-group "
+            "The cycle is caused by a visibility edge from //foo:b to the non-package_group "
                 + "target //foo:c");
 
     SkyKey starlarkAspectKey =
@@ -78,7 +77,7 @@ public class ConfiguredTargetCycleReporterTest extends BuildViewTestCase {
             "my Starlark key");
     assertThat(cycleReporter.getAdditionalMessageAboutCycle(reporter, starlarkAspectKey, cycle))
         .contains(
-            "The cycle is caused by a visibility edge from //foo:b to the non-package-group "
+            "The cycle is caused by a visibility edge from //foo:b to the non-package_group "
                 + "target //foo:c");
   }
 }
