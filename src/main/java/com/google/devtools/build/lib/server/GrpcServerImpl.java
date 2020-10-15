@@ -388,7 +388,13 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
         throw new IOException("ipv6 is not preferred on the system.");
       }
       server =
-          NettyServerBuilder.forAddress(address).addService(this).directExecutor().build().start();
+          NettyServerBuilder.forAddress(address)
+              .addService(this)
+              .directExecutor()
+              // disable auto flow control https://github.com/bazelbuild/bazel/issues/12264
+              .flowControlWindow(NettyServerBuilder.DEFAULT_FLOW_CONTROL_WINDOW)
+              .build()
+              .start();
     } catch (IOException ipv6Exception) {
       address = new InetSocketAddress("127.0.0.1", port);
       try {
@@ -396,6 +402,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
             NettyServerBuilder.forAddress(address)
                 .addService(this)
                 .directExecutor()
+                // disable auto flow control https://github.com/bazelbuild/bazel/issues/12264
+                .flowControlWindow(NettyServerBuilder.DEFAULT_FLOW_CONTROL_WINDOW)
                 .build()
                 .start();
       } catch (IOException ipv4Exception) {
