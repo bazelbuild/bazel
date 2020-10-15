@@ -361,7 +361,7 @@ wait $childPid
 # By this point, we have everything we're willing to wait for. Tidy up our own
 # processes and move on.
 kill_group SIGKILL $childPid
-kill -SIGKILL $cleanupPid &> /dev/null
+kill_group SIGKILL $cleanupPid &> /dev/null
 wait $cleanupPid
 
 for signal in $signals; do
