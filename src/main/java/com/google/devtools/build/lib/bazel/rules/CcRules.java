@@ -99,6 +99,8 @@ public class CcRules implements RuleSet {
 
     try {
       builder.addWorkspaceFileSuffix(
+          ResourceFileLoader.loadResource(BazelCppRuleClasses.class, "cc_configure.WORKSPACE"));
+      builder.addWorkspaceFileSuffix(
           ResourceFileLoader.loadResource(JavaRules.class, "coverage.WORKSPACE"));
     } catch (IOException e) {
       throw new IllegalStateException(e);
