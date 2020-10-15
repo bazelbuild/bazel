@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.rules.cpp.CcSkyframeFdoSupportFunction;
@@ -458,6 +459,8 @@ public class BazelRulesModule extends BlazeModule {
     try {
       // Load auto-configuration files, it is made outside of the rule class provider so that it
       // will not be loaded for our Java tests.
+      builder.addWorkspaceFileSuffix(
+          ResourceFileLoader.loadResource(BazelCppRuleClasses.class, "cc_configure.WORKSPACE"));
       builder.addWorkspaceFileSuffix(
           ResourceFileLoader.loadResource(BazelRulesModule.class, "xcode_configure.WORKSPACE"));
       builder.addWorkspaceFileSuffix(
