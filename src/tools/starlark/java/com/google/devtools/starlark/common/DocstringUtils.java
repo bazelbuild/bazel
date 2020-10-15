@@ -479,15 +479,21 @@ public final class DocstringUtils {
     /** Parses additional lines that can come after "param: foo" in an 'Args' section. */
     private void parseContinuedParamDescription(
         int baselineIndentation, StringBuilder description) {
+      // continuations are de-dented to the minimum value seen
+      int continuationIndentation = Integer.MAX_VALUE;
       while (nextLine()) {
         if (line.isEmpty()) {
           description.append('\n');
           continue;
         }
-        if (getIndentation(line) <= baselineIndentation) {
+        int lineIndentation = getIndentation(line);
+        if (lineIndentation <= baselineIndentation) {
           break;
         }
-        String trimmedLine = line.substring(baselineIndentation);
+        if (lineIndentation < continuationIndentation) {
+          continuationIndentation = lineIndentation;
+        }
+        String trimmedLine = line.substring(continuationIndentation);
         description.append('\n');
         description.append(trimmedLine);
       }
