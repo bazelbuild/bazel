@@ -337,7 +337,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           if (format == Format.JSON_TRACE_FILE_COMPRESSED_FORMAT) {
             profileName = "command.profile.gz";
           }
-          if (bepOptions.streamingLogFileUploads) {
+          if (bepOptions != null && bepOptions.streamingLogFileUploads) {
             BuildEventArtifactUploader buildEventArtifactUploader =
                 newUploader(env, bepOptions.buildEventUploadStrategy);
             streamingContext = buildEventArtifactUploader.startUpload(LocalFileType.LOG, null);
