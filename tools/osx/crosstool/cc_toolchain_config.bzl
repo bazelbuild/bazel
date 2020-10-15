@@ -5218,6 +5218,24 @@ def _impl(ctx):
         ],
     )
 
+    relative_ast_path_feature = feature(
+        name = "relative_ast_path",
+        env_sets = [
+            env_set(
+                actions = all_link_actions + [
+                    "objc-executable",
+                    "objc++-executable",
+                ],
+                env_entries = [
+                    env_entry(
+                        key = "RELATIVE_AST_PATH",
+                        value = "true",
+                    ),
+                ],
+            ),
+        ],
+    )
+
     archiver_flags_feature = feature(
         name = "archiver_flags",
         flag_sets = [
@@ -6090,6 +6108,7 @@ def _impl(ctx):
             objc_arc_feature,
             no_objc_arc_feature,
             apple_env_feature,
+            relative_ast_path_feature,
             user_link_flags_feature,
             default_link_flags_feature,
             version_min_feature,
@@ -6165,6 +6184,7 @@ def _impl(ctx):
             objc_arc_feature,
             no_objc_arc_feature,
             apple_env_feature,
+            relative_ast_path_feature,
             user_link_flags_feature,
             default_link_flags_feature,
             version_min_feature,
@@ -6240,6 +6260,7 @@ def _impl(ctx):
             objc_arc_feature,
             no_objc_arc_feature,
             apple_env_feature,
+            relative_ast_path_feature,
             user_link_flags_feature,
             default_link_flags_feature,
             version_min_feature,

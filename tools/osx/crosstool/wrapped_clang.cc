@@ -201,6 +201,7 @@ int main(int argc, char *argv[]) {
     abort();
   }
 
+  bool relative_ast_path = getenv("RELATIVE_AST_PATH") != nullptr;
   for (int i = 1; i < argc; i++) {
     std::string arg(argv[i]);
 
@@ -228,7 +229,7 @@ int main(int argc, char *argv[]) {
     // Make the `add_ast_path` options used to embed Swift module references
     // absolute to enable Swift debugging without dSYMs: see
     // https://forums.swift.org/t/improving-swift-lldb-support-for-path-remappings/22694
-    if (StripPrefixStringIfPresent(&arg, kAddASTPathPrefix)) {
+    if (!relative_ast_path && StripPrefixStringIfPresent(&arg, kAddASTPathPrefix)) {
       // Only modify relative paths.
       if (!StartsWith(arg, "/")) {
         arg = std::string(kAddASTPathPrefix) +
