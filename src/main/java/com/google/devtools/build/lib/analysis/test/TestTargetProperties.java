@@ -165,7 +165,7 @@ public class TestTargetProperties {
 
     ResourceSet testResourcesFromSize = TestTargetProperties.getResourceSetFromSize(size);
 
-    // Tests can override their CPU reservation with a "cpus:<n>" tag.
+    // Tests can override their CPU reservation with a "cpu:<n>" tag.
     ResourceSet testResourcesFromTag = null;
     for (String tag : executionInfo.keySet()) {
       try {
