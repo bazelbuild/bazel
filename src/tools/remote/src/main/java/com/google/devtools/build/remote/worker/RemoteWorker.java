@@ -168,9 +168,6 @@ public final class RemoteWorker {
       logger.atInfo().log("Execution disabled, only serving cache requests");
     }
 
-    // disable auto flow control https://github.com/bazelbuild/bazel/issues/12264
-    b.flowControlWindow(NettyServerBuilder.DEFAULT_FLOW_CONTROL_WINDOW);
-
     Server server = b.build();
     logger.atInfo().log("Starting gRPC server on port %d", workerOptions.listenPort);
     server.start();
