@@ -1,0 +1,227 @@
+diff --git a/src/main/java/com/github/luben/zstd/util/Native.java b/src/main/java/com/github/luben/zstd/util/Native.java
+--- a/src/main/java/com/github/luben/zstd/util/Native.java
++++ b/src/main/java/com/github/luben/zstd/util/Native.java
+@@ -1,19 +1,15 @@
+ package com.github.luben.zstd.util;
+ 
+-import java.io.File;
+-import java.io.FileOutputStream;
++import com.google.devtools.build.runfiles.Runfiles;
+ import java.io.IOException;
+-import java.io.InputStream;
+ import java.lang.UnsatisfiedLinkError;
+ 
++
+ public enum Native {
+     ;
+ 
+     private static final String libnameShort = "zstd-jni";
+     private static final String libname = "lib" + libnameShort;
+-    private static final String errorMsg = "Unsupported OS/arch, cannot find " +
+-        resourceName() + " or load " + libnameShort + " from system libraries. Please " +
+-        "try building from source the jar or providing " + libname + " in your system.";
+ 
+     private static String osName() {
+         String os = System.getProperty("os.name").toLowerCase().replace(' ', '_');
+@@ -26,10 +22,6 @@ public enum Native {
+         }
+     }
+ 
+-    private static String osArch() {
+-        return System.getProperty("os.arch");
+-    }
+-
+     private static String libExtension() {
+         if (osName().contains("os_x") || osName().contains("darwin")) {
+             return "dylib";
+@@ -40,8 +32,8 @@ public enum Native {
+         }
+     }
+ 
+-    private static String resourceName() {
+-        return "/" + osName() + "/" + osArch() + "/" + libname + "." + libExtension();
++    private static String libraryFilename() {
++        return libname + "." + libExtension();
+     }
+ 
+     private static boolean loaded = false;
+@@ -51,89 +43,34 @@ public enum Native {
+     }
+ 
+     public static synchronized void load() {
+-        load(null);
+-    }
+-
+-    public static synchronized void load(final File tempFolder) {
+         if (loaded) {
+             return;
+         }
+-
+-        String resourceName = resourceName();
+-        InputStream is = Native.class.getResourceAsStream(resourceName);
+-        if (is == null) {
+-            // fall-back to loading the zstd-jni from the system library path.
+-            // It also cover loading on Android.
+-            try {
+-                System.loadLibrary(libnameShort);
+-                loaded = true;
+-                return;
+-            } catch (UnsatisfiedLinkError e) {
+-                UnsatisfiedLinkError err = new UnsatisfiedLinkError(e.getMessage() + "\n" + errorMsg);
+-                err.setStackTrace(e.getStackTrace());
+-                throw err;
+-            }
++        try {
++            System.loadLibrary(libnameShort);
++        } catch (UnsatisfiedLinkError e) {
++            // Try to load from runfiles, esp. for Windows.
++            loadFromRunfiles();
+         }
+-        File tempLib = null;
+-        FileOutputStream out = null;
++    }
++
++    private static synchronized void loadFromRunfiles() {
++        Runfiles runfiles = null;
+         try {
+-            tempLib = File.createTempFile(libname, "." + libExtension(), tempFolder);
+-            // try to delete on exit, does not work on Windows
+-            tempLib.deleteOnExit();
+-            // copy to tempLib
+-            out = new FileOutputStream(tempLib);
+-            byte[] buf = new byte[4096];
+-            while (true) {
+-                int read = is.read(buf);
+-                if (read == -1) {
+-                    break;
+-                }
+-                out.write(buf, 0, read);
+-            }
+-            try {
+-                out.flush();
+-                out.close();
+-                out = null;
+-            } catch (IOException e) {
+-                // ignore
+-            }
+-            try {
+-                System.load(tempLib.getAbsolutePath());
+-            } catch (UnsatisfiedLinkError e) {
+-                // fall-back to loading the zstd-jni from the system library path
+-                try {
+-                    System.loadLibrary(libnameShort);
+-                } catch (UnsatisfiedLinkError e1) {
+-                    // display error in case problem with loading from temp folder
+-                    // and from system library path - concatenate both messages
+-                    UnsatisfiedLinkError err = new UnsatisfiedLinkError(
+-                            e.getMessage() + "\n" +
+-                            e1.getMessage() + "\n"+
+-                            errorMsg);
+-                    err.setStackTrace(e1.getStackTrace());
+-                    throw err;
+-                }
+-            }
+-            loaded = true;
++            runfiles = Runfiles.create();
+         } catch (IOException e) {
+-            // IO errors in extacting and writing the shared object in the temp dir
+-            ExceptionInInitializerError err = new ExceptionInInitializerError(
+-                    "Cannot unpack " + libname + ": " + e.getMessage());
+-            err.setStackTrace(e.getStackTrace());
+-            throw err;
++            throw new RuntimeException("Unable to locate runfiles after failing to load " +
++                                       libnameShort + " from system. Giving up.", e);
+         }
+-        finally {
+-            try {
+-                is.close();
+-                if (out != null) {
+-                    out.close();
+-                }
+-                if (tempLib != null && tempLib.exists()) {
+-                    tempLib.delete();
+-                }
+-            } catch (IOException e) {
+-                // ignore
+-            }
++
++        String rloc = runfiles.rlocation("com_github_luben_zstd_jni/" + libraryFilename());
++        if (rloc == null) {
++            throw new RuntimeException("Unable to find JNI library in runfiles: " + rloc);
++        }
++        try {
++            System.load(rloc);
++        } catch (UnsatisfiedLinkError e) {
++            throw new RuntimeException("Unable to load JNI library from runfiles: " + rloc, e);
+         }
+     }
+ }
+diff --git a/src/main/native/jni_fast_zstd.c b/src/main/native/jni_fast_zstd.c
+--- a/src/main/native/jni_fast_zstd.c
++++ b/src/main/native/jni_fast_zstd.c
+@@ -23,7 +23,7 @@ JNIEXPORT void JNICALL Java_com_github_luben_zstd_ZstdDictCompress_init
+     if (NULL == dict) return;
+     void *dict_buff = (*env)->GetPrimitiveArrayCritical(env, dict, NULL);
+     if (NULL == dict_buff) return;
+-    ZSTD_CDict* cdict = ZSTD_createCDict(dict_buff + dict_offset, dict_size, level);
++    ZSTD_CDict* cdict = ZSTD_createCDict(((char *)dict_buff) + dict_offset, dict_size, level);
+     (*env)->ReleasePrimitiveArrayCritical(env, dict, dict_buff, JNI_ABORT);
+     if (NULL == cdict) return;
+     (*env)->SetLongField(env, obj, compress_dict, (jlong)(intptr_t) cdict);
+@@ -57,7 +57,7 @@ JNIEXPORT void JNICALL Java_com_github_luben_zstd_ZstdDictDecompress_init
+     void *dict_buff = (*env)->GetPrimitiveArrayCritical(env, dict, NULL);
+     if (NULL == dict_buff) return;
+ 
+-    ZSTD_DDict* ddict = ZSTD_createDDict(dict_buff + dict_offset, dict_size);
++    ZSTD_DDict* ddict = ZSTD_createDDict(((char *)dict_buff) + dict_offset, dict_size);
+ 
+     (*env)->ReleasePrimitiveArrayCritical(env, dict, dict_buff, JNI_ABORT);
+     if (NULL == ddict) return;
+@@ -106,7 +106,7 @@ JNIEXPORT jlong JNICALL Java_com_github_luben_zstd_Zstd_decompressFastDict0
+     void *src_buff = (*env)->GetPrimitiveArrayCritical(env, src, NULL);
+     if (src_buff == NULL) goto E2;
+     ZSTD_DCtx* dctx = ZSTD_createDCtx();
+-    size = ZSTD_decompress_usingDDict(dctx, dst_buff + dst_offset, (size_t) dst_size, src_buff + src_offset, (size_t) src_length, ddict);
++    size = ZSTD_decompress_usingDDict(dctx, ((char *)dst_buff) + dst_offset, (size_t) dst_size, ((char *)src_buff) + src_offset, (size_t) src_length, ddict);
+     ZSTD_freeDCtx(dctx);
+     (*env)->ReleasePrimitiveArrayCritical(env, src, src_buff, JNI_ABORT);
+ E2: (*env)->ReleasePrimitiveArrayCritical(env, dst, dst_buff, 0);
+@@ -141,7 +141,7 @@ JNIEXPORT jlong JNICALL Java_com_github_luben_zstd_Zstd_compressFastDict0
+     void *src_buff = (*env)->GetPrimitiveArrayCritical(env, src, NULL);
+     if (src_buff == NULL) goto E2;
+     ZSTD_CCtx* ctx = ZSTD_createCCtx();
+-    size = ZSTD_compress_usingCDict(ctx, dst_buff + dst_offset, (size_t) dst_size, src_buff + src_offset, (size_t) src_length, cdict);
++    size = ZSTD_compress_usingCDict(ctx, ((char *)dst_buff) + dst_offset, (size_t) dst_size, ((char *)src_buff) + src_offset, (size_t) src_length, cdict);
+     ZSTD_freeCCtx(ctx);
+     (*env)->ReleasePrimitiveArrayCritical(env, src, src_buff, JNI_ABORT);
+ E2: (*env)->ReleasePrimitiveArrayCritical(env, dst, dst_buff, 0);
+@@ -373,7 +373,7 @@ JNIEXPORT jlong JNICALL Java_com_github_luben_zstd_ZstdCompressCtx_compressByteA
+ 
+     ZSTD_CCtx_reset(cctx, ZSTD_reset_session_only);
+ 
+-    size = ZSTD_compress2(cctx, dst_buff + dst_offset, (size_t) dst_size, src_buff + src_offset, (size_t) src_size);
++    size = ZSTD_compress2(cctx, ((char *)dst_buff) + dst_offset, (size_t) dst_size, ((char *)src_buff) + src_offset, (size_t) src_size);
+     (*env)->ReleasePrimitiveArrayCritical(env, src, src_buff, JNI_ABORT);
+ E2: (*env)->ReleasePrimitiveArrayCritical(env, dst, dst_buff, 0);
+ E1: return size;
+@@ -505,7 +505,7 @@ JNIEXPORT jlong JNICALL Java_com_github_luben_zstd_ZstdDecompressCtx_decompressB
+     if (src_buff == NULL) goto E2;
+ 
+     ZSTD_DCtx_reset(dctx, ZSTD_reset_session_only);
+-    size = ZSTD_decompressDCtx(dctx, dst_buff + dst_offset, (size_t) dst_size, src_buff + src_offset, (size_t) src_size);
++    size = ZSTD_decompressDCtx(dctx, ((char *)dst_buff) + dst_offset, (size_t) dst_size, ((char *)src_buff) + src_offset, (size_t) src_size);
+ 
+     (*env)->ReleasePrimitiveArrayCritical(env, src, src_buff, JNI_ABORT);
+ E2: (*env)->ReleasePrimitiveArrayCritical(env, dst, dst_buff, 0);
+diff --git a/src/main/native/jni_zdict.c b/src/main/native/jni_zdict.c
+--- a/src/main/native/jni_zdict.c
++++ b/src/main/native/jni_zdict.c
+@@ -34,7 +34,7 @@ JNIEXPORT jlong Java_com_github_luben_zstd_Zstd_trainFromBuffer
+     for (int i = 0; i < num_samples; i++) {
+         jbyteArray sample = (*env)->GetObjectArrayElement(env, samples, i);
+         jsize length = (*env)->GetArrayLength(env, sample);
+-        (*env)->GetByteArrayRegion(env, sample, 0, length, (jbyte*)(samples_buffer + cursor));
++        (*env)->GetByteArrayRegion(env, sample, 0, length, (jbyte*)(((char *)samples_buffer) + cursor));
+         (*env)->DeleteLocalRef(env, sample);
+         cursor += length;
+     }
