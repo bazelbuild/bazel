@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
-import com.google.devtools.build.lib.actions.MetadataConsumer;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -182,7 +182,7 @@ public interface OutputService {
   default void updateActionFileSystemContext(
       FileSystem actionFileSystem,
       Environment env,
-      MetadataConsumer consumer,
+      MetadataInjector injector,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets)
       throws IOException {}
 
