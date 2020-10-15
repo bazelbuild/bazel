@@ -423,9 +423,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         throw new IllegalStateException(e.getCause());
       }
     } catch (ExecException e) {
-      throw e.toActionExecutionException(
-          "Include scanning of rule '" + getOwner().getLabel() + "'",
-          this);
+      throw e.toActionExecutionException("include scanning", this);
     }
   }
 
@@ -1847,7 +1845,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       } catch (ExecException e) {
         copyTempOutErrToActionOutErr();
         throw e.toActionExecutionException(
-            "C++ compilation of rule '" + getOwner().getLabel() + "'",
             CppCompileAction.this);
       } catch (InterruptedException e) {
         copyTempOutErrToActionOutErr();

@@ -238,6 +238,11 @@ public final class SpawnActionTemplate extends ActionKeyCacher
   }
 
   @Override
+  public String describe() {
+    return "Executing " + mnemonic + " action on all files in " + inputTreeArtifact.prettyPrint();
+  }
+
+  @Override
   public String toString() {
     return prettyPrint();
   }

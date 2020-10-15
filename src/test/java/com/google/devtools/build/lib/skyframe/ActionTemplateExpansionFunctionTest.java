@@ -467,6 +467,11 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     }
 
     @Override
+    public String describe() {
+      return prettyPrint();
+    }
+
+    @Override
     public NestedSet<Artifact> getTools() {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }

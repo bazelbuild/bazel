@@ -1252,12 +1252,12 @@ public final class SkyframeActionExecutor {
         }
       }
     } catch (IOException e) {
-      String message = "failed to create output directory: " + e.getMessage();
-      DetailedExitCode code =
-          createDetailedExitCode(message, Code.ACTION_FS_OUTPUT_DIRECTORY_CREATION_FAILURE);
-      ActionExecutionException ex = new ActionExecutionException(message, e, action, false, code);
-      printError(ex.getMessage(), action, null);
-      throw ex;
+      throw toActionExecutionException(
+          "failed to create output directory",
+          e,
+          action,
+          null,
+          Code.ACTION_FS_OUTPUT_DIRECTORY_CREATION_FAILURE);
     }
   }
 
@@ -1539,8 +1539,8 @@ public final class SkyframeActionExecutor {
 
   /**
    * Convenience function for creating an ActionExecutionException reporting that the action failed
-   * due to a the exception cause, if there is an additional explanatory message that clarifies the
-   * message of the exception. Combines the user-provided message and the exceptions' message and
+   * due to the exception cause, if there is an additional explanatory message that clarifies the
+   * message of the exception. Combines the user-provided message and the exception's message and
    * reports the combination as error.
    *
    * @param message A small text that explains why the action failed
@@ -1591,24 +1591,11 @@ public final class SkyframeActionExecutor {
    */
   @SuppressWarnings("SynchronizeOnNonFinalField")
   void printError(String message, ActionAnalysisMetadata action, FileOutErr actionOutput) {
+    message = action.describe() + " failed: " + message;
+    Event event = Event.error(action.getOwner().getLocation(), message);
     synchronized (reporter) {
-      if (options.getOptions(KeepGoingOption.class).keepGoing) {
-        message = "Couldn't " + describeAction(action) + ": " + message;
-      }
-      Event event = Event.error(action.getOwner().getLocation(), message);
       dumpRecordedOutErr(reporter, event, actionOutput);
       recordExecutionError();
-    }
-  }
-
-  /** Describe an action, for use in error messages. */
-  private static String describeAction(ActionAnalysisMetadata action) {
-    if (action.getOutputs().isEmpty()) {
-      return "run " + action.prettyPrint();
-    } else if (action.getActionType().isMiddleman()) {
-      return "build " + action.prettyPrint();
-    } else {
-      return "build file " + action.getPrimaryOutput().prettyPrint();
     }
   }
 

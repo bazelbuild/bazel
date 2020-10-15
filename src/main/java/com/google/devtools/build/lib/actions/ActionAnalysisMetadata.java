@@ -103,6 +103,9 @@ public interface ActionAnalysisMetadata {
    */
   String prettyPrint();
 
+  /** Returns a description of this action. */
+  String describe();
+
   /**
    * Returns the tool Artifacts that this Action depends upon. May be empty. This is a subset of
    * getInputs().

@@ -1196,6 +1196,11 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     @Override
     public String prettyPrint() {
+      return describe();
+    }
+
+    @Override
+    public String describe() {
       return "DummyTemplate";
     }
 

@@ -84,7 +84,8 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     customFileSystem.alwaysError(fooShFile);
 
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo:top"));
-    events.assertContainsError("//foo:top: missing input file '//foo:foo.sh': nope");
+    events.assertContainsError(
+        "Executing genrule //foo:top failed: missing input file '//foo:foo.sh': nope");
   }
 
   /**
@@ -104,7 +105,8 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     assertThat(rootCauses).hasSize(1);
     assertThat(rootCauses.get(0).getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//foo:foo"));
     assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
-    events.assertContainsError("foo/BUILD:1:11: //foo:foo: missing input file 'foo/foo.h': nope");
+    events.assertContainsError(
+        "foo/BUILD:1:11: Compiling foo/foo.cc failed: missing input file 'foo/foo.h': nope");
   }
 
   /** Tests that IOExceptions encountered when not all discovered deps are done are handled. */
@@ -142,7 +144,8 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     assertThat(rootCauses).hasSize(1);
     assertThat(rootCauses.get(0).getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//foo:foo"));
     assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
-    events.assertContainsError("foo/BUILD:1:11: //foo:foo: missing input file 'foo/error.h': nope");
+    events.assertContainsError(
+        "foo/BUILD:1:11: Compiling foo/foo.cc failed: missing input file 'foo/error.h': nope");
   }
 
   /**

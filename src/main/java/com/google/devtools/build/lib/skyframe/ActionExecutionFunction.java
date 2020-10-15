@@ -949,12 +949,7 @@ public class ActionExecutionFunction implements SkyFunction {
         }
 
         skyframeActionExecutor.printError(
-            String.format(
-                "%s: %s",
-                actionForError.getOwner().getLabel(),
-                ArtifactFunction.makeIOExceptionInputFileMessage(input, e)),
-            actionForError,
-            null);
+            ArtifactFunction.makeIOExceptionInputFileMessage(input, e), actionForError, null);
         // We don't create a specific cause for the artifact as we do in #handleMissingFile because
         // it likely has no label, so we'd have to use the Action's label anyway. Just use the
         // default ActionFailed event constructed by ActionExecutionException.
@@ -1260,10 +1255,7 @@ public class ActionExecutionFunction implements SkyFunction {
 
     if (!missingArtifactCauses.isEmpty()) {
       for (LabelCause missingInput : missingArtifactCauses) {
-        skyframeActionExecutor.printError(
-            String.format("%s: %s", action.getOwner().getLabel(), missingInput.getMessage()),
-            action,
-            null);
+        skyframeActionExecutor.printError(missingInput.getMessage(), action, null);
       }
     }
     // We need to rethrow first exception because it can contain useful error message
@@ -1661,10 +1653,7 @@ public class ActionExecutionFunction implements SkyFunction {
 
       if (!missingArtifactCauses.isEmpty()) {
         for (LabelCause missingInput : missingArtifactCauses) {
-          skyframeActionExecutor.printError(
-              String.format("%s: %s", action.getOwner().getLabel(), missingInput.getMessage()),
-              action,
-              null);
+          skyframeActionExecutor.printError(missingInput.getMessage(), action, null);
         }
         throw createMissingInputsException(action, missingArtifactCauses);
       }

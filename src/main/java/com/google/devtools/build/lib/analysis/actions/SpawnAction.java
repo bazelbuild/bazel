@@ -343,28 +343,27 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   }
 
   private ActionExecutionException toActionExecutionException(ExecException e) {
+    if (!isShellCommand()) {
+      return e.toActionExecutionException(this);
+    }
     String failMessage;
-    if (isShellCommand()) {
-      // The possible reasons it could fail are: shell executable not found, shell
-      // exited non-zero, or shell died from signal.  The first is impossible
-      // and the second two aren't very interesting, so in the interests of
-      // keeping the noise-level down, we don't print a reason why, just the
-      // command that failed.
-      //
-      // 0=shell executable, 1=shell command switch, 2=command
-      try {
-        failMessage =
-            "error executing shell command: "
-                + "'"
-                + truncate(Joiner.on(" ").join(getArguments()), 200)
-                + "'";
-      } catch (CommandLineExpansionException commandLineExpansionException) {
-        failMessage =
-            "error executing shell command, and error expanding command line: "
-                + commandLineExpansionException;
-      }
-    } else {
-      failMessage = getRawProgressMessage();
+    // The possible reasons it could fail are: shell executable not found, shell
+    // exited non-zero, or shell died from signal.  The first is impossible
+    // and the second two aren't very interesting, so in the interests of
+    // keeping the noise-level down, we don't print a reason why, just the
+    // command that failed.
+    //
+    // 0=shell executable, 1=shell command switch, 2=command
+    try {
+      failMessage =
+          "error executing shell command: "
+              + "'"
+              + truncate(Joiner.on(" ").join(getArguments()), 200)
+              + "'";
+    } catch (CommandLineExpansionException commandLineExpansionException) {
+      failMessage =
+          "error executing shell command, and error expanding command line: "
+              + commandLineExpansionException;
     }
     return e.toActionExecutionException(failMessage, this);
   }
