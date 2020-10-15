@@ -69,7 +69,6 @@ StartupOptions::StartupOptions(const string &product_name,
                                const WorkspaceLayout *workspace_layout)
     : product_name(product_name),
       ignore_all_rc_files(false),
-      deep_execroot(true),
       block_for_lock(true),
       host_jvm_debug(false),
       batch(false),
@@ -130,7 +129,6 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("batch_cpu_scheduling", &batch_cpu_scheduling);
   RegisterNullaryStartupFlag("block_for_lock", &block_for_lock);
   RegisterNullaryStartupFlag("client_debug", &client_debug);
-  RegisterNullaryStartupFlag("deep_execroot", &deep_execroot);
   RegisterNullaryStartupFlag("expand_configs_in_place",
                              &expand_configs_in_place);
   RegisterNullaryStartupFlag("fatal_event_bus_exceptions",

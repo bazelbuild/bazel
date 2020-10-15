@@ -240,16 +240,6 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public boolean batch;
 
   @Option(
-      name = "deep_execroot",
-      defaultValue = "true", // NOTE: only for documentation, value is always passed by the client.
-      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.EXECUTION},
-      help =
-          "If set, the execution root will be under $OUTPUT_BASE/execroot instead of "
-              + "$OUTPUT_BASE.")
-  public boolean deepExecRoot;
-
-  @Option(
       name = "block_for_lock",
       defaultValue = "true", // NOTE: only for documentation, value never passed to the server.
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
