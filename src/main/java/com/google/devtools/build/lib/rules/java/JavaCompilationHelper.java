@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -211,10 +210,7 @@ public final class JavaCompilationHelper {
 
     boolean turbineAnnotationProcessing =
         usesAnnotationProcessing()
-            && getJavaConfiguration().experimentalTurbineAnnotationProcessing()
-            && Collections.disjoint(
-                plugins.processorClasses().toSet(),
-                javaToolchain.getTurbineIncompatibleProcessors());
+            && getJavaConfiguration().experimentalTurbineAnnotationProcessing();
     if (turbineAnnotationProcessing) {
       Artifact turbineResources = turbineOutput(outputs.output(), "-turbine-resources.jar");
       resourceJars.add(turbineResources);
@@ -258,9 +254,6 @@ public final class JavaCompilationHelper {
     JavaCompileActionBuilder builder = new JavaCompileActionBuilder(ruleContext, javaToolchain);
 
     JavaClasspathMode classpathMode = getJavaConfiguration().getReduceJavaClasspath();
-    if (javaToolchain.getReducedClasspathIncompatibleTargets().contains(ruleContext.getLabel())) {
-      classpathMode = JavaClasspathMode.OFF;
-    }
     builder.setClasspathMode(classpathMode);
     builder.setJavaExecutable(hostJavabase.javaBinaryExecPathFragment());
     builder.setJavaBaseInputs(
