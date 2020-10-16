@@ -23,6 +23,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
@@ -255,12 +256,12 @@ public abstract class Artifact
 
   /** Implementation of {@link ArtifactExpander} */
   public static class ArtifactExpanderImpl implements ArtifactExpander {
-    private final Map<Artifact, Collection<Artifact>> expandedInputs;
+    private final Map<Artifact, ImmutableCollection<Artifact>> expandedInputs;
     private final Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts;
     private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets;
 
     public ArtifactExpanderImpl(
-        Map<Artifact, Collection<Artifact>> expandedInputs,
+        Map<Artifact, ImmutableCollection<Artifact>> expandedInputs,
         Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets) {
       this.expandedInputs = expandedInputs;
@@ -272,7 +273,7 @@ public abstract class Artifact
     public void expand(Artifact artifact, Collection<? super Artifact> output) {
       Preconditions.checkState(
           artifact.isMiddlemanArtifact() || artifact.isTreeArtifact(), artifact);
-      Collection<Artifact> result = expandedInputs.get(artifact);
+      ImmutableCollection<Artifact> result = expandedInputs.get(artifact);
       if (result != null) {
         output.addAll(result);
       }

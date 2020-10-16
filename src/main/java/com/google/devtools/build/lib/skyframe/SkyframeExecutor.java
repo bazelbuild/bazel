@@ -26,6 +26,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Collections2;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -369,7 +370,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     @Override
     public ArtifactPathResolver createPathResolverForArtifactValues(
         ActionInputMap actionInputMap,
-        Map<Artifact, Collection<Artifact>> expandedArtifacts,
+        Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets,
         String workspaceName)
         throws IOException {

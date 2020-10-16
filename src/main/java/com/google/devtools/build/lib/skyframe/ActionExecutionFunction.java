@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -921,7 +922,7 @@ public class ActionExecutionFunction implements SkyFunction {
 
   private DiscoveredState addDiscoveredInputs(
       ActionInputMap inputData,
-      Map<Artifact, Collection<Artifact>> expandedArtifacts,
+      Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts,
       Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
       Iterable<Artifact> discoveredInputs,
       Environment env,
@@ -1035,7 +1036,7 @@ public class ActionExecutionFunction implements SkyFunction {
     /** Metadata about Artifacts consumed by this Action. */
     private final ActionInputMap actionInputMap;
     /** Artifact expansion mapping for Runfiles tree and tree artifacts. */
-    private final Map<Artifact, Collection<Artifact>> expandedArtifacts;
+    private final Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts;
     /** Archived representations for tree artifacts. */
     private final Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts;
     /** Artifact expansion mapping for Filesets embedded in Runfiles. */
@@ -1046,7 +1047,7 @@ public class ActionExecutionFunction implements SkyFunction {
 
     CheckInputResults(
         ActionInputMap actionInputMap,
-        Map<Artifact, Collection<Artifact>> expandedArtifacts,
+        Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts,
         Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets) {
@@ -1061,7 +1062,7 @@ public class ActionExecutionFunction implements SkyFunction {
   private interface AccumulateInputResultsFactory<S extends ActionInputMapSink, R> {
     R create(
         S actionInputMapSink,
-        Map<Artifact, Collection<Artifact>> expandedArtifacts,
+        Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts,
         Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets);
@@ -1156,7 +1157,7 @@ public class ActionExecutionFunction implements SkyFunction {
     ImmutableList<Artifact> allInputsList = allInputs.toList();
     S inputArtifactData =
         actionInputMapSinkFactory.apply(populateInputData ? allInputsList.size() : 0);
-    Map<Artifact, Collection<Artifact>> expandedArtifacts =
+    Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts =
         Maps.newHashMapWithExpectedSize(populateInputData ? 128 : 0);
     Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts =
         Maps.newHashMapWithExpectedSize(128);
@@ -1337,7 +1338,8 @@ public class ActionExecutionFunction implements SkyFunction {
     Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets =
         Maps.newHashMapWithExpectedSize(0);
     S inputArtifactData = actionInputMapSinkFactory.apply(allInputsList.size());
-    Map<Artifact, Collection<Artifact>> expandedArtifacts = Maps.newHashMapWithExpectedSize(128);
+    Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts =
+        Maps.newHashMapWithExpectedSize(128);
     Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts =
         Maps.newHashMapWithExpectedSize(128);
 
@@ -1446,7 +1448,7 @@ public class ActionExecutionFunction implements SkyFunction {
     /** Mutable map containing metadata for known artifacts. */
     ActionInputMap inputArtifactData = null;
 
-    Map<Artifact, Collection<Artifact>> expandedArtifacts = null;
+    Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts = null;
     Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts = null;
     ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles = null;
     ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets = null;
