@@ -454,7 +454,9 @@ public final class JavaCompilationHelper {
   private Artifact turbineOutput(Artifact classJar, String newExtension) {
     return getAnalysisEnvironment()
         .getDerivedArtifact(
-            FileSystemUtils.replaceExtension(classJar.getRootRelativePath(), newExtension),
+            FileSystemUtils.replaceExtension(
+                classJar.getOutputDirRelativePath(getConfiguration().isSiblingRepositoryLayout()),
+                newExtension),
             classJar.getRoot());
   }
 

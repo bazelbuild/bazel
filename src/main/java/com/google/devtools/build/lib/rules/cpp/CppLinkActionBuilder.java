@@ -742,7 +742,8 @@ public class CppLinkActionBuilder {
 
     @Nullable Artifact thinltoParamFile = null;
     @Nullable Artifact thinltoMergedObjectFile = null;
-    PathFragment outputRootPath = output.getRootRelativePath();
+    PathFragment outputRootPath =
+        output.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout());
     if (allowLtoIndexing && allLtoArtifacts != null) {
       // Create artifact for the file that the LTO indexing step will emit
       // object file names into for any that were included in the link as
@@ -1167,7 +1168,8 @@ public class CppLinkActionBuilder {
       LinkArtifactFactory linkArtifactFactory) {
     ImmutableMap.Builder<Linkstamp, Artifact> mapBuilder = ImmutableMap.builder();
 
-    PathFragment outputBinaryPath = outputBinary.getRootRelativePath();
+    PathFragment outputBinaryPath =
+        outputBinary.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout());
     PathFragment stampOutputDirectory =
         outputBinaryPath
             .getParentDirectory()
