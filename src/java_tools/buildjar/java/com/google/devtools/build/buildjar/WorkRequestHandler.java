@@ -114,9 +114,6 @@ public class WorkRequestHandler {
     }
     out.flush();
 
-    // Hint to the system that now would be a good time to run a gc.  After a compile
-    // completes lots of objects should be available for collection and it should be cheap to
-    // collect them.
-    System.gc();
+    // This would be a tempting place to suggest a GC, but it causes a 10% performance hit.
   }
 }
