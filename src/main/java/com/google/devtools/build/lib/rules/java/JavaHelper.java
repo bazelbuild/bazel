@@ -21,10 +21,12 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** Utility methods for use by Java-related parts of Bazel. */
 // TODO(bazel-team): Merge with JavaUtil.
@@ -107,8 +109,18 @@ public abstract class JavaHelper {
   }
 
   public static PathFragment getJavaResourcePath(
-      JavaSemantics semantics, RuleContext ruleContext, Artifact resource) {
-    PathFragment resourcePath = resource.getRepositoryRelativePath();
+      JavaSemantics semantics, RuleContext ruleContext, Artifact resource)
+      throws InterruptedException {
+    StarlarkSemantics starlarkSemantics =
+        ruleContext.getAnalysisEnvironment().getStarlarkSemantics();
+    PathFragment resourcePath =
+        resource.getOutputDirRelativePath(
+            starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
+    if (!ruleContext.getLabel().getWorkspaceRoot(starlarkSemantics).isEmpty()) {
+      PathFragment workspace =
+          PathFragment.create(ruleContext.getLabel().getWorkspaceRoot(starlarkSemantics));
+      resourcePath = resourcePath.relativeTo(workspace);
+    }
 
     if (!ruleContext.attributes().has("resource_strip_prefix", Type.STRING)
         || !ruleContext.attributes().isAttributeValueExplicitlySpecified("resource_strip_prefix")) {
