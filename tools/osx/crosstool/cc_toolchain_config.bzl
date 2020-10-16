@@ -5223,8 +5223,8 @@ def _impl(ctx):
         env_sets = [
             env_set(
                 actions = all_link_actions + [
-                    "objc-executable",
-                    "objc++-executable",
+                    ACTION_NAMES.objc_executable,
+                    ACTION_NAMES.objcpp_executable,
                 ],
                 env_entries = [
                     env_entry(
