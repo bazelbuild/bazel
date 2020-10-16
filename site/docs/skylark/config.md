@@ -256,18 +256,40 @@ $ bazel build //my/target --//example:boolean_flag
 $ bazel build //my/target --no//example:boolean_flag
 ```
 
-There are plans to implement shorthand mapping of flag labels so users don't
-need to use their entire target path each time i.e.:
+#### Using build setting aliases
+
+You can set an alias for your build setting target path to make it easier to read
+on the command line. Aliases function similarly to native flags and also make use
+of the double-dash option syntax.
+
+Note: This feature is currently experimental. To enable it, set
+`--experimental_enable_flag_alias` to true.
+
+Set an alias by adding `--flag_alias=ALIAS_NAME=TARGET_PATH`
+to your `.bazelrc` . For example, to set an alias to `coffee`:
 
 ```shell
-$ bazel build //my/target --cpu=k8 --noboolean_flag
+# .bazelrc
+build --flag_alias=coffee=//experimental/user/starlark_configurations/basic_build_setting:coffee-temp
+```
+
+Best Practice: Setting an alias multiple times results in the most recent
+one taking precedence. Use unique alias names to avoid unintended parsing results.
+
+To make use of the alias, type it in place of the build setting target path.
+With the above example of `coffee` set in the user's `.bazelrc`:
+
+```shell
+$ bazel build //my/target --coffee=ICED
 ```
 
 instead of
 
 ```shell
-$ bazel build //my/target --//third_party/bazel/src/main:cpu=k8 --no//my/project:boolean_flag
+$ bazel build //my/target --//experimental/user/starlark_configurations/basic_build_setting:coffee-temp=ICED
 ```
+Best Practice: While it possible to set aliases on the command line, leaving them
+in a `.bazelrc` reduces command line clutter.
 
 ### Label-typed build settings
 
