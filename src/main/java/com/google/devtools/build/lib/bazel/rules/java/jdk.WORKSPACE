@@ -8,11 +8,6 @@ local_java_repository(
     java_home = DEFAULT_SYSTEM_JAVABASE,
 )
 
-bind(
-    name = "bootclasspath",
-    actual = "@local_jdk//:bootclasspath",
-)
-
 # TODO(cushon): migrate to extclasspath and delete
 bind(
     name = "extdir",
