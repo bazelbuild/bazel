@@ -55,18 +55,6 @@ public final class FlagAliasTest {
   }
 
   @Test
-  public void useAliasWithoutSettingFeature() {
-    ImmutableList<String> args =
-        ImmutableList.of("c0", "--rc_source=/somewhere/.blazerc", "--flag_alias=foo=//bar");
-    optionHandler.parseOptions(args, eventHandler);
-    assertThat(eventHandler.getEvents())
-        .contains(
-            Event.error(
-                "--flag_alias is experimental. Set --experimental_enable_flag_alias to true to"
-                    + " make use of it. Detected aliases: --flag_alias=foo=//bar"));
-  }
-
-  @Test
   public void useAliasWithSetDisabledFeature() {
     ImmutableList<String> args =
         ImmutableList.of(

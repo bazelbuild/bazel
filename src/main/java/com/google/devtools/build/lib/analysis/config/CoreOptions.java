@@ -836,7 +836,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   // TODO(b/132346407): Remove when all usages are gone.
   @Option(
       name = "experimental_enable_flag_alias",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
