@@ -479,6 +479,24 @@ EOF
   done
 }
 
+function test_location_output_relative_locations() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+sh_library(name='foo')
+EOF
+
+  bazel query --output=location '//foo' >& $TEST_log || fail "Expected success"
+  expect_log "${TEST_TMPDIR}/.*/foo/BUILD"
+  expect_log "//foo:foo"
+
+  bazel query --output=location --relative_locations '//foo' >& $TEST_log || fail "Expected success"
+  # Query with --relative_locations should not show full path
+  expect_not_log "${TEST_TMPDIR}/.*/foo/BUILD"
+  expect_log "^foo/BUILD"
+  expect_log "//foo:foo"
+}
+
 function test_subdirectory_named_external() {
   mkdir -p foo/external foo/bar
   cat > foo/external/BUILD <<EOF
