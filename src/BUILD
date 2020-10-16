@@ -660,7 +660,7 @@ JAVA_VERSIONS = ("11",)
             "//tools/jdk:java_toolchain_default.bzl",
         ],
         outs = ["java_tools_java_" + java_version + "_build.zip"],
-        cmd = "zip -jX $@ $(SRCS)",
+        cmd = "zip -qjX $@ $(SRCS)",
     )
     for java_version in JAVA_VERSIONS
 ]
