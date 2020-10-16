@@ -526,6 +526,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return actionEnv;
   }
 
+  public boolean isSiblingRepositoryLayout() {
+    return siblingRepositoryLayout;
+  }
+
   /**
    * Return the "fixed" part of the actions' environment variables.
    *

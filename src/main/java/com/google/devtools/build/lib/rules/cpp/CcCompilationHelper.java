@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
@@ -353,8 +352,7 @@ public final class CcCompilationHelper {
   }
 
   /** Sets fields that overlap for cc_library and cc_binary rules. */
-  public CcCompilationHelper fromCommon(CcCommon common, ImmutableList<String> additionalCopts)
-      throws InterruptedException {
+  public CcCompilationHelper fromCommon(CcCommon common, ImmutableList<String> additionalCopts) {
     Preconditions.checkNotNull(additionalCopts);
 
     setCopts(ImmutableList.copyOf(Iterables.concat(common.getCopts(), additionalCopts)));
@@ -989,11 +987,7 @@ public final class CcCompilationHelper {
     // generated files. It is important that the execRoot (EMPTY_FRAGMENT) comes
     // before the genfilesFragment to preferably pick up source files. Otherwise
     // we might pick up stale generated files.
-    boolean siblingRepositoryLayout =
-        actionConstructionContext
-            .getAnalysisEnvironment()
-            .getStarlarkSemantics()
-            .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT);
+    boolean siblingRepositoryLayout = configuration.isSiblingRepositoryLayout();
     RepositoryName repositoryName = label.getPackageIdentifier().getRepository();
     PathFragment repositoryPath = repositoryName.getExecPath(siblingRepositoryLayout);
     ccCompilationContextBuilder.addQuoteIncludeDir(repositoryPath);

@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigRule;
@@ -614,8 +613,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       ProtoLangToolchainProvider protoToolchain,
       RuleContext ruleContext,
       ImmutableList<Artifact> filteredProtoSources,
-      J2ObjcSource j2ObjcSource)
-      throws InterruptedException {
+      J2ObjcSource j2ObjcSource) {
     ImmutableList<Artifact> outputHeaderMappingFiles =
         ProtoCommon.getGeneratedOutputs(ruleContext, filteredProtoSources, ".j2objc.mapping");
     ImmutableList<Artifact> outputClassMappingFiles =
@@ -755,7 +753,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   }
 
   private static J2ObjcSource protoJ2ObjcSource(
-      RuleContext ruleContext, ImmutableList<Artifact> protoSources) throws InterruptedException {
+      RuleContext ruleContext, ImmutableList<Artifact> protoSources) {
     PathFragment objcFileRootExecPath = getProtoOutputRoot(ruleContext);
 
     List<PathFragment> headerSearchPaths =
@@ -771,8 +769,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         /*compileWithARC=*/ false); // generated protos do not support ARC.
   }
 
-  private static PathFragment getProtoOutputRoot(RuleContext ruleContext)
-      throws InterruptedException {
+  private static PathFragment getProtoOutputRoot(RuleContext ruleContext) {
     return ruleContext
         .getGenfilesFragment()
         .getRelative(
@@ -780,11 +777,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 .getLabel()
                 .getPackageIdentifier()
                 .getRepository()
-                .getExecPath(
-                    ruleContext
-                        .getAnalysisEnvironment()
-                        .getStarlarkSemantics()
-                        .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT)));
+                .getExecPath(ruleContext.getConfiguration().isSiblingRepositoryLayout()));
   }
 
   private static boolean isProtoRule(ConfiguredTarget base) {

@@ -252,7 +252,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
   public static void init(
       CppSemantics semantics, RuleConfiguredTargetBuilder ruleBuilder, RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException, ActionConflictException {
+      throws InterruptedException, RuleErrorException {
     CcCommon.checkRuleLoadedThroughMacro(ruleContext);
     semantics.validateDeps(ruleContext);
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("dynamic_deps")) {

@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -80,8 +79,6 @@ public final class LtoBackendArtifacts {
   // The corresponding dwoFile if fission is used.
   private Artifact dwoFile;
 
-  private final boolean siblingRepositoryLayout;
-
   LtoBackendArtifacts(
       RuleErrorConsumer ruleErrorConsumer,
       BuildOptions buildOptions,
@@ -99,16 +96,11 @@ public final class LtoBackendArtifacts {
       boolean usePic,
       boolean generateDwo,
       List<String> userCompileFlags)
-      throws RuleErrorException, InterruptedException {
+      throws RuleErrorException {
     this.bitcodeFile = bitcodeFile;
-    siblingRepositoryLayout =
-        actionConstructionContext
-            .getAnalysisEnvironment()
-            .getStarlarkSemantics()
-            .getBool(EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT);
     PathFragment obj =
         ltoOutputRootPrefix.getRelative(
-            bitcodeFile.getOutputDirRelativePath(siblingRepositoryLayout));
+            bitcodeFile.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout()));
 
     objectFile =
         linkArtifactFactory.create(actionConstructionContext, repositoryName, configuration, obj);
@@ -159,18 +151,12 @@ public final class LtoBackendArtifacts {
       boolean usePic,
       boolean generateDwo,
       List<String> userCompileFlags)
-      throws RuleErrorException, InterruptedException {
+      throws RuleErrorException {
     this.bitcodeFile = bitcodeFile;
-
-    siblingRepositoryLayout =
-        actionConstructionContext
-            .getAnalysisEnvironment()
-            .getStarlarkSemantics()
-            .getBool(EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT);
 
     PathFragment obj =
         ltoOutputRootPrefix.getRelative(
-            bitcodeFile.getOutputDirRelativePath(siblingRepositoryLayout));
+            bitcodeFile.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout()));
     objectFile =
         linkArtifactFactory.create(actionConstructionContext, repositoryName, configuration, obj);
     imports = null;
@@ -285,7 +271,8 @@ public final class LtoBackendArtifacts {
               repositoryName,
               configuration,
               FileSystemUtils.replaceExtension(
-                  objectFile.getOutputDirRelativePath(siblingRepositoryLayout), ".dwo"));
+                  objectFile.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout()),
+                  ".dwo"));
       builder.addOutput(dwoFile);
       buildVariablesBuilder.addStringVariable(
           CompileBuildVariables.PER_OBJECT_DEBUG_INFO_FILE.getVariableName(),

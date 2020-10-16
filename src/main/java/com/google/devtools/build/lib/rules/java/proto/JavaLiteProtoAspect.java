@@ -239,7 +239,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
                       aspectCommon.getProtoRuntimeDeps())));
     }
 
-    private void createProtoCompileAction(Artifact sourceJar) throws InterruptedException {
+    private void createProtoCompileAction(Artifact sourceJar) {
       ProtoCompileActionBuilder.registerActions(
           ruleContext,
           ImmutableList.of(
