@@ -881,6 +881,7 @@ http_archive(
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
     strip_prefix = "zulu15.27.17-ca-jdk15.0.0-linux_x64",
+    sha256 = "0a38f1138c15a4f243b75eb82f8ef40855afcc402e3c2a6de97ce8235011b1ad",
     urls = [
         "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu15.27.17-ca-jdk15.0.0-linux_x64.tar.gz",
         "https://cdn.azul.com/zulu/bin/zulu15.27.17-ca-jdk15.0.0-linux_x64.tar.gz",
@@ -894,6 +895,7 @@ http_archive(
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
     strip_prefix = "zulu15.27.17-ca-jdk15.0.0-macosx_x64",
+    sha256 = "f80b2e0512d9d8a92be24497334c974bfecc8c898fc215ce0e76594f00437482",
     urls = [
         "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu15.27.17-ca-jdk15.0.0-macosx_x64.tar.gz",
         "https://cdn.azul.com/zulu/bin/zulu15.27.17-ca-jdk15.0.0-macosx_x64.tar.gz",
@@ -907,6 +909,7 @@ http_archive(
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
     strip_prefix = "zulu15.27.17-ca-jdk15.0.0-win_x64",
+    sha256 = "f535a530151e6c20de8a3078057e332b08887cb3ba1a4735717357e72765cad6",
     urls = [
         "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu15.27.17-ca-jdk15.0.0-win_x64.zip",
         "https://cdn.azul.com/zulu/bin/zulu15.27.17-ca-jdk15.0.0-win_x64.zip",
@@ -1062,6 +1065,7 @@ java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 """,
     strip_prefix = "zulu15.27.17-ca-jdk15.0.0-linux_x64",
+    sha256 = "0a38f1138c15a4f243b75eb82f8ef40855afcc402e3c2a6de97ce8235011b1ad",
     urls = [
         "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu15.27.17-ca-jdk15.0.0-linux_x64.tar.gz",
         "https://cdn.azul.com/zulu/bin/zulu15.27.17-ca-jdk15.0.0-linux_x64.tar.gz",
@@ -1076,6 +1080,7 @@ java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 """,
     strip_prefix = "zulu15.27.17-ca-jdk15.0.0-macosx_x64",
+    sha256 = "f80b2e0512d9d8a92be24497334c974bfecc8c898fc215ce0e76594f00437482",
     urls = [
         "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu15.27.17-ca-jdk15.0.0-macosx_x64.tar.gz",
         "https://cdn.azul.com/zulu/bin/zulu15.27.17-ca-jdk15.0.0-macosx_x64.tar.gz",
@@ -1090,6 +1095,7 @@ java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 """,
     strip_prefix = "zulu15.27.17-ca-jdk15.0.0-win_x64",
+    sha256 = "f535a530151e6c20de8a3078057e332b08887cb3ba1a4735717357e72765cad6",
     urls = [
         "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu15.27.17-ca-jdk15.0.0-win_x64.zip",
         "https://cdn.azul.com/zulu/bin/zulu15.27.17-ca-jdk15.0.0-win_x64.zip",
