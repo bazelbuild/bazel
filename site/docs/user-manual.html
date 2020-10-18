@@ -2667,7 +2667,7 @@ adb -s deadbeef install ...
 <h3 id='canonicalize'><code>canonicalize-flags</code></h3>
 
 <p>
-  The <code>canonicalize-flags</code> command, which takes a list of options for
+  The <a href="command-line-reference.html#canonicalize-flags-options"><code>canonicalize-flags</code></a> command, which takes a list of options for
   a Bazel command and returns a list of options that has the same effect. The
   new list of options is canonical, i.e., two lists of options with the same
   effect are canonicalized to the same new list.
@@ -2681,6 +2681,15 @@ adb -s deadbeef install ...
   Note that a small number of options cannot be reordered, because Bazel cannot
   ensure that the effect is identical.
 </p>
+<p>
+  As an example:
+</p>
+<pre>
+  % bazel canonicalize-flags -- --config=any_name --test_tag_filters="-lint"
+  --config=any_name
+  --test_tag_filters=-lint
+</pre>
+
 
 <h3 id='startup_options'>Startup options</h3>
 
