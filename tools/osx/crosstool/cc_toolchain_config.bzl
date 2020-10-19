@@ -3864,6 +3864,18 @@ def _impl(ctx):
                 ),
                 flag_set(
                     actions = [
+                        ACTION_NAMES.cpp_link_dynamic_library,
+                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
+                    ],
+                    flag_groups = [
+                        flag_group(
+                            flags = ["-install_name", "@rpath/%{runtime_solib_name}"],
+                            expand_if_available = "runtime_solib_name",
+                        ),
+                    ],
+                ),
+                flag_set(
+                    actions = [
                         ACTION_NAMES.cpp_link_executable,
                         "objc-executable",
                         "objc++-executable",
@@ -3897,6 +3909,18 @@ def _impl(ctx):
                         ACTION_NAMES.cpp_link_nodeps_dynamic_library,
                     ],
                     flag_groups = [flag_group(flags = ["-undefined", "dynamic_lookup"])],
+                ),
+                flag_set(
+                    actions = [
+                        ACTION_NAMES.cpp_link_dynamic_library,
+                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
+                    ],
+                    flag_groups = [
+                        flag_group(
+                            flags = ["-install_name", "@rpath/%{runtime_solib_name}"],
+                            expand_if_available = "runtime_solib_name",
+                        ),
+                    ],
                 ),
                 flag_set(
                     actions = [
