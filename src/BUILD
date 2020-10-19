@@ -449,6 +449,7 @@ filegroup(
         "//src/main/java/com/google/devtools/common/options:srcs",
         "//src/main/java/net/starlark/java/cmd:srcs",
         "//src/main/java/net/starlark/java/spelling:srcs",
+        "//src/main/java/net/starlark/java/lib/json:srcs",
         "//src/main/native:srcs",
         "//src/main/protobuf:srcs",
         "//src/main/tools:srcs",

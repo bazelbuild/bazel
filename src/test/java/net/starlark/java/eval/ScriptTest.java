@@ -17,6 +17,7 @@ package net.starlark.java.eval;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import java.io.File;
@@ -24,7 +25,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.lib.json.Json;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.SyntaxError;
@@ -90,6 +93,12 @@ public final class ScriptTest {
     return Starlark.NONE;
   }
 
+  // Constructor for simple structs, for testing.
+  @StarlarkMethod(name = "struct", documented = false, extraKeywords = @Param(name = "kwargs"))
+  public SimpleStruct struct(Dict<String, Object> kwargs) throws EvalException {
+    return new SimpleStruct(ImmutableMap.copyOf(kwargs));
+  }
+
   private static boolean ok = true;
 
   public static void main(String[] args) throws Exception {
@@ -136,6 +145,8 @@ public final class ScriptTest {
         ParserInput input = ParserInput.fromString(buf.toString(), file.toString());
         ImmutableMap.Builder<String, Object> predeclared = ImmutableMap.builder();
         Starlark.addMethods(predeclared, new ScriptTest()); // e.g. assert_eq
+        Starlark.addModule(predeclared, Json.INSTANCE); // json
+
         StarlarkSemantics semantics = StarlarkSemantics.DEFAULT;
         Module module = Module.withPredeclared(semantics, predeclared.build());
         try (Mutability mu = Mutability.create("test")) {
@@ -224,5 +235,44 @@ public final class ScriptTest {
       }
     }
     return n;
+  }
+
+  // A trivial struct-like class with Starlark fields defined by a map.
+  @StarlarkBuiltin(name = "struct")
+  private static class SimpleStruct implements StarlarkValue, ClassObject {
+    private final ImmutableMap<String, Object> fields;
+
+    SimpleStruct(ImmutableMap<String, Object> fields) {
+      this.fields = fields;
+    }
+
+    @Override
+    public ImmutableCollection<String> getFieldNames() {
+      return fields.keySet();
+    }
+
+    @Override
+    public Object getValue(String name) {
+      return fields.get(name);
+    }
+
+    @Override
+    public String getErrorMessageForUnknownField(String name) {
+      return null;
+    }
+
+    @Override
+    public void repr(Printer p) {
+      // This repr function prints only the fields.
+      // Any methods are still accessible through dir/getattr/hasattr.
+      p.append(Starlark.type(this));
+      p.append("(");
+      String sep = "";
+      for (Map.Entry<String, Object> e : fields.entrySet()) {
+        p.append(sep).append(e.getKey()).append(" = ").repr(e.getValue());
+        sep = ", ";
+      }
+      p.append(")");
+    }
   }
 }
