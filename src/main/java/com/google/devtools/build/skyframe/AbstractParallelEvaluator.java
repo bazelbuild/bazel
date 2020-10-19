@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static java.lang.Math.min;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -44,6 +46,7 @@ import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviousl
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
+import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -496,6 +499,19 @@ abstract class AbstractParallelEvaluator {
                 evaluatorContext
                     .getErrorInfoManager()
                     .fromException(skyKey, reifiedBuilderException, isTransitivelyTransient);
+            // TODO(b/166268889): Remove when resolved. ActionExecutionValues are ending up with
+            //  IOExceptions in them.
+            if (isTransitivelyTransient
+                && !shouldFailFast
+                && errorInfo.getException() instanceof IOException) {
+              // This is essentially unconditionally logged, and not often. Ok to evaluate eagerly.
+              String keyString = skyKey.toString();
+              String errorString = errorInfo.toString();
+              logger.atInfo().log(
+                  "Got IOException for %s (%s)",
+                  keyString.substring(0, min(1000, keyString.length())),
+                  errorString.substring(0, min(1000, errorString.length())));
+            }
             env.setError(state, errorInfo);
             Set<SkyKey> rdepsToBubbleUpTo =
                 env.commit(
