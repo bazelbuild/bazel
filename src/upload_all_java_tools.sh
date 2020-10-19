@@ -60,9 +60,14 @@ for java_version in 11; do
         # Non-Windows needs "file:///foo/bar".
         file_url="file://${zip_path}"
     fi
-    bazel test --verbose_failures --test_output=all --nocache_test_results \
-      //src/test/shell/bazel:bazel_java_test_local_java_tools_jdk${java_version} \
-      --define=LOCAL_JAVA_TOOLS_ZIP_URL="${file_url}"
+
+    # Skip for now, as the test is broken on Windows.
+    # See https://github.com/bazelbuild/bazel/issues/12244 for details
+    if not "$is_windows"; then
+        bazel test --verbose_failures --test_output=all --nocache_test_results \
+            //src/test/shell/bazel:bazel_java_test_local_java_tools_jdk${java_version} \
+            --define=LOCAL_JAVA_TOOLS_ZIP_URL="${file_url}"
+    fi
 
     bazel run //src:upload_java_tools_java${java_version} -- \
         --java_tools_zip src/java_tools_java${java_version}.zip \
