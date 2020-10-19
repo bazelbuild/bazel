@@ -470,11 +470,6 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
         startup_options.failure_detail_out.AsCommandLineArgument());
   }
 
-  if (startup_options.deep_execroot) {
-    result.push_back("--deep_execroot");
-  } else {
-    result.push_back("--nodeep_execroot");
-  }
   if (startup_options.expand_configs_in_place) {
     result.push_back("--expand_configs_in_place");
   } else {
