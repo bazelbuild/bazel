@@ -924,7 +924,7 @@ http_archive(
     sha256 = "01e6912f7638c2ada1149fcf52979102c06982732a82044d925fc454d31998d8",
     urls = [
         "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.1/java_tools_javac11_linux-v10.1.zip",
-        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v10.0/java_tools_javac11_linux-v10.1.zip",
+        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v10.1/java_tools_javac11_linux-v10.1.zip",
     ],
 )
 
@@ -936,7 +936,7 @@ http_archive(
     sha256 = "48bda6ed98762de16cc25bb5d104fd1eacefc2b7c4470c72609a745c12b8870b",
     urls = [
         "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.1/java_tools_javac11_windows-v10.1.zip",
-        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v10.0/java_tools_javac11_windows-v10.1.zip",
+        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v10.1/java_tools_javac11_windows-v10.1.zip",
     ],
 )
 
@@ -948,7 +948,7 @@ http_archive(
     sha256 = "6a258df035a756eb721855980d6dbdb11ef818d9d293740dd9327f9e2b018bcf",
     urls = [
         "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.1/java_tools_javac11_darwin-v10.1.zip",
-        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v10.0/java_tools_javac11_darwin-v10.1.zip",
+        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v10.1/java_tools_javac11_darwin-v10.1.zip",
     ],
 )
 
