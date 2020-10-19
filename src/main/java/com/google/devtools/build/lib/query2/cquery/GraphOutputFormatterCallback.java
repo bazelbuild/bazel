@@ -61,13 +61,7 @@ class GraphOutputFormatterCallback extends CqueryThreadsafeCallback {
           // hashes.
           ConfiguredTarget ct = node.getLabel();
           return String.format(
-              "%s (%s)",
-              ct.getLabel(),
-              // TODO(gregce): Even if getConfiguration is a cache hit this has overhead, especially
-              // when called many times on the same configuration in the same query. Investigate the
-              // performance impact and apply a cache if measurements justify it (also in other
-              // callbacks that do this).
-              shortId(skyframeExecutor.getConfiguration(eventHandler, ct.getConfigurationKey())));
+              "%s (%s)", ct.getLabel(), shortId(getConfiguration(ct.getConfigurationKey())));
         }
 
         @Override

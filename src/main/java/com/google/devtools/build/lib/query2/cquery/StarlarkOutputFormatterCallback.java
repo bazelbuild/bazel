@@ -63,8 +63,7 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
           @Param(name = "target"),
         })
     public Object buildOptions(ConfiguredTarget target) {
-      BuildConfiguration config =
-          skyframeExecutor.getConfiguration(eventHandler, target.getConfigurationKey());
+      BuildConfiguration config = getConfiguration(target.getConfigurationKey());
 
       if (config == null) {
         // config is null for input file configured targets.
