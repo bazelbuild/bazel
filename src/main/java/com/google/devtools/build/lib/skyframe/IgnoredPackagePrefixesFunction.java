@@ -21,6 +21,8 @@ import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -66,7 +68,7 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
   @Nullable
   @Override
   public SkyValue compute(SkyKey key, Environment env)
-      throws SkyFunctionException, InterruptedException {
+      throws IgnoredPatternsFunctionException, InterruptedException {
     RepositoryName repositoryName = (RepositoryName) key.argument();
 
     ImmutableSet.Builder<PathFragment> ignoredPackagePrefixesBuilder = ImmutableSet.builder();
@@ -91,10 +93,19 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
         }
       } else {
         // Make sure the repository is fetched.
-        RepositoryDirectoryValue repositoryValue =
-            (RepositoryDirectoryValue) env.getValue(RepositoryDirectoryValue.key(repositoryName));
-        if (repositoryValue == null) {
-          return null;
+        RepositoryDirectoryValue repositoryValue;
+        try {
+          repositoryValue =
+              (RepositoryDirectoryValue) env
+                  .getValueOrThrow(RepositoryDirectoryValue.key(repositoryName),
+                      RepositoryFunctionException.class, IOException.class);
+          if (repositoryValue == null) {
+            return null;
+          }
+        } catch (RepositoryFunctionException e) {
+          throw new IgnoredPatternsFunctionException(e);
+        } catch (IOException e) {
+          throw new IgnoredPatternsFunctionException(e);
         }
         if (repositoryValue.repositoryExists()) {
           RootedPath rootedPatternFile =
@@ -141,6 +152,14 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
   private static final class IgnoredPatternsFunctionException extends SkyFunctionException {
     public IgnoredPatternsFunctionException(InconsistentFilesystemException e) {
       super(e, Transience.TRANSIENT);
+    }
+
+    public IgnoredPatternsFunctionException(RepositoryFunctionException e) {
+      super(e, Transience.PERSISTENT);
+    }
+
+    public IgnoredPatternsFunctionException(IOException e) {
+      super(e, Transience.PERSISTENT);
     }
   }
 }

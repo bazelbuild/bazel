@@ -102,6 +102,7 @@ java_test(
         "//conditions:default": [],
     }) + [
         ":testutil",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:ignored_package_prefixes_value",
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:keep-going-option",
         "//src/main/java/com/google/devtools/build/lib:runtime",
