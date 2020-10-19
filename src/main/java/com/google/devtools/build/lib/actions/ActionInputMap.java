@@ -188,8 +188,9 @@ public final class ActionInputMap implements MetadataProvider, ActionInputMapSin
   public String toString() {
     return MoreObjects.toStringHelper(this)
         .add("size", size())
-        .add("first-ten-keys", Arrays.stream(keys).limit(10).collect(toList()))
-        .add("first-ten-values", Arrays.stream(values).limit(10).collect(toList()))
+        .add("first-fifty-keys", Arrays.stream(keys).limit(50).collect(toList()))
+        .add("first-fifty-values", Arrays.stream(values).limit(50).collect(toList()))
+        .add("first-fifty-paths", Arrays.stream(paths).limit(50).collect(toList()))
         .toString();
   }
 }
