@@ -435,6 +435,22 @@ There are other options for exposing the results as well. </p>
   included as <code>rule_input</code> fields.
 </p>
 
+<h3>Graph output</h3>
+
+<pre>
+--output=graph
+</pre>
+
+<p>
+  This option generates output as a Graphviz-compatible .dot file. See <code>query</code>'s
+  <a href="query.html#output-graph">graph output documentation</a> for details. <code>cquery</code>
+  also supports
+
+  <a href="query.html#graph-node_limit-n"><code>--graph:node_limit</code></a> and
+  <a href="query.html#no-graph-factored"><code>--graph:factored</code></a>.
+
+</p>
+
 <h3>Defining the output format using Starlark</h3>
 
 <pre>
@@ -608,8 +624,7 @@ $ bazel cquery 'somepath(//foo, //bar)' --universe_scope=//foo
 
   <li>
     <strong>No support
-    for <a href="query.html#output-graph"><code>--output=graph</code></a>
-      or <a href="query.html#output-xml"><code>--output=xml</code></a>.</strong>
+    for <a href="query.html#output-xml"><code>--output=xml</code></a>.</strong>
   </li>
 
   <li>

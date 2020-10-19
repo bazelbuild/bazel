@@ -53,13 +53,6 @@ public class QueryOptions extends CommonQueryOptions {
       help = "Whether each format is terminated with \\0 instead of newline.")
   public Void isNull;
 
-  @Option(
-      name = "line_terminator_null",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.QUERY,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help = "Whether each format is terminated with \\0 instead of newline.")
-  public boolean lineTerminatorNull;
 
   @Option(
     name = "order_results",
@@ -135,18 +128,6 @@ public class QueryOptions extends CommonQueryOptions {
   public boolean preferUnorderedOutput;
 
   @Option(
-    name = "graph:node_limit",
-    defaultValue = "512",
-    documentationCategory = OptionDocumentationCategory.QUERY,
-    effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-    help =
-        "The maximum length of the label string for a graph node in the output.  Longer labels"
-            + " will be truncated; -1 means no truncation.  This option is only applicable to"
-            + " --output=graph."
-  )
-  public int graphNodeStringLimit;
-
-  @Option(
       name = "graph:conditional_edges_limit",
       defaultValue = "4",
       documentationCategory = OptionDocumentationCategory.QUERY,
@@ -155,18 +136,6 @@ public class QueryOptions extends CommonQueryOptions {
           "The maximum number of condition labels to show. -1 means no truncation and 0 means no "
               + "annotation. This option is only applicable to --output=graph.")
   public int graphConditionalEdgesLimit;
-
-  @Option(
-    name = "graph:factored",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.QUERY,
-    effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-    help =
-        "If true, then the graph will be emitted 'factored', i.e. topologically-equivalent nodes "
-            + "will be merged together and their labels concatenated. This option is only "
-            + "applicable to --output=graph."
-  )
-  public boolean graphFactored;
 
   @Option(
     name = "xml:line_numbers",
@@ -242,15 +211,6 @@ public class QueryOptions extends CommonQueryOptions {
               + " return 3, no-keep-going will return 7; seven means all failed queries will"
               + " return 7; underlying means failed queries will return the underlying exit code")
   public QueryFailureExitCodeBehavior queryFailureExitCodeBehavior;
-
-  /** Ugly workaround since line terminator option default has to be constant expression. */
-  public String getLineTerminator() {
-    if (lineTerminatorNull) {
-      return "\0";
-    }
-
-    return System.lineSeparator();
-  }
 
   /** Return the current options as a set of QueryEnvironment settings. */
   @Override
