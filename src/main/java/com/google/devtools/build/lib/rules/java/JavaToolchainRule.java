@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
@@ -282,6 +283,19 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
                 .cfg(ExecutionTransitionFactory.create())
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(java_runtime) -->
+        The java_runtime to use with this toolchain. It defaults to java_runtime
+        in execution configuration.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("java_runtime", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                // TODO(b/171140578): remove default value and set to mandatory after it is set on
+                // all toolchains
+                .value(JavaSemantics.hostJdkAttribute(env))
+                .mandatoryProviders(ToolchainInfo.PROVIDER.id())
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .useOutputLicenses())
         .build();
   }
 

@@ -97,7 +97,8 @@ public class JavaToolchainProvider extends ToolchainInfo
       ImmutableList<JavaPackageConfigurationProvider> packageConfiguration,
       FilesToRunProvider jacocoRunner,
       FilesToRunProvider proguardAllowlister,
-      JavaSemantics javaSemantics) {
+      JavaSemantics javaSemantics,
+      JavaRuntimeInfo javaRuntime) {
     return new JavaToolchainProvider(
         label,
         bootclasspath,
@@ -126,7 +127,8 @@ public class JavaToolchainProvider extends ToolchainInfo
         packageConfiguration,
         jacocoRunner,
         proguardAllowlister,
-        javaSemantics);
+        javaSemantics,
+        javaRuntime);
   }
 
   private final Label label;
@@ -157,6 +159,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   private final FilesToRunProvider jacocoRunner;
   private final FilesToRunProvider proguardAllowlister;
   private final JavaSemantics javaSemantics;
+  private final JavaRuntimeInfo javaRuntime;
 
   @VisibleForSerialization
   JavaToolchainProvider(
@@ -187,7 +190,8 @@ public class JavaToolchainProvider extends ToolchainInfo
       ImmutableList<JavaPackageConfigurationProvider> packageConfiguration,
       FilesToRunProvider jacocoRunner,
       FilesToRunProvider proguardAllowlister,
-      JavaSemantics javaSemantics) {
+      JavaSemantics javaSemantics,
+      JavaRuntimeInfo javaRuntime) {
     super(ImmutableMap.of(), Location.BUILTIN);
 
     this.label = label;
@@ -218,6 +222,7 @@ public class JavaToolchainProvider extends ToolchainInfo
     this.jacocoRunner = jacocoRunner;
     this.proguardAllowlister = proguardAllowlister;
     this.javaSemantics = javaSemantics;
+    this.javaRuntime = javaRuntime;
   }
 
   /** Returns the label for this {@code java_toolchain}. */
@@ -391,6 +396,10 @@ public class JavaToolchainProvider extends ToolchainInfo
 
   public JavaSemantics getJavaSemantics() {
     return javaSemantics;
+  }
+
+  public JavaRuntimeInfo getJavaRuntime() {
+    return javaRuntime;
   }
 
   /** Returns the input Java language level */
