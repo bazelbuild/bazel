@@ -569,7 +569,9 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
-      help = "If set to true, the jar_file parameter in pack_sources will be removed.")
+      help =
+          "If set to true, the jar_file, and host_javabase parameters in pack_sources and "
+              + "host_javabase in compile will all be removed.")
   public boolean incompatibleJavaCommonParameters;
 
   @Option(

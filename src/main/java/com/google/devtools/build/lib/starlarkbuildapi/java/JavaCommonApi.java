@@ -38,7 +38,6 @@ public interface JavaCommonApi<
         FileT extends FileApi,
         JavaInfoT extends JavaInfoApi<FileT>,
         JavaToolchainT extends JavaToolchainStarlarkApiProviderApi,
-        JavaRuntimeT extends JavaRuntimeInfoApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         starlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         StarlarkActionFactoryT extends StarlarkActionFactoryApi>
@@ -189,7 +188,13 @@ public interface JavaCommonApi<
             positional = false,
             named = true,
             allowedTypes = {@ParamType(type = JavaRuntimeInfoApi.class)},
-            doc = "A JavaRuntimeInfo to be used for this compilation. Mandatory."),
+            doc =
+                "Deprecated: You can drop this parameter (host_javabase is provided with "
+                    + "java_toolchain)",
+            noneable = true,
+            defaultValue = "None",
+            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_JAVA_COMMON_PARAMETERS,
+            valueWhenDisabled = "None"),
         @Param(
             name = "sourcepath",
             positional = false,
@@ -228,7 +233,7 @@ public interface JavaCommonApi<
       Sequence<?> annotationProcessorAdditionalOutputs, // <FileT> expected.
       String strictDepsMode,
       JavaToolchainT javaToolchain,
-      JavaRuntimeT hostJavabase,
+      Object hostJavabase,
       Sequence<?> sourcepathEntries, // <FileT> expected.
       Sequence<?> resources, // <FileT> expected.
       Boolean neverlink,
@@ -381,7 +386,13 @@ public interface JavaCommonApi<
             positional = false,
             named = true,
             allowedTypes = {@ParamType(type = JavaRuntimeInfoApi.class)},
-            doc = "A JavaRuntimeInfo to be used for packing sources."),
+            doc =
+                "Deprecated: You can drop this parameter (host_javabase is provided with "
+                    + "java_toolchain)",
+            noneable = true,
+            defaultValue = "None",
+            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_JAVA_COMMON_PARAMETERS,
+            valueWhenDisabled = "None"),
       },
       allowReturnNones = true)
   FileApi packSources(
@@ -391,7 +402,7 @@ public interface JavaCommonApi<
       Sequence<?> sourceFiles, // <FileT> expected.
       Sequence<?> sourceJars, // <FileT> expected.
       JavaToolchainT javaToolchain,
-      JavaRuntimeT hostJavabase)
+      Object hostJavabase)
       throws EvalException;
 
   @StarlarkMethod(
