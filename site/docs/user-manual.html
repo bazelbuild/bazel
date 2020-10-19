@@ -2679,7 +2679,8 @@ adb -s deadbeef install ...
 </p>
 <p>
   Note that a small number of options cannot be reordered, because Bazel cannot
-  ensure that the effect is identical.
+  ensure that the effect is identical. Also note that this command
+  <i>does not</i> expand flags from <code>--config</code>.
 </p>
 <p>
   As an example:
