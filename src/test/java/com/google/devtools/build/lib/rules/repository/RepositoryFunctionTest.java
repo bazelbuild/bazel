@@ -61,7 +61,7 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
         SkyFunction.Environment env,
         Map<String, String> markerData,
         SkyKey key)
-        throws SkyFunctionException, InterruptedException {
+        throws InterruptedException {
       return null;
     }
 

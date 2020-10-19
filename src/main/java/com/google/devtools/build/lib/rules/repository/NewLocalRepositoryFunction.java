@@ -55,7 +55,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
       Environment env,
       Map<String, String> markerData,
       SkyKey key)
-      throws SkyFunctionException, InterruptedException {
+      throws InterruptedException, RepositoryFunctionException {
 
     NewRepositoryFileHandler fileHandler = new NewRepositoryFileHandler(directories.getWorkspace());
     if (!fileHandler.prepareFile(rule, env)) {

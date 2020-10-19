@@ -187,7 +187,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
-      throws SkyFunctionException, InterruptedException {
+      throws InterruptedException, RepositoryFunctionException {
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
 
     Map<RepositoryName, PathFragment> overrides = REPOSITORY_OVERRIDES.get(env);
@@ -207,11 +207,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     Rule rule;
     try {
       rule = getRepository(repositoryName, env);
-    } catch (ExternalRuleNotFoundException e) {
+      if (rule == null) {
+        return null;
+      }
+    } catch (NoSuchRepositoryException e) {
       return RepositoryDirectoryValue.NO_SUCH_REPOSITORY_VALUE;
-    }
-    if (rule == null) {
-      return null;
     }
 
     RepositoryFunction handler = getHandler(rule);
@@ -337,7 +337,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       Map<String, String> markerData,
       RepositoryFunction handler,
       Rule rule)
-      throws SkyFunctionException, InterruptedException {
+      throws InterruptedException, RepositoryFunctionException {
 
     setupRepositoryRoot(repoRoot);
 
@@ -347,7 +347,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     RepositoryDirectoryValue.Builder repoBuilder;
     try {
       repoBuilder = handler.fetch(rule, repoRoot, directories, env, markerData, skyKey);
-    } catch (SkyFunctionException e) {
+    } catch (RepositoryFunctionException e) {
       // Upon an exceptional exit, the fetching of that repository is over as well.
       env.getListener().post(new RepositoryFetching(repositoryName, true));
       env.getListener().post(new RepositoryFailedEvent(repositoryName, e.getMessage()));
@@ -369,9 +369,19 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
    */
   @Nullable
   private Rule getRepository(RepositoryName repositoryName, Environment env)
-      throws ExternalPackageException, InterruptedException {
-    return externalPackageHelper.getRuleByName(repositoryName.strippedName(), env);
+      throws InterruptedException, RepositoryFunctionException, NoSuchRepositoryException {
+    try {
+      return externalPackageHelper.getRuleByName(repositoryName.strippedName(), env);
+    } catch (ExternalRuleNotFoundException e) {
+      // This is caught and handled immediately in compute().
+      throw new NoSuchRepositoryException();
+    } catch (ExternalPackageException e) {
+      throw new RepositoryFunctionException(e);
+    }
   }
+
+  /** Marker exception for the case where a repository is not defined. */
+  private static final class NoSuchRepositoryException extends Exception {}
 
   @Override
   public String extractTag(SkyKey skyKey) {
