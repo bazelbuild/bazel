@@ -40,6 +40,9 @@ esac
 if "$is_windows"; then
   export MSYS_NO_PATHCONV=1
   export MSYS2_ARG_CONV_EXCL="*"
+  # Use a short user output root on Windows to avoid the long path issue:
+  # https://github.com/bazelbuild/bazel/issues/12244
+  export TMPDIR="C:/tmp"
 fi
 
 commit_hash=$(git rev-parse HEAD)
