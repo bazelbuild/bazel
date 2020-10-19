@@ -39,12 +39,7 @@ public interface DottedVersionApi<SelfT extends DottedVersionApi<?>>
           "Compares based on most signifigant (first) not-matching version component. "
               + "So, for example, 1.2.3 < 1.2.4",
       parameters = {
-        @Param(
-            name = "other",
-            positional = true,
-            named = false,
-            type = DottedVersionApi.class,
-            doc = "The other dotted version.")
+        @Param(name = "other", positional = true, named = false, doc = "The other dotted version.")
       })
   int compareTo_starlark(SelfT other);
 }

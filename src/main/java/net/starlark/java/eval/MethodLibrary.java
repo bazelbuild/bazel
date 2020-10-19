@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 
@@ -89,13 +90,7 @@ class MethodLibrary {
               + "Elements are converted to boolean using the <a href=\"#bool\">bool</a> function."
               + "<pre class=\"language-python\">all([\"hello\", 3, True]) == True\n"
               + "all([-1, 0, 1]) == False</pre>",
-      parameters = {
-        @Param(
-            name = "elements",
-            type = Object.class,
-            noneable = true,
-            doc = "A string or a collection of elements.")
-      })
+      parameters = {@Param(name = "elements", doc = "A string or a collection of elements.")})
   public Boolean all(Object collection) throws EvalException {
     return !hasElementWithBooleanValue(collection, false);
   }
@@ -107,13 +102,7 @@ class MethodLibrary {
               + "Elements are converted to boolean using the <a href=\"#bool\">bool</a> function."
               + "<pre class=\"language-python\">any([-1, 0, 1]) == True\n"
               + "any([False, 0, \"\"]) == False</pre>",
-      parameters = {
-        @Param(
-            name = "elements",
-            type = Object.class,
-            noneable = true,
-            doc = "A string or a collection of elements.")
-      })
+      parameters = {@Param(name = "elements", doc = "A string or a collection of elements.")})
   public Boolean any(Object collection) throws EvalException {
     return hasElementWithBooleanValue(collection, true);
   }
@@ -136,17 +125,15 @@ class MethodLibrary {
               + "It is an error if elements are not comparable (for example int with string)."
               + "<pre class=\"language-python\">sorted([3, 5, 4]) == [3, 4, 5]</pre>",
       parameters = {
-        @Param(name = "iterable", type = Object.class, doc = "The iterable sequence to sort."),
+        @Param(name = "iterable", doc = "The iterable sequence to sort."),
         @Param(
             name = "key",
             doc = "An optional function applied to each element before comparison.",
             named = true,
             defaultValue = "None",
-            positional = false,
-            noneable = true),
+            positional = false),
         @Param(
             name = "reverse",
-            type = Boolean.class,
             doc = "Return results in descending order.",
             named = true,
             defaultValue = "False",
@@ -240,10 +227,7 @@ class MethodLibrary {
           "Returns a list that contains the elements of the original sequence in reversed order."
               + "<pre class=\"language-python\">reversed([3, 5, 4]) == [4, 5, 3]</pre>",
       parameters = {
-        @Param(
-            name = "sequence",
-            type = Sequence.class,
-            doc = "The sequence (list or tuple) to be reversed."),
+        @Param(name = "sequence", doc = "The sequence (list or tuple) to be reversed."),
       },
       useStarlarkThread = true)
   public StarlarkList<?> reversed(Sequence<?> sequence, StarlarkThread thread)
@@ -302,7 +286,7 @@ class MethodLibrary {
           "Converts any object to string. This is useful for debugging."
               + "<pre class=\"language-python\">str(\"ab\") == \"ab\"\n"
               + "str(8) == \"8\"</pre>",
-      parameters = {@Param(name = "x", doc = "The object to convert.", noneable = true)})
+      parameters = {@Param(name = "x", doc = "The object to convert.")})
   public String str(Object x) throws EvalException {
     return Starlark.str(x);
   }
@@ -312,7 +296,7 @@ class MethodLibrary {
       doc =
           "Converts any object to a string representation. This is useful for debugging.<br>"
               + "<pre class=\"language-python\">repr(\"ab\") == '\"ab\"'</pre>",
-      parameters = {@Param(name = "x", doc = "The object to convert.", noneable = true)})
+      parameters = {@Param(name = "x", doc = "The object to convert.")})
   public String repr(Object x) {
     return Starlark.repr(x);
   }
@@ -325,13 +309,7 @@ class MethodLibrary {
               + "</code>, an empty string (<code>\"\"</code>), the number <code>0</code>, or an "
               + "empty collection (e.g. <code>()</code>, <code>[]</code>). "
               + "Otherwise, it returns <code>True</code>.",
-      parameters = {
-        @Param(
-            name = "x",
-            defaultValue = "False",
-            doc = "The variable to convert.",
-            noneable = true)
-      })
+      parameters = {@Param(name = "x", defaultValue = "False", doc = "The variable to convert.")})
   public Boolean bool(Object x) throws EvalException {
     return Starlark.truth(x);
   }
@@ -379,10 +357,9 @@ class MethodLibrary {
               + "int(\"-0x10\", 0) == -16"
               + "</pre>",
       parameters = {
-        @Param(name = "x", type = Object.class, doc = "The string to convert."),
+        @Param(name = "x", doc = "The string to convert."),
         @Param(
             name = "base",
-            type = StarlarkInt.class,
             defaultValue = "unbound",
             doc =
                 "The base used to interpret a string value; defaults to 10. Must be between 2 "
@@ -501,7 +478,6 @@ class MethodLibrary {
       parameters = {
         @Param(
             name = "args",
-            type = Object.class,
             defaultValue = "[]",
             doc =
                 "Either a dictionary or a list of entries. Entries must be tuples or lists with "
@@ -527,13 +503,8 @@ class MethodLibrary {
       parameters = {
         // Note Python uses 'sequence' keyword instead of 'list'. We may want to change tihs
         // some day.
-        @Param(name = "list", type = Object.class, doc = "input sequence.", named = true),
-        @Param(
-            name = "start",
-            type = StarlarkInt.class,
-            doc = "start index.",
-            defaultValue = "0",
-            named = true)
+        @Param(name = "list", doc = "input sequence.", named = true),
+        @Param(name = "start", doc = "start index.", defaultValue = "0", named = true),
       },
       useStarlarkThread = true)
   public StarlarkList<?> enumerate(Object input, StarlarkInt startI, StarlarkThread thread)
@@ -556,7 +527,7 @@ class MethodLibrary {
       // Deterministic hashing is important for the consistency of builds, hence why we
       // promise a specific algorithm. This is in contrast to Java (Object.hashCode()) and
       // Python, which promise stable hashing only within a given execution of the program.
-      parameters = {@Param(name = "value", type = String.class, doc = "String value to hash.")})
+      parameters = {@Param(name = "value", doc = "String value to hash.")})
   public Integer hash(String value) throws EvalException {
     return value.hashCode();
   }
@@ -573,21 +544,21 @@ class MethodLibrary {
       parameters = {
         @Param(
             name = "start_or_stop",
-            type = StarlarkInt.class,
             doc =
                 "Value of the start element if stop is provided, "
                     + "otherwise value of stop and the actual start is 0"),
         @Param(
             name = "stop_or_none",
-            type = StarlarkInt.class,
-            noneable = true,
+            allowedTypes = {
+              @ParamType(type = StarlarkInt.class),
+              @ParamType(type = NoneType.class),
+            },
             defaultValue = "None",
             doc =
                 "optional index of the first item <i>not</i> to be included in the resulting "
                     + "list; generation of the list stops before <code>stop</code> is reached."),
         @Param(
             name = "step",
-            type = StarlarkInt.class,
             defaultValue = "1",
             doc = "The increment (default is 1). It may be negative.")
       },
@@ -620,8 +591,8 @@ class MethodLibrary {
               + "<code>name</code>, otherwise False. Example:<br>"
               + "<pre class=\"language-python\">hasattr(ctx.attr, \"myattr\")</pre>",
       parameters = {
-        @Param(name = "x", doc = "The object to check.", noneable = true),
-        @Param(name = "name", type = String.class, doc = "The name of the attribute.")
+        @Param(name = "x", doc = "The object to check."),
+        @Param(name = "name", doc = "The name of the attribute.")
       },
       useStarlarkThread = true)
   public Boolean hasattr(Object obj, String name, StarlarkThread thread) throws EvalException {
@@ -637,15 +608,14 @@ class MethodLibrary {
               + "<pre class=\"language-python\">getattr(ctx.attr, \"myattr\")\n"
               + "getattr(ctx.attr, \"myattr\", \"mydefault\")</pre>",
       parameters = {
-        @Param(name = "x", doc = "The struct whose attribute is accessed.", noneable = true),
+        @Param(name = "x", doc = "The struct whose attribute is accessed."),
         @Param(name = "name", doc = "The name of the struct attribute."),
         @Param(
             name = "default",
             defaultValue = "unbound",
             doc =
                 "The default value to return in case the struct "
-                    + "doesn't have an attribute of the given name.",
-            noneable = true)
+                    + "doesn't have an attribute of the given name.")
       },
       useStarlarkThread = true)
   public Object getattr(Object obj, String name, Object defaultValue, StarlarkThread thread)
@@ -663,7 +633,7 @@ class MethodLibrary {
       doc =
           "Returns a list of strings: the names of the attributes and "
               + "methods of the parameter object.",
-      parameters = {@Param(name = "x", doc = "The object to check.", noneable = true)},
+      parameters = {@Param(name = "x", doc = "The object to check.")},
       useStarlarkThread = true)
   public StarlarkList<?> dir(Object object, StarlarkThread thread) throws EvalException {
     return Starlark.dir(thread.mutability(), thread.getSemantics(), object);
@@ -677,15 +647,15 @@ class MethodLibrary {
       parameters = {
         @Param(
             name = "msg",
-            type = Object.class,
             doc = "Error to display for the user. The object is converted to a string.",
             defaultValue = "None",
-            named = true,
-            noneable = true),
+            named = true),
         @Param(
             name = "attr",
-            type = String.class,
-            noneable = true,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
             defaultValue = "None",
             doc =
                 "The name of the attribute that caused the error. This is used only for "
@@ -715,7 +685,6 @@ class MethodLibrary {
       parameters = {
         @Param(
             name = "sep",
-            type = String.class,
             defaultValue = "\" \"",
             named = true,
             positional = false,
@@ -757,7 +726,7 @@ class MethodLibrary {
               + "<pre class=\"language-python\">"
               + "if type(x) == type([]):  # if x is a list"
               + "</pre>",
-      parameters = {@Param(name = "x", doc = "The object to check type of.", noneable = true)})
+      parameters = {@Param(name = "x", doc = "The object to check type of.")})
   public String type(Object object) {
     // There is no 'type' type in Starlark, so we return a string with the type name.
     return Starlark.type(object);

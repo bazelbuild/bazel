@@ -78,7 +78,7 @@ public class ConfigFeatureFlagProvider extends NativeInfo implements ConfigFeatu
     @StarlarkMethod(
         name = "FeatureFlagInfo",
         documented = false,
-        parameters = {@Param(name = "value", named = true, type = String.class)},
+        parameters = {@Param(name = "value", named = true)},
         selfCall = true)
     public ConfigFeatureFlagProvider selfcall(String value) {
       return create(value, Predicates.alwaysTrue());

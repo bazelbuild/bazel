@@ -531,10 +531,7 @@ public final class Label
               + "Label(\"@remapped//wiz:quux\")\n"
               + "</pre>",
       parameters = {
-        @Param(
-            name = "relName",
-            type = String.class,
-            doc = "The label that will be resolved relative to this one.")
+        @Param(name = "relName", doc = "The label that will be resolved relative to this one.")
       },
       useStarlarkThread = true)
   public Label getRelative(String relName, StarlarkThread thread) throws LabelSyntaxException {

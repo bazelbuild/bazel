@@ -97,11 +97,7 @@ public interface StructApi extends StarlarkValue {
                 + "<pre class=\"language-python\">s = struct(x = 2, y = 3)\n"
                 + "return s.x + getattr(s, \"y\")  # returns 5</pre>",
         extraKeywords =
-            @Param(
-                name = "kwargs",
-                type = Dict.class,
-                defaultValue = "{}",
-                doc = "Dictionary of arguments."),
+            @Param(name = "kwargs", defaultValue = "{}", doc = "Dictionary of arguments."),
         useStarlarkThread = true,
         selfCall = true)
     @StarlarkConstructor

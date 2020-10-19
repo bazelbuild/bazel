@@ -104,7 +104,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
       documented = false,
       parameters = {
         @Param(name = "mandatory", doc = "", named = true),
-        @Param(name = "optional", doc = "", defaultValue = "None", noneable = true, named = true),
+        @Param(name = "optional", doc = "", defaultValue = "None", named = true),
         @Param(name = "mandatory_key", doc = "", positional = false, named = true),
         @Param(
             name = "optional_key",

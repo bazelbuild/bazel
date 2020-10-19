@@ -28,6 +28,7 @@ import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
@@ -59,18 +60,12 @@ public interface JavaCommonApi<
               + "a provider that represents the results of the compilation and can be added to "
               + "the set of providers emitted by this rule.",
       parameters = {
-        @Param(
-            name = "ctx",
-            positional = true,
-            named = false,
-            type = StarlarkRuleContextApi.class,
-            doc = "The rule context."),
+        @Param(name = "ctx", positional = true, named = false, doc = "The rule context."),
         @Param(
             name = "source_jars",
             positional = false,
             named = true,
-            type = Sequence.class,
-            generic1 = FileApi.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
             defaultValue = "[]",
             doc =
                 "A list of the jars to be compiled. At least one of source_jars or source_files"
@@ -79,43 +74,41 @@ public interface JavaCommonApi<
             name = "source_files",
             positional = false,
             named = true,
-            type = Sequence.class,
-            generic1 = FileApi.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
             defaultValue = "[]",
             doc =
                 "A list of the Java source files to be compiled. At least one of source_jars or "
                     + "source_files should be specified."),
-        @Param(name = "output", positional = false, named = true, type = FileApi.class),
+        @Param(name = "output", positional = false, named = true),
         @Param(
             name = "output_source_jar",
             positional = false,
             named = true,
-            type = FileApi.class,
-            noneable = true,
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = NoneType.class),
+            },
             defaultValue = "None",
             doc = "The output source jar. Optional. Defaults to `{output_jar}-src.jar` if unset."),
         @Param(
             name = "javac_opts",
             positional = false,
             named = true,
-            type = Sequence.class,
-            generic1 = String.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             defaultValue = "[]",
             doc = "A list of the desired javac options. Optional."),
         @Param(
             name = "deps",
             positional = false,
             named = true,
-            type = Sequence.class,
-            generic1 = JavaInfoApi.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
             defaultValue = "[]",
             doc = "A list of dependencies. Optional."),
         @Param(
             name = "experimental_local_compile_time_deps",
             positional = false,
             named = true,
-            type = Sequence.class,
-            generic1 = JavaInfoApi.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
             defaultValue = "[]",
             doc =
                 "Compile-time dependencies of the compilation that should be omitted from the"
@@ -126,32 +119,28 @@ public interface JavaCommonApi<
             name = "exports",
             positional = false,
             named = true,
-            type = Sequence.class,
-            generic1 = JavaInfoApi.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
             defaultValue = "[]",
             doc = "A list of exports. Optional."),
         @Param(
             name = "plugins",
             positional = false,
             named = true,
-            type = Sequence.class,
-            generic1 = JavaInfoApi.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
             defaultValue = "[]",
             doc = "A list of plugins. Optional."),
         @Param(
             name = "exported_plugins",
             positional = false,
             named = true,
-            type = Sequence.class,
-            generic1 = JavaInfoApi.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
             defaultValue = "[]",
             doc = "A list of exported plugins. Optional."),
         @Param(
             name = "annotation_processor_additional_inputs",
             positional = false,
             named = true,
-            type = Sequence.class,
-            generic1 = FileApi.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
             defaultValue = "[]",
             doc =
                 "A list of inputs that the Java compilation action will take in addition to the "
@@ -160,8 +149,7 @@ public interface JavaCommonApi<
             name = "annotation_processor_additional_outputs",
             positional = false,
             named = true,
-            type = Sequence.class,
-            generic1 = FileApi.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
             defaultValue = "[]",
             doc =
                 "A list of outputs that the Java compilation action will output in addition to "
@@ -171,7 +159,6 @@ public interface JavaCommonApi<
             defaultValue = "'ERROR'",
             positional = false,
             named = true,
-            type = String.class,
             doc =
                 "A string that specifies how to handle strict deps. Possible values: 'OFF', "
                     + "'ERROR', 'WARN' and 'DEFAULT'. For more details see "
@@ -181,17 +168,14 @@ public interface JavaCommonApi<
             name = "java_toolchain",
             positional = false,
             named = true,
-            allowedTypes = {@ParamType(type = JavaToolchainStarlarkApiProviderApi.class)},
             doc = "A JavaToolchainInfo to be used for this compilation. Mandatory."),
         @Param(
             name = "host_javabase",
             positional = false,
             named = true,
-            allowedTypes = {@ParamType(type = JavaRuntimeInfoApi.class)},
             doc =
                 "Deprecated: You can drop this parameter (host_javabase is provided with "
                     + "java_toolchain)",
-            noneable = true,
             defaultValue = "None",
             disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_JAVA_COMMON_PARAMETERS,
             valueWhenDisabled = "None"),
@@ -199,22 +183,15 @@ public interface JavaCommonApi<
             name = "sourcepath",
             positional = false,
             named = true,
-            type = Sequence.class,
-            generic1 = FileApi.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
             defaultValue = "[]"),
         @Param(
             name = "resources",
             positional = false,
             named = true,
-            type = Sequence.class,
-            generic1 = FileApi.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
             defaultValue = "[]"),
-        @Param(
-            name = "neverlink",
-            positional = false,
-            named = true,
-            type = Boolean.class,
-            defaultValue = "False")
+        @Param(name = "neverlink", positional = false, named = true, defaultValue = "False")
       },
       useStarlarkThread = true)
   JavaInfoT createJavaCompileAction(
@@ -249,23 +226,16 @@ public interface JavaCommonApi<
               + "<code><a class=\"anchor\" href=\"JavaInfo.html\">"
               + "JavaInfo</a>#compile_jar</code>.",
       parameters = {
-        @Param(
-            name = "actions",
-            named = true,
-            type = StarlarkActionFactoryApi.class,
-            doc = "ctx.actions"),
-        @Param(
-            name = "jar",
-            positional = false,
-            named = true,
-            type = FileApi.class,
-            doc = "The jar to run ijar on."),
+        @Param(name = "actions", named = true, doc = "ctx.actions"),
+        @Param(name = "jar", positional = false, named = true, doc = "The jar to run ijar on."),
         @Param(
             name = "target_label",
             positional = false,
             named = true,
-            type = Label.class,
-            noneable = true,
+            allowedTypes = {
+              @ParamType(type = Label.class),
+              @ParamType(type = NoneType.class),
+            },
             defaultValue = "None",
             doc =
                 "A target label to stamp the jar with. Used for <code>add_dep</code> support. "
@@ -275,7 +245,6 @@ public interface JavaCommonApi<
             name = "java_toolchain",
             positional = false,
             named = true,
-            allowedTypes = {@ParamType(type = JavaToolchainStarlarkApiProviderApi.class)},
             doc = "A JavaToolchainInfo to used to find the ijar tool."),
       })
   FileApi runIjar(
@@ -296,19 +265,16 @@ public interface JavaCommonApi<
         @Param(
             name = "actions",
             named = true,
-            type = StarlarkActionFactoryApi.class,
             doc = "ctx.actions"),
         @Param(
             name = "jar",
             positional = false,
             named = true,
-            type = FileApi.class,
             doc = "The jar to run stamp_jar on."),
         @Param(
             name = "target_label",
             positional = false,
             named = true,
-            type = Label.class,
             doc =
                 "A target label to stamp the jar with. Used for <code>add_dep</code> support. "
                     + "Typically, you would pass <code>ctx.label</code> to stamp the jar "
@@ -317,7 +283,6 @@ public interface JavaCommonApi<
             name = "java_toolchain",
             positional = false,
             named = true,
-            allowedTypes = {@ParamType(type = JavaToolchainStarlarkApiProviderApi.class)},
             doc = "A JavaToolchainInfo to used to find the stamp_jar tool."),
       })
   FileApi stampJar(
@@ -333,17 +298,15 @@ public interface JavaCommonApi<
               + "JavaInfo</a>#source_jar</code></p>."
               + "At least one of parameters output_jar or output_source_jar is required.",
       parameters = {
-        @Param(
-            name = "actions",
-            named = true,
-            type = StarlarkActionFactoryApi.class,
-            doc = "ctx.actions"),
+        @Param(name = "actions", named = true, doc = "ctx.actions"),
         @Param(
             name = "output_jar",
             positional = false,
             named = true,
-            type = FileApi.class,
-            noneable = true,
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = NoneType.class),
+            },
             defaultValue = "None",
             doc =
                 "Deprecated: The output jar of the rule. Used to name the resulting source jar. "
@@ -355,41 +318,38 @@ public interface JavaCommonApi<
             name = "output_source_jar",
             positional = false,
             named = true,
-            type = FileApi.class,
-            noneable = true,
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = NoneType.class),
+            },
             defaultValue = "None",
             doc = "The output source jar."),
         @Param(
             name = "sources",
             positional = false,
             named = true,
-            type = Sequence.class,
-            generic1 = FileApi.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
             defaultValue = "[]",
             doc = "A list of Java source files to be packed into the source jar."),
         @Param(
             name = "source_jars",
             positional = false,
             named = true,
-            type = Sequence.class,
-            generic1 = FileApi.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
             defaultValue = "[]",
             doc = "A list of source jars to be packed into the source jar."),
         @Param(
             name = "java_toolchain",
             positional = false,
             named = true,
-            allowedTypes = {@ParamType(type = JavaToolchainStarlarkApiProviderApi.class)},
             doc = "A JavaToolchainInfo to used to find the ijar tool."),
         @Param(
             name = "host_javabase",
             positional = false,
             named = true,
-            allowedTypes = {@ParamType(type = JavaRuntimeInfoApi.class)},
             doc =
                 "Deprecated: You can drop this parameter (host_javabase is provided with "
                     + "java_toolchain)",
-            noneable = true,
             defaultValue = "None",
             disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_JAVA_COMMON_PARAMETERS,
             valueWhenDisabled = "None"),
@@ -431,8 +391,7 @@ public interface JavaCommonApi<
             name = "providers",
             positional = true,
             named = false,
-            type = Sequence.class,
-            generic1 = JavaInfoApi.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
             doc = "The list of providers to merge."),
       })
   JavaInfoT mergeJavaProviders(Sequence<?> providers /* <JavaInfoT> expected. */)
@@ -444,12 +403,7 @@ public interface JavaCommonApi<
           "Returns a new Java provider whose direct-jars part is the union of both the direct and"
               + " indirect jars of the given Java provider.",
       parameters = {
-        @Param(
-            name = "java_info",
-            positional = true,
-            named = false,
-            type = JavaInfoApi.class,
-            doc = "The java info."),
+        @Param(name = "java_info", positional = true, named = false, doc = "The java info."),
       })
   JavaInfoT makeNonStrict(JavaInfoT javaInfo);
 
@@ -473,12 +427,7 @@ public interface JavaCommonApi<
       name = "is_java_toolchain_resolution_enabled_do_not_use",
       documented = false,
       parameters = {
-        @Param(
-            name = "ctx",
-            positional = false,
-            named = true,
-            type = StarlarkRuleContextApi.class,
-            doc = "The rule context."),
+        @Param(name = "ctx", positional = false, named = true, doc = "The rule context."),
       },
       doc = "Returns true if --incompatible_use_toolchain_resolution_for_java_rules is enabled.")
   boolean isJavaToolchainResolutionEnabled(starlarkRuleContextT ruleContext) throws EvalException;
@@ -498,12 +447,10 @@ public interface JavaCommonApi<
             name = "java_info",
             positional = true,
             named = false,
-            type = JavaInfoApi.class,
             doc = "The JavaInfo to enhance."),
         @Param(
             name = "constraints",
-            type = Sequence.class,
-            generic1 = String.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             named = true,
             positional = false,
             defaultValue = "[]",
@@ -521,7 +468,6 @@ public interface JavaCommonApi<
             name = "java_info",
             positional = true,
             named = false,
-            type = JavaInfoApi.class,
             doc = "The JavaInfo to get constraints from."),
       },
       enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
@@ -539,7 +485,6 @@ public interface JavaCommonApi<
             name = "java_info",
             positional = true,
             named = false,
-            type = JavaInfoApi.class,
             doc = "The JavaInfo to process.")
       },
       enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
@@ -553,44 +498,47 @@ public interface JavaCommonApi<
             name = "java_info",
             positional = true,
             named = false,
-            type = JavaInfoApi.class,
             doc = "The JavaInfo to enhance."),
         @Param(
             name = "enabled",
-            type = Boolean.class,
             named = true,
             positional = false,
             defaultValue = "False",
             doc = "Returns true if the rule uses annotation processing."),
         @Param(
             name = "processor_classnames",
-            type = Sequence.class,
-            generic1 = String.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             named = true,
             positional = false,
             defaultValue = "[]",
             doc = "Class names of annotation processors applied to this rule."),
         @Param(
             name = "processor_classpath",
-            type = Depset.class,
+            allowedTypes = {
+              @ParamType(type = Depset.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
-            noneable = true,
             positional = false,
             defaultValue = "None",
             doc = "Class names of annotation processors applied to this rule."),
         @Param(
             name = "class_jar",
-            type = FileApi.class,
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
-            noneable = true,
             positional = false,
             defaultValue = "None",
             doc = "Jar file that is the result of annotation processing for this rule, or None."),
         @Param(
             name = "source_jar",
-            type = FileApi.class,
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
-            noneable = true,
             positional = false,
             defaultValue = "None",
             doc = "Source archive resulting from annotation processing of this rule, or None."),
@@ -613,7 +561,6 @@ public interface JavaCommonApi<
             name = "java_info",
             positional = true,
             named = false,
-            type = JavaInfoApi.class,
             doc = "The JavaInfo to query."),
       },
       enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
@@ -627,12 +574,10 @@ public interface JavaCommonApi<
             name = "java_info",
             positional = true,
             named = false,
-            type = JavaInfoApi.class,
             doc = "The JavaInfo to clone."),
         @Param(
             name = "compile_time_jdeps",
-            type = Sequence.class,
-            generic1 = FileApi.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
             named = true,
             positional = false,
             defaultValue = "[]",
@@ -647,12 +592,7 @@ public interface JavaCommonApi<
       name = "java_toolchain_label",
       doc = "Returns the toolchain's label.",
       parameters = {
-        @Param(
-            name = "java_toolchain",
-            positional = true,
-            named = false,
-            type = JavaToolchainStarlarkApiProviderApi.class,
-            doc = "The toolchain."),
+        @Param(name = "java_toolchain", positional = true, named = false, doc = "The toolchain."),
       },
       enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
   Label getJavaToolchainLabel(JavaToolchainStarlarkApiProviderApi toolchain) throws EvalException;

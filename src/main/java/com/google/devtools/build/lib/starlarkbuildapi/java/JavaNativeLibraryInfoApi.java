@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LibraryToLinkApi;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -72,8 +73,7 @@ public interface JavaNativeLibraryInfoApi<
               doc = "The transitive set of LibraryToLink providers.",
               positional = true,
               named = false,
-              type = Depset.class,
-              generic1 = LibraryToLinkApi.class),
+              allowedTypes = {@ParamType(type = Depset.class, generic1 = LibraryToLinkApi.class)}),
         },
         selfCall = true)
     @StarlarkConstructor

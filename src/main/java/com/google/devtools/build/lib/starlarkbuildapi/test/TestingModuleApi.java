@@ -36,7 +36,6 @@ public interface TestingModuleApi extends StarlarkValue {
       parameters = {
         @Param(
             name = "requirements",
-            type = Dict.class,
             named = false,
             positional = true,
             doc =
@@ -57,7 +56,6 @@ public interface TestingModuleApi extends StarlarkValue {
       parameters = {
         @Param(
             name = "environment",
-            type = Dict.class,
             named = false,
             positional = true,
             doc =

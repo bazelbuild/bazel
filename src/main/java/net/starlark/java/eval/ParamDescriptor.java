@@ -79,16 +79,10 @@ final class ParamDescriptor {
       for (ParamType pt : allowedTypes) {
         allowedClasses.add(pt.type());
       }
-    } else if (param.type() == Void.class) {
-      // If no Param.type type was specified, use the class of the parameter itself.
+    } else {
+      // Use the class of the parameter itself.
       // Interpret primitive boolean parameter as j.l.Boolean.
       allowedClasses.add(paramClass == Boolean.TYPE ? Boolean.class : paramClass);
-    } else {
-      allowedClasses.add(param.type());
-    }
-
-    if (param.noneable() && !allowedClasses.contains(NoneType.class)) {
-      allowedClasses.add(NoneType.class);
     }
 
     return new ParamDescriptor(

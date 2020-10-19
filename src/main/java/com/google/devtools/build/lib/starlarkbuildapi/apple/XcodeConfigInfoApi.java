@@ -55,7 +55,6 @@ public interface XcodeConfigInfoApi<
             name = "platform_type",
             positional = true,
             named = false,
-            type = ApplePlatformTypeApi.class,
             doc = "The apple platform type."),
       })
   DottedVersionApi<?> getMinimumOsForPlatformType(ApplePlatformTypeApiT platformType);
@@ -66,12 +65,7 @@ public interface XcodeConfigInfoApi<
           "The version of the platform SDK that will be used to build targets for the given "
               + "platform.",
       parameters = {
-        @Param(
-            name = "platform",
-            positional = true,
-            named = false,
-            type = ApplePlatformApi.class,
-            doc = "The apple platform."),
+        @Param(name = "platform", positional = true, named = false, doc = "The apple platform."),
       })
   DottedVersionApi<?> getSdkVersionForPlatform(ApplePlatformApiT platform);
 

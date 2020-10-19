@@ -214,7 +214,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @Test
   public void testAttrAllowedFileTypesWrongType() throws Exception {
     ev.checkEvalErrorContains(
-        "allow_files should be a boolean or a string list", "attr.label_list(allow_files = 18)");
+        // TODO(adonovan): this seems like a UI regression.
+        // Was: allow_files should be a boolean or a string list
+        "got value of type 'int', want 'bool or sequence or NoneType'",
+        "attr.label_list(allow_files = 18)");
   }
 
   @Test

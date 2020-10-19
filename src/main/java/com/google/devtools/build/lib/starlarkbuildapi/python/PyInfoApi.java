@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -86,36 +87,31 @@ public interface PyInfoApi<FileT extends FileApi> extends StarlarkValue {
         parameters = {
           @Param(
               name = "transitive_sources",
-              type = Depset.class,
-              generic1 = FileApi.class,
+              allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)},
               positional = false,
               named = true,
               doc = "The value for the new object's <code>transitive_sources</code> field."),
           @Param(
               name = "uses_shared_libraries",
-              type = Boolean.class,
               positional = false,
               named = true,
               defaultValue = "False",
               doc = "The value for the new object's <code>uses_shared_libraries</code> field."),
           @Param(
               name = "imports",
-              type = Depset.class,
-              generic1 = String.class,
+              allowedTypes = {@ParamType(type = Depset.class, generic1 = String.class)},
               positional = false,
               named = true,
               defaultValue = "unbound",
               doc = "The value for the new object's <code>imports</code> field."),
           @Param(
               name = "has_py2_only_sources",
-              type = Boolean.class,
               positional = false,
               named = true,
               defaultValue = "False",
               doc = "The value for the new object's <code>has_py2_only_sources</code> field."),
           @Param(
               name = "has_py3_only_sources",
-              type = Boolean.class,
               positional = false,
               named = true,
               defaultValue = "False",

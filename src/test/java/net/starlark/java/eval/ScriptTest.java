@@ -62,7 +62,7 @@ public final class ScriptTest {
       name = "assert_",
       documented = false,
       parameters = {
-        @Param(name = "cond", noneable = true),
+        @Param(name = "cond"),
         @Param(name = "msg", defaultValue = "'assertion failed'"),
       },
       useStarlarkThread = true)
@@ -78,12 +78,11 @@ public final class ScriptTest {
       name = "assert_eq",
       documented = false,
       parameters = {
-        @Param(name = "x", noneable = true),
-        @Param(name = "y", noneable = true),
+        @Param(name = "x"),
+        @Param(name = "y"),
       },
       useStarlarkThread = true)
   public Object assertEq(Object x, Object y, StarlarkThread thread) throws EvalException {
-    // TODO(adonovan): use Starlark.equals.
     if (!x.equals(y)) {
       String msg = String.format("assert_eq: %s != %s", Starlark.repr(x), Starlark.repr(y));
       thread.getThreadLocal(Reporter.class).reportError(thread, msg);

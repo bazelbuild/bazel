@@ -25,10 +25,12 @@ import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkThread;
@@ -207,7 +209,6 @@ public interface AppleCommonApi<
             name = "xcode_config",
             positional = true,
             named = false,
-            type = XcodeConfigInfoApi.class,
             doc = "A provider containing information about the xcode configuration."),
       })
   ImmutableMap<String, String> getAppleHostSystemEnv(XcodeConfigInfoApiT xcodeConfig);
@@ -224,13 +225,11 @@ public interface AppleCommonApi<
             name = "xcode_config",
             positional = true,
             named = false,
-            type = XcodeConfigInfoApi.class,
             doc = "A provider containing information about the xcode configuration."),
         @Param(
             name = "platform",
             positional = true,
             named = false,
-            type = ApplePlatformApi.class,
             doc = "The apple platform."),
       })
   ImmutableMap<String, String> getTargetAppleEnvironment(
@@ -263,7 +262,6 @@ public interface AppleCommonApi<
       parameters = {
         @Param(
             name = "uses_swift",
-            type = Boolean.class,
             defaultValue = "False",
             named = true,
             positional = false,
@@ -272,7 +270,6 @@ public interface AppleCommonApi<
       extraKeywords =
           @Param(
               name = "kwargs",
-              type = Dict.class,
               defaultValue = "{}",
               doc = "Dictionary of arguments."),
       useStarlarkThread = true)
@@ -286,15 +283,16 @@ public interface AppleCommonApi<
       parameters = {
         @Param(
             name = "binary",
-            type = FileApi.class,
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
-            noneable = true,
             positional = false,
             defaultValue = "None",
             doc = "The dylib binary artifact of the dynamic framework."),
         @Param(
             name = "objc",
-            type = ObjcProviderApi.class,
             named = true,
             positional = false,
             doc =
@@ -302,10 +300,11 @@ public interface AppleCommonApi<
                     + "dependencies linked into the binary."),
         @Param(
             name = "framework_dirs",
-            type = Depset.class,
-            generic1 = String.class,
+            allowedTypes = {
+              @ParamType(type = Depset.class, generic1 = String.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
-            noneable = true,
             positional = false,
             defaultValue = "None",
             doc =
@@ -313,10 +312,11 @@ public interface AppleCommonApi<
                     + "framework."),
         @Param(
             name = "framework_files",
-            type = Depset.class,
-            generic1 = FileApi.class,
+            allowedTypes = {
+              @ParamType(type = Depset.class, generic1 = FileApi.class),
+              @ParamType(type = NoneType.class),
+            },
             named = true,
-            noneable = true,
             positional = false,
             defaultValue = "None",
             doc =
@@ -340,31 +340,23 @@ public interface AppleCommonApi<
               + "<p>This API is <b>highly experimental</b> and subject to change at any time. Do "
               + "not depend on the stability of this function at this time.",
       parameters = {
-        @Param(
-            name = "ctx",
-            type = StarlarkRuleContextApi.class,
-            named = true,
-            positional = false,
-            doc = "The Starlark rule context."),
+        @Param(name = "ctx", named = true, positional = false, doc = "The Starlark rule context."),
         @Param(
             name = "extra_linkopts",
-            type = Sequence.class,
-            generic1 = String.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             named = true,
             positional = false,
             defaultValue = "[]",
             doc = "Extra linkopts to be passed to the linker action."),
         @Param(
             name = "extra_link_inputs",
-            type = Sequence.class,
-            generic1 = FileApi.class,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
             named = true,
             positional = false,
             defaultValue = "[]",
             doc = "Extra files to pass to the linker action."),
         @Param(
             name = "stamp",
-            type = StarlarkInt.class,
             named = true,
             positional = false,
             defaultValue = "-1",
@@ -389,10 +381,7 @@ public interface AppleCommonApi<
       name = "dotted_version",
       doc = "Creates a new <a href=\"DottedVersion.html\">DottedVersion</a> instance.",
       parameters = {
-        @Param(
-            name = "version",
-            type = String.class,
-            doc = "The string representation of the DottedVersion.")
+        @Param(name = "version", doc = "The string representation of the DottedVersion.")
       })
   DottedVersionApi<?> dottedVersion(String version) throws EvalException;
 

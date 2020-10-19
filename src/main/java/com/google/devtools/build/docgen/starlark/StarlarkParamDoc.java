@@ -27,38 +27,29 @@ public final class StarlarkParamDoc extends StarlarkDoc {
   }
 
   /**
-   * Returns the string representing the type of this parameter with the link to the
-   * documentation for the type if available.
+   * Returns the string representing the type of this parameter with the link to the documentation
+   * for the type if available.
    *
-   * <p>If the parameter type is Object, then returns the empty string. If the parameter
-   * type is not a generic, then this method returns a string representing the type name
-   * with a link to the documentation for the type if available. If the parameter type
-   * is a generic, then this method returns a string "CONTAINER of TYPE".
+   * <p>If the parameter type is Object, then returns the empty string. If the parameter type is not
+   * a generic, then this method returns a string representing the type name with a link to the
+   * documentation for the type if available. If the parameter type is a generic, then this method
+   * returns a string "CONTAINER of TYPE" (with HTML link markup).
    */
   public String getType() {
-    if (param.type().equals(Object.class)) {
-      StringBuilder sb = new StringBuilder();
-      for (int i = 0; i < param.allowedTypes().length; i++) {
-        ParamType paramType = param.allowedTypes()[i];
-        // Use the paramType's generic class if provided, otherwise the param's generic class
-        Class<?> generic =
-            paramType.generic1() == Object.class ? param.generic1() : paramType.generic1();
-        if (generic.equals(Object.class)) {
-          sb.append(getTypeAnchor(paramType.type()));
-        } else {
-          sb.append(getTypeAnchor(paramType.type(), generic));
-        }
-        if (i < param.allowedTypes().length - 1) {
-          sb.append("; or ");
-        }
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < param.allowedTypes().length; i++) {
+      ParamType paramType = param.allowedTypes()[i];
+      // TODO(adonovan): make generic1 an array.
+      if (paramType.generic1() == Object.class) {
+        sb.append(getTypeAnchor(paramType.type()));
+      } else {
+        sb.append(getTypeAnchor(paramType.type(), paramType.generic1()));
       }
-      return sb.toString();
+      if (i < param.allowedTypes().length - 1) {
+        sb.append("; or ");
+      }
     }
-    if (param.generic1().equals(Object.class)) {
-      return getTypeAnchor(param.type());
-    } else {
-      return getTypeAnchor(param.type(), param.generic1());
-    }
+    return sb.toString();
   }
 
   public StarlarkMethodDoc getMethod() {

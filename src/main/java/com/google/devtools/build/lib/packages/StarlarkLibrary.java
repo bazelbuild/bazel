@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import java.util.List;
 import java.util.Set;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -100,11 +101,9 @@ public final class StarlarkLibrary {
         parameters = {
           @Param(
               name = "x",
-              type = Object.class,
               defaultValue = "None",
               positional = true,
               named = false,
-              noneable = true,
               doc =
                   "A positional parameter distinct from other parameters for legacy support. "
                       + "\n" //
@@ -118,7 +117,6 @@ public final class StarlarkLibrary {
           // TODO(cparsons): Make 'order' keyword-only.
           @Param(
               name = "order",
-              type = String.class,
               defaultValue = "\"default\"",
               doc =
                   "The traversal strategy for the new depset. See "
@@ -126,24 +124,22 @@ public final class StarlarkLibrary {
               named = true),
           @Param(
               name = "direct",
-              type = Object.class,
               defaultValue = "None",
               positional = false,
               named = true,
-              noneable = true,
               doc = "A list of <i>direct</i> elements of a depset. "),
           @Param(
               name = "transitive",
               named = true,
               positional = false,
-              type = Sequence.class,
-              generic1 = Depset.class,
-              noneable = true,
+              allowedTypes = {
+                @ParamType(type = Sequence.class, generic1 = Depset.class),
+                @ParamType(type = NoneType.class),
+              },
               doc = "A list of depsets whose elements will become indirect elements of the depset.",
               defaultValue = "None"),
           @Param(
               name = "items",
-              type = Object.class,
               defaultValue = "[]",
               positional = false,
               doc =
@@ -177,14 +173,12 @@ public final class StarlarkLibrary {
         parameters = {
           @Param(
               name = "x",
-              type = Dict.class,
               positional = true,
               doc =
                   "A dict that maps configuration conditions to values. Each key is a label string"
                       + " that identifies a config_setting instance."),
           @Param(
               name = "no_match_error",
-              type = String.class,
               defaultValue = "''",
               doc = "Optional custom error to report if no condition matches.",
               named = true),
@@ -216,24 +210,21 @@ public final class StarlarkLibrary {
             "Defines a set of related environments that can be tagged onto rules to prevent"
                 + "incompatible rules from depending on each other.",
         parameters = {
-          @Param(
-              name = "name",
-              type = String.class,
-              positional = false,
-              named = true,
-              doc = "The name of the rule."),
+          @Param(name = "name", positional = false, named = true, doc = "The name of the rule."),
           // Both parameter below are lists of label designators
           @Param(
               name = "environments",
-              type = Sequence.class,
-              generic1 = Object.class,
+              allowedTypes = {
+                @ParamType(type = Sequence.class, generic1 = Label.class),
+              },
               positional = false,
               named = true,
               doc = "A list of Labels for the environments to be grouped, from the same package."),
           @Param(
               name = "defaults",
-              type = Sequence.class,
-              generic1 = Object.class,
+              allowedTypes = {
+                @ParamType(type = Sequence.class, generic1 = Label.class),
+              },
               positional = false,
               named = true,
               doc = "A list of Labels.")
@@ -279,8 +270,7 @@ public final class StarlarkLibrary {
         parameters = {
           @Param(
               name = "license_strings",
-              type = Sequence.class,
-              generic1 = String.class,
+              allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
               doc = "A list of strings, the names of the licenses used.")
         },
         // Not documented by docgen, as this is only available in BUILD files.
@@ -306,9 +296,7 @@ public final class StarlarkLibrary {
     @StarlarkMethod(
         name = "distribs",
         doc = "Declare the distribution(s) for the code in the current package.",
-        parameters = {
-          @Param(name = "distribution_strings", type = Object.class, doc = "The distributions.")
-        },
+        parameters = {@Param(name = "distribution_strings", doc = "The distributions.")},
         // Not documented by docgen, as this is only available in BUILD files.
         // TODO(cparsons): Devise a solution to document BUILD functions.
         documented = false,

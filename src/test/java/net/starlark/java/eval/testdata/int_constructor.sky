@@ -78,7 +78,7 @@ int('123', 1) ### invalid base 1 \(want 2 <= base <= 36\)
 ---
 int('123', 37) ### invalid base 37 \(want 2 <= base <= 36\)
 ---
-int('123', 'x') ### parameter 'base' got value of type 'string', want 'int'
+int('123', 'x') ### got string for base, want int
 ---
 int(True, 2) ### can't convert non-string with explicit base
 ---
