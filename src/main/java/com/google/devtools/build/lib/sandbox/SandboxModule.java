@@ -62,9 +62,7 @@ import java.util.HashSet;
 import java.util.Set;
 import javax.annotation.Nullable;
 
-/**
- * This module provides the Sandbox spawn strategy.
- */
+/** This module provides the Sandbox spawn strategy. */
 public final class SandboxModule extends BlazeModule {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -101,8 +99,8 @@ public final class SandboxModule extends BlazeModule {
   @Nullable private TreeDeleter treeDeleter;
 
   /**
-   * Whether to remove the sandbox worker directories after a build or not. Useful for debugging
-   * to inspect the state of files on failures.
+   * Whether to remove the sandbox worker directories after a build or not. Useful for debugging to
+   * inspect the state of files on failures.
    */
   private boolean shouldCleanupSandboxBase;
 
@@ -171,7 +169,7 @@ public final class SandboxModule extends BlazeModule {
    * @return true if windows-sandbox can and should be used; false otherwise
    * @throws IOException if there are problems trying to determine the status of windows-sandbox
    */
-  private boolean shouldUseWindowsSandbox(TriState requested, PathFragment binary)
+  private static boolean shouldUseWindowsSandbox(TriState requested, PathFragment binary)
       throws IOException {
     switch (requested) {
       case AUTO:
@@ -329,9 +327,12 @@ public final class SandboxModule extends BlazeModule {
             "docker");
       }
     } else if (options.dockerVerbose) {
-      cmdEnv.getReporter().handle(Event.info(
-          "Docker sandboxing disabled. Use the '--experimental_enable_docker_sandbox' command "
-          + "line option to enable it"));
+      cmdEnv
+          .getReporter()
+          .handle(
+              Event.info(
+                  "Docker sandboxing disabled. Use the '--experimental_enable_docker_sandbox'"
+                      + " command line option to enable it"));
     }
 
     // This is the preferred sandboxing strategy on Linux.
@@ -619,7 +620,7 @@ public final class SandboxModule extends BlazeModule {
   }
 
   @Override
-  public void blazeShutdownOnCrash() {
+  public void blazeShutdownOnCrash(DetailedExitCode exitCode) {
     commonShutdown();
   }
 }

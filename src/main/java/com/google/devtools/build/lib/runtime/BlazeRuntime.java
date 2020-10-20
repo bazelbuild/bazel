@@ -561,7 +561,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   @Override
   public void cleanUpForCrash(DetailedExitCode exitCode) {
-    // TODO(b/167592709): remove verbose logging when bug resolved.
     logger.atInfo().log("Cleaning up in crash: %s", exitCode);
     if (declareExitCode(exitCode)) {
       // Only try to publish events if we won the exit code race. Otherwise someone else is already
@@ -586,7 +585,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     // We don't call #shutDown() here because all it does is shut down the modules, and who knows if
     // they can be trusted.  Instead, we call runtime#shutdownOnCrash() which attempts to cleanly
     // shut down those modules that might have something pending to do as a best-effort operation.
-    shutDownModulesOnCrash();
+    shutDownModulesOnCrash(exitCode);
   }
 
   private boolean declareExitCode(DetailedExitCode detailedExitCode) {
@@ -740,13 +739,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   }
 
   /** Invokes {@link BlazeModule#blazeShutdownOnCrash()} on all registered modules. */
-  private void shutDownModulesOnCrash() {
+  private void shutDownModulesOnCrash(DetailedExitCode exitCode) {
     // TODO(b/167592709): remove verbose logging when bug resolved.
     logger.atInfo().log("Shutting down modules on crash: %s", blazeModules);
     try {
       for (BlazeModule module : blazeModules) {
         logger.atInfo().log("Shutting down %s on crash", module);
-        module.blazeShutdownOnCrash();
+        module.blazeShutdownOnCrash(exitCode);
       }
     } finally {
       DebugLoggerConfigurator.flushServerLog();
