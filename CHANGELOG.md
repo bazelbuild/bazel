@@ -1,53 +1,141 @@
-## Release 3.5.1 (2020-10-01)
+## Release 3.7.0 (2020-10-20)
 
 ```
-Baseline: 889bc0b523b47eeb38a72bf9bb6858ee525a7c7e
+Baseline: a991db7c2f66a354666388d888dcef9b0d0f70c0
+```
+
+Incompatible changes:
+
+  - The syntax //foo/BUILD can no longer be used on the command line
+    to refer to the //foo:BUILD target. Use //foo:BUILD (preferred)
+    or foo/BUILD instead. This does not affect BUILD/bzl files, where
+    that syntax already didn't work.
+  - This removes `--objc_header_scanner_tool`. The flag was primarily
+    used internally, and to our knowledge, a compatible tool was
+    never released. Therefore this flag is believed to be unused.
+
+New features:
+
+  - select() directly supports constraint_value (no need for an
+    intermediate config_setting).
+
+Important changes:
+
+  - Non-android targets can again be built when
+    android_sdk_repository is present but invalid.
+  - Add a build variable for -install_name / -soname.
+  - Add a build variable for -install_name / -soname.
+  - Include "resources" attr in dependency attributes for java_*
+    coverage configuration.
+  - --trim_test_configuration should work for almost all cases when a
+    non-test target depends on a test.
+  - Javac now supports multiplex workers.
+  - Javac now supports multiplex workers.
+  - Blaze now allows symbolic links that point to their own ancestor
+    unless they are traversed recursively by e.g. a //... recursive
+    target pattern or a recursive glob.
+  - Blaze now allows symbolic links that point to their own ancestor
+    unless they are traversed recursively by e.g. a //... recursive
+    target pattern or a recursive glob.
+  - Blaze now allows symbolic links that point to their own ancestor
+    unless they are traversed recursively by e.g. a //... recursive
+    target pattern or a recursive glob.
+  - Generated Go protobufs no longer depend on //net/proto2/go:proto
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Cristian Hancila, Ed Schouten, Fredrik Medley, Greg Estren, jgehw, Jin, Kalle Johansson, Keith Smiley, Kseniia Vasilchuk, Michael Eisel, Michael Hackner, Michael Krasnyk, Mostyn Bramley-Moore, Ruixin Bao, Samuel Giddins, Simon Stewart, Torgil Svensson, Ulf Adams, Vasilios Pantazopoulos, Wenyu Zhang, Yannic Bonenberger, yoav-steinberg.
+
+## Release 3.6.0 (2020-10-06)
+
+```
+Baseline: aa0d97c0bfc4c09ec6f45303aa80052ba28afbd9
 
 Cherry picks:
 
-   + a7a0d48fbeb059ee60e77580e5d05baeefdd5699:
-     Make no-op starlark transition not affect the output directory.
-   + b37c51c7085f0aefe04034dd451acb847605ddb5:
-     Add include_prefix and strip_include_prefix to cc_common.compile
-   + f6ad35fcde93f92c591778ed7db38d167f5bbc03:
-     Delete --experimental_transparent_compression
-   + 39bc97eab295bddb35b38bfc4a2ff3d2b15d034e:
-     Remove --experimental_action_args
-   + b9706675a7abf6ceebb250f0b3dfa4087a0c35f6:
-     Stop needlessly parsing WORKSPACE files from external
-     repositories.
-   + e574d558da17cfd0f818e7a937a07926aa270069:
-     Allow hyphen char in workspace name
-   + 9993785fa0c4fa4172aa31d306f3abea76833abf:
-     Allow dot ('.') in workspace names.
-   + b3ac8f60973ba60d578ae6a653cdd993a2d206d7:
+   + 32c88da98f301333dc447b75564459165368d418:
+     Patch RuleContext for android_binary.deps to restore legacy
+     behavior.
+   + db9fc88fed387f09067a9250a731f8bf9ad74b05:
+     android_test also needs the legacy behavior in
+     RuleContext.getPrerequisites.
+   + 144d5149a0c50e464dd1be0769fed2ce33ab26a4:
+     Update android_sdk_repository to create a valid, but useless,
+     repository
+   + bb11f9235da52eb3b3e462ce0286f1a89188cb89:
      Patch upb to fix build error with gcc 10
-   + 26cbf776e0cdd8fbb9a40aca4c1be6f5313b6eb4:
+   + 9f06be482aea3fcadeaf8fca6e48b32f224eba2e:
      Patch upb to fix build error with gcc 10 (third_party)
-   + f1f941194ce04b96328154241fcfad0392b5cb38:
-     Fix incorrect rule class digest when creating rules through
-     macros.
-   + 6b591a7e20f05224898b31ad5b03ba514eff6118:
-     Prepare for bazel to run with shrunken r8.jar
-   + 7a11752a8ae7689d2bd482e23d466cb44a3261a1:
-     Don't run DexFileMergerTest as it is not supported for all
-     r8.jar's
+   + b67b75e3a62f5433d812993f3702f431b6967e86:
+     Fix issue where libtool_check_unique isn't found for sandbox
+     builds
 ```
+
+Incompatible changes:
+
+  - `--experimental_ui_limit_console_output` is removed. Users of
+    `--experimental_ui_limit_console_output=1` for silencing terminal
+    output should use `--ui_event_filters=` instead.
+  - --proto:instantiation_stack must be enabled in addition to
+    --record_rule_instantiation_callstack to see call stack in proto
+    output from blaze query.
 
 New features:
 
   - cc_common.compile support for include_prefix/strip_include_prefix
+  - Multiplexed persistent workers: Use
+    --experimental_worker_max_multiplex_instances to configure the
+    number of WorkRequests that are sent concurrently to one worker
+    process. The --worker_max_instances flag will no longer be used
+    to determine max instances for multiplex workers, since the two
+    have different resource requirements. Multiplex workers will by
+    default have a max instances of 8.
 
 Important changes:
 
+  - The prelude file (//tools/build_rules:prelude_bazel) is now
+    processed as a Starlark module, rather than being sourced into
+    the BUILD file textually. This may cause slight breakages
+    depending on the content of the prelude file. (Use of the prelude
+    file is discouraged as it will be removed in the long term.)
+  - Removed --experimental_ignore_deprecated_instrumentation_spec and
+    cleaned up the old deprecated behavior.
+  - Added CODEBASE.md, a description of the Bazel codebase.
   - Removed the flag --experimental_transparent_compression.
   - Removed the flag --experimental_action_args.
   - Stop needlessly parsing WORKSPACE files from external
     repositories.
   - Dot ('.') is now allowed in workspace names. See
     https://github.com/bazelbuild/bazel/issues/11837.
+  - This change can cause memory and performance regressions for some
+    builds with C++ dependencies, due to extra actions being executed.
+    RELNOTES: None
+  - Building Android apps for legacy multi-dex (pre-L) now require a
+    main-dex list if the application does not fit into a single DEX
+    file.
+  - Puts the experimental_worker_multiplex flag to use.
+  - In Starlark, the Args object supports a new parameter file format
+    'flag_per_line', compatible with the Abseil flags library.
+  - The flag --incompatible_no_support_tools_in_action_inputs is
+    removed.
+  - Support for NDK 21 added
+  - Bazel will now skip printing action stdout/stderr contents if
+    they exceed --experimental_ui_max_stdouterr_memory_bytes.
+  - The Starlark interpreter now correctly emits an error
+     if the operand of the first loop in a list comprehension
+     refers to a variable bound by a later loop, such as y in
+     this example:
+       [e1 for x in f(y) in e2 for y in e3] # error: undefined y
+                      ^
+     This may cause latent dynamic errors to become static errors.
+  - Added support for a 'supports-graceful-termination' execution
+    requirement and tag, which causes Bazel to send a SIGTERM to any
+    tagged
+    actions before sending a delayed SIGKILL. This is to give
+    actions, and more
+    specifically tests, a chance to clean up after themselves.
+  - Non-android targets can again be built when
+    android_sdk_repository is present but invalid.
 
-This release contains contributions from many people at Google, as well as David Ostrovsky.
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Daniel Wagner-Hall, Dave MacLachlan, David Ostrovsky, Emil Kattainen, George Gensure, Greg Estren, Keith Smiley, mai12, Mai Hussien, Michael Eisel, Per Halvor Tryggeseth, Ruixin Bao, Samuel Giddins, Steeve Morin, Thi Doan, Tom de Goede, Ulf Adams, Zhongpeng Lin.
 
 ## Release 3.5.0 (2020-09-02)
 
