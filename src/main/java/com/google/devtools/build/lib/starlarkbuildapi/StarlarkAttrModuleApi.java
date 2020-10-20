@@ -268,6 +268,11 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             doc = EXECUTABLE_DOC),
         @Param(
             name = ALLOW_FILES_ARG,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Sequence.class, generic1 = String.class),
+              @ParamType(type = NoneType.class),
+            },
             defaultValue = "None",
             named = true,
             positional = false,
