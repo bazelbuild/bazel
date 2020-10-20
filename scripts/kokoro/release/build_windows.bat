@@ -18,7 +18,7 @@ if not defined RELEASE_NAME (
 
 mkdir T:\tmp\tool
 set BAZELISK=T:\tmp\tool\bazelisk.exe
-powershell /c "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; (New-Object Net.WebClient).DownloadFile('https://github.com/bazelbuild/bazelisk/releases/download/v1.2.1/bazelisk-windows-amd64.exe', '%BAZELISK%')"
+powershell /c "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; (New-Object Net.WebClient).DownloadFile('https://github.com/bazelbuild/bazelisk/releases/download/v1.7.2/bazelisk-windows-amd64.exe', '%BAZELISK%')"
 
 set PATH=C:\python37;%PATH%
 
