@@ -54,8 +54,8 @@ For example, Bazel's
 [Android Rules] don't. *Your* C++ project may not care about Android. But others may. So
 it's not yet safe to globally enable platforms for all C++ builds.
 
-The thrust of this page describes this migration sequence and how and when your
-projects can fit in.
+The remainder of this page describes this migration sequence and how and when
+your projects can fit in.
 
 ## Goal
 Bazel's platform migration is complete when all projects build with the form:
