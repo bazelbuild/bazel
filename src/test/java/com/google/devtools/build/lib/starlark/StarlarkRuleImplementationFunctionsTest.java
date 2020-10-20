@@ -335,7 +335,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   public void testCreateSpawnActionArgumentsBadExecutable() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     ev.checkEvalErrorContains(
-        "got value of type 'int', want 'File or string or FilesToRunProvider'",
+        "got value of type 'int', want 'File, string, or FilesToRunProvider'",
         "ruleContext.actions.run(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",

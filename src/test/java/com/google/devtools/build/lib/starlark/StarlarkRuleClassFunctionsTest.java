@@ -214,9 +214,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @Test
   public void testAttrAllowedFileTypesWrongType() throws Exception {
     ev.checkEvalErrorContains(
-        // TODO(adonovan): this seems like a UI regression.
-        // Was: allow_files should be a boolean or a string list
-        "got value of type 'int', want 'bool or sequence or NoneType'",
+        "got value of type 'int', want 'bool, sequence, or NoneType'",
         "attr.label_list(allow_files = 18)");
   }
 
@@ -1142,8 +1140,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @Test
   public void testLabelAttrWrongDefault() throws Exception {
     ev.checkEvalErrorContains(
-        "got value of type 'int', want 'Label or string or LateBoundDefault or function or"
-            + " NoneType'",
+        "got value of type 'int', want 'Label, string, LateBoundDefault, function, or NoneType'",
         "attr.label(default = 123)");
   }
 

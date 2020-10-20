@@ -1148,8 +1148,8 @@ public final class StarlarkEvaluationTest {
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "in call to with_params(), parameter 'multi' got value of type 'bool', want 'string or"
-                + " int or sequence or NoneType'",
+            "in call to with_params(), parameter 'multi' got value of type 'bool', "
+                + "want 'string, int, sequence, or NoneType'",
             "mock.with_params(1, True, named=True, multi=False)");
 
     // We do not enforce list item parameter type constraints.

@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -101,7 +100,18 @@ final class ParamDescriptor {
 
   /** Returns a description of allowed argument types suitable for an error message. */
   String getTypeErrorMessage() {
-    return allowedClasses.stream().map(Starlark::classType).collect(Collectors.joining(" or "));
+    // Result has one of these forms:
+    // "a"
+    // "a or b"
+    // "a, b, or c"
+    StringBuilder buf = new StringBuilder();
+    for (int i = 0, n = allowedClasses.size(); i < n; i++) {
+      if (i > 0) {
+        buf.append(n == 2 ? " or " : i < n - 1 ? ", " : ", or ");
+      }
+      buf.append(Starlark.classType(allowedClasses.get(i)));
+    }
+    return buf.toString();
   }
 
   List<Class<?>> getAllowedClasses() {
