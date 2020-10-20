@@ -2,10 +2,6 @@
 assert_eq('-'.join(['a', 'b', 'c']), "a-b-c")
 assert_eq('-'.join({'a': 0, 'b': None, 'c': True}), "a-b-c")
 
----
-join(' ', ['a', 'b', 'c']) ### name 'join' is not defined
----
-
 assert_eq(''.join([(x + '*') for x in ['a', 'b', 'c']]), "a*b*c*")
 li = [(y + '*' + z + '|') for y in ['a', 'b', 'c'] for z in ['d', 'e']]
 assert_eq(''.join(li), "a*d|a*e|b*d|b*e|c*d|c*e|")
@@ -160,13 +156,6 @@ assert_eq('AbZ'.isalpha(), True)
 
 # escape sequences
 assert_eq("\"", '"')
----
-"\777" ### octal escape sequence out of range (maximum is \377)
----
-"\" ### unterminated string literal at eol
-
----
-""" ### unterminated string literal at eof
 ---
 
 # enumerate

@@ -51,11 +51,9 @@ public final class ScriptTest {
   // - use a proper quotation syntax (Starlark string literals) in '### "foo"' expectations.
   // - extract support for "chunked files" into a library
   //   and reuse it for tests of lexer, parser, resolver.
-  // - separate static tests entirely. They can use the same
-  //   notation, but we shouldn't be mixing static and dynamic tests.
   // - don't interpret the pattern as "either a substring or a regexp".
   //   Be consistent: always use regexp.
-  // - require that some frame of each EvalError match the file/line of the expectation.
+  // - require that some frame of each EvalException match the file/line of the expectation.
 
   interface Reporter {
     void reportError(StarlarkThread thread, String message);
@@ -156,15 +154,14 @@ public final class ScriptTest {
 
         } catch (SyntaxError.Exception ex) {
           // parser/resolver errors
+          //
+          // Static errors cannot be suppressed by expectations:
+          // it would be dangerous because the presence of a static
+          // error prevents execution of any dynamic assertions in
+          // a chunk. Tests of static errors belong in syntax/.
           for (SyntaxError err : ex.errors()) {
-            // TODO(adonovan): don't allow expectations to match static errors;
-            // they should be a different test suite. It is dangerous to mix
-            // them in a chunk otherwise the presence of a static error causes
-            // the program not to run the dynamic assertions.
-            if (!expected(expectations, err.message())) {
-              System.err.println(err); // includes location
-              ok = false;
-            }
+            System.err.println(err); // includes location
+            ok = false;
           }
 
         } catch (EvalException ex) {
