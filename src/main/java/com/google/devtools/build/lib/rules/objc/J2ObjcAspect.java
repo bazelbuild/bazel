@@ -272,7 +272,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         ExtraCompileArgs extraCompileArgs =
             j2objcCompileWithARC(ruleContext)
                 ? new ExtraCompileArgs("-fno-strict-overflow", "-fobjc-arc-exceptions")
-                : new ExtraCompileArgs("-fno-strict-overflow");
+                : new ExtraCompileArgs("-fno-strict-overflow", "-fobjc-weak");
 
         compilationSupport
             .registerCompileAndArchiveActions(
