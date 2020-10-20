@@ -1851,6 +1851,29 @@ EOF
   expect_log 'Using toolchain2: rule message: "this is the rule"'
 }
 
+
+function test_invalid_toolchain_type() {
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+load(":rule.bzl", "sample_rule")
+
+sample_rule(name = "demo")
+EOF
+  cat >> demo/rule.bzl <<EOF
+def _sample_impl(ctx):
+    pass
+
+sample_rule = rule(
+    implementation = _sample_impl,
+    toolchains = ["//demo:toolchain_type"],
+)
+EOF
+
+  bazel build //demo &> $TEST_log && fail "Expected build to fail"
+  expect_log "target 'toolchain_type' not declared in package 'demo'"
+  expect_not_log "does not provide ToolchainTypeInfo"
+}
+
 # TODO(katre): Test using toolchain-provided make variables from a genrule.
 
 run_suite "toolchain tests"
