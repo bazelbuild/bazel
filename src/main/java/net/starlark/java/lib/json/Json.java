@@ -324,11 +324,6 @@ public final class Json implements StarlarkValue {
       }
     }
 
-    // Returns a Starlark string literal that denotes c.
-    private static String quoteChar(char c) {
-      return Starlark.repr("" + c);
-    }
-
     // parse returns the next JSON value from the input.
     // It consumes leading but not trailing whitespace.
     private Object parse() throws EvalException {
@@ -574,10 +569,6 @@ public final class Json implements StarlarkValue {
       }
       throw Starlark.errorf("unexpected end of file");
     }
-
-    private static boolean isdigit(char c) {
-      return c >= '0' && c <= '9';
-    }
   }
 
   @StarlarkMethod(
@@ -589,7 +580,8 @@ public final class Json implements StarlarkValue {
               + " to its nesting depth.\n"
               + "The function accepts one required positional parameter, the JSON string,\n"
               + "and two optional keyword-only string parameters, prefix and indent,\n"
-              + "that specify a prefix of each new line, and the unit of indentation.",
+              + "that specify a prefix of each new line, and the unit of indentation.\n"
+              + "If the input is not valid, the funtion may fail or return invalid output.\n",
       parameters = {
         @Param(name = "s"),
         @Param(name = "prefix", positional = false, named = true, defaultValue = "''"),
@@ -599,7 +591,14 @@ public final class Json implements StarlarkValue {
     // Indentation can be efficiently implemented in a single pass, independent of encoding,
     // with no state other than a depth counter. This separation enables efficient indentation
     // of values obtained from, say, reading a file, without the need for decoding.
-    throw Starlark.errorf("not yet implemented");
+
+    Indenter in = new Indenter(prefix, indent, s);
+    try {
+      in.indent();
+    } catch (StringIndexOutOfBoundsException unused) {
+      throw Starlark.errorf("input is not valid JSON");
+    }
+    return in.out.toString();
   }
 
   @StarlarkMethod(
@@ -614,5 +613,148 @@ public final class Json implements StarlarkValue {
       })
   public String encodeIndent(Object x, String prefix, String indent) throws EvalException {
     return indent(encode(x), prefix, indent);
+  }
+
+  private static final class Indenter {
+
+    private final StringBuilder out = new StringBuilder();
+    private final String prefix;
+    private final String indent;
+    private final String s; // input string
+    private int i; // current index in s, possibly out of bounds
+
+    Indenter(String prefix, String indent, String s) {
+      this.prefix = prefix;
+      this.indent = indent;
+      this.s = s;
+    }
+
+    // Appends a single JSON value to str.
+    // May throw StringIndexOutOfBoundsException.
+    //
+    // The current implementation is a rudimentary placeholder:
+    // given invalid JSON, it produces garbage output.
+    // TODO(adonovan): factor Decoder and Indenter using a
+    // validating state machine, without loss of efficiency.
+    // This requires different states after [, {, :, etc,
+    // and a stack of open tokens.
+    private void indent() throws EvalException {
+      int depth = 0;
+
+      // token loop
+      do { // while (depth > 0)
+        char c = next();
+        int start = i;
+        switch (c) {
+          case '"': // string
+            for (c = s.charAt(++i); c != '"'; c = s.charAt(++i)) {
+              if (c == '\\') {
+                c = s.charAt(++i);
+                if (c == 'u') {
+                  i += 4;
+                }
+              }
+            }
+            i++; // '"'
+            out.append(s, start, i);
+            break;
+
+          case 'n':
+            i += "null".length();
+            out.append(s, start, i);
+            break;
+
+          case 't':
+            i += "true".length();
+            out.append(s, start, i);
+            break;
+
+          case 'f':
+            i += "false".length();
+            out.append(s, start, i);
+            break;
+
+          case ',':
+            i++;
+            out.append(',');
+            newline(depth);
+            break;
+
+          case '[':
+          case '{':
+            i++;
+            out.append(c);
+            c = next();
+            if (c == ']' || c == '}') {
+              i++;
+              out.append(c);
+            } else {
+              newline(++depth);
+            }
+            break;
+
+          case ']':
+          case '}':
+            i++;
+            newline(--depth);
+            out.append(c);
+            break;
+
+          case ':':
+            i++;
+            out.append(": ");
+            break;
+
+          default:
+            // number
+            if (!(isdigit(c) || c == '-')) {
+              throw Starlark.errorf("unexpected character %s", quoteChar(c));
+            }
+            while (i < s.length()) {
+              c = s.charAt(++i);
+              if (!(isdigit(c) || c == '.' || c == 'e' || c == 'E' || c == '+' || c == '-')) {
+                break;
+              }
+            }
+            out.append(s, start, i);
+            break;
+        }
+      } while (depth > 0);
+    }
+
+    private void newline(int depth) {
+      out.append('\n').append(prefix);
+      for (int i = 0; i < depth; i++) {
+        out.append(indent);
+      }
+    }
+
+    // skipSpace consumes leading spaces, and reports whether there is more input.
+    private boolean skipSpace() {
+      for (; i < s.length(); i++) {
+        char c = s.charAt(i);
+        if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // next consumes leading spaces and returns the first non-space.
+    private char next() throws EvalException {
+      if (skipSpace()) {
+        return s.charAt(i);
+      }
+      throw Starlark.errorf("unexpected end of file");
+    }
+  }
+
+  private static boolean isdigit(char c) {
+    return c >= '0' && c <= '9';
+  }
+
+  // Returns a Starlark string literal that denotes c.
+  private static String quoteChar(char c) {
+    return Starlark.repr("" + c);
   }
 }

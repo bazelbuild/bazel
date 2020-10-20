@@ -213,26 +213,82 @@ assert_eq(codec(numbers), numbers)
 
 ## json.indent
 
-s = json.encode(dict(x = 1, y = ["one", "two"]))
+assert_eq(json.indent('  1  '), '1')
+assert_eq(json.indent(' \n \r \t [ 1 , \r null \n , true , false , [ ], { }, "foo\\u1234" ]'), """\
+[
+	1,
+	null,
+	true,
+	false,
+	[],
+	{},
+	"foo\\u1234"
+]""")
 
-# assert_eq(json.indent(s), '''\
-# {
-# 	"x": 1,
-# 	"y": [
-# 		"one",
-# 		"two"
-# 	]
-# }''')
+s = json.encode(dict(x = 1, y = ["one", "two", [], {}]))
 
-# assert_eq(json.decode(json.indent(s)), {"x": 1, "y": ["one", "two"]})
+assert_eq(json.indent(s), '''\
+{
+	"x": 1,
+	"y": [
+		"one",
+		"two",
+		[],
+		{}
+	]
+}''')
 
-# assert_eq(json.indent(s, prefix='¶', indent='–––'), '''\
-# {
-# ¶–––"x": 1,
-# ¶–––"y": [
-# ¶––––––"one",
-# ¶––––––"two"
-# ¶–––]
-# ¶}''')
+assert_eq(json.encode_indent(dict(x = 1, y = ["one", "two", [], {}])), '''\
+{
+	"x": 1,
+	"y": [
+		"one",
+		"two",
+		[],
+		{}
+	]
+}''')
+
+assert_eq(json.encode_indent(dict(x = 1, y = ["one", "two", [], {}]), prefix='¶', indent='–––'), '''\
+{
+¶–––"x": 1,
+¶–––"y": [
+¶––––––"one",
+¶––––––"two",
+¶––––––[],
+¶––––––{}
+¶–––]
+¶}''')
+
+assert_eq(json.decode(json.indent(s)), {"x": 1, "y": ["one", "two", [], {}]})
+
+assert_eq(json.indent(s, prefix='¶', indent='–––'), '''\
+{
+¶–––"x": 1,
+¶–––"y": [
+¶––––––"one",
+¶––––––"two",
+¶––––––[],
+¶––––––{}
+¶–––]
+¶}''')
+
+# The current implementation may produce garbage output for garbage input.
+# TODO(adonovan): fix that.
+assert_eq(json.indent('[n!@#,t$%^,f&*(),-e1+9,"\\k\\upqrs"]'),
+          """[
+	n!@#,
+	t$%^,
+	f&*(),
+	-e1+9,
+	"\\k\\upqrs\"
+]""")
+
+json.indent('[' * 10000 + ']' * 10000) # no depth error: indentation is nonrecursive
+
+json.indent('[') ### unexpected end of file
+---
+json.indent('"') ### input is not valid JSON
+---
 
 # assert.fails(lambda: json.indent("!@#$%^& this is not json"), 'invalid character')
