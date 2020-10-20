@@ -21,7 +21,6 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.Injectable;
@@ -87,12 +86,6 @@ public class PrecomputedValue implements SkyValue {
 
   public static final Precomputed<PathPackageLocator> PATH_PACKAGE_LOCATOR =
       new Precomputed<>("path_package_locator");
-
-  public static final Precomputed<RemoteOutputsMode> REMOTE_OUTPUTS_MODE =
-      new Precomputed<>("remote_outputs_mode");
-
-  public static final Precomputed<Map<String, String>> REMOTE_DEFAULT_PLATFORM_PROPERTIES =
-      new Precomputed<>("remote_default_platform_properties");
 
   public static final Precomputed<Boolean> REMOTE_EXECUTION_ENABLED =
       new Precomputed<>("remote_execution_enabled");

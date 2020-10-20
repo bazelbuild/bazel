@@ -361,6 +361,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   private boolean siblingRepositoryLayout = false;
 
+  private Map<String, String> lastRemoteDefaultExecProperties;
+  private RemoteOutputsMode lastRemoteOutputsMode;
+
   class PathResolverFactoryImpl implements PathResolverFactory {
     @Override
     public boolean shouldCreatePathResolverForArtifactValues() {
@@ -1463,11 +1466,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     this.skyframeActionExecutor.setActionLogBufferPathGenerator(actionLogBufferPathGenerator);
   }
 
-  @VisibleForTesting
-  void setRemoteOutputsMode(RemoteOutputsMode remoteOutputsMode) {
-    PrecomputedValue.REMOTE_OUTPUTS_MODE.set(injectable(), remoteOutputsMode);
-  }
-
   private void setRemoteExecutionEnabled(boolean enabled) {
     PrecomputedValue.REMOTE_EXECUTION_ENABLED.set(injectable(), enabled);
   }
@@ -1541,10 +1539,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       TopDownActionCache topDownActionCache,
       @Nullable EvaluationProgressReceiver executionProgressReceiver,
       TopLevelArtifactContext topLevelArtifactContext)
-      throws InterruptedException {
+      throws InterruptedException, AbruptExitException {
     checkActive();
     Preconditions.checkState(actionLogBufferPathGenerator != null);
 
+    deleteActionsIfRemoteOptionsChanged(options);
     try (SilentCloseable c =
         Profiler.instance().profile("skyframeActionExecutor.prepareForExecution")) {
       skyframeActionExecutor.prepareForExecution(
@@ -1630,6 +1629,42 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       TopDownActionCache topDownActionCache) {
     skyframeActionExecutor.prepareForExecution(
         reporter, executor, options, checker, topDownActionCache, outputService);
+  }
+
+  private void deleteActionsIfRemoteOptionsChanged(OptionsProvider options)
+      throws AbruptExitException {
+    RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
+    Map<String, String> remoteDefaultExecProperties;
+    try {
+      remoteDefaultExecProperties =
+          remoteOptions != null
+              ? remoteOptions.getRemoteDefaultExecProperties()
+              : ImmutableMap.of();
+    } catch (UserExecException e) {
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(e.getMessage())
+                  .setRemoteOptions(
+                      FailureDetails.RemoteOptions.newBuilder()
+                          .setCode(
+                              FailureDetails.RemoteOptions.Code
+                                  .REMOTE_DEFAULT_EXEC_PROPERTIES_LOGIC_ERROR)
+                          .build())
+                  .build()),
+          e);
+    }
+    boolean needsDeletion =
+        lastRemoteDefaultExecProperties != null
+            && !remoteDefaultExecProperties.equals(lastRemoteDefaultExecProperties);
+    lastRemoteDefaultExecProperties = remoteDefaultExecProperties;
+    RemoteOutputsMode remoteOutputsMode =
+        remoteOptions != null ? remoteOptions.remoteOutputsMode : RemoteOutputsMode.ALL;
+    needsDeletion |= lastRemoteOutputsMode != null && lastRemoteOutputsMode != remoteOutputsMode;
+    this.lastRemoteOutputsMode = remoteOutputsMode;
+    if (needsDeletion) {
+      memoizingEvaluator.delete(k -> SkyFunctions.ACTION_EXECUTION.equals(k.functionName()));
+    }
   }
 
   EvaluationResult<SkyValue> targetPatterns(
@@ -2646,30 +2681,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     getActionEnvFromOptions(options.getOptions(CoreOptions.class));
     setRepoEnv(options.getOptions(CoreOptions.class));
     RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
-    setRemoteOutputsMode(
-        remoteOptions != null
-            ? remoteOptions.remoteOutputsMode
-            // If no value is specified then set it to some value so that it's not null.
-            : RemoteOutputsMode.ALL);
-    try {
-      setRemoteDefaultPlatformProperties(
-          remoteOptions != null
-              ? remoteOptions.getRemoteDefaultExecProperties()
-              : ImmutableMap.of());
-    } catch (UserExecException e) {
-      throw new AbruptExitException(
-          DetailedExitCode.of(
-              FailureDetail.newBuilder()
-                  .setMessage(e.getMessage())
-                  .setRemoteOptions(
-                      FailureDetails.RemoteOptions.newBuilder()
-                          .setCode(
-                              FailureDetails.RemoteOptions.Code
-                                  .REMOTE_DEFAULT_EXEC_PROPERTIES_LOGIC_ERROR)
-                          .build())
-                  .build()),
-          e);
-    }
     setRemoteExecutionEnabled(remoteOptions != null && remoteOptions.isRemoteExecutionEnabled());
     syncPackageLoading(
         packageOptions,
@@ -2694,6 +2705,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       TimestampGranularityMonitor tsgm,
       OptionsProvider options)
       throws AbruptExitException {
+    syncPackageLoadingInternal(
+        packageOptions, pathPackageLocator, buildLanguageOptions, commandId, clientEnv, tsgm);
+  }
+
+  protected final void syncPackageLoadingInternal(
+      PackageOptions packageOptions,
+      PathPackageLocator pathPackageLocator,
+      BuildLanguageOptions buildLanguageOptions,
+      UUID commandId,
+      Map<String, String> clientEnv,
+      TimestampGranularityMonitor tsgm) {
     try (SilentCloseable c = Profiler.instance().profile("preparePackageLoading")) {
       preparePackageLoading(
           pathPackageLocator, packageOptions, buildLanguageOptions, commandId, clientEnv, tsgm);
@@ -2704,12 +2726,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     incrementalBuildMonitor = new SkyframeIncrementalBuildMonitor();
     invalidateTransientErrors();
-  }
-
-  private void setRemoteDefaultPlatformProperties(
-      Map<String, String> remoteDefaultPlatformProperties) {
-    PrecomputedValue.REMOTE_DEFAULT_PLATFORM_PROPERTIES.set(
-        injectable(), remoteDefaultPlatformProperties);
   }
 
   private void getActionEnvFromOptions(CoreOptions opt) {
