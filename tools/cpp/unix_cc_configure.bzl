@@ -81,6 +81,7 @@ def _get_tool_paths(repository_ctx, overriden_tools):
         for k in [
             "ar",
             "ld",
+            "llvm-cov",
             "cpp",
             "gcc",
             "dwp",
@@ -357,6 +358,14 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         repository_ctx,
         "gcov",
         "GCOV",
+        overriden_tools,
+        warn = True,
+        silent = True,
+    )
+    overriden_tools["llvm-cov"] = _find_generic(
+        repository_ctx,
+        "llvm-cov",
+        "BAZEL_LLVM_COV",
         overriden_tools,
         warn = True,
         silent = True,

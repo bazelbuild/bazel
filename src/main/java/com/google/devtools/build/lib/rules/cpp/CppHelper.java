@@ -193,12 +193,18 @@ public class CppHelper {
       RuleContext ruleContext, CppConfiguration cppConfiguration, CcToolchainProvider toolchain)
       throws RuleErrorException {
     if (cppConfiguration.collectCodeCoverage()) {
+      String llvmCov = toolchain.getToolPathStringOrNull(Tool.LLVM_COV);
+      if (llvmCov == null) {
+        llvmCov = "";
+      }
       NestedSetBuilder<Pair<String, String>> coverageEnvironment =
           NestedSetBuilder.<Pair<String, String>>stableOrder()
               .add(
                   Pair.of(
                       "COVERAGE_GCOV_PATH",
-                      toolchain.getToolPathFragment(Tool.GCOV, ruleContext).getPathString()));
+                      toolchain.getToolPathFragment(Tool.GCOV, ruleContext).getPathString()))
+              .add(Pair.of("LLVM_COV", llvmCov))
+              .add(Pair.of("GENERATE_LLVM_LCOV", cppConfiguration.generateLlvmLCov() ? "1" : "0"));
       if (cppConfiguration.getFdoInstrument() != null) {
         coverageEnvironment.add(Pair.of("FDO_DIR", cppConfiguration.getFdoInstrument()));
       }

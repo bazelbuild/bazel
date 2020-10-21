@@ -483,7 +483,7 @@ public class CcToolchainProviderHelper {
                 if (tool == CppConfiguration.Tool.DWP) {
                   // TODO(hlopko): check dwp tool in analysis when per_object_debug_info is enabled.
                   return false;
-                } else if (tool == CppConfiguration.Tool.LLVM_PROFDATA) {
+                } else if (tool == CppConfiguration.Tool.LLVM_PROFDATA || tool == Tool.LLVM_COV) {
                   // TODO(tmsriram): Fix this to check if this is a llvm crosstool
                   // and return true.  This needs changes to crosstool_config.proto.
                   return false;

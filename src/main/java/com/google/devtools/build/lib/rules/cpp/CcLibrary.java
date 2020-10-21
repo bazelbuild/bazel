@@ -435,7 +435,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         common.getInstrumentedFilesProvider(
             instrumentedObjectFiles,
             /* withBaselineCoverage= */ true,
-            /* virtualToOriginalHeaders= */ NestedSetBuilder.create(Order.STABLE_ORDER));
+            /* virtualToOriginalHeaders= */ NestedSetBuilder.create(Order.STABLE_ORDER),
+            /* additionalMetadata= */ null);
     CppHelper.maybeAddStaticLinkMarkerProvider(targetBuilder, ruleContext);
 
     Runfiles.Builder builder = new Runfiles.Builder(ruleContext.getWorkspaceName());

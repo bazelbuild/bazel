@@ -1026,6 +1026,14 @@ public class CppOptions extends FragmentOptions {
   public boolean forceStrictHeaderCheckFromStarlark;
 
   @Option(
+      name = "experimental_generate_llvm_lcov",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      help = "If true, coverage for clang will generate an LCOV report.")
+  public boolean generateLlvmLcov;
+
+  @Option(
       name = "incompatible_use_cpp_compile_header_mnemonic",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
