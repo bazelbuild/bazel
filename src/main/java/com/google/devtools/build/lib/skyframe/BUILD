@@ -230,6 +230,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actionsketch:action_sketch",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/parameter_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:aspect_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:buildinfo/build_info_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:buildinfo/build_info_key",
