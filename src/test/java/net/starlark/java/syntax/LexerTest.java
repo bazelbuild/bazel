@@ -14,6 +14,7 @@
 package net.starlark.java.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import java.util.ArrayList;
@@ -328,10 +329,9 @@ public class LexerTest {
     assertThat(values(tokens("r'a\\\\b'"))).isEqualTo("STRING(a\\\\b) NEWLINE EOF"); // r'a\\b'
     assertThat(values(tokens("r'ab'r"))).isEqualTo("STRING(ab) IDENTIFIER(r) NEWLINE EOF");
 
-    // Unterminated raw string
+    // Unclosed raw string
     values(tokens("r'\\'")); // r'\'
-    assertThat(lastError.toString())
-        .isEqualTo("/some/path.txt:1: unterminated string literal at eof");
+    assertThat(lastError.toString()).isEqualTo("/some/path.txt:1: unclosed string literal");
   }
 
   @Test
@@ -342,10 +342,9 @@ public class LexerTest {
     // cd"""
     assertThat(values(tokens("\"\"\"ab\ncd\"\"\""))).isEqualTo("STRING(ab\ncd) NEWLINE EOF");
 
-    // Unterminated raw string
+    // Unclosed raw string
     values(tokens("r'''\\'''")); // r'''\'''
-    assertThat(lastError.toString())
-        .isEqualTo("/some/path.txt:1: unterminated string literal at eof");
+    assertThat(lastError.toString()).isEqualTo("/some/path.txt:1: unclosed string literal");
   }
 
   @Test
@@ -512,17 +511,17 @@ public class LexerTest {
     allTokens(lexerFail);
     assertThat(errors).isNotEmpty();
 
-    String s = "'unterminated";
+    String s = "'unclosed";
     lexerFail = createLexer(s);
     allTokens(lexerFail);
     assertThat(errors).isNotEmpty();
-    assertThat(values(tokens(s))).isEqualTo("STRING(unterminated) NEWLINE EOF");
+    assertThat(values(tokens(s))).isEqualTo("STRING(unclosed) NEWLINE EOF");
   }
 
   @Test
-  public void testUnterminatedRawStringWithEscapingError() throws Exception {
+  public void testUnclosedRawStringWithEscapingError() throws Exception {
     assertThat(names(tokens("r'\\"))).isEqualTo("STRING NEWLINE EOF");
-    assertThat(lastError).isEqualTo("/some/path.txt:1: unterminated string literal at eof");
+    assertThat(lastError).isEqualTo("/some/path.txt:1: unclosed string literal");
   }
 
   @Test
@@ -552,5 +551,39 @@ public class LexerTest {
       throw new AssertionError(
           "error '" + substr + "' not found, but got these:\n" + Joiner.on("\n").join(errors));
     }
+  }
+
+  @Test
+  public void testStringLiteralUnquote() {
+    // Coverage here needn't be exhaustive,
+    // as the underlying logic is that of the Lexer.
+    assertUnquoteEquals("'hello'", "hello");
+    assertUnquoteEquals("\"hello\"", "hello");
+    assertUnquoteEquals("r'a\\b\"c'", "a\\b\"c");
+
+    assertUnquoteError("", "invalid syntax"); // empty
+    assertUnquoteError(" 'hello'", "invalid syntax"); // leading space
+    assertUnquoteError("'hello' ", "invalid syntax"); // trailing space
+    assertUnquoteError("x", "invalid syntax"); // identifier
+    assertUnquoteError("r", "invalid syntax"); // identifier (same prefix as r'...')
+    assertUnquoteError("r2", "invalid syntax"); // identifier
+    assertUnquoteError("1", "invalid syntax"); // number
+    assertUnquoteError("'", "unclosed string literal");
+    assertUnquoteError("\"", "unclosed string literal");
+    assertUnquoteError("'abc", "unclosed string literal");
+    assertUnquoteError(
+        "'\\g'",
+        "invalid escape sequence: \\g. You can enable unknown escape sequences by passing the flag"
+            + " --incompatible_restrict_string_escapes=false"); // this temporary hint is a lie
+  }
+
+  private static void assertUnquoteEquals(String literal, String value) {
+    assertThat(StringLiteral.unquote(literal)).isEqualTo(value);
+  }
+
+  private static void assertUnquoteError(String badLiteral, String errorSubstring) {
+    IllegalArgumentException ex =
+        assertThrows(IllegalArgumentException.class, () -> StringLiteral.unquote(badLiteral));
+    assertThat(ex).hasMessageThat().contains(errorSubstring);
   }
 }

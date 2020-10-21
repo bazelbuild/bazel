@@ -257,14 +257,14 @@ final class Lexer {
             literal.append(c);
             break;
           } else {
-            error("unterminated string literal at eol", literalStartPos);
+            error("unclosed string literal", literalStartPos);
             setToken(TokenKind.STRING, literalStartPos, pos);
             setValue(literal.toString());
             return;
           }
         case '\\':
           if (pos == buffer.length) {
-            error("unterminated string literal at eof", literalStartPos);
+            error("unclosed string literal", literalStartPos);
             setToken(TokenKind.STRING, literalStartPos, pos);
             setValue(literal.toString());
             return;
@@ -389,7 +389,7 @@ final class Lexer {
           break;
       }
     }
-    error("unterminated string literal at eof", literalStartPos);
+    error("unclosed string literal", literalStartPos);
     setToken(TokenKind.STRING, literalStartPos, pos);
     setValue(literal.toString());
   }
@@ -420,7 +420,7 @@ final class Lexer {
       char c = buffer[pos++];
       switch (c) {
         case '\n':
-          error("unterminated string literal at eol", literalStartPos);
+          error("unclosed string literal", literalStartPos);
           setToken(TokenKind.STRING, literalStartPos, pos);
           setValue(bufferSlice(contentStartPos, pos - 1));
           return;
@@ -455,12 +455,12 @@ final class Lexer {
     }
 
     // If the current position is beyond the end of the file, need to move it backwards
-    // Possible if the file ends with `r"\` (unterminated raw string literal with a backslash)
+    // Possible if the file ends with `r"\` (unclosed raw string literal with a backslash)
     if (pos > buffer.length) {
       pos = buffer.length;
     }
 
-    error("unterminated string literal at eof", literalStartPos);
+    error("unclosed string literal", literalStartPos);
     setToken(TokenKind.STRING, literalStartPos, pos);
     setValue(bufferSlice(contentStartPos, pos));
   }
