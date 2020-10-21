@@ -93,7 +93,7 @@ default_java_toolchain(
     # Implicitly use the host_javabase bootclasspath, since the target doesn't
     # exist in this test.
     bootclasspath = [],
-    javabuilder = ["@bazel_tools//tools/jdk:vanillajavabuilder"],
+    javabuilder = ["//:VanillaJavaBuilder"],
     jvm_opts = [],
     visibility = ["//visibility:public"],
 )

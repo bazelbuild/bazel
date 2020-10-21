@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
 /** Rule definition for Bazel android_local_test */
 public class BazelAndroidLocalTestRule implements RuleDefinition {
 
-  protected static final String JUNIT_TESTRUNNER = "//tools/jdk:TestRunner_deploy.jar";
+  protected static final String JUNIT_TESTRUNNER = "//tools/jdk:TestRunner";
 
   private static final ImmutableCollection<String> ALLOWED_RULES_IN_DEPS =
       ImmutableSet.of(

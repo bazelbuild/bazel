@@ -1,9 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_import", "java_runtime", "java_toolchain")
 load(
-    "//tools/jdk:default_java_toolchain.bzl",
-    "JDK8_JVM_OPTS",
+    "//tools/jdk:utils.bzl",
     "bootclasspath",
-    "default_java_toolchain",
     "java_runtime_files",
 )
 load(
@@ -180,14 +178,6 @@ alias(
     actual = "@local_jdk//:javadoc",
 )
 
-# On Windows, executables end in ".exe", but the label we reach it through
-# must be platform-independent. Thus, we create a little filegroup that
-# contains the appropriate platform-dependent file.
-remote_java_tools_filegroup(
-    name = "ijar",
-    target = ":ijar",
-)
-
 # On Windows, Java implementation of singlejar is used. We create a little
 # filegroup that contains the appropriate platform-dependent file.
 # Once https://github.com/bazelbuild/bazel/issues/2241 is fixed (that is,
@@ -201,88 +191,13 @@ remote_java_tools_filegroup(
 
 exports_files(["BUILD.java_tools"])
 
-remote_java_tools_filegroup(
-    name = "genclass",
-    target = ":GenClass",
-)
-
-remote_java_tools_filegroup(
-    name = "GenClass_deploy.jar",
-    target = ":java_tools/GenClass_deploy.jar",
-)
-
-remote_java_tools_filegroup(
-    name = "bazel-singlejar_deploy.jar",
-    target = ":java_tools/bazel-singlejar_deploy.jar",
-)
-
-remote_java_tools_filegroup(
-    name = "turbine",
-    target = ":Turbine",
-)
-
-remote_java_tools_filegroup(
-    name = "turbine_deploy.jar",
-    target = ":java_tools/turbine_deploy.jar",
-)
-
-remote_java_tools_filegroup(
-    name = "turbine_direct",
-    target = ":TurbineDirect",
-)
-
-remote_java_tools_filegroup(
-    name = "turbine_direct_binary_deploy.jar",
-    target = ":java_tools/turbine_direct_binary_deploy.jar",
-)
-
-remote_java_tools_filegroup(
-    name = "javabuilder",
-    target = ":JavaBuilder",
-)
-
-remote_java_tools_filegroup(
-    name = "JavaBuilder_deploy.jar",
-    target = ":java_tools/JavaBuilder_deploy.jar",
-)
-
-remote_java_tools_filegroup(
-    name = "vanillajavabuilder",
-    target = ":VanillaJavaBuilder",
-)
-
-remote_java_tools_filegroup(
-    name = "javac_jar",
-    target = ":javac_jar",
-)
-
-remote_java_tools_filegroup(
-    name = "jdk_compiler_jar",
-    target = ":jdk_compiler_jar",
-)
-
-remote_java_tools_filegroup(
-    name = "java_compiler_jar",
-    target = ":java_compiler_jar",
-)
-
 remote_java_tools_java_import(
     name = "JacocoCoverageRunner",
     target = ":java_tools/JacocoCoverage_jarjar_deploy.jar",
 )
 
 remote_java_tools_java_import(
-    name = "JacocoCoverage",
-    target = ":java_tools/JacocoCoverage_jarjar_deploy.jar",
-)
-
-remote_java_tools_java_import(
     name = "TestRunner",
-    target = ":java_tools/Runner_deploy.jar",
-)
-
-remote_java_tools_filegroup(
-    name = "TestRunner_deploy.jar",
     target = ":java_tools/Runner_deploy.jar",
 )
 
@@ -345,19 +260,14 @@ bootclasspath(
     target_javabase = "current_java_runtime",
 )
 
-default_java_toolchain(
+alias(
     name = "toolchain_hostjdk8",
-    jvm_opts = JDK8_JVM_OPTS,
-    source_version = "8",
-    target_version = "8",
-)
-
-# Default to the Java 8 language level.
-# TODO(cushon): consider if/when we should increment this?
-default_java_toolchain(
-    name = "legacy_toolchain",
-    source_version = "8",
-    target_version = "8",
+    actual = select({
+        "//src/conditions:darwin": "@remote_java_tools_darwin//:toolchain_hostjdk8",
+        "//src/conditions:darwin_x86_64": "@remote_java_tools_darwin//:toolchain_hostjdk8",
+        "//src/conditions:windows": "@remote_java_tools_windows//:toolchain_hostjdk8",
+        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:toolchain_hostjdk8",
+    }),
 )
 
 alias(
@@ -366,7 +276,6 @@ alias(
         "//src/conditions:darwin": "@remote_java_tools_darwin//:toolchain",
         "//src/conditions:windows": "@remote_java_tools_windows//:toolchain",
         "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:toolchain",
-        "//conditions:default": "@bazel_tools//tools/jdk:legacy_toolchain",
     }),
 )
 
@@ -376,7 +285,7 @@ alias(
         "//src/conditions:darwin": "@remote_java_tools_darwin//:toolchain",
         "//src/conditions:windows": "@remote_java_tools_windows//:toolchain",
         "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:toolchain",
-        "//conditions:default": "@bazel_tools//tools/jdk:legacy_toolchain",
+        "//conditions:default": "@remote_java_tools_linux//:toolchain",
     }),
 )
 
@@ -394,22 +303,27 @@ alias(
 #
 # However it does allow using a wider range of `--host_javabase`s, including
 # versions newer than the current embedded JDK.
-default_java_toolchain(
+alias(
     name = "toolchain_vanilla",
-    forcibly_disable_header_compilation = True,
-    javabuilder = [":vanillajavabuilder"],
-    jvm_opts = [],
-    source_version = "",
-    target_version = "",
+    actual = select({
+        "//src/conditions:darwin": "@remote_java_tools_darwin//:toolchain_vanilla",
+        "//src/conditions:darwin_x86_64": "@remote_java_tools_darwin//:toolchain_vanilla",
+        "//src/conditions:windows": "@remote_java_tools_windows//:toolchain_vanilla",
+        "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:toolchain_vanilla",
+    }),
 )
 
 RELEASES = (8, 9, 10, 11)
 
 [
-    default_java_toolchain(
+    alias(
         name = "toolchain_java%d" % release,
-        source_version = "%s" % release,
-        target_version = "%s" % release,
+        actual = select({
+            "//src/conditions:darwin": "@remote_java_tools_darwin//:toolchain_java%d" % release,
+            "//src/conditions:darwin_x86_64": "@remote_java_tools_darwin//:toolchain_java%d" % release,
+            "//src/conditions:windows": "@remote_java_tools_windows//:toolchain_java%d" % release,
+            "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:toolchain_java%d" % release,
+        }),
     )
     for release in RELEASES
 ]
@@ -433,6 +347,7 @@ filegroup(
         "proguard_whitelister_test_input.pgcfg",
         "remote_java_tools_aliases.bzl",
         "toolchain_utils.bzl",
+        "utils.bzl",
     ],
 )
 

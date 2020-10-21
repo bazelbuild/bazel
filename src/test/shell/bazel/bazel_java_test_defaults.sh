@@ -59,6 +59,7 @@ fi
 
 
 function test_default_java_toolchain_target_version() {
+  setup_bazelrc
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
 java_binary(
