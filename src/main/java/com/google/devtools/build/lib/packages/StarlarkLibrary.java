@@ -36,6 +36,7 @@ import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.lib.json.Json;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -51,15 +52,16 @@ public final class StarlarkLibrary {
   private StarlarkLibrary() {} // uninstantiable
 
   /**
-   * A library of Starlark functions (keyed by name) that are not part of core Starlark but are
-   * common to all Bazel Starlark file environments (BUILD, .bzl, and WORKSPACE). Examples: depset,
-   * select.
+   * A library of Starlark values (keyed by name) that are not part of core Starlark but are common
+   * to all Bazel Starlark file environments (BUILD, .bzl, and WORKSPACE). Examples: depset, select,
+   * json.
    */
   public static final ImmutableMap<String, Object> COMMON = initCommon();
 
   private static ImmutableMap<String, Object> initCommon() {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     Starlark.addMethods(env, new CommonLibrary());
+    Starlark.addModule(env, Json.INSTANCE);
     return env.build();
   }
 

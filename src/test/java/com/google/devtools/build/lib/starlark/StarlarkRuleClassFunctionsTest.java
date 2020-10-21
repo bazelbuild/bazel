@@ -1081,6 +1081,20 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testStarlarkJsonModule() throws Exception {
+    // struct.to_json is deprecated.
+    // java.starlark.net's json module is its replacement.
+    setBuildLanguageOptions("--incompatible_struct_has_no_methods=false");
+    checkJson("json.encode(struct(name=True))", "{\"name\":true}");
+    checkJson("json.encode([1, 2])", "[1,2]"); // works for non-structs too
+    checkJson("str(dir(struct()))", "[\"to_json\", \"to_proto\"]");
+
+    setBuildLanguageOptions("--incompatible_struct_has_no_methods=true");
+    ev.checkEvalErrorContains("no field or method 'to_json'", "struct(name=True).to_json()");
+    checkJson("str(dir(struct()))", "[]"); // no to_{json,proto}
+  }
+
+  @Test
   public void testJsonBooleanFields() throws Exception {
     checkJson("struct(name=True).to_json()", "{\"name\":true}");
     checkJson("struct(name=False).to_json()", "{\"name\":false}");
