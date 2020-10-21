@@ -72,7 +72,7 @@ int('123', 3) ### invalid base-3 literal: "123"
 ---
 int('FF', 15) ### invalid base-15 literal: "FF"
 ---
-int('123', -1) ### invalid base -1 (want 2 <= base <= 36)
+int('123', -1) ### invalid base -1 \(want 2 <= base <= 36\)
 ---
 int('123', 1) ### invalid base 1 \(want 2 <= base <= 36\)
 ---
@@ -94,7 +94,7 @@ int('  42  ') ### invalid base-10 literal: "  42  "
 ---
 int('-') ### invalid base-10 literal: "-"
 ---
-int('+') ### invalid base-10 literal: "+"
+int('+') ### invalid base-10 literal: "\+"
 ---
 int('0x') ### invalid base-10 literal: "0x"
 ---

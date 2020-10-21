@@ -206,7 +206,7 @@ assert_eq(~((~(0x1010 << 100)) >> 100), 0x1010)
 ---
 1 & False ### unsupported binary operation: int & bool
 ---
-"a" ^ 5 ### unsupported binary operation: string ^ int
+"a" ^ 5 ### unsupported binary operation: string \^ int
 ---
 ~False ### unsupported unary operation: ~bool
 ---

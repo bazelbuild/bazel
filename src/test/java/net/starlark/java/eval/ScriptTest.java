@@ -24,6 +24,8 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -39,7 +41,11 @@ public final class ScriptTest {
   //
   // In each test file, chunks are separated by "\n---\n".
   // Each chunk is evaluated separately.
-  // Use "###" to specify the expected error.
+  // A comment containing
+  //     ### regular expression
+  // specifies an expected error on that line.
+  // The part after '###', with leading/trailing spaces removed,
+  // must be a valid regular expression matching the error.
   // If there is no "###", the test will succeed iff there is no error.
   //
   // Within the file, the assert_ and assert_eq functions may be used to
@@ -48,11 +54,8 @@ public final class ScriptTest {
 
   // TODO(adonovan): improve this test driver (following go.starlark.net):
   //
-  // - use a proper quotation syntax (Starlark string literals) in '### "foo"' expectations.
   // - extract support for "chunked files" into a library
   //   and reuse it for tests of lexer, parser, resolver.
-  // - don't interpret the pattern as "either a substring or a regexp".
-  //   Be consistent: always use regexp.
   // - require that some frame of each EvalException match the file/line of the expectation.
 
   interface Reporter {
@@ -120,19 +123,28 @@ public final class ScriptTest {
           System.err.printf("%s:%d: <<%s>>\n", file, linenum, buf);
         }
 
-        // extract "### string" expectations
-        Map<String, Integer> expectations = new HashMap<>();
-        for (int i = 0; true; i += "###".length()) {
-          i = chunk.indexOf("###", i);
-          if (i < 0) {
-            break;
-          }
+        // extract expectations: ### "regular expression"
+        Map<Pattern, Integer> expectations = new HashMap<>();
+        for (int i = chunk.indexOf("###"); i >= 0; i = chunk.indexOf("###", i)) {
           int j = chunk.indexOf("\n", i);
           if (j < 0) {
             j = chunk.length();
           }
-          String pattern = chunk.substring(i + 3, j).trim();
+
           int line = linenum + newlines(chunk.substring(0, i));
+          String comment = chunk.substring(i + 3, j);
+          i = j;
+
+          // Compile regular expression in comment.
+          Pattern pattern;
+          try {
+            pattern = Pattern.compile(comment.trim());
+          } catch (PatternSyntaxException ex) {
+            System.err.printf("%s:%d: invalid regexp: %s\n", file, line, ex.getMessage());
+            ok = false;
+            continue;
+          }
+
           if (false) {
             System.err.printf("%s:%d: expectation '%s'\n", file, line, pattern);
           }
@@ -172,6 +184,8 @@ public final class ScriptTest {
           // and expections match exactly. Furthermore, look only at errors
           // whose stack has a frame with a file/line that matches the expectation.
           // This requires inspecting EvalException stack.
+          // (There can be at most one dynamic error per chunk.
+          // Do we even need to allow multiple expectations?)
           if (!expected(expectations, ex.getMessage())) {
             System.err.println(ex.getMessageWithStack());
             ok = false;
@@ -187,7 +201,7 @@ public final class ScriptTest {
         }
 
         // unmatched expectations
-        for (Map.Entry<String, Integer> e : expectations.entrySet()) {
+        for (Map.Entry<Pattern, Integer> e : expectations.entrySet()) {
           System.err.printf("%s:%d: unmatched expectation: %s\n", file, e.getValue(), e.getKey());
           ok = false;
         }
@@ -214,9 +228,9 @@ public final class ScriptTest {
     ok = false;
   }
 
-  private static boolean expected(Map<String, Integer> expectations, String message) {
-    for (String pattern : expectations.keySet()) {
-      if (message.contains(pattern) || message.matches(".*" + pattern + ".*")) {
+  private static boolean expected(Map<Pattern, Integer> expectations, String message) {
+    for (Pattern pattern : expectations.keySet()) {
+      if (pattern.matcher(message).find()) {
         expectations.remove(pattern);
         return true;
       }

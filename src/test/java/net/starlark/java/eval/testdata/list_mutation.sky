@@ -91,7 +91,7 @@ assert_eq(li3.pop(1), 3)
 assert_eq(li3, [2, 4])
 
 ---
-[1, 2].pop(3) ### index out of range (index is 3, but sequence has 2 elements)
+[1, 2].pop(3) ### index out of range \(index is 3, but sequence has 2 elements\)
 ---
 (1, 2).pop() ### 'tuple' value has no field or method 'pop'
 ---

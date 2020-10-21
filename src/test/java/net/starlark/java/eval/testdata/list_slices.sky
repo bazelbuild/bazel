@@ -106,12 +106,12 @@ bananas.index("d", -1000, 1000) ### not found in list
 ---
 [[1], [2]]['a'] ### got string for sequence index, want int
 ---
-[0, 1, 2][3] ### index out of range (index is 3, but sequence has 3 elements)
+[0, 1, 2][3] ### index out of range \(index is 3, but sequence has 3 elements\)
 ---
-[0, 1, 2][-4] ### index out of range (index is -4, but sequence has 3 elements)
+[0, 1, 2][-4] ### index out of range \(index is -4, but sequence has 3 elements\)
 ---
-[0][-2] ### index out of range (index is -2, but sequence has 1 elements)
+[0][-2] ### index out of range \(index is -2, but sequence has 1 elements\)
 ---
-[0][1] ### index out of range (index is 1, but sequence has 1 elements)
+[0][1] ### index out of range \(index is 1, but sequence has 1 elements\)
 ---
-[][1] ### index out of range (index is 1, but sequence has 0 elements)
+[][1] ### index out of range \(index is 1, but sequence has 0 elements\)

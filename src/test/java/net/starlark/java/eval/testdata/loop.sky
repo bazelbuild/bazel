@@ -18,9 +18,9 @@ x, y = 1  ### got 'int' in sequence assignment
 ---
 
 # too few
-x, y = () ### too few values to unpack (got 0, want 2)
+x, y = () ### too few values to unpack \(got 0, want 2\)
 ---
-[x, y] = () ### too few values to unpack (got 0, want 2)
+[x, y] = () ### too few values to unpack \(got 0, want 2\)
 ---
 
 # just right
@@ -34,11 +34,11 @@ x, y = 1, 2
 # too many
 () = 1 ### got 'int' in sequence assignment
 ---
-() = (1,) ### too many values to unpack (got 1, want 0)
+() = (1,) ### too many values to unpack \(got 1, want 0\)
 ---
-x, y = 1, 2, 3 ### too many values to unpack (got 3, want 2)
+x, y = 1, 2, 3 ### too many values to unpack \(got 3, want 2\)
 ---
-[x, y] = 1, 2, 3 ### too many values to unpack (got 3, want 2)
+[x, y] = 1, 2, 3 ### too many values to unpack \(got 3, want 2\)
 ---
 
 # Assignment to empty tuple is permitted.
@@ -47,11 +47,11 @@ assert_eq([1 for [] in [(), []]], [1, 1])
 
 # Iterating over dict without .items() gives informative error.
 assert_eq([v for v in dict(a = "b")], ["a"])
-[None for () in dict(a = "b")]  ### got 'string' in sequence assignment (want 0-element sequence)
+[None for () in dict(a = "b")]  ### got 'string' in sequence assignment \(want 0-element sequence\)
 ---
-[None for (v1,) in dict(a = "b")] ### got 'string' in sequence assignment (want 1-element sequence)
+[None for (v1,) in dict(a = "b")] ### got 'string' in sequence assignment \(want 1-element sequence\)
 ---
-[None for v1, v2 in dict(a = "b")] ### got 'string' in sequence assignment (want 2-element sequence)
+[None for v1, v2 in dict(a = "b")] ### got 'string' in sequence assignment \(want 2-element sequence\)
 ---
 
 # --- list comprehensions ---
@@ -136,15 +136,15 @@ assert_eq([x + y for x, y in [(1, 2), (3, 4)]], [3, 7])
 assert_eq([z + t for (z, t) in [[1, 2], [3, 4]]], [3, 7])
 
 # multiple variables, fail
-[x + y for x, y, z in [(1, 2), (3, 4)]] ### too few values to unpack (got 2, want 3)
+[x + y for x, y, z in [(1, 2), (3, 4)]] ### too few values to unpack \(got 2, want 3\)
 ---
-[x + y for x, y in (1, 2)] ### got 'int' in sequence assignment (want 2-element sequence)
+[x + y for x, y in (1, 2)] ### got 'int' in sequence assignment \(want 2-element sequence\)
 ---
-[x + y for x, y, z in [(1, 2), (3, 4)]] ### too few values to unpack (got 2, want 3)
+[x + y for x, y, z in [(1, 2), (3, 4)]] ### too few values to unpack \(got 2, want 3\)
 ---
-[x + y for x, y in (1, 2)] ### got 'int' in sequence assignment (want 2-element sequence)
+[x + y for x, y in (1, 2)] ### got 'int' in sequence assignment \(want 2-element sequence\)
 ---
-[x + y for x, y, z in [(1, 2), (3, 4)]] ### too few values to unpack (got 2, want 3)
+[x + y for x, y, z in [(1, 2), (3, 4)]] ### too few values to unpack \(got 2, want 3\)
 ---
-[x2 + y2 for x2, y2 in (1, 2)] ### got 'int' in sequence assignment (want 2-element sequence)
+[x2 + y2 for x2, y2 in (1, 2)] ### got 'int' in sequence assignment \(want 2-element sequence\)
 ---

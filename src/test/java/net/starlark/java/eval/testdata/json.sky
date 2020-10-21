@@ -101,13 +101,13 @@ json.decode('truefalse') ### at offset 4, unexpected character "f" after value
 ---
 json.decode('"abc') ### unclosed string literal
 ---
-json.decode('"ab\\gc"') ### invalid escape '\g'
+json.decode('"ab\\gc"') ### invalid escape '\\g'
 ---
 json.decode("'abc'") ### unexpected character "'"
 ---
 json.decode("1.2.3") ### invalid number: 1.2.3
 ---
-json.decode("+1") ### unexpected character "+"
+json.decode("+1") ### unexpected character "\+"
 ---
 json.decode("-abc") ### invalid number: -
 ---
@@ -119,7 +119,7 @@ json.decode("00") ### invalid number: 00
 ---
 json.decode("--1") ### invalid number: --1
 ---
-json.decode("-+1") ### invalid number: -+1
+json.decode("-+1") ### invalid number: -\+1
 ---
 json.decode("1e1e1") ### invalid number: 1e1e1
 ---
@@ -157,7 +157,7 @@ json.decode('{"one": 1') ### unexpected end of file
 ---
 json.decode('{"one" 1') ### after object key, got "1", want ':'
 ---
-json.decode('{"one": 1 "two": 2') ### in object, got "\"", want ',' or '}'
+json.decode('{"one": 1 "two": 2') ### in object, got "\\"", want ',' or '}'
 ---
 json.decode('{"x": 1, "x": 2}') ### object has duplicate key: "x"
 ---
@@ -172,13 +172,13 @@ json.decode('{"one": 1]') ### in object, got "]", want ',' or '}'
 json.decode('[' * 10000) ### nesting depth limit exceeded
 ---
 # Unescaped control codes (even tabs) are forbidden in strings.
-json.decode('"\t"') ### invalid character '\x09' in string literal
+json.decode('"\t"') ### invalid character '\\x09' in string literal
 ---
-json.decode('"\\u123"') ### incomplete \uXXXX escape
+json.decode('"\\u123"') ### incomplete \\uXXXX escape
 ---
-json.decode('"\\u123') ### incomplete \uXXXX escape
+json.decode('"\\u123') ### incomplete \\uXXXX escape
 ---
-json.decode('"\\u1') ### incomplete \uXXXX escape
+json.decode('"\\u1') ### incomplete \\uXXXX escape
 ---
 
 def codec(x):
