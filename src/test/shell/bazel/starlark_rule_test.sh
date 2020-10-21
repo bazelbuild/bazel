@@ -86,7 +86,7 @@ EOF
   ! bazel build //test:test &> $TEST_log \
       || fail "Should have resulted in an execution error"
 
-  expect_log "error executing shell command"
+  expect_log "error executing command.*not_a_command"
 }
 
 run_suite "Starlark rule definition tests"
