@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.query2.query.output;
 
 import com.google.devtools.build.lib.packages.DependencyFilter;
+import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
@@ -79,5 +80,31 @@ class FormatUtils {
       }
     }
     return location;
+  }
+
+  /**
+   * Returns the target label string. For {@link InputFile} targets, displays the location of line 1
+   * of the actual source file by default.
+   *
+   * @param target the target to get the label from
+   * @param displaySourceFileLocation displays the location of line 1 of the actual source file
+   *     instead of its target if true.
+   * @param relativeLocations displays the location of the source file relative to its package's
+   *     source root directory
+   */
+  static String getLabel(
+      Target target, boolean displaySourceFileLocation, boolean relativeLocations) {
+    if (!(target instanceof InputFile) || !displaySourceFileLocation) {
+      return target.getLabel().getDefaultCanonicalForm();
+    }
+
+    // Default behaviour for source files without the incompatible_display_source_file_location flag
+    PathFragment packageDir = target.getPackage().getPackageDirectory().asFragment();
+    Location sourceFileLoc =
+        Location.fromFileLineColumn(packageDir.getRelative(target.getName()).toString(), 1, 1);
+    if (relativeLocations) {
+      sourceFileLoc = getRootRelativeLocation(sourceFileLoc, target.getPackage());
+    }
+    return sourceFileLoc.toString();
   }
 }

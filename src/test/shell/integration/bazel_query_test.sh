@@ -497,6 +497,57 @@ EOF
   expect_log "//foo:foo"
 }
 
+test_location_output_source_files() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+py_binary(
+  name = "main",
+  srcs = ["main.py"],
+)
+EOF
+  touch foo/main.py || fail "Could not touch foo/main.py"
+
+  # The incompatible_display_source_file_location flag displays the location of
+  # line 1 of the actual source file
+  bazel query \
+    --output=location \
+    --incompatible_display_source_file_location \
+    '//foo:main.py' >& $TEST_log || fail "Expected success"
+  expect_log "source file ${TEST_TMPDIR}/.*/foo/main.py:1:1"
+  expect_not_log "source file //foo:main.py"
+
+  # Default behavior overridden by noincompatible_display_source_file_location
+  # flag to display the source file target instead
+  bazel query \
+    --output=location \
+    --noincompatible_display_source_file_location \
+    '//foo:main.py' >& $TEST_log || fail "Expected success"
+  expect_log "source file //foo:main.py"
+  expect_not_log "source file ${TEST_TMPDIR}/.*/foo/main.py:1:1"
+
+  # Adding relative_locations flag should modify default behavior and
+  # make location of source file be relative
+  bazel query \
+    --output=location \
+    --relative_locations \
+    --incompatible_display_source_file_location \
+    '//foo:main.py' >& $TEST_log || fail "Expected success"
+  expect_log "source file foo/main.py:1:1"
+  expect_not_log "source file ${TEST_TMPDIR}/.*/foo/main.py:1:1"
+
+  # Adding noincompatible_display_source_file_location flag should still
+  # override default behaviour regardless of relative_locations to
+  # display the source file target
+  bazel query --output=location \
+    --relative_locations \
+    --noincompatible_display_source_file_location \
+    '//foo:main.py' >& $TEST_log || fail "Expected success"
+  expect_log "source file //foo:main.py"
+  expect_not_log "source file foo/main.py:1:1"
+  expect_not_log "source file ${TEST_TMPDIR}/.*/foo/main.py:1:1"
+}
+
 function test_subdirectory_named_external() {
   mkdir -p foo/external foo/bar
   cat > foo/external/BUILD <<EOF

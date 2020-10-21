@@ -40,6 +40,7 @@ import java.io.OutputStream;
 class LocationOutputFormatter extends AbstractUnorderedFormatter {
 
   private boolean relativeLocations;
+  private boolean displaySourceFileLocation;
 
   @Override
   public String getName() {
@@ -51,6 +52,7 @@ class LocationOutputFormatter extends AbstractUnorderedFormatter {
       CommonQueryOptions options, AspectResolver aspectResolver, HashFunction hashFunction) {
     super.setOptions(options, aspectResolver, hashFunction);
     this.relativeLocations = options.relativeLocations;
+    this.displaySourceFileLocation = options.displaySourceFileLocation;
   }
 
   @Override
@@ -85,7 +87,7 @@ class LocationOutputFormatter extends AbstractUnorderedFormatter {
               .append(": ")
               .append(target.getTargetKind())
               .append(" ")
-              .append(target.getLabel().getDefaultCanonicalForm())
+              .append(FormatUtils.getLabel(target, displaySourceFileLocation, relativeLocations))
               .append(lineTerm);
         }
       }

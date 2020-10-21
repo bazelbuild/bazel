@@ -23,6 +23,7 @@ import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import java.util.EnumSet;
 import java.util.List;
@@ -152,6 +153,26 @@ public class CommonQueryOptions extends OptionsBase {
     }
     return settings;
   }
+
+  ///////////////////////////////////////////////////////////
+  // LOCATION OUTPUT FORMATTER OPTIONS                     //
+  ///////////////////////////////////////////////////////////
+
+  // TODO(tanzhengwei): Clean up in next major release
+  @Option(
+      name = "incompatible_display_source_file_location",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "False by default, displays the target of the source file. "
+              + "If true, displays the location of line 1 of source files in location outputs. "
+              + "This flag only exists for migration purposes.")
+  public boolean displaySourceFileLocation;
 
   ///////////////////////////////////////////////////////////
   // PROTO OUTPUT FORMATTER OPTIONS                        //
