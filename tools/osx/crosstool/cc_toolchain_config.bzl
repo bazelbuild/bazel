@@ -5357,6 +5357,29 @@ def _impl(ctx):
         ],
     )
 
+    remap_xcode_path_feature = feature(
+        name = "remap_xcode_path",
+        flag_sets = [
+            flag_set(
+                actions = [
+                    ACTION_NAMES.assemble,
+                    ACTION_NAMES.preprocess_assemble,
+                    ACTION_NAMES.c_compile,
+                    ACTION_NAMES.cpp_compile,
+                    ACTION_NAMES.cpp_header_parsing,
+                    ACTION_NAMES.cpp_module_compile,
+                    ACTION_NAMES.cpp_module_codegen,
+                    ACTION_NAMES.linkstamp_compile,
+                    ACTION_NAMES.objc_compile,
+                    ACTION_NAMES.objcpp_compile,
+                ],
+                flag_groups = [flag_group(flags = [
+                    "-fdebug-prefix-map=__BAZEL_XCODE_DEVELOPER_DIR__=DEVELOPER_DIR",
+                ])],
+            ),
+        ],
+    )
+
     linkstamps_feature = feature(
         name = "linkstamps",
         flag_sets = [
@@ -6046,6 +6069,7 @@ def _impl(ctx):
             only_doth_headers_in_module_maps_feature,
             default_compile_flags_feature,
             debug_prefix_map_pwd_is_dot_feature,
+            remap_xcode_path_feature,
             generate_dsym_file_feature,
             generate_linkmap_feature,
             oso_prefix_feature,
@@ -6121,6 +6145,7 @@ def _impl(ctx):
             only_doth_headers_in_module_maps_feature,
             default_compile_flags_feature,
             debug_prefix_map_pwd_is_dot_feature,
+            remap_xcode_path_feature,
             generate_dsym_file_feature,
             generate_linkmap_feature,
             oso_prefix_feature,
@@ -6196,6 +6221,7 @@ def _impl(ctx):
             only_doth_headers_in_module_maps_feature,
             default_compile_flags_feature,
             debug_prefix_map_pwd_is_dot_feature,
+            remap_xcode_path_feature,
             generate_dsym_file_feature,
             generate_linkmap_feature,
             oso_prefix_feature,
