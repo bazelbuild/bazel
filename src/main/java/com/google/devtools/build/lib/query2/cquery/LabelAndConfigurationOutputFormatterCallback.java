@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.query2.cquery;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Target;
@@ -46,8 +45,6 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
   @Override
   public void processOutput(Iterable<ConfiguredTarget> partialResult) {
     for (ConfiguredTarget configuredTarget : partialResult) {
-      BuildConfiguration config =
-          skyframeExecutor.getConfiguration(eventHandler, configuredTarget.getConfigurationKey());
       StringBuilder output = new StringBuilder();
       if (showKind) {
         Target actualTarget = accessor.getTargetFromConfiguredTarget(configuredTarget);
@@ -57,7 +54,7 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
           output
               .append(configuredTarget.getOriginalLabel())
               .append(" (")
-              .append(shortId(config))
+              .append(shortId(getConfiguration(configuredTarget.getConfigurationKey())))
               .append(")");
 
       if (options.showRequiredConfigFragments != IncludeConfigFragmentsEnum.OFF) {
