@@ -1495,7 +1495,8 @@ public final class RuleContext extends TargetContext
    */
   @Override
   public final PathFragment getUniqueDirectory(PathFragment fragment) {
-    return AnalysisUtils.getUniqueDirectory(getLabel(), fragment);
+    return AnalysisUtils.getUniqueDirectory(
+        getLabel(), fragment, getConfiguration().isSiblingRepositoryLayout());
   }
 
   /**
