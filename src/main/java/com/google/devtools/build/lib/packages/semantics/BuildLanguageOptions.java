@@ -565,7 +565,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
 
   @Option(
       name = "incompatible_objc_provider_remove_compile_info",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
@@ -729,7 +729,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   public static final String INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM =
       "-incompatible_no_rule_outputs_param";
   public static final String INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO =
-      "-incompatible_objc_provider_remove_compile_info";
+      "+incompatible_objc_provider_remove_compile_info";
   public static final String INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API =
       "-incompatible_require_linker_input_cc_api";
   public static final String INCOMPATIBLE_RESTRICT_STRING_ESCAPES =
