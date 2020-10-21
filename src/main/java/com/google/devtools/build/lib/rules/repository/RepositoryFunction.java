@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
@@ -114,18 +113,9 @@ public abstract class RepositoryFunction {
     public RepositoryFunctionException(EvalException cause, Transience transience) {
       super(cause, transience);
     }
-  }
-  /**
-   * Exception thrown when something a repository rule cannot be found.
-   */
-  public static final class RepositoryNotFoundException extends RepositoryFunctionException {
 
-    public RepositoryNotFoundException(String repositoryName) {
-      super(
-          new BuildFileContainsErrorsException(
-              LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
-              "The repository named '" + repositoryName + "' could not be resolved"),
-          Transience.PERSISTENT);
+    public RepositoryFunctionException(ExternalPackageException e) {
+      super(e.getCause(), e.isTransient() ? Transience.TRANSIENT : Transience.PERSISTENT);
     }
   }
 
@@ -180,7 +170,7 @@ public abstract class RepositoryFunction {
       Environment env,
       Map<String, String> markerData,
       SkyKey key)
-      throws SkyFunctionException, InterruptedException;
+      throws InterruptedException, RepositoryFunctionException;
 
   @SuppressWarnings("unchecked")
   private static Iterable<String> getEnviron(Rule rule) {

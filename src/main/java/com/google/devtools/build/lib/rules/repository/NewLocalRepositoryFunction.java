@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -55,7 +54,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
       Environment env,
       Map<String, String> markerData,
       SkyKey key)
-      throws SkyFunctionException, InterruptedException {
+      throws InterruptedException, RepositoryFunctionException {
 
     NewRepositoryFileHandler fileHandler = new NewRepositoryFileHandler(directories.getWorkspace());
     if (!fileHandler.prepareFile(rule, env)) {
