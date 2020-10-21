@@ -200,12 +200,12 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
 
   @Override
   public void processOutput(Iterable<ConfiguredTarget> partialResult) throws InterruptedException {
-    StarlarkThread thread =
-        new StarlarkThread(Mutability.create("cquery evaluation"), StarlarkSemantics.DEFAULT);
-    thread.setMaxExecutionSteps(500_000L);
-
     for (ConfiguredTarget target : partialResult) {
       try {
+        StarlarkThread thread =
+            new StarlarkThread(Mutability.create("cquery evaluation"), StarlarkSemantics.DEFAULT);
+        thread.setMaxExecutionSteps(500_000L);
+
         // Invoke formatFn with `target` argument.
         Object result = Starlark.fastcall(thread, this.formatFn, new Object[] {target}, NO_ARGS);
 
