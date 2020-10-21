@@ -708,6 +708,24 @@ function test_infer_universe_scope_considers_only_target_patterns() {
   expect_log //c:c
 }
 
+function test_bogus_visibility() {
+  mkdir -p foo bar || fail "Couldn't make directories"
+  cat <<'EOF' > foo/BUILD || fail "Couldn't write BUILD file"
+sh_library(name = 'a', visibility = ['//bad:visibility', '//bar:__pkg__'])
+sh_library(name = 'b', visibility = ['//visibility:public'])
+sh_library(name = 'c', visibility = ['//bad:visibility'])
+EOF
+  touch bar/BUILD || fail "Couldn't write BUILD file"
+  ! bazel query --keep_going --output=label_kind \
+      'visible(//bar:BUILD, //foo:a + //foo:b + //foo:c)' \
+      >& "$TEST_log" || fail "Expected failure"
+  expect_log "no such package 'bad'"
+  expect_log "keep_going specified, ignoring errors. Results may be inaccurate"
+  expect_log "sh_library rule //foo:a"
+  expect_log "sh_library rule //foo:b"
+  expect_not_log "sh_library rule //foo:c"
+}
+
 function test_infer_universe_scope_defers_to_universe_scope_value() {
   # When we have two targets, in two different packages, that do not depend on
   # each other,
