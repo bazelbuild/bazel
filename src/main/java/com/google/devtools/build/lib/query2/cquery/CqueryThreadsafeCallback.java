@@ -28,9 +28,9 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /**
@@ -51,7 +51,7 @@ public abstract class CqueryThreadsafeCallback
   // Skyframe calls incur a performance cost, even on cache hits. Consider this before exposing
   // direct executor access to child classes.
   private final SkyframeExecutor skyframeExecutor;
-  private final Map<BuildConfigurationValue.Key, BuildConfiguration> configCache = new HashMap<>();
+  private final Map<BuildConfigurationValue.Key, BuildConfiguration> configCache = new ConcurrentHashMap<>();
   protected final ConfiguredTargetAccessor accessor;
 
   private final List<String> result = new ArrayList<>();
