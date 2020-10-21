@@ -15,11 +15,23 @@
 package net.starlark.java.eval;
 
 import java.math.BigInteger;
+import net.starlark.java.annot.StarlarkBuiltin;
 
 /** The Starlark int data type. */
-// No StarlarkBuiltin(name="int") annotation because it would cause docgen
-// to complain that two things are called int (the type and the function).
-// TODO(adonovan): fix docgen.
+@StarlarkBuiltin(
+    name = "int",
+    category = "core",
+    doc =
+        "The type of integers in Starlark. Starlark integers may be of any magnitude; arithmetic"
+            + " is exact. Examples of integer expressions:<br>"
+            + "<pre class=\"language-python\">153\n"
+            + "0x2A  # hexadecimal literal\n"
+            + "0o54  # octal literal\n"
+            + "23 * 2 + 5\n"
+            + "100 / -7\n"
+            + "100 % -7  # -5 (unlike in some other languages)\n"
+            + "int(\"18\")\n"
+            + "</pre>")
 public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkInt> {
 
   // A cache of small integers >= LEAST_SMALLINT.

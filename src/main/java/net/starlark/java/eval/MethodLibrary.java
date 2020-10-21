@@ -770,22 +770,6 @@ class MethodLibrary {
     return StarlarkList.copyOf(thread.mutability(), result);
   }
 
-  /** Starlark int type. */
-  @StarlarkBuiltin(
-      name = "int",
-      category = "core",
-      doc =
-          "The type of integers in Starlark. Starlark integers may be of any magnitude; arithmetic"
-              + " is exact. Examples of int values:<br><pre class=\"language-python\">153\n"
-              + "0x2A  # hexadecimal literal\n"
-              + "0o54  # octal literal\n"
-              + "23 * 2 + 5\n"
-              + "100 / -7\n"
-              + "100 % -7  # -5 (unlike in some other languages)\n"
-              + "int(\"18\")\n"
-              + "</pre>")
-  static final class IntModule implements StarlarkValue {} // (documentation only)
-
   /** Starlark bool type. */
   @StarlarkBuiltin(
       name = "bool",
