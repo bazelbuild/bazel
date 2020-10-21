@@ -567,7 +567,7 @@ public class JavaCommon {
     }
   }
 
-  public JavaTargetAttributes.Builder initCommon() throws InterruptedException {
+  public JavaTargetAttributes.Builder initCommon() {
     return initCommon(ImmutableList.of(), getCompatibleJavacOptions());
   }
 
@@ -580,7 +580,7 @@ public class JavaCommon {
    * @return the processed attributes
    */
   public JavaTargetAttributes.Builder initCommon(
-      Collection<Artifact> extraSrcs, Iterable<String> extraJavacOpts) throws InterruptedException {
+      Collection<Artifact> extraSrcs, Iterable<String> extraJavacOpts) {
     Preconditions.checkState(javacOpts == null);
     javacOpts = computeJavacOpts(ImmutableList.copyOf(extraJavacOpts));
     activePlugins = collectPlugins();
