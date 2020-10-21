@@ -522,7 +522,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     Artifact jsa = ruleContext.getImplicitOutputArtifact(JavaSemantics.SHARED_ARCHIVE_ARTIFACT);
     Artifact merged =
         ruleContext.getDerivedArtifact(
-            jsa.getRootRelativePath()
+            jsa.getOutputDirRelativePath(ruleContext.getConfiguration().isSiblingRepositoryLayout())
                 .replaceName(
                     FileSystemUtils.removeExtension(jsa.getRootRelativePath().getBaseName())
                         + "-merged.jar"),

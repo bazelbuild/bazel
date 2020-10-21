@@ -172,12 +172,17 @@ public final class JavaCompilationHelper {
                 deriveOutput(
                     output,
                     FileSystemUtils.appendExtension(
-                        output.getRootRelativePath(), "_manifest_proto")))
+                        output.getOutputDirRelativePath(
+                            getConfiguration().isSiblingRepositoryLayout()),
+                        "_manifest_proto")))
             .nativeHeader(deriveOutput(output, "-native-header"));
     if (generatesOutputDeps()) {
       builder.depsProto(
           deriveOutput(
-              output, FileSystemUtils.replaceExtension(output.getRootRelativePath(), ".jdeps")));
+              output,
+              FileSystemUtils.replaceExtension(
+                  output.getOutputDirRelativePath(getConfiguration().isSiblingRepositoryLayout()),
+                  ".jdeps")));
     }
     if (usesAnnotationProcessing()) {
       builder.genClass(deriveOutput(output, "-gen")).genSource(deriveOutput(output, "-gensrc"));
@@ -238,7 +243,10 @@ public final class JavaCompilationHelper {
           outputs.withOutput(
               ruleContext.getDerivedArtifact(
                   FileSystemUtils.appendWithoutExtension(
-                      outputs.output().getRootRelativePath(), "-class"),
+                      outputs
+                          .output()
+                          .getOutputDirRelativePath(getConfiguration().isSiblingRepositoryLayout()),
+                      "-class"),
                   outputs.output().getRoot()));
       resourceJars.add(outputs.output());
       createResourceJarAction(originalOutput, ImmutableList.copyOf(resourceJars));
@@ -504,7 +512,10 @@ public final class JavaCompilationHelper {
 
   private Artifact deriveOutput(Artifact outputJar, String suffix) {
     return deriveOutput(
-        outputJar, FileSystemUtils.appendWithoutExtension(outputJar.getRootRelativePath(), suffix));
+        outputJar,
+        FileSystemUtils.appendWithoutExtension(
+            outputJar.getOutputDirRelativePath(getConfiguration().isSiblingRepositoryLayout()),
+            suffix));
   }
 
   private Artifact deriveOutput(Artifact outputJar, PathFragment path) {
@@ -842,7 +853,8 @@ public final class JavaCompilationHelper {
    */
   static Artifact derivedArtifact(
       ActionConstructionContext context, Artifact artifact, String prefix, String suffix) {
-    PathFragment path = artifact.getRootRelativePath();
+    PathFragment path =
+        artifact.getOutputDirRelativePath(context.getConfiguration().isSiblingRepositoryLayout());
     String basename = FileSystemUtils.removeExtension(path.getBaseName()) + suffix;
     path = path.replaceName(prefix + basename);
     return context.getDerivedArtifact(path, artifact.getRoot());

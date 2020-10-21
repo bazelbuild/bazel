@@ -508,7 +508,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // then a pdb file will be built along with the executable.
     Artifact pdbFile = null;
     if (featureConfiguration.isEnabled(CppRuleClasses.GENERATE_PDB_FILE)) {
-      pdbFile = ruleContext.getRelatedArtifact(binary.getRootRelativePath(), ".pdb");
+      pdbFile =
+          ruleContext.getRelatedArtifact(
+              binary.getOutputDirRelativePath(
+                  ruleContext.getConfiguration().isSiblingRepositoryLayout()),
+              ".pdb");
     }
 
     NestedSetBuilder<CcLinkingContext.LinkerInput> extraLinkTimeLibrariesNestedSet =
