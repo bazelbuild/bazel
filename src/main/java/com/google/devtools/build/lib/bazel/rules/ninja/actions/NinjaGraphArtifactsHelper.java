@@ -92,7 +92,8 @@ class NinjaGraphArtifactsHelper {
               pathRelativeToWorkingDirectory));
     }
     // If the path was declared as output symlink, create a symlink artifact.
-    if (symlinkOutputs.contains(execPath.relativeTo(outputRootPath))) {
+    // symlink_outputs are always declared as relative to working directory.
+    if (symlinkOutputs.contains(pathRelativeToWorkingDirectory)) {
       return ruleContext
           .getAnalysisEnvironment()
           .getSymlinkArtifact(execPath.relativeTo(outputRootPath), derivedOutputRoot);
@@ -113,7 +114,7 @@ class NinjaGraphArtifactsHelper {
     if (execPath.startsWith(outputRootPath)) {
       // In the output directory, so it is either marked as a symlink_output from Ninja, or
       // it is a derived artifact.
-      if (symlinkOutputs.contains(execPath.relativeTo(outputRootPath))) {
+      if (symlinkOutputs.contains(workingDirectoryPath)) {
         return ruleContext
             .getAnalysisEnvironment()
             .getSymlinkArtifact(execPath.relativeTo(outputRootPath), derivedOutputRoot);
