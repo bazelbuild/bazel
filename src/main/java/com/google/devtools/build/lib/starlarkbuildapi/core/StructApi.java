@@ -63,8 +63,8 @@ public interface StructApi extends StarlarkValue {
               + "#   key: 2\n"
               + "#   value: 1\n"
               + "# }\n"
-              + "</pre>",
-      // TODO(adonovan): CL 338119348 defines proto.encode_text(x) and deprecates this function.
+              + "</pre>"
+              + "<p>Deprecated: use proto.encode_text(x) instead.",
       disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_STRUCT_HAS_NO_METHODS)
   String toProto() throws EvalException;
 

@@ -1060,18 +1060,31 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testTextMessageInvalidElementInListStructure() throws Exception {
-    ev.checkEvalErrorContains(
-        "Invalid text format, expected a struct, a dict, a string, a bool, or "
-            + "an int but got a list for list element in struct field 'a'",
-        "struct(a=[['b']]).to_proto()");
-  }
-
-  @Test
   public void testTextMessageInvalidStructure() throws Exception {
+    // list in list
     ev.checkEvalErrorContains(
-        "Invalid text format, expected a struct, a dict, a string, a bool, or an int "
-            + "but got a function for struct field 'a'",
+        "in struct field .a: at list index 0: got list, want string, int, bool, or struct",
+        "struct(a=[['b']]).to_proto()");
+
+    // dict in list
+    ev.checkEvalErrorContains(
+        "in struct field .a: at list index 0: got dict, want string, int, bool, or struct",
+        "struct(a=[{'b': 1}]).to_proto()");
+
+    // tuple as dict key
+    ev.checkEvalErrorContains(
+        "in struct field .a: invalid dict key: got tuple, want int or string",
+        "struct(a={(1, 2): 3}).to_proto()");
+
+    // dict in dict
+    ev.checkEvalErrorContains(
+        "in struct field .name: in value for dict key \"a\": got dict, want string, int, bool, or"
+            + " struct",
+        "struct(name={'a': {'b': [1, 2]}}).to_proto()");
+
+    // callable in field
+    ev.checkEvalErrorContains(
+        "in struct field .a: got function, want string, int, bool, or struct",
         "struct(a=rule).to_proto()");
   }
 
