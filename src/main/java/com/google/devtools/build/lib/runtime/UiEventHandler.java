@@ -504,7 +504,7 @@ public class UiEventHandler implements EventHandler {
       buildRunning = true;
     }
     maybeAddDate();
-    stateTracker.buildStarted(event);
+    stateTracker.buildStarted();
     // As a new phase started, inform immediately.
     ignoreRefreshLimitOnce();
     refresh();
