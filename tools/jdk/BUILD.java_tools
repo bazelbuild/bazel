@@ -39,23 +39,21 @@ java_toolchain_default(
 RELEASES = (8, 9, 10, 11)
 
 [
-    (
-        java_toolchain_default(
-            name = "toolchain_java%d" % release,
-            java_runtime = "@remotejdk11_PLATFORM//:jdk",
-            javac = [":javac_jar"],
-            jvm_opts = [
-                # override the javac in the JDK.
-                "--patch-module=java.compiler=$(location :java_compiler_jar)",
-                "--patch-module=jdk.compiler=$(location :jdk_compiler_jar)",
-            ] + JDK9_JVM_OPTS,
-            source_version = "%s" % release,
-            target_version = "%s" % release,
-            tools = [
-                ":java_compiler_jar",
-                ":jdk_compiler_jar",
-            ],
-        )
+    java_toolchain_default(
+        name = "toolchain_java%d" % release,
+        java_runtime = "@remotejdk11_PLATFORM//:jdk",
+        javac = [":javac_jar"],
+        jvm_opts = [
+            # override the javac in the JDK.
+            "--patch-module=java.compiler=$(location :java_compiler_jar)",
+            "--patch-module=jdk.compiler=$(location :jdk_compiler_jar)",
+        ] + JDK9_JVM_OPTS,
+        source_version = "%s" % release,
+        target_version = "%s" % release,
+        tools = [
+            ":java_compiler_jar",
+            ":jdk_compiler_jar",
+        ],
     )
     for release in RELEASES
 ]
