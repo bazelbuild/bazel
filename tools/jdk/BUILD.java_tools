@@ -19,6 +19,7 @@ SUPRESSED_WARNINGS = select({
 
 java_toolchain_default(
     name = "toolchain",
+    java_runtime = "@remotejdk11_PLATFORM//:jdk",
     javac = [":javac_jar"],
     jvm_opts = [
         # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
@@ -35,70 +36,13 @@ java_toolchain_default(
     ],
 )
 
-java_toolchain_default(
-    name = "toolchain_hostjdk8",
-    javac = [":javac_jar"],
-    jvm_opts = ["-Xbootclasspath/p:$(location :javac_jar)"],
-    source_version = "8",
-    target_version = "8",
-)
-
-# Default to the Java 8 language level.
-# TODO(cushon): consider if/when we should increment this?
-java_toolchain_default(
-    name = "legacy_toolchain",
-    javac = [":javac_jar"],
-    jvm_opts = [
-        # override the javac in the JDK.
-        "--patch-module=java.compiler=$(location :java_compiler_jar)",
-        "--patch-module=jdk.compiler=$(location :jdk_compiler_jar)",
-    ] + JDK9_JVM_OPTS,
-    source_version = "8",
-    target_version = "8",
-    tools = [
-        ":java_compiler_jar",
-        ":jdk_compiler_jar",
-    ],
-)
-
-# Needed for openbsd / JVM8
-java_toolchain_default(
-    name = "legacy_toolchain_jvm8",
-    javac = [":javac_jar"],
-    jvm_opts = ["-Xbootclasspath/p:$(location :javac_jar)"],
-    source_version = "8",
-    target_version = "8",
-)
-
-# The 'vanilla' toolchain is an unsupported alternative to the default.
-#
-# It does not provide any of the following features:
-#   * Error Prone
-#   * Strict Java Deps
-#   * Header Compilation
-#   * Reduced Classpath Optimization
-#
-# It uses the version of internal javac from the `--host_javabase` JDK instead
-# of providing a javac. Internal javac may not be source- or bug-compatible with
-# the javac that is provided with other toolchains.
-#
-# However it does allow using a wider range of `--host_javabase`s, including
-# versions newer than the current JDK.
-java_toolchain_default(
-    name = "toolchain_vanilla",
-    forcibly_disable_header_compilation = True,
-    javabuilder = [":vanillajavabuilder"],
-    jvm_opts = [],
-    source_version = "",
-    target_version = "",
-)
-
 RELEASES = (8, 9, 10, 11)
 
 [
     (
         java_toolchain_default(
             name = "toolchain_java%d" % release,
+            java_runtime = "@remotejdk11_PLATFORM//:jdk",
             javac = [":javac_jar"],
             jvm_opts = [
                 # override the javac in the JDK.
@@ -111,45 +55,15 @@ RELEASES = (8, 9, 10, 11)
                 ":java_compiler_jar",
                 ":jdk_compiler_jar",
             ],
-        ),
-        # Needed for openbsd / JVM8
-        java_toolchain_default(
-            name = "toolchain_java%d_jvm8" % release,
-            javac = [":javac_jar"],
-            jvm_opts = [
-                "-Xbootclasspath/p:$(location :javac_jar)",
-            ],
-            source_version = "%s" % release,
-            target_version = "%s" % release,
-        ),
+        )
     )
     for release in RELEASES
 ]
 
-# A toolchain that targets java 11.
-java_toolchain_default(
-    name = "toolchain_jdk_11",
-    javac = [":javac_jar"],
-    jvm_opts = [
-        # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
-        # G1 collector and having compact strings enabled.
-        "-XX:+UseParallelOldGC",
-        "-XX:-CompactStrings",
-        # override the javac in the JDK.
-        "--patch-module=java.compiler=$(location :java_compiler_jar)",
-        "--patch-module=jdk.compiler=$(location :jdk_compiler_jar)",
-    ] + JDK9_JVM_OPTS,
-    source_version = "11",
-    target_version = "11",
-    tools = [
-        ":java_compiler_jar",
-        ":jdk_compiler_jar",
-    ],
-)
-
 # A toolchain that targets java 14.
 java_toolchain_default(
     name = "toolchain_jdk_14",
+    java_runtime = "@remotejdk14_PLATFORM//:jdk",
     source_version = "14",
     target_version = "14",
 )
@@ -157,6 +71,7 @@ java_toolchain_default(
 # A toolchain that targets java 15.
 java_toolchain_default(
     name = "toolchain_jdk_15",
+    java_runtime = "@remotejdk15_PLATFORM//:jdk",
     source_version = "15",
     target_version = "15",
 )
@@ -169,6 +84,7 @@ java_toolchain_default(
 java_toolchain_default(
     name = "prebuilt_toolchain",
     ijar = [":ijar_prebuilt_binary"],
+    java_runtime = "@remotejdk11_PLATFORM//:jdk",
     javac = [":javac_jar"],
     jvm_opts = [
         # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
