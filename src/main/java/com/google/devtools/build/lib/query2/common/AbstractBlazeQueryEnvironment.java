@@ -250,10 +250,10 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
       if (detailedExitCode != null) {
         throw new QueryException(expression, message, detailedExitCode.getFailureDetail());
       }
+      logger.atWarning().atMostEvery(1, MINUTES).log(
+          "Null detailed exit code for %s %s", message, expression);
       throw new QueryException(expression, message, Query.Code.BUILD_FILE_ERROR);
     }
-    logger.atWarning().atMostEvery(1, MINUTES).log(
-        "Null detailed exit code for %s %s", message, expression);
     eventHandler.handle(createErrorEvent(expression, message, detailedExitCode));
   }
 
