@@ -646,12 +646,12 @@ _PLATFORM = select({
 })
 
 [
-    # The java_tools releases can have BUILD files that vary depending on the
-    # javac version they embed. Currently the only difference is in the
-    # java_toolchain source version which has to be 14 for javac 14 to be able
-    # to build new Java 14 features. This is not used atm, as the toolchain for
-    # javac 14 was duplicated, but it might be used in future Bazel releases to
-    # support new javac release, so that we preserve this step for now.
+    # Currently a single release of java_tools contains java_toolchains for
+    # Java 8 to 11 (using remote_jdk11 with patched javac), and Java 14 and 15
+    # (using corresponding remote_jdk). All toolchains use JavaBuilder.
+    # The java_tools are released for three platforms: linux, macos and
+    # windows. Each release is bound to the remote_jdks for the corresponding
+    # platform.
     genrule(
         name = "create_java_tools_build_java" + java_version,
         srcs = ["//tools/jdk:BUILD.java_tools"],
