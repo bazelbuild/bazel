@@ -1012,7 +1012,7 @@ public final class StarlarkEvaluationTest {
   @Test
   public void testJavaCallsNoMethodErrorMsg() throws Exception {
     ev.new Scenario()
-        .testIfExactError("'int' value has no field or method 'bad'", "s = 3.bad('a', 'b', 'c')");
+        .testIfExactError("'int' value has no field or method 'bad'", "s = (3).bad('a', 'b', 'c')");
   }
 
   @Test
@@ -1163,7 +1163,7 @@ public final class StarlarkEvaluationTest {
   @Test
   public void testNoJavaCallsWithoutStarlark() throws Exception {
     ev.new Scenario()
-        .testIfExactError("'int' value has no field or method 'to_string'", "s = 3.to_string()");
+        .testIfExactError("'int' value has no field or method 'to_string'", "s = (3).to_string()");
   }
 
   @Test

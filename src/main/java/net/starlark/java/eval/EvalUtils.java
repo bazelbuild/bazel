@@ -14,7 +14,6 @@
 package net.starlark.java.eval;
 
 import com.google.common.base.Strings;
-import com.google.common.collect.Ordering;
 import java.util.IllegalFormatException;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.TokenKind;
@@ -23,77 +22,6 @@ import net.starlark.java.syntax.TokenKind;
 final class EvalUtils {
 
   private EvalUtils() {}
-
-  /**
-   * The exception that STARLARK_COMPARATOR might throw. This is an unchecked exception because
-   * Comparator doesn't let us declare exceptions. It should normally be caught and wrapped in an
-   * EvalException.
-   */
-  static class ComparisonException extends RuntimeException {
-    ComparisonException(String msg) {
-      super(msg);
-    }
-  }
-
-  /**
-   * Compare two Starlark values.
-   *
-   * <p>It may throw an unchecked exception ComparisonException that should be wrapped in an
-   * EvalException.
-   */
-  // TODO(adonovan): consider what API to expose around comparison and ordering. Java's three-valued
-  // comparator cannot properly handle weakly or partially ordered values such as IEEE754 floats.
-  static final Ordering<Object> STARLARK_COMPARATOR =
-      new Ordering<Object>() {
-        private int compareLists(Sequence<?> o1, Sequence<?> o2) {
-          if (o1 instanceof RangeList || o2 instanceof RangeList) {
-            // RangeLists don't support ordered comparison, only equality.
-            throw new ComparisonException("Cannot compare range objects");
-          }
-
-          for (int i = 0; i < Math.min(o1.size(), o2.size()); i++) {
-            int cmp = compare(o1.get(i), o2.get(i));
-            if (cmp != 0) {
-              return cmp;
-            }
-          }
-          return Integer.compare(o1.size(), o2.size());
-        }
-
-        @Override
-        @SuppressWarnings("unchecked")
-        public int compare(Object o1, Object o2) {
-
-          // optimize the most common cases
-
-          if (o1 instanceof String && o2 instanceof String) {
-            return ((String) o1).compareTo((String) o2);
-          }
-          if (o1 instanceof StarlarkInt && o2 instanceof StarlarkInt) {
-            // int <=> int
-            return StarlarkInt.compare((StarlarkInt) o1, (StarlarkInt) o2);
-          }
-
-          o1 = Starlark.fromJava(o1, null);
-          o2 = Starlark.fromJava(o2, null);
-
-          if (o1 instanceof Sequence
-              && o2 instanceof Sequence
-              && o1 instanceof Tuple == o2 instanceof Tuple) {
-            return compareLists((Sequence) o1, (Sequence) o2);
-          }
-
-          if (o1 instanceof ClassObject) {
-            throw new ComparisonException("Cannot compare structs");
-          }
-          try {
-            return ((Comparable<Object>) o1).compareTo(o2);
-          } catch (ClassCastException e) {
-            throw new ComparisonException(
-                "Cannot compare " + Starlark.type(o1) + " with " + Starlark.type(o2));
-          }
-        }
-      };
 
   static void addIterator(Object x) {
     if (x instanceof Mutability.Freezable) {
@@ -350,12 +278,12 @@ final class EvalUtils {
         "unsupported binary operation: %s %s %s", Starlark.type(x), op, Starlark.type(y));
   }
 
-  /** Implements comparison operators. */
+  // Defines the behavior of the language's ordered comparison operators (< <= => >).
   private static int compare(Object x, Object y) throws EvalException {
     try {
-      return STARLARK_COMPARATOR.compare(x, y);
-    } catch (ComparisonException e) {
-      throw new EvalException(e);
+      return Starlark.compareUnchecked(x, y);
+    } catch (ClassCastException ex) {
+      throw new EvalException(ex.getMessage());
     }
   }
 

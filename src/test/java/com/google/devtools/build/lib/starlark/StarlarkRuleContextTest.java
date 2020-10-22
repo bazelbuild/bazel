@@ -2042,7 +2042,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     Object argvUnchecked = ev.eval("action.argv");
     assertThat(argvUnchecked).isInstanceOf(StarlarkList.class);
     StarlarkList<?> argv = (StarlarkList) argvUnchecked;
-    assertThat(argv).hasSize(3);
+    assertThat((List<?>) argv).hasSize(3);
     assertThat(argv.isImmutable()).isTrue();
     Object result = ev.eval("action.argv[2].startswith('echo foo123')");
     assertThat((Boolean) result).isTrue();

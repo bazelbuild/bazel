@@ -45,7 +45,7 @@ import net.starlark.java.syntax.Location;
             + "['a', 'b', 'c', 'd'][3:0:-1]  # ['d', 'c', 'b']</pre>"
             + "Lists are mutable, as in Python.")
 public final class StarlarkList<E> extends AbstractList<E>
-    implements Sequence<E>, StarlarkValue, Mutability.Freezable {
+    implements Sequence<E>, StarlarkValue, Mutability.Freezable, Comparable<StarlarkList<?>> {
 
   // The implementation strategy is similar to ArrayList,
   // but without the extra indirection of using ArrayList.
@@ -174,6 +174,11 @@ public final class StarlarkList<E> extends AbstractList<E>
     System.arraycopy(x.elems, 0, res, 0, x.size);
     System.arraycopy(y.elems, 0, res, x.size, y.size);
     return wrap(mutability, res);
+  }
+
+  @Override
+  public int compareTo(StarlarkList<?> that) {
+    return Sequence.compare(this, that);
   }
 
   @Override

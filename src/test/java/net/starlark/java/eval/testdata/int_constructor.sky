@@ -89,8 +89,10 @@ int(1, 2) ### can't convert non-string with explicit base
 # This case is allowed in Python but not Skylark
 int() ### missing 1 required positional argument: x
 ---
-# Surrounding whitespace is not allowed
-int('  42  ') ### invalid base-10 literal: "  42  "
+# Unlike Python, leading and trailing whitespace is not allowed. Use int(s.strip()).
+int(' 1') ### invalid base-10 literal: " 1"
+---
+int('1 ') ### invalid base-10 literal: "1 "
 ---
 int('-') ### invalid base-10 literal: "-"
 ---

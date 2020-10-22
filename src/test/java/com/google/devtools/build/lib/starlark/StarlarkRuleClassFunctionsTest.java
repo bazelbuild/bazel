@@ -1224,10 +1224,14 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testStructIncomparability() throws Exception {
-    ev.checkEvalErrorContains("Cannot compare structs", "struct(a = 1) < struct(a = 2)");
-    ev.checkEvalErrorContains("Cannot compare structs", "struct(a = 1) > struct(a = 2)");
-    ev.checkEvalErrorContains("Cannot compare structs", "struct(a = 1) <= struct(a = 2)");
-    ev.checkEvalErrorContains("Cannot compare structs", "struct(a = 1) >= struct(a = 2)");
+    ev.checkEvalErrorContains(
+        "unsupported comparison: struct <=> struct", "struct(a = 1) < struct(a = 2)");
+    ev.checkEvalErrorContains(
+        "unsupported comparison: struct <=> struct", "struct(a = 1) > struct(a = 2)");
+    ev.checkEvalErrorContains(
+        "unsupported comparison: struct <=> struct", "struct(a = 1) <= struct(a = 2)");
+    ev.checkEvalErrorContains(
+        "unsupported comparison: struct <=> struct", "struct(a = 1) >= struct(a = 2)");
   }
 
   @Test

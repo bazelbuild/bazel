@@ -516,7 +516,7 @@ final class Eval {
       }
       if (dict.size() == before) {
         fr.setErrorLocation(entry.getColonLocation());
-        throw Starlark.errorf("Duplicated key %s when creating dictionary", Starlark.repr(k));
+        throw Starlark.errorf("dictionary expression has duplicate key: %s", Starlark.repr(k));
       }
     }
     return dict;

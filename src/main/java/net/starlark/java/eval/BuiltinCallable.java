@@ -31,6 +31,7 @@ import net.starlark.java.spelling.SpellChecker;
  * StarlarkMethod#structField} is true.
  */
 // TODO(adonovan): rename AnnotatedMethod?
+// TODO(adonovan): annotate with type="builtin_function_or_method"
 public final class BuiltinCallable implements StarlarkCallable {
 
   private final Object obj;

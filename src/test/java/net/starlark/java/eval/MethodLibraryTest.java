@@ -286,7 +286,8 @@ public final class MethodLibraryTest {
         .testEval("sorted([3, 2, 1, 0], reverse=True)", "[3, 2, 1, 0]")
         .testEval("sorted([[1], [], [1, 2]], key=len, reverse=True)", "[[1, 2], [1], []]")
         .testEval("sorted([[0, 5], [4, 1], [1, 7]], key=max)", "[[4, 1], [0, 5], [1, 7]]")
-        .testIfExactError("Cannot compare function with function", "sorted([sorted, sorted])");
+        .testIfExactError(
+            "unsupported comparison: function <=> function", "sorted([sorted, sorted])");
   }
 
   @Test
@@ -544,8 +545,8 @@ public final class MethodLibraryTest {
         .testExpression("str(range(5)[1::-1])", "range(1, -1, -1)")
         .testIfErrorContains("step cannot be 0", "range(2, 3, 0)")
         .testIfErrorContains("unsupported binary operation: range * int", "range(3) * 3")
-        .testIfErrorContains("Cannot compare range objects", "range(3) < range(5)")
-        .testIfErrorContains("Cannot compare range objects", "range(4) > [1]")
+        .testIfErrorContains("unsupported comparison: range <=> range", "range(3) < range(5)")
+        .testIfErrorContains("unsupported comparison: range <=> list", "range(4) > [1]")
         .testExpression("4 in range(1, 10)", true)
         .testExpression("4 in range(1, 3)", false)
         .testExpression("4 in range(0, 8, 2)", true)
@@ -737,7 +738,6 @@ public final class MethodLibraryTest {
   public void testTupleCoercion() throws Exception {
     ev.new Scenario()
         .testExpression("tuple([1, 2]) == (1, 2)", true)
-        // Depends on current implementation of dict
         .testExpression("tuple({1: 'foo', 2: 'bar'}) == (1, 2)", true);
   }
 

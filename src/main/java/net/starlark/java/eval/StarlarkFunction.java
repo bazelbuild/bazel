@@ -28,6 +28,7 @@ import net.starlark.java.syntax.Statement;
 import net.starlark.java.syntax.StringLiteral;
 
 /** A StarlarkFunction is a function value created by a Starlark {@code def} statement. */
+// TODO(adonovan): annotate with type="function"
 public final class StarlarkFunction implements StarlarkCallable {
 
   private final Resolver.Function rfn;

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Ordering;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.errorprone.annotations.FormatMethod;
 import java.io.IOException;
@@ -307,13 +308,26 @@ public final class Starlark {
       return "unbound";
     }
 
+    // Abstract types, often used as parameter types.
+    // Note == not isAssignableFrom: we don't want any
+    // concrete types to inherit these names.
+    if (c == StarlarkIterable.class) {
+      return "iterable";
+    } else if (c == Sequence.class) {
+      return "sequence";
+    } else if (c == StarlarkCallable.class) {
+      return "callable";
+    }
+
     StarlarkBuiltin module = StarlarkAnnotations.getStarlarkBuiltin(c);
     if (module != null) {
       return module.name();
+    }
 
-    } else if (StarlarkCallable.class.isAssignableFrom(c)) {
+    if (StarlarkCallable.class.isAssignableFrom(c)) {
       // All callable values have historically been lumped together as "function".
-      // TODO(adonovan): built-in types that don't use StarlarkModule should report
+      // TODO(adonovan): eliminate this case.
+      // Built-in types that don't use StarlarkModule should report
       // their own type string, but this is a breaking change as users often
       // use type(x)=="function" for Starlark and built-in functions.
       return "function";
@@ -342,6 +356,54 @@ public final class Starlark {
       String simpleName = c.getSimpleName();
       return simpleName.isEmpty() ? c.getName() : simpleName;
     }
+  }
+
+  /**
+   * The ordering relation over (some) Starlark values.
+   *
+   * <p>Starlark values are ordered as follows.
+   *
+   * <ul>
+   *   <li>{@code False < True}.
+   *   <li>int values are ordered according to mathematical tradition.
+   *   <li>Strings are ordered lexicographically by their elements (chars). So too are lists and
+   *       tuples, though lists are not comparable with tuples.
+   *   <li>If x implements Comparable, its {@code compareTo(y)} method may be called to determine
+   *       the comparison if x and y have the same Starlark type, though not necessary the same Java
+   *       class.
+   *   <li>Ordered comparison of any other values is an error (ClassCastException).
+   * </ul>
+   *
+   * <p>This method defines a strict weak ordering that is consistent with {@link Object#equals}.
+   */
+  public static final Ordering<Object> ORDERING =
+      new Ordering<Object>() {
+        @Override
+        public int compare(Object x, Object y) {
+          return compareUnchecked(x, y);
+        }
+      };
+
+  /**
+   * Defines the strict weak ordering of Starlark values used for sorting and the comparison
+   * operators. Throws ClassCastException on failure.
+   */
+  static int compareUnchecked(Object x, Object y) {
+    if (sameType(x, y)) {
+      // Ordered? e.g. string, int, bool.
+      if (x instanceof Comparable) {
+        @SuppressWarnings("unchecked")
+        Comparable<Object> xcomp = (Comparable<Object>) x;
+        return xcomp.compareTo(y);
+      }
+    }
+
+    throw new ClassCastException(
+        String.format("unsupported comparison: %s <=> %s", Starlark.type(x), Starlark.type(y)));
+  }
+
+  private static boolean sameType(Object x, Object y) {
+    return x.getClass() == y.getClass() || Starlark.type(x).equals(Starlark.type(y));
   }
 
   /** Returns the string form of a value as if by the Starlark expression {@code str(x)}. */

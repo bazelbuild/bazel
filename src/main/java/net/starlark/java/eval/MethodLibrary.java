@@ -15,14 +15,12 @@
 package net.starlark.java.eval;
 
 import com.google.common.base.Ascii;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
@@ -41,16 +39,13 @@ class MethodLibrary {
       doc =
           "Returns the smallest one of all given arguments. "
               + "If only one argument is provided, it must be a non-empty iterable. "
-              + "It is an error if elements are not comparable (for example int with string). "
+              + "It is an error if elements are not comparable (for example int with string), "
+              + "or if no arguments are given. "
               + "<pre class=\"language-python\">min(2, 5, 4) == 2\n"
               + "min([5, 6, 3]) == 3</pre>",
       extraPositionals = @Param(name = "args", doc = "The elements to be checked."))
   public Object min(Sequence<?> args) throws EvalException {
-    try {
-      return findExtreme(args, EvalUtils.STARLARK_COMPARATOR.reverse());
-    } catch (EvalUtils.ComparisonException e) {
-      throw new EvalException(e);
-    }
+    return findExtreme(args, Starlark.ORDERING.reverse());
   }
 
   @StarlarkMethod(
@@ -58,16 +53,13 @@ class MethodLibrary {
       doc =
           "Returns the largest one of all given arguments. "
               + "If only one argument is provided, it must be a non-empty iterable."
-              + "It is an error if elements are not comparable (for example int with string). "
+              + "It is an error if elements are not comparable (for example int with string), "
+              + "or if no arguments are given. "
               + "<pre class=\"language-python\">max(2, 5, 4) == 5\n"
               + "max([5, 6, 3]) == 6</pre>",
       extraPositionals = @Param(name = "args", doc = "The elements to be checked."))
   public Object max(Sequence<?> args) throws EvalException {
-    try {
-      return findExtreme(args, EvalUtils.STARLARK_COMPARATOR);
-    } catch (EvalUtils.ComparisonException e) {
-      throw new EvalException(e);
-    }
+    return findExtreme(args, Starlark.ORDERING);
   }
 
   /** Returns the maximum element from this list, as determined by maxOrdering. */
@@ -75,9 +67,11 @@ class MethodLibrary {
       throws EvalException {
     // Args can either be a list of items to compare, or a singleton list whose element is an
     // iterable of items to compare. In either case, there must be at least one item to compare.
+    Iterable<?> items = (args.size() == 1) ? Starlark.toIterable(args.get(0)) : args;
     try {
-      Iterable<?> items = (args.size() == 1) ? Starlark.toIterable(args.get(0)) : args;
       return maxOrdering.max(items);
+    } catch (ClassCastException ex) {
+      throw new EvalException(ex.getMessage()); // e.g. unsupported comparison: int <=> string
     } catch (NoSuchElementException ex) {
       throw new EvalException("expected at least one item", ex);
     }
@@ -120,9 +114,12 @@ class MethodLibrary {
   @StarlarkMethod(
       name = "sorted",
       doc =
-          "Sort a collection. Elements should all belong to the same orderable type, they are "
-              + "sorted by their value (in ascending order). "
-              + "It is an error if elements are not comparable (for example int with string)."
+          "Returns a new sorted list containing all the elements of the supplied iterable"
+              + " sequence. An error may occur if any pair of elements x, y may not be compared"
+              + " using x < y. The elements are sorted into ascending order, unless the reverse"
+              + " argument is True, in which case the order is descending.\n"
+              + " Sorting is stable: elements that compare equal retain their original relative"
+              + " order.\n"
               + "<pre class=\"language-python\">sorted([3, 5, 4]) == [3, 4, 5]</pre>",
       parameters = {
         @Param(name = "iterable", doc = "The iterable sequence to sort."),
@@ -141,75 +138,79 @@ class MethodLibrary {
       },
       useStarlarkThread = true)
   public StarlarkList<?> sorted(
-      Object iterable, final Object key, Boolean reverse, final StarlarkThread thread)
+      StarlarkIterable<?> iterable, Object key, boolean reverse, StarlarkThread thread)
       throws EvalException, InterruptedException {
     Object[] array = Starlark.toArray(iterable);
+    Comparator<Object> order = reverse ? Starlark.ORDERING.reversed() : Starlark.ORDERING;
+
+    // no key?
     if (key == Starlark.NONE) {
       try {
-        Arrays.sort(array, EvalUtils.STARLARK_COMPARATOR);
-      } catch (EvalUtils.ComparisonException e) {
-        throw Starlark.errorf("%s", e.getMessage());
+        Arrays.sort(array, order);
+      } catch (ClassCastException ex) {
+        throw Starlark.errorf("%s", ex.getMessage());
       }
-    } else if (key instanceof StarlarkCallable) {
-      final StarlarkCallable keyfn = (StarlarkCallable) key;
+      return StarlarkList.wrap(thread.mutability(), array);
+    }
 
-      class KeyComparator implements Comparator<Object> {
-        Exception e;
+    // The user provided a key function.
+    // We must call it exactly once per element, in order,
+    // so use the decorate/sort/undecorate pattern.
+    if (!(key instanceof StarlarkCallable)) {
+      throw Starlark.errorf("for key, got %s, want callable", Starlark.type(key));
+    }
+    StarlarkCallable keyfn = (StarlarkCallable) key;
 
-        @Override
-        public int compare(Object x, Object y) {
-          try {
-            x = callKeyFunc(x);
-            y = callKeyFunc(y);
-          } catch (InterruptedException | EvalException e) {
-            if (this.e == null) {
-              this.e = e;
-            }
-            return 0; // may cause Arrays.sort to fail; see below
+    // decorate
+    Object[] empty = {};
+    for (int i = 0; i < array.length; i++) {
+      Object v = array[i];
+      Object k = Starlark.fastcall(thread, keyfn, new Object[] {v}, empty);
+      array[i] = new Object[] {k, v};
+    }
+
+    class KeyComparator implements Comparator<Object> {
+      EvalException e;
+
+      @Override
+      public int compare(Object x, Object y) {
+        Object xkey = ((Object[]) x)[0];
+        Object ykey = ((Object[]) y)[0];
+        try {
+          return order.compare(xkey, ykey);
+        } catch (ClassCastException e) {
+          if (this.e == null) {
+            this.e = new EvalException(e.getMessage());
           }
-          return EvalUtils.STARLARK_COMPARATOR.compare(x, y); // throws ComparisonException
-        }
-
-        Object callKeyFunc(Object x) throws EvalException, InterruptedException {
-          return Starlark.call(thread, keyfn, Collections.singletonList(x), ImmutableMap.of());
+          return 0; // may cause Arrays.sort to fail; see below
         }
       }
-
-      KeyComparator comp = new KeyComparator();
-      try {
-        Arrays.sort(array, comp);
-      } catch (EvalUtils.ComparisonException e) {
-        throw Starlark.errorf("%s", e.getMessage());
-      } catch (IllegalArgumentException ex) {
-        // Arrays.sort failed because comp violated the Comparator contract.
-
-        if (comp.e == null) {
-          // There was no exception from callKeyFunc.
-          // The instability must be due to
-          // - an impure (e.g. time-varying) key function, or
-          // - STARLARK_COMPARATOR not being a total order for these values.
-          // Report an evaluation error.
-          throw Starlark.errorf("sort: unstable comparison (inconsistent key function?)");
-        }
-
-        // The key function encountered an evaluation error
-        // or thread interrupt, causing the comparison to
-        // spuriously return 0.
-        // Fall through, and propagate the error.
-      }
-
-      // Sort completed, possibly with deferred errors.
-      if (comp.e != null) {
-        Throwables.throwIfInstanceOf(comp.e, InterruptedException.class);
-        throw (EvalException) comp.e;
-      }
-    } else {
-      throw Starlark.errorf("%s object is not callable", Starlark.repr(Starlark.type(key)));
     }
 
-    if (reverse) {
-      reverse(array);
+    // sort
+    KeyComparator comp = new KeyComparator();
+    try {
+      Arrays.sort(array, comp);
+    } catch (IllegalArgumentException unused) {
+      // Arrays.sort failed because comp violated the Comparator contract.
+      if (comp.e == null) {
+        // There was no exception from order.compare.
+        // Likely the application defined a Comparable type whose
+        // compareTo is not a strict weak order.
+        throw new IllegalStateException("sort: element ordering is not self-consistent");
+      }
     }
+
+    // Sort completed, possibly with deferred errors.
+    if (comp.e != null) {
+      throw comp.e;
+    }
+
+    // undecorate
+    for (int i = 0; i < array.length; i++) {
+      array[i] = ((Object[]) array[i])[1];
+    }
+
     return StarlarkList.wrap(thread.mutability(), array);
   }
 
@@ -245,7 +246,7 @@ class MethodLibrary {
               + "tuple((2, 3, 2)) == (2, 3, 2)\n"
               + "tuple({5: \"a\", 2: \"b\", 4: \"c\"}) == (5, 2, 4)</pre>",
       parameters = {@Param(name = "x", defaultValue = "()", doc = "The object to convert.")})
-  public Tuple<?> tuple(Object x) throws EvalException {
+  public Tuple<?> tuple(StarlarkIterable<?> x) throws EvalException {
     if (x instanceof Tuple) {
       return (Tuple<?>) x;
     }
@@ -261,7 +262,7 @@ class MethodLibrary {
               + "list({5: \"a\", 2: \"b\", 4: \"c\"}) == [5, 2, 4]</pre>",
       parameters = {@Param(name = "x", defaultValue = "[]", doc = "The object to convert.")},
       useStarlarkThread = true)
-  public StarlarkList<?> list(Object x, StarlarkThread thread) throws EvalException {
+  public StarlarkList<?> list(StarlarkIterable<?> x, StarlarkThread thread) throws EvalException {
     return StarlarkList.wrap(thread.mutability(), Starlark.toArray(x));
   }
 
@@ -322,9 +323,9 @@ class MethodLibrary {
       doc =
           "Returns x as an int value."
               + "<ul>"
-              + "<li>If <code>x</code> is already an int, it is returned as-is."
-              + "<li>If <code>x</code> is a boolean, a true value returns 1 and a false value "
-              + "    returns 0."
+              + "<li>If <code>x</code> is already an int, <code>int</code> returns it unchanged." //
+              + "<li>If <code>x</code> is a bool, <code>int</code> returns 1 for True and 0 for"
+              + " False." //
               + "<li>If <code>x</code> is a string, it must have the format "
               + "    <code>&lt;sign&gt;&lt;prefix&gt;&lt;digits&gt;</code>. "
               + "    <code>&lt;sign&gt;</code> is either <code>\"+\"</code>, <code>\"-\"</code>, "
@@ -340,21 +341,19 @@ class MethodLibrary {
               + "    <code>base</code> is 0, no prefix is used, and there is more than one digit, "
               + "    the leading digit cannot be 0; this is to avoid confusion between octal and "
               + "    decimal. The magnitude of the number represented by the string must be within "
-              + "    the allowed range for the int type."
-              + "</ul>"
+              + "    the allowed range for the int type." //
+              + "</ul>" //
               + "This function fails if <code>x</code> is any other type, or if the value is a "
-              + "string not satisfying the above format. Unlike Python's <code>int()</code> "
-              + "function, this function does not allow zero arguments, and does not allow "
-              + "extraneous whitespace for string arguments."
-              + "<p>Examples:"
-              + "<pre class=\"language-python\">"
-              + "int(\"123\") == 123\n"
+              + "string not satisfying the above format. Unlike Python's <code>int</code> "
+              + "function, this function does not allow zero arguments, and does "
+              + "not allow extraneous whitespace for string arguments.<p>" //
+              + "Examples:<pre class=\"language-python\">int(\"123\") == 123\n"
               + "int(\"-123\") == -123\n"
               + "int(\"+123\") == 123\n"
               + "int(\"FF\", 16) == 255\n"
               + "int(\"0xFF\", 16) == 255\n"
               + "int(\"10\", 0) == 10\n"
-              + "int(\"-0x10\", 0) == -16"
+              + "int(\"-0x10\", 0) == -16\n"
               + "</pre>",
       parameters = {
         @Param(name = "x", doc = "The string to convert."),
@@ -441,14 +440,10 @@ class MethodLibrary {
     StarlarkInt result;
     try {
       result = StarlarkInt.of(Long.parseLong(digits, base));
-    } catch (
-        @SuppressWarnings("UnusedException")
-        NumberFormatException unused1) {
+    } catch (NumberFormatException unused1) {
       try {
         result = StarlarkInt.of(new BigInteger(digits, base));
-      } catch (
-          @SuppressWarnings("UnusedException")
-          NumberFormatException unused2) {
+      } catch (NumberFormatException unused2) {
         throw new NumberFormatException(
             String.format("invalid base-%d literal: %s", base, Starlark.repr(stringForErrors)));
       }

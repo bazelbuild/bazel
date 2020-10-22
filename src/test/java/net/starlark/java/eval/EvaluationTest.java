@@ -462,7 +462,7 @@ public final class EvaluationTest {
   public void testDictWithDuplicatedKey() throws Exception {
     ev.new Scenario()
         .testIfErrorContains(
-            "Duplicated key \"str\" when creating dictionary", "{'str': 1, 'x': 2, 'str': 3}");
+            "dictionary expression has duplicate key: \"str\"", "{'str': 1, 'x': 2, 'str': 3}");
   }
 
   @Test
