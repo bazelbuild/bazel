@@ -1082,7 +1082,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
               name,
               purpose,
               compilationPrerequisites.build(),
-              configuration.getMiddlemanDirectory(label.getPackageIdentifier().getRepository()));
+              configuration.getMiddlemanDirectory(label.getRepository()));
       return NestedSetBuilder.create(Order.STABLE_ORDER, prerequisiteStampFile);
     }
   }

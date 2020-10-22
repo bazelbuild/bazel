@@ -525,8 +525,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     assertThat(conflict).isNotNull();
     ArtifactRoot root =
         getTargetConfiguration()
-            .getBinDirectory(
-                conflict.getConfiguredTarget().getLabel().getPackageIdentifier().getRepository());
+            .getBinDirectory(conflict.getConfiguredTarget().getLabel().getRepository());
 
     Action oldAction =
         getGeneratingAction(

@@ -263,7 +263,7 @@ public abstract class RepositoryFunction {
   public static RootedPath getRootedPathFromLabel(Label label, Environment env)
       throws InterruptedException, EvalException {
     // Look for package.
-    if (label.getPackageIdentifier().getRepository().isDefault()) {
+    if (label.getRepository().isDefault()) {
       try {
         label = Label.create(label.getPackageIdentifier().makeAbsolute(), label.getName());
       } catch (LabelSyntaxException e) {

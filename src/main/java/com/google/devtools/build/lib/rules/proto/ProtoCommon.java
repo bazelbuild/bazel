@@ -444,7 +444,6 @@ public class ProtoCommon {
       String contextProtoSourceRoot =
           ruleContext
               .getLabel()
-              .getPackageIdentifier()
               .getRepository()
               .getExecPath(ruleContext.getConfiguration().isSiblingRepositoryLayout())
               .getPathString();

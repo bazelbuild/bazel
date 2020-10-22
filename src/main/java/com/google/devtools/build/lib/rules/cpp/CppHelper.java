@@ -485,7 +485,7 @@ public class CppHelper {
       PathFragment name) {
     Artifact result =
         actionConstructionContext.getPackageRelativeArtifact(
-            name, config.getBinDirectory(label.getPackageIdentifier().getRepository()));
+            name, config.getBinDirectory(label.getRepository()));
 
     // If the linked artifact is not the linux default, then a FailAction is generated for said
     // linux default to satisfy the requirements of any implicit outputs.
@@ -525,7 +525,7 @@ public class CppHelper {
     }
 
     return actionConstructionContext.getPackageRelativeArtifact(
-        name, config.getBinDirectory(label.getPackageIdentifier().getRepository()));
+        name, config.getBinDirectory(label.getRepository()));
   }
 
   /**
@@ -576,7 +576,7 @@ public class CppHelper {
                 label.getName()
                     + suffix
                     + Iterables.getOnlyElement(CppFileTypes.CPP_MODULE_MAP.getExtensions())),
-            configuration.getGenfilesDirectory(label.getPackageIdentifier().getRepository()));
+            configuration.getGenfilesDirectory(label.getRepository()));
     return new CppModuleMap(mapFile, label.toString());
   }
 
@@ -781,8 +781,7 @@ public class CppHelper {
       BuildConfiguration config) {
     PathFragment objectDir = getObjDirectory(label, config.isSiblingRepositoryLayout());
     return actionConstructionContext.getDerivedArtifact(
-        objectDir.getRelative(outputName),
-        config.getBinDirectory(label.getPackageIdentifier().getRepository()));
+        objectDir.getRelative(outputName), config.getBinDirectory(label.getRepository()));
   }
 
   /** Returns the corresponding compiled TreeArtifact given the source TreeArtifact. */

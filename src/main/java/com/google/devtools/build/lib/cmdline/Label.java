@@ -341,6 +341,10 @@ public final class Label
     return packageIdentifier;
   }
 
+  public RepositoryName getRepository() {
+    return packageIdentifier.getRepository();
+  }
+
   /**
    * Returns the name of the package in which this rule was declared (e.g. {@code
    * //file/base:fileutils_test} returns {@code file/base}).

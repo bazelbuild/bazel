@@ -775,7 +775,6 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .getRelative(
             ruleContext
                 .getLabel()
-                .getPackageIdentifier()
                 .getRepository()
                 .getExecPath(ruleContext.getConfiguration().isSiblingRepositoryLayout()));
   }

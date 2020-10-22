@@ -113,7 +113,6 @@ public abstract class JavaHelper {
     PathFragment repoExecPath =
         ruleContext
             .getLabel()
-            .getPackageIdentifier()
             .getRepository()
             .getExecPath(siblingRepositoryLayout);
     if (!repoExecPath.isEmpty() && resourcePath.startsWith(repoExecPath)) {

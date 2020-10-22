@@ -316,36 +316,36 @@ public final class RuleContext extends TargetContext
 
   @Override
   public ArtifactRoot getBinDirectory() {
-    return getConfiguration().getBinDirectory(rule.getRepository());
+    return getConfiguration().getBinDirectory(getLabel().getRepository());
   }
 
   public ArtifactRoot getIncludeDirectory() {
-    return getConfiguration().getIncludeDirectory(rule.getRepository());
+    return getConfiguration().getIncludeDirectory(getLabel().getRepository());
   }
 
   public ArtifactRoot getGenfilesDirectory() {
-    return getConfiguration().getGenfilesDirectory(rule.getRepository());
+    return getConfiguration().getGenfilesDirectory(getLabel().getRepository());
   }
 
   public ArtifactRoot getCoverageMetadataDirectory() {
-    return getConfiguration().getCoverageMetadataDirectory(rule.getRepository());
+    return getConfiguration().getCoverageMetadataDirectory(getLabel().getRepository());
   }
 
   public ArtifactRoot getTestLogsDirectory() {
-    return getConfiguration().getTestLogsDirectory(rule.getRepository());
+    return getConfiguration().getTestLogsDirectory(getLabel().getRepository());
   }
 
   public PathFragment getBinFragment() {
-    return getConfiguration().getBinFragment(rule.getRepository());
+    return getConfiguration().getBinFragment(getLabel().getRepository());
   }
 
   public PathFragment getGenfilesFragment() {
-    return getConfiguration().getGenfilesFragment(rule.getRepository());
+    return getConfiguration().getGenfilesFragment(getLabel().getRepository());
   }
 
   @Override
   public ArtifactRoot getMiddlemanDirectory() {
-    return getConfiguration().getMiddlemanDirectory(rule.getRepository());
+    return getConfiguration().getMiddlemanDirectory(getLabel().getRepository());
   }
 
   public Rule getRule() {
@@ -748,8 +748,8 @@ public final class RuleContext extends TargetContext
   @Override
   public ArtifactRoot getBinOrGenfilesDirectory() {
     return rule.hasBinaryOutput()
-        ? getConfiguration().getBinDirectory(rule.getRepository())
-        : getConfiguration().getGenfilesDirectory(rule.getRepository());
+        ? getConfiguration().getBinDirectory(getLabel().getRepository())
+        : getConfiguration().getGenfilesDirectory(getLabel().getRepository());
   }
 
   /**
@@ -762,7 +762,7 @@ public final class RuleContext extends TargetContext
 
   public Artifact getBinArtifact(PathFragment relative) {
     return getPackageRelativeArtifact(
-        relative, getConfiguration().getBinDirectory(rule.getRepository()));
+        relative, getConfiguration().getBinDirectory(getLabel().getRepository()));
   }
 
   /**
@@ -775,7 +775,7 @@ public final class RuleContext extends TargetContext
 
   public Artifact getGenfilesArtifact(PathFragment relative) {
     return getPackageRelativeArtifact(
-        relative, getConfiguration().getGenfilesDirectory(rule.getRepository()));
+        relative, getConfiguration().getGenfilesDirectory(getLabel().getRepository()));
   }
 
   @Override
@@ -1641,7 +1641,7 @@ public final class RuleContext extends TargetContext
   public final Artifact.DerivedArtifact getRelatedArtifact(
       PathFragment pathFragment, String extension) {
     PathFragment file = FileSystemUtils.replaceExtension(pathFragment, extension);
-    return getDerivedArtifact(file, getConfiguration().getBinDirectory(rule.getRepository()));
+    return getDerivedArtifact(file, getConfiguration().getBinDirectory(getLabel().getRepository()));
   }
 
   /**

@@ -507,8 +507,7 @@ public class BzlLoadFunction implements SkyFunction {
 
     // Do package lookup.
     PathFragment dir = Label.getContainingDirectory(label);
-    PackageIdentifier dirId =
-        PackageIdentifier.create(label.getPackageIdentifier().getRepository(), dir);
+    PackageIdentifier dirId = PackageIdentifier.create(label.getRepository(), dir);
     ContainingPackageLookupValue packageLookup;
     try {
       packageLookup =
@@ -672,8 +671,7 @@ public class BzlLoadFunction implements SkyFunction {
         repositoryMapping =
             workspaceFileValue
                 .getRepositoryMapping()
-                .getOrDefault(
-                    enclosingFileLabel.getPackageIdentifier().getRepository(), ImmutableMap.of());
+                .getOrDefault(enclosingFileLabel.getRepository(), ImmutableMap.of());
       }
     } else {
       // We are fully done with workspace evaluation so we should get the mappings from the

@@ -988,7 +988,7 @@ public final class CcCompilationHelper {
     // before the genfilesFragment to preferably pick up source files. Otherwise
     // we might pick up stale generated files.
     boolean siblingRepositoryLayout = configuration.isSiblingRepositoryLayout();
-    RepositoryName repositoryName = label.getPackageIdentifier().getRepository();
+    RepositoryName repositoryName = label.getRepository();
     PathFragment repositoryPath = repositoryName.getExecPath(siblingRepositoryLayout);
     ccCompilationContextBuilder.addQuoteIncludeDir(repositoryPath);
     ccCompilationContextBuilder.addQuoteIncludeDir(

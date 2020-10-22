@@ -1505,8 +1505,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       AspectParameters params) {
     return getPackageRelativeDerivedArtifact(
         packageRelativePath,
-        getConfiguration(owner)
-            .getGenfilesDirectory(owner.getLabel().getPackageIdentifier().getRepository()),
+        getConfiguration(owner).getGenfilesDirectory(owner.getLabel().getRepository()),
         getOwnerForAspect(owner, creatingAspectFactory, params));
   }
 
@@ -1550,8 +1549,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * "foo.h".
    */
   protected Artifact getIncludeArtifact(String packageRelativePath, ArtifactOwner owner) {
-    return getPackageRelativeDerivedArtifact(packageRelativePath,
-        targetConfig.getIncludeDirectory(owner.getLabel().getPackageIdentifier().getRepository()),
+    return getPackageRelativeDerivedArtifact(
+        packageRelativePath,
+        targetConfig.getIncludeDirectory(owner.getLabel().getRepository()),
         owner);
   }
 
