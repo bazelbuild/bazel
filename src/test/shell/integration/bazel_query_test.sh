@@ -497,7 +497,7 @@ EOF
   expect_log "//foo:foo"
 }
 
-test_location_output_source_files() {
+function test_location_output_source_files() {
   rm -rf foo
   mkdir -p foo
   cat > foo/BUILD <<EOF
@@ -514,38 +514,41 @@ EOF
     --output=location \
     --incompatible_display_source_file_location \
     '//foo:main.py' >& $TEST_log || fail "Expected success"
-  expect_log "source file ${TEST_TMPDIR}/.*/foo/main.py:1:1"
-  expect_not_log "source file //foo:main.py"
+  expect_log "source file //foo:main.py"
+  expect_log "^${TEST_TMPDIR}/.*/foo/main.py:1:1"
+  expect_not_log "^${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
 
-  # Default behavior overridden by noincompatible_display_source_file_location
-  # flag to display the source file target instead
+  # The noincompatible_display_source_file_location flag displays its location
+  # in the BUILD file
   bazel query \
     --output=location \
     --noincompatible_display_source_file_location \
     '//foo:main.py' >& $TEST_log || fail "Expected success"
   expect_log "source file //foo:main.py"
-  expect_not_log "source file ${TEST_TMPDIR}/.*/foo/main.py:1:1"
+  expect_log "^${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
+  expect_not_log "^${TEST_TMPDIR}/.*/foo/main.py:1:1"
 
-  # Adding relative_locations flag should modify default behavior and
-  # make location of source file be relative
+  # The incompatible_display_source_file_location should still be affected by
+  # relative_locations flag to display the relative location of the source file
   bazel query \
     --output=location \
     --relative_locations \
     --incompatible_display_source_file_location \
     '//foo:main.py' >& $TEST_log || fail "Expected success"
-  expect_log "source file foo/main.py:1:1"
-  expect_not_log "source file ${TEST_TMPDIR}/.*/foo/main.py:1:1"
+  expect_log "source file //foo:main.py"
+  expect_log "^foo/main.py:1:1"
+  expect_not_log "^${TEST_TMPDIR}/.*/foo/main.py:1:1"
 
-  # Adding noincompatible_display_source_file_location flag should still
-  # override default behaviour regardless of relative_locations to
-  # display the source file target
+  # The noincompatible_display_source_file_location flag should still be
+  # affected by relative_locations flag to display the relative location of
+  # the BUILD file.
   bazel query --output=location \
     --relative_locations \
     --noincompatible_display_source_file_location \
     '//foo:main.py' >& $TEST_log || fail "Expected success"
   expect_log "source file //foo:main.py"
-  expect_not_log "source file foo/main.py:1:1"
-  expect_not_log "source file ${TEST_TMPDIR}/.*/foo/main.py:1:1"
+  expect_log "^foo/BUILD:[0-9]*:[0-9]*"
+  expect_not_log "^${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
 }
 
 function test_subdirectory_named_external() {

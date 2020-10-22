@@ -83,11 +83,11 @@ class LocationOutputFormatter extends AbstractUnorderedFormatter {
         final String lineTerm = options.getLineTerminator();
         for (Target target : partialResult) {
           writer
-              .append(FormatUtils.getLocation(target, relativeLocations))
+              .append(FormatUtils.getLocation(target, relativeLocations, displaySourceFileLocation))
               .append(": ")
               .append(target.getTargetKind())
               .append(" ")
-              .append(FormatUtils.getLabel(target, displaySourceFileLocation, relativeLocations))
+              .append(target.getLabel().getDefaultCanonicalForm())
               .append(lineTerm);
         }
       }
