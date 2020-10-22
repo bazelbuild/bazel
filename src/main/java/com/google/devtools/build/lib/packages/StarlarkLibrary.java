@@ -61,7 +61,7 @@ public final class StarlarkLibrary {
   private static ImmutableMap<String, Object> initCommon() {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     Starlark.addMethods(env, new CommonLibrary());
-    Starlark.addModule(env, Json.INSTANCE);
+    env.put("json", Json.INSTANCE);
     return env.build();
   }
 

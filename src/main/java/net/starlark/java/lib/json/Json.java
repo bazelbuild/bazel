@@ -45,7 +45,10 @@ public final class Json implements StarlarkValue {
 
   private Json() {}
 
-  /** Call {@code Starlark.addModule(env, Json.INSTANCE)} to add json to the environment. */
+  /**
+   * The module instance. You may wish to add this to your predeclared environment under the name
+   * "json".
+   */
   public static final Json INSTANCE = new Json();
 
   /** An interface for StarlarkValue subclasses to define their own JSON encoding. */

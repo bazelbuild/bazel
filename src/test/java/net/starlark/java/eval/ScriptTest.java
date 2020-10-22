@@ -155,7 +155,7 @@ public final class ScriptTest {
         ParserInput input = ParserInput.fromString(buf.toString(), file.toString());
         ImmutableMap.Builder<String, Object> predeclared = ImmutableMap.builder();
         Starlark.addMethods(predeclared, new ScriptTest()); // e.g. assert_eq
-        Starlark.addModule(predeclared, Json.INSTANCE); // json
+        predeclared.put("json", Json.INSTANCE);
 
         StarlarkSemantics semantics = StarlarkSemantics.DEFAULT;
         Module module = Module.withPredeclared(semantics, predeclared.build());

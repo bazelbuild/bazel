@@ -735,19 +735,6 @@ public final class Starlark {
   }
 
   /**
-   * Adds to the environment {@code env} the value {@code v}, under its annotated name. The class of
-   * {@code v} must have or inherit a {@link StarlarkBuiltin} annotation.
-   */
-  public static void addModule(ImmutableMap.Builder<String, Object> env, Object v) {
-    Class<?> cls = v.getClass();
-    StarlarkBuiltin annot = StarlarkAnnotations.getStarlarkBuiltin(cls);
-    if (annot == null) {
-      throw new IllegalArgumentException(cls.getName() + " is not annotated with @StarlarkBuiltin");
-    }
-    env.put(annot.name(), v);
-  }
-
-  /**
    * Parses the input as a file, resolves it in the specified module environment, compiles it, and
    * executes it in the specified thread. On success it returns None, unless the file's final
    * statement is an expression, in which case its value is returned.

@@ -38,8 +38,8 @@ public final class StarlarkModules {
     predeclared.putAll(StarlarkLibrary.COMMON); // e.g. select, depset
     Starlark.addMethods(predeclared, new BazelBuildApiGlobals()); // e.g. configuration_field
     Starlark.addMethods(predeclared, new StarlarkRuleClassFunctions()); // e.g. rule
-    Starlark.addModule(predeclared, new StarlarkCommandLine()); // cmd_helper module
-    Starlark.addModule(predeclared, new StarlarkAttrModule()); // attr module
+    predeclared.put("cmd_helper", new StarlarkCommandLine());
+    predeclared.put("attr", new StarlarkAttrModule());
     predeclared.put("struct", StructProvider.STRUCT);
     predeclared.put("OutputGroupInfo", OutputGroupInfo.STARLARK_CONSTRUCTOR);
     predeclared.put("Actions", ActionsProvider.INSTANCE);
