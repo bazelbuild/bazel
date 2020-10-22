@@ -975,10 +975,6 @@ http_archive(
 #        "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.32.0.tar.gz",
         "https://github.com/grpc/grpc/archive/v1.32.0.tar.gz",
     ],
-    sha256 = "2fcb7f1ab160d6fd3aaade64520be3e5446fc4c6fa7ba6581afdc4e26094bd81",
-    patches = ["//third_party/grpc:grpc_1.26.0.patch"],
-    patch_args = ["-p1"],
-    strip_prefix = "grpc-1.26.0",
 )
 
 # Projects using gRPC as an external dependency must call both grpc_deps() and
