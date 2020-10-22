@@ -53,8 +53,8 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
   // TODO(#11954): We want BUILD- and WORKSPACE-loaded bzl files to have the exact same environment.
   // In the meantime these two tests help avoid regressions.
 
-  // This property is important for ASTFileLookupFunction, which relies on the symbol names in the
-  // env matching even if the symbols themselves differ.
+  // This property is important for BzlCompileFunction, which relies on the symbol names in the env
+  // matching even if the symbols themselves differ.
   @Test
   public void buildAndWorkspaceBzlEnvsDeclareSameNames() throws Exception {
     Set<String> buildBzlNames = pkgFactory.getUninjectedBuildBzlEnv().keySet();
