@@ -463,9 +463,10 @@ public class LabelTest {
   @Test
   public void testGetWorkspaceRoot() throws Exception {
     Label label = Label.parseAbsolute("//bar/baz", ImmutableMap.of());
-    assertThat(label.getWorkspaceRoot(StarlarkSemantics.DEFAULT)).isEmpty();
+    assertThat(label.getWorkspaceRootForStarlarkOnly(StarlarkSemantics.DEFAULT)).isEmpty();
     label = Label.parseAbsolute("@repo//bar/baz", ImmutableMap.of());
-    assertThat(label.getWorkspaceRoot(StarlarkSemantics.DEFAULT)).isEqualTo("external/repo");
+    assertThat(label.getWorkspaceRootForStarlarkOnly(StarlarkSemantics.DEFAULT))
+        .isEqualTo("external/repo");
   }
 
   @Test
