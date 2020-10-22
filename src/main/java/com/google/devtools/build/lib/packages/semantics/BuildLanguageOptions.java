@@ -551,7 +551,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
 
   @Option(
       name = "incompatible_linkopts_to_linklibs",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
       metadataTags = {
@@ -721,7 +721,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   public static final String INCOMPATIBLE_JAVA_COMMON_PARAMETERS =
       "-incompatible_java_common_parameters";
   public static final String INCOMPATIBLE_LINKOPTS_TO_LINKLIBS =
-      "-incompatible_linkopts_to_linklibs";
+      "+incompatible_linkopts_to_linklibs";
   public static final String INCOMPATIBLE_NEW_ACTIONS_API = "+incompatible_new_actions_api";
   public static final String INCOMPATIBLE_NO_ATTR_LICENSE = "+incompatible_no_attr_license";
   public static final String INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT =

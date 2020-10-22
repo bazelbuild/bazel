@@ -1069,7 +1069,7 @@ EOF
 
   expect_log "$object_file$stdcpp$lm"
 
-  bazel build //foo \
+  bazel build --noincompatible_linkopts_to_linklibs //foo \
     || fail "Build failed but should have succeeded"
   tr -d '\n' < bazel-bin/foo/libfoo.so-2.params > "$TEST_log"
 
