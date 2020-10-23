@@ -258,6 +258,7 @@ export CLASSLOADER_PREFIX_PATH="${RUNPATH}"
 %set_jacoco_metadata%
 %set_jacoco_main_class%
 %set_jacoco_java_runfiles_root%
+export JACOCO_IS_JAR_WRAPPED=0
 
 if [[ -n "$JVM_DEBUG_PORT" ]]; then
   JVM_DEBUG_SUSPEND=${DEFAULT_JVM_DEBUG_SUSPEND:-"y"}
@@ -359,6 +360,7 @@ if [ -z "$CLASSPATH_LIMIT" ]; then
 fi
 
 if (("${#CLASSPATH}" > ${CLASSPATH_LIMIT})); then
+  export JACOCO_IS_JAR_WRAPPED=1
   create_and_run_classpath_jar
 else
   exec $JAVABIN -classpath $CLASSPATH "${ARGS[@]}"
