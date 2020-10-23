@@ -117,6 +117,7 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectIsUnaryOption(options, "install_base");
   ExpectIsUnaryOption(options, "invocation_policy");
   ExpectIsUnaryOption(options, "io_nice_level");
+  ExpectIsUnaryOption(options, "local_startup_timeout_secs");
   ExpectIsUnaryOption(options, "macos_qos_class");
   ExpectIsUnaryOption(options, "max_idle_secs");
   ExpectIsUnaryOption(options, "output_base");
