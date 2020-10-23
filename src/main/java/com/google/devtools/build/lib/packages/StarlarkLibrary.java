@@ -40,6 +40,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFloat;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
@@ -90,8 +91,8 @@ public final class StarlarkLibrary {
         name = "encode_text",
         doc =
             "Returns the struct argument's encoding as a text-format protocol message.\n"
-                + "The data structure must be recursively composed of strings, ints, or bools,or"
-                + " structs, sequences, and dicts of these types.\n"
+                + "The data structure must be recursively composed of strings, ints, floats, or"
+                + " bools, or structs, sequences, and dicts of these types.\n"
                 + "<p>A struct is converted to a message. Fields are emitted in name order.\n"
                 + "<p>A sequence (such as a list or tuple) is converted to a repeated field.\n"
                 + "Its elements must not be sequences or dicts.\n"
@@ -209,7 +210,7 @@ public final class StarlarkLibrary {
       }
 
       // Emits field (name, v) as a message field, or one element of a repeated field.
-      // v must be an int, string, bool, or ClassObject.
+      // v must be an int, float, string, bool, or ClassObject.
       private void fieldElement(String name, Object v) throws EvalException {
         if (v instanceof ClassObject) {
           emitLine(name, " {");
@@ -226,7 +227,7 @@ public final class StarlarkLibrary {
               s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n"),
               "\"");
 
-        } else if (v instanceof StarlarkInt || v instanceof Boolean) {
+        } else if (v instanceof StarlarkInt || v instanceof StarlarkFloat || v instanceof Boolean) {
           emitLine(name, ": ", v.toString());
 
         } else {
