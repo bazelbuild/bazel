@@ -69,22 +69,24 @@ import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
-/** An experimental new output stream. */
-public class UiEventHandler implements EventHandler {
+/** Presents events to the user in the terminal. */
+public final class UiEventHandler implements EventHandler {
+
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   /** Latest refresh of the progress bar, if contents other than time changed */
-  static final long MAXIMAL_UPDATE_DELAY_MILLIS = 200L;
+  private static final long MAXIMAL_UPDATE_DELAY_MILLIS = 200L;
   /** Minimal rate limiting (in ms), if the progress bar cannot be updated in place */
-  static final long NO_CURSES_MINIMAL_PROGRESS_RATE_LIMIT = 1000L;
+  private static final long NO_CURSES_MINIMAL_PROGRESS_RATE_LIMIT = 1000L;
   /**
    * Minimal rate limiting, as fraction of the request time so far, if the progress bar cannot be
    * updated in place
    */
-  static final double NO_CURSES_MINIMAL_RELATIVE_PROGRESS_RATE_LMIT = 0.15;
+  private static final double NO_CURSES_MINIMAL_RELATIVE_PROGRESS_RATE_LMIT = 0.15;
   /** Periodic update interval of a time-dependent progress bar if it can be updated in place */
-  static final long SHORT_REFRESH_MILLIS = 1000L;
+  private static final long SHORT_REFRESH_MILLIS = 1000L;
   /** Periodic update interval of a time-dependent progress bar if it cannot be updated in place */
-  static final long LONG_REFRESH_MILLIS = 20000L;
+  private static final long LONG_REFRESH_MILLIS = 20000L;
 
   private static final DateTimeFormatter TIMESTAMP_FORMAT =
       DateTimeFormatter.ofPattern("(HH:mm:ss) ");
@@ -118,12 +120,12 @@ public class UiEventHandler implements EventHandler {
   private ByteArrayOutputStream stderrLineBuffer;
 
   private final int maxStdoutErrBytes;
-  public final int terminalWidth;
+  private final int terminalWidth;
 
   /**
    * An output stream that wraps another output stream and that fully buffers writes until flushed.
    */
-  private static class FullyBufferedOutputStream extends ByteArrayOutputStream {
+  private static final class FullyBufferedOutputStream extends ByteArrayOutputStream {
     /** The (possibly unbuffered) stream wrapped by this one. */
     private final OutputStream wrapped;
 
@@ -235,7 +237,6 @@ public class UiEventHandler implements EventHandler {
     dateShown = true;
     handle(
         Event.info(
-            null,
             "Current date is "
                 + DATE_FORMAT.format(
                     Instant.ofEpochMilli(clock.currentTimeMillis())
@@ -305,9 +306,10 @@ public class UiEventHandler implements EventHandler {
                 stream,
                 event.getKind(),
                 event.getMessageBytes(),
-                /* readdProgressBar= */ showProgress && cursorControl);
+                /*addBackProgressBar=*/ showProgress && cursorControl);
           }
           break;
+        case FATAL:
         case ERROR:
         case FAIL:
         case WARNING:
@@ -366,12 +368,12 @@ public class UiEventHandler implements EventHandler {
         terminal.flush();
         if (stderr != null) {
           writeToStream(
-              outErr.getErrorStream(), EventKind.STDERR, stderr, /* readdProgressBar= */ false);
+              outErr.getErrorStream(), EventKind.STDERR, stderr, /*addBackProgressBar=*/ false);
           outErr.getErrorStream().flush();
         }
         if (stdout != null) {
           writeToStream(
-              outErr.getOutputStream(), EventKind.STDOUT, stdout, /* readdProgressBar= */ false);
+              outErr.getOutputStream(), EventKind.STDOUT, stdout, /*addBackProgressBar=*/ false);
           outErr.getOutputStream().flush();
         }
         if (showProgress && cursorControl) {
@@ -439,14 +441,23 @@ public class UiEventHandler implements EventHandler {
             || event.getKind() == EventKind.PASS
             || event.getKind() == EventKind.TIMEOUT
             || event.getKind() == EventKind.DEPCHECKER)) {
-      // Keep this in sync with the list of no-op event kinds in actuallyHandle above.
+      // Keep this in sync with the list of no-op event kinds in handleLocked above.
       return;
     }
+
+    // Ensure that default progress messages are not displayed after a FATAL event.
+    if (event.getKind() == EventKind.FATAL) {
+      synchronized (this) {
+        buildRunning = false;
+      }
+      stopUpdateThread();
+    }
+
     handleInternal(event);
   }
 
   private void writeToStream(
-      OutputStream stream, EventKind eventKind, byte[] message, boolean readdProgressBar)
+      OutputStream stream, EventKind eventKind, byte[] message, boolean addBackProgressBar)
       throws IOException {
     int eolIndex = Bytes.lastIndexOf(message, (byte) '\n');
     ByteArrayOutputStream outLineBuffer =
@@ -467,7 +478,7 @@ public class UiEventHandler implements EventHandler {
     stream.flush();
 
     outLineBuffer.write(message, eolIndex + 1, message.length - eolIndex - 1);
-    if (readdProgressBar) {
+    if (addBackProgressBar) {
       addProgressBar();
       terminal.flush();
     }
@@ -475,6 +486,7 @@ public class UiEventHandler implements EventHandler {
 
   private void setEventKindColor(EventKind kind) throws IOException {
     switch (kind) {
+      case FATAL:
       case ERROR:
       case FAIL:
         terminal.setTextColor(Color.RED);
@@ -704,7 +716,7 @@ public class UiEventHandler implements EventHandler {
    * Return true, if the test summary provides information that is both worth being shown in the
    * scroll-back buffer and new with respect to the alreay shown failure messages.
    */
-  private boolean testSummaryProvidesNewInformation(TestSummary summary) {
+  private static boolean testSummaryProvidesNewInformation(TestSummary summary) {
     ImmutableSet<BlazeTestStatus> statusToIgnore =
         ImmutableSet.of(
             BlazeTestStatus.PASSED,
@@ -715,10 +727,7 @@ public class UiEventHandler implements EventHandler {
     if (statusToIgnore.contains(summary.getStatus())) {
       return false;
     }
-    if (summary.getStatus() == BlazeTestStatus.FAILED && summary.getFailedLogs().size() == 1) {
-      return false;
-    }
-    return true;
+    return summary.getStatus() != BlazeTestStatus.FAILED || summary.getFailedLogs().size() != 1;
   }
 
   @Subscribe
@@ -731,7 +740,7 @@ public class UiEventHandler implements EventHandler {
         crlf();
         setEventKindColor(
             summary.getStatus() == BlazeTestStatus.FLAKY ? EventKind.WARNING : EventKind.ERROR);
-        terminal.writeString("" + summary.getStatus() + ": ");
+        terminal.writeString(summary.getStatus() + ": ");
         terminal.resetTerminal();
         terminal.writeString(summary.getLabel().toString());
         terminal.writeString(" (Summary)");
@@ -775,10 +784,8 @@ public class UiEventHandler implements EventHandler {
       stopUpdateThread();
       flushStdOutStdErrBuffers();
       ignoreRefreshLimitOnce();
-      refresh();
-    } else {
-      refresh();
     }
+    refresh();
   }
 
   private void refresh() {
@@ -884,7 +891,7 @@ public class UiEventHandler implements EventHandler {
                         && mustRefreshAfterMillis < clock.currentTimeMillis()) {
                       progressBarNeedsRefresh = true;
                     }
-                    eventHandler.doRefresh(/* fromUpdateThread= */ true);
+                    eventHandler.doRefresh(/*fromUpdateThread=*/ true);
                   }
                 } catch (InterruptedException e) {
                   // Ignore
@@ -942,7 +949,7 @@ public class UiEventHandler implements EventHandler {
           TIMESTAMP_FORMAT.format(
               Instant.ofEpochMilli(clock.currentTimeMillis()).atZone(ZoneId.systemDefault()));
     }
-    stateTracker.writeProgressBar(terminalWriter, /* shortVersion=*/ !cursorControl, timestamp);
+    stateTracker.writeProgressBar(terminalWriter, /*shortVersion=*/ !cursorControl, timestamp);
     terminalWriter.newline();
     numLinesProgressBar = countingTerminalWriter.getWrittenLines();
     if (progressInTermTitle) {

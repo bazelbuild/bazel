@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -68,7 +67,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
-/** An experimental state tracker for the new experimental UI. */
+/** Tracks state for the UI. */
 final class UiStateTracker {
 
   enum ProgressMode {
@@ -152,7 +151,7 @@ final class UiStateTracker {
       while (bitmap != 0) {
         int id = bitmap & mask;
         if (id != 0) {
-          String name = checkNotNull(strategyNames.get(id), "Unknown strategy with id " + id);
+          String name = checkNotNull(strategyNames.get(id), "Unknown strategy with id %s", id);
           builder.append(name);
           bitmap &= ~mask;
           if (bitmap != 0) {
@@ -505,8 +504,7 @@ final class UiStateTracker {
   void actionCompletion(ActionScanningCompletedEvent event) {
     Action action = event.getAction();
     Artifact actionId = action.getPrimaryOutput();
-    checkState(activeActions.containsKey(actionId));
-    activeActions.remove(actionId);
+    checkNotNull(activeActions.remove(actionId), "%s not active after %s", actionId, event);
 
     // As callers to the experimental state tracker assume we will fully report the new state once
     // informed of an action completion, we need to make sure the progress receiver is aware of the
@@ -521,7 +519,7 @@ final class UiStateTracker {
     Action action = event.getAction();
     Artifact actionId = action.getPrimaryOutput();
 
-    checkNotNull(activeActions.remove(actionId), "%s %s", actionId, event);
+    checkNotNull(activeActions.remove(actionId), "%s not active after %s", actionId, event);
 
     if (action.getOwner() != null) {
       Label owner = action.getOwner().getLabel();
