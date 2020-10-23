@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.rules.java.JavaRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaStarlarkApiProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Exports;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
@@ -108,7 +107,6 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
             .advertiseProvider(JavaProtoLibraryAspectProvider.class)
             .advertiseProvider(
                 ImmutableList.of(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey())))
-            .advertiseProvider(ImmutableList.of(JavaStarlarkApiProvider.STARLARK_NAME))
             .add(
                 attr(JavaProtoAspectCommon.LITE_PROTO_TOOLCHAIN_ATTR, LABEL)
                     .mandatoryNativeProviders(
@@ -217,9 +215,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
       aspect.addNativeDeclaredProvider(
           createCcLinkingInfo(ruleContext, aspectCommon.getProtoRuntimeDeps()));
 
-      JavaStarlarkApiProvider starlarkApiProvider = JavaStarlarkApiProvider.fromRuleContext();
       aspect
-          .addStarlarkTransitiveInfo(JavaStarlarkApiProvider.NAME, starlarkApiProvider)
           .addNativeDeclaredProvider(javaInfo.build())
           .addProvider(
               new JavaProtoLibraryAspectProvider(

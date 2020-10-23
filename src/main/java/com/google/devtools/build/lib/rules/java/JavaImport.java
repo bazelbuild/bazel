@@ -152,8 +152,6 @@ public class JavaImport implements RuleConfiguredTargetFactory {
 
     return ruleBuilder
         .setFilesToBuild(filesToBuild)
-        .addStarlarkTransitiveInfo(
-            JavaStarlarkApiProvider.NAME, JavaStarlarkApiProvider.fromRuleContext())
         .addNativeDeclaredProvider(javaInfo)
         .add(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .addNativeDeclaredProvider(new JavaNativeLibraryInfo(transitiveJavaNativeLibraries))

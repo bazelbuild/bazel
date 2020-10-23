@@ -93,7 +93,6 @@ when building your Java projects:
 
 *  Providers:
 
-   *  [`java`](skylark/lib/JavaStarlarkApiProvider.html)
    *  [`JavaInfo`](skylark/lib/JavaInfo.html)
 
 ## Configuring the JDK
