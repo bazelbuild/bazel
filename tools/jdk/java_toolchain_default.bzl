@@ -16,6 +16,7 @@
 
 _DEFAULT_JAVACOPTS = [
     "-XDskipDuplicateBridges=true",
+    "-XDcompilePolicy=simple",
     "-g",
     "-parameters",
 ]
