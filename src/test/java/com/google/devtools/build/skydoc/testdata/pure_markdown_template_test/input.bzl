@@ -9,13 +9,13 @@ def example_function(foo, bar = "bar"):
 
             For example, it does things that require **multiple paragraphs** to explain.
 
-           Note: we should preserve the nested indent in the following code:
+            Note: we should preserve the nested indent in the following code:
 
-           ```json
-           {
-               "key": "value"
-           }
-           ```
+            ```json
+            {
+                "key": "value"
+            }
+            ```
     """
     pass
 
