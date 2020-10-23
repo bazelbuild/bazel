@@ -20,14 +20,13 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.android.AndroidCommon;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidDataContext;
 import com.google.devtools.build.lib.rules.android.AndroidResources;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -135,7 +134,8 @@ public final class DataBinding {
         .getRelative(ruleContext.getUniqueDirectory("databinding"));
   }
 
-  static Artifact getLayoutInfoFile(ActionConstructionContext actionConstructionContext) {
+  @VisibleForTesting
+  public static Artifact getLayoutInfoFile(ActionConstructionContext actionConstructionContext) {
     return actionConstructionContext.getUniqueDirectoryArtifact("databinding", "layout-info.zip");
   }
 
@@ -176,8 +176,7 @@ public final class DataBinding {
     ImmutableList.Builder<Artifact> dataBindingMetadataOutputs = ImmutableList.builder();
     if (ruleContext.attributes().has(attr, BuildType.LABEL_LIST)) {
       for (UsesDataBindingProvider provider :
-          ruleContext.getPrerequisites(
-              attr, RuleConfiguredTarget.Mode.TARGET, UsesDataBindingProvider.PROVIDER)) {
+          ruleContext.getPrerequisites(attr, UsesDataBindingProvider.PROVIDER)) {
         dataBindingMetadataOutputs.addAll(provider.getMetadataOutputs());
       }
     }

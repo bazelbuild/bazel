@@ -16,14 +16,14 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Runnables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
@@ -34,14 +34,22 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.util.TestAction;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.PrintingEventHandler;
+import com.google.devtools.build.lib.server.FailureDetails.Crash;
+import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -59,7 +67,6 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Logger;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -73,7 +80,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ParallelBuilderTest extends TimestampBuilderTestCase {
 
-  private static final Logger logger = Logger.getLogger(ParallelBuilderTest.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   protected ActionCache cache;
 
@@ -87,6 +94,11 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
   @SafeVarargs
   protected static <T> Set<T> asSet(T... elements) {
     return Sets.newHashSet(elements);
+  }
+
+  @SafeVarargs
+  protected static <T> NestedSet<T> asNestedSet(T... elements) {
+    return NestedSetBuilder.create(Order.STABLE_ORDER, elements);
   }
 
   protected void buildArtifacts(Artifact... artifacts) throws Exception {
@@ -141,7 +153,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
             fail("ParallelBuilderTest: foo: waiting for bar: timed out");
           }
         };
-    registerAction(new TestAction(makeFoo, Artifact.NO_ARTIFACTS, ImmutableList.of(foo)));
+    registerAction(new TestAction(makeFoo, emptyNestedSet, ImmutableSet.of(foo)));
 
     // [action] -> bar
     Artifact bar = createDerivedArtifact("bar");
@@ -163,7 +175,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
             fail("ParallelBuilderTest: bar: waiting for foo: timed out");
           }
         };
-    registerAction(new TestAction(makeBar, Artifact.NO_ARTIFACTS, ImmutableList.of(bar)));
+    registerAction(new TestAction(makeBar, emptyNestedSet, ImmutableSet.of(bar)));
 
     buildArtifacts(builder, foo, bar);
   }
@@ -187,7 +199,9 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     ActionEventRecorder recorder = new ActionEventRecorder();
     eventBus.register(recorder);
 
-    Action action = registerAction(new TestAction(Runnables.doNothing(), emptySet, asSet(pear)));
+    Action action =
+        registerAction(
+            new TestAction(Runnables.doNothing(), emptyNestedSet, ImmutableSet.of(pear)));
 
     buildArtifacts(createBuilder(DEFAULT_NUM_JOBS, true), pear);
     assertThat(recorder.actionExecutedEvents).hasSize(1);
@@ -213,11 +227,11 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
             throw new IOException("building 'foo' is supposed to fail");
           }
         };
-    registerAction(new TestAction(makeFoo, Artifact.NO_ARTIFACTS, ImmutableList.of(foo)));
+    registerAction(new TestAction(makeFoo, emptyNestedSet, ImmutableSet.of(foo)));
 
     // [action] -> bar
     Artifact bar = createDerivedArtifact("bar");
-    registerAction(new TestAction(TestAction.NO_EFFECT, emptySet, ImmutableList.of(bar)));
+    registerAction(new TestAction(TestAction.NO_EFFECT, emptyNestedSet, ImmutableSet.of(bar)));
 
     // Don't fail fast when we encounter the error
     reporter.removeHandler(failFastHandler);
@@ -234,61 +248,62 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
   }
 
   @Test
-  public void testUpdateCacheError() throws Exception {
-    FileSystem fs = new InMemoryFileSystem() {
-      @Override
-      public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
-        final FileStatus stat = super.statIfFound(path, followSymlinks);
-        if (path.toString().endsWith("/out/foo")) {
-          return new FileStatus() {
-            private final FileStatus original = stat;
+  public void testUpdateCacheError() {
+    FileSystem fs =
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
+          @Override
+          public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
+            final FileStatus stat = super.statIfFound(path, followSymlinks);
+            if (path.toString().endsWith("/out/foo")) {
+              return new FileStatus() {
+                private final FileStatus original = stat;
 
-            @Override
-            public boolean isSymbolicLink() {
-              return original.isSymbolicLink();
-            }
+                @Override
+                public boolean isSymbolicLink() {
+                  return original.isSymbolicLink();
+                }
 
-            @Override
-            public boolean isFile() {
-              return original.isFile();
-            }
+                @Override
+                public boolean isFile() {
+                  return original.isFile();
+                }
 
-            @Override
-            public boolean isDirectory() {
-              return original.isDirectory();
-            }
+                @Override
+                public boolean isDirectory() {
+                  return original.isDirectory();
+                }
 
-            @Override
-            public boolean isSpecialFile() {
-              return original.isSpecialFile();
-            }
+                @Override
+                public boolean isSpecialFile() {
+                  return original.isSpecialFile();
+                }
 
-            @Override
-            public long getSize() throws IOException {
-              return original.getSize();
-            }
+                @Override
+                public long getSize() throws IOException {
+                  return original.getSize();
+                }
 
-            @Override
-            public long getNodeId() throws IOException {
-              return original.getNodeId();
-            }
+                @Override
+                public long getNodeId() throws IOException {
+                  return original.getNodeId();
+                }
 
-            @Override
-            public long getLastModifiedTime() throws IOException {
-              throw new IOException();
-            }
+                @Override
+                public long getLastModifiedTime() throws IOException {
+                  throw new IOException();
+                }
 
-            @Override
-            public long getLastChangeTime() throws IOException {
-              throw new IOException();
+                @Override
+                public long getLastChangeTime() throws IOException {
+                  throw new IOException();
+                }
+              };
             }
-          };
-        }
-        return stat;
-      }
-    };
+            return stat;
+          }
+        };
     Artifact foo = createDerivedArtifact(fs, "foo");
-    registerAction(new TestAction(TestAction.NO_EFFECT, emptySet, ImmutableList.of(foo)));
+    registerAction(new TestAction(TestAction.NO_EFFECT, emptyNestedSet, ImmutableSet.of(foo)));
     reporter.removeHandler(failFastHandler);
     assertThrows(BuildFailedException.class, () -> buildArtifacts(foo));
     assertContainsEvent("not all outputs were created or valid");
@@ -297,7 +312,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
   @Test
   public void testNullBuild() throws Exception {
     // BuildTool.setupLogging(Level.FINEST);
-    logger.fine("Testing null build...");
+    logger.atFine().log("Testing null build...");
     buildArtifacts();
   }
 
@@ -337,7 +352,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
         List<Counter> counters = buildRandomActionGraph(trial);
 
         // do a clean build
-        logger.fine("Testing clean build... (trial " + trial + ")");
+        logger.atFine().log("Testing clean build... (trial %d)", trial);
         Artifact[] buildTargets = chooseRandomBuild();
         buildArtifacts(buildTargets);
         doSanityChecks(buildTargets, counters, BuildKind.Clean);
@@ -348,14 +363,14 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
         // BuildTool creates new instances of the Builder for each build request. It may rely on
         // that fact (that its state will be discarded after each build request) - thus
         // test should use same approach and ensure that a new instance is used each time.
-        logger.fine("Testing incremental build...");
+        logger.atFine().log("Testing incremental build...");
         buildTargets = chooseRandomBuild();
         buildArtifacts(buildTargets);
         doSanityChecks(buildTargets, counters, BuildKind.Incremental);
         resetCounters(counters);
 
         // do a do-nothing build
-        logger.fine("Testing do-nothing rebuild...");
+        logger.atFine().log("Testing do-nothing rebuild...");
         buildArtifacts(buildTargets);
         doSanityChecks(buildTargets, counters, BuildKind.Nop);
         //resetCounters(counters);
@@ -383,7 +398,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
           numOutputs = artifacts.length - i;
         }
 
-        Collection<Artifact> inputs = new ArrayList<>(numInputs);
+        NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
         for (int j = 0; j < numInputs; j++) {
           if (i != 0) {
             int inputNum = random.nextInt(i);
@@ -394,7 +409,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
         for (int j = 0; j < numOutputs; j++) {
           outputs.add(artifacts[i + j]);
         }
-        counters.add(createActionCounter(inputs, outputs));
+        counters.add(createActionCounter(inputs.build(), ImmutableSet.copyOf(outputs)));
         if (inputs.isEmpty()) {
           // source files -- create them
           for (Artifact output : outputs) {
@@ -422,14 +437,14 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
       switch (random.nextInt(4)) {
         case 0:
           // build the final output target
-          logger.fine("Building final output target.");
+          logger.atFine().log("Building final output target.");
           buildTargets = new Artifact[] {artifacts[numArtifacts - 1]};
           break;
 
         case 1:
           {
             // build all the targets (in random order);
-            logger.fine("Building all the targets.");
+            logger.atFine().log("Building all the targets.");
             List<Artifact> targets = Lists.newArrayList(artifacts);
             Collections.shuffle(targets, random);
             buildTargets = targets.toArray(new Artifact[numArtifacts]);
@@ -438,19 +453,19 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
 
         case 2:
           // build a random target
-          logger.fine("Building a random target.");
+          logger.atFine().log("Building a random target.");
           buildTargets = new Artifact[] {artifacts[random.nextInt(numArtifacts)]};
           break;
 
         case 3:
           {
             // build a random subset of targets
-            logger.fine("Building a random subset of targets.");
+            logger.atFine().log("Building a random subset of targets.");
             List<Artifact> targets = Lists.newArrayList(artifacts);
             Collections.shuffle(targets, random);
             List<Artifact> targetSubset = new ArrayList<>();
             int numTargetsToTest = random.nextInt(numArtifacts);
-            logger.fine("numTargetsToTest = " + numTargetsToTest);
+            logger.atFine().log("numTargetsToTest = %d", numTargetsToTest);
             Iterator<Artifact> iterator = targets.iterator();
             for (int i = 0; i < numTargetsToTest; i++) {
               targetSubset.add(iterator.next());
@@ -478,10 +493,10 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
             //assert counter.count == 1;
             //break;
           case Incremental:
-            assert counter.count == 0 || counter.count == 1;
+            assertThat(counter.count).isAnyOf(0, 1);
             break;
           case Nop:
-            assert counter.count == 0;
+            assertThat(counter.count).isEqualTo(0);
             break;
         }
       }
@@ -516,7 +531,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
             throw new IOException("foo action failed");
           }
         };
-    registerAction(new TestAction(makeFoo, Artifact.NO_ARTIFACTS, ImmutableList.of(foo)));
+    registerAction(new TestAction(makeFoo, emptyNestedSet, ImmutableSet.of(foo)));
 
     // [action] -> bar
     Artifact bar = createDerivedArtifact("bar");
@@ -534,7 +549,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
             finished[0] = true;
           }
         };
-    registerAction(new TestAction(makeBar, emptySet, asSet(bar)));
+    registerAction(new TestAction(makeBar, emptyNestedSet, ImmutableSet.of(bar)));
 
     // Don't fail fast when we encounter the error
     reporter.removeHandler(failFastHandler);
@@ -559,9 +574,9 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     Artifact foo = createDerivedArtifact("foo");
     Artifact bar = createDerivedArtifact("bar");
     Artifact baz = createDerivedArtifact("baz");
-    registerAction(new TestAction(TestAction.NO_EFFECT, asSet(foo), asSet(bar)));
-    registerAction(new TestAction(TestAction.NO_EFFECT, asSet(bar), asSet(baz)));
-    registerAction(new TestAction(TestAction.NO_EFFECT, asSet(baz), asSet(foo)));
+    registerAction(new TestAction(TestAction.NO_EFFECT, asNestedSet(foo), ImmutableSet.of(bar)));
+    registerAction(new TestAction(TestAction.NO_EFFECT, asNestedSet(bar), ImmutableSet.of(baz)));
+    registerAction(new TestAction(TestAction.NO_EFFECT, asNestedSet(baz), ImmutableSet.of(foo)));
     BuildFailedException e =
         assertThrows(
             "Builder failed to detect cyclic action graph",
@@ -574,7 +589,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
   public void testSelfCyclicActionGraph() throws Exception {
     // foo -> [action] -> foo
     Artifact foo = createDerivedArtifact("foo");
-    registerAction(new TestAction(TestAction.NO_EFFECT, asSet(foo), asSet(foo)));
+    registerAction(new TestAction(TestAction.NO_EFFECT, asNestedSet(foo), ImmutableSet.of(foo)));
     BuildFailedException e =
         assertThrows(
             "Builder failed to detect cyclic action graph",
@@ -593,10 +608,10 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     Artifact foo2 = createDerivedArtifact("foo2");
     Artifact bar = createDerivedArtifact("bar");
     Artifact baz = createDerivedArtifact("baz");
-    registerAction(new TestAction(TestAction.NO_EFFECT, asSet(bar), asSet(foo1)));
-    registerAction(new TestAction(TestAction.NO_EFFECT, asSet(bar), asSet(foo2)));
-    registerAction(new TestAction(TestAction.NO_EFFECT, asSet(baz), asSet(bar)));
-    registerAction(new TestAction(TestAction.NO_EFFECT, asSet(bar), asSet(baz)));
+    registerAction(new TestAction(TestAction.NO_EFFECT, asNestedSet(bar), ImmutableSet.of(foo1)));
+    registerAction(new TestAction(TestAction.NO_EFFECT, asNestedSet(bar), ImmutableSet.of(foo2)));
+    registerAction(new TestAction(TestAction.NO_EFFECT, asNestedSet(baz), ImmutableSet.of(bar)));
+    registerAction(new TestAction(TestAction.NO_EFFECT, asNestedSet(bar), ImmutableSet.of(baz)));
     BuildFailedException e =
         assertThrows(
             "Builder failed to detect cyclic action graph",
@@ -615,10 +630,11 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     Artifact bar = createDerivedArtifact("bar");
     Artifact baz = createDerivedArtifact("baz");
     Artifact bat = createDerivedArtifact("bat");
-    registerAction(new TestAction(TestAction.NO_EFFECT, asSet(bar), asSet(foo)));
-    registerAction(new TestAction(TestAction.NO_EFFECT, asSet(baz), asSet(bar)));
-    registerAction(new TestAction(TestAction.NO_EFFECT, asSet(bat, foo), asSet(baz)));
-    registerAction(new TestAction(TestAction.NO_EFFECT, ImmutableSet.<Artifact>of(), asSet(bat)));
+    registerAction(new TestAction(TestAction.NO_EFFECT, asNestedSet(bar), ImmutableSet.of(foo)));
+    registerAction(new TestAction(TestAction.NO_EFFECT, asNestedSet(baz), ImmutableSet.of(bar)));
+    registerAction(
+        new TestAction(TestAction.NO_EFFECT, asNestedSet(bat, foo), ImmutableSet.of(baz)));
+    registerAction(new TestAction(TestAction.NO_EFFECT, emptyNestedSet, ImmutableSet.of(bat)));
     BuildFailedException e =
         assertThrows(
             "Builder failed to detect cyclic action graph",
@@ -626,20 +642,6 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
             () -> buildArtifacts(foo));
     assertThat(e).hasMessageThat().isEqualTo(CYCLE_MSG);
   }
-
-  @Test
-  public void testDuplicatedInput() throws Exception {
-    // <null> -> [action] -> foo
-    // (foo, foo) -> [action] -> bar
-    Artifact foo = createDerivedArtifact("foo");
-    Artifact bar = createDerivedArtifact("bar");
-    registerAction(
-        new TestAction(TestAction.NO_EFFECT, ParallelBuilderTest.<Artifact>asSet(), asSet(foo)));
-    registerAction(
-        new TestAction(TestAction.NO_EFFECT, Lists.<Artifact>newArrayList(foo, foo), asSet(bar)));
-    buildArtifacts(bar);
-  }
-
 
   // Regression test for bug #735765, "ParallelBuilder still issues new jobs
   // after one has failed, without --keep-going."  The incorrect behaviour is
@@ -663,9 +665,8 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
 
     for (int ii = 0; ii < numJobs; ++ii) {
       Artifact out = createDerivedArtifact(ii + ".out");
-      List<Artifact> inputs = (catastrophe && ii > 10)
-          ? ImmutableList.of(artifacts[0])
-          : Artifact.NO_ARTIFACTS;
+      NestedSet<Artifact> inputs =
+          (catastrophe && ii > 10) ? asNestedSet(artifacts[0]) : emptyNestedSet;
       final int iCopy = ii;
       registerAction(
           new TestAction(
@@ -678,7 +679,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
                 }
               },
               inputs,
-              ImmutableList.of(out)) {
+              ImmutableSet.of(out)) {
             @Override
             public ActionResult execute(ActionExecutionContext actionExecutionContext)
                 throws ActionExecutionException {
@@ -689,7 +690,12 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
                   throw new RuntimeException(e);
                 }
                 completedTasks.getAndIncrement();
-                throw new ActionExecutionException("This is a catastrophe", this, true);
+                DetailedExitCode code =
+                    DetailedExitCode.of(
+                        FailureDetail.newBuilder()
+                            .setCrash(Crash.newBuilder().setCode(Code.CRASH_UNKNOWN))
+                            .build());
+                throw new ActionExecutionException("This is a catastrophe", this, true, code);
               }
               return super.execute(actionExecutionContext);
             }
@@ -731,7 +737,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     // Build three artifacts in 3 separate actions (baz depends on bar and bar
     // depends on foo.  Make sure progress is reported at the beginning of all
     // three actions.
-    List<Artifact> sourceFiles = new ArrayList<>();
+    NestedSetBuilder<Artifact> sourceFiles = NestedSetBuilder.stableOrder();
     for (int i = 0; i < 10; i++) {
       sourceFiles.add(createInputFile("file" + i));
     }
@@ -758,9 +764,9 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     reporter.addHandler(handler);
     reporter.addHandler(new PrintingEventHandler(EventKind.ALL_EVENTS));
 
-    registerAction(new TestAction(TestAction.NO_EFFECT, sourceFiles, asSet(foo)));
-    registerAction(new TestAction(TestAction.NO_EFFECT, asSet(foo), asSet(bar)));
-    registerAction(new TestAction(TestAction.NO_EFFECT, asSet(bar), asSet(baz)));
+    registerAction(new TestAction(TestAction.NO_EFFECT, sourceFiles.build(), ImmutableSet.of(foo)));
+    registerAction(new TestAction(TestAction.NO_EFFECT, asNestedSet(foo), ImmutableSet.of(bar)));
+    registerAction(new TestAction(TestAction.NO_EFFECT, asNestedSet(bar), ImmutableSet.of(baz)));
     buildArtifacts(baz);
     // Check that the percentages increase non-linearly, because foo has 10 input files
     List<String> expectedMessages = Lists.newArrayList(

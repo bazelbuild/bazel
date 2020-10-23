@@ -40,7 +40,7 @@ import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -68,6 +68,7 @@ import org.xml.sax.SAXException;
  *       --shrunkResources path to write shrunk resources zip
  * </pre>
  */
+@Deprecated
 public class ResourceShrinkerAction {
   private static final StdLogger stdLogger = new StdLogger(StdLogger.Level.WARNING);
   private static final Logger logger = Logger.getLogger(ResourceShrinkerAction.class.getName());
@@ -130,15 +131,14 @@ public class ResourceShrinkerAction {
     public Path primaryManifest;
 
     @Option(
-      name = "dependencyManifest",
-      allowMultiple = true,
-      defaultValue = "",
-      category = "input",
-      converter = PathConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Paths to the manifests of the dependencies. Specify one path per flag."
-    )
+        name = "dependencyManifest",
+        allowMultiple = true,
+        defaultValue = "null",
+        category = "input",
+        converter = PathConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Paths to the manifests of the dependencies. Specify one path per flag.")
     public List<Path> dependencyManifests;
 
     @Option(
@@ -197,6 +197,15 @@ public class ResourceShrinkerAction {
     public Path log;
 
     @Option(
+        name = "resourcesConfigOutput",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path to where the list of resources configuration directives should be written.")
+    public Path resourcesConfigOutput;
+
+    @Option(
         name = "packageType",
         defaultValue = "DEFAULT",
         converter = VariantTypeConverter.class,
@@ -220,7 +229,7 @@ public class ResourceShrinkerAction {
 
   private static Set<String> getManifestPackages(Path primaryManifest, List<Path> otherManifests)
       throws SAXException, IOException, StreamException, ParserConfigurationException {
-    Set<String> manifestPackages = new HashSet<>();
+    Set<String> manifestPackages = new LinkedHashSet<>();
     manifestPackages.add(getManifestPackage(primaryManifest));
     for (Path manifest : otherManifests) {
       manifestPackages.add(getManifestPackage(manifest));
@@ -232,9 +241,10 @@ public class ResourceShrinkerAction {
     final Stopwatch timer = Stopwatch.createStarted();
     // Parse arguments.
     OptionsParser optionsParser =
-        OptionsParser.newOptionsParser(Options.class, AaptConfigOptions.class);
-    optionsParser.enableParamsFileSupport(
-        new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
+        OptionsParser.builder()
+            .optionsClasses(Options.class, AaptConfigOptions.class)
+            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
+            .build();
     optionsParser.parseAndExitUponError(args);
     aaptConfigOptions = optionsParser.getOptions(AaptConfigOptions.class);
     options = optionsParser.getOptions(Options.class);
@@ -300,7 +310,6 @@ public class ResourceShrinkerAction {
           null /* packageForR */,
           new FlagAaptOptions(aaptConfigOptions),
           aaptConfigOptions.resourceConfigs,
-          aaptConfigOptions.splits,
           new MergedAndroidData(
               shrunkResources, resourceFiles.resolve("assets"), options.primaryManifest),
           ImmutableList.<DependencyAndroidData>of() /* libraries */,

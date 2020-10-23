@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.android.desugar.io;
 
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.MustBeClosed;
 import java.io.Closeable;
+import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -45,5 +47,23 @@ public interface InputFileProvider extends Closeable, Iterable<String> {
     } else {
       return new ZipInputFileProvider(path);
     }
+  }
+
+  default ImmutableList<FileContentProvider<? extends InputStream>> toInputFileStreams() {
+    ImmutableList.Builder<FileContentProvider<? extends InputStream>> inputClassFileContents =
+        ImmutableList.builder();
+    for (String inputFileName : this) {
+      inputClassFileContents.add(
+          new FileContentProvider<>(
+              inputFileName,
+              () -> {
+                try {
+                  return getInputStream(inputFileName);
+                } catch (IOException e) {
+                  throw new IOError(e);
+                }
+              }));
+    }
+    return inputClassFileContents.build();
   }
 }

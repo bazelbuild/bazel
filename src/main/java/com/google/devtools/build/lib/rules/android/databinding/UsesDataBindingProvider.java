@@ -17,10 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skylarkbuildapi.android.UsesDataBindingProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.starlarkbuildapi.android.UsesDataBindingProviderApi;
 import java.util.Collection;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 
 /**
  * A provider that exposes this enables <a
@@ -53,9 +53,10 @@ public final class UsesDataBindingProvider extends NativeInfo
     }
 
     @Override
-    public UsesDataBindingProvider createInfo(SkylarkList<Artifact> metadataOutputs)
+    public UsesDataBindingProvider createInfo(Sequence<?> metadataOutputs) // <Artifact>
         throws EvalException {
-      return new UsesDataBindingProvider(metadataOutputs.getImmutableList());
+      return new UsesDataBindingProvider(
+          Sequence.cast(metadataOutputs, Artifact.class, "metadata_outputs"));
     }
   }
 }

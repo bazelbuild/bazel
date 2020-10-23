@@ -22,23 +22,19 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
-import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
-import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
-import com.google.devtools.build.lib.skyframe.TestSuiteExpansionValue;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.skyframe.TestsForTargetPatternValue;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.function.Predicate;
+import net.starlark.java.syntax.Location;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -76,7 +72,7 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
         "",
         "py_binary(name = 'notest',",
         "        srcs = ['notest.py'])",
-        "cc_library(name = 'xUnit', data = ['//tools:test_sharding_compliant'])",
+        "cc_library(name = 'xUnit')",
         "",
         "test_suite( name = 'smallTests', tags=['small'])");
 
@@ -118,8 +114,9 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
             pkg,
             null,
             ruleClass,
-            Location.fromPathFragment(PathFragment.EMPTY_FRAGMENT),
-            new AttributeContainer(ruleClass));
+            Location.fromFile(""),
+            CallStack.EMPTY,
+            AttributeContainer.newMutableInstance(ruleClass));
     Mockito.when(ruleClass.getName()).thenReturn("existent_library");
     assertThat(filter.apply(mockRule)).isTrue();
     Mockito.when(ruleClass.getName()).thenReturn("exist_library");
@@ -157,18 +154,6 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testExpandTestSuites() throws Exception {
-    assertExpandedSuites(Sets.newHashSet(test1, test2), Sets.newHashSet(test1, test2));
-    assertExpandedSuites(Sets.newHashSet(test1, test2), Sets.newHashSet(suite));
-    assertExpandedSuites(
-        Sets.newHashSet(test1, test2, test1b), Sets.newHashSet(test1, suite, test1b));
-    // The large test if returned as filtered from the test_suite rule, but should still be in the
-    // result set as it's explicitly added.
-    assertExpandedSuites(
-        Sets.newHashSet(test1, test2, test1b), ImmutableSet.<Target>of(test1b, suite));
-  }
-
-  @Test
   public void testSkyframeExpandTestSuites() throws Exception {
     assertExpandedSuitesSkyframe(
         Sets.newHashSet(test1, test2), ImmutableSet.<Target>of(test1, test2));
@@ -179,30 +164,6 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
     // result set as it's explicitly added.
     assertExpandedSuitesSkyframe(
         Sets.newHashSet(test1, test2, test1b), ImmutableSet.<Target>of(test1b, suite));
-  }
-
-  @Test
-  public void testExpandTestSuitesKeepGoing() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    scratch.file("broken/BUILD", "test_suite(name = 'broken', tests = ['//missing:missing_test'])");
-    ResolvedTargets<Target> actual =
-        TestTargetUtils.expandTestSuites(
-            getPackageManager(),
-            reporter,
-            Sets.newHashSet(getTarget("//broken")),
-            /*strict=*/ false,
-            /* keepGoing= */ true);
-    assertThat(actual.hasError()).isTrue();
-    assertThat(actual.getTargets()).isEmpty();
-  }
-
-  private void assertExpandedSuites(Iterable<Target> expected, Collection<Target> suites)
-      throws Exception {
-    ResolvedTargets<Target> actual =
-        TestTargetUtils.expandTestSuites(
-            getPackageManager(), reporter, suites, /*strict=*/ false, /* keepGoing= */ true);
-    assertThat(actual.hasError()).isFalse();
-    assertThat(actual.getTargets()).containsExactlyElementsIn(expected);
   }
 
   private static final Function<Target, Label> TO_LABEL =
@@ -218,42 +179,17 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
     ImmutableSet<Label> expectedLabels =
         ImmutableSet.copyOf(Iterables.transform(expected, TO_LABEL));
     ImmutableSet<Label> suiteLabels = ImmutableSet.copyOf(Iterables.transform(suites, TO_LABEL));
-    SkyKey key = TestSuiteExpansionValue.key(suiteLabels);
+    SkyKey key = TestsForTargetPatternValue.key(suiteLabels);
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
             .setNumThreads(1)
-            .setEventHander(reporter)
+            .setEventHandler(reporter)
             .build();
-    EvaluationResult<TestSuiteExpansionValue> result =
-        getSkyframeExecutor()
-            .getDriverForTesting()
-            .evaluate(ImmutableList.of(key), evaluationContext);
+    EvaluationResult<TestsForTargetPatternValue> result =
+        getSkyframeExecutor().getDriver().evaluate(ImmutableList.of(key), evaluationContext);
     ResolvedTargets<Label> actual = result.get(key).getLabels();
     assertThat(actual.hasError()).isFalse();
     assertThat(actual.getTargets()).containsExactlyElementsIn(expectedLabels);
-  }
-
-  @Test
-  public void testExpandTestSuitesInterrupted() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    scratch.file("broken/BUILD", "test_suite(name = 'broken', tests = ['//missing:missing_test'])");
-    try {
-      TestTargetUtils.expandTestSuites(
-          new TargetProvider() {
-            @Override
-            public Target getTarget(ExtendedEventHandler eventHandler, Label label)
-                throws InterruptedException {
-              throw new InterruptedException();
-            }
-          },
-          reporter,
-          Sets.newHashSet(getTarget("//broken")),
-          /*strict=*/ false,
-          /* keepGoing= */ true);
-    } catch (TargetParsingException e) {
-      assertThat(e).hasMessageThat().isNotNull();
-    }
-    assertThat(Thread.currentThread().isInterrupted()).isTrue();
   }
 }

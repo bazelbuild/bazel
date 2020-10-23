@@ -66,15 +66,21 @@ public final class StableSortTest {
     return o.list;
   }
 
-  private SpawnExec createSpawnExec(List<String> inputs, List<String> outputs) {
+  private static SpawnExec.Builder createSpawnExecBuilder(
+      List<String> inputs, List<String> outputs) {
     SpawnExec.Builder e = SpawnExec.newBuilder();
     for (String output : outputs) {
       e.addActualOutputsBuilder().setPath(output).build();
+      e.addListedOutputs(output);
     }
     for (String s : inputs) {
       e.addInputs(File.newBuilder().setPath(s).build());
     }
-    return e.build();
+    return e;
+  }
+
+  private static SpawnExec createSpawnExec(List<String> inputs, List<String> outputs) {
+    return createSpawnExecBuilder(inputs, outputs).build();
   }
 
   @Test
@@ -240,5 +246,121 @@ public final class StableSortTest {
 
     List<SpawnExec> l = testStableSort(ImmutableList.of(a, b, c, d, e, f));
     assertThat(l).containsExactly(d, f, e, b, c, a).inOrder();
+  }
+
+  @Test
+  public void stableSort_NoOutputs() throws Exception {
+    SpawnExec a = createSpawnExec(ImmutableList.of("a"), ImmutableList.of());
+    SpawnExec b = createSpawnExec(ImmutableList.of("b"), ImmutableList.of());
+
+    List<SpawnExec> l = testStableSort(ImmutableList.of(a, b));
+    assertThat(l).containsExactly(a, b).inOrder();
+  }
+
+  @Test
+  public void stableSort_NoOutputs_reversed() throws Exception {
+    SpawnExec a = createSpawnExec(ImmutableList.of("a"), ImmutableList.of());
+    SpawnExec b = createSpawnExec(ImmutableList.of("b"), ImmutableList.of());
+
+    List<SpawnExec> l = testStableSort(ImmutableList.of(b, a));
+    assertThat(l).containsExactly(a, b).inOrder();
+  }
+
+  @Test
+  public void stableSort_ListedOutputs() throws Exception {
+
+    SpawnExec a =
+        createSpawnExecBuilder(ImmutableList.of(), ImmutableList.of("a"))
+            .addCommandArgs("a")
+            .build();
+    SpawnExec b =
+        createSpawnExecBuilder(ImmutableList.of(), ImmutableList.of()).addCommandArgs("b").build();
+    SpawnExec c =
+        createSpawnExecBuilder(ImmutableList.of(), ImmutableList.of("c"))
+            .addCommandArgs("c")
+            .build();
+    SpawnExec d =
+        createSpawnExecBuilder(ImmutableList.of(), ImmutableList.of("d"))
+            .addCommandArgs("d")
+            .build();
+    SpawnExec e =
+        createSpawnExecBuilder(ImmutableList.of(), ImmutableList.of()).addCommandArgs("e").build();
+    SpawnExec f =
+        createSpawnExecBuilder(ImmutableList.of(), ImmutableList.of()).addCommandArgs("f").build();
+
+    List<SpawnExec> l = testStableSort(ImmutableList.of(a, b, c, d, e, f));
+    assertThat(l)
+        .containsExactly(
+            // sorted elements with actual outputs
+            a,
+            c,
+            d,
+            // sorted elements without listed outputs
+            b,
+            e,
+            f)
+        .inOrder();
+  }
+
+  @Test
+  public void stableSort_ListedOutputs_reordered() throws Exception {
+    SpawnExec a =
+        createSpawnExecBuilder(ImmutableList.of(), ImmutableList.of("a"))
+            .addCommandArgs("a")
+            .build();
+    SpawnExec b =
+        createSpawnExecBuilder(ImmutableList.of(), ImmutableList.of()).addCommandArgs("b").build();
+    SpawnExec c =
+        createSpawnExecBuilder(ImmutableList.of(), ImmutableList.of("c"))
+            .addCommandArgs("c")
+            .build();
+    SpawnExec d =
+        createSpawnExecBuilder(ImmutableList.of(), ImmutableList.of("d"))
+            .addCommandArgs("d")
+            .build();
+    SpawnExec e =
+        createSpawnExecBuilder(ImmutableList.of(), ImmutableList.of()).addCommandArgs("e").build();
+    SpawnExec f =
+        createSpawnExecBuilder(ImmutableList.of(), ImmutableList.of()).addCommandArgs("f").build();
+
+    // Reordering the input from the previous test does not change the resulting order
+    List<SpawnExec> l = testStableSort(ImmutableList.of(f, e, d, c, b, a));
+    assertThat(l)
+        .containsExactly(
+            // sorted elements with actual outputs
+            a,
+            c,
+            d,
+            // sorted elements without listed outputs
+            b,
+            e,
+            f)
+        .inOrder();
+  }
+
+  @Test
+  public void stableSort_ListedOutputs_dependencies() throws Exception {
+    // Dependencies are respected
+    SpawnExec a =
+        createSpawnExecBuilder(ImmutableList.of("d"), ImmutableList.of("a"))
+            .addCommandArgs("a")
+            .build();
+    SpawnExec b =
+        createSpawnExecBuilder(ImmutableList.of(), ImmutableList.of()).addCommandArgs("b").build();
+    SpawnExec c =
+        createSpawnExecBuilder(ImmutableList.of("d"), ImmutableList.of("c"))
+            .addCommandArgs("c")
+            .build();
+    SpawnExec d =
+        createSpawnExecBuilder(ImmutableList.of(), ImmutableList.of("d"))
+            .addCommandArgs("d")
+            .build();
+    SpawnExec e =
+        createSpawnExecBuilder(ImmutableList.of(), ImmutableList.of()).addCommandArgs("e").build();
+    SpawnExec f =
+        createSpawnExecBuilder(ImmutableList.of(), ImmutableList.of()).addCommandArgs("f").build();
+
+    List<SpawnExec> l = testStableSort(ImmutableList.of(f, e, d, c, b, a));
+    assertThat(l).containsExactly(d, a, c, b, e, f).inOrder();
   }
 }

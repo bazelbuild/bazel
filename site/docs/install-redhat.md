@@ -12,7 +12,12 @@ unofficial packages on
 
 The commands below must be run either via `sudo` or while logged in as `root`.
 
-## Installing Bazel on Fedora 25+
+Add `--allowerasing` when installing an upgrade from a previous major
+version of the Bazel package.
+
+[The Bazelisk installer](install-bazelisk.md) is an alternative to package installation.
+
+## Installing on Fedora 25+
 
 1. The [DNF](https://fedoraproject.org/wiki/DNF) package manager can install
     Bazel from the [COPR](https://copr.fedorainfracloud.org/) repository. Install
@@ -27,10 +32,10 @@ The commands below must be run either via `sudo` or while logged in as `root`.
 
     ```bash
     dnf copr enable vbatts/bazel
-    dnf install bazel
+    dnf install bazel3
     ```
 
-## Installing Bazel on CentOS 7
+## Installing on CentOS 7
 
 1. Download the corresponding `.repo` file from
     [Fedora COPR](https://copr.fedorainfracloud.org/coprs/vbatts/bazel/repo/epel-7/vbatts-bazel-epel-7.repo)
@@ -39,5 +44,5 @@ The commands below must be run either via `sudo` or while logged in as `root`.
 2. Run the following command:
 
     ```bash
-    yum install bazel
+    yum install bazel3
     ```

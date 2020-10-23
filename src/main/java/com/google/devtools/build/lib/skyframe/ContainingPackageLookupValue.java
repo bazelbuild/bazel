@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nonnull;
 
@@ -68,10 +67,16 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
     boolean crossesPackageBoundaryBelow =
         containingPkg.getSourceRoot().startsWith(label.getPackageIdentifier().getSourceRoot());
     PathFragment labelNameFragment = PathFragment.create(label.getName());
-    String message = String.format("Label '%s' crosses boundary of %spackage '%s'",
-        label,
-        crossesPackageBoundaryBelow ? "sub" : "",
-        containingPkg);
+    String message;
+    if (crossesPackageBoundaryBelow) {
+      message =
+          String.format("Label '%s' is invalid because '%s' is a subpackage", label, containingPkg);
+    } else {
+      message =
+          String.format(
+              "Label '%s' is invalid because '%s' is not a package", label, label.getPackageName());
+    }
+
     Root containingRoot = containingPkgLookupValue.getContainingPackageRoot();
     if (pkgRoot.equals(containingRoot)) {
       PathFragment containingPkgFragment = containingPkg.getPackageFragment();
@@ -82,19 +87,24 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
                       - label.getPackageFragment().segmentCount(),
                   labelNameFragment.segmentCount())
               : label.toPathFragment().relativeTo(containingPkgFragment);
-      message += " (perhaps you meant to put the colon here: '";
+      message += "; perhaps you meant to put the colon here: '";
       if (containingPkg.getRepository().isDefault() || containingPkg.getRepository().isMain()) {
         message += "//";
       }
-      message += containingPkg + ":" + labelNameInContainingPackage + "'?)";
+      message += containingPkg + ":" + labelNameInContainingPackage + "'?";
     } else {
-      message += " (have you deleted " + containingPkg + "/BUILD? "
-          + "If so, use the --deleted_packages=" + containingPkg + " option)";
+      message +=
+          "; have you deleted "
+              + containingPkg
+              + "/BUILD? "
+              + "If so, use the --deleted_packages="
+              + containingPkg
+              + " option";
     }
     return message;
   }
 
-  /** {@link SkyKey} for {@code ContainingPackageLookupValue}. */
+  /** {@link com.google.devtools.build.skyframe.SkyKey} for {@code ContainingPackageLookupValue}. */
   @AutoCodec
   public static class Key extends AbstractSkyKey<PackageIdentifier> {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();

@@ -14,31 +14,29 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
-import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 
 /**
  * A specialization of {@link ExecException} that indicates something went wrong when trying to
- * execute a {@link Spawn}.
+ * execute a {@link com.google.devtools.build.lib.actions.Spawn}.
  */
+// Non-final only for tests, do not subclass!
 public class SpawnExecException extends ExecException {
   protected final SpawnResult result;
   protected final boolean forciblyRunRemotely;
 
-  public SpawnExecException(
-      String message, SpawnResult result, boolean forciblyRunRemotely) {
+  public SpawnExecException(String message, SpawnResult result, boolean forciblyRunRemotely) {
     super(message, result.isCatastrophe());
-    checkArgument(!Status.SUCCESS.equals(result.status()), "Can't create exception with successful"
-        + " spawn result.");
-    this.result = Preconditions.checkNotNull(result);
+    checkArgument(
+        !Status.SUCCESS.equals(result.status()),
+        "Can't create exception with successful spawn result.");
+    this.result = checkNotNull(result);
     this.forciblyRunRemotely = forciblyRunRemotely;
   }
 
@@ -46,7 +44,7 @@ public class SpawnExecException extends ExecException {
   public SpawnExecException(
       String message, SpawnResult result, boolean forciblyRunRemotely, boolean catastrophe) {
     super(message, catastrophe);
-    this.result = Preconditions.checkNotNull(result);
+    this.result = checkNotNull(result);
     this.forciblyRunRemotely = forciblyRunRemotely;
   }
 
@@ -60,39 +58,12 @@ public class SpawnExecException extends ExecException {
   }
 
   @Override
-  public ActionExecutionException toActionExecutionException(String messagePrefix,
-        boolean verboseFailures, Action action) {
-    if (messagePrefix == null) {
-      messagePrefix = action.describe();
-    }
-    // Note: we intentionally do not include the ExecException here, unless verboseFailures is true,
-    // because it creates unwieldy and useless messages. If users need more info, they can run with
-    // --verbose_failures.
-    String message = result.getDetailMessage(
-        messagePrefix, getMessage(), isCatastrophic(), forciblyRunRemotely);
-    if (verboseFailures) {
-      return new ActionExecutionException(
-          message,
-          this,
-          action,
-          isCatastrophic(),
-          getExitCode());
-    } else {
-      return new ActionExecutionException(
-          message,
-          action,
-          isCatastrophic(),
-          getExitCode());
-    }
+  protected String getMessageForActionExecutionException() {
+    return result.getDetailMessage(getMessage(), isCatastrophic(), forciblyRunRemotely);
   }
 
-  /** Return exit code depending on the spawn result. */
-  protected ExitCode getExitCode() {
-    if (result.status().isConsideredUserError()) {
-      return null;
-    }
-    return (result != null && result.status() == Status.REMOTE_EXECUTOR_OVERLOADED)
-        ? ExitCode.REMOTE_EXECUTOR_OVERLOADED
-        : ExitCode.REMOTE_ERROR;
+  @Override
+  protected FailureDetail getFailureDetail(String message) {
+    return checkNotNull(result.failureDetail(), this);
   }
 }

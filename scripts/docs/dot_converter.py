@@ -28,7 +28,7 @@ class DotConverter(object):
 
   def convert(self):
     collect = False
-    graph = ""
+    graph = b""
     block_num = 0
 
     for line in fileinput.input():
@@ -39,18 +39,18 @@ class DotConverter(object):
         dot = subprocess.Popen(
             self.dot_command,
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=self.dot_env)
-        output = dot.communicate(graph)[0]
+        output = dot.communicate(graph)[0].decode()
         if dot.returncode == 0:
           # cut the first few lines (svg header + comments)
           sys.stdout.write(output.split("\n", 6)[6])
         else:
           sys.stderr.write("inlining block %d failed.\n" % (block_num + 1))
         collect = False
-        graph = ""
+        graph = b""
         block_num += 1
         continue
 
       if collect:
-        graph += line
+        graph += str.encode(line)
       else:
         sys.stdout.write(line)

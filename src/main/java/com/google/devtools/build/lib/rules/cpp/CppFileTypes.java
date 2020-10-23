@@ -18,33 +18,42 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import java.util.List;
 import java.util.regex.Pattern;
 
 /**
  * C++-related file type definitions.
  */
 public final class CppFileTypes {
-  public static final FileType CPP_SOURCE = FileType.of(".cc", ".cpp", ".cxx", ".c++", ".C");
+  // .cu and .cl are CUDA and OpenCL source extensions, respectively. They are expected to only be
+  // supported with clang. Bazel is not officially supporting these targets, and the extensions are
+  // listed only as long as they work with the existing C++ actions.
+  public static final FileType CPP_SOURCE =
+      FileType.of(".cc", ".cpp", ".cxx", ".c++", ".C", ".cu", ".cl");
   public static final FileType C_SOURCE = FileType.of(".c");
   public static final FileType OBJC_SOURCE = FileType.of(".m");
   public static final FileType OBJCPP_SOURCE = FileType.of(".mm");
+  public static final FileType CLIF_INPUT_PROTO = FileType.of(".ipb");
+  public static final FileType CLIF_OUTPUT_PROTO = FileType.of(".opb");
+
   public static final FileTypeSet ALL_C_CLASS_SOURCE =
       FileTypeSet.of(
           CppFileTypes.CPP_SOURCE,
           CppFileTypes.C_SOURCE,
           CppFileTypes.OBJCPP_SOURCE,
-          CppFileTypes.OBJC_SOURCE);
+          CppFileTypes.OBJC_SOURCE,
+          CppFileTypes.CLIF_INPUT_PROTO);
 
   // Filetypes that generate LLVM bitcode when -flto is specified.
   public static final FileTypeSet LTO_SOURCE =
       FileTypeSet.of(CppFileTypes.CPP_SOURCE, CppFileTypes.C_SOURCE);
 
   public static final FileType CPP_HEADER =
-      FileType.of(".h", ".hh", ".hpp", ".ipp", ".hxx", ".inc", ".inl", ".H");
+      FileType.of(
+          ".h", ".hh", ".hpp", ".ipp", ".hxx", ".h++", ".inc", ".inl", ".tlh", ".tli", ".H",
+          ".tcc");
   public static final FileType PCH = FileType.of(".pch");
   public static final FileTypeSet OBJC_HEADER = FileTypeSet.of(CPP_HEADER, PCH);
-  
+
   public static final FileType CPP_TEXTUAL_INCLUDE = FileType.of(".inc");
 
   public static final FileType PIC_PREPROCESSED_C = FileType.of(".pic.i");
@@ -58,7 +67,7 @@ public final class CppFileTypes {
         }
 
         @Override
-        public List<String> getExtensions() {
+        public ImmutableList<String> getExtensions() {
           return ImmutableList.of(ext);
         }
       };
@@ -73,7 +82,7 @@ public final class CppFileTypes {
         }
 
         @Override
-        public List<String> getExtensions() {
+        public ImmutableList<String> getExtensions() {
           return ImmutableList.of(ext);
         }
       };
@@ -90,7 +99,7 @@ public final class CppFileTypes {
         }
 
         @Override
-        public List<String> getExtensions() {
+        public ImmutableList<String> getExtensions() {
           return ImmutableList.of(ext, ".asm");
         }
       };
@@ -98,7 +107,7 @@ public final class CppFileTypes {
   public static final FileType PIC_ARCHIVE = FileType.of(".pic.a");
   public static final FileType ARCHIVE =
       new FileType() {
-        final List<String> extensions = ImmutableList.of(".a", ".lib");
+        final ImmutableList<String> extensions = ImmutableList.of(".a", ".lib");
 
         @Override
         public boolean apply(String path) {
@@ -116,8 +125,8 @@ public final class CppFileTypes {
         }
 
         @Override
-        public List<String> getExtensions() {
-          return ImmutableList.copyOf(extensions);
+        public ImmutableList<String> getExtensions() {
+          return extensions;
         }
       };
 
@@ -133,7 +142,7 @@ public final class CppFileTypes {
         }
 
         @Override
-        public List<String> getExtensions() {
+        public ImmutableList<String> getExtensions() {
           return ImmutableList.of(ext, ".lo.lib");
         }
       };
@@ -149,7 +158,7 @@ public final class CppFileTypes {
         }
 
         @Override
-        public List<String> getExtensions() {
+        public ImmutableList<String> getExtensions() {
           return ImmutableList.of(ext, ".obj");
         }
       };
@@ -167,21 +176,20 @@ public final class CppFileTypes {
   public static final FileType WINDOWS_DEF_FILE = FileType.of(".def");
 
   // Matches shared libraries with version names in the extension, i.e.
-  // libmylib.so.2 or libmylib.so.2.10.
+  // libmylib.so.2 or libmylib.so.2.10 or libmylib.so.1a_b35.
   private static final Pattern VERSIONED_SHARED_LIBRARY_PATTERN =
-     Pattern.compile("^.+\\.so(\\.\\d+)+$");
+      Pattern.compile("^.+\\.((so)|(dylib))(\\.\\d\\w*)+$");
   public static final FileType VERSIONED_SHARED_LIBRARY =
       new FileType() {
         @Override
         public boolean apply(String path) {
-          // Because regex matching can be slow, we first do a quick digit check on the final
-          // character before risking the full-on regex match. This should eliminate the performance
+          // Because regex matching can be slow, we first do a quick check for ".so." and ".dylib."
+          // substring before risking the full-on regex match. This should eliminate the performance
           // hit on practically every non-qualifying file type.
-          if (Character.isDigit(path.charAt(path.length() - 1))) {
-            return VERSIONED_SHARED_LIBRARY_PATTERN.matcher(path).matches();
-          } else {
+          if (!path.contains(".so.") && !path.contains(".dylib.")) {
             return false;
           }
+          return VERSIONED_SHARED_LIBRARY_PATTERN.matcher(path).matches();
         }
       };
 
@@ -194,9 +202,7 @@ public final class CppFileTypes {
 
   public static final FileType CPP_MODULE_MAP = FileType.of(".cppmap");
   public static final FileType CPP_MODULE = FileType.of(".pcm");
-
-  public static final FileType CLIF_INPUT_PROTO = FileType.of(".ipb");
-  public static final FileType CLIF_OUTPUT_PROTO = FileType.of(".opb");
+  public static final FileType OBJC_MODULE_MAP = FileType.of("module.modulemap");
 
   /** Predicate that matches all artifacts that can be used in an objc Clang module map. */
   public static final Predicate<Artifact> MODULE_MAP_HEADER =
@@ -221,4 +227,5 @@ public final class CppFileTypes {
         && !CPP_MODULE.matches(fileName);
   }
 
+  private CppFileTypes() {}
 }

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
+import java.io.IOException;
 
 /** A factory for {@link BuildEventArtifactUploader}. */
 public interface BuildEventArtifactUploaderFactory {
@@ -27,6 +28,23 @@ public interface BuildEventArtifactUploaderFactory {
    * Returns a new instance of a {@link BuildEventArtifactUploader}. The call is responsible for
    * calling {@link BuildEventArtifactUploader#shutdown()} on the returned instance.
    */
-  BuildEventArtifactUploader create(CommandEnvironment env);
-}
+  BuildEventArtifactUploader create(CommandEnvironment env)
+      throws InvalidPackagePathSymlinkException;
 
+  /**
+   * If the factory reuses a BuildEventArtifactUploader across commands, tear down that uploader now
+   * to prepare for <em>blaze</em> shutdown.
+   */
+  default void shutdown() {}
+
+  /**
+   * Exception thrown when initializing the BuildEventArtifactUploader fails due to the package path
+   * following invalid symlinks.
+   */
+  class InvalidPackagePathSymlinkException extends IOException {
+
+    public InvalidPackagePathSymlinkException(IOException e) {
+      super(e);
+    }
+  }
+}

@@ -17,8 +17,11 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.AdditionalMatchers.find;
 import static org.mockito.AdditionalMatchers.not;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Matchers.contains;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -26,9 +29,16 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.test.TestProvider;
+import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
+import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestStatus;
+import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -36,6 +46,7 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.FailedTestCasesStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
+import com.google.devtools.build.lib.view.test.TestStatus.TestCase.Status;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -63,7 +74,7 @@ public class TestSummaryTest {
 
   @Before
   public final void createFileSystem() throws Exception  {
-    fs = new InMemoryFileSystem(BlazeClock.instance());
+    fs = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
     stubTarget = stubTarget();
     basicBuilder = getTemplateBuilder();
   }
@@ -123,25 +134,37 @@ public class TestSummaryTest {
     terminalPrinter.print(find(expectedString));
   }
 
-  private void assertShouldNotPrint(BlazeTestStatus status) throws Exception {
+  private void assertShouldNotPrint(BlazeTestStatus status, boolean verboseSummary) {
     AnsiTerminalPrinter terminalPrinter = Mockito.mock(AnsiTerminalPrinter.class);
     TestSummaryPrinter.print(
         createTestSummary(stubTarget, status, NOT_CACHED),
         terminalPrinter,
         Path::getPathString,
-        true,
+        verboseSummary,
         false);
     verify(terminalPrinter, never()).print(anyString());
   }
 
   @Test
-  public void testShouldNotPrintFailedToBuildStatus() throws Exception {
-    assertShouldNotPrint(BlazeTestStatus.FAILED_TO_BUILD);
+  public void testShouldPrintFailedToBuildStatus() {
+    String expectedString = ANY_STRING + "INFO" + ANY_STRING + BlazeTestStatus.FAILED_TO_BUILD;
+    AnsiTerminalPrinter terminalPrinter = Mockito.mock(AnsiTerminalPrinter.class);
+
+    TestSummary summary = createTestSummary(BlazeTestStatus.FAILED_TO_BUILD, NOT_CACHED);
+
+    TestSummaryPrinter.print(summary, terminalPrinter, Path::getPathString, true, false);
+
+    terminalPrinter.print(find(expectedString));
   }
 
   @Test
-  public void testShouldNotPrintHaltedStatus() throws Exception {
-    assertShouldNotPrint(BlazeTestStatus.BLAZE_HALTED_BEFORE_TESTING);
+  public void testShouldNotPrintFailedToBuildStatus() {
+    assertShouldNotPrint(BlazeTestStatus.FAILED_TO_BUILD, false);
+  }
+
+  @Test
+  public void testShouldNotPrintHaltedStatus() {
+    assertShouldNotPrint(BlazeTestStatus.BLAZE_HALTED_BEFORE_TESTING, true);
   }
 
   @Test
@@ -222,6 +245,45 @@ public class TestSummaryTest {
     TestSummary sixtyCached = basicBuilder.setNumCached(60).build();
     assertThat(sixtyCached.numCached()).isEqualTo(60);
     assertThat(fiftyCached.numCached()).isEqualTo(50);
+  }
+
+  @Test
+  public void testAsStreamProto() throws Exception {
+    TestParams testParams = mock(TestParams.class);
+    when(testParams.getRuns()).thenReturn(2);
+    when(testParams.getShards()).thenReturn(3);
+
+    TestProvider testProvider = new TestProvider(testParams);
+    when(stubTarget.getProvider(eq(TestProvider.class))).thenReturn(testProvider);
+
+    PathConverter pathConverter = mock(PathConverter.class);
+    when(pathConverter.apply(any(Path.class)))
+        .thenAnswer(
+            invocation -> "/path/to" + ((Path) invocation.getArguments()[0]).getPathString());
+
+    BuildEventContext converters = mock(BuildEventContext.class);
+    when(converters.pathConverter()).thenReturn(pathConverter);
+
+    TestSummary summary =
+        basicBuilder
+            .setStatus(BlazeTestStatus.FAILED)
+            .addPassedLogs(getPathList("/apple"))
+            .addFailedLogs(getPathList("/pear"))
+            .mergeTiming(1000, 300)
+            .build();
+
+    assertThat(summary.asStreamProto(converters).getTestSummary())
+        .isEqualTo(
+            BuildEventStreamProtos.TestSummary.newBuilder()
+                .setOverallStatus(TestStatus.FAILED)
+                .setFirstStartTimeMillis(1000)
+                .setLastStopTimeMillis(1300)
+                .setTotalRunDurationMillis(300)
+                .setRunCount(2)
+                .setShardCount(3)
+                .addPassed(BuildEventStreamProtos.File.newBuilder().setUri("/path/to/apple"))
+                .addFailed(BuildEventStreamProtos.File.newBuilder().setUri("/path/to/pear"))
+                .build());
   }
 
   @Test
@@ -351,7 +413,8 @@ public class TestSummaryTest {
     return TestCase.newBuilder()
         .setName(name)
         .setStatus(status)
-        .setRunDurationMillis(duration).build();
+        .setRunDurationMillis(duration)
+        .build();
   }
 
   @Test
@@ -441,10 +504,8 @@ public class TestSummaryTest {
         .addChild(newDetail("cherry", TestCase.Status.ERROR, 1000L))
         .build();
 
-    TestSummary summary = getTemplateBuilder()
-        .collectFailedTests(rootCase)
-        .setStatus(BlazeTestStatus.FAILED)
-        .build();
+    TestSummary summary =
+        getTemplateBuilder().collectTestCases(rootCase).setStatus(BlazeTestStatus.FAILED).build();
 
     AnsiTerminalPrinter printer = Mockito.mock(AnsiTerminalPrinter.class);
     TestSummaryPrinter.print(summary, printer, Path::getPathString, true, true);
@@ -465,12 +526,37 @@ public class TestSummaryTest {
             .build();
 
     TestSummary summary =
-        getTemplateBuilder()
-            .countTotalTestCases(rootCase)
-            .setStatus(BlazeTestStatus.FAILED)
-            .build();
+        getTemplateBuilder().collectTestCases(rootCase).setStatus(BlazeTestStatus.FAILED).build();
 
     assertThat(summary.getTotalTestCases()).isEqualTo(3);
+  }
+
+  @Test
+  public void countUnknownTestCases() throws Exception {
+    TestSummary summary =
+        getTemplateBuilder().collectTestCases(null).setStatus(BlazeTestStatus.FAILED).build();
+
+    assertThat(summary.getTotalTestCases()).isEqualTo(1);
+    assertThat(summary.getUnkownTestCases()).isEqualTo(1);
+  }
+
+  @Test
+  public void countNotRunTestCases() throws Exception {
+    TestCase a =
+        TestCase.newBuilder()
+            .addChild(
+                TestCase.newBuilder().setName("A").setStatus(Status.PASSED).setRun(true).build())
+            .addChild(
+                TestCase.newBuilder().setName("B").setStatus(Status.PASSED).setRun(true).build())
+            .addChild(
+                TestCase.newBuilder().setName("C").setStatus(Status.PASSED).setRun(false).build())
+            .build();
+    TestSummary summary =
+        getTemplateBuilder().collectTestCases(a).setStatus(BlazeTestStatus.FAILED).build();
+
+    assertThat(summary.getTotalTestCases()).isEqualTo(2);
+    assertThat(summary.getUnkownTestCases()).isEqualTo(0);
+    assertThat(summary.getFailedTestCases()).isEmpty();
   }
 
   @Test
@@ -496,10 +582,7 @@ public class TestSummaryTest {
         TestCase.newBuilder().setName("tests").addChild(aCase).addChild(anotherCase).build();
 
     TestSummary summary =
-        getTemplateBuilder()
-            .countTotalTestCases(rootCase)
-            .setStatus(BlazeTestStatus.FAILED)
-            .build();
+        getTemplateBuilder().collectTestCases(rootCase).setStatus(BlazeTestStatus.FAILED).build();
 
     assertThat(summary.getTotalTestCases()).isEqualTo(6);
   }

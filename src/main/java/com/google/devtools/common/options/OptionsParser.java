@@ -14,12 +14,15 @@
 
 package com.google.devtools.common.options;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.MoreCollectors;
 import com.google.common.escape.Escaper;
@@ -34,7 +37,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /**
  * A parser for options. Typical use case in a main method:
@@ -90,31 +93,32 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   /**
-   * A cache for the parsed options data. Both keys and values are immutable, so
-   * this is always safe. Only access this field through the {@link
-   * #getOptionsData} method for thread-safety! The cache is very unlikely to
-   * grow to a significant amount of memory, because there's only a fixed set of
-   * options classes on the classpath.
+   * A cache for the parsed options data. Both keys and values are immutable, so this is always
+   * safe. Only access this field through the {@link #getOptionsData} method for thread-safety! The
+   * cache is very unlikely to grow to a significant amount of memory, because there's only a fixed
+   * set of options classes on the classpath.
    */
   private static final Map<ImmutableList<Class<? extends OptionsBase>>, OptionsData> optionsData =
       new HashMap<>();
 
+  /** Skipped prefixes for starlark options. */
+  public static final ImmutableList<String> STARLARK_SKIPPED_PREFIXES =
+      ImmutableList.of("--//", "--no//", "--@", "--no@");
+
   /**
    * Returns {@link OpaqueOptionsData} suitable for passing along to {@link
-   * #newOptionsParser(OpaqueOptionsData optionsData)}.
+   * Builder#optionsData(OpaqueOptionsData optionsData)}.
    *
    * <p>This is useful when you want to do the work of analyzing the given {@code optionsClasses}
    * exactly once, but you want to parse lots of different lists of strings (and thus need to
    * construct lots of different {@link OptionsParser} instances).
    */
   public static OpaqueOptionsData getOptionsData(
-      List<Class<? extends OptionsBase>> optionsClasses) throws ConstructionException {
+      List<Class<? extends OptionsBase>> optionsClasses) {
     return getOptionsDataInternal(optionsClasses);
   }
 
-  /**
-   * Returns the {@link OptionsData} associated with the given list of options classes.
-   */
+  /** Returns the {@link OptionsData} associated with the given list of options classes. */
   static synchronized OptionsData getOptionsDataInternal(
       List<Class<? extends OptionsBase>> optionsClasses) throws ConstructionException {
     ImmutableList<Class<? extends OptionsBase>> immutableOptionsClasses =
@@ -132,100 +136,119 @@ public class OptionsParser implements OptionsParsingResult {
     return result;
   }
 
-  /**
-   * Returns the {@link OptionsData} associated with the given options class.
-   */
+  /** Returns the {@link OptionsData} associated with the given options class. */
   static OptionsData getOptionsDataInternal(Class<? extends OptionsBase> optionsClass)
       throws ConstructionException {
     return getOptionsDataInternal(ImmutableList.of(optionsClass));
   }
 
-  /**
-   * @see #newOptionsParser(Iterable)
-   */
-  public static OptionsParser newOptionsParser(Class<? extends OptionsBase> class1)
-      throws ConstructionException {
-    return newOptionsParser(ImmutableList.<Class<? extends OptionsBase>>of(class1));
+  /** A helper class to create new instances of {@link OptionsParser}. */
+  public static final class Builder {
+    private final OptionsParserImpl.Builder implBuilder = OptionsParserImpl.builder();
+    private boolean allowResidue = true;
+
+    /** Directly sets the {@link OptionsData} used by this parser. */
+    public Builder optionsData(OptionsData optionsData) {
+      this.implBuilder.optionsData(optionsData);
+      return this;
+    }
+
+    /** Directly sets the {@link OpaqueOptionsData} used by this parser. */
+    public Builder optionsData(OpaqueOptionsData optionsData) {
+      return this.optionsData((OptionsData) optionsData);
+    }
+
+    /**
+     * Sets the {@link OptionsData} used by this parser, based on the given {@code optionsClasses}.
+     */
+    @SafeVarargs
+    public final Builder optionsClasses(Class<? extends OptionsBase>... optionsClasses) {
+      return this.optionsData(
+          (OpaqueOptionsData) getOptionsDataInternal(ImmutableList.copyOf(optionsClasses)));
+    }
+
+    /**
+     * Sets the {@link OptionsData} used by this parser, based on the given {@code optionsClasses}.
+     */
+    public Builder optionsClasses(Iterable<? extends Class<? extends OptionsBase>> optionsClasses) {
+      return this.optionsData(
+          (OpaqueOptionsData) getOptionsDataInternal(ImmutableList.copyOf(optionsClasses)));
+    }
+
+    /**
+     * Enables the Parser to handle params files using the provided {@link ParamsFilePreProcessor}.
+     */
+    public Builder argsPreProcessor(ArgsPreProcessor preProcessor) {
+      this.implBuilder.argsPreProcessor(preProcessor);
+      return this;
+    }
+
+    /** Any flags with this prefix will be skipped during processing. */
+    public Builder skippedPrefix(String skippedPrefix) {
+      this.implBuilder.skippedPrefix(skippedPrefix);
+      return this;
+    }
+
+    /** Skip all the prefixes associated with Starlark options */
+    public Builder skipStarlarkOptionPrefixes() {
+      for (String prefix : STARLARK_SKIPPED_PREFIXES) {
+        this.implBuilder.skippedPrefix(prefix);
+      }
+
+      return this;
+    }
+
+    /**
+     * Indicates whether or not the parser will allow a non-empty residue; that is, iff this value
+     * is true then a call to one of the {@code parse} methods will throw {@link
+     * OptionsParsingException} unless {@link #getResidue()} is empty after parsing.
+     */
+    public Builder allowResidue(boolean allowResidue) {
+      this.allowResidue = allowResidue;
+      return this;
+    }
+
+    /** Sets whether the parser should ignore internal-only options. */
+    public Builder ignoreInternalOptions(boolean ignoreInternalOptions) {
+      this.implBuilder.ignoreInternalOptions(ignoreInternalOptions);
+      return this;
+    }
+
+    /** Sets the string the parser should look for as an identifier for flag aliases. */
+    public Builder withAliasFlag(@Nullable String aliasFlag) {
+      this.implBuilder.withAliasFlag(aliasFlag);
+      return this;
+    }
+
+    /** Returns a new {@link OptionsParser}. */
+    public OptionsParser build() {
+      return new OptionsParser(implBuilder.build(), allowResidue);
+    }
   }
 
-  /** @see #newOptionsParser(Iterable) */
-  public static OptionsParser newOptionsParser(
-      Class<? extends OptionsBase> class1, Class<? extends OptionsBase> class2)
-      throws ConstructionException {
-    return newOptionsParser(ImmutableList.of(class1, class2));
-  }
-
-  /** Create a new {@link OptionsParser}. */
-  public static OptionsParser newOptionsParser(
-      Iterable<? extends Class<? extends OptionsBase>> optionsClasses)
-      throws ConstructionException {
-    return newOptionsParser(getOptionsDataInternal(ImmutableList.copyOf(optionsClasses)));
-  }
-
-  /**
-   * Create a new {@link OptionsParser}, using {@link OpaqueOptionsData} previously returned from
-   * {@link #getOptionsData}.
-   */
-  public static OptionsParser newOptionsParser(OpaqueOptionsData optionsData) {
-    return new OptionsParser((OptionsData) optionsData);
-  }
-
-  /**
-   * Create a new {@link OptionsParser}, using {@link OpaqueOptionsData} previously returned from
-   * {@link #getOptionsData} and a prefix that signifies the parser should skip parsing args that
-   * begin with that prefix.
-   */
-  public static OptionsParser newOptionsParser(
-      OpaqueOptionsData optionsData, String skippedPrefix) {
-    return new OptionsParser((OptionsData) optionsData, skippedPrefix);
+  /** Returns a new {@link Builder} to create {@link OptionsParser} instances. */
+  public static Builder builder() {
+    return new Builder();
   }
 
   private final OptionsParserImpl impl;
-  private List<String> residue = new ArrayList<>();
+  private final List<String> residue = new ArrayList<>();
   private final List<String> postDoubleDashResidue = new ArrayList<>();
-  private boolean allowResidue = true;
-  private Map<String, Object> starlarkOptions = new HashMap<>();
+  private final boolean allowResidue;
+  private ImmutableSortedMap<String, Object> starlarkOptions = ImmutableSortedMap.of();
 
-  OptionsParser(OptionsData optionsData) {
-    impl = new OptionsParserImpl(optionsData);
-  }
-
-  OptionsParser(OptionsData optionsData, String skippedPrefix) {
-    impl = new OptionsParserImpl(optionsData, skippedPrefix);
-  }
-
-  /**
-   * Indicates whether or not the parser will allow a non-empty residue; that
-   * is, iff this value is true then a call to one of the {@code parse}
-   * methods will throw {@link OptionsParsingException} unless
-   * {@link #getResidue()} is empty after parsing.
-   */
-  public void setAllowResidue(boolean allowResidue) {
+  private OptionsParser(OptionsParserImpl impl, boolean allowResidue) {
+    this.impl = impl;
     this.allowResidue = allowResidue;
   }
 
   @Override
-  public Map<String, Object> getStarlarkOptions() {
+  public ImmutableSortedMap<String, Object> getStarlarkOptions() {
     return starlarkOptions;
   }
 
   public void setStarlarkOptions(Map<String, Object> starlarkOptions) {
-    this.starlarkOptions = starlarkOptions;
-  }
-
-  /**
-   * Indicates whether or not the parser will allow long options with a
-   * single-dash, instead of the usual double-dash, too, eg. -example instead of just --example.
-   */
-  public void setAllowSingleDashLongOptions(boolean allowSingleDashLongOptions) {
-    this.impl.setAllowSingleDashLongOptions(allowSingleDashLongOptions);
-  }
-
-  /**
-   * Enables the Parser to handle params files using the provided {@link ParamsFilePreProcessor}.
-   */
-  public void enableParamsFileSupport(ParamsFilePreProcessor preProcessor) {
-    this.impl.setArgsPreProcessor(preProcessor);
+    this.starlarkOptions = ImmutableSortedMap.copyOf(starlarkOptions);
   }
 
   public void parseAndExitUponError(String[] args) {
@@ -297,11 +320,14 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   /**
-   * The verbosity with which option help messages are displayed: short (just
-   * the name), medium (name, type, default, abbreviation), and long (full
-   * description).
+   * The verbosity with which option help messages are displayed: short (just the name), medium
+   * (name, type, default, abbreviation), and long (full description).
    */
-  public enum HelpVerbosity { LONG, MEDIUM, SHORT }
+  public enum HelpVerbosity {
+    LONG,
+    MEDIUM,
+    SHORT
+  }
 
   /**
    * Returns a description of all the options this parser can digest. In addition to {@link Option}
@@ -525,7 +551,8 @@ public class OptionsParser implements OptionsParsingResult {
     Preconditions.checkNotNull(visitor, "Missing visitor.");
 
     OptionsData data = impl.getOptionsData();
-    data.getOptionsClasses()
+    data
+        .getOptionsClasses()
         // List all options
         .stream()
         .flatMap(optionsClass -> OptionsData.getAllOptionDefinitionsForClass(optionsClass).stream())
@@ -709,20 +736,27 @@ public class OptionsParser implements OptionsParsingResult {
         ? ImmutableList.copyOf(residue)
         : residue.stream()
             .filter(residue -> !postDoubleDashResidue.contains(residue))
-            .collect(Collectors.toList());
+            .collect(toImmutableList());
   }
 
   public List<String> getPostDoubleDashResidue() {
-    return postDoubleDashResidue;
+    return ImmutableList.copyOf(postDoubleDashResidue);
   }
 
-  public void setResidue(List<String> residue) {
-    this.residue = residue;
+  /* Sets the residue (all elements parsed as non-options) to {@code residue}, as well as the part
+   * of the residue that follows the double-dash on the command line, {@code postDoubleDashResidue}.
+   * {@code postDoubleDashResidue} must be a subset of {@code residue}. */
+  public void setResidue(List<String> residue, List<String> postDoubleDashResidue) {
+    Preconditions.checkArgument(residue.containsAll(postDoubleDashResidue));
+    this.residue.clear();
+    this.residue.addAll(residue);
+    this.postDoubleDashResidue.clear();
+    this.postDoubleDashResidue.addAll(postDoubleDashResidue);
   }
 
   /** Returns a list of warnings about problems encountered by previous parse calls. */
   public List<String> getWarnings() {
-    return impl.getWarnings();
+    return ImmutableList.copyOf(impl.getWarnings());
   }
 
   @Override
@@ -774,7 +808,7 @@ public class OptionsParser implements OptionsParsingResult {
    * might change the name of the option without realizing it's used by name elsewhere.
    *
    * @throws IllegalArgumentException if there are two or more options with that name.
-   * @throws NoSuchElementException if there are no options with that name.
+   * @throws java.util.NoSuchElementException if there are no options with that name.
    */
   public static OptionDefinition getOptionDefinitionByName(
       Class<? extends OptionsBase> optionsClass, String optionName) {
@@ -792,4 +826,3 @@ public class OptionsParser implements OptionsParsingResult {
     return data.getUsesOnlyCoreTypes(optionsClass);
   }
 }
-

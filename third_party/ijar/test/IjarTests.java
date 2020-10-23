@@ -156,7 +156,7 @@ public class IjarTests {
               public boolean process(
                   Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
                 roundEnv.getElementsAnnotatedWith(java.lang.Override.class);
-                return true;
+                return false;
               }
             }));
     if (!task.call()) {

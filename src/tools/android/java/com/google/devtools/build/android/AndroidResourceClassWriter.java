@@ -15,12 +15,11 @@ package com.google.devtools.build.android;
 
 import com.android.resources.ResourceType;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Optional;
 import com.google.devtools.build.android.AndroidFrameworkAttrIdProvider.AttrLookupException;
 import com.google.devtools.build.android.resources.FieldInitializers;
 import com.google.devtools.build.android.resources.RClassGenerator;
 import com.google.devtools.build.android.resources.RSourceGenerator;
-import java.io.Flushable;
+import com.google.devtools.build.android.resources.Visibility;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map;
@@ -32,30 +31,51 @@ import java.util.Map;
  * <p>Collects the R class fields from the merged resource maps, and then writes out the resource
  * class files.
  */
-public class AndroidResourceClassWriter implements Flushable, AndroidResourceSymbolSink {
+public class AndroidResourceClassWriter extends AndroidResourceSymbolSink {
 
   /** Create a new class writer. */
   public static AndroidResourceClassWriter createWith(
-      Path androidJar, Path out, String javaPackage) {
-    return of(new AndroidFrameworkAttrIdJar(androidJar), out, javaPackage);
+      String label, Path androidJar, Path out, String javaPackage) {
+    return of(label, new AndroidFrameworkAttrIdJar(androidJar), out, javaPackage);
   }
 
   @VisibleForTesting
-  public static AndroidResourceClassWriter of(
+  static AndroidResourceClassWriter of(
       AndroidFrameworkAttrIdProvider androidIdProvider, Path outputBasePath, String packageName) {
     return new AndroidResourceClassWriter(
-        PlaceholderIdFieldInitializerBuilder.from(androidIdProvider), outputBasePath, packageName);
+        /*label=*/ null,
+        PlaceholderIdFieldInitializerBuilder.from(androidIdProvider),
+        outputBasePath,
+        packageName);
   }
 
+  private static AndroidResourceClassWriter of(
+      String label,
+      AndroidFrameworkAttrIdProvider androidIdProvider,
+      Path outputBasePath,
+      String packageName) {
+    return new AndroidResourceClassWriter(
+        label,
+        PlaceholderIdFieldInitializerBuilder.from(androidIdProvider),
+        outputBasePath,
+        packageName);
+  }
+
+  private final String label;
   private final Path outputBasePath;
   private final String packageName;
   private boolean includeClassFile = true;
   private boolean includeJavaFile = true;
+  private boolean annotateTransitiveFields = false;
 
   private final PlaceholderIdFieldInitializerBuilder generator;
 
   private AndroidResourceClassWriter(
-      PlaceholderIdFieldInitializerBuilder generator, Path outputBasePath, String packageName) {
+      String label,
+      PlaceholderIdFieldInitializerBuilder generator,
+      Path outputBasePath,
+      String packageName) {
+    this.label = label;
     this.generator = generator;
     this.outputBasePath = outputBasePath;
     this.packageName = packageName;
@@ -69,20 +89,23 @@ public class AndroidResourceClassWriter implements Flushable, AndroidResourceSym
     this.includeJavaFile = include;
   }
 
-  @Override
-  public void acceptSimpleResource(ResourceType type, String name) {
-    generator.addSimpleResource(type, name);
+  void setAnnotateTransitiveFields(boolean annotateTransitiveFields) {
+    this.annotateTransitiveFields = annotateTransitiveFields;
   }
 
   @Override
-  public void acceptPublicResource(ResourceType type, String name, Optional<Integer> value) {
-    generator.addPublicResource(type, name, value);
+  protected void acceptSimpleResourceImpl(
+      DependencyInfo dependencyInfo, Visibility visibility, ResourceType type, String name) {
+    generator.addSimpleResource(dependencyInfo, visibility, type, name);
   }
 
   @Override
-  public void acceptStyleableResource(
-      FullyQualifiedName key, Map<FullyQualifiedName, Boolean> attrs) {
-    generator.addStyleableResource(key, attrs);
+  protected void acceptStyleableResourceImpl(
+      DependencyInfo dependencyInfo,
+      Visibility visibility,
+      FullyQualifiedName key,
+      Map<FullyQualifiedName, Boolean> attrs) {
+    generator.addStyleableResource(dependencyInfo, visibility, key, attrs);
   }
 
   @Override
@@ -106,6 +129,8 @@ public class AndroidResourceClassWriter implements Flushable, AndroidResourceSym
   }
 
   private void writeAsClass(FieldInitializers initializers) throws IOException {
-    RClassGenerator.with(outputBasePath, initializers, /* finalFields= */ false).write(packageName);
+    RClassGenerator.with(
+            label, outputBasePath, initializers, /* finalFields= */ false, annotateTransitiveFields)
+        .write(packageName);
   }
 }

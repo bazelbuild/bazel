@@ -19,12 +19,10 @@ import static com.google.devtools.build.lib.analysis.OutputGroupInfo.determineOu
 import static java.util.Arrays.asList;
 
 import com.google.common.collect.ImmutableSet;
-
+import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.Set;
 
 /**
  * Tests for {@link OutputGroupInfo}.
@@ -35,26 +33,28 @@ public final class OutputGroupProviderTest {
   @Test
   public void testDetermineOutputGroupsOverridesDefaults() throws Exception {
     Set<String> outputGroups =
-        determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList("a", "b", "c"));
+        determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList("a", "b", "c"), false);
     assertThat(outputGroups).containsExactly("a", "b", "c");
   }
 
   @Test
   public void testDetermineOutputGroupsAddsToDefaults() throws Exception {
-    Set<String> outputGroups = determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList("+a"));
+    Set<String> outputGroups =
+        determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList("+a"), false);
     assertThat(outputGroups).containsExactly("x", "y", "z", "a");
   }
 
   @Test
   public void testDetermineOutputGroupsRemovesFromDefaults() throws Exception {
-    Set<String> outputGroups = determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList("-y"));
+    Set<String> outputGroups =
+        determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList("-y"), false);
     assertThat(outputGroups).containsExactly("x", "z");
   }
 
   @Test
   public void testDetermineOutputGroupsMixedOverrideAdditionOverrides() throws Exception {
     Set<String> outputGroups =
-        determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList("a", "+b"));
+        determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList("a", "+b"), false);
     // The plain "a" causes the default output groups to be overridden.
     assertThat(outputGroups).containsExactly("a", "b");
   }
@@ -62,7 +62,7 @@ public final class OutputGroupProviderTest {
   @Test
   public void testDetermineOutputGroupsIgnoresUnknownGroup() throws Exception {
     Set<String> outputGroups =
-        determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList("-foo"));
+        determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList("-foo"), false);
     // "foo" doesn't exist, but that shouldn't be a problem.
     assertThat(outputGroups).containsExactly("x", "y", "z");
   }
@@ -70,11 +70,39 @@ public final class OutputGroupProviderTest {
   @Test
   public void testDetermineOutputGroupsRemovesPreviouslyAddedGroup() throws Exception {
     Set<String> outputGroups;
-    outputGroups = determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList("+a", "-a"));
+    outputGroups = determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList("+a", "-a"), false);
     assertThat(outputGroups).containsExactly("x", "y", "z");
 
     // Order matters here.
-    outputGroups = determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList("-a", "+a"));
+    outputGroups = determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList("-a", "+a"), false);
     assertThat(outputGroups).containsExactly("x", "y", "z", "a");
+  }
+
+  @Test
+  public void testDetermineOutputGroupsContainsValidationGroup() throws Exception {
+    Set<String> outputGroups =
+        determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList(), true);
+    assertThat(outputGroups).containsExactly("x", "y", "z", OutputGroupInfo.VALIDATION);
+  }
+
+  @Test
+  public void testDetermineOutputGroupsContainsValidationGroupAfterOverride() throws Exception {
+    Set<String> outputGroups =
+        determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList("foo"), true);
+    assertThat(outputGroups).containsExactly("foo", OutputGroupInfo.VALIDATION);
+  }
+
+  @Test
+  public void testDetermineOutputGroupsContainsValidationGroupAfterAdd() throws Exception {
+    Set<String> outputGroups =
+        determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList("+a"), true);
+    assertThat(outputGroups).containsExactly("x", "y", "z", "a", OutputGroupInfo.VALIDATION);
+  }
+
+  @Test
+  public void testDetermineOutputGroupsContainsValidationGroupAfterRemove() throws Exception {
+    Set<String> outputGroups =
+        determineOutputGroups(ImmutableSet.of("x", "y", "z"), asList("-x"), true);
+    assertThat(outputGroups).containsExactly("y", "z", OutputGroupInfo.VALIDATION);
   }
 }

@@ -13,69 +13,40 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs.util;
 
-import com.google.common.base.Verify;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.windows.WindowsFileSystem;
 
-/**
- * This static file system singleton manages access to a single default
- * {@link FileSystem} instance created within the methods of this class.
- */
-@ThreadSafe
+/** Convenience factory methods. */
 public final class FileSystems {
 
   private FileSystems() {}
 
-  private static FileSystem defaultNativeFileSystem;
-  private static FileSystem defaultJavaIoFileSystem;
-
-  /**
-   * Initializes the default native {@link FileSystem} instance as a platform native
-   * (Unix or Windows) file system. If it's not initialized, then initialize it,
-   * otherwise verify if the type of the instance is correct.
-   */
-  public static synchronized FileSystem getNativeFileSystem() {
+  /** Constructs a platform native (Unix or Windows) file system. */
+  public static FileSystem getNativeFileSystem(DigestHashFunction digestHashFunction) {
     if (OS.getCurrent() == OS.WINDOWS) {
-      if (defaultNativeFileSystem == null) {
-        defaultNativeFileSystem = new WindowsFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
-      } else {
-        Verify.verify(defaultNativeFileSystem instanceof WindowsFileSystem);
-      }
-    } else {
-      if (defaultNativeFileSystem == null) {
-        try {
-          defaultNativeFileSystem =
-              (FileSystem)
-                  Class.forName(TestConstants.TEST_REAL_UNIX_FILE_SYSTEM)
-                      .getDeclaredConstructor(DigestHashFunction.class)
-                      .newInstance(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
-        } catch (Exception e) {
-          throw new IllegalStateException(e);
-        }
-      } else {
-        Verify.verify(defaultNativeFileSystem instanceof UnixFileSystem);
-      }
+      return new WindowsFileSystem(digestHashFunction, /*createSymbolicLinks=*/ false);
     }
-    return defaultNativeFileSystem;
+    try {
+      return Class.forName(TestConstants.TEST_REAL_UNIX_FILE_SYSTEM)
+          .asSubclass(FileSystem.class)
+          .getDeclaredConstructor(DigestHashFunction.class, String.class)
+          .newInstance(digestHashFunction, TestConstants.TEST_UNIX_HASH_ATTRIBUTE);
+    } catch (Exception e) {
+      throw new IllegalStateException(e);
+    }
   }
 
-  /**
-   * Initializes the default java {@link FileSystem} instance as a java.io.File
-   * file system. If it's not initialized, then initialize it,
-   * otherwise verify if the type of the instance is correct.
-   */
-  public static synchronized FileSystem getJavaIoFileSystem() {
-    if (defaultJavaIoFileSystem == null) {
-      defaultJavaIoFileSystem = new JavaIoFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
-    } else {
-      Verify.verify(defaultJavaIoFileSystem instanceof JavaIoFileSystem);
-    }
-    return defaultJavaIoFileSystem;
+  /** Constructs a platform native (Unix or Windows) file system with SHA256 digests. */
+  public static FileSystem getNativeFileSystem() {
+    return getNativeFileSystem(DigestHashFunction.SHA256);
+  }
+
+  /** Constructs a java.io.File file system. */
+  public static FileSystem getJavaIoFileSystem() {
+    return new JavaIoFileSystem(DigestHashFunction.SHA256);
   }
 }

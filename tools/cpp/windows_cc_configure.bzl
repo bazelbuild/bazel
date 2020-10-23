@@ -18,28 +18,76 @@ load(
     "@bazel_tools//tools/cpp:lib_cc_configure.bzl",
     "auto_configure_fail",
     "auto_configure_warning",
+    "auto_configure_warning_maybe",
     "escape_string",
     "execute",
-    "get_env_var",
-    "get_starlark_list",
-    "is_cc_configure_debug",
     "resolve_labels",
+    "write_builtin_include_directory_paths",
 )
 
-def _auto_configure_warning_maybe(repository_ctx, msg):
-    """Output warning message when CC_CONFIGURE_DEBUG is enabled."""
-    if is_cc_configure_debug(repository_ctx):
-        auto_configure_warning(msg)
+_targets_archs = {"x64": "amd64", "x86": "amd64_x86", "arm": "amd64_arm", "arm64": "amd64_arm64"}
+_targets_lib_folder = {"x86": "", "arm": "arm", "arm64": "arm64"}
+
+def _lookup_env_var(env, name, default = None):
+    """Lookup environment variable case-insensitve.
+
+    If a matching (case-insesitive) entry is found in the env dict both
+    the key and the value are returned. The returned key might differ from
+    name in casing.
+
+    If a matching key was found its value is returned otherwise
+    the default is returned.
+
+    Return a (key, value) tuple"""
+    for key, value in env.items():
+        if name.lower() == key.lower():
+            return (key, value)
+    return (name, default)
+
+def _get_env_var(repository_ctx, name, default = None):
+    """Returns a value from an environment variable."""
+    return _lookup_env_var(repository_ctx.os.environ, name, default)[1]
+
+def _get_path_env_var(repository_ctx, name):
+    """Returns a path from an environment variable.
+
+    Removes quotes, replaces '/' with '\', and strips trailing '\'s."""
+    value = _get_env_var(repository_ctx, name)
+    if value != None:
+        if value[0] == "\"":
+            if len(value) == 1 or value[-1] != "\"":
+                auto_configure_fail("'%s' environment variable has no trailing quote" % name)
+            value = value[1:-1]
+        if "/" in value:
+            value = value.replace("/", "\\")
+        if value[-1] == "\\":
+            value = value.rstrip("\\")
+    return value
+
+def _get_temp_env(repository_ctx):
+    """Returns the value of TMP, or TEMP, or if both undefined then C:\\Windows."""
+    tmp = _get_path_env_var(repository_ctx, "TMP")
+    if not tmp:
+        tmp = _get_path_env_var(repository_ctx, "TEMP")
+    if not tmp:
+        tmp = "C:\\Windows\\Temp"
+        auto_configure_warning(
+            "neither 'TMP' nor 'TEMP' environment variables are set, using '%s' as default" % tmp,
+        )
+    return tmp
 
 def _get_escaped_windows_msys_starlark_content(repository_ctx, use_mingw = False):
     """Return the content of msys cc toolchain rule."""
-    bazel_sh = get_env_var(repository_ctx, "BAZEL_SH", "", False).replace("\\", "/").lower()
-    tokens = bazel_sh.rsplit("/", 1)
     msys_root = ""
-    if tokens[0].endswith("/usr/bin"):
-        msys_root = tokens[0][:len(tokens[0]) - len("usr/bin")]
-    elif tokens[0].endswith("/bin"):
-        msys_root = tokens[0][:len(tokens[0]) - len("bin")]
+    bazel_sh = _get_path_env_var(repository_ctx, "BAZEL_SH")
+    if bazel_sh:
+        bazel_sh = bazel_sh.replace("\\", "/").lower()
+        tokens = bazel_sh.rsplit("/", 1)
+        if tokens[0].endswith("/usr/bin"):
+            msys_root = tokens[0][:len(tokens[0]) - len("usr/bin")]
+        elif tokens[0].endswith("/bin"):
+            msys_root = tokens[0][:len(tokens[0]) - len("bin")]
+
     prefix = "mingw64" if use_mingw else "usr"
     tool_path_prefix = escape_string(msys_root) + prefix
     tool_bin_path = tool_path_prefix + "/bin"
@@ -50,53 +98,88 @@ def _get_escaped_windows_msys_starlark_content(repository_ctx, use_mingw = False
             tool_path[tool] = tool_bin_path + "/" + tool
         else:
             tool_path[tool] = "msys_gcc_installation_error.bat"
-    tool_paths = (
-        '        tool_path (name= "ar", path= "%s"),\n' % tool_path["ar"] +
-        '        tool_path (name= "compat-ld", path= "%s"),\n' % tool_path["ld"] +
-        '        tool_path (name= "cpp", path= "%s"),\n' % tool_path["cpp"] +
-        '        tool_path (name= "dwp", path= "%s"),\n' % tool_path["dwp"] +
-        '        tool_path (name= "gcc", path= "%s"),\n' % tool_path["gcc"] +
-        '        tool_path (name= "gcov", path= "%s"),\n' % tool_path["gcov"] +
-        '        tool_path (name= "ld", path= "%s"),\n' % tool_path["ld"] +
-        '        tool_path (name= "nm", path= "%s"),\n' % tool_path["nm"] +
-        '        tool_path (name= "objcopy", path= "%s"),\n' % tool_path["objcopy"] +
-        '        tool_path (name= "objdump", path= "%s"),\n' % tool_path["objdump"] +
-        '        tool_path (name= "strip", path= "%s"),\n' % tool_path["strip"]
-    )
+    tool_paths = ",\n        ".join(['"%s": "%s"' % (k, v) for k, v in tool_path.items()])
     include_directories = ('        "%s/",\n        ' % tool_path_prefix) if msys_root else ""
-    artifact_name_patterns = '        artifact_name_pattern(category_name="executable", prefix="", extension=".exe"),'
-    return tool_paths, tool_bin_path, include_directories, artifact_name_patterns
+    return tool_paths, tool_bin_path, include_directories
 
 def _get_system_root(repository_ctx):
-    """Get System root path on Windows, default is C:\\\Windows. Doesn't %-escape the result."""
-    if "SYSTEMROOT" in repository_ctx.os.environ:
-        return escape_string(repository_ctx.os.environ["SYSTEMROOT"])
-    _auto_configure_warning_maybe(repository_ctx, "SYSTEMROOT is not set, using default SYSTEMROOT=C:\\Windows")
-    return "C:\\Windows"
+    """Get System root path on Windows, default is C:\\Windows. Doesn't %-escape the result."""
+    systemroot = _get_path_env_var(repository_ctx, "SYSTEMROOT")
+    if not systemroot:
+        systemroot = "C:\\Windows"
+        auto_configure_warning_maybe(
+            repository_ctx,
+            "SYSTEMROOT is not set, using default SYSTEMROOT=C:\\Windows",
+        )
+    return escape_string(systemroot)
 
 def _add_system_root(repository_ctx, env):
     """Running VCVARSALL.BAT and VCVARSQUERYREGISTRY.BAT need %SYSTEMROOT%\\\\system32 in PATH."""
-    if "PATH" not in env:
-        env["PATH"] = ""
-    env["PATH"] = env["PATH"] + ";" + _get_system_root(repository_ctx) + "\\system32"
+    env_key, env_value = _lookup_env_var(env, "PATH", default = "")
+    env[env_key] = env_value + ";" + _get_system_root(repository_ctx) + "\\system32"
     return env
 
 def find_vc_path(repository_ctx):
     """Find Visual C++ build tools install path. Doesn't %-escape the result."""
 
     # 1. Check if BAZEL_VC or BAZEL_VS is already set by user.
-    if "BAZEL_VC" in repository_ctx.os.environ:
-        return repository_ctx.os.environ["BAZEL_VC"]
+    bazel_vc = _get_path_env_var(repository_ctx, "BAZEL_VC")
+    if bazel_vc:
+        if repository_ctx.path(bazel_vc).exists:
+            return bazel_vc
+        else:
+            auto_configure_warning_maybe(
+                repository_ctx,
+                "%BAZEL_VC% is set to non-existent path, ignoring.",
+            )
 
-    if "BAZEL_VS" in repository_ctx.os.environ:
-        return repository_ctx.os.environ["BAZEL_VS"] + "\\VC\\"
-    _auto_configure_warning_maybe(repository_ctx, "'BAZEL_VC' is not set, " +
-                                                  "start looking for the latest Visual C++ installed.")
+    bazel_vs = _get_path_env_var(repository_ctx, "BAZEL_VS")
+    if bazel_vs:
+        if repository_ctx.path(bazel_vs).exists:
+            bazel_vc = bazel_vs + "\\VC"
+            if repository_ctx.path(bazel_vc).exists:
+                return bazel_vc
+            else:
+                auto_configure_warning_maybe(
+                    repository_ctx,
+                    "No 'VC' directory found under %BAZEL_VS%, ignoring.",
+                )
+        else:
+            auto_configure_warning_maybe(
+                repository_ctx,
+                "%BAZEL_VS% is set to non-existent path, ignoring.",
+            )
 
-    # 2. Check if VS%VS_VERSION%COMNTOOLS is set, if true then try to find and use
+    auto_configure_warning_maybe(
+        repository_ctx,
+        "Neither %BAZEL_VC% nor %BAZEL_VS% are set, start looking for the latest Visual C++" +
+        " installed.",
+    )
+
+    # 2. Use vswhere to locate all Visual Studio installations
+    program_files_dir = _get_path_env_var(repository_ctx, "PROGRAMFILES(X86)")
+    if not program_files_dir:
+        program_files_dir = "C:\\Program Files (x86)"
+        auto_configure_warning_maybe(
+            repository_ctx,
+            "'PROGRAMFILES(X86)' environment variable is not set, using '%s' as default" % program_files_dir,
+        )
+
+    vswhere_binary = program_files_dir + "\\Microsoft Visual Studio\\Installer\\vswhere.exe"
+    if repository_ctx.path(vswhere_binary).exists:
+        result = repository_ctx.execute([vswhere_binary, "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "-property", "installationPath", "-latest"])
+        auto_configure_warning_maybe(repository_ctx, "vswhere query result:\n\nSTDOUT(start)\n%s\nSTDOUT(end)\nSTDERR(start):\n%s\nSTDERR(end)\n" %
+                                                     (result.stdout, result.stderr))
+        installation_path = result.stdout.strip()
+        if not result.stderr and installation_path:
+            vc_dir = installation_path + "\\VC"
+            auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
+            return vc_dir
+
+    # 3. Check if VS%VS_VERSION%COMNTOOLS is set, if true then try to find and use
     # vcvarsqueryregistry.bat / VsDevCmd.bat to detect VC++.
-    _auto_configure_warning_maybe(repository_ctx, "Looking for VS%VERSION%COMNTOOLS environment variables, " +
-                                                  "eg. VS140COMNTOOLS")
+    auto_configure_warning_maybe(repository_ctx, "Looking for VS%VERSION%COMNTOOLS environment variables, " +
+                                                 "eg. VS140COMNTOOLS")
     for vscommontools_env, script in [
         ("VS160COMNTOOLS", "VsDevCmd.bat"),
         ("VS150COMNTOOLS", "VsDevCmd.bat"),
@@ -106,28 +189,28 @@ def find_vc_path(repository_ctx):
         ("VS100COMNTOOLS", "vcvarsqueryregistry.bat"),
         ("VS90COMNTOOLS", "vcvarsqueryregistry.bat"),
     ]:
-        if vscommontools_env not in repository_ctx.os.environ:
+        path = _get_path_env_var(repository_ctx, vscommontools_env)
+        if path == None:
             continue
-        script = repository_ctx.os.environ[vscommontools_env] + "\\" + script
+        script = path + "\\" + script
         if not repository_ctx.path(script).exists:
             continue
         repository_ctx.file(
             "get_vc_dir.bat",
             "@echo off\n" +
-            "call \"" + script + "\"\n" +
+            "call \"" + script + "\" > NUL\n" +
             "echo %VCINSTALLDIR%",
             True,
         )
         env = _add_system_root(repository_ctx, repository_ctx.os.environ)
         vc_dir = execute(repository_ctx, ["./get_vc_dir.bat"], environment = env)
 
-        _auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
+        auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
         return vc_dir
 
-    # 3. User might have purged all environment variables. If so, look for Visual C++ in registry.
+    # 4. User might have purged all environment variables. If so, look for Visual C++ in registry.
     # Works for Visual Studio 2017 and older. (Does not work for Visual Studio 2019 Preview.)
-    # TODO(laszlocsomor): check if "16.0" also has this registry key, after VS 2019 is released.
-    _auto_configure_warning_maybe(repository_ctx, "Looking for Visual C++ through registry")
+    auto_configure_warning_maybe(repository_ctx, "Looking for Visual C++ through registry")
     reg_binary = _get_system_root(repository_ctx) + "\\system32\\reg.exe"
     vc_dir = None
     for key, suffix in (("VC7", ""), ("VS7", "\\VC")):
@@ -135,20 +218,19 @@ def find_vc_path(repository_ctx):
             if vc_dir:
                 break
             result = repository_ctx.execute([reg_binary, "query", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Microsoft\\VisualStudio\\SxS\\" + key, "/v", version])
-            _auto_configure_warning_maybe(repository_ctx, "registry query result for VC %s:\n\nSTDOUT(start)\n%s\nSTDOUT(end)\nSTDERR(start):\n%s\nSTDERR(end)\n" %
-                                                          (version, result.stdout, result.stderr))
+            auto_configure_warning_maybe(repository_ctx, "registry query result for VC %s:\n\nSTDOUT(start)\n%s\nSTDOUT(end)\nSTDERR(start):\n%s\nSTDERR(end)\n" %
+                                                         (version, result.stdout, result.stderr))
             if not result.stderr:
                 for line in result.stdout.split("\n"):
                     line = line.strip()
                     if line.startswith(version) and line.find("REG_SZ") != -1:
                         vc_dir = line[line.find("REG_SZ") + len("REG_SZ"):].strip() + suffix
     if vc_dir:
-        _auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
+        auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
         return vc_dir
 
-    # 4. Check default directories for VC installation
-    _auto_configure_warning_maybe(repository_ctx, "Looking for default Visual C++ installation directory")
-    program_files_dir = get_env_var(repository_ctx, "PROGRAMFILES(X86)", default = "C:\\Program Files (x86)", enable_warning = True)
+    # 5. Check default directories for VC installation
+    auto_configure_warning_maybe(repository_ctx, "Looking for default Visual C++ installation directory")
     for path in [
         "Microsoft Visual Studio\\2019\\Preview\\VC",
         "Microsoft Visual Studio\\2019\\BuildTools\\VC",
@@ -167,9 +249,9 @@ def find_vc_path(repository_ctx):
             break
 
     if not vc_dir:
-        _auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools not found.")
+        auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools not found.")
         return None
-    _auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
+    auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
     return vc_dir
 
 def _is_vs_2017_or_2019(vc_path):
@@ -181,78 +263,222 @@ def _is_vs_2017_or_2019(vc_path):
     # C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\
     return vc_path.find("2017") != -1 or vc_path.find("2019") != -1
 
-def _find_vcvarsall_bat_script(repository_ctx, vc_path):
-    """Find vcvarsall.bat script. Doesn't %-escape the result."""
+def _is_msbuildtools(vc_path):
+    """Check if the installed VC version is from MSBuildTools."""
+
+    # In MSBuildTools (usually container setup), the location of VC is like:
+    # C:\BuildTools\MSBuild\Microsoft\VC
+    return vc_path.find("BuildTools") != -1 and vc_path.find("MSBuild") != -1
+
+def _find_vcvars_bat_script(repository_ctx, vc_path):
+    """Find batch script to set up environment variables for VC. Doesn't %-escape the result."""
     if _is_vs_2017_or_2019(vc_path):
-        vcvarsall = vc_path + "\\Auxiliary\\Build\\VCVARSALL.BAT"
+        vcvars_script = vc_path + "\\Auxiliary\\Build\\VCVARSALL.BAT"
     else:
-        vcvarsall = vc_path + "\\VCVARSALL.BAT"
+        vcvars_script = vc_path + "\\VCVARSALL.BAT"
 
-    if not repository_ctx.path(vcvarsall).exists:
+    if not repository_ctx.path(vcvars_script).exists:
         return None
 
-    return vcvarsall
+    return vcvars_script
 
-def setup_vc_env_vars(repository_ctx, vc_path):
-    """Get environment variables set by VCVARSALL.BAT. Doesn't %-escape the result!"""
-    vcvarsall = _find_vcvarsall_bat_script(repository_ctx, vc_path)
-    if not vcvarsall:
-        return None
+def _is_support_vcvars_ver(vc_full_version):
+    """-vcvars_ver option is supported from version 14.11.25503 (VS 2017 version 15.3)."""
+    version = [int(i) for i in vc_full_version.split(".")]
+    min_version = [14, 11, 25503]
+    return version >= min_version
+
+def _is_support_winsdk_selection(repository_ctx, vc_path):
+    """Windows SDK selection is supported with VC 2017 / 2019 or with full VS 2015 installation."""
+    if _is_vs_2017_or_2019(vc_path):
+        return True
+
+    # By checking the source code of VCVARSALL.BAT in VC 2015, we know that
+    # when devenv.exe or wdexpress.exe exists, VCVARSALL.BAT supports Windows SDK selection.
+    vc_common_ide = repository_ctx.path(vc_path).dirname.get_child("Common7").get_child("IDE")
+    for tool in ["devenv.exe", "wdexpress.exe"]:
+        if vc_common_ide.get_child(tool).exists:
+            return True
+    return False
+
+def _get_vc_env_vars(repository_ctx, vc_path, msvc_vars_x64, target_arch):
+    """Derive the environment variables set of a given target architecture from the environment variables of the x64 target.
+
+       This is done to avoid running VCVARSALL.BAT script for every target architecture.
+
+    Args:
+        repository_ctx: the repository_ctx object
+        vc_path: Visual C++ root directory
+        msvc_vars_x64: values of MSVC toolchain including the environment variables for x64 target architecture
+        target_arch: the target architecture to get its environment variables
+
+    Returns:
+        dictionary of envvars
+    """
+    env = {}
+    if _is_vs_2017_or_2019(vc_path):
+        lib = msvc_vars_x64["%{msvc_env_lib_x64}"]
+        full_version = _get_vc_full_version(repository_ctx, vc_path)
+        tools_path = "%s\\Tools\\MSVC\\%s\\bin\\HostX64\\%s" % (vc_path, full_version, target_arch)
+    else:
+        lib = msvc_vars_x64["%{msvc_env_lib_x64}"].replace("amd64", _targets_lib_folder[target_arch])
+        tools_path = vc_path + "\\bin\\" + _targets_archs[target_arch]
+
+    env["INCLUDE"] = msvc_vars_x64["%{msvc_env_include_x64}"]
+    env["LIB"] = lib.replace("x64", target_arch)
+    env["PATH"] = escape_string(tools_path.replace("\\", "\\\\")) + ";" + msvc_vars_x64["%{msvc_env_path_x64}"]
+    return env
+
+def setup_vc_env_vars(repository_ctx, vc_path, envvars = [], allow_empty = False, escape = True):
+    """Get environment variables set by VCVARSALL.BAT script. Doesn't %-escape the result!
+
+    Args:
+        repository_ctx: the repository_ctx object
+        vc_path: Visual C++ root directory
+        envvars: list of envvars to retrieve; default is ["PATH", "INCLUDE", "LIB", "WINDOWSSDKDIR"]
+        allow_empty: allow unset envvars; if False then report errors for those
+        escape: if True, escape "\" as "\\" and "%" as "%%" in the envvar values
+
+    Returns:
+        dictionary of the envvars
+    """
+    if not envvars:
+        envvars = ["PATH", "INCLUDE", "LIB", "WINDOWSSDKDIR"]
+
+    vcvars_script = _find_vcvars_bat_script(repository_ctx, vc_path)
+    if not vcvars_script:
+        auto_configure_fail("Cannot find VCVARSALL.BAT script under %s" % vc_path)
+
+    # Getting Windows SDK version set by user.
+    # Only supports VC 2017 & 2019 and VC 2015 with full VS installation.
+    winsdk_version = _get_winsdk_full_version(repository_ctx)
+    if winsdk_version and not _is_support_winsdk_selection(repository_ctx, vc_path):
+        auto_configure_warning(("BAZEL_WINSDK_FULL_VERSION=%s is ignored, " +
+                                "because standalone Visual C++ Build Tools 2015 doesn't support specifying Windows " +
+                                "SDK version, please install the full VS 2015 or use VC 2017/2019.") % winsdk_version)
+        winsdk_version = ""
+
+    # Get VC version set by user. Only supports VC 2017 & 2019.
+    vcvars_ver = ""
+    if _is_vs_2017_or_2019(vc_path):
+        full_version = _get_vc_full_version(repository_ctx, vc_path)
+
+        # Because VCVARSALL.BAT is from the latest VC installed, so we check if the latest
+        # version supports -vcvars_ver or not.
+        if _is_support_vcvars_ver(_get_latest_subversion(repository_ctx, vc_path)):
+            vcvars_ver = "-vcvars_ver=" + full_version
+
+    cmd = "\"%s\" amd64 %s %s" % (vcvars_script, winsdk_version, vcvars_ver)
+    print_envvars = ",".join(["{k}=%{k}%".format(k = k) for k in envvars])
     repository_ctx.file(
         "get_env.bat",
         "@echo off\n" +
-        "call \"" + vcvarsall + "\" amd64 > NUL \n" +
-        "echo PATH=%PATH%,INCLUDE=%INCLUDE%,LIB=%LIB%,WINDOWSSDKDIR=%WINDOWSSDKDIR% \n",
+        ("call %s > NUL \n" % cmd) + ("echo %s \n" % print_envvars),
         True,
     )
-    env = _add_system_root(
-        repository_ctx,
-        {"PATH": "", "INCLUDE": "", "LIB": "", "WINDOWSSDKDIR": ""},
-    )
+    env = _add_system_root(repository_ctx, {k: "" for k in envvars})
     envs = execute(repository_ctx, ["./get_env.bat"], environment = env).split(",")
     env_map = {}
     for env in envs:
         key, value = env.split("=", 1)
-        env_map[key] = escape_string(value.replace("\\", "\\\\"))
+        env_map[key] = escape_string(value.replace("\\", "\\\\")) if escape else value
+
+    if not allow_empty:
+        _check_env_vars(env_map, cmd, expected = envvars)
     return env_map
 
-def find_msvc_tool(repository_ctx, vc_path, tool):
-    """Find the exact path of a specific build tool in MSVC. Doesn't %-escape the result."""
-    tool_path = ""
-    if _is_vs_2017_or_2019(vc_path):
-        # For VS 2017 and 2019, the tools are under a directory like:
-        # C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.10.24930\bin\HostX64\x64
-        dirs = repository_ctx.path(vc_path + "\\Tools\\MSVC").readdir()
-        if len(dirs) < 1:
-            return None
+def _check_env_vars(env_map, cmd, expected):
+    for env in expected:
+        if not env_map.get(env):
+            auto_configure_fail(
+                "Setting up VC environment variables failed, %s is not set by the following command:\n    %s" % (env, cmd),
+            )
 
-        # Normally there should be only one child directory under %VC_PATH%\TOOLS\MSVC,
-        # but iterate every directory to be more robust.
-        for path in dirs:
-            tool_path = str(path) + "\\bin\\HostX64\\x64\\" + tool
-            if repository_ctx.path(tool_path).exists:
-                break
+def _get_latest_subversion(repository_ctx, vc_path):
+    """Get the latest subversion of a VS 2017/2019 installation.
+
+    For VS 2017 & 2019, there could be multiple versions of VC build tools.
+    The directories are like:
+      <vc_path>\\Tools\\MSVC\\14.10.24930\\bin\\HostX64\\x64
+      <vc_path>\\Tools\\MSVC\\14.16.27023\\bin\\HostX64\\x64
+    This function should return 14.16.27023 in this case."""
+    versions = [path.basename for path in repository_ctx.path(vc_path + "\\Tools\\MSVC").readdir()]
+    if len(versions) < 1:
+        auto_configure_warning_maybe(repository_ctx, "Cannot find any VC installation under BAZEL_VC(%s)" % vc_path)
+        return None
+
+    # Parse the version string into integers, then sort the integers to prevent textual sorting.
+    version_list = []
+    for version in versions:
+        parts = [int(i) for i in version.split(".")]
+        version_list.append((parts, version))
+
+    version_list = sorted(version_list)
+    latest_version = version_list[-1][1]
+
+    auto_configure_warning_maybe(repository_ctx, "Found the following VC verisons:\n%s\n\nChoosing the latest version = %s" % ("\n".join(versions), latest_version))
+    return latest_version
+
+def _get_vc_full_version(repository_ctx, vc_path):
+    """Return the value of BAZEL_VC_FULL_VERSION if defined, otherwise the latest version."""
+    version = _get_env_var(repository_ctx, "BAZEL_VC_FULL_VERSION")
+    if version != None:
+        return version
+    return _get_latest_subversion(repository_ctx, vc_path)
+
+def _get_winsdk_full_version(repository_ctx):
+    """Return the value of BAZEL_WINSDK_FULL_VERSION if defined, otherwise an empty string."""
+    return _get_env_var(repository_ctx, "BAZEL_WINSDK_FULL_VERSION", default = "")
+
+def _find_msvc_tools(repository_ctx, vc_path, target_arch = "x64"):
+    """Find the exact paths of the build tools in MSVC for the given target. Doesn't %-escape the result."""
+    build_tools_paths = {}
+    tools = _get_target_tools(target_arch)
+    for tool_name in tools:
+        build_tools_paths[tool_name] = find_msvc_tool(repository_ctx, vc_path, tools[tool_name], target_arch)
+    return build_tools_paths
+
+def find_msvc_tool(repository_ctx, vc_path, tool, target_arch = "x64"):
+    """Find the exact path of a specific build tool in MSVC. Doesn't %-escape the result."""
+    tool_path = None
+    if _is_vs_2017_or_2019(vc_path) or _is_msbuildtools(vc_path):
+        full_version = _get_vc_full_version(repository_ctx, vc_path)
+        if full_version:
+            tool_path = "%s\\Tools\\MSVC\\%s\\bin\\HostX64\\%s\\%s" % (vc_path, full_version, target_arch, tool)
     else:
         # For VS 2015 and older version, the tools are under:
         # C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\amd64
-        tool_path = vc_path + "\\bin\\amd64\\" + tool
+        tool_path = vc_path + "\\bin\\" + _targets_archs[target_arch] + "\\" + tool
 
-    if not repository_ctx.path(tool_path).exists:
+    if not tool_path or not repository_ctx.path(tool_path).exists:
         return None
 
     return tool_path.replace("\\", "/")
 
-def _find_missing_vc_tools(repository_ctx, vc_path):
-    """Check if any required tool is missing under given VC path."""
+def _find_missing_vc_tools(repository_ctx, vc_path, target_arch = "x64"):
+    """Check if any required tool for the given target architecture is missing under given VC path."""
     missing_tools = []
-    if not _find_vcvarsall_bat_script(repository_ctx, vc_path):
+    if not _find_vcvars_bat_script(repository_ctx, vc_path):
         missing_tools.append("VCVARSALL.BAT")
 
-    for tool in ["cl.exe", "link.exe", "lib.exe", "ml64.exe"]:
-        if not find_msvc_tool(repository_ctx, vc_path, tool):
-            missing_tools.append(tool)
-
+    tools = _get_target_tools(target_arch)
+    for tool_name in tools:
+        if not find_msvc_tool(repository_ctx, vc_path, tools[tool_name], target_arch):
+            missing_tools.append(tools[tool_name])
     return missing_tools
+
+def _get_target_tools(target):
+    """Return a list of required tools names and their filenames for a certain target."""
+    tools = {
+        "x64": {"CL": "cl.exe", "LINK": "link.exe", "LIB": "lib.exe", "ML": "ml64.exe"},
+        "x86": {"CL": "cl.exe", "LINK": "link.exe", "LIB": "lib.exe", "ML": "ml.exe"},
+        "arm": {"CL": "cl.exe", "LINK": "link.exe", "LIB": "lib.exe"},
+        "arm64": {"CL": "cl.exe", "LINK": "link.exe", "LIB": "lib.exe"},
+    }
+    if tools.get(target) == None:
+        auto_configure_fail("Target architecture %s is not recognized" % target)
+
+    return tools.get(target)
 
 def _is_support_debug_fastlink(repository_ctx, linker):
     """Run linker alone to see if it supports /DEBUG:FASTLINK."""
@@ -266,39 +492,46 @@ def find_llvm_path(repository_ctx):
     """Find LLVM install path."""
 
     # 1. Check if BAZEL_LLVM is already set by user.
-    if "BAZEL_LLVM" in repository_ctx.os.environ:
-        return repository_ctx.os.environ["BAZEL_LLVM"]
+    bazel_llvm = _get_path_env_var(repository_ctx, "BAZEL_LLVM")
+    if bazel_llvm:
+        return bazel_llvm
 
-    _auto_configure_warning_maybe(repository_ctx, "'BAZEL_LLVM' is not set, " +
-                                                  "start looking for LLVM installation on machine.")
+    auto_configure_warning_maybe(repository_ctx, "'BAZEL_LLVM' is not set, " +
+                                                 "start looking for LLVM installation on machine.")
 
     # 2. Look for LLVM installation through registry.
-    _auto_configure_warning_maybe(repository_ctx, "Looking for LLVM installation through registry")
+    auto_configure_warning_maybe(repository_ctx, "Looking for LLVM installation through registry")
     reg_binary = _get_system_root(repository_ctx) + "\\system32\\reg.exe"
     llvm_dir = None
     result = repository_ctx.execute([reg_binary, "query", "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\LLVM\\LLVM"])
-    _auto_configure_warning_maybe(repository_ctx, "registry query result for LLVM:\n\nSTDOUT(start)\n%s\nSTDOUT(end)\nSTDERR(start):\n%s\nSTDERR(end)\n" %
-                                                  (result.stdout, result.stderr))
+    auto_configure_warning_maybe(repository_ctx, "registry query result for LLVM:\n\nSTDOUT(start)\n%s\nSTDOUT(end)\nSTDERR(start):\n%s\nSTDERR(end)\n" %
+                                                 (result.stdout, result.stderr))
     if not result.stderr:
         for line in result.stdout.split("\n"):
             line = line.strip()
             if line.startswith("(Default)") and line.find("REG_SZ") != -1:
                 llvm_dir = line[line.find("REG_SZ") + len("REG_SZ"):].strip()
     if llvm_dir:
-        _auto_configure_warning_maybe(repository_ctx, "LLVM installation found at %s" % llvm_dir)
+        auto_configure_warning_maybe(repository_ctx, "LLVM installation found at %s" % llvm_dir)
         return llvm_dir
 
     # 3. Check default directories for LLVM installation
-    _auto_configure_warning_maybe(repository_ctx, "Looking for default LLVM installation directory")
-    program_files_dir = get_env_var(repository_ctx, "PROGRAMFILES", default = "C:\\Program Files", enable_warning = True)
+    auto_configure_warning_maybe(repository_ctx, "Looking for default LLVM installation directory")
+    program_files_dir = _get_path_env_var(repository_ctx, "PROGRAMFILES")
+    if not program_files_dir:
+        program_files_dir = "C:\\Program Files"
+        auto_configure_warning_maybe(
+            repository_ctx,
+            "'PROGRAMFILES' environment variable is not set, using '%s' as default" % program_files_dir,
+        )
     path = program_files_dir + "\\LLVM"
     if repository_ctx.path(path).exists:
         llvm_dir = path
 
     if not llvm_dir:
-        _auto_configure_warning_maybe(repository_ctx, "LLVM installation not found.")
+        auto_configure_warning_maybe(repository_ctx, "LLVM installation not found.")
         return None
-    _auto_configure_warning_maybe(repository_ctx, "LLVM installation found at %s" % llvm_dir)
+    auto_configure_warning_maybe(repository_ctx, "LLVM installation found at %s" % llvm_dir)
     return llvm_dir
 
 def find_llvm_tool(repository_ctx, llvm_path, tool):
@@ -312,191 +545,252 @@ def find_llvm_tool(repository_ctx, llvm_path, tool):
 
 def _use_clang_cl(repository_ctx):
     """Returns True if USE_CLANG_CL is set to 1."""
-    return repository_ctx.os.environ.get("USE_CLANG_CL", default = "0") == "1"
+    return _get_env_var(repository_ctx, "USE_CLANG_CL", default = "0") == "1"
+
+def _find_missing_llvm_tools(repository_ctx, llvm_path):
+    """Check if any required tool is missing under given LLVM path."""
+    missing_tools = []
+    for tool in ["clang-cl.exe", "lld-link.exe", "llvm-lib.exe"]:
+        if not find_llvm_tool(repository_ctx, llvm_path, tool):
+            missing_tools.append(tool)
+
+    return missing_tools
 
 def _get_clang_version(repository_ctx, clang_cl):
     result = repository_ctx.execute([clang_cl, "-v"])
-    if result.return_code != 0:
+    first_line = result.stderr.strip().splitlines()[0]
+
+    # The first line of stderr should look like "clang version X.X.X"
+    if result.return_code != 0 or not first_line.startswith("clang version "):
         auto_configure_fail("Failed to get clang version by running \"%s -v\"" % clang_cl)
+    return first_line.split(" ")[2]
 
-    # Stderr should look like "clang version X.X.X ..."
-    return result.stderr.strip().split(" ")[2]
+def _get_msys_mingw_vars(repository_ctx):
+    """Get the variables we need to populate the msys/mingw toolchains."""
+    tool_paths, tool_bin_path, inc_dir_msys = _get_escaped_windows_msys_starlark_content(repository_ctx)
+    tool_paths_mingw, tool_bin_path_mingw, inc_dir_mingw = _get_escaped_windows_msys_starlark_content(repository_ctx, use_mingw = True)
+    write_builtin_include_directory_paths(repository_ctx, "mingw", [inc_dir_mingw], file_suffix = "_mingw")
+    msys_mingw_vars = {
+        "%{cxx_builtin_include_directories}": inc_dir_msys,
+        "%{mingw_cxx_builtin_include_directories}": inc_dir_mingw,
+        "%{tool_paths}": tool_paths,
+        "%{mingw_tool_paths}": tool_paths_mingw,
+        "%{tool_bin_path}": tool_bin_path,
+        "%{mingw_tool_bin_path}": tool_bin_path_mingw,
+    }
+    return msys_mingw_vars
 
-def configure_windows_toolchain(repository_ctx):
-    """Configure C++ toolchain on Windows."""
-    paths = resolve_labels(repository_ctx, [
-        "@bazel_tools//tools/cpp:BUILD.static.windows",
-        "@bazel_tools//tools/cpp:cc_toolchain_config.bzl.tpl",
-        "@bazel_tools//tools/cpp:vc_installation_error.bat.tpl",
-        "@bazel_tools//tools/cpp:msys_gcc_installation_error.bat",
-    ])
-
-    repository_ctx.symlink(paths["@bazel_tools//tools/cpp:BUILD.static.windows"], "BUILD")
-    repository_ctx.symlink(
-        paths["@bazel_tools//tools/cpp:msys_gcc_installation_error.bat"],
-        "msys_gcc_installation_error.bat",
-    )
-
+def _get_msvc_vars(repository_ctx, paths, target_arch = "x64", msvc_vars_x64 = None):
+    """Get the variables we need to populate the MSVC toolchains."""
+    msvc_vars = dict()
     vc_path = find_vc_path(repository_ctx)
     missing_tools = None
+
     if not vc_path:
         repository_ctx.template(
-            "vc_installation_error.bat",
+            "vc_installation_error_" + target_arch + ".bat",
             paths["@bazel_tools//tools/cpp:vc_installation_error.bat.tpl"],
             {"%{vc_error_message}": ""},
         )
     else:
-        missing_tools = _find_missing_vc_tools(repository_ctx, vc_path)
+        missing_tools = _find_missing_vc_tools(repository_ctx, vc_path, target_arch)
         if missing_tools:
             message = "\r\n".join([
                 "echo. 1>&2",
                 "echo Visual C++ build tools seems to be installed at %s 1>&2" % vc_path,
                 "echo But Bazel can't find the following tools: 1>&2",
                 "echo     %s 1>&2" % ", ".join(missing_tools),
+                "echo for %s target architecture 1>&2" % target_arch,
                 "echo. 1>&2",
             ])
             repository_ctx.template(
-                "vc_installation_error.bat",
+                "vc_installation_error_" + target_arch + ".bat",
                 paths["@bazel_tools//tools/cpp:vc_installation_error.bat.tpl"],
                 {"%{vc_error_message}": message},
             )
 
-    tool_paths_mingw, tool_bin_path_mingw, inc_dir_mingw, _ = _get_escaped_windows_msys_starlark_content(repository_ctx, use_mingw = True)
-    tool_paths, tool_bin_path, inc_dir_msys, artifact_patterns = _get_escaped_windows_msys_starlark_content(repository_ctx)
     if not vc_path or missing_tools:
-        repository_ctx.template(
-            "cc_toolchain_config.bzl",
-            paths["@bazel_tools//tools/cpp:cc_toolchain_config.bzl.tpl"],
-            {
-                "%{toolchain_identifier}": "msys_x64",
-                "%{msvc_env_tmp}": "msvc_not_found",
-                "%{msvc_env_path}": "msvc_not_found",
-                "%{msvc_env_include}": "msvc_not_found",
-                "%{msvc_env_lib}": "msvc_not_found",
-                "%{msvc_cl_path}": "vc_installation_error.bat",
-                "%{msvc_ml_path}": "vc_installation_error.bat",
-                "%{msvc_link_path}": "vc_installation_error.bat",
-                "%{msvc_lib_path}": "vc_installation_error.bat",
-                "%{msvc_cxx_builtin_include_directories}": "",
-                "%{msys_x64_mingw_cxx_content}": get_starlark_list(["-std=gnu++0x"]),
-                "%{msys_x64_mingw_link_content}": get_starlark_list(["-lstdc++"]),
-                "%{dbg_mode_debug}": "/DEBUG",
-                "%{fastbuild_mode_debug}": "/DEBUG",
-                "%{compile_content}": "",
-                "%{cxx_content}": get_starlark_list(["-std=gnu++0x"]),
-                "%{link_content}": get_starlark_list(["-lstdc++"]),
-                "%{opt_compile_content}": "",
-                "%{opt_link_content}": "",
-                "%{unfiltered_content}": "",
-                "%{dbg_compile_content}": "",
-                "%{cxx_builtin_include_directories}": inc_dir_msys,
-                "%{mingw_cxx_builtin_include_directories}": inc_dir_mingw,
-                "%{coverage_feature}": "",
-                "%{use_coverage_feature}": "",
-                "%{supports_start_end_lib}": "",
-                "%{use_windows_features}": "windows_features + ",
-                "%{abi_version}": "local",
-                "%{abi_libc_version}": "local",
-                "%{builtin_sysroot}": "",
-                "%{compiler}": "msys-gcc",
-                "%{host_system_name}": "local",
-                "%{target_libc}": "msys",
-                "%{target_cpu}": "x64_windows",
-                "%{target_system_name}": "local",
-                "%{tool_paths}": tool_paths,
-                "%{mingw_tool_paths}": tool_paths_mingw,
-                "%{artifact_name_patterns}": artifact_patterns,
-                "%{tool_bin_path}": tool_bin_path,
-                "%{mingw_tool_bin_path}": tool_bin_path_mingw,
-            },
-        )
-        return
+        write_builtin_include_directory_paths(repository_ctx, "msvc", [], file_suffix = "_msvc")
+        msvc_vars = {
+            "%{msvc_env_tmp_" + target_arch + "}": "msvc_not_found",
+            "%{msvc_env_include_" + target_arch + "}": "msvc_not_found",
+            "%{msvc_cxx_builtin_include_directories_" + target_arch + "}": "",
+            "%{msvc_env_path_" + target_arch + "}": "msvc_not_found",
+            "%{msvc_env_lib_" + target_arch + "}": "msvc_not_found",
+            "%{msvc_cl_path_" + target_arch + "}": "vc_installation_error_" + target_arch + ".bat",
+            "%{msvc_ml_path_" + target_arch + "}": "vc_installation_error_" + target_arch + ".bat",
+            "%{msvc_link_path_" + target_arch + "}": "vc_installation_error_" + target_arch + ".bat",
+            "%{msvc_lib_path_" + target_arch + "}": "vc_installation_error_" + target_arch + ".bat",
+            "%{dbg_mode_debug_flag_" + target_arch + "}": "/DEBUG",
+            "%{fastbuild_mode_debug_flag_" + target_arch + "}": "/DEBUG",
+        }
+        return msvc_vars
 
-    env = setup_vc_env_vars(repository_ctx, vc_path)
-    escaped_paths = escape_string(env["PATH"])
+    if msvc_vars_x64:
+        env = _get_vc_env_vars(repository_ctx, vc_path, msvc_vars_x64, target_arch)
+    else:
+        env = setup_vc_env_vars(repository_ctx, vc_path)
+    escaped_tmp_dir = escape_string(_get_temp_env(repository_ctx).replace("\\", "\\\\"))
     escaped_include_paths = escape_string(env["INCLUDE"])
-    escaped_lib_paths = escape_string(env["LIB"])
-    escaped_tmp_dir = escape_string(
-        get_env_var(repository_ctx, "TMP", "C:\\Windows\\Temp").replace("\\", "\\\\"),
-    )
 
+    build_tools = {}
     llvm_path = ""
     if _use_clang_cl(repository_ctx):
         llvm_path = find_llvm_path(repository_ctx)
         if not llvm_path:
             auto_configure_fail("\nUSE_CLANG_CL is set to 1, but Bazel cannot find Clang installation on your system.\n" +
                                 "Please install Clang via http://releases.llvm.org/download.html\n")
-        cl_path = find_llvm_tool(repository_ctx, llvm_path, "clang-cl.exe")
-        link_path = find_llvm_tool(repository_ctx, llvm_path, "lld-link.exe")
-        if not link_path:
-            link_path = find_msvc_tool(repository_ctx, vc_path, "link.exe")
-        lib_path = find_llvm_tool(repository_ctx, llvm_path, "llvm-lib.exe")
-        if not lib_path:
-            lib_path = find_msvc_tool(repository_ctx, vc_path, "lib.exe")
+
+        build_tools["CL"] = find_llvm_tool(repository_ctx, llvm_path, "clang-cl.exe")
+        build_tools["ML"] = find_msvc_tool(repository_ctx, vc_path, "ml64.exe", "x64")
+        build_tools["LINK"] = find_llvm_tool(repository_ctx, llvm_path, "lld-link.exe")
+        if not build_tools["LINK"]:
+            build_tools["LINK"] = find_msvc_tool(repository_ctx, vc_path, "link.exe", "x64")
+        build_tools["LIB"] = find_llvm_tool(repository_ctx, llvm_path, "llvm-lib.exe")
+        if not build_tools["LIB"]:
+            build_tools["LIB"] = find_msvc_tool(repository_ctx, vc_path, "lib.exe", "x64")
     else:
-        cl_path = find_msvc_tool(repository_ctx, vc_path, "cl.exe")
-        link_path = find_msvc_tool(repository_ctx, vc_path, "link.exe")
-        lib_path = find_msvc_tool(repository_ctx, vc_path, "lib.exe")
+        build_tools = _find_msvc_tools(repository_ctx, vc_path, target_arch)
 
-    msvc_ml_path = find_msvc_tool(repository_ctx, vc_path, "ml64.exe")
     escaped_cxx_include_directories = []
-
     for path in escaped_include_paths.split(";"):
         if path:
             escaped_cxx_include_directories.append("\"%s\"" % path)
     if llvm_path:
-        clang_version = _get_clang_version(repository_ctx, cl_path)
+        clang_version = _get_clang_version(repository_ctx, build_tools["CL"])
         clang_dir = llvm_path + "\\lib\\clang\\" + clang_version
         clang_include_path = (clang_dir + "\\include").replace("\\", "\\\\")
         escaped_cxx_include_directories.append("\"%s\"" % clang_include_path)
         clang_lib_path = (clang_dir + "\\lib\\windows").replace("\\", "\\\\")
-        escaped_lib_paths = escaped_lib_paths + ";" + clang_lib_path
+        env["LIB"] = escape_string(env["LIB"]) + ";" + clang_lib_path
 
-    support_debug_fastlink = _is_support_debug_fastlink(repository_ctx, link_path)
+    support_debug_fastlink = _is_support_debug_fastlink(repository_ctx, build_tools["LINK"])
+    write_builtin_include_directory_paths(repository_ctx, "msvc", escaped_cxx_include_directories, file_suffix = "_msvc")
+
+    msvc_vars = {
+        "%{msvc_env_tmp_" + target_arch + "}": escaped_tmp_dir,
+        "%{msvc_env_include_" + target_arch + "}": escaped_include_paths,
+        "%{msvc_cxx_builtin_include_directories_" + target_arch + "}": "        " + ",\n        ".join(escaped_cxx_include_directories),
+        "%{msvc_env_path_" + target_arch + "}": escape_string(env["PATH"]),
+        "%{msvc_env_lib_" + target_arch + "}": escape_string(env["LIB"]),
+        "%{msvc_cl_path_" + target_arch + "}": build_tools["CL"],
+        "%{msvc_ml_path_" + target_arch + "}": build_tools.get("ML", "msvc_arm_toolchain_does_not_support_ml"),
+        "%{msvc_link_path_" + target_arch + "}": build_tools["LINK"],
+        "%{msvc_lib_path_" + target_arch + "}": build_tools["LIB"],
+        "%{dbg_mode_debug_flag_" + target_arch + "}": "/DEBUG:FULL" if support_debug_fastlink else "/DEBUG",
+        "%{fastbuild_mode_debug_flag_" + target_arch + "}": "/DEBUG:FASTLINK" if support_debug_fastlink else "/DEBUG",
+    }
+    return msvc_vars
+
+def _get_clang_cl_vars(repository_ctx, paths, msvc_vars):
+    """Get the variables we need to populate the clang-cl toolchains."""
+    llvm_path = find_llvm_path(repository_ctx)
+    error_script = None
+    if msvc_vars["%{msvc_cl_path_x64}"] == "vc_installation_error_x64.bat":
+        error_script = "vc_installation_error_x64.bat"
+    elif not llvm_path:
+        repository_ctx.template(
+            "clang_installation_error.bat",
+            paths["@bazel_tools//tools/cpp:clang_installation_error.bat.tpl"],
+            {"%{clang_error_message}": ""},
+        )
+        error_script = "clang_installation_error.bat"
+    else:
+        missing_tools = _find_missing_llvm_tools(repository_ctx, llvm_path)
+        if missing_tools:
+            message = "\r\n".join([
+                "echo. 1>&2",
+                "echo LLVM/Clang seems to be installed at %s 1>&2" % llvm_path,
+                "echo But Bazel can't find the following tools: 1>&2",
+                "echo     %s 1>&2" % ", ".join(missing_tools),
+                "echo. 1>&2",
+            ])
+            repository_ctx.template(
+                "clang_installation_error.bat",
+                paths["@bazel_tools//tools/cpp:clang_installation_error.bat.tpl"],
+                {"%{clang_error_message}": message},
+            )
+            error_script = "clang_installation_error.bat"
+
+    if error_script:
+        write_builtin_include_directory_paths(repository_ctx, "clang-cl", [], file_suffix = "_clangcl")
+        clang_cl_vars = {
+            "%{clang_cl_env_tmp}": "clang_cl_not_found",
+            "%{clang_cl_env_path}": "clang_cl_not_found",
+            "%{clang_cl_env_include}": "clang_cl_not_found",
+            "%{clang_cl_env_lib}": "clang_cl_not_found",
+            "%{clang_cl_cl_path}": error_script,
+            "%{clang_cl_link_path}": error_script,
+            "%{clang_cl_lib_path}": error_script,
+            "%{clang_cl_ml_path}": error_script,
+            "%{clang_cl_dbg_mode_debug_flag}": "/DEBUG",
+            "%{clang_cl_fastbuild_mode_debug_flag}": "/DEBUG",
+            "%{clang_cl_cxx_builtin_include_directories}": "",
+        }
+        return clang_cl_vars
+
+    clang_cl_path = find_llvm_tool(repository_ctx, llvm_path, "clang-cl.exe")
+    lld_link_path = find_llvm_tool(repository_ctx, llvm_path, "lld-link.exe")
+    llvm_lib_path = find_llvm_tool(repository_ctx, llvm_path, "llvm-lib.exe")
+
+    clang_version = _get_clang_version(repository_ctx, clang_cl_path)
+    clang_dir = llvm_path + "\\lib\\clang\\" + clang_version
+    clang_include_path = (clang_dir + "\\include").replace("\\", "\\\\")
+    clang_lib_path = (clang_dir + "\\lib\\windows").replace("\\", "\\\\")
+
+    clang_cl_include_directories = msvc_vars["%{msvc_cxx_builtin_include_directories_x64}"] + (",\n        \"%s\"" % clang_include_path)
+    write_builtin_include_directory_paths(repository_ctx, "clang-cl", [clang_cl_include_directories], file_suffix = "_clangcl")
+    clang_cl_vars = {
+        "%{clang_cl_env_tmp}": msvc_vars["%{msvc_env_tmp_x64}"],
+        "%{clang_cl_env_path}": msvc_vars["%{msvc_env_path_x64}"],
+        "%{clang_cl_env_include}": msvc_vars["%{msvc_env_include_x64}"] + ";" + clang_include_path,
+        "%{clang_cl_env_lib}": msvc_vars["%{msvc_env_lib_x64}"] + ";" + clang_lib_path,
+        "%{clang_cl_cxx_builtin_include_directories}": clang_cl_include_directories,
+        "%{clang_cl_cl_path}": clang_cl_path,
+        "%{clang_cl_link_path}": lld_link_path,
+        "%{clang_cl_lib_path}": llvm_lib_path,
+        "%{clang_cl_ml_path}": msvc_vars["%{msvc_ml_path_x64}"],
+        # LLVM's lld-link.exe doesn't support /DEBUG:FASTLINK.
+        "%{clang_cl_dbg_mode_debug_flag}": "/DEBUG",
+        "%{clang_cl_fastbuild_mode_debug_flag}": "/DEBUG",
+    }
+    return clang_cl_vars
+
+def configure_windows_toolchain(repository_ctx):
+    """Configure C++ toolchain on Windows."""
+    paths = resolve_labels(repository_ctx, [
+        "@bazel_tools//tools/cpp:BUILD.windows.tpl",
+        "@bazel_tools//tools/cpp:windows_cc_toolchain_config.bzl",
+        "@bazel_tools//tools/cpp:armeabi_cc_toolchain_config.bzl",
+        "@bazel_tools//tools/cpp:vc_installation_error.bat.tpl",
+        "@bazel_tools//tools/cpp:msys_gcc_installation_error.bat",
+        "@bazel_tools//tools/cpp:clang_installation_error.bat.tpl",
+    ])
+
+    repository_ctx.symlink(
+        paths["@bazel_tools//tools/cpp:windows_cc_toolchain_config.bzl"],
+        "windows_cc_toolchain_config.bzl",
+    )
+    repository_ctx.symlink(
+        paths["@bazel_tools//tools/cpp:armeabi_cc_toolchain_config.bzl"],
+        "armeabi_cc_toolchain_config.bzl",
+    )
+    repository_ctx.symlink(
+        paths["@bazel_tools//tools/cpp:msys_gcc_installation_error.bat"],
+        "msys_gcc_installation_error.bat",
+    )
+
+    template_vars = dict()
+    msvc_vars_x64 = _get_msvc_vars(repository_ctx, paths, "x64")
+    template_vars.update(msvc_vars_x64)
+    template_vars.update(_get_clang_cl_vars(repository_ctx, paths, msvc_vars_x64))
+    template_vars.update(_get_msys_mingw_vars(repository_ctx))
+    template_vars.update(_get_msvc_vars(repository_ctx, paths, "x86", msvc_vars_x64))
+    template_vars.update(_get_msvc_vars(repository_ctx, paths, "arm", msvc_vars_x64))
+    template_vars.update(_get_msvc_vars(repository_ctx, paths, "arm64", msvc_vars_x64))
 
     repository_ctx.template(
-        "cc_toolchain_config.bzl",
-        paths["@bazel_tools//tools/cpp:cc_toolchain_config.bzl.tpl"],
-        {
-            "%{toolchain_identifier}": "msys_x64",
-            "%{msvc_env_tmp}": escaped_tmp_dir,
-            "%{msvc_env_path}": escaped_paths,
-            "%{msvc_env_include}": escaped_include_paths,
-            "%{msvc_env_lib}": escaped_lib_paths,
-            "%{msvc_cl_path}": cl_path,
-            "%{msvc_ml_path}": msvc_ml_path,
-            "%{msvc_link_path}": link_path,
-            "%{msvc_lib_path}": lib_path,
-            "%{dbg_mode_debug}": "/DEBUG:FULL" if support_debug_fastlink else "/DEBUG",
-            "%{fastbuild_mode_debug}": "/DEBUG:FASTLINK" if support_debug_fastlink else "/DEBUG",
-            "%{msys_x64_mingw_cxx_content}": get_starlark_list(["-std=gnu++0x"]),
-            "%{msys_x64_mingw_link_content}": get_starlark_list(["-lstdc++"]),
-            "%{compile_content}": "",
-            "%{cxx_content}": get_starlark_list(["-std=gnu++0x"]),
-            "%{link_content}": get_starlark_list(["-lstdc++"]),
-            "%{opt_compile_content}": "",
-            "%{opt_link_content}": "",
-            "%{unfiltered_content}": "",
-            "%{dbg_compile_content}": "",
-            "%{cxx_builtin_include_directories}": inc_dir_msys + ",\n        ".join(escaped_cxx_include_directories),
-            "%{msvc_cxx_builtin_include_directories}": "        " + ",\n        ".join(escaped_cxx_include_directories),
-            "%{mingw_cxx_builtin_include_directories}": inc_dir_mingw + ",\n        ".join(escaped_cxx_include_directories),
-            "%{coverage_feature}": "",
-            "%{use_coverage_feature}": "",
-            "%{supports_start_end_lib}": "",
-            "%{use_windows_features}": "windows_features + ",
-            "%{abi_version}": "local",
-            "%{abi_libc_version}": "local",
-            "%{builtin_sysroot}": "",
-            "%{compiler}": "msys-gcc",
-            "%{host_system_name}": "local",
-            "%{target_libc}": "msys",
-            "%{target_cpu}": "x64_windows",
-            "%{target_system_name}": "local",
-            "%{tool_paths}": tool_paths,
-            "%{mingw_tool_paths}": tool_paths_mingw,
-            "%{artifact_name_patterns}": artifact_patterns,
-            "%{tool_bin_path}": tool_bin_path,
-            "%{mingw_tool_bin_path}": tool_bin_path_mingw,
-        },
+        "BUILD",
+        paths["@bazel_tools//tools/cpp:BUILD.windows.tpl"],
+        template_vars,
     )

@@ -17,9 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.util.FileType;
@@ -43,9 +41,9 @@ public final class PrerequisiteArtifacts {
     this.artifacts = Preconditions.checkNotNull(artifacts);
   }
 
-  static PrerequisiteArtifacts get(RuleContext ruleContext, String attributeName, Mode mode) {
+  static PrerequisiteArtifacts get(RuleContext ruleContext, String attributeName) {
     ImmutableList<FileProvider> prerequisites =
-        ImmutableList.copyOf(ruleContext.getPrerequisites(attributeName, mode, FileProvider.class));
+        ImmutableList.copyOf(ruleContext.getPrerequisites(attributeName, FileProvider.class));
     // Fast path #1: Many attributes are not set.
     if (prerequisites.isEmpty()) {
       return new PrerequisiteArtifacts(ruleContext, attributeName, ImmutableList.of());
@@ -59,16 +57,14 @@ public final class PrerequisiteArtifacts {
     }
     Set<Artifact> result = new LinkedHashSet<>();
     for (FileProvider target : prerequisites) {
-      Iterables.addAll(result, target.getFilesToBuild());
+      result.addAll(target.getFilesToBuild().toList());
     }
     return new PrerequisiteArtifacts(ruleContext, attributeName, ImmutableList.copyOf(result));
   }
 
-  public static NestedSet<Artifact> nestedSet(RuleContext ruleContext, String attributeName,
-      Mode mode) {
+  public static NestedSet<Artifact> nestedSet(RuleContext ruleContext, String attributeName) {
     NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
-    for (FileProvider target :
-        ruleContext.getPrerequisites(attributeName, mode, FileProvider.class)) {
+    for (FileProvider target : ruleContext.getPrerequisites(attributeName, FileProvider.class)) {
       result.addTransitive(target.getFilesToBuild());
     }
     return result.build();

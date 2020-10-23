@@ -40,6 +40,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
 #include <string>
 
 #ifndef MS_REC
@@ -174,6 +175,19 @@ static void MountFilesystems() {
   // do this is by bind-mounting it upon itself.
   PRINT_DEBUG("working dir: %s", opt.working_dir.c_str());
 
+  // An attempt to mount the sandbox in tmpfs will always fail, so this block is
+  // slightly redundant with the next mount() check, but dumping the mount()
+  // syscall is incredibly cryptic, so we explicitly check against and warn
+  // about attempts to use tmpfs.
+  for (const std::string &tmpfs_dir : opt.tmpfs_dirs) {
+    if (opt.working_dir.find(tmpfs_dir) == 0) {
+      DIE("The sandbox working directory cannot be below a path where we mount "
+          "tmpfs (you requested mounting %s in %s). Is your --output_base= "
+          "below one of your --sandbox_tmpfs_path values?",
+          opt.working_dir.c_str(), tmpfs_dir.c_str());
+    }
+  }
+
   if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), nullptr, MS_BIND,
             nullptr) < 0) {
     DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", opt.working_dir.c_str(),
@@ -181,8 +195,8 @@ static void MountFilesystems() {
   }
 
   for (size_t i = 0; i < opt.bind_mount_sources.size(); i++) {
-    const std::string& source = opt.bind_mount_sources.at(i);
-    const std::string& target = opt.bind_mount_targets.at(i);
+    const std::string &source = opt.bind_mount_sources.at(i);
+    const std::string &target = opt.bind_mount_targets.at(i);
     PRINT_DEBUG("bind mount: %s -> %s", source.c_str(), target.c_str());
     if (mount(source.c_str(), target.c_str(), nullptr, MS_BIND, nullptr) < 0) {
       DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", source.c_str(),
@@ -275,10 +289,19 @@ static void MakeFilesystemMostlyReadOnly() {
       // mount is a broken NFS mount. In the ideal case, the user would either
       // fix or remove that mount, but in cases where that's not possible, we
       // should just ignore it.
-      if (errno != EACCES && errno != EPERM && errno != EINVAL &&
-          errno != ENOENT && errno != ESTALE) {
-        DIE("remount(nullptr, %s, nullptr, %d, nullptr)", ent->mnt_dir,
-            mountFlags);
+      switch (errno) {
+        case EACCES:
+        case EPERM:
+        case EINVAL:
+        case ENOENT:
+        case ESTALE:
+          PRINT_DEBUG(
+              "remount(nullptr, %s, nullptr, %d, nullptr) failure (%m) ignored",
+              ent->mnt_dir, mountFlags);
+          break;
+        default:
+          DIE("remount(nullptr, %s, nullptr, %d, nullptr)", ent->mnt_dir,
+              mountFlags);
       }
     }
   }
@@ -331,73 +354,13 @@ static void EnterSandbox() {
   }
 }
 
-// Reset the signal mask and restore the default handler for all signals.
-static void RestoreSignalHandlersAndMask() {
-  // Use an empty signal mask for the process (= unblock all signals).
-  sigset_t empty_set;
-  if (sigemptyset(&empty_set) < 0) {
-    DIE("sigemptyset");
-  }
-  if (sigprocmask(SIG_SETMASK, &empty_set, nullptr) < 0) {
-    DIE("sigprocmask(SIG_SETMASK, <empty set>, nullptr)");
-  }
-
-  // Set the default signal handler for all signals.
-  struct sigaction sa = {};
-  if (sigemptyset(&sa.sa_mask) < 0) {
-    DIE("sigemptyset");
-  }
-  sa.sa_handler = SIG_DFL;
-  for (int i = 1; i < NSIG; ++i) {
-    // Ignore possible errors, because we might not be allowed to set the
-    // handler for certain signals, but we still want to try.
-    sigaction(i, &sa, nullptr);
-  }
-}
-
 static void ForwardSignal(int signum) {
   PRINT_DEBUG("ForwardSignal(%d)", signum);
   kill(-global_child_pid, signum);
 }
 
-static void SetupSignalHandlers() {
-  RestoreSignalHandlersAndMask();
-
-  for (int signum = 1; signum < NSIG; signum++) {
-    switch (signum) {
-      // Some signals should indeed kill us and not be forwarded to the child,
-      // thus we can use the default handler.
-      case SIGABRT:
-      case SIGBUS:
-      case SIGFPE:
-      case SIGILL:
-      case SIGSEGV:
-      case SIGSYS:
-      case SIGTRAP:
-        break;
-      // It's fine to use the default handler for SIGCHLD, because we use
-      // waitpid() in the main loop to wait for children to die anyway.
-      case SIGCHLD:
-        break;
-      // One does not simply install a signal handler for these two signals
-      case SIGKILL:
-      case SIGSTOP:
-        break;
-      // Ignore SIGTTIN and SIGTTOU, as we hand off the terminal to the child in
-      // SpawnChild().
-      case SIGTTIN:
-      case SIGTTOU:
-        IgnoreSignal(signum);
-        break;
-      // All other signals should be forwarded to the child.
-      default:
-        InstallSignalHandler(signum, ForwardSignal);
-        break;
-    }
-  }
-}
-
 static void SpawnChild() {
+  PRINT_DEBUG("calling fork...");
   global_child_pid = fork();
 
   if (global_child_pid < 0) {
@@ -414,7 +377,7 @@ static void SpawnChild() {
     }
 
     // Unblock all signals, restore default handlers.
-    RestoreSignalHandlersAndMask();
+    ClearSignalMask();
 
     // Force umask to include read and execute for everyone, to make output
     // permissions predictable.
@@ -426,48 +389,60 @@ static void SpawnChild() {
     if (execvp(opt.args[0], opt.args.data()) < 0) {
       DIE("execvp(%s, %p)", opt.args[0], opt.args.data());
     }
+  } else {
+    PRINT_DEBUG("child started with PID %d", global_child_pid);
   }
 }
 
-static void WaitForChild() {
-  while (1) {
-    // Check for zombies to be reaped and exit, if our own child exited.
+static int WaitForChild() {
+  while (true) {
+    // Wait for some process to exit. This includes reparented processes in our
+    // PID namespace.
     int status;
-    pid_t killed_pid = waitpid(-1, &status, 0);
-    PRINT_DEBUG("waitpid returned %d", killed_pid);
+    const pid_t pid = TEMP_FAILURE_RETRY(wait(&status));
 
-    if (killed_pid < 0) {
-      // Our PID1 process got a signal that interrupted the waitpid() call and
-      // that was either ignored or forwared to the child. This is expected &
-      // fine, just continue waiting.
-      if (errno == EINTR) {
-        continue;
-      }
-      DIE("waitpid")
-    } else {
-      if (killed_pid == global_child_pid) {
-        // If the child process we spawned earlier terminated, we'll also
-        // terminate. We can simply _exit() here, because the Linux kernel will
-        // kindly SIGKILL all remaining processes in our PID namespace once we
-        // exit.
-        if (WIFSIGNALED(status)) {
-          PRINT_DEBUG("child died due to signal %d", WTERMSIG(status));
-          _exit(128 + WTERMSIG(status));
-        } else {
-          PRINT_DEBUG("child exited with code %d", WEXITSTATUS(status));
-          _exit(WEXITSTATUS(status));
-        }
-      }
+    if (pid < 0) {
+      // We don't expect any errors besides EINTR. In particular, ECHILD should
+      // be impossible because we haven't yet seen global_child_pid exit.
+      DIE("wait");
     }
+
+    PRINT_DEBUG("wait returned pid=%d, status=0x%02x", pid, status);
+
+    // If this isn't our child's PID, there's nothing further to do; we've
+    // successfully reaped a zombie.
+    if (pid != global_child_pid) {
+      continue;
+    }
+
+    // If the child exited due to a signal, log that fact and exit with the same
+    // status.
+    if (WIFSIGNALED(status)) {
+      const int signal = WTERMSIG(status);
+      PRINT_DEBUG("child exited due to signal %d", WTERMSIG(status));
+      return 128 + signal;
+    }
+
+    // Otherwise it must have exited normally.
+    const int exit_code = WEXITSTATUS(status);
+    PRINT_DEBUG("child exited normally with code %d", exit_code);
+    return exit_code;
   }
 }
 
 int Pid1Main(void *sync_pipe_param) {
+  PRINT_DEBUG("Pid1Main started");
+
   if (getpid() != 1) {
     DIE("Using PID namespaces, but we are not PID 1");
   }
 
+  // Start with default signal handlers and an empty signal mask.
+  ClearSignalMask();
+
   SetupSelfDestruction(reinterpret_cast<int *>(sync_pipe_param));
+
+  // Sandbox ourselves.
   SetupMountNamespace();
   SetupUserNamespace();
   if (opt.fake_hostname) {
@@ -478,8 +453,20 @@ int Pid1Main(void *sync_pipe_param) {
   MountProc();
   SetupNetworking();
   EnterSandbox();
-  SetupSignalHandlers();
+
+  // Ignore terminal signals; we hand off the terminal to the child in
+  // SpawnChild below.
+  IgnoreSignal(SIGTTIN);
+  IgnoreSignal(SIGTTOU);
+
+  // Fork the child process.
   SpawnChild();
-  WaitForChild();
-  _exit(EXIT_FAILURE);
+
+  // Forward requests to shut down gracefully to the child.
+  InstallSignalHandler(SIGTERM, ForwardSignal);
+
+  // Note that there's no need to kill any remaining descendant processes; they
+  // are in our PID namespace and the kernel will send them SIGKILL
+  // automatically once we exit.
+  return WaitForChild();
 }

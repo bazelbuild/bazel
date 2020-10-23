@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCallable;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
+import com.google.devtools.build.lib.server.FailureDetails.Query;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -76,7 +77,8 @@ class SomeFunction implements QueryFunction {
           @Override
           public Void call() throws QueryException {
             if (!someFound.get()) {
-              throw new QueryException(expression, "argument set is empty");
+              throw new QueryException(
+                  expression, "argument set is empty", Query.Code.ARGUMENTS_MISSING);
             }
             return null;
           }

@@ -18,15 +18,14 @@ import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
+import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.DanglingSymlinkException;
-import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.FileType;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -66,6 +65,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
   /** The transitive closure of {@link ResolvedFile}s. */
   private final NestedSet<ResolvedFile> resolvedPaths;
 
+
   private RecursiveFilesystemTraversalValue(Optional<ResolvedFile> resolvedRoot,
       NestedSet<ResolvedFile> resolvedPaths) {
     this.resolvedRoot = Preconditions.checkNotNull(resolvedRoot);
@@ -104,6 +104,146 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
    */
   public NestedSet<ResolvedFile> getTransitiveFiles() {
     return resolvedPaths;
+  }
+
+  /** Type information about the filesystem entry residing at a path. */
+  enum FileType {
+    /** A regular file. */
+    FILE {
+      @Override
+      boolean isFile() {
+        return true;
+      }
+
+      @Override
+      boolean exists() {
+        return true;
+      }
+
+      @Override
+      public String toString() {
+        return "<f>";
+      }
+    },
+    /**
+     * A symlink to a regular file.
+     *
+     * <p>The symlink may be direct (points to a non-symlink (here a file)) or it may be transitive
+     * (points to a direct or transitive symlink).
+     */
+    SYMLINK_TO_FILE {
+      @Override
+      boolean isFile() {
+        return true;
+      }
+
+      @Override
+      boolean isSymlink() {
+        return true;
+      }
+
+      @Override
+      boolean exists() {
+        return true;
+      }
+
+      @Override
+      public String toString() {
+        return "<lf>";
+      }
+    },
+    /** A directory. */
+    DIRECTORY {
+      @Override
+      boolean isDirectory() {
+        return true;
+      }
+
+      @Override
+      boolean exists() {
+        return true;
+      }
+
+      @Override
+      public String toString() {
+        return "<d>";
+      }
+    },
+    /**
+     * A symlink to a directory.
+     *
+     * <p>The symlink may be direct (points to a non-symlink (here a directory)) or it may be
+     * transitive (points to a direct or transitive symlink).
+     */
+    SYMLINK_TO_DIRECTORY {
+      @Override
+      boolean isDirectory() {
+        return true;
+      }
+
+      @Override
+      boolean isSymlink() {
+        return true;
+      }
+
+      @Override
+      boolean exists() {
+        return true;
+      }
+
+      @Override
+      public String toString() {
+        return "<ld>";
+      }
+    },
+    /** A dangling symlink, i.e. one whose target is known not to exist. */
+    DANGLING_SYMLINK {
+      @Override
+      boolean isFile() {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      boolean isDirectory() {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      boolean isSymlink() {
+        return true;
+      }
+
+      @Override
+      public String toString() {
+        return "<l?>";
+      }
+    },
+    /** A path that does not exist or should be ignored. */
+    NONEXISTENT {
+      @Override
+      public String toString() {
+        return "<?>";
+      }
+    };
+
+    boolean isFile() {
+      return false;
+    }
+
+    boolean isDirectory() {
+      return false;
+    }
+
+    boolean isSymlink() {
+      return false;
+    }
+
+    boolean exists() {
+      return false;
+    }
+
+    @Override
+    public abstract String toString();
   }
 
   /** The parameters of a file or directory traversal. */
@@ -277,9 +417,9 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
 
   private static final class RegularFile implements ResolvedFile {
     private final RootedPath path;
-    private final Object metadata;
+    private final HasDigest metadata;
 
-    RegularFile(RootedPath path, Object metadata) {
+    RegularFile(RootedPath path, HasDigest metadata) {
       this.path = Preconditions.checkNotNull(path);
       this.metadata = Preconditions.checkNotNull(metadata);
     }
@@ -296,7 +436,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
 
     @Override
     @Nullable
-    public Object getMetadata() {
+    public HasDigest getMetadata() {
       return metadata;
     }
 
@@ -319,7 +459,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
 
     @Override
     public String toString() {
-      return String.format("RegularFile(path=%s)", path);
+      return String.format("RegularFile(path=%s -- %s)", path, metadata);
     }
 
     @Override
@@ -351,8 +491,8 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
     }
 
     @Override
-    public Object getMetadata() {
-      return FileStateValue.DIRECTORY_FILE_STATE_NODE;
+    public HasDigest getMetadata() {
+      return HasDigest.EMPTY;
     }
 
     @Override
@@ -389,9 +529,9 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
 
   private static final class DanglingSymlink implements ResolvedFile {
     private final Symlink symlink;
-    private final Object metadata;
+    private final HasDigest metadata;
 
-    DanglingSymlink(RootedPath linkNamePath, PathFragment linkTargetPath, Object metadata) {
+    DanglingSymlink(RootedPath linkNamePath, PathFragment linkTargetPath, HasDigest metadata) {
       this.symlink = new Symlink(linkNamePath, linkTargetPath);
       this.metadata = Preconditions.checkNotNull(metadata);
     }
@@ -408,7 +548,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
     }
 
     @Override
-    public Object getMetadata() {
+    public HasDigest getMetadata() {
       return metadata;
     }
 
@@ -453,14 +593,14 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
 
   private static final class SymlinkToFile implements ResolvedFile {
     private final RootedPath path;
-    private final Object metadata;
+    private final HasDigest metadata;
     private final Symlink symlink;
 
     SymlinkToFile(
         RootedPath targetPath,
         RootedPath linkNamePath,
         PathFragment linkTargetPath,
-        Object metadata) {
+        HasDigest metadata) {
       this.path = Preconditions.checkNotNull(targetPath);
       this.metadata = Preconditions.checkNotNull(metadata);
       this.symlink = new Symlink(linkNamePath, linkTargetPath);
@@ -477,7 +617,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
     }
 
     @Override
-    public Object getMetadata() {
+    public HasDigest getMetadata() {
       return metadata;
     }
 
@@ -517,11 +657,14 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
 
   private static final class SymlinkToDirectory implements ResolvedFile {
     private final RootedPath path;
-    private final Object metadata;
+    private final HasDigest metadata;
     private final Symlink symlink;
 
     SymlinkToDirectory(
-        RootedPath targetPath, RootedPath linkNamePath, PathFragment linkValue, Object metadata) {
+        RootedPath targetPath,
+        RootedPath linkNamePath,
+        PathFragment linkValue,
+        HasDigest metadata) {
       this.path = Preconditions.checkNotNull(targetPath);
       this.metadata = Preconditions.checkNotNull(metadata);
       this.symlink = new Symlink(linkNamePath, linkValue);
@@ -538,7 +681,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
     }
 
     @Override
-    public Object getMetadata() {
+    public HasDigest getMetadata() {
       return metadata;
     }
 
@@ -579,7 +722,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
   static final class ResolvedFileFactory {
     private ResolvedFileFactory() {}
 
-    public static ResolvedFile regularFile(RootedPath path, Object metadata) {
+    public static ResolvedFile regularFile(RootedPath path, HasDigest metadata) {
       return new RegularFile(path, metadata);
     }
 
@@ -591,17 +734,20 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
         RootedPath targetPath,
         RootedPath linkNamePath,
         PathFragment linkTargetPath,
-        Object metadata) {
+        HasDigest metadata) {
       return new SymlinkToFile(targetPath, linkNamePath, linkTargetPath, metadata);
     }
 
     public static ResolvedFile symlinkToDirectory(
-        RootedPath targetPath, RootedPath linkNamePath, PathFragment linkValue, Object metadata) {
+        RootedPath targetPath,
+        RootedPath linkNamePath,
+        PathFragment linkValue,
+        HasDigest metadata) {
       return new SymlinkToDirectory(targetPath, linkNamePath, linkValue, metadata);
     }
 
     public static ResolvedFile danglingSymlink(
-        RootedPath linkNamePath, PathFragment linkValue, Object metadata) {
+        RootedPath linkNamePath, PathFragment linkValue, HasDigest metadata) {
       return new DanglingSymlink(linkNamePath, linkValue, metadata);
     }
   }
@@ -629,7 +775,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
      * source targets. For generated targets we try to return a FileArtifactValue when possible, or
      * else this will be a Integer hashcode of the target.
      */
-    Object getMetadata();
+    HasDigest getMetadata();
 
     /**
      * Returns the path of the Fileset-output symlink relative to the output directory.

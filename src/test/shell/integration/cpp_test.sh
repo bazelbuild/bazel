@@ -156,4 +156,218 @@ EOF
   expect_not_log "Compiling $pkg/a.cc"
 }
 
+# host_crosstool_top should default to the initial value of crosstool_top,
+# not the value after a transition.
+function test_default_host_crosstool_top() {
+  local -r pkg=$FUNCNAME
+
+  # Define two different toolchain suites to use with crosstool_top.
+  mkdir -p $pkg/toolchain
+  cat >> $pkg/toolchain/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+
+load(":toolchain.bzl", "toolchains")
+
+cc_library(
+    name = "malloc",
+)
+
+filegroup(
+    name = "empty",
+    srcs = [],
+)
+
+[toolchains(id) for id in [
+    "alpha",
+    "beta",
+]]
+EOF
+  cat >> $pkg/toolchain/toolchain.bzl <<EOF
+load(
+    "${TOOLS_REPOSITORY}//tools/cpp:cc_toolchain_config_lib.bzl",
+    "action_config",
+    "flag_group",
+    "flag_set",
+    "make_variable",
+)
+
+def _get_make_variables():
+    return []
+
+def _get_action_configs():
+    return []
+
+def _impl(ctx):
+    out = ctx.actions.declare_file(ctx.label.name)
+    ctx.actions.write(out, "Fake executable")
+    return [
+        cc_common.create_cc_toolchain_config_info(
+            ctx = ctx,
+            target_cpu = ctx.attr.cpu,
+            compiler = ctx.attr.compiler,
+            toolchain_identifier = ctx.attr.toolchain_identifier,
+            host_system_name = ctx.attr.host_system_name,
+            target_system_name = ctx.attr.target_system_name,
+            target_libc = ctx.attr.target_libc,
+            abi_version = ctx.attr.abi_version,
+            abi_libc_version = ctx.attr.abi_libc_version,
+            action_configs = _get_action_configs(),
+            make_variables = _get_make_variables(),
+        ),
+        DefaultInfo(
+            executable = out,
+        ),
+    ]
+
+cc_toolchain_config = rule(
+    implementation = _impl,
+    attrs = {
+        "cpu": attr.string(mandatory = True),
+        "compiler": attr.string(mandatory = True),
+        "toolchain_identifier": attr.string(mandatory = True),
+        "host_system_name": attr.string(mandatory = True),
+        "target_system_name": attr.string(mandatory = True),
+        "target_libc": attr.string(mandatory = True),
+        "abi_version": attr.string(mandatory = True),
+        "abi_libc_version": attr.string(mandatory = True),
+    },
+    provides = [CcToolchainConfigInfo],
+    executable = True,
+)
+
+def toolchains(id):
+    native.cc_toolchain_suite(
+        name = "%s" % id,
+        toolchains = {
+            "fake": ":cc-toolchain-%s" % id,
+        },
+    )
+
+    name = "toolchain-%s" % id
+    cc_toolchain_config(
+        name = "cc-toolchain-config-%s" % id,
+        abi_libc_version = name,
+        abi_version = name,
+        compiler = name,
+        cpu = name,
+        host_system_name = name,
+        target_libc = name,
+        target_system_name = name,
+        toolchain_identifier = name,
+    )
+
+    native.cc_toolchain(
+        name = "cc-toolchain-%s" % id,
+        all_files = ":empty",
+        ar_files = ":empty",
+        as_files = ":empty",
+        compiler_files = ":empty",
+        dwp_files = ":empty",
+        linker_files = ":empty",
+        objcopy_files = ":empty",
+        strip_files = ":empty",
+        toolchain_config = ":cc-toolchain-config-%s" % id,
+        toolchain_identifier = name,
+    )
+EOF
+
+  # Create an outer target, which uses a transition to depend on an inner.
+  # The inner then depends on a tool in the exec configuration.
+  # Even though te outer->inner dependency changes the value of crosstool_top,
+  # the tool should use the initial crosstool.
+  cat >> $pkg/BUILD <<EOF
+load(":display.bzl", "inner", "outer", "tool")
+
+outer(
+    name = "outer",
+    inner = ":inner",
+)
+
+inner(
+    name = "inner",
+    tool = ":tool",
+)
+
+tool(name = "tool")
+EOF
+  cat >> $pkg/display.bzl <<EOF
+def find_cc_toolchain(ctx):
+    return ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
+
+# Custom transition to change the crosstool.
+def _crosstool_transition_impl(settings, attr):
+    _ignore = (settings, attr)
+    return {"//command_line_option:crosstool_top": "//${pkg}/toolchain:beta"}
+
+crosstool_transition = transition(
+    implementation = _crosstool_transition_impl,
+    inputs = [],
+    outputs = ["//command_line_option:crosstool_top"],
+)
+
+# Outer display rule.
+def _outer_impl(ctx):
+    cc_toolchain = find_cc_toolchain(ctx)
+    print("Outer %s found cc toolchain %s" % (ctx.label, cc_toolchain.target_gnu_system_name))
+    pass
+
+outer = rule(
+    implementation = _outer_impl,
+    attrs = {
+        "inner": attr.label(mandatory = True, cfg = crosstool_transition),
+        "_cc_toolchain": attr.label(
+            default = Label(
+                "${TOOLS_REPOSITORY}//tools/cpp:current_cc_toolchain",
+            ),
+        ),
+        "_whitelist_function_transition": attr.label(default = "${TOOLS_REPOSITORY}//tools/whitelists/function_transition_whitelist"),
+    },
+)
+
+# Inner display rule.
+def _inner_impl(ctx):
+    cc_toolchain = find_cc_toolchain(ctx)
+    print("Inner %s found cc toolchain %s" % (ctx.label, cc_toolchain.target_gnu_system_name))
+    pass
+
+inner = rule(
+    implementation = _inner_impl,
+    attrs = {
+        "tool": attr.label(mandatory = True, cfg = "exec"),
+        "_cc_toolchain": attr.label(
+            default = Label(
+                "${TOOLS_REPOSITORY}//tools/cpp:current_cc_toolchain",
+            ),
+        ),
+    },
+)
+
+# Tool rule.
+def _tool_impl(ctx):
+    cc_toolchain = find_cc_toolchain(ctx)
+    print("Tool %s found cc toolchain %s" % (ctx.label, cc_toolchain.target_gnu_system_name))
+    pass
+
+tool = rule(
+    implementation = _tool_impl,
+    attrs = {
+        "_cc_toolchain": attr.label(
+            default = Label(
+                "${TOOLS_REPOSITORY}//tools/cpp:current_cc_toolchain",
+            ),
+        ),
+    },
+)
+EOF
+
+
+  bazel build \
+    --cpu=fake --host_cpu=fake \
+    --crosstool_top=//$pkg/toolchain:alpha \
+    //$pkg:outer >& $TEST_log || fail "build failed"
+  expect_log "Outer //$pkg:outer found cc toolchain toolchain-alpha"
+  expect_log "Inner //$pkg:inner found cc toolchain toolchain-beta"
+  expect_log "Tool //$pkg:tool found cc toolchain toolchain-alpha"
+}
+
 run_suite "Tests for Bazel's C++ rules"

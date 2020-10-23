@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleExecutableBinaryApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleExecutableBinaryApi;
 
 /**
  * Provider containing the executable binary output that was built using an apple_binary target with
@@ -35,13 +35,13 @@ import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleExecutableBinary
 public final class AppleExecutableBinaryInfo extends NativeInfo
     implements AppleExecutableBinaryApi {
 
-  /** Skylark name for the AppleExecutableBinaryInfo. */
-  public static final String SKYLARK_NAME = "AppleExecutableBinary";
+  /** Starlark name for the AppleExecutableBinaryInfo. */
+  public static final String STARLARK_NAME = "AppleExecutableBinary";
 
-  /** Skylark constructor and identifier for AppleExecutableBinaryInfo. */
-  public static final NativeProvider<AppleExecutableBinaryInfo> SKYLARK_CONSTRUCTOR =
+  /** Starlark constructor and identifier for AppleExecutableBinaryInfo. */
+  public static final NativeProvider<AppleExecutableBinaryInfo> STARLARK_CONSTRUCTOR =
       new NativeProvider<AppleExecutableBinaryInfo>(
-          AppleExecutableBinaryInfo.class, SKYLARK_NAME) {};
+          AppleExecutableBinaryInfo.class, STARLARK_NAME) {};
 
   private final Artifact appleExecutableBinary;
   private final ObjcProvider depsObjcProvider;
@@ -52,7 +52,7 @@ public final class AppleExecutableBinaryInfo extends NativeInfo
    */
   public AppleExecutableBinaryInfo(Artifact appleExecutableBinary,
       ObjcProvider depsObjcProvider) {
-    super(SKYLARK_CONSTRUCTOR);
+    super(STARLARK_CONSTRUCTOR);
     this.appleExecutableBinary = appleExecutableBinary;
     this.depsObjcProvider = depsObjcProvider;
   }

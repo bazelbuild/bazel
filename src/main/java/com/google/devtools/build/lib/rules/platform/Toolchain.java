@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
@@ -39,14 +38,13 @@ public class Toolchain implements RuleConfiguredTargetFactory {
 
     ToolchainTypeInfo toolchainType =
         PlatformProviderUtils.toolchainType(
-            ruleContext.getPrerequisite(ToolchainRule.TOOLCHAIN_TYPE_ATTR, Mode.DONT_CHECK));
+            ruleContext.getPrerequisite(ToolchainRule.TOOLCHAIN_TYPE_ATTR));
     Iterable<ConstraintValueInfo> execConstraints =
         PlatformProviderUtils.constraintValues(
-            ruleContext.getPrerequisites(ToolchainRule.EXEC_COMPATIBLE_WITH_ATTR, Mode.DONT_CHECK));
+            ruleContext.getPrerequisites(ToolchainRule.EXEC_COMPATIBLE_WITH_ATTR));
     Iterable<ConstraintValueInfo> targetConstraints =
         PlatformProviderUtils.constraintValues(
-            ruleContext.getPrerequisites(
-                ToolchainRule.TARGET_COMPATIBLE_WITH_ATTR, Mode.DONT_CHECK));
+            ruleContext.getPrerequisites(ToolchainRule.TARGET_COMPATIBLE_WITH_ATTR));
     Label toolchainLabel =
         ruleContext.attributes().get(ToolchainRule.TOOLCHAIN_ATTR, BuildType.NODEP_LABEL);
 

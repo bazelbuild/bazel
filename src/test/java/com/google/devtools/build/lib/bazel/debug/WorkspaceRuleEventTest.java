@@ -18,12 +18,11 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.syntax.Location;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -32,38 +31,16 @@ import org.junit.runners.JUnit4;
 /** Tests handling of WorkspaceRuleEvent */
 @RunWith(JUnit4.class)
 public final class WorkspaceRuleEventTest {
-  static class DummyString {
-    @Override
-    public String toString() {
-      return "dummy string";
-    }
-  }
-
-  static class DummyLocation extends Location {
-    public DummyLocation() {
-      super(10, 20);
-    };
-
-    @Override
-    public PathFragment getPath() {
-      return null;
-    }
-
-    @Override
-    public String print() {
-      return "location being printed";
-    }
-  }
 
   @Before
   public void setUp() {}
 
   @Test
   public void newExecuteEvent_expectedResult() {
-    // Set up arguments, as a combination of String and SkylarkPath
-    ArrayList<Object> arguments = new ArrayList<>();
+    // Set up arguments, as a combination of String and StarlarkPath
+    ArrayList<String> arguments = new ArrayList<>();
     arguments.add("argument 1");
-    arguments.add(new DummyString());
+    arguments.add("dummy string");
 
     Map<String, String> commonEnv = ImmutableMap.of("key1", "val1", "key3", "val3");
     Map<String, String> customEnv = ImmutableMap.of("key2", "val2!", "key3", "val3!");
@@ -77,7 +54,7 @@ public final class WorkspaceRuleEventTest {
                 "outputDir",
                 true,
                 "my_rule",
-                new DummyLocation())
+                Location.fromFileLineColumn("foo", 10, 20))
             .getLogEvent();
 
     List<String> expectedArgs = Arrays.asList("argument 1", "dummy string");
@@ -89,7 +66,7 @@ public final class WorkspaceRuleEventTest {
             "key3", "val3!");
 
     assertThat(event.getRule()).isEqualTo("my_rule");
-    assertThat(event.getLocation()).isEqualTo("location being printed");
+    assertThat(event.getLocation()).isEqualTo("foo:10:20");
 
     WorkspaceLogProtos.ExecuteEvent executeEvent = event.getExecuteEvent();
     assertThat(executeEvent.getTimeoutSeconds()).isEqualTo(2042);

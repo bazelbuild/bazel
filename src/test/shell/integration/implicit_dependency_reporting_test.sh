@@ -62,11 +62,11 @@ test_custom_message() {
   mkdir custommessage
   cd custommessage
 
-  touch WORKSPACE
+  create_workspace_with_default_repos WORKSPACE
   cat > rule.bzl <<'EOF'
 def _rule_impl(ctx):
-  out = ctx.new_file(ctx.label.name + ".txt")
-  ctx.action(
+  out = ctx.actions.declare_file(ctx.label.name + ".txt")
+  ctx.actions.run_shell(
     inputs = ctx.files._data,
     outputs = [out],
     command = ["cp"] + [f.path for f in ctx.files._data] + [out.path],

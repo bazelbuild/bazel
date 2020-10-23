@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler.output;
 
-import com.google.common.base.Preconditions;
 import java.io.PrintStream;
 
 /**
@@ -21,75 +20,27 @@ import java.io.PrintStream;
  */
 public abstract class TextPrinter {
 
-  protected static final String TWO_COLUMN_FORMAT = "%-37s %10s";
   protected static final String THREE_COLUMN_FORMAT = "%-28s %10s %8s";
 
-  private static final String INDENT = "  ";
   protected final PrintStream out;
-  private StringBuffer indent;
 
   protected TextPrinter(PrintStream out) {
     this.out = out;
-    this.indent = new StringBuffer();
-  }
-
-  /**
-   * Increase indentation level
-   */
-  protected void down() {
-    indent.append(INDENT);
-  }
-
-  /**
-   * Decrease indentation level
-   */
-  protected void up() {
-    Preconditions.checkState(
-        indent.length() >= INDENT.length(),
-        "Cannot reduce indentation level, this/a previous call to up() is not matched by down().");
-    indent.setLength(indent.length() - INDENT.length());
-  }
-
-  protected void print(Object text) {
-    out.print(text);
   }
 
   protected void printLn() {
     out.println();
   }
 
-  /** print text and a newline */
-  protected void printLn(String text) {
-    out.print(text);
-    printLn();
-  }
-
-  /**
-   * newline and indent by current indentation level
-   */
-  protected void lnIndent() {
-    printLn();
-    out.print(indent);
-  }
-
-  /**
-   * newline, indent and print the Object
-   * @see PrintStream#print(Object)
-   */
+  /** newline and print the Object */
   protected void lnPrint(Object text) {
-    lnIndent();
+    out.println();
     out.print(text);
   }
 
-  /**
-   * newline, indent and print the formatted text
-   */
+  /** newline and print the formatted text */
   protected void lnPrintf(String format, Object... args) {
-    lnIndent();
-    out.printf(format, args);
-  }
-
-  protected void printf(String format, Object... args) {
+    out.println();
     out.printf(format, args);
   }
 

@@ -23,15 +23,16 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.FileType;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /**
  * Static helper class for creating and accessing Python provider information.
  *
  * <p>This class exposes a unified view over both the legacy and modern Python providers.
  */
+// TODO(b/153363654): Delete this class, go directly through PyInfo instead.
 public class PyProviderUtils {
 
   // Disable construction.
@@ -62,15 +63,15 @@ public class PyProviderUtils {
    */
   public static StructImpl getLegacyProvider(TransitiveInfoCollection target) throws EvalException {
     Object info = target.get(PyStructUtils.PROVIDER_NAME);
-    if (info == null) {
-      throw new EvalException(/*location=*/ null, "Target does not have 'py' provider");
+    if (info instanceof StructImpl) {
+      return (StructImpl) info;
     }
-    return SkylarkType.cast(
-        info,
-        StructImpl.class,
-        null,
-        "'%s' provider should be a struct",
-        PyStructUtils.PROVIDER_NAME);
+    if (info == null) {
+      throw Starlark.errorf("Target does not have '%s' provider", PyStructUtils.PROVIDER_NAME);
+    }
+    throw Starlark.errorf(
+        "'%s' provider should be a struct (got %s)",
+        PyStructUtils.PROVIDER_NAME, Starlark.type(info));
   }
 
   /**
@@ -86,13 +87,13 @@ public class PyProviderUtils {
   public static NestedSet<Artifact> getTransitiveSources(TransitiveInfoCollection target)
       throws EvalException {
     if (hasModernProvider(target)) {
-      return getModernProvider(target).getTransitiveSources().getSet(Artifact.class);
+      return getModernProvider(target).getTransitiveSourcesSet();
     } else if (hasLegacyProvider(target)) {
       return PyStructUtils.getTransitiveSources(getLegacyProvider(target));
     } else {
       NestedSet<Artifact> files = target.getProvider(FileProvider.class).getFilesToBuild();
       return NestedSetBuilder.<Artifact>compileOrder()
-          .addAll(FileType.filter(files, PyRuleClasses.PYTHON_SOURCE))
+          .addAll(FileType.filter(files.toList(), PyRuleClasses.PYTHON_SOURCE))
           .build();
     }
   }
@@ -114,7 +115,7 @@ public class PyProviderUtils {
       return PyStructUtils.getUsesSharedLibraries(getLegacyProvider(target));
     } else {
       NestedSet<Artifact> files = target.getProvider(FileProvider.class).getFilesToBuild();
-      return FileType.contains(files, CppFileTypes.SHARED_LIBRARY);
+      return FileType.contains(files.toList(), CppFileTypes.SHARED_LIBRARY);
     }
   }
 
@@ -128,7 +129,7 @@ public class PyProviderUtils {
    */
   public static NestedSet<String> getImports(TransitiveInfoCollection target) throws EvalException {
     if (hasModernProvider(target)) {
-      return getModernProvider(target).getImports().getSet(String.class);
+      return getModernProvider(target).getImportsSet();
     } else if (hasLegacyProvider(target)) {
       return PyStructUtils.getImports(getLegacyProvider(target));
     } else {
@@ -224,7 +225,7 @@ public class PyProviderUtils {
         RuleConfiguredTargetBuilder targetBuilder) {
       targetBuilder.addNativeDeclaredProvider(modernBuilder.build());
       if (createLegacy) {
-        targetBuilder.addSkylarkTransitiveInfo(PyStructUtils.PROVIDER_NAME, legacyBuilder.build());
+        targetBuilder.addStarlarkTransitiveInfo(PyStructUtils.PROVIDER_NAME, legacyBuilder.build());
       }
       return targetBuilder;
     }

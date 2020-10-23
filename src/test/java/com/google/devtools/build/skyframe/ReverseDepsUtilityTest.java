@@ -14,7 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
@@ -132,24 +132,6 @@ public class ReverseDepsUtilityTest {
     ReverseDepsUtility.removeReverseDep(example, key);
     ReverseDepsUtility.addReverseDeps(example, Collections.singleton(key));
     assertThat(ReverseDepsUtility.getReverseDeps(example)).containsExactly(fixedKey, key);
-  }
-
-  @Test
-  public void testMaybeCheck() {
-    InMemoryNodeEntry example = new InMemoryNodeEntry();
-    for (int i = 0; i < numElements; i++) {
-      ReverseDepsUtility.addReverseDeps(example, Collections.singleton(Key.create(i)));
-      // This should always succeed, since the next element is still not present.
-      ReverseDepsUtility.maybeCheckReverseDepNotPresent(example, Key.create(i + 1));
-    }
-    if (numElements == 0 || numElements >= ReverseDepsUtility.MAYBE_CHECK_THRESHOLD) {
-      // This will not throw, because the numElements is 0 or above the threshold.
-      ReverseDepsUtility.maybeCheckReverseDepNotPresent(example, Key.create(0));
-    } else {
-      assertThrows(
-          IllegalStateException.class,
-          () -> ReverseDepsUtility.maybeCheckReverseDepNotPresent(example, Key.create(0)));
-    }
   }
 
   private static class Key extends AbstractSkyKey<Integer> {

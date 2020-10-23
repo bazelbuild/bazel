@@ -13,38 +13,38 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.actions.ResourceManager;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
-import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
-import com.google.devtools.build.lib.exec.apple.XcodeLocalEnvProvider;
+import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
-import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
-import com.google.devtools.build.lib.exec.local.WindowsLocalEnvProvider;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.runtime.commands.CleanCommand.CleanStartingEvent;
+import com.google.devtools.build.lib.runtime.ProcessWrapper;
+import com.google.devtools.build.lib.runtime.commands.events.CleanStartingEvent;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxOptions;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.worker.WorkerOptions.MultiResourceConverter;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import javax.annotation.Nonnull;
 
 /** A module that adds the WorkerActionContextProvider to the available action context providers. */
 public class WorkerModule extends BlazeModule {
@@ -54,7 +54,8 @@ public class WorkerModule extends BlazeModule {
   private WorkerPool workerPool;
   private WorkerOptions options;
   private ImmutableMap<String, Integer> workerPoolConfig;
-  
+  private ImmutableMap<String, Integer> multiplexPoolConfig;
+
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return "build".equals(command.name())
@@ -110,58 +111,73 @@ public class WorkerModule extends BlazeModule {
     workerFactory.setReporter(env.getReporter());
     workerFactory.setOptions(options);
 
-    // Use a LinkedHashMap instead of an ImmutableMap.Builder to allow duplicates; the last value
-    // passed wins.
+    ImmutableMap<String, Integer> newConfig = createConfigFromOptions(options.workerMaxInstances);
+    ImmutableMap<String, Integer> newMultiplexConfig =
+        createConfigFromOptions(options.workerMaxMultiplexInstances);
+
+    // If the config changed compared to the last run, we have to create a new pool.
+    if ((workerPoolConfig != null && !workerPoolConfig.equals(newConfig))
+        || (multiplexPoolConfig != null && !multiplexPoolConfig.equals(newMultiplexConfig))) {
+      shutdownPool(
+          "Worker configuration has changed, restarting worker pool...", /* alwaysLog= */ true);
+    }
+
+    if (workerPool == null) {
+      workerPoolConfig = newConfig;
+      multiplexPoolConfig = newMultiplexConfig;
+      workerPool =
+          new WorkerPool(
+              workerFactory, workerPoolConfig, multiplexPoolConfig, options.highPriorityWorkers);
+    }
+  }
+
+  /**
+   * Creates a configuration for a worker pool from the options given. If the same mnemonic occurs
+   * more than once in the options, the last value passed wins.
+   */
+  @Nonnull
+  private static ImmutableMap<String, Integer> createConfigFromOptions(
+      List<Map.Entry<String, Integer>> options) {
     LinkedHashMap<String, Integer> newConfigBuilder = new LinkedHashMap<>();
-    for (Map.Entry<String, Integer> entry : options.workerMaxInstances) {
+    for (Map.Entry<String, Integer> entry : options) {
       newConfigBuilder.put(entry.getKey(), entry.getValue());
     }
 
     if (!newConfigBuilder.containsKey("")) {
       // Empty string gives the number of workers for any type of worker not explicitly specified.
-      // If no value is given, use the default, 4.
-      // TODO(steinman): Calculate a reasonable default value instead of arbitrarily defaulting to
-      // 4.
+      // If no value is given, use the default, 2.
       newConfigBuilder.put("", MultiResourceConverter.DEFAULT_VALUE);
     }
 
-    ImmutableMap<String, Integer> newConfig = ImmutableMap.copyOf(newConfigBuilder);
-
-    // If the config changed compared to the last run, we have to create a new pool.
-    if (workerPoolConfig != null && !workerPoolConfig.equals(newConfig)) {
-      shutdownPool(
-          "Worker configuration has changed, restarting worker pool...",
-          /* alwaysLog= */ true);
-    }
-
-    if (workerPool == null) {
-      workerPoolConfig = newConfig;
-      workerPool = new WorkerPool(workerFactory, workerPoolConfig, options.highPriorityWorkers);
-    }
+    return ImmutableMap.copyOf(newConfigBuilder);
   }
 
   @Override
-  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
-    Preconditions.checkNotNull(workerPool);
-    ImmutableMultimap<String, String> extraFlags =
-        ImmutableMultimap.copyOf(env.getOptions().getOptions(WorkerOptions.class).workerExtraFlags);
-    LocalEnvProvider localEnvProvider = createLocalEnvProvider(env);
+  public void registerSpawnStrategies(
+      SpawnStrategyRegistry.Builder registryBuilder, CommandEnvironment env) {
+    checkNotNull(workerPool);
+    SandboxOptions sandboxOptions = env.getOptions().getOptions(SandboxOptions.class);
+    options = env.getOptions().getOptions(WorkerOptions.class);
+    LocalEnvProvider localEnvProvider = LocalEnvProvider.forCurrentOs(env.getClientEnv());
     WorkerSpawnRunner spawnRunner =
         new WorkerSpawnRunner(
+            new SandboxHelpers(sandboxOptions.delayVirtualInputMaterialization),
             env.getExecRoot(),
             workerPool,
-            extraFlags,
+            options.workerMultiplex,
             env.getReporter(),
             createFallbackRunner(env, localEnvProvider),
             localEnvProvider,
-            env.getOptions()
-                .getOptions(SandboxOptions.class)
-                .symlinkedSandboxExpandsTreeArtifactsInRunfilesTree,
-            env.getBlazeWorkspace().getBinTools());
-    builder.addActionContext(new WorkerSpawnStrategy(env.getExecRoot(), spawnRunner));
-
-    builder.addStrategyByContext(SpawnActionContext.class, "standalone");
-    builder.addStrategyByContext(SpawnActionContext.class, "worker");
+            env.getBlazeWorkspace().getBinTools(),
+            env.getLocalResourceManager(),
+            // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
+            RunfilesTreeUpdater.INSTANCE,
+            env.getOptions().getOptions(WorkerOptions.class));
+    ExecutionOptions executionOptions =
+        checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
+    registryBuilder.registerStrategy(
+        new WorkerSpawnStrategy(env.getExecRoot(), spawnRunner, executionOptions.verboseFailures),
+        "worker");
   }
 
   private static SpawnRunner createFallbackRunner(
@@ -171,17 +187,12 @@ public class WorkerModule extends BlazeModule {
     return new LocalSpawnRunner(
         env.getExecRoot(),
         localExecutionOptions,
-        ResourceManager.instance(),
+        env.getLocalResourceManager(),
         localEnvProvider,
-        env.getBlazeWorkspace().getBinTools());
-  }
-
-  private static LocalEnvProvider createLocalEnvProvider(CommandEnvironment env) {
-    return OS.getCurrent() == OS.DARWIN
-        ? new XcodeLocalEnvProvider(env.getClientEnv())
-        : (OS.getCurrent() == OS.WINDOWS
-            ? new WindowsLocalEnvProvider(env.getClientEnv())
-            : new PosixLocalEnvProvider(env.getClientEnv()));
+        env.getBlazeWorkspace().getBinTools(),
+        ProcessWrapper.fromCommandEnvironment(env),
+        // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
+        RunfilesTreeUpdater.INSTANCE);
   }
 
   @Subscribe

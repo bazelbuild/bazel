@@ -14,27 +14,26 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import java.io.IOException;
-import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
-import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
@@ -51,17 +50,16 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     return AbstractTargetPatternEvaluatorTest.targetsToLabels(targets);
   }
 
-  private TargetPatternEvaluator parser;
+  private TargetPatternPreloader parser;
   private CompileOneDependencyTransformer transformer;
 
   @Before
   public final void createTransformer() throws Exception {
-    parser = skyframeExecutor.newTargetPatternEvaluator();
+    parser = skyframeExecutor.newTargetPatternPreloader();
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
-                Optional.<RootedPath>absent())));
+                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
     transformer = new CompileOneDependencyTransformer(getPackageManager());
   }
 
@@ -99,18 +97,8 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     return labels;
   }
 
-  private static ResolvedTargets<Target> parseTargetPatternList(
-      TargetPatternEvaluator parser, Reporter reporter,
-      List<String> targetPatterns, FilteringPolicy policy,
-      boolean keepGoing) throws Exception {
-    return parser.parseTargetPatternList(
-        PathFragment.EMPTY_FRAGMENT, reporter, targetPatterns, policy, keepGoing);
-  }
-
   private ResolvedTargets<Target> parseCompileOneDep(String... patterns) throws Exception {
-    ResolvedTargets<Target> result = parseTargetPatternList(parser, reporter,
-        Arrays.asList(patterns), FilteringPolicies.NO_FILTER, false);
-    return transformer.transformCompileOneDependency(reporter, result);
+    return parseListCompileOneDepWithOffset(PathFragment.EMPTY_FRAGMENT, patterns);
   }
 
   private Set<Label> parseListCompileOneDep(String... patterns) throws Exception {
@@ -120,19 +108,20 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
   private Set<Label> parseListCompileOneDepRelative(String... patterns)
       throws TargetParsingException, IOException, InterruptedException {
     Path foo = scratch.dir("foo");
-    TargetPatternEvaluator fooOffsetParser = skyframeExecutor.newTargetPatternEvaluator();
-    ResolvedTargets<Target> result;
-    try {
-      result = fooOffsetParser.parseTargetPatternList(
-          foo.relativeTo(rootDirectory),
-          reporter,
-          Arrays.asList(patterns),
-          FilteringPolicies.NO_FILTER, false);
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
-    }
-    result = transformer.transformCompileOneDependency(reporter, result);
+    ResolvedTargets<Target> result =
+        parseListCompileOneDepWithOffset(foo.relativeTo(rootDirectory), patterns);
     return targetsToLabels(getFailFast(result));
+  }
+
+  private ResolvedTargets<Target> parseListCompileOneDepWithOffset(
+      PathFragment offset, String... patterns) throws TargetParsingException, InterruptedException {
+    Map<String, Collection<Target>> resolvedTargetsMap =
+        parser.preloadTargetPatterns(reporter, offset, ImmutableSet.copyOf(patterns), false);
+    ResolvedTargets.Builder<Target> result = ResolvedTargets.builder();
+    for (String pattern : patterns) {
+      result.addAll(resolvedTargetsMap.get(pattern));
+    }
+    return transformer.transformCompileOneDependency(reporter, result.build());
   }
 
   private static Set<Target> getFailFast(ResolvedTargets<Target> result) {

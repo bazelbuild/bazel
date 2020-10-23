@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.KeyToConsolidate.Op;
 import com.google.devtools.build.skyframe.KeyToConsolidate.OpToStoreBare;
-import java.math.BigInteger;
+import com.google.errorprone.annotations.ForOverride;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -51,16 +51,16 @@ import javax.annotation.Nullable;
  *
  * <p>The "just created" state is there to allow the {@link EvaluableGraph#createIfAbsentBatch} and
  * {@link NodeEntry#addReverseDepAndCheckIfDone} methods to be separate. All callers have to call
- * both methods in that order if they want to create a node. The second method transitions the
- * current node to the "evaluating" state and returns true only the first time it was called. A
- * caller that gets "true" back from that call must start the evaluation of this node, while any
- * subsequent callers must not.
+ * both methods in that order if they want to create a node. The second method returns the
+ * NEEDS_SCHEDULING state only on the first time it was called. A caller that gets NEEDS_SCHEDULING
+ * back from that call must start the evaluation of this node, while any subsequent callers must
+ * not.
  *
- * <p>An entry is set to "evaluating" as soon as it is scheduled for evaluation. Thus, even a node
- * that is never actually built (for instance, a dirty node that is verified as clean) is in the
- * "evaluating" state until it is done.
+ * <p>An entry is set to ALREADY_EVALUATING as soon as it is scheduled for evaluation. Thus, even a
+ * node that is never actually built (for instance, a dirty node that is verified as clean) is in
+ * the ALREADY_EVALUATING state until it is DONE.
  *
- * <p>From the "Done" state, the node can go back to the "marked as affected" state.
+ * <p>From the DONE state, the node can go back to the "marked as affected" state.
  *
  * <p>This class is public only for the benefit of alternative graph implementations outside of the
  * package.
@@ -207,12 +207,17 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public synchronized Iterable<SkyKey> getDirectDeps() {
+  public Iterable<SkyKey> getDirectDeps() {
     return GroupedList.compressedToIterable(getCompressedDirectDepsForDoneEntry());
   }
 
+  @Override
+  public boolean hasAtLeastOneDep() {
+    return GroupedList.numGroups(getCompressedDirectDepsForDoneEntry()) > 0;
+  }
+
   /** Returns the compressed {@link GroupedList} of direct deps. Can only be called when done. */
-  public synchronized @GroupedList.Compressed Object getCompressedDirectDepsForDoneEntry() {
+  public final synchronized @GroupedList.Compressed Object getCompressedDirectDepsForDoneEntry() {
     assertKeepDeps();
     Preconditions.checkState(isDone(), "no deps until done. NodeEntry: %s", this);
     Preconditions.checkNotNull(directDeps, "deps can't be null: %s", this);
@@ -262,37 +267,13 @@ public class InMemoryNodeEntry implements NodeEntry {
     return ReverseDepsUtility.returnNewElements(this, getOpToStoreBare());
   }
 
-  /**
-   * Highly dangerous method. Used only for testing/debugging. Can only be called on an in-progress
-   * entry that is not dirty and that will not keep edges. Returns all the entry's reverse deps,
-   * which must all be {@link SkyKey}s representing {@link Op#ADD} operations, since that is the
-   * operation that is stored bare. Used for speed, since it avoids making any copies, so should be
-   * much faster than {@link #getInProgressReverseDeps}.
-   */
-  @SuppressWarnings("unchecked")
-  public synchronized Iterable<SkyKey> unsafeGetUnconsolidatedRdeps() {
-    Preconditions.checkState(!isDone(), this);
-    Preconditions.checkState(!isDirty(), this);
-    Preconditions.checkState(keepEdges().equals(KeepEdgesPolicy.NONE), this);
-    Preconditions.checkState(getOpToStoreBare() == OpToStoreBare.ADD, this);
-    return (Iterable<SkyKey>) (List<?>) reverseDepsDataToConsolidate;
-  }
-
   // In this method it is critical that this.lastChangedVersion is set prior to this.value because
   // although this method itself is synchronized, there are unsynchronized consumers of the version
   // and the value.
   @Override
-  public synchronized Set<SkyKey> setValue(
-      SkyValue value, Version version, DepFingerprintList depFingerprintList)
+  public synchronized Set<SkyKey> setValue(SkyValue value, Version version)
       throws InterruptedException {
     Preconditions.checkState(isReady(), "%s %s", this, value);
-    if (depFingerprintList != null) {
-      logError(
-          new IllegalStateException(
-              String.format(
-                  "Expect no depFingerprintList here: %s %s %s %s",
-                  this, depFingerprintList, value, version)));
-    }
     assertVersionCompatibleWhenSettingValue(version, value);
     this.lastEvaluatedVersion = version;
 
@@ -496,8 +477,7 @@ public class InMemoryNodeEntry implements NodeEntry {
     Preconditions.checkState(dirtyBuildingState.isEvaluating(), "%s %s", this, childForDebugging);
     dirtyBuildingState.signalDep();
     dirtyBuildingState.signalDepPostProcess(
-        childCausesReevaluation(lastEvaluatedVersion, childVersion, childForDebugging),
-        getNumTemporaryDirectDeps());
+        childCausesReevaluation(lastEvaluatedVersion, childVersion), getNumTemporaryDirectDeps());
     return isReady();
   }
 
@@ -511,17 +491,36 @@ public class InMemoryNodeEntry implements NodeEntry {
     Preconditions.checkState(keepEdges() == KeepEdgesPolicy.ALL, "Not keeping rdeps: %s", this);
   }
 
+  /**
+   * Creates a {@link DirtyBuildingState} for the case where this node is done and is being marked
+   * dirty.
+   */
+  @ForOverride
+  protected DirtyBuildingState createDirtyBuildingStateForDoneNode(
+      DirtyType dirtyType, GroupedList<SkyKey> directDeps, SkyValue value) {
+    return DirtyBuildingState.create(dirtyType, directDeps, value);
+  }
+
+  private static final GroupedList<SkyKey> EMPTY_LIST = new GroupedList<>();
+
   @Override
   public synchronized MarkedDirtyResult markDirty(DirtyType dirtyType) {
-    // Can't process a dirty node without its deps.
-    assertKeepDeps();
+    if (!DirtyType.FORCE_REBUILD.equals(dirtyType)) {
+      // A node can't be found to be dirty without deps unless it's force-rebuilt.
+      assertKeepDeps();
+    }
     if (isDone()) {
-      dirtyBuildingState =
-          DirtyBuildingState.create(
-              dirtyType, GroupedList.create(getCompressedDirectDepsForDoneEntry()), value);
+      GroupedList<SkyKey> directDeps =
+          KeepEdgesPolicy.NONE.equals(keepEdges())
+              ? EMPTY_LIST
+              : GroupedList.create(getCompressedDirectDepsForDoneEntry());
+      dirtyBuildingState = createDirtyBuildingStateForDoneNode(dirtyType, directDeps, value);
       value = null;
-      directDeps = null;
-      return new MarkedDirtyResult(ReverseDepsUtility.getReverseDeps(this));
+      this.directDeps = null;
+      return new MarkedDirtyResult(
+          KeepEdgesPolicy.ALL.equals(keepEdges())
+              ? ReverseDepsUtility.getReverseDeps(this)
+              : ImmutableList.of());
     }
     if (dirtyType.equals(DirtyType.FORCE_REBUILD)) {
       if (dirtyBuildingState != null) {
@@ -548,7 +547,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public synchronized Set<SkyKey> markClean() throws InterruptedException {
+  public synchronized NodeValueAndRdepsToSignal markClean() throws InterruptedException {
     Preconditions.checkNotNull(dirtyBuildingState, this);
     this.value = Preconditions.checkNotNull(dirtyBuildingState.getLastBuildValue());
     Preconditions.checkState(isReady(), "Should be ready when clean: %s", this);
@@ -558,7 +557,8 @@ public class InMemoryNodeEntry implements NodeEntry {
         this);
     Preconditions.checkState(isDirty(), this);
     Preconditions.checkState(!dirtyBuildingState.isChanged(), "shouldn't be changed: %s", this);
-    return setStateFinishedAndReturnReverseDepsToSignal();
+    Set<SkyKey> rDepsToSignal = setStateFinishedAndReturnReverseDepsToSignal();
+    return new NodeValueAndRdepsToSignal(this.getValueMaybeWithMetadata(), rDepsToSignal);
   }
 
   @Override
@@ -623,34 +623,6 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public boolean canPruneDepsByFingerprint() {
-    return false;
-  }
-
-  @Nullable
-  @Override
-  public Iterable<SkyKey> getLastDirectDepsGroupWhenPruningDepsByFingerprint()
-      throws InterruptedException {
-    throw new UnsupportedOperationException(this.toString());
-  }
-
-  @Override
-  public boolean unmarkNeedsRebuildingIfGroupUnchangedUsingFingerprint(
-      BigInteger groupFingerprint) {
-    throw new UnsupportedOperationException(this.toString());
-  }
-
-  /**
-   * If this entry {@link #canPruneDepsByFingerprint} and has that data, returns a list of dep group
-   * fingerprints. Otherwise returns null.
-   */
-  @Nullable
-  public DepFingerprintList getDepFingerprintList() {
-    Preconditions.checkState(isDone(), this);
-    return null;
-  }
-
-  @Override
   public synchronized void markRebuilding() {
     Preconditions.checkNotNull(dirtyBuildingState, this);
     dirtyBuildingState.markRebuilding(isEligibleForChangePruningOnUnchangedValue());
@@ -709,10 +681,8 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   /** True if the child should cause re-evaluation of this node. */
-  protected boolean childCausesReevaluation(
-      Version lastEvaluatedVersion,
-      Version childVersion,
-      @Nullable SkyKey unusedChildForDebugging) {
+  private static boolean childCausesReevaluation(
+      Version lastEvaluatedVersion, Version childVersion) {
     // childVersion > lastEvaluatedVersion
     return !childVersion.atMost(lastEvaluatedVersion);
   }

@@ -40,15 +40,6 @@ public class WorkspaceFactoryTest {
   }
 
   @Test
-  public void testLoadError() throws Exception {
-    // WS with a syntax error: '//a' should end with .bzl.
-    helper.parse("load('//a', 'a')");
-    helper.assertLexingExceptionThrown();
-    assertThat(helper.getLexerError())
-        .contains("The label must reference a file with extension '.bzl'");
-  }
-
-  @Test
   public void testWorkspaceName() throws Exception {
     helper.parse("workspace(name = 'my_ws')");
     assertThat(helper.getPackage().getWorkspaceName()).isEqualTo("my_ws");
@@ -62,8 +53,8 @@ public class WorkspaceFactoryTest {
 
   @Test
   public void testWorkspaceWithIllegalCharacters() throws Exception {
-    helper.parse("workspace(name = 'a.b.c')");
-    assertThat(helper.getParserError()).contains("a.b.c is not a legal workspace name");
+    helper.parse("workspace(name = 'a+b+c')");
+    assertThat(helper.getParserError()).contains("a+b+c is not a legal workspace name");
   }
 
   @Test
@@ -182,39 +173,22 @@ public class WorkspaceFactoryTest {
   }
 
   @Test
-  public void testMappingsNotAMap() throws Exception {
-    helper.parse(
-        "local_repository(",
-        "    name = 'foo',",
-        "    path = '/foo',",
-        "    repo_mapping = 1",
-        ")");
-    assertThat(helper.getParserError())
-        .contains("Invalid value for 'repo_mapping': '1'. Value must be a dict.");
+  public void testRepoMappingNotAStringStringDict() throws Exception {
+    helper.parse("local_repository(name='foo', path='/foo', repo_mapping=1)");
+    assertThat(helper.getParserError()).contains("got int for 'repo_mapping', want dict");
 
-    helper.parse(
-        "local_repository(",
-        "    name = 'foo',",
-        "    path = '/foo',",
-        "    repo_mapping = 'hello'",
-        ")");
+    helper.parse("local_repository(name='foo', path='/foo', repo_mapping='hello')");
+    assertThat(helper.getParserError()).contains("got string for 'repo_mapping', want dict");
+
+    helper.parse("local_repository(name='foo', path='/foo', repo_mapping={1: 1})");
     assertThat(helper.getParserError())
-        .contains("Invalid value for 'repo_mapping': 'hello'. Value must be a dict.");
+        .contains("got dict<int, int> for 'repo_mapping', want dict<string, string>");
   }
 
   @Test
   public void testImplicitMainRepoRename() throws Exception {
-    helper.setSkylarkSemantics("--incompatible_remap_main_repo");
     helper.parse("workspace(name = 'foo')");
     assertMapping(helper, "@", "@foo", "@");
-  }
-
-  @Test
-  public void testNoImplicitMainRepoRenameWithoutFlag() throws Exception {
-    helper.parse("workspace(name = 'foo')");
-    RepositoryName foo = RepositoryName.create("@foo");
-    assertThat(helper.getPackage().getRepositoryMapping(RepositoryName.create("@")))
-        .doesNotContainEntry(foo, RepositoryName.MAIN);
   }
 
   @Test

@@ -23,19 +23,18 @@ import java.util.List;
 /** Command-line options for building with Swift tools. */
 public class SwiftCommandLineOptions extends FragmentOptions {
   @Option(
-    name = "swiftcopt",
-    allowMultiple = true,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-    help = "Additional options to pass to Swift compilation."
-  )
+      name = "swiftcopt",
+      allowMultiple = true,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+      help = "Additional options to pass to Swift compilation.")
   public List<String> copts;
 
   @Option(
       name = "host_swiftcopt",
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Additional options to pass to swiftc for host tools.")
@@ -45,6 +44,10 @@ public class SwiftCommandLineOptions extends FragmentOptions {
   public FragmentOptions getHost() {
     SwiftCommandLineOptions host = (SwiftCommandLineOptions) super.getHost();
     host.copts = this.hostSwiftcoptList;
+
+    // Save host options in case of a further exec->host transition.
+    host.hostSwiftcoptList = hostSwiftcoptList;
+
     return host;
   }
 }

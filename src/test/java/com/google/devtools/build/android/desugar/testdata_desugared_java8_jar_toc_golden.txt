@@ -13,6 +13,8 @@ com/google/devtools/build/android/desugar/testdata/ClassCallingLongCompare$LongC
 com/google/devtools/build/android/desugar/testdata/ClassCallingLongCompare.class
 com/google/devtools/build/android/desugar/testdata/ClassCallingRequireNonNull.class
 com/google/devtools/build/android/desugar/testdata/ClassUsingTryWithResources$InheritanceResource.class
+com/google/devtools/build/android/desugar/testdata/ClassUsingTryWithResources$SimpleCloseable$$Lambda$0.class
+com/google/devtools/build/android/desugar/testdata/ClassUsingTryWithResources$SimpleCloseable.class
 com/google/devtools/build/android/desugar/testdata/ClassUsingTryWithResources$SimpleResource.class
 com/google/devtools/build/android/desugar/testdata/ClassUsingTryWithResources.class
 com/google/devtools/build/android/desugar/testdata/ConcreteFunction$Parser.class
@@ -72,6 +74,13 @@ com/google/devtools/build/android/desugar/testdata/java8/GenericDefaultInterface
 com/google/devtools/build/android/desugar/testdata/java8/GenericDefaultInterfaceWithLambda$LevelTwo.class
 com/google/devtools/build/android/desugar/testdata/java8/GenericDefaultInterfaceWithLambda.class
 com/google/devtools/build/android/desugar/testdata/java8/GenericInterfaceWithDefaultMethod.class
+com/google/devtools/build/android/desugar/testdata/java8/InterfaceMethodParameters.class
+com/google/devtools/build/android/desugar/testdata/java8/InterfaceMethodWithParam$Concrete.class
+com/google/devtools/build/android/desugar/testdata/java8/InterfaceMethodWithParam$Foo.class
+com/google/devtools/build/android/desugar/testdata/java8/InterfaceMethodWithParam$TyFoo.class
+com/google/devtools/build/android/desugar/testdata/java8/InterfaceMethodWithParam$MethodInvocations.class
+com/google/devtools/build/android/desugar/testdata/java8/InterfaceMethodWithParam$TestHelper.class
+com/google/devtools/build/android/desugar/testdata/java8/InterfaceMethodWithParam.class
 com/google/devtools/build/android/desugar/testdata/java8/InterfaceMethod$Concrete.class
 com/google/devtools/build/android/desugar/testdata/java8/InterfaceMethod.class
 com/google/devtools/build/android/desugar/testdata/java8/InterfaceWithDefaultAndBridgeMethods.class

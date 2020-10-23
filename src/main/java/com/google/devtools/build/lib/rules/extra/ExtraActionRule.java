@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.rules.extra;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -126,7 +126,7 @@ public final class ExtraActionRule implements RuleDefinition {
   }
 }
 
-/*<!-- #BLAZE_RULE (NAME = extra_action, TYPE = LIBRARY, FAMILY = Extra Actions)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = extra_action, FAMILY = Extra Actions)[GENERIC_RULE] -->
 
 <p>
   An <code>extra_action</code> rule doesn't produce any meaningful output

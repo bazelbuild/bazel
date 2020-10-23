@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -77,5 +78,12 @@ public final class TargetAndConfiguration {
   @Nullable
   public BuildConfiguration getConfiguration() {
     return configuration;
+  }
+
+  public ConfiguredTargetKey getConfiguredTargetKey() {
+    return ConfiguredTargetKey.builder()
+        .setLabel(getLabel())
+        .setConfiguration(getConfiguration())
+        .build();
   }
 }

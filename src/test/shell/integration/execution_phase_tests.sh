@@ -25,14 +25,14 @@ if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/
     export RUNFILES_MANIFEST_FILE="$TEST_SRCDIR/MANIFEST"
   elif [[ -f "$0.runfiles/MANIFEST" ]]; then
     export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
-  elif [[ -f "$TEST_SRCDIR/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+  elif [[ -f "$TEST_SRCDIR/io_bazel/tools/bash/runfiles/runfiles.bash" ]]; then
     export RUNFILES_DIR="$TEST_SRCDIR"
   fi
 fi
-if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
-  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+if [[ -f "${RUNFILES_DIR:-/dev/null}/io_bazel/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/io_bazel/tools/bash/runfiles/runfiles.bash"
 elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
-  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
+  source "$(grep -m1 "^io_bazel/tools/bash/runfiles/runfiles.bash " \
             "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
 else
   echo >&2 "ERROR: cannot find //third_party/bazel/tools/bash/runfiles:runfiles.bash"
@@ -221,8 +221,8 @@ EOF
       || fail "External change to action cache misdetected"
 
   # For completeness, make the changes to the same output file visibile and
-  # ensure Blaze notices them.  This is to sanity-check that we actually
-  # modified the right output file above.
+  # ensure Blaze notices them.  This is to check that we actually modified the
+  # right output file above.
   touch "${output_file}"
   bazel build package:foo >>"${TEST_log}" 2>&1 || fail "Should build"
   [[ "$(cat "${output_file}")" == foo ]] \
@@ -281,8 +281,12 @@ function test_max_open_file_descriptors() {
   echo "nfiles: hard $(ulimit -H -n), soft $(ulimit -S -n)"
 
   local exp_nfiles="$(ulimit -H -n)"
-  if [[ "$(uname -s)" == Darwin && "${exp_nfiles}" == unlimited ]]; then
-    exp_nfiles="$(/usr/sbin/sysctl -n kern.maxfilesperproc)"
+  if [[ "$(uname -s)" == Darwin ]]; then
+    local maxfiles="$(/usr/sbin/sysctl -n kern.maxfilesperproc)"
+    if [[ "${exp_nfiles}" == "unlimited" || "${exp_nfiles}" -gt "${maxfiles}" ]]
+    then
+        exp_nfiles="${maxfiles}"
+    fi
   elif "${is_windows}"; then
     # We do not implement the resources unlimiting feature on Windows at
     # the moment... so just expect the soft limit to remain unchanged.
@@ -306,6 +310,78 @@ EOF
   # handled above) and that's OK: if we were able to set the soft limit to a
   # high value, the hard limit must already be the same or higher.
   assert_equals "${exp_nfiles}" "${soft}"
+}
+
+function test_action_symlink_output_change_detected() {
+  mkdir -p a
+  WORKSPACE="$PWD"
+  echo "same" > same1
+  echo "same" > same2
+  echo "different" > different
+
+  cat > a/BUILD <<EOF
+genrule(
+  name = "a",
+  srcs = [],
+  outs = ["ao"],
+  local = 1,
+  cmd = "touch $WORKSPACE/arun && ln -s $WORKSPACE/same1 \$@",
+)
+
+genrule(
+  name = "b",
+  srcs = ["ao"],
+  outs = ["bo"],
+  local = 1,
+  cmd = "touch $WORKSPACE/brun && touch \$@",
+)
+EOF
+
+  bazel build //a:b || fail "build failed"
+  [[ -r brun ]] || fail "b was not run"
+
+  rm -f bazel-genfiles/a/ao arun brun
+  bazel build //a:b || fail "build failed"
+  [[ -r arun ]] || fail "a was not run"
+  [[ -r brun ]] && fail "b was run"
+
+  rm -fr bazel-genfiles/a/ao arun brun
+  ln -s "$WORKSPACE/same2" bazel-genfiles/a/ao
+  bazel build //a:b || fail "build failed"
+  # Only the contents of target of the symlink should matter, where the symlink
+  # points to should not
+  [[ -r arun ]] && fail "a was run"
+  [[ -r brun ]] && fail "b was run"
+
+  rm -fr bazel-genfiles/a/ao arun brun
+  ln -s "$WORKSPACE/different" bazel-genfiles/a/ao
+  bazel build //a:b || fail "build failed"
+  # If the symlink points to a file with different contents, the action should
+  # be re-run
+  [[ -r arun ]] || fail "a was not run"
+  [[ -r brun ]] && fail "b was run"
+
+  :  # So the exit code of the test is not inferred from that of "-r" above
+}
+
+# Trivial test to verify that the various flags that specify resource limits
+# accept the same syntax.
+function test_resource_flags_syntax() {
+  local threads=HOST_CPUS*0.8
+  local ram=HOST_RAM*0.8
+  # TODO(jmmv): The IncludeScanningModule is present in Bazel but is not
+  # part of the build, so this flag, which we should test here, isn't
+  # available: --experimental_include_scanning_parallelism="${threads}"
+  bazel build --nobuild \
+      --experimental_fsvc_threads="${threads}" \
+      --experimental_sandbox_async_tree_delete_idle_threads="${threads}" \
+      --jobs="${threads}" \
+      --legacy_globbing_threads="${threads}" \
+      --loading_phase_threads="${threads}" \
+      --local_cpu_resources="${threads}" \
+      --local_ram_resources="${ram}" \
+      --local_test_jobs="${threads}" \
+      || fail "Empty build failed"
 }
 
 run_suite "Integration tests of ${PRODUCT_NAME} using the execution phase."

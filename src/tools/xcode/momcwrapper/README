@@ -1,6 +1,0 @@
-momcwrapper runs momc, which compiles xcdatamodels.
-momcwrapper then zips up the output, because momc returns an unpredictable
-number of output files.
-
-momc only runs on Darwin, so momcwrapper only runs on Darwin.
-

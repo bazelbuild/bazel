@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.config;
 
-import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigurationTransitionApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
+import net.starlark.java.eval.Printer;
 
 /**
  * Fake implementation of {@link ConfigurationTransitionApi}.
@@ -23,5 +23,5 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 public class FakeConfigurationTransition implements ConfigurationTransitionApi {
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 }

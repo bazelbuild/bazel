@@ -17,32 +17,31 @@ package com.google.devtools.build.lib.util;
 /**
  * An exception thrown by various error conditions that are severe enough to halt the command (e.g.
  * even a --keep_going build). These typically need to signal to the handling code what happened.
- * Therefore, these exceptions contain a recommended ExitCode allowing the exception to "set" a
- * returned numeric exit code.
+ * Therefore, these exceptions contain a {@link DetailedExitCode} specifying a numeric exit code and
+ * a detailed failure for the command to return.
  *
- * When an instance of this exception is thrown, Blaze will try to halt as soon as reasonably
- * possible.
+ * <p>When an instance of this exception is thrown, Bazel will try to halt the command as soon as
+ * reasonably possible.
  */
 public class AbruptExitException extends Exception {
 
-  private final ExitCode exitCode;
+  private final DetailedExitCode detailedExitCode;
 
-  public AbruptExitException(String message, ExitCode exitCode) {
-    super(message);
-    this.exitCode = exitCode;
+  public AbruptExitException(DetailedExitCode detailedExitCode) {
+    super(detailedExitCode.getFailureDetail().getMessage());
+    this.detailedExitCode = detailedExitCode;
   }
 
-  public AbruptExitException(String message, ExitCode exitCode, Throwable cause) {
-    super(message, cause);
-    this.exitCode = exitCode;
-  }
-
-  public AbruptExitException(ExitCode exitCode, Throwable cause) {
-    super(cause);
-    this.exitCode = exitCode;
+  public AbruptExitException(DetailedExitCode detailedExitCode, Throwable cause) {
+    super(detailedExitCode.getFailureDetail().getMessage(), cause);
+    this.detailedExitCode = detailedExitCode;
   }
 
   public ExitCode getExitCode() {
-    return exitCode;
+    return detailedExitCode.getExitCode();
+  }
+
+  public DetailedExitCode getDetailedExitCode() {
+    return detailedExitCode;
   }
 }

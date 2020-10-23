@@ -75,24 +75,66 @@ bool GetNullaryOption(const char *arg, const char *key) {
 }
 
 const char* SearchUnaryOption(const vector<string>& args,
-                              const char *key) {
+                              const char *key, bool warn_if_dupe) {
   if (args.empty()) {
     return NULL;
   }
 
+  const char* value = nullptr;
+  bool found_dupe = false;  // true if 'key' was found twice
   vector<string>::size_type i = 0;
+
+  // Examine the first N-1 arguments. (N-1 because we examine the i'th and
+  // i+1'th together, in case a flag is defined "--name value" style and not
+  // "--name=value" style.)
   for (; i < args.size() - 1; ++i) {
     if (args[i] == "--") {
-      return NULL;
+      // If the current argument is "--", all following args are target names.
+      // If 'key' was not found, 'value' is nullptr and we can return that.
+      // If 'key' was found exactly once, then 'value' has the value and again
+      // we can return that.
+      // If 'key' was found more than once then we could not have reached this
+      // line, because we would have broken out of the loop when 'key' was found
+      // the second time.
+      return value;
     }
     const char* result = GetUnaryOption(args[i].c_str(),
                                         args[i + 1].c_str(),
                                         key);
     if (result != NULL) {
-      return result;
+      // 'key' was found and 'result' has its value.
+      if (value) {
+        // 'key' was found once before, because 'value' is not empty.
+        found_dupe = true;
+        break;
+      } else {
+        // 'key' was not found before, so store the value in 'value'.
+        value = result;
+      }
     }
   }
-  return GetUnaryOption(args[i].c_str(), NULL, key);
+
+  if (value) {
+    // 'value' is not empty, so 'key' was found at least once in the first N-1
+    // arguments.
+    if (warn_if_dupe) {
+      if (!found_dupe) {
+        // We did not find a duplicate in the first N-1 arguments. Examine the
+        // last argument, it may be a duplicate.
+        found_dupe = (GetUnaryOption(args[i].c_str(), NULL, key) != nullptr);
+      }
+      if (found_dupe) {
+        BAZEL_LOG(WARNING) << key << " is given more than once, "
+                           << "only the first occurrence is used";
+      }
+    }
+    return value;
+  } else {
+    // 'value' is empty, so 'key' was not yet found in the first N-1 arguments.
+    // If 'key' is in the last argument, we'll parse and return the value from
+    // that, and if it isn't, we'll return NULL.
+    return GetUnaryOption(args[i].c_str(), NULL, key);
+  }
 }
 
 bool SearchNullaryOption(const vector<string>& args,
@@ -122,6 +164,8 @@ bool IsArg(const string& arg) {
 std::string AbsolutePathFromFlag(const std::string& value) {
   if (value.empty()) {
     return blaze_util::GetCwd();
+  } else if (value.size() >= 1 && value[0] == '~') {
+    return blaze_util::JoinPath(GetHomeDir(), value.substr(1));
   } else {
     return blaze_util::MakeAbsolute(value);
   }
@@ -133,7 +177,7 @@ void LogWait(unsigned int elapsed_seconds, unsigned int wait_seconds) {
             elapsed_seconds, wait_seconds);
 }
 
-bool AwaitServerProcessTermination(int pid, const string& output_base,
+bool AwaitServerProcessTermination(int pid, const blaze_util::Path& output_base,
                                    unsigned int wait_seconds) {
   uint64_t st = GetMillisecondsMonotonic();
   const unsigned int first_seconds = 5;

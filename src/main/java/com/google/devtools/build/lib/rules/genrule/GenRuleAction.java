@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.genrule;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
@@ -23,11 +24,14 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.TrackSourceDirectoriesFlag;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import java.io.IOException;
+import java.util.List;
 
 /**
  * A spawn action for genrules. Genrules are handled specially in that inputs and outputs are
@@ -40,9 +44,9 @@ public class GenRuleAction extends SpawnAction {
 
   public GenRuleAction(
       ActionOwner owner,
-      Iterable<Artifact> tools,
-      Iterable<Artifact> inputs,
-      Iterable<Artifact> outputs,
+      NestedSet<Artifact> tools,
+      NestedSet<Artifact> inputs,
+      ImmutableSet<Artifact> outputs,
       CommandLines commandLines,
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
@@ -64,11 +68,12 @@ public class GenRuleAction extends SpawnAction {
         runfilesSupplier,
         MNEMONIC,
         false,
+        null,
         null);
   }
 
   @Override
-  protected void beforeExecute(ActionExecutionContext actionExecutionContext) throws IOException {
+  protected void beforeExecute(ActionExecutionContext actionExecutionContext) throws ExecException {
     if (!TrackSourceDirectoriesFlag.trackSourceDirectories()) {
       checkInputsForDirectories(
           actionExecutionContext.getEventHandler(), actionExecutionContext.getMetadataProvider());
@@ -76,7 +81,8 @@ public class GenRuleAction extends SpawnAction {
   }
 
   @Override
-  protected void afterExecute(ActionExecutionContext actionExecutionContext) {
+  protected void afterExecute(
+      ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults) {
     checkOutputsForDirectories(actionExecutionContext);
   }
 }

@@ -20,12 +20,13 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.android.desugar.io.BitFlags;
+import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
@@ -52,7 +53,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
   private final ClassLoader targetLoader;
   private final DependencyCollector depsCollector;
   @Nullable private final CoreLibrarySupport coreLibrarySupport;
-  private final HashSet<String> instanceMethods = new HashSet<>();
+  private final LinkedHashSet<String> instanceMethods = new LinkedHashSet<>();
 
   private boolean isInterface;
   private String internalName;
@@ -73,7 +74,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
       @Nullable CoreLibrarySupport coreLibrarySupport,
       ClassReaderFactory bootclasspath,
       ClassLoader targetLoader) {
-    super(Opcodes.ASM7, dest);
+    super(Opcodes.ASM8, dest);
     this.useGeneratedBaseClasses = useGeneratedBaseClasses;
     this.classpath = classpath;
     this.coreLibrarySupport = coreLibrarySupport;
@@ -302,7 +303,9 @@ public class DefaultMethodClassFixer extends ClassVisitor {
       bytecode =
           checkNotNull(
               classpath.readIfKnown(implemented),
-              "Couldn't find interface %s implemented by %s", implemented, internalName);
+              "Couldn't find interface %s implemented by %s",
+              implemented,
+              internalName);
       isBootclasspath = false;
     }
     bytecode.accept(
@@ -349,7 +352,8 @@ public class DefaultMethodClassFixer extends ClassVisitor {
       return false;
     }
     String implemented = internalName(itf);
-    if (implemented.startsWith("java/") || implemented.startsWith("__desugar__/java/")) {
+    if (implemented.startsWith("java/")
+        || implemented.startsWith(ClassName.IN_PROCESS_LABEL + "java/")) {
       return coreLibrarySupport != null
           && (coreLibrarySupport.isRenamedCoreLibrary(implemented)
               || coreLibrarySupport.isEmulatedCoreClassOrInterface(implemented));
@@ -372,7 +376,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
       // interfaces we would normally record later.  That ensures we generate a stub when a default
       // method is available in the base class but needs to be overridden due to an overriding
       // default method in a sub-interface not implemented by the base class.
-      HashSet<String> allSeen = new HashSet<>();
+      LinkedHashSet<String> allSeen = new LinkedHashSet<>();
       for (Class<?> itf : interfacesToStub) {
         boolean willBeInBaseClass = itf.isAssignableFrom(newSuperName);
         for (Method m : itf.getDeclaredMethods()) {
@@ -423,7 +427,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
   private ImmutableList<String> collectOrderedCompanionsToTriggerInterfaceClinit(
       ImmutableList<String> interfaces) {
     ImmutableList.Builder<String> companionCollector = ImmutableList.builder();
-    HashSet<String> visitedInterfaces = new HashSet<>();
+    LinkedHashSet<String> visitedInterfaces = new LinkedHashSet<>();
     for (String anInterface : interfaces) {
       collectOrderedCompanionsToTriggerInterfaceClinit(
           anInterface, visitedInterfaces, companionCollector);
@@ -433,7 +437,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
 
   private void collectOrderedCompanionsToTriggerInterfaceClinit(
       String anInterface,
-      HashSet<String> visitedInterfaces,
+      LinkedHashSet<String> visitedInterfaces,
       ImmutableList.Builder<String> companionCollector) {
     if (!visitedInterfaces.add(anInterface)) {
       return;
@@ -567,7 +571,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
 
     public DefaultMethodStubber(
         boolean isBootclasspathInterface, boolean mayNeedStubsForSuperclass) {
-      super(Opcodes.ASM7);
+      super(Opcodes.ASM8);
       this.isBootclasspathInterface = isBootclasspathInterface;
       this.mayNeedStubsForSuperclass = mayNeedStubsForSuperclass;
     }
@@ -651,9 +655,13 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         if (isBootclasspathInterface) {
           // Synthesize a "bridge" method that calls the true implementation
           Method bridged = findBridgedMethod(name, desc);
-          checkState(bridged != null,
+          checkState(
+              bridged != null,
               "TODO: Can't stub core interface bridge method %s.%s %s in %s",
-              stubbedInterfaceName, name, desc, internalName);
+              stubbedInterfaceName,
+              name,
+              desc,
+              internalName);
 
           int slot = 0;
           stubMethod.visitVarInsn(Opcodes.ALOAD, slot++); // load the receiver
@@ -664,9 +672,14 @@ public class DefaultMethodClassFixer extends ClassVisitor {
             Type arg = neededArgTypes[i];
             stubMethod.visitVarInsn(arg.getOpcode(Opcodes.ILOAD), slot);
             if (!arg.equals(parameterTypes[i])) {
-              checkState(arg.getSort() == Type.ARRAY || arg.getSort() == Type.OBJECT,
+              checkState(
+                  arg.getSort() == Type.ARRAY || arg.getSort() == Type.OBJECT,
                   "Can't cast parameter %s from in bridge for %s.%s%s to %s",
-                  i, stubbedInterfaceName, name, desc, arg.getClassName());
+                  i,
+                  stubbedInterfaceName,
+                  name,
+                  desc,
+                  arg.getClassName());
               stubMethod.visitTypeInsn(Opcodes.CHECKCAST, arg.getInternalName());
             }
             slot += arg.getSize();
@@ -682,7 +695,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
 
           stubMethod.visitMaxs(0, 0); // rely on class writer to compute these
           stubMethod.visitEnd();
-          return null;  // don't visit the visited interface's bridge method
+          return null; // don't visit the visited interface's bridge method
         } else {
           // For bridges we just copy their bodies instead of going through the companion class.
           // Meanwhile, we also need to desugar the copied method bodies, so that any calls to
@@ -769,7 +782,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
     private boolean found;
 
     public DefaultMethodFinder() {
-      super(Opcodes.ASM7);
+      super(Opcodes.ASM8);
     }
 
     @Override
@@ -815,7 +828,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
     private String className;
 
     public InstanceMethodRecorder(boolean ignoreEmulatedMethods) {
-      super(Opcodes.ASM7);
+      super(Opcodes.ASM8);
       this.ignoreEmulatedMethods = ignoreEmulatedMethods;
     }
 
@@ -828,7 +841,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         String superName,
         String[] interfaces) {
       checkArgument(!BitFlags.isInterface(access));
-      className = name;  // updated every time we start visiting another superclass
+      className = name; // updated every time we start visiting another superclass
       super.visit(version, access, name, signature, superName, interfaces);
     }
 
@@ -863,7 +876,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
     private boolean hasDefaultMethods;
 
     public InterfaceInitializationNecessityDetector(String internalName) {
-      super(Opcodes.ASM7);
+      super(Opcodes.ASM8);
       this.internalName = internalName;
     }
 
@@ -897,7 +910,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         hasDefaultMethods = isNonBridgeDefaultMethod(access);
       }
       if ("<clinit>".equals(name)) {
-        return new MethodVisitor(Opcodes.ASM7) {
+        return new MethodVisitor(Opcodes.ASM8) {
           @Override
           public void visitFieldInsn(int opcode, String owner, String name, String desc) {
             if (opcode == Opcodes.PUTSTATIC && internalName.equals(owner)) {
@@ -927,7 +940,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
     private boolean looking = true;
 
     ConstructorFixer(MethodVisitor dest, String newSuperName) {
-      super(Opcodes.ASM7, dest);
+      super(Opcodes.ASM8, dest);
       this.newSuperName = newSuperName;
     }
 
@@ -963,7 +976,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
   }
 
   /** Comparator for classes and interfaces that compares by whether subtyping relationship. */
-  enum  SubtypeComparator implements Comparator<Class<?>> {
+  enum SubtypeComparator implements Comparator<Class<?>> {
     /** Orders subtypes before supertypes and breaks ties lexicographically. */
     INSTANCE;
 

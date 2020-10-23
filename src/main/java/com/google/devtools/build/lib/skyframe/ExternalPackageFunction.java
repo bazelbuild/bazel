@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
+import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
@@ -27,17 +28,29 @@ import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nullable;
 
 /**
- * A SkyFunction for resolving //external:* bindings.
+ * A SkyFunction for parsing the {@code //external} package.
  *
  * <p>This function iterates through the WorkspaceFileValue-s to get the last WorkspaceFileValue
- * that will contains all the bind statements from the workspace file.
+ * that will contain all the bind statements from the WORKSPACE file.
  */
 public class ExternalPackageFunction implements SkyFunction {
+
+  private final ExternalPackageHelper externalPackageHelper;
+
+  public ExternalPackageFunction(ExternalPackageHelper externalPackageHelper) {
+    this.externalPackageHelper = externalPackageHelper;
+  }
 
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-    RootedPath workspacePath = (RootedPath) skyKey.argument();
+    RootedPath workspacePath = externalPackageHelper.findWorkspaceFile(env);
+    if (env.valuesMissing()) {
+      return null;
+    }
+
+    // This currently cannot be null due to a hack in ExternalPackageUtil.findWorkspaceFile()
+    // TODO(lberki): Remove that hack and handle the case when the WORKSPACE file is not found.
     SkyKey key = WorkspaceFileValue.key(workspacePath);
     WorkspaceFileValue value = (WorkspaceFileValue) env.getValue(key);
     if (value == null) {

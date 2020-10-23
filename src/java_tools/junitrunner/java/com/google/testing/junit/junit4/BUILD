@@ -1,6 +1,8 @@
 # Description:
 #   JUnit 4.x extensions
 
+load("@rules_java//java:defs.bzl", "java_library")
+
 package(
     default_testonly = 1,
     default_visibility = ["//visibility:public"],
@@ -24,4 +26,5 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**/*.java"]) + ["BUILD"],
+    visibility = ["//src:__subpackages__"],
 )

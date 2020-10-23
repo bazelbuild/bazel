@@ -67,7 +67,7 @@ emulator state also speeds up test runs.
 
 Ensure your environment satisfies the following prerequisites:
 
-- **Linux**. Tested on Ubuntu 14.04, 16.04, and 18.04.
+- **Linux**. Tested on Ubuntu 16.04, and 18.04.
 
 - **Bazel 0.12.0** or later. Verify the version by running `bazel info release`.
 
@@ -403,8 +403,8 @@ Then, add the required dependencies in `<project root>/WORKSPACE`:
 ```python
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-RULES_JVM_EXTERNAL_TAG = "1.1" # Or use the latest version on https://github.com/bazelbuild/rules_jvm_external
-RULES_JVM_EXTERNAL_SHA = "ade316ec98ba0769bb1189b345d9877de99dd1b1e82f5a649d6ccbcb8da51c1f"
+RULES_JVM_EXTERNAL_TAG = "2.8"
+RULES_JVM_EXTERNAL_SHA = "79c9850690d7614ecdb72d68394f994fef7534b292c4867ce5e7dec0aa7bdfad"
 
 http_archive(
     name = "rules_jvm_external",

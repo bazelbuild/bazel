@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.Collection;
+import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -124,6 +125,25 @@ public class DependencySetTest {
     DependencySet depset = newDependencySet().read(dotd);
     assertThat(depset.getDependencies()).containsExactlyElementsIn(Sets.newHashSet(file1, file2));
     assertThat(filename).isEqualTo(depset.getOutputFileName());
+  }
+
+  @Test
+  public void dotDParser_escapeDollar() throws Exception {
+    Path dotd =
+        scratch.file(
+            "/tmp/foo.d",
+            "hello.o: \\",
+            " /usr/local/blah/$$blah/$$hello.cc \\",
+            " /usr/local/blah/blah/hel$$$$lo.h \\",
+            " /usr/local/blah/$$blah/hello.h");
+
+    Set<Path> expected =
+        Sets.newHashSet(
+            fileSystem.getPath("/usr/local/blah/$blah/$hello.cc"),
+            fileSystem.getPath("/usr/local/blah/blah/hel$$lo.h"),
+            fileSystem.getPath("/usr/local/blah/$blah/hello.h"));
+
+    assertThat(newDependencySet().read(dotd).getDependencies()).containsExactlyElementsIn(expected);
   }
 
   @Test

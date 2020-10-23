@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
 import com.google.devtools.build.lib.shell.SubprocessFactory;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.windows.jni.WindowsProcesses;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -32,11 +31,7 @@ import java.util.TreeMap;
  * A subprocess factory that uses the Win32 API.
  */
 public class WindowsSubprocessFactory implements SubprocessFactory {
-  private final boolean windowsStyleArgEscaping;
-
-  public WindowsSubprocessFactory(boolean windowsStyleArgEscaping) {
-    this.windowsStyleArgEscaping = windowsStyleArgEscaping;
-  }
+  public static final WindowsSubprocessFactory INSTANCE = new WindowsSubprocessFactory();
 
   @Override
   public Subprocess create(SubprocessBuilder builder) throws IOException {
@@ -74,21 +69,17 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
   }
 
   private String escapeArgvRest(List<String> argv) {
-    if (windowsStyleArgEscaping) {
-      StringBuilder result = new StringBuilder();
-      boolean first = true;
-      for (String arg : argv) {
-        if (first) {
-          first = false;
-        } else {
-          result.append(" ");
-        }
-        result.append(ShellUtils.windowsEscapeArg(arg));
+    StringBuilder result = new StringBuilder();
+    boolean first = true;
+    for (String arg : argv) {
+      if (first) {
+        first = false;
+      } else {
+        result.append(" ");
       }
-      return result.toString();
-    } else {
-      return WindowsProcesses.quoteCommandLine(argv);
+      result.append(ShellUtils.windowsEscapeArg(arg));
     }
+    return result.toString();
   }
 
   public static String processArgv0(String argv0) {

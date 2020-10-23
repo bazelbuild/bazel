@@ -1,9 +1,5 @@
 package(default_visibility = ["//visibility:public"])
 
-# Used by Bazel. If a test program depends on this target, it is
-# assumed to be sharding-compliant.
-exports_files(["test_sharding_compliant"])
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
@@ -13,7 +9,10 @@ filegroup(
         "//tools/buildstamp:srcs",
         "//tools/build_defs:srcs",
         "//tools/build_rules:srcs",
+        "//tools/config:srcs",
         "//tools/coverage:srcs",
+        "//tools/ctexplain:srcs",
+        "//tools/distributions:srcs",
         "//tools/java:srcs",
         "//tools/jdk:srcs",
         "//tools/launcher:srcs",
@@ -31,11 +30,12 @@ filegroup(
         "//tools/python:srcs",
         "//tools/runfiles:srcs",
         "//tools/sh:srcs",
-        "//tools/whitelists:srcs",
+        "//tools/allowlists:srcs",
         "//tools/zip:srcs",
     ],
 )
 
+# Sources in the built in repo '@bazel_tools'
 filegroup(
     name = "embedded_tools_srcs",
     srcs = glob(["**"]) + [
@@ -44,6 +44,7 @@ filegroup(
         "//tools/build_defs:embedded_tools",
         "//tools/build_rules:embedded_tools_srcs",
         "//tools/buildstamp:srcs",
+        "//tools/config:srcs",
         "//tools/coverage:srcs",
         "//tools/cpp:embedded_tools",
         "//tools/genrule:srcs",
@@ -62,8 +63,24 @@ filegroup(
         "//tools/osx/crosstool:srcs",
         "//tools/osx:srcs",
         "//tools/sh:embedded_tools",
-        "//tools/whitelists:srcs",
+        "//tools/allowlists:srcs",
         "//tools/zip:srcs",
+    ],
+)
+
+# All bzl files in the built in repo '@bazel_tools'.
+filegroup(
+    name = "bzl_srcs",
+    srcs = [
+        "//tools/android:bzl_srcs",
+        "//tools/build_defs:bzl_srcs",
+        "//tools/build_rules:bzl_srcs",
+        "//tools/config:common_settings.bzl",
+        "//tools/cpp:bzl_srcs",
+        "//tools/jdk:bzl_srcs",
+        "//tools/osx:bzl_srcs",
+        "//tools/python:bzl_srcs",
+        "//tools/sh:bzl_srcs",
     ],
 )
 
@@ -72,6 +89,7 @@ test_suite(
     tests = [
         "//tools/android:all_windows_tests",
         "//tools/aquery_differ:aquery_differ_test",
+        "//tools/aquery_differ:aquery_differ_v2_test",
         "//tools/bash:all_windows_tests",
         "//tools/build_defs:all_windows_tests",
         "//tools/cpp/runfiles:all_windows_tests",
@@ -81,4 +99,9 @@ test_suite(
         "//tools/test:all_windows_tests",
     ],
     visibility = ["//src:__pkg__"],
+)
+
+sh_binary(
+    name = "upload_bazel_mirror",
+    srcs = ["upload_bazel_mirror.sh"],
 )

@@ -5,7 +5,7 @@ filegroup(
     srcs = glob(["**"]),
 )
 
-load("//tools/build_defs/pkg:rpm.bzl", "pkg_rpm")
+load("@rules_pkg//:rpm.bzl", "pkg_rpm")
 
 pkg_rpm(
     name = "bazel",

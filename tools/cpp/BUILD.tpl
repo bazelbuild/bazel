@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This becomes the BUILD file for @local_config_cc// under non-FreeBSD unixes.
+# This becomes the BUILD file for @local_config_cc// under non-BSD unixes.
 
 package(default_visibility = ["//visibility:public"])
 
 load(":cc_toolchain_config.bzl", "cc_toolchain_config")
+load(":armeabi_cc_toolchain_config.bzl", "armeabi_cc_toolchain_config")
+load("@rules_cc//cc:defs.bzl", "cc_toolchain", "cc_toolchain_suite")
 
 licenses(["notice"])  # Apache 2.0
 
@@ -36,7 +38,7 @@ filegroup(
 
 filegroup(
     name = "compiler_deps",
-    srcs = glob(["extra_tools/**"]) + ["%{cc_compiler_deps}"],
+    srcs = glob(["extra_tools/**"], allow_empty = True) + [%{cc_compiler_deps}],
 )
 
 # This is the entry point for --crosstool_top.  Toolchains are found
@@ -57,32 +59,40 @@ cc_toolchain(
     toolchain_identifier = "%{cc_toolchain_identifier}",
     toolchain_config = ":%{cc_toolchain_identifier}",
     all_files = ":compiler_deps",
-    ar_files = ":empty",
-    as_files = ":empty",
+    ar_files = ":compiler_deps",
+    as_files = ":compiler_deps",
     compiler_files = ":compiler_deps",
     dwp_files = ":empty",
     linker_files = ":compiler_deps",
     objcopy_files = ":empty",
     strip_files = ":empty",
     supports_param_files = %{supports_param_files},
+    module_map = %{modulemap},
 )
 
 cc_toolchain_config(
     name = "%{cc_toolchain_identifier}",
     cpu = "%{target_cpu}",
     compiler = "%{compiler}",
-)
-
-toolchain(
-    name = "cc-toolchain-%{name}",
-    exec_compatible_with = [
-        # TODO(katre): add autodiscovered constraints for host CPU and OS.
-    ],
-    target_compatible_with = [
-        # TODO(katre): add autodiscovered constraints for host CPU and OS.
-    ],
-    toolchain = ":cc-compiler-%{name}",
-    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+    toolchain_identifier = "%{cc_toolchain_identifier}",
+    host_system_name = "%{host_system_name}",
+    target_system_name = "%{target_system_name}",
+    target_libc = "%{target_libc}",
+    abi_version = "%{abi_version}",
+    abi_libc_version = "%{abi_libc_version}",
+    cxx_builtin_include_directories = [%{cxx_builtin_include_directories}],
+    tool_paths = {%{tool_paths}},
+    compile_flags = [%{compile_flags}],
+    opt_compile_flags = [%{opt_compile_flags}],
+    dbg_compile_flags = [%{dbg_compile_flags}],
+    cxx_flags = [%{cxx_flags}],
+    link_flags = [%{link_flags}],
+    link_libs = [%{link_libs}],
+    opt_link_flags = [%{opt_link_flags}],
+    unfiltered_compile_flags = [%{unfiltered_compile_flags}],
+    coverage_compile_flags = [%{coverage_compile_flags}],
+    coverage_link_flags = [%{coverage_link_flags}],
+    supports_start_end_lib = %{supports_start_end_lib},
 )
 
 # Android tooling requires a default toolchain for the armeabi-v7a cpu.
@@ -101,21 +111,4 @@ cc_toolchain(
     supports_param_files = 1,
 )
 
-cc_toolchain_config(
-    name = "stub_armeabi-v7a",
-    cpu = "armeabi-v7a",
-    compiler = "compiler",
-)
-
-toolchain(
-    name = "cc-toolchain-armeabi-v7a",
-    exec_compatible_with = [
-        # TODO(katre): add autodiscovered constraints for host CPU and OS.
-    ],
-    target_compatible_with = [
-        "@bazel_tools//platforms:arm",
-        "@bazel_tools//platforms:android",
-    ],
-    toolchain = ":cc-compiler-armabi-v7a",
-    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
-)
+armeabi_cc_toolchain_config(name = "stub_armeabi-v7a")

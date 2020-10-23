@@ -13,52 +13,102 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDex2OatInfoApi;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
-import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDex2OatInfoApi;
+import javax.annotation.Nullable;
 
 /**
  * Supplies the pregenerate_oat_files_for_tests attribute of type boolean provided by android_device
  * rule.
  */
 @Immutable
-public final class AndroidDex2OatInfo extends NativeInfo implements AndroidDex2OatInfoApi {
+public final class AndroidDex2OatInfo extends NativeInfo
+    implements AndroidDex2OatInfoApi<Artifact, FilesToRunProvider> {
 
-  private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
-      FunctionSignature.WithValues.create(
-          FunctionSignature.of(
-              /*numMandatoryPositionals=*/ 0,
-              /*numOptionalPositionals=*/ 0,
-              /*numMandatoryNamedOnly=*/ 1,
-              /*starArg=*/ false,
-              /*kwArg=*/ false,
-              "enabled"),
-          /*defaultValues=*/ null,
-          /*types=*/ ImmutableList.of(SkylarkType.of(Boolean.class))); // instrumentation_apk
-  public static final NativeProvider<AndroidDex2OatInfo> PROVIDER =
-      new NativeProvider<AndroidDex2OatInfo>(AndroidDex2OatInfo.class, NAME, SIGNATURE) {
-        @Override
-        protected AndroidDex2OatInfo createInstanceFromSkylark(
-            Object[] args, Environment env, Location loc) {
-          return new AndroidDex2OatInfo(/*dex2OatEnabled=*/ (Boolean) args[0]);
-        }
-      };
+  public static final BuiltinProvider<AndroidDex2OatInfo> PROVIDER = new Provider();
+
+  /** Provider for {@link AndroidDex2OatInfo} objects. */
+  private static class Provider extends BuiltinProvider<AndroidDex2OatInfo>
+      implements AndroidDex2OatInfoApi.Provider<Artifact, FilesToRunProvider> {
+    public Provider() {
+      super(NAME, AndroidDex2OatInfo.class);
+    }
+
+    @Override
+    public AndroidDex2OatInfo androidDex2OatInfo(
+        Boolean enabled,
+        Boolean executeDex2OatOnHost,
+        Object sandboxForPregeneratingOatFilesForTests,
+        Object framework,
+        Object dalvikCache,
+        Object deviceProps) {
+      return new AndroidDex2OatInfo(
+          enabled,
+          executeDex2OatOnHost,
+          sandboxForPregeneratingOatFilesForTests instanceof FilesToRunProvider
+              ? (FilesToRunProvider) sandboxForPregeneratingOatFilesForTests
+              : null,
+          framework instanceof Artifact ? (Artifact) framework : null,
+          dalvikCache instanceof Artifact ? (Artifact) dalvikCache : null,
+          deviceProps instanceof Artifact ? (Artifact) deviceProps : null);
+    }
+  }
 
   private final boolean dex2OatEnabled;
+  private final boolean executeDex2OatOnHost;
+  private final FilesToRunProvider sandboxForPregeneratingOatFilesForTests;
+  private final Artifact framework;
+  private final Artifact dalvikCache;
+  private final Artifact deviceProps;
 
-  public AndroidDex2OatInfo(boolean dex2OatEnabled) {
+  public AndroidDex2OatInfo(
+      boolean dex2OatEnabled,
+      boolean executeDex2OatOnHost,
+      FilesToRunProvider sandboxForPregeneratingOatFilesForTests,
+      Artifact framework,
+      Artifact dalvikCache,
+      Artifact deviceProps) {
     super(PROVIDER);
     this.dex2OatEnabled = dex2OatEnabled;
+    this.executeDex2OatOnHost = executeDex2OatOnHost;
+    this.sandboxForPregeneratingOatFilesForTests = sandboxForPregeneratingOatFilesForTests;
+    this.framework = framework;
+    this.dalvikCache = dalvikCache;
+    this.deviceProps = deviceProps;
   }
 
   /** Returns if the device should run cloud dex2oat. */
   public boolean isDex2OatEnabled() {
     return dex2OatEnabled;
+  }
+
+  /** Returns whether dex2oat should be executed on the host. */
+  public boolean executeDex2OatOnHost() {
+    return executeDex2OatOnHost;
+  }
+
+  /** Returns the virtual device executable to run dex2oat on the host */
+  @Nullable
+  public FilesToRunProvider getSandboxForPregeneratingOatFilesForTests() {
+    return sandboxForPregeneratingOatFilesForTests;
+  }
+
+  @Nullable
+  public Artifact getFramework() {
+    return framework;
+  }
+
+  @Nullable
+  public Artifact getDalvikCache() {
+    return dalvikCache;
+  }
+
+  @Nullable
+  public Artifact getDeviceProps() {
+    return deviceProps;
   }
 }

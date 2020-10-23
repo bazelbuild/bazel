@@ -12,8 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 #include <string.h>
 #include <windows.h>
+
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -30,10 +34,6 @@ using std::string;
 using std::stringstream;
 using std::unordered_map;
 using std::wstring;
-
-#ifndef SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE
-#define SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE 0x2
-#endif
 
 #ifndef SYMBOLIC_LINK_FLAG_DIRECTORY
 #define SYMBOLIC_LINK_FLAG_DIRECTORY 0x1
@@ -127,6 +127,19 @@ bool ReadSymlink(const wstring& abs_path, wstring* target, wstring* error) {
       break;
   }
   return false;
+}
+
+bool IsDeveloperModeEnabled() {
+  DWORD val = 0;
+  DWORD valSize = sizeof(val);
+  if (RegGetValueW(
+          HKEY_LOCAL_MACHINE,
+          L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModelUnlock",
+          L"AllowDevelopmentWithoutDevLicense", RRF_RT_DWORD, nullptr, &val,
+          &valSize) != ERROR_SUCCESS) {
+    return false;
+  }
+  return val != 0;
 }
 
 }  // namespace
@@ -235,15 +248,13 @@ class RunfilesCreator {
   }
 
   bool DoesCreatingSymlinkNeedAdminPrivilege(const wstring& runfiles_base_dir) {
-    wstring dummy_link = runfiles_base_dir + L"\\dummy_link";
-    wstring dummy_target = runfiles_base_dir + L"\\dummy_target";
-
-    // Try creating symlink without admin privilege.
-    if (CreateSymbolicLinkW(dummy_link.c_str(), dummy_target.c_str(),
-                            SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE)) {
-      DeleteFileOrDie(dummy_link);
+    // Creating symlinks without admin privilege is enabled by Developer Mode,
+    // available since Windows Version 1703.
+    if (IsDeveloperModeEnabled()) {
       return false;
     }
+    wstring dummy_link = runfiles_base_dir + L"\\dummy_link";
+    wstring dummy_target = runfiles_base_dir + L"\\dummy_target";
 
     // Try creating symlink with admin privilege
     if (CreateSymbolicLinkW(dummy_link.c_str(), dummy_target.c_str(), 0)) {

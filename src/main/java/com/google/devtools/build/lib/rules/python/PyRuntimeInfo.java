@@ -14,22 +14,24 @@
 
 package com.google.devtools.build.lib.rules.python;
 
-import static com.google.devtools.build.lib.syntax.Runtime.NONE;
+import static net.starlark.java.eval.Starlark.NONE;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.skylarkbuildapi.python.PyRuntimeInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.starlarkbuildapi.python.PyRuntimeInfoApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Objects;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 
 /**
  * Instance of the provider type that describes Python runtimes.
@@ -41,7 +43,7 @@ import javax.annotation.Nullable;
  * invariants mirror the user-visible API on {@link PyRuntimeInfoApi} except that {@code None} is
  * replaced by null.
  */
-public class PyRuntimeInfo extends Info implements PyRuntimeInfoApi<Artifact> {
+public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
 
   /** The Starlark-accessible top-level builtin name for this provider type. */
   public static final String STARLARK_NAME = "PyRuntimeInfo";
@@ -49,9 +51,11 @@ public class PyRuntimeInfo extends Info implements PyRuntimeInfoApi<Artifact> {
   /** The singular {@code PyRuntimeInfo} provider type object. */
   public static final PyRuntimeInfoProvider PROVIDER = new PyRuntimeInfoProvider();
 
+  private final Location location;
   @Nullable private final PathFragment interpreterPath;
   @Nullable private final Artifact interpreter;
-  @Nullable private final SkylarkNestedSet files;
+  // Validated on initalization to contain Artifact
+  @Nullable private final Depset files;
   /** Invariant: either PY2 or PY3. */
   private final PythonVersion pythonVersion;
 
@@ -59,21 +63,26 @@ public class PyRuntimeInfo extends Info implements PyRuntimeInfoApi<Artifact> {
       @Nullable Location location,
       @Nullable PathFragment interpreterPath,
       @Nullable Artifact interpreter,
-      @Nullable SkylarkNestedSet files,
+      @Nullable Depset files,
       PythonVersion pythonVersion) {
-    super(PROVIDER, location);
     Preconditions.checkArgument((interpreterPath == null) != (interpreter == null));
     Preconditions.checkArgument((interpreter == null) == (files == null));
     Preconditions.checkArgument(pythonVersion.isTargetValue());
-    if (files != null) {
-      // Work around #7266 by special-casing the empty set in the type check.
-      Preconditions.checkArgument(
-          files.isEmpty() || files.getContentType().canBeCastTo(Artifact.class));
-    }
+    this.location = location != null ? location : Location.BUILTIN;
+    this.files = files;
     this.interpreterPath = interpreterPath;
     this.interpreter = interpreter;
-    this.files = files;
     this.pythonVersion = pythonVersion;
+  }
+
+  @Override
+  public PyRuntimeInfoProvider getProvider() {
+    return PROVIDER;
+  }
+
+  @Override
+  public Location getCreationLoc() {
+    return location;
   }
 
   /** Constructs an instance from native rule logic (built-in location) for an in-build runtime. */
@@ -83,7 +92,7 @@ public class PyRuntimeInfo extends Info implements PyRuntimeInfoApi<Artifact> {
         /*location=*/ null,
         /*interpreterPath=*/ null,
         interpreter,
-        SkylarkNestedSet.of(Artifact.class, files),
+        Depset.of(Artifact.TYPE, files),
         pythonVersion);
   }
 
@@ -146,12 +155,16 @@ public class PyRuntimeInfo extends Info implements PyRuntimeInfoApi<Artifact> {
 
   @Nullable
   public NestedSet<Artifact> getFiles() {
-    return files == null ? null : files.getSet(Artifact.class);
+    try {
+      return files == null ? null : files.getSet(Artifact.class);
+    } catch (Depset.TypeException ex) {
+      throw new IllegalStateException("for files, " + ex.getMessage());
+    }
   }
 
   @Override
   @Nullable
-  public SkylarkNestedSet getFilesForStarlark() {
+  public Depset getFilesForStarlark() {
     return files;
   }
 
@@ -178,37 +191,41 @@ public class PyRuntimeInfo extends Info implements PyRuntimeInfoApi<Artifact> {
         Object interpreterUncast,
         Object filesUncast,
         String pythonVersion,
-        Location loc)
+        StarlarkThread thread)
         throws EvalException {
       String interpreterPath =
           interpreterPathUncast == NONE ? null : (String) interpreterPathUncast;
       Artifact interpreter = interpreterUncast == NONE ? null : (Artifact) interpreterUncast;
-      SkylarkNestedSet files = filesUncast == NONE ? null : (SkylarkNestedSet) filesUncast;
+      Depset filesDepset = null;
+      if (filesUncast != NONE) {
+        // Validate type of filesDepset.
+        Depset.cast(filesUncast, Artifact.class, "files");
+        filesDepset = (Depset) filesUncast;
+      }
 
       if ((interpreter == null) == (interpreterPath == null)) {
-        throw new EvalException(
-            loc,
+        throw Starlark.errorf(
             "exactly one of the 'interpreter' or 'interpreter_path' arguments must be specified");
       }
       boolean isInBuildRuntime = interpreter != null;
-      if (!isInBuildRuntime && files != null) {
-        throw new EvalException(loc, "cannot specify 'files' if 'interpreter_path' is given");
+      if (!isInBuildRuntime && filesDepset != null) {
+        throw Starlark.errorf("cannot specify 'files' if 'interpreter_path' is given");
       }
 
       PythonVersion parsedPythonVersion;
       try {
         parsedPythonVersion = PythonVersion.parseTargetValue(pythonVersion);
       } catch (IllegalArgumentException ex) {
-        throw new EvalException(loc, "illegal value for 'python_version'", ex);
+        throw Starlark.errorf("illegal value for 'python_version': %s", ex.getMessage());
       }
 
+      Location loc = thread.getCallerLocation();
       if (isInBuildRuntime) {
-        if (files == null) {
-          files =
-              SkylarkNestedSet.of(Artifact.class, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+        if (filesDepset == null) {
+          filesDepset = Depset.of(Artifact.TYPE, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
         }
         return new PyRuntimeInfo(
-            loc, /*interpreterPath=*/ null, interpreter, files, parsedPythonVersion);
+            loc, /*interpreterPath=*/ null, interpreter, filesDepset, parsedPythonVersion);
       } else {
         return new PyRuntimeInfo(
             loc,

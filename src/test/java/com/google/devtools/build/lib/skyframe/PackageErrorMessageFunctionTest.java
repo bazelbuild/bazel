@@ -23,7 +23,6 @@ import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -31,13 +30,6 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link PackageErrorMessageFunction}. */
 @RunWith(JUnit4.class)
 public class PackageErrorMessageFunctionTest extends BuildViewTestCase {
-
-  private SkyframeExecutor skyframeExecutor;
-
-  @Before
-  public final void createSkyframeExecutor() {
-    skyframeExecutor = getSkyframeExecutor();
-  }
 
   @Test
   public void testNoErrorMessage() throws Exception {
@@ -65,9 +57,7 @@ public class PackageErrorMessageFunctionTest extends BuildViewTestCase {
         getPackageErrorMessageValue(/*keepGoing=*/ true);
     assertThat(packageErrorMessageValue.getResult()).isEqualTo(Result.NO_SUCH_PACKAGE_EXCEPTION);
     assertThat(packageErrorMessageValue.getNoSuchPackageExceptionMessage())
-        .isEqualTo(
-            "error loading package 'a': Unable to load file "
-                + "'//a:does_not_exist.bzl': file doesn't exist");
+        .isEqualTo("error loading package 'a': cannot load '//a:does_not_exist.bzl': no such file");
   }
 
   private PackageErrorMessageValue getPackageErrorMessageValue(boolean keepGoing)
@@ -77,10 +67,10 @@ public class PackageErrorMessageFunctionTest extends BuildViewTestCase {
         EvaluationContext.newBuilder()
             .setKeepGoing(keepGoing)
             .setNumThreads(SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT)
-            .setEventHander(reporter)
+            .setEventHandler(reporter)
             .build();
     EvaluationResult<SkyValue> result =
-        skyframeExecutor.getDriverForTesting().evaluate(ImmutableList.of(key), evaluationContext);
+        skyframeExecutor.getDriver().evaluate(ImmutableList.of(key), evaluationContext);
     assertThat(result.hasError()).isFalse();
     SkyValue value = result.get(key);
     assertThat(value).isInstanceOf(PackageErrorMessageValue.class);

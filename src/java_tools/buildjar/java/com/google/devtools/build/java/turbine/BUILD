@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_binary")
+
 package(default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"])
 
 java_binary(
@@ -13,8 +15,12 @@ java_binary(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**/*.java"]) + [
+    srcs = glob(
+        ["**/*.java"],
+        allow_empty = True,
+    ) + [
         "BUILD",
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac:srcs",
     ],
+    visibility = ["//src:__subpackages__"],
 )

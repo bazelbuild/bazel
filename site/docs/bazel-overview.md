@@ -1,9 +1,11 @@
 ---
 layout: documentation
-title: Bazel Overview
+title: Bazel overview
 ---
 
-# What is Bazel?
+# Bazel overview
+
+## What is Bazel?
 
 Bazel is an open-source build and test tool similar to Make, Maven, and Gradle.
 It uses a human-readable, high-level build language. Bazel supports projects in
@@ -11,7 +13,7 @@ multiple languages and builds outputs for multiple platforms. Bazel supports
 large codebases across multiple repositories, and large numbers of users.
 
 
-# Why should I use Bazel?
+## Why should I use Bazel?
 
 Bazel offers the following advantages:
 
@@ -36,12 +38,12 @@ Bazel offers the following advantages:
     source files. It works with multiple repositories and user bases in the tens
     of thousands.
 
-*   **Bazel is extensible.** Many [languages](be/overview.html#rules) are
+*   **Bazel is extensible.** Many [languages](rules.html) are
     supported, and you can extend Bazel to support any other language or
     framework.
 
 
-# How do I use Bazel?
+## How do I use Bazel?
 
 To build or test a project with Bazel, you typically do the following:
 
@@ -75,7 +77,7 @@ In addition to building, you can also use Bazel to run
 to trace dependencies in your code.
 
 
-# How does Bazel work?
+## How does Bazel work?
 
 When running a build or a test, Bazel does the following:
 
@@ -92,21 +94,21 @@ When running a build or a test, Bazel does the following:
 Since all previous build work is cached, Bazel can identify and reuse cached
 artifacts and only rebuild or retest what's changed. To further enforce
 correctness, you can set up Bazel to run builds and tests
-[hermetically](user-manual.html#sandboxing) through sandboxing, minimizing skew
-and maximizing [reproducibility](user-manual.html#correctness).
+[hermetically](guide.html#sandboxing) through sandboxing, minimizing skew
+and maximizing [reproducibility](guide.html#correctness).
 
 
-## What is the action graph?
+### What is the action graph?
 
 The action graph represents the build artifacts, the relationships between them,
 and the build actions that Bazel will perform. Thanks to this graph, Bazel can
-[track](user-manual.html#build-consistency-and-incremental-builds) changes to
+[track](guide.html#build-consistency-and-incremental-builds) changes to
 file content as well as changes to actions, such as build or test commands, and
 know what build work has previously been done. The graph also enables you to
 easily [trace dependencies](query-how-to.html) in your code.
 
 
-# How do I get started?
+## How do I get started?
 
 To get started with Bazel, see [Getting Started](getting-started.html) or jump
 directly to the Bazel tutorials:

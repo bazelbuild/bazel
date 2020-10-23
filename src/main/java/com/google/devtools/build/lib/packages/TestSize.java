@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Set;
 

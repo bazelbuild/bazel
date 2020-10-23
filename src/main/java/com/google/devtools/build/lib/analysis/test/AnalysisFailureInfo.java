@@ -13,32 +13,33 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.test;
 
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.skylarkbuildapi.test.AnalysisFailureInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.test.AnalysisFailureInfoApi;
 
 /**
  * Implementation of {@link AnalysisFailureInfoApi}.
  *
- * Encapsulates information about analysis-phase errors which would have occurred during a
- * build.
+ * <p>Encapsulates information about analysis-phase errors which would have occurred during a build.
  */
-public class AnalysisFailureInfo extends Info implements AnalysisFailureInfoApi<AnalysisFailure> {
+public final class AnalysisFailureInfo implements Info, AnalysisFailureInfoApi<AnalysisFailure> {
 
-  /**
-   * Singleton provider instance for {@link AnalysisFailureInfo}.
-   */
-  public static final AnalysisFailureInfoProvider SKYLARK_CONSTRUCTOR =
+  /** Singleton provider instance for {@link AnalysisFailureInfo}. */
+  public static final AnalysisFailureInfoProvider STARLARK_CONSTRUCTOR =
       new AnalysisFailureInfoProvider();
 
   private final NestedSet<AnalysisFailure> causes;
 
   private AnalysisFailureInfo(NestedSet<AnalysisFailure> causes) {
-    super(SKYLARK_CONSTRUCTOR, Location.BUILTIN);
     this.causes = causes;
+  }
+
+  @Override
+  public AnalysisFailureInfoProvider getProvider() {
+    return STARLARK_CONSTRUCTOR;
   }
 
   /**
@@ -65,7 +66,11 @@ public class AnalysisFailureInfo extends Info implements AnalysisFailureInfoApi<
   }
 
   @Override
-  public NestedSet<AnalysisFailure> getCauses() {
+  public Depset /*<AnalysisFailure>*/ getCauses() {
+    return Depset.of(AnalysisFailure.TYPE, causes);
+  }
+
+  public NestedSet<AnalysisFailure> getCausesNestedSet() {
     return causes;
   }
 

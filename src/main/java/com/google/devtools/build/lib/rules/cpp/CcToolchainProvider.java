@@ -19,27 +19,28 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
+import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain.AdditionalBuildVariablesComputer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.syntax.Location;
 
 /** Information about a C++ compiler used by the <code>cc_*</code> rules. */
 @Immutable
@@ -52,7 +53,7 @@ public final class CcToolchainProvider extends ToolchainInfo
       new CcToolchainProvider(
           /* values= */ ImmutableMap.of(),
           /* cppConfiguration= */ null,
-          /* toolchainInfo= */ null,
+          /* toolchainFeatures= */ null,
           /* crosstoolTopPathFragment= */ null,
           /* allFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /* allFilesMiddleman= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
@@ -85,11 +86,28 @@ public final class CcToolchainProvider extends ToolchainInfo
           /* sysroot= */ null,
           /* targetSysroot= */ null,
           /* fdoContext= */ null,
-          /* isHostConfiguration= */ false,
-          /* licensesProvider= */ null);
+          /* isToolConfiguration= */ false,
+          /* licensesProvider= */ null,
+          /* toolPaths= */ ImmutableMap.of(),
+          /* toolchainIdentifier= */ "",
+          /* compiler= */ "",
+          /* abiGlibcVersion= */ "",
+          /* targetCpu= */ "",
+          /* targetOS= */ "",
+          /* defaultSysroot= */ PathFragment.EMPTY_FRAGMENT,
+          /* runtimeSysroot= */ PathFragment.EMPTY_FRAGMENT,
+          /* targetLibc= */ "",
+          /* hostSystemName= */ "",
+          /* ccToolchainLabel= */ null,
+          /* solibDirectory= */ "",
+          /* abi= */ "",
+          /* targetSystemName= */ "",
+          /* additionalMakeVariables= */ ImmutableMap.of(),
+          /* legacyCcFlagsMakeVariable= */ "",
+          /* allowlistForLayeringCheck= */ null,
+          /* allowListForLooseHeaderCheck= */ null);
 
   @Nullable private final CppConfiguration cppConfiguration;
-  private final CppToolchainInfo toolchainInfo;
   private final PathFragment crosstoolTopPathFragment;
   private final NestedSet<Artifact> allFiles;
   private final NestedSet<Artifact> allFilesMiddleman;
@@ -121,7 +139,26 @@ public final class CcToolchainProvider extends ToolchainInfo
   private final ImmutableList<PathFragment> builtInIncludeDirectories;
   @Nullable private final PathFragment sysroot;
   private final PathFragment targetSysroot;
-  private final boolean isHostConfiguration;
+  private final boolean isToolConfiguration;
+  private final ImmutableMap<String, PathFragment> toolPaths;
+  private final CcToolchainFeatures toolchainFeatures;
+  private final String toolchainIdentifier;
+  private final String compiler;
+  private final String targetCpu;
+  private final String targetOS;
+  private final PathFragment defaultSysroot;
+  private final PathFragment runtimeSysroot;
+  private final String abiGlibcVersion;
+  private final String abi;
+  private final String targetLibc;
+  private final String hostSystemName;
+  private final String targetSystemName;
+  private final Label ccToolchainLabel;
+  private final String solibDirectory;
+
+  private final ImmutableMap<String, String> additionalMakeVariables;
+  // TODO(b/65151735): Remove when cc_flags is entirely from features.
+  private final String legacyCcFlagsMakeVariable;
   /**
    * WARNING: We don't like {@link FdoContext}. Its {@link FdoContext#fdoProfilePath} is pure path
    * and that is horrible as it breaks many Bazel assumptions! Don't do bad stuff with it, don't
@@ -130,11 +167,13 @@ public final class CcToolchainProvider extends ToolchainInfo
   private final FdoContext fdoContext;
 
   private final LicensesProvider licensesProvider;
+  private final PackageSpecificationProvider allowlistForLayeringCheck;
+  private final PackageSpecificationProvider allowListForLooseHeaderCheck;
 
   public CcToolchainProvider(
       ImmutableMap<String, Object> values,
       @Nullable CppConfiguration cppConfiguration,
-      CppToolchainInfo toolchainInfo,
+      CcToolchainFeatures toolchainFeatures,
       PathFragment crosstoolTopPathFragment,
       NestedSet<Artifact> allFiles,
       NestedSet<Artifact> allFilesMiddleman,
@@ -167,11 +206,28 @@ public final class CcToolchainProvider extends ToolchainInfo
       @Nullable PathFragment sysroot,
       @Nullable PathFragment targetSysroot,
       FdoContext fdoContext,
-      boolean isHostConfiguration,
-      LicensesProvider licensesProvider) {
+      boolean isToolConfiguration,
+      LicensesProvider licensesProvider,
+      ImmutableMap<String, PathFragment> toolPaths,
+      String toolchainIdentifier,
+      String compiler,
+      String abiGlibcVersion,
+      String targetCpu,
+      String targetOS,
+      PathFragment defaultSysroot,
+      PathFragment runtimeSysroot,
+      String targetLibc,
+      String hostSystemName,
+      Label ccToolchainLabel,
+      String solibDirectory,
+      String abi,
+      String targetSystemName,
+      ImmutableMap<String, String> additionalMakeVariables,
+      String legacyCcFlagsMakeVariable,
+      PackageSpecificationProvider allowlistForLayeringCheck,
+      PackageSpecificationProvider allowListForLooseHeaderCheck) {
     super(values, Location.BUILTIN);
     this.cppConfiguration = cppConfiguration;
-    this.toolchainInfo = toolchainInfo;
     this.crosstoolTopPathFragment = crosstoolTopPathFragment;
     this.allFiles = Preconditions.checkNotNull(allFiles);
     this.allFilesMiddleman = Preconditions.checkNotNull(allFilesMiddleman);
@@ -195,7 +251,6 @@ public final class CcToolchainProvider extends ToolchainInfo
     this.ccInfo =
         CcInfo.builder()
             .setCcCompilationContext(Preconditions.checkNotNull(ccCompilationContext))
-            .setCcLinkingContext(CcLinkingContext.EMPTY)
             .build();
     this.supportsParamFiles = supportsParamFiles;
     this.supportsHeaderParsing = supportsHeaderParsing;
@@ -207,9 +262,28 @@ public final class CcToolchainProvider extends ToolchainInfo
     this.builtInIncludeDirectories = builtInIncludeDirectories;
     this.sysroot = sysroot;
     this.targetSysroot = targetSysroot;
+    this.defaultSysroot = defaultSysroot;
+    this.runtimeSysroot = runtimeSysroot;
     this.fdoContext = fdoContext == null ? FdoContext.getDisabledContext() : fdoContext;
-    this.isHostConfiguration = isHostConfiguration;
+    this.isToolConfiguration = isToolConfiguration;
     this.licensesProvider = licensesProvider;
+    this.toolPaths = toolPaths;
+    this.toolchainFeatures = toolchainFeatures;
+    this.toolchainIdentifier = toolchainIdentifier;
+    this.compiler = compiler;
+    this.abiGlibcVersion = abiGlibcVersion;
+    this.targetCpu = targetCpu;
+    this.targetOS = targetOS;
+    this.targetLibc = targetLibc;
+    this.hostSystemName = hostSystemName;
+    this.ccToolchainLabel = ccToolchainLabel;
+    this.solibDirectory = solibDirectory;
+    this.abi = abi;
+    this.targetSystemName = targetSystemName;
+    this.additionalMakeVariables = additionalMakeVariables;
+    this.legacyCcFlagsMakeVariable = legacyCcFlagsMakeVariable;
+    this.allowlistForLayeringCheck = allowlistForLayeringCheck;
+    this.allowListForLooseHeaderCheck = allowListForLooseHeaderCheck;
   }
 
   /**
@@ -307,7 +381,7 @@ public final class CcToolchainProvider extends ToolchainInfo
     // TODO(bazel-team): delete all of these.
     result.put("CROSSTOOLTOP", crosstoolTopPathFragment.getPathString());
 
-    // TODO(kmensah): Remove when skylark dependencies can be updated to rely on
+    // TODO(kmensah): Remove when Starlark dependencies can be updated to rely on
     // CcToolchainProvider.
     result.putAll(getAdditionalMakeVariables());
 
@@ -345,10 +419,15 @@ public final class CcToolchainProvider extends ToolchainInfo
     return toolPathFragment == null ? null : toolPathFragment.getPathString();
   }
 
+  /**
+   * Returns the path fragment that is either absolute or relative to the execution root that can be
+   * used to execute the given tool.
+   */
   @Nullable
   public PathFragment getToolPathFragmentOrNull(CppConfiguration.Tool tool) {
-    return toolchainInfo.getToolPathFragment(tool);
+    return CcToolchainProviderHelper.getToolPathFragment(toolPaths, tool);
   }
+
 
   @Override
   public ImmutableList<String> getBuiltInIncludeDirectoriesAsStrings() {
@@ -359,23 +438,23 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   @Override
-  public SkylarkNestedSet getAllFilesForStarlark() {
-    return SkylarkNestedSet.of(Artifact.class, getAllFiles());
+  public Depset getAllFilesForStarlark() {
+    return Depset.of(Artifact.TYPE, getAllFiles());
   }
 
   @Override
-  public SkylarkNestedSet getStaticRuntimeLibForStarlark(
+  public Depset getStaticRuntimeLibForStarlark(
       FeatureConfigurationForStarlark featureConfigurationForStarlark) throws EvalException {
-    return SkylarkNestedSet.of(
-        (Artifact.class),
+    return Depset.of(
+        Artifact.TYPE,
         getStaticRuntimeLinkInputs(featureConfigurationForStarlark.getFeatureConfiguration()));
   }
 
   @Override
-  public SkylarkNestedSet getDynamicRuntimeLibForStarlark(
+  public Depset getDynamicRuntimeLibForStarlark(
       FeatureConfigurationForStarlark featureConfigurationForStarlark) throws EvalException {
-    return SkylarkNestedSet.of(
-        (Artifact.class),
+    return Depset.of(
+        Artifact.TYPE,
         getDynamicRuntimeLinkInputs(featureConfigurationForStarlark.getFeatureConfiguration()));
   }
 
@@ -385,7 +464,7 @@ public final class CcToolchainProvider extends ToolchainInfo
 
   /** Returns the identifier of the toolchain as specified in the {@code CToolchain} proto. */
   public String getToolchainIdentifier() {
-    return toolchainInfo.getToolchainIdentifier();
+    return toolchainIdentifier;
   }
 
   /** Returns all the files in Crosstool. Is not a middleman. */
@@ -456,7 +535,7 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   public NestedSet<Artifact> getLibcLink(CppConfiguration cppConfiguration) {
-    if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas())) {
+    if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas())) {
       return libcLink;
     } else {
       return targetLibcLink;
@@ -477,10 +556,9 @@ public final class CcToolchainProvider extends ToolchainInfo
       throws EvalException {
     if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
       if (staticRuntimeLinkInputs == null) {
-        throw new EvalException(
-            Location.BUILTIN,
-            "Toolchain supports embedded runtimes, but didn't "
-                + "provide static_runtime_lib attribute.");
+        throw Starlark.errorf(
+            "Toolchain supports embedded runtimes, but didn't provide static_runtime_lib"
+                + " attribute.");
       }
       return staticRuntimeLinkInputs;
     } else {
@@ -511,9 +589,8 @@ public final class CcToolchainProvider extends ToolchainInfo
     if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
       if (dynamicRuntimeLinkInputs == null) {
         throw new EvalException(
-            Location.BUILTIN,
-            "Toolchain supports embedded runtimes, but didn't "
-                + "provide dynamic_runtime_lib attribute.");
+            "Toolchain supports embedded runtimes, but didn't provide dynamic_runtime_lib"
+                + " attribute.");
       }
       return dynamicRuntimeLinkInputs;
     } else {
@@ -569,11 +646,12 @@ public final class CcToolchainProvider extends ToolchainInfo
    */
   @Nullable
   public CcToolchainFeatures getFeatures() {
-    return toolchainInfo.getFeatures();
+    return toolchainFeatures;
   }
 
+  @Override
   public Label getCcToolchainLabel() {
-    return toolchainInfo.getCcToolchainLabel();
+    return ccToolchainLabel;
   }
 
   /**
@@ -582,7 +660,7 @@ public final class CcToolchainProvider extends ToolchainInfo
    * sysroots, then this method returns <code>null</code>.
    */
   public PathFragment getRuntimeSysroot() {
-    return toolchainInfo.getRuntimeSysroot();
+    return runtimeSysroot;
   }
 
   /**
@@ -590,7 +668,7 @@ public final class CcToolchainProvider extends ToolchainInfo
    * shared libraries. This name is always set to the '{@code _solib_<cpu_archictecture_name>}.
    */
   public String getSolibDirectory() {
-    return toolchainInfo.getSolibDirectory();
+    return solibDirectory;
   }
 
   /** Returns whether the toolchain supports dynamic linking. */
@@ -627,7 +705,7 @@ public final class CcToolchainProvider extends ToolchainInfo
    * <p>Once toolchain transitions are implemented, we can safely use the CppConfiguration from the
    * toolchain in rules.
    */
-  CppConfiguration getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas() {
+  CppConfiguration getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas() {
     return cppConfiguration;
   }
 
@@ -658,7 +736,7 @@ public final class CcToolchainProvider extends ToolchainInfo
    * @param cppConfiguration
    */
   public ImmutableList<Artifact> getBuiltinIncludeFiles(CppConfiguration cppConfiguration) {
-    if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas())) {
+    if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas())) {
       return builtinIncludeFiles;
     } else {
       return targetBuiltinIncludeFiles;
@@ -687,7 +765,7 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   public PathFragment getSysrootPathFragment(CppConfiguration cppConfiguration) {
-    if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas())) {
+    if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas())) {
       return sysroot;
     } else {
       return targetSysroot;
@@ -701,7 +779,7 @@ public final class CcToolchainProvider extends ToolchainInfo
    */
   // TODO(bazel-team): The javadoc should clarify how this is used in Blaze.
   public String getAbi() {
-    return toolchainInfo.getAbi();
+    return abi;
   }
 
   /**
@@ -712,25 +790,25 @@ public final class CcToolchainProvider extends ToolchainInfo
    */
   // TODO(bazel-team): The javadoc should clarify how this is used in Blaze.
   public String getAbiGlibcVersion() {
-    return toolchainInfo.getAbiGlibcVersion();
+    return abiGlibcVersion;
   }
 
   /** Returns the compiler version string (e.g. "gcc-4.1.1"). */
   @Override
   public String getCompiler() {
-    return toolchainInfo == null ? null : toolchainInfo.getCompiler();
+    return compiler;
   }
 
   /** Returns the libc version string (e.g. "glibc-2.2.2"). */
   @Override
   public String getTargetLibc() {
-    return toolchainInfo == null ? null : toolchainInfo.getTargetLibc();
+    return targetLibc;
   }
 
   /** Returns the target architecture using blaze-specific constants (e.g. "piii"). */
   @Override
   public String getTargetCpu() {
-    return toolchainInfo == null ? null : toolchainInfo.getTargetCpu();
+    return targetCpu;
   }
 
   /**
@@ -742,7 +820,7 @@ public final class CcToolchainProvider extends ToolchainInfo
    * may be an empty string.
    */
   public ImmutableMap<String, String> getAdditionalMakeVariables() {
-    return toolchainInfo.getAdditionalMakeVariables();
+    return additionalMakeVariables;
   }
 
   /**
@@ -753,7 +831,7 @@ public final class CcToolchainProvider extends ToolchainInfo
   // TODO(b/65151735): Remove when cc_flags is entirely from features.
   @Deprecated
   public String getLegacyCcFlagsMakeVariable() {
-    return toolchainInfo.getLegacyCcFlagsMakeVariable();
+    return legacyCcFlagsMakeVariable;
   }
 
   public FdoContext getFdoContext() {
@@ -767,93 +845,37 @@ public final class CcToolchainProvider extends ToolchainInfo
    */
   @Deprecated
   public String getTargetOS() {
-    return toolchainInfo.getTargetOS();
+    return targetOS;
   }
 
   /** Returns the system name which is required by the toolchain to run. */
   public String getHostSystemName() {
-    return toolchainInfo.getHostSystemName();
+    return hostSystemName;
   }
 
   /** Returns the GNU System Name */
   @Override
   public String getTargetGnuSystemName() {
-    return toolchainInfo == null ? null : toolchainInfo.getTargetGnuSystemName();
+    return targetSystemName;
   }
 
   /** Returns the architecture component of the GNU System Name */
   public String getGnuSystemArch() {
-    return toolchainInfo.getGnuSystemArch();
+    if (targetSystemName.indexOf('-') == -1) {
+      return targetSystemName;
+    }
+    return targetSystemName.substring(0, targetSystemName.indexOf('-'));
   }
 
   public final boolean isLLVMCompiler() {
-    return toolchainInfo.isLLVMCompiler();
+    // TODO(tmsriram): Checking for "llvm" does not handle all the cases.  This
+    // is temporary until the crosstool configuration is modified to add fields that
+    // indicate which flavor of fdo is being used.
+    return toolchainIdentifier.contains("llvm");
   }
 
-  /**
-   * WARNING: This method is only added to allow incremental migration of existing users. Please do
-   * not use in new code. Will be removed soon as part of the new Skylark API to the C++ toolchain.
-   *
-   * Returns the execution path to the linker binary to use for this build. Relative paths are
-   * relative to the execution root.
-   */
-  @Override
-  public String getLdExecutableForSkylark() {
-    PathFragment ldExecutable = getToolPathFragmentOrNull(CppConfiguration.Tool.LD);
-    return ldExecutable != null ? ldExecutable.getPathString() : "";
-  }
-
-  /**
-   * WARNING: This method is only added to allow incremental migration of existing users. Please do
-   * not use in new code. Will be removed soon as part of the new Skylark API to the C++ toolchain.
-   *
-   * Returns the path to the GNU binutils 'objcopy' binary to use for this build. (Corresponds to
-   * $(OBJCOPY) in make-dbg.) Relative paths are relative to the execution root.
-   */
-  @Override
-  public String getObjCopyExecutableForSkylark() {
-    PathFragment objCopyExecutable = getToolPathFragmentOrNull(Tool.OBJCOPY);
-    return objCopyExecutable != null ? objCopyExecutable.getPathString() : "";
-  }
-
-  @Override
-  public String getCppExecutableForSkylark() {
-    PathFragment cppExecutable = getToolPathFragmentOrNull(Tool.GCC);
-    return cppExecutable != null ? cppExecutable.getPathString() : "";
-  }
-
-  @Override
-  public String getCpreprocessorExecutableForSkylark() {
-    PathFragment cpreprocessorExecutable = getToolPathFragmentOrNull(Tool.CPP);
-    return cpreprocessorExecutable != null ? cpreprocessorExecutable.getPathString() : "";
-  }
-
-  @Override
-  public String getNmExecutableForSkylark() {
-    PathFragment nmExecutable = getToolPathFragmentOrNull(Tool.NM);
-    return nmExecutable != null ? nmExecutable.getPathString() : "";
-  }
-
-  @Override
-  public String getObjdumpExecutableForSkylark() {
-    PathFragment objdumpExecutable = getToolPathFragmentOrNull(Tool.OBJDUMP);
-    return objdumpExecutable != null ? objdumpExecutable.getPathString() : "";
-  }
-
-  @Override
-  public String getArExecutableForSkylark() {
-    PathFragment arExecutable = getToolPathFragmentOrNull(Tool.AR);
-    return arExecutable != null ? arExecutable.getPathString() : "";
-  }
-
-  @Override
-  public String getStripExecutableForSkylark() {
-    PathFragment stripExecutable = getToolPathFragmentOrNull(Tool.STRIP);
-    return stripExecutable != null ? stripExecutable.getPathString() : "";
-  }
-
-  // Not all of CcToolchainProvider is exposed to Skylark, which makes implementing deep equality
-  // impossible: if Java-only parts are considered, the behavior is surprising in Skylark, if they
+  // Not all of CcToolchainProvider is exposed to Starlark, which makes implementing deep equality
+  // impossible: if Java-only parts are considered, the behavior is surprising in Starlark, if they
   // are not, the behavior is surprising in Java. Thus, object identity it is.
   @Override
   public boolean equals(Object other) {
@@ -865,8 +887,8 @@ public final class CcToolchainProvider extends ToolchainInfo
     return System.identityHashCode(this);
   }
 
-  public boolean isHostConfiguration() {
-    return isHostConfiguration;
+  public boolean isToolConfiguration() {
+    return isToolConfiguration;
   }
 
   public LicensesProvider getLicensesProvider() {
@@ -874,11 +896,11 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   public PathFragment getDefaultSysroot() {
-    return toolchainInfo.getDefaultSysroot();
+    return defaultSysroot;
   }
 
   public boolean requireCtxInConfigureFeatures() {
-    return getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas()
+    return getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas()
         .requireCtxInConfigureFeatures();
   }
 
@@ -890,6 +912,14 @@ public final class CcToolchainProvider extends ToolchainInfo
   @VisibleForTesting
   NestedSet<Artifact> getDynamicRuntimeLibForTesting() {
     return dynamicRuntimeLinkInputs;
+  }
+
+  public PackageSpecificationProvider getAllowlistForLayeringCheck() {
+    return allowlistForLayeringCheck;
+  }
+
+  public PackageSpecificationProvider getAllowlistForLooseHeaderCheck() {
+    return allowListForLooseHeaderCheck;
   }
 }
 

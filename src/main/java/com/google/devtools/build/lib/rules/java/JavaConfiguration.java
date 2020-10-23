@@ -13,25 +13,26 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Ascii;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
+import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaConfigurationApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaConfigurationApi;
 import com.google.devtools.common.options.TriState;
-import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -75,76 +76,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     ERROR
   }
 
-  /**
-   * Values for the --java_optimization_mode option, which controls how Proguard is run over binary
-   * and test targets. Note that for the moment this has no effect when building library targets.
-   */
-  public enum JavaOptimizationMode {
-    /** Proguard is used iff top-level target has {@code proguard_specs} attribute. */
-    LEGACY,
-    /**
-     * No link-time optimizations are applied, regardless of the top-level target's attributes. In
-     * practice this mode skips Proguard completely, rather than invoking Proguard as a no-op.
-     */
-    NOOP("-dontshrink", "-dontoptimize", "-dontobfuscate"),
-    /**
-     * Symbols have different names except where configured not to rename. This mode is primarily
-     * intended to aid in identifying missing configuration directives that prevent symbols accessed
-     * reflectively etc. from being renamed or removed.
-     */
-    RENAME("-dontshrink", "-dontoptimize"),
-    /**
-     * "Quickly" produce small binary typically without changing code structure. In practice this
-     * mode removes unreachable code and uses short symbol names except where configured not to
-     * rename or remove. This mode should build faster than {@link #OPTIMIZE_MINIFY} and may hence
-     * be preferable during development.
-     */
-    FAST_MINIFY("-dontoptimize"),
-    /**
-     * Produce fully optimized binary with short symbol names and unreachable code removed. Unlike
-     * {@link #FAST_MINIFY}, this mode may apply code transformations, in addition to removing and
-     * renaming code as the configuration allows, to produce a more compact binary. This mode should
-     * be preferable for producing and testing release binaries.
-     */
-    OPTIMIZE_MINIFY;
-
-    private final String proguardDirectives;
-
-    JavaOptimizationMode(String... donts) {
-      StringBuilder proguardDirectives = new StringBuilder();
-      for (String dont : donts) {
-        checkArgument(dont.startsWith("-dont"), "invalid Proguard directive: %s", dont);
-        proguardDirectives.append(dont).append('\n');
-      }
-      this.proguardDirectives = proguardDirectives.toString();
-    }
-
-    /** Returns additional Proguard directives necessary for this mode (can be empty). */
-    public String getImplicitProguardDirectives() {
-      return proguardDirectives;
-    }
-
-    /**
-     * Returns true if all affected targets should produce mappings from original to renamed symbol
-     * names, regardless of the proguard_generate_mapping attribute. This should be the case for all
-     * modes that force symbols to be renamed. By contrast, the {@link #NOOP} mode will never
-     * produce a mapping file since no symbols are ever renamed.
-     */
-    public boolean alwaysGenerateOutputMapping() {
-      switch (this) {
-        case LEGACY:
-        case NOOP:
-          return false;
-        case RENAME:
-        case FAST_MINIFY:
-        case OPTIMIZE_MINIFY:
-          return true;
-        default:
-          throw new AssertionError("Unexpected mode: " + this);
-      }
-    }
-  }
-
   private final ImmutableList<String> commandLineJavacFlags;
   private final Label javaLauncherLabel;
   private final boolean useIjars;
@@ -166,19 +97,21 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final ImmutableList<Label> extraProguardSpecs;
   private final TriState bundleTranslations;
   private final ImmutableList<Label> translationTargets;
-  private final JavaOptimizationMode javaOptimizationMode;
-  private final ImmutableMap<String, Optional<Label>> bytecodeOptimizers;
+  private final NamedLabel bytecodeOptimizer;
+  private final boolean splitBytecodeOptimizationPass;
+  private final boolean enforceProguardFileExtension;
   private final Label toolchainLabel;
   private final Label runtimeLabel;
   private final boolean explicitJavaTestDeps;
-  private final boolean experimentalTestRunner;
   private final boolean jplPropagateCcLinkParamsStore;
   private final boolean addTestSupportToCompileTimeDeps;
   private final boolean isJlplStrictDepsEnforced;
   private final ImmutableList<Label> pluginList;
   private final boolean requireJavaToolchainHeaderCompilerDirect;
   private final boolean disallowResourceJars;
+  private final boolean loadJavaRulesFromBzl;
   private final boolean disallowLegacyJavaToolchainFlags;
+  private final boolean experimentalTurbineAnnotationProcessing;
 
   // TODO(dmarting): remove once we have a proper solution for #2539
   private final boolean useLegacyBazelJavaTest;
@@ -199,10 +132,11 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.fixDepsTool = javaOptions.fixDepsTool;
     this.proguardBinary = javaOptions.proguard;
     this.extraProguardSpecs = ImmutableList.copyOf(javaOptions.extraProguardSpecs);
+    this.splitBytecodeOptimizationPass = javaOptions.splitBytecodeOptimizationPass;
+    this.enforceProguardFileExtension = javaOptions.enforceProguardFileExtension;
     this.bundleTranslations = javaOptions.bundleTranslations;
     this.toolchainLabel = javaOptions.javaToolchain;
     this.runtimeLabel = javaOptions.javaBase;
-    this.javaOptimizationMode = javaOptions.javaOptimizationMode;
     this.useLegacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
     this.strictDepsJavaProtos = javaOptions.strictDepsJavaProtos;
     this.isDisallowStrictDepsForJpl = javaOptions.isDisallowStrictDepsForJpl;
@@ -211,10 +145,10 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.importDepsCheckingLevel = javaOptions.importDepsCheckingLevel;
     this.allowRuntimeDepsOnNeverLink = javaOptions.allowRuntimeDepsOnNeverLink;
     this.explicitJavaTestDeps = javaOptions.explicitJavaTestDeps;
-    this.experimentalTestRunner = javaOptions.experimentalTestRunner;
     this.jplPropagateCcLinkParamsStore = javaOptions.jplPropagateCcLinkParamsStore;
     this.isJlplStrictDepsEnforced = javaOptions.isJlplStrictDepsEnforced;
     this.disallowResourceJars = javaOptions.disallowResourceJars;
+    this.loadJavaRulesFromBzl = javaOptions.loadJavaRulesFromBzl;
     this.addTestSupportToCompileTimeDeps = javaOptions.addTestSupportToCompileTimeDeps;
 
     ImmutableList.Builder<Label> translationsBuilder = ImmutableList.builder();
@@ -233,19 +167,26 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     }
     this.translationTargets = translationsBuilder.build();
 
-    ImmutableMap.Builder<String, Optional<Label>> optimizersBuilder = ImmutableMap.builder();
-    for (Map.Entry<String, Label> optimizer : javaOptions.bytecodeOptimizers.entrySet()) {
-      String mnemonic = optimizer.getKey();
-      if (optimizer.getValue() == null && !"Proguard".equals(mnemonic)) {
-        throw new InvalidConfigurationException("Must supply label for optimizer " + mnemonic);
-      }
-      optimizersBuilder.put(mnemonic, Optional.fromNullable(optimizer.getValue()));
+    Map<String, Label> optimizers = javaOptions.bytecodeOptimizers;
+    checkState(
+        optimizers.size() <= 1,
+        "--experimental_bytecode_optimizers can only accept up to one mapping, but %s mappings "
+            + "were provided.",
+        optimizers.size());
+    Map.Entry<String, Label> optimizer = Iterables.getOnlyElement(optimizers.entrySet());
+    String mnemonic = optimizer.getKey();
+    Label optimizerLabel = optimizer.getValue();
+    if (optimizerLabel == null && !"Proguard".equals(mnemonic)) {
+      throw new InvalidConfigurationException("Must supply label for optimizer " + mnemonic);
     }
-    this.bytecodeOptimizers = optimizersBuilder.build();
+    this.bytecodeOptimizer = NamedLabel.create(mnemonic, Optional.fromNullable(optimizerLabel));
+
     this.pluginList = ImmutableList.copyOf(javaOptions.pluginList);
     this.requireJavaToolchainHeaderCompilerDirect =
         javaOptions.requireJavaToolchainHeaderCompilerDirect;
     this.disallowLegacyJavaToolchainFlags = javaOptions.disallowLegacyJavaToolchainFlags;
+    this.experimentalTurbineAnnotationProcessing =
+        javaOptions.experimentalTurbineAnnotationProcessing;
 
     if (javaOptions.disallowLegacyJavaToolchainFlags) {
       if (!javaOptions.javaBase.equals(javaOptions.defaultJavaBase())) {
@@ -277,7 +218,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   }
 
   @Override
-  // TODO(bazel-team): this is the command-line passed options, we should remove from skylark
+  // TODO(bazel-team): this is the command-line passed options, we should remove from Starlark
   // probably.
   public ImmutableList<String> getDefaultJavacFlags() {
     return commandLineJavacFlags;
@@ -355,7 +296,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   }
 
   /** Returns the label provided with --proguard_top, if any. */
-  @SkylarkConfigurationField(
+  @StarlarkConfigurationField(
       name = "proguard_top",
       doc = "Returns the label provided with --proguard_top, if any.",
       defaultInToolRepository = true)
@@ -367,6 +308,19 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   /** Returns all labels provided with --extra_proguard_specs. */
   public ImmutableList<Label> getExtraProguardSpecs() {
     return extraProguardSpecs;
+  }
+
+  /**
+   * Returns whether the OPTIMIZATION stage of the bytecode optimizer will be split across multiple
+   * actions.
+   */
+  public boolean splitBytecodeOptimizationPass() {
+    return splitBytecodeOptimizationPass;
+  }
+
+  /** Returns whether ProGuard configuration files are required to use a *.pgcfg extension. */
+  public boolean enforceProguardFileExtension() {
+    return enforceProguardFileExtension;
   }
 
   /** Returns the raw translation targets. */
@@ -385,7 +339,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   }
 
   /** Returns the label of the default java_toolchain rule */
-  @SkylarkConfigurationField(
+  @StarlarkConfigurationField(
       name = "java_toolchain",
       doc = "Returns the label of the default java_toolchain rule.",
       defaultLabel = "//tools/jdk:toolchain",
@@ -402,18 +356,21 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return runtimeLabel;
   }
 
-  /**
-   * Returns the --java_optimization_mode flag setting. Note that running with a different mode over
-   * the same binary or test target typically invalidates the cached output Jar for that target, but
-   * since Proguard doesn't run on libraries, the outputs for library targets remain valid.
-   */
-  public JavaOptimizationMode getJavaOptimizationMode() {
-    return javaOptimizationMode;
+  /** Stores a String name and an optional associated label. */
+  @AutoValue
+  public abstract static class NamedLabel {
+    public static NamedLabel create(String name, Optional<Label> label) {
+      return new AutoValue_JavaConfiguration_NamedLabel(name, label);
+    }
+
+    public abstract String name();
+
+    public abstract Optional<Label> label();
   }
 
   /** Returns ordered list of optimizers to run. */
-  public ImmutableMap<String, Optional<Label>> getBytecodeOptimizers() {
-    return bytecodeOptimizers;
+  public NamedLabel getBytecodeOptimizer() {
+    return bytecodeOptimizer;
   }
 
   /**
@@ -424,13 +381,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return useLegacyBazelJavaTest;
   }
 
-  /**
-   * Returns true if we should be the ExperimentalTestRunner instead of the BazelTestRunner for
-   * bazel's java_test runs.
-   */
-  public boolean useExperimentalTestRunner() {
-    return experimentalTestRunner;
-  }
 
   /**
    * Make it mandatory for java_test targets to explicitly declare any JUnit or Hamcrest
@@ -483,7 +433,8 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return isJlplStrictDepsEnforced;
   }
 
-  public List<Label> getPlugins() {
+  @Override
+  public ImmutableList<Label> getPlugins() {
     return pluginList;
   }
 
@@ -493,5 +444,13 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   public boolean disallowResourceJars() {
     return disallowResourceJars;
+  }
+
+  public boolean loadJavaRulesFromBzl() {
+    return loadJavaRulesFromBzl;
+  }
+
+  public boolean experimentalTurbineAnnotationProcessing() {
+    return experimentalTurbineAnnotationProcessing;
   }
 }

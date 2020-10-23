@@ -24,8 +24,9 @@ set -eu
 #     Also prepare an email for announcing the release.
 
 # Load common.sh
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$(dirname ${SCRIPT_DIR})/release/common.sh"
+BUILD_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$(dirname ${BUILD_SCRIPT_DIR})/release/common.sh"
+source "$(dirname ${BUILD_SCRIPT_DIR})/release/relnotes.sh"
 
 if ! command -v gsutil &>/dev/null; then
   echo "Required tool 'gsutil' not found. Please install it:"
@@ -64,7 +65,7 @@ fi
 #   exit 1
 # fi
 
-export APT_GPG_KEY_ID=$(gsutil cat gs://bazel-encrypted-secrets/release-key.gpg.id)
+export APT_GPG_KEY_ID=$(gsutil cat gs://bazel-trusted-encrypted-secrets/release-key.gpg.id)
 
 # Generate a string from a template and a list of substitutions.
 # The first parameter is the template name and each subsequent parameter
@@ -100,14 +101,14 @@ function generate_email() {
         "%url%" "$(generate_from_template "${RELEASE_CANDIDATE_URL}" "${args[@]}")"
     )
     generate_from_template \
-        "$(cat "${SCRIPT_DIR}/rc_email.txt")" \
+        "$(cat "${BUILD_SCRIPT_DIR}/rc_email.txt")" \
         "${args[@]}"
   elif [ -n "${release_name}" ]; then
     args+=(
         "%url%" "$(generate_from_template "${RELEASE_URL}" "${args[@]}")"
     )
     generate_from_template \
-        "$(cat "${SCRIPT_DIR}/release_email.txt")" "${args[@]}"
+        "$(cat "${BUILD_SCRIPT_DIR}/release_email.txt")" "${args[@]}"
   fi
 }
 
@@ -126,7 +127,7 @@ The binaries and source-code of the bundled OpenJDK can be
 [downloaded from our mirror server](https://mirror.bazel.build/openjdk/index.html).
 
 _Security_: All our binaries are signed with our
-[public key](https://bazel.build/bazel-release.pub.gpg) 48457EE0.
+[public key](https://bazel.build/bazel-release.pub.gpg) 3D5919B448457EE0.
 '
 }
 
@@ -193,7 +194,7 @@ function ensure_gpg_secret_key_imported() {
   if ! gpg --list-secret-keys | grep "${APT_GPG_KEY_ID}" > /dev/null; then
     keyfile=$(mktemp --tmpdir)
     chmod 0600 "${keyfile}"
-    gsutil cat "gs://bazel-encrypted-secrets/release-key.gpg.enc" | \
+    gsutil cat "gs://bazel-trusted-encrypted-secrets/release-key.gpg.enc" | \
         gcloud kms decrypt --location "global" --keyring "buildkite" --key "bazel-release-key" --ciphertext-file "-" --plaintext-file "${keyfile}"
     gpg --allow-secret-key-import --import "${keyfile}"
     rm -f "${keyfile}"
@@ -206,6 +207,93 @@ function ensure_gpg_secret_key_imported() {
   if ! grep "digest-algo sha256" ~/.gnupg/gpg.conf > /dev/null; then
     echo "digest-algo sha256" >> ~/.gnupg/gpg.conf
   fi
+}
+
+# Generate new content of Release file
+function print_new_release_content() {
+  local distribution="$1"
+  # Print the headers of the original Release file
+  cat <<EOF
+Origin: Bazel Authors
+Label: Bazel
+Codename: $1
+Date: $(date -u "+%a, %d %b %Y %H:%M:%S UTC")
+Architectures: amd64
+Components: jdk1.8
+Description: Bazel APT Repository
+EOF
+  metadata_files=("jdk1.8/binary-amd64/Packages" "jdk1.8/binary-amd64/Packages.gz" "jdk1.8/binary-amd64/Release" "jdk1.8/source/Sources.gz" "jdk1.8/source/Release")
+  # Re-generate hashes for all metadata fiels
+  echo MD5Sum:
+   for file in ${metadata_files[*]}; do
+    path="dists/${distribution}/$file"
+    echo "" "$(md5sum ${path} | cut -d " " -f1)" "$(ls -l ${path} | cut -d " " -f5)" "$file"
+   done
+  echo SHA1:
+   for file in ${metadata_files[*]}; do
+    path="dists/${distribution}/$file"
+    echo "" "$(sha1sum ${path} | cut -d " " -f1)" "$(ls -l ${path} | cut -d " " -f5)" "$file"
+   done
+  echo SHA256:
+   for file in ${metadata_files[*]}; do
+    path="dists/${distribution}/$file"
+    echo "" "$(sha256sum ${path} | cut -d " " -f1)" "$(ls -l ${path} | cut -d " " -f5)" "$file"
+   done
+}
+
+# Merge metadata with previous distribution
+function merge_previous_dists() {
+  local distribution="$1"
+  # Download the metadata info from previous distribution
+  mkdir -p previous
+  gsutil -m cp -r "gs://bazel-apt/dists" "./previous"
+
+  # Merge Packages and Packages.gz file
+  cat "previous/dists/${distribution}/jdk1.8/binary-amd64/Packages" >> "dists/${distribution}/jdk1.8/binary-amd64/Packages"
+  gzip -9c "dists/${distribution}/jdk1.8/binary-amd64/Packages" > "dists/${distribution}/jdk1.8/binary-amd64/Packages.gz"
+
+  # Merge Sources.gz file
+  gunzip "previous/dists/${distribution}/jdk1.8/source/Sources.gz"
+  gunzip "dists/${distribution}/jdk1.8/source/Sources.gz"
+  cat "previous/dists/${distribution}/jdk1.8/source/Sources" >> "dists/${distribution}/jdk1.8/source/Sources"
+  gzip -9c "dists/${distribution}/jdk1.8/source/Sources" > "dists/${distribution}/jdk1.8/source/Sources.gz"
+  rm -f "dists/${distribution}/jdk1.8/source/Sources"
+
+  # Update Release file
+  print_new_release_content "${distribution}" > "dists/${distribution}/Release.new"
+  mv "dists/${distribution}/Release.new" "dists/${distribution}/Release"
+
+  # Generate new signatures for Release file
+  rm -f "dists/${distribution}/InRelease" "dists/${distribution}/Release.gpg"
+  gpg --output "dists/${distribution}/InRelease" --clearsign "dists/${distribution}/Release"
+  gpg --output "dists/${distribution}/Release.gpg" --detach-sign "dists/${distribution}/Release"
+}
+
+# Create a debian package with version in package name and add it to the repo
+function add_versioned_deb_pkg() {
+  local distribution="$1"
+  local deb_pkg_name="$2"
+  # Extract the original package
+  mkdir -p deb-old
+  dpkg-deb -R "${deb_pkg_name}" deb-old
+
+  # Get bazel version
+  bazel_version=$(grep "Version:" deb-old/DEBIAN/control | cut -d " " -f2)
+  bazel_version=${bazel_version/\~/}
+
+  # Generate new control file
+  mkdir -p deb-new/DEBIAN
+  sed "s/Package:\ bazel/Package:\ bazel-${bazel_version}/g" "deb-old/DEBIAN/control" > "deb-new/DEBIAN/control"
+
+  # Rename the actual Bazel binary to bazel-${bazel_version}
+  mkdir -p deb-new/usr/bin
+  cp "deb-old/usr/bin/bazel-real" "deb-new/usr/bin/bazel-${bazel_version}"
+
+  # Re-pack the debian package and add it to the repo
+  versioned_deb_pkg_name="bazel-${bazel_version}-versioned-package-amd64.deb"
+  chmod -R 0755 deb-new
+  dpkg-deb -b deb-new "${versioned_deb_pkg_name}"
+  reprepro -C jdk1.8 includedeb "${distribution}" "${versioned_deb_pkg_name}"
 }
 
 function create_apt_repository() {
@@ -258,6 +346,10 @@ EOF
 
   reprepro -C jdk1.8 includedeb "${distribution}" "${deb_pkg_name}"
   reprepro -C jdk1.8 includedsc "${distribution}" "${deb_dsc_name}"
+
+  add_versioned_deb_pkg "${distribution}" "${deb_pkg_name}"
+
+  merge_previous_dists "${distribution}"
 
   gsutil -m cp -r dists pool "gs://bazel-apt"
 }

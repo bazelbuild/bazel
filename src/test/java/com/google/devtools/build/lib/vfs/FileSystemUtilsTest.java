@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.appendWithoutExtension;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.commonAncestor;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.copyFile;
@@ -26,9 +25,8 @@ import static com.google.devtools.build.lib.vfs.FileSystemUtils.touchFile;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.traverseTree;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.ManualClock;
@@ -56,7 +54,7 @@ public class FileSystemUtilsTest {
   @Before
   public final void initializeFileSystem() throws Exception  {
     clock = new ManualClock();
-    fileSystem = new InMemoryFileSystem(clock);
+    fileSystem = new InMemoryFileSystem(clock, DigestHashFunction.SHA256);
     workingDir = fileSystem.getPath("/workingDir");
     workingDir.createDirectory();
   }
@@ -196,7 +194,7 @@ public class FileSystemUtilsTest {
   }
 
   @Test
-  public void testRemoveExtension_Strings() throws Exception {
+  public void testRemoveExtension_strings() throws Exception {
     assertThat(removeExtension("foo.c")).isEqualTo("foo");
     assertThat(removeExtension("a/foo.c")).isEqualTo("a/foo");
     assertThat(removeExtension("a.b/foo")).isEqualTo("a.b/foo");
@@ -205,7 +203,7 @@ public class FileSystemUtilsTest {
   }
 
   @Test
-  public void testRemoveExtension_Paths() throws Exception {
+  public void testRemoveExtension_paths() throws Exception {
     assertPath("/foo", removeExtension(fileSystem.getPath("/foo.c")));
     assertPath("/a/foo", removeExtension(fileSystem.getPath("/a/foo.c")));
     assertPath("/a.b/foo", removeExtension(fileSystem.getPath("/a.b/foo")));
@@ -222,7 +220,7 @@ public class FileSystemUtilsTest {
   }
 
   @Test
-  public void testReplaceExtension_Path() throws Exception {
+  public void testReplaceExtension_path() throws Exception {
     assertPath("/foo/bar.baz",
                FileSystemUtils.replaceExtension(fileSystem.getPath("/foo/bar"), ".baz"));
     assertPath("/foo/bar.baz",
@@ -237,7 +235,7 @@ public class FileSystemUtilsTest {
   }
 
   @Test
-  public void testReplaceExtension_PathFragment() throws Exception {
+  public void testReplaceExtension_pathFragment() throws Exception {
     assertPath("foo/bar.baz",
                FileSystemUtils.replaceExtension(PathFragment.create("foo/bar"), ".baz"));
     assertPath("foo/bar.baz",
@@ -367,6 +365,10 @@ public class FileSystemUtilsTest {
   @Test
   public void testMoveFileAcrossDevices() throws Exception {
     class MultipleDeviceFS extends InMemoryFileSystem {
+      MultipleDeviceFS() {
+        super(DigestHashFunction.SHA256);
+      }
+
       @Override
       public void renameTo(Path source, Path target) throws IOException {
         if (!source.startsWith(target.asFragment().subFragment(0, 1))) {
@@ -582,12 +584,7 @@ public class FileSystemUtilsTest {
   public void testTraverseTree() throws IOException {
     createTestDirectoryTree();
 
-    Collection<Path> paths = traverseTree(topDir, new Predicate<Path>() {
-      @Override
-      public boolean apply(Path p) {
-        return !p.getPathString().contains("a-dir");
-      }
-    });
+    Collection<Path> paths = traverseTree(topDir, p -> !p.getPathString().contains("a-dir"));
     assertThat(paths).containsExactly(file1, file2, bDir, file5);
   }
 
@@ -595,8 +592,7 @@ public class FileSystemUtilsTest {
   public void testTraverseTreeDeep() throws IOException {
     createTestDirectoryTree();
 
-    Collection<Path> paths = traverseTree(topDir,
-        Predicates.alwaysTrue());
+    Collection<Path> paths = traverseTree(topDir, ignored -> true);
     assertThat(paths).containsExactly(aDir,
         file3,
         innerDir,
@@ -626,10 +622,10 @@ public class FileSystemUtilsTest {
     FileSystemUtils.createEmptyFile(linkedDirFile);  // created through the link
 
     // traverseTree doesn't follow links:
-    Collection<Path> paths = traverseTree(topDir, Predicates.alwaysTrue());
+    Collection<Path> paths = traverseTree(topDir, ignored -> true);
     assertThat(paths).containsExactly(dirLink2);
 
-    paths = traverseTree(linkedDir, Predicates.alwaysTrue());
+    paths = traverseTree(linkedDir, ignored -> true);
     assertThat(paths).containsExactly(fileSystem.getPath("/linked-dir/file"));
   }
 
@@ -781,7 +777,7 @@ public class FileSystemUtilsTest {
   }
 
   @Test
-  public void testCreateHardLinkForFile_Success() throws Exception {
+  public void testCreateHardLinkForFile_success() throws Exception {
 
     /* Original file exists and link file does not exist */
     Path originalPath = workingDir.getRelative("original");
@@ -795,7 +791,7 @@ public class FileSystemUtilsTest {
   }
 
   @Test
-  public void testCreateHardLinkForEmptyDirectory_Success() throws Exception {
+  public void testCreateHardLinkForEmptyDirectory_success() throws Exception {
 
     Path originalDir = workingDir.getRelative("originalDir");
     Path linkPath = workingDir.getRelative("link");
@@ -808,7 +804,7 @@ public class FileSystemUtilsTest {
   }
 
   @Test
-  public void testCreateHardLinkForNonEmptyDirectory_Success() throws Exception {
+  public void testCreateHardLinkForNonEmptyDirectory_success() throws Exception {
 
     /* Test when original path is a directory */
     Path originalDir = workingDir.getRelative("originalDir");

@@ -17,8 +17,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.android.desugar.runtime.ThrowableExtension.MimicDesugaringStrategy.SUPPRESSED_PREFIX;
 import static com.google.devtools.build.android.desugar.runtime.ThrowableExtensionTestUtility.getTwrStrategyClassNameSpecifiedInSystemProperty;
 import static com.google.devtools.build.android.desugar.runtime.ThrowableExtensionTestUtility.isNullStrategy;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.android.desugar.runtime.ThrowableExtension.MimicDesugaringStrategy;

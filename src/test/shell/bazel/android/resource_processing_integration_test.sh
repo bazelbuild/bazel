@@ -19,18 +19,23 @@
 #   1. Install an Android SDK from https://developer.android.com
 #   2. Set the $ANDROID_HOME environment variable
 #   3. Uncomment the line in WORKSPACE containing android_sdk_repository
-#
-# Note that if the environment is not set up as above android_integration_test
-# will silently be ignored and will be shown as passing.
 
-# Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# --- begin runfiles.bash initialization v2 ---
+# Copy-pasted from the Bazel Bash runfiles library v2.
+set -uo pipefail; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v2 ---
 
-source "${CURRENT_DIR}/android_helper.sh" \
+source "$(rlocation io_bazel/src/test/shell/bazel/android/android_helper.sh)" \
   || { echo "android_helper.sh not found!" >&2; exit 1; }
 fail_if_no_android_sdk
 
-source "${CURRENT_DIR}/../../integration_test_setup.sh" \
+source "$(rlocation io_bazel/src/test/shell/integration_test_setup.sh)" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function setup_font_resources() {
@@ -56,7 +61,7 @@ android_binary(
 )
 EOF
   mkdir -p java/bazel/res/font
-  cp "$TEST_SRCDIR/io_bazel/src/test/shell/bazel/android/testdata/roboto.ttf" \
+  cp "$(rlocation io_bazel/src/test/shell/bazel/android/testdata/roboto.ttf)" \
     java/bazel/res/font/
 
   mkdir -p java/bazel/res/values
@@ -72,7 +77,12 @@ EOF
   cat > java/bazel/AndroidManifest.xml <<EOF
 <manifest
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     package="bazel.android">
+
+    <!-- tools:replace is a deprecated attribute, and will cause the manifest merger action to log a warning -->
+    <uses-feature android:name="android.hardware.location" android:required="false" tools:replace="android:required" />
+
     <application
         android:label="Bazel App"
         android:theme="@style/AppTheme" >
@@ -93,22 +103,13 @@ function test_font_support() {
   assert_build //java/bazel:bin
 }
 
-function test_persistent_resource_processor_aapt() {
-  create_new_workspace
-  setup_android_sdk_support
-  create_android_binary
-  setup_font_resources
-
-  assert_build //java/bazel:bin --persistent_android_resource_processor
-}
-
 function test_persistent_resource_processor_aapt2() {
   create_new_workspace
   setup_android_sdk_support
   create_android_binary
   setup_font_resources
 
-  assert_build //java/bazel:bin --persistent_android_resource_processor --android_aapt=aapt2
+  assert_build //java/bazel:bin --persistent_android_resource_processor
 }
 
 run_suite "Resource processing integration tests"

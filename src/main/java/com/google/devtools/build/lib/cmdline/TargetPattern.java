@@ -26,14 +26,17 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.cmdline.LabelValidator.PackageAndTarget;
-import com.google.devtools.build.lib.util.BatchCallback;
+import com.google.devtools.build.lib.concurrent.BatchCallback;
+import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.util.StringUtilities;
-import com.google.devtools.build.lib.util.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CheckReturnValue;
+import com.google.errorprone.annotations.CompileTimeConstant;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
 import javax.annotation.concurrent.Immutable;
@@ -57,11 +60,11 @@ public abstract class TargetPattern implements Serializable {
   private static final Splitter SLASH_SPLITTER = Splitter.on('/');
   private static final Joiner SLASH_JOINER = Joiner.on('/');
 
-  private static final Parser DEFAULT_PARSER = new Parser("");
+  private static final Parser DEFAULT_PARSER = new Parser(PathFragment.EMPTY_FRAGMENT);
 
   private final Type type;
   private final String originalPattern;
-  private final String offset;
+  private final PathFragment offset;
 
   /**
    * Returns a parser with no offset. Note that the Parser class is immutable, so this method may
@@ -114,7 +117,7 @@ public abstract class TargetPattern implements Serializable {
     return SLASH_JOINER.join(pieces);
   }
 
-  private TargetPattern(Type type, String originalPattern, String offset) {
+  private TargetPattern(Type type, String originalPattern, PathFragment offset) {
     // Don't allow inheritance outside this class.
     this.type = type;
     this.originalPattern = Preconditions.checkNotNull(originalPattern);
@@ -136,45 +139,43 @@ public abstract class TargetPattern implements Serializable {
     return originalPattern;
   }
 
-  /**
-   * Return the offset this target pattern was parsed with.
-   */
-  public String getOffset() {
+  /** Returns the offset this target pattern was parsed with. */
+  public PathFragment getOffset() {
     return offset;
   }
 
   /**
-   * Evaluates the current target pattern, excluding targets under directories in both
-   * {@code blacklistedSubdirectories} and {@code excludedSubdirectories}, and returns the result.
+   * Evaluates the current target pattern, excluding targets under directories in both {@code
+   * ignoredSubdirectories} and {@code excludedSubdirectories}, and returns the result.
    *
-   * @throws IllegalArgumentException if either {@code blacklistedSubdirectories} or
-   *      {@code excludedSubdirectories} is nonempty and this pattern does not have type
-   *      {@code Type.TARGETS_BELOW_DIRECTORY}.
+   * @throws IllegalArgumentException if either {@code ignoredSubdirectories} or {@code
+   *     excludedSubdirectories} is nonempty and this pattern does not have type {@code
+   *     Type.TARGETS_BELOW_DIRECTORY}.
    */
   public abstract <T, E extends Exception> void eval(
       TargetPatternResolver<T> resolver,
-      ImmutableSet<PathFragment> blacklistedSubdirectories,
+      ImmutableSet<PathFragment> ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
       BatchCallback<T, E> callback,
       Class<E> exceptionClass)
       throws TargetParsingException, E, InterruptedException;
 
   /**
-   * Evaluates this {@link TargetPattern} synchronously, feeding the result to the given
-   * {@code callback}, and then returns an appropriate immediate {@link ListenableFuture}.
+   * Evaluates this {@link TargetPattern} synchronously, feeding the result to the given {@code
+   * callback}, and then returns an appropriate immediate {@link ListenableFuture}.
    *
-   * <p>If the returned {@link ListenableFuture}'s {@link ListenableFuture#get} throws an
-   * {@link ExecutionException}, the cause will be an instance of either
-   * {@link TargetParsingException} or the given {@code exceptionClass}.
+   * <p>If the returned {@link ListenableFuture}'s {@link ListenableFuture#get} throws an {@link
+   * ExecutionException}, the cause will be an instance of either {@link TargetParsingException} or
+   * the given {@code exceptionClass}.
    */
   public final <T, E extends Exception> ListenableFuture<Void> evalAdaptedForAsync(
       TargetPatternResolver<T> resolver,
-      ImmutableSet<PathFragment> blacklistedSubdirectories,
+      ImmutableSet<PathFragment> ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
-      ThreadSafeBatchCallback<T, E> callback,
+      BatchCallback<T, E> callback,
       Class<E> exceptionClass) {
     try {
-      eval(resolver, blacklistedSubdirectories, excludedSubdirectories, callback, exceptionClass);
+      eval(resolver, ignoredSubdirectories, excludedSubdirectories, callback, exceptionClass);
       return Futures.immediateFuture(null);
     } catch (TargetParsingException e) {
       return Futures.immediateFailedFuture(e);
@@ -189,22 +190,22 @@ public abstract class TargetPattern implements Serializable {
   }
 
   /**
-   * Returns a {@link ListenableFuture} representing the asynchronous evaluation of this
-   * {@link TargetPattern} that feeds the results to the given {@code callback}.
+   * Returns a {@link ListenableFuture} representing the asynchronous evaluation of this {@link
+   * TargetPattern} that feeds the results to the given {@code callback}.
    *
-   * <p>If the returned {@link ListenableFuture}'s {@link ListenableFuture#get} throws an
-   * {@link ExecutionException}, the cause will be an instance of either
-   * {@link TargetParsingException} or the given {@code exceptionClass}.
+   * <p>If the returned {@link ListenableFuture}'s {@link ListenableFuture#get} throws an {@link
+   * ExecutionException}, the cause will be an instance of either {@link TargetParsingException} or
+   * the given {@code exceptionClass}.
    */
   public <T, E extends Exception> ListenableFuture<Void> evalAsync(
       TargetPatternResolver<T> resolver,
-      ImmutableSet<PathFragment> blacklistedSubdirectories,
+      ImmutableSet<PathFragment> ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
-      ThreadSafeBatchCallback<T, E> callback,
+      BatchCallback<T, E> callback,
       Class<E> exceptionClass,
       ListeningExecutorService executor) {
     return evalAdaptedForAsync(
-        resolver, blacklistedSubdirectories, excludedSubdirectories, callback, exceptionClass);
+        resolver, ignoredSubdirectories, excludedSubdirectories, callback, exceptionClass);
   }
 
   /**
@@ -240,8 +241,8 @@ public abstract class TargetPattern implements Serializable {
 
   /**
    * Determines how, if it all, the evaluation of this TBD pattern with a directory exclusion of the
-   * given TBD {@containedPattern}'s directory relates to the evaluation of the subtraction of the
-   * given {@link containedPattern} from this one.
+   * given TBD {@code containedPattern}'s directory relates to the evaluation of the subtraction of
+   * the given {@code containedPattern} from this one.
    */
   public ContainsTBDForTBDResult containsTBDForTBD(TargetPattern containedPattern) {
     if (containedPattern.getType() != Type.TARGETS_BELOW_DIRECTORY) {
@@ -297,6 +298,9 @@ public abstract class TargetPattern implements Serializable {
     throw new IllegalStateException();
   }
 
+  /** Returns the repository name of the target pattern. */
+  public abstract RepositoryName getRepository();
+
   /**
    * Returns {@code true} iff this pattern has type {@code Type.TARGETS_BELOW_DIRECTORY} or
    * {@code Type.TARGETS_IN_PACKAGE} and the target pattern suffix specified it should match
@@ -310,7 +314,10 @@ public abstract class TargetPattern implements Serializable {
     private final PackageIdentifier directory;
 
     private SingleTarget(
-        String targetName, PackageIdentifier directory, String originalPattern, String offset) {
+        String targetName,
+        PackageIdentifier directory,
+        String originalPattern,
+        PathFragment offset) {
       super(Type.SINGLE_TARGET, originalPattern, offset);
       this.targetName = Preconditions.checkNotNull(targetName);
       this.directory = Preconditions.checkNotNull(directory);
@@ -319,10 +326,11 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public <T, E extends Exception> void eval(
         TargetPatternResolver<T> resolver,
-        ImmutableSet<PathFragment> blacklistedSubdirectories,
+        ImmutableSet<PathFragment> ignoredSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
         BatchCallback<T, E> callback,
-        Class<E> exceptionClass) throws TargetParsingException, E, InterruptedException {
+        Class<E> exceptionClass)
+        throws TargetParsingException, E, InterruptedException {
       callback.process(resolver.getExplicitTarget(label(targetName)).getTargets());
     }
 
@@ -334,6 +342,11 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public PackageIdentifier getDirectoryForTargetOrTargetsInPackage() {
       return directory;
+    }
+
+    @Override
+    public RepositoryName getRepository() {
+      return directory.getRepository();
     }
 
     @Override
@@ -368,7 +381,7 @@ public abstract class TargetPattern implements Serializable {
 
     private final String path;
 
-    private InterpretPathAsTarget(String path, String originalPattern, String offset) {
+    private InterpretPathAsTarget(String path, String originalPattern, PathFragment offset) {
       super(Type.PATH_AS_TARGET, originalPattern, offset);
       this.path = normalize(Preconditions.checkNotNull(path));
     }
@@ -376,9 +389,10 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public <T, E extends Exception> void eval(
         TargetPatternResolver<T> resolver,
-        ImmutableSet<PathFragment> blacklistedSubdirectories,
+        ImmutableSet<PathFragment> ignoredSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
-        BatchCallback<T, E> callback, Class<E> exceptionClass)
+        BatchCallback<T, E> callback,
+        Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException {
       if (resolver.isPackage(PackageIdentifier.createInMainRepo(path))) {
         // User has specified a package name. lookout for default target.
@@ -401,7 +415,9 @@ public abstract class TargetPattern implements Serializable {
           }
         }
 
-        throw new TargetParsingException("couldn't determine target from filename '" + path + "'");
+        throw new TargetParsingException(
+            "couldn't determine target from filename '" + path + "'",
+            TargetPatterns.Code.CANNOT_DETERMINE_TARGET_FROM_FILENAME);
       }
     }
 
@@ -413,6 +429,13 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public String getPathForPathAsTarget() {
       return path;
+    }
+
+    @Override
+    public RepositoryName getRepository() {
+      // InterpretPathAsTarget is validated by PackageIdentifier.createInMainRepo,
+      // therefore it must belong to the main repository.
+      return RepositoryName.MAIN;
     }
 
     @Override
@@ -446,9 +469,14 @@ public abstract class TargetPattern implements Serializable {
     private final boolean rulesOnly;
     private final boolean checkWildcardConflict;
 
-    private TargetsInPackage(String originalPattern, String offset,
-        PackageIdentifier packageIdentifier, String suffix, boolean wasOriginallyAbsolute,
-        boolean rulesOnly, boolean checkWildcardConflict) {
+    private TargetsInPackage(
+        String originalPattern,
+        PathFragment offset,
+        PackageIdentifier packageIdentifier,
+        String suffix,
+        boolean wasOriginallyAbsolute,
+        boolean rulesOnly,
+        boolean checkWildcardConflict) {
       super(Type.TARGETS_IN_PACKAGE, originalPattern, offset);
       Preconditions.checkArgument(!packageIdentifier.getRepository().isDefault());
       this.packageIdentifier = packageIdentifier;
@@ -461,9 +489,10 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public <T, E extends Exception> void eval(
         TargetPatternResolver<T> resolver,
-        ImmutableSet<PathFragment> blacklistedSubdirectories,
+        ImmutableSet<PathFragment> ignoredSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
-        BatchCallback<T, E> callback, Class<E> exceptionClass)
+        BatchCallback<T, E> callback,
+        Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException {
       if (checkWildcardConflict) {
         ResolvedTargets<T> targets = getWildcardConflict(resolver);
@@ -474,9 +503,7 @@ public abstract class TargetPattern implements Serializable {
       }
 
       callback.process(
-          resolver
-              .getTargetsInPackage(getOriginalPattern(), packageIdentifier, rulesOnly)
-              .getTargets());
+          resolver.getTargetsInPackage(getOriginalPattern(), packageIdentifier, rulesOnly));
     }
 
     @Override
@@ -487,6 +514,11 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public PackageIdentifier getDirectoryForTargetOrTargetsInPackage() {
       return packageIdentifier;
+    }
+
+    @Override
+    public RepositoryName getRepository() {
+      return packageIdentifier.getRepository();
     }
 
     @Override
@@ -560,7 +592,10 @@ public abstract class TargetPattern implements Serializable {
     private final boolean rulesOnly;
 
     private TargetsBelowDirectory(
-        String originalPattern, String offset, PackageIdentifier directory, boolean rulesOnly) {
+        String originalPattern,
+        PathFragment offset,
+        PackageIdentifier directory,
+        boolean rulesOnly) {
       super(Type.TARGETS_BELOW_DIRECTORY, originalPattern, offset);
       Preconditions.checkArgument(!directory.getRepository().isDefault());
       this.directory = Preconditions.checkNotNull(directory);
@@ -570,7 +605,7 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public <T, E extends Exception> void eval(
         TargetPatternResolver<T> resolver,
-        ImmutableSet<PathFragment> blacklistedSubdirectories,
+        ImmutableSet<PathFragment> ignoredSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
         BatchCallback<T, E> callback,
         Class<E> exceptionClass)
@@ -580,7 +615,7 @@ public abstract class TargetPattern implements Serializable {
           getOriginalPattern(),
           directory.getPackageFragment().getPathString(),
           rulesOnly,
-          blacklistedSubdirectories,
+          ignoredSubdirectories,
           excludedSubdirectories,
           callback,
           exceptionClass);
@@ -589,9 +624,9 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public <T, E extends Exception> ListenableFuture<Void> evalAsync(
         TargetPatternResolver<T> resolver,
-        ImmutableSet<PathFragment> blacklistedSubdirectories,
+        ImmutableSet<PathFragment> ignoredSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
-        ThreadSafeBatchCallback<T, E> callback,
+        BatchCallback<T, E> callback,
         Class<E> exceptionClass,
         ListeningExecutorService executor) {
       return resolver.findTargetsBeneathDirectoryAsync(
@@ -599,7 +634,7 @@ public abstract class TargetPattern implements Serializable {
           getOriginalPattern(),
           directory.getPackageFragment().getPathString(),
           rulesOnly,
-          blacklistedSubdirectories,
+          ignoredSubdirectories,
           excludedSubdirectories,
           callback,
           exceptionClass,
@@ -618,6 +653,11 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public PackageIdentifier getDirectoryForTargetsUnderDirectory() {
       return directory;
+    }
+
+    @Override
+    public RepositoryName getRepository() {
+      return directory.getRepository();
     }
 
     @Override
@@ -642,6 +682,36 @@ public abstract class TargetPattern implements Serializable {
     public int hashCode() {
       return Objects.hash(getType(), getOriginalPattern(), directory, rulesOnly);
     }
+  }
+
+  /**
+   * Apply a renaming to the repository part of a pattern string, returning the renamed pattern
+   * string. This function only looks at the repository part of the pattern string, not the rest; so
+   * any syntactic errors will not be handled here, but simply remain. Similarly, if the repository
+   * part of the pattern is not syntactically valid, the renaming simply does not match and the
+   * string is returned unchanged.
+   */
+  public static String renameRepository(
+      String pattern, Map<RepositoryName, RepositoryName> renaming) {
+    if (!pattern.startsWith("@")) {
+      return pattern;
+    }
+    int pkgStart = pattern.indexOf("//");
+    if (pkgStart < 0) {
+      return pattern;
+    }
+    RepositoryName repository;
+    try {
+      repository = RepositoryName.create(pattern.substring(0, pkgStart));
+    } catch (LabelSyntaxException e) {
+      return pattern;
+    }
+    RepositoryName newRepository = renaming.get(repository);
+    if (newRepository == null) {
+      // No renaming required
+      return pattern;
+    }
+    return newRepository.getName() + pattern.substring(pkgStart);
   }
 
   @Immutable
@@ -694,21 +764,15 @@ public abstract class TargetPattern implements Serializable {
 
     /**
      * Directory prefix to use when resolving relative labels (rather than absolute ones). For
-     * example, if the working directory is "<workspace root>/foo", then this should be "foo",
-     * which will make patterns such as "bar:bar" be resolved as "//foo/bar:bar". This makes the
-     * command line a bit more convenient to use.
+     * example, if the working directory is "<workspace root>/foo", then this should be "foo", which
+     * will make patterns such as "bar:bar" be resolved as "//foo/bar:bar". This makes the command
+     * line a bit more convenient to use.
      */
-    private final String relativeDirectory;
+    private final PathFragment relativeDirectory;
 
-    /**
-     * Creates a new parser with the given offset for relative patterns.
-     */
-    public Parser(String relativeDirectory) {
+    /** Creates a new parser with the given offset for relative patterns. */
+    public Parser(PathFragment relativeDirectory) {
       this.relativeDirectory = relativeDirectory;
-    }
-
-    public String getRelativeDirectory() {
-      return relativeDirectory;
     }
 
     /**
@@ -727,20 +791,25 @@ public abstract class TargetPattern implements Serializable {
       if (includesRepo) {
         int pkgStart = pattern.indexOf("//");
         if (pkgStart < 0) {
-          throw new TargetParsingException("Couldn't find package in target " + pattern);
+          throw new TargetParsingException(
+              "Couldn't find package in target " + pattern, TargetPatterns.Code.PACKAGE_NOT_FOUND);
         }
         try {
           repository = RepositoryName.create(pattern.substring(0, pkgStart));
         } catch (LabelSyntaxException e) {
-          throw new TargetParsingException(e.getMessage());
+          throw new TargetParsingException(e.getMessage(), TargetPatterns.Code.LABEL_SYNTAX_ERROR);
         }
 
         pattern = pattern.substring(pkgStart);
       }
 
       if (!VALID_SLASH_PREFIX.matcher(pattern).lookingAt()) {
-        throw new TargetParsingException("not a valid absolute pattern (absolute target patterns "
-            + "must start with exactly two slashes): '" + pattern + "'");
+        throw new TargetParsingException(
+            "not a valid absolute pattern (absolute target patterns "
+                + "must start with exactly two slashes): '"
+                + pattern
+                + "'",
+            TargetPatterns.Code.ABSOLUTE_TARGET_PATTERN_INVALID);
       }
 
       final boolean wasOriginallyAbsolute = pattern.startsWith("//");
@@ -748,13 +817,9 @@ public abstract class TargetPattern implements Serializable {
       pattern = absolutize(pattern).substring(2);
 
       if (pattern.isEmpty()) {
-        throw new TargetParsingException("the empty string is not a valid target");
-      }
-
-      // Transform "/BUILD" suffix into ":BUILD" to accept //foo/bar/BUILD
-      // syntax as a synonym to //foo/bar:BUILD.
-      if (pattern.endsWith("/BUILD")) {
-        pattern = pattern.substring(0, pattern.length() - 6) + ":BUILD";
+        throw new TargetParsingException(
+            "the empty string is not a valid target",
+            TargetPatterns.Code.TARGET_CANNOT_BE_EMPTY_STRING);
       }
 
       int colonIndex = pattern.lastIndexOf(':');
@@ -766,8 +831,9 @@ public abstract class TargetPattern implements Serializable {
       }
 
       if (packagePart.endsWith("/")) {
-        throw new TargetParsingException("The package part of '" + originalPattern
-            + "' should not end in a slash");
+        throw new TargetParsingException(
+            "The package part of '" + originalPattern + "' should not end in a slash",
+            TargetPatterns.Code.PACKAGE_PART_CANNOT_END_IN_SLASH);
       }
 
       if (repository == null) {
@@ -782,7 +848,8 @@ public abstract class TargetPattern implements Serializable {
               repository.getName() + "//" + realPackagePart);
         } catch (LabelSyntaxException e) {
           throw new TargetParsingException(
-              "Invalid package name '" + realPackagePart + "': " + e.getMessage());
+              "Invalid package name '" + realPackagePart + "': " + e.getMessage(),
+              TargetPatterns.Code.LABEL_SYNTAX_ERROR);
         }
         if (targetPart.isEmpty() || ALL_RULES_IN_SUFFIXES.contains(targetPart)) {
           return new TargetsBelowDirectory(
@@ -799,7 +866,8 @@ public abstract class TargetPattern implements Serializable {
           packageIdentifier = PackageIdentifier.parse(repository.getName() + "//" + packagePart);
         } catch (LabelSyntaxException e) {
           throw new TargetParsingException(
-              "Invalid package name '" + packagePart + "': " + e.getMessage());
+              "Invalid package name '" + packagePart + "': " + e.getMessage(),
+              TargetPatterns.Code.LABEL_SYNTAX_ERROR);
         }
         return new TargetsInPackage(originalPattern, relativeDirectory, packageIdentifier,
             targetPart, wasOriginallyAbsolute, true, true);
@@ -811,7 +879,8 @@ public abstract class TargetPattern implements Serializable {
           packageIdentifier = PackageIdentifier.parse(repository.getName() + "//" + packagePart);
         } catch (LabelSyntaxException e) {
           throw new TargetParsingException(
-              "Invalid package name '" + packagePart + "': " + e.getMessage());
+              "Invalid package name '" + packagePart + "': " + e.getMessage(),
+              TargetPatterns.Code.LABEL_SYNTAX_ERROR);
         }
         return new TargetsInPackage(originalPattern, relativeDirectory, packageIdentifier,
             targetPart, wasOriginallyAbsolute, false, true);
@@ -827,7 +896,7 @@ public abstract class TargetPattern implements Serializable {
                   repository, PathFragment.create(packageAndTarget.getPackageName()));
         } catch (BadLabelException e) {
           String error = "invalid target format '" + originalPattern + "': " + e.getMessage();
-          throw new TargetParsingException(error);
+          throw new TargetParsingException(error, TargetPatterns.Code.TARGET_FORMAT_INVALID);
         }
         return new SingleTarget(fullLabel, packageIdentifier, originalPattern, relativeDirectory);
       }
@@ -846,21 +915,31 @@ public abstract class TargetPattern implements Serializable {
         PackageIdentifier.parse("//" + packageName);
       } catch (LabelSyntaxException e) {
         throw new TargetParsingException(
-            "Bad target pattern '" + originalPattern + "': " + e.getMessage());
+            "Bad target pattern '" + originalPattern + "': " + e.getMessage(),
+            TargetPatterns.Code.LABEL_SYNTAX_ERROR);
       }
       return new InterpretPathAsTarget(pattern, originalPattern, relativeDirectory);
     }
 
     /**
-     * Absolutizes the target pattern to the offset.
-     * Patterns starting with "//" are absolute and not modified.
-     * Assumes the given pattern is not invalid wrt leading "/"s.
+     * Parses a constant string TargetPattern, throwing IllegalStateException on invalid pattern.
+     */
+    @CheckReturnValue
+    public TargetPattern parseConstantUnchecked(@CompileTimeConstant String pattern) {
+      try {
+        return parse(pattern);
+      } catch (TargetParsingException e) {
+        throw new IllegalStateException(e);
+      }
+    }
+
+    /**
+     * Absolutizes the target pattern to the offset. Patterns starting with "//" are absolute and
+     * not modified. Assumes the given pattern is not invalid wrt leading "/"s.
      *
-     * If the offset is "foo":
-     *   absolutize(":bar") --> "//foo:bar"
-     *   absolutize("bar") --> "//foo/bar"
-     *   absolutize("//biz/bar") --> "//biz/bar" (absolute)
-     *   absolutize("biz:bar") --> "//foo/biz:bar"
+     * <p>If the offset is "foo": absolutize(":bar") --> "//foo:bar" absolutize("bar") -->
+     * "//foo/bar" absolutize("//biz/bar") --> "//biz/bar" (absolute) absolutize("biz:bar") -->
+     * "//foo/biz:bar"
      *
      * @param pattern The target pattern to parse.
      * @return the pattern, absolutized to the offset if approprate.
@@ -870,13 +949,11 @@ public abstract class TargetPattern implements Serializable {
         return pattern;
       }
 
-      // It seems natural to use {@link PathFragment#getRelative()} here,
-      // but it doesn't work when the pattern starts with ":".
-      // "foo".getRelative(":all") would return "foo/:all", where we
-      // really want "foo:all".
+      // PathFragment#getRelative doesn't work when the pattern starts with ":".
+      // "foo".getRelative(":all") would return "foo/:all", where we really want "foo:all".
       return pattern.startsWith(":") || relativeDirectory.isEmpty()
-          ? "//" + relativeDirectory + pattern
-          : "//" + relativeDirectory + "/" + pattern;
+          ? "//" + relativeDirectory.getPathString() + pattern
+          : "//" + relativeDirectory.getPathString() + "/" + pattern;
     }
   }
 
@@ -886,9 +963,12 @@ public abstract class TargetPattern implements Serializable {
     try {
       return Label.parseAbsolute(label, ImmutableMap.of());
     } catch (LabelSyntaxException e) {
-      throw new TargetParsingException("invalid target format: '"
-          + StringUtilities.sanitizeControlChars(label) + "'; "
-          + StringUtilities.sanitizeControlChars(e.getMessage()));
+      throw new TargetParsingException(
+          "invalid target format: '"
+              + StringUtilities.sanitizeControlChars(label)
+              + "'; "
+              + StringUtilities.sanitizeControlChars(e.getMessage()),
+          TargetPatterns.Code.TARGET_FORMAT_INVALID);
     }
   }
 

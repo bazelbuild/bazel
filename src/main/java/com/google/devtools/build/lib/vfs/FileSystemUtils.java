@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.vfs;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.io.ByteSink;
 import com.google.common.io.ByteSource;
 import com.google.common.io.ByteStreams;
@@ -30,16 +29,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.Predicate;
 
 /** Helper functions that implement often-used complex operations on file systems. */
 @ConditionallyThreadSafe
 public class FileSystemUtils {
 
   private FileSystemUtils() {}
-
-  /****************************************************************************
-   * Path and PathFragment functions.
-   */
 
   /**
    * Throws exceptions if {@code baseName} is not a valid base name. A valid
@@ -232,10 +228,6 @@ public class FileSystemUtils {
     }
   }
 
-  /****************************************************************************
-   * FileSystem property functions.
-   */
-
   /**
    * Return the current working directory as expressed by the System property
    * 'user.dir'.
@@ -251,10 +243,6 @@ public class FileSystemUtils {
   public static PathFragment getWorkingDirectory() {
     return PathFragment.create(System.getProperty("user.dir", "/"));
   }
-
-  /****************************************************************************
-   * Path FileSystem mutating operations.
-   */
 
   /**
    * "Touches" the file or directory specified by the path, following symbolic
@@ -418,6 +406,25 @@ public class FileSystemUtils {
   }
 
   /**
+   * copyLargeBuffer is a replacement for ByteStreams.copy which uses a larger buffer. Increasing
+   * the buffer size is a performance improvement when copying from/to FUSE file systems, where
+   * individual requests are more costly, but can also be larger.
+   */
+  private static long copyLargeBuffer(InputStream from, OutputStream to) throws IOException {
+    byte[] buf = new byte[131072];
+    long total = 0;
+    while (true) {
+      int r = from.read(buf);
+      if (r == -1) {
+        break;
+      }
+      to.write(buf, 0, r);
+      total += r;
+    }
+    return total;
+  }
+
+  /**
    * Moves the file from location "from" to location "to", while overwriting a potentially existing
    * "to". If "from" is a regular file, its last modified time, executable and writable bits are
    * also preserved. Symlinks are also supported but not directories or special files.
@@ -448,7 +455,7 @@ public class FileSystemUtils {
       if (stat.isFile()) {
         try (InputStream in = from.getInputStream();
             OutputStream out = to.getOutputStream()) {
-          ByteStreams.copy(in, out);
+          copyLargeBuffer(in, out);
         }
         to.setLastModifiedTime(stat.getLastModifiedTime()); // Preserve mtime.
         if (!from.isWritable()) {
@@ -495,19 +502,16 @@ public class FileSystemUtils {
     return target;
   }
 
-  /****************************************************************************
-   * Directory tree operations.
-   */
+  /* Directory tree operations. */
 
   /**
-   * Returns a new collection containing all of the paths below a given root
-   * path, for which the given predicate is true. Symbolic links are not
-   * followed, and may appear in the result.
+   * Returns a new collection containing all of the paths below a given root path, for which the
+   * given predicate is true. Symbolic links are not followed, and may appear in the result.
    *
    * @throws IOException If the root does not denote a directory
    */
   @ThreadSafe
-  public static Collection<Path> traverseTree(Path root, Predicate<? super Path> predicate)
+  public static Collection<Path> traverseTree(Path root, Predicate<Path> predicate)
       throws IOException {
     List<Path> paths = new ArrayList<>();
     traverseTree(paths, root, predicate);
@@ -515,17 +519,16 @@ public class FileSystemUtils {
   }
 
   /**
-   * Populates an existing Path List, adding all of the paths below a given root
-   * path for which the given predicate is true. Symbolic links are not
-   * followed, and may appear in the result.
+   * Populates an existing Path List, adding all of the paths below a given root path for which the
+   * given predicate is true. Symbolic links are not followed, and may appear in the result.
    *
    * @throws IOException If the root does not denote a directory
    */
   @ThreadSafe
-  public static void traverseTree(Collection<Path> paths, Path root,
-      Predicate<? super Path> predicate) throws IOException {
+  public static void traverseTree(Collection<Path> paths, Path root, Predicate<Path> predicate)
+      throws IOException {
     for (Path p : root.getDirectoryEntries()) {
-      if (predicate.apply(p)) {
+      if (predicate.test(p)) {
         paths.add(p);
       }
       if (p.isDirectory(Symlinks.NOFOLLOW)) {
@@ -634,11 +637,6 @@ public class FileSystemUtils {
     }
     return true;
   }
-
-  /****************************************************************************
-   * Whole-file I/O utilities for characters and bytes. These convenience
-   * methods are not efficient and should not be used for large amounts of data!
-   */
 
   /**
    * Decodes the given byte array assumed to be encoded with ISO-8859-1 encoding (isolatin1).
@@ -863,11 +861,11 @@ public class FileSystemUtils {
   }
 
   /**
-   * Reads the given file {@code path}, assumed to have size {@code fileSize}, and does a sanity
-   * check on the number of bytes read.
+   * Reads the given file {@code path}, assumed to have size {@code fileSize}, and does a check on
+   * the number of bytes read.
    *
-   * <p>Use this method when you already know the size of the file. The sanity check is intended to
-   * catch issues where filesystems incorrectly truncate files.
+   * <p>Use this method when you already know the size of the file. The check is intended to catch
+   * issues where filesystems incorrectly truncate files.
    *
    * @throws IOException if there was an error, or if fewer than {@code fileSize} bytes were read.
    */

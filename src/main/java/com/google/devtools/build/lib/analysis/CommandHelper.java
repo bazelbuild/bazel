@@ -23,12 +23,9 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
-import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -37,6 +34,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
 
 /**
  * Provides shared functionality for parameterized command-line launching.
@@ -80,9 +79,19 @@ public final class CommandHelper {
      */
     public Builder addHostToolDependencies(String toolAttributeName) {
       List<? extends TransitiveInfoCollection> dependencies =
-          ruleContext.getPrerequisites(toolAttributeName, Mode.HOST);
+          ruleContext.getPrerequisites(toolAttributeName);
       addToolDependencies(dependencies);
       return this;
+    }
+
+    /**
+     * Adds tools, as a set of executable binaries, by fetching them from the given attribute on the
+     * {@code ruleContext}. Populates manifests, remoteRunfiles and label map where required.
+     */
+    public Builder addToolDependencies(String toolAttributeName) {
+      List<? extends TransitiveInfoCollection> dependencies =
+          ruleContext.getPrerequisites(toolAttributeName);
+      return addToolDependencies(dependencies);
     }
 
     /**
@@ -121,7 +130,7 @@ public final class CommandHelper {
   public static int maxCommandLength = OS.getCurrent() == OS.WINDOWS ? 8000 : 64000;
 
   /** {@link RunfilesSupplier}s for tools used by this rule. */
-  private final SkylarkList<RunfilesSupplier> toolsRunfilesSuppliers;
+  private final Sequence<RunfilesSupplier> toolsRunfilesSuppliers;
 
   /**
    * Use labelMap for heuristically expanding labels (does not include "outs")
@@ -193,13 +202,13 @@ public final class CommandHelper {
           toolsRunfilesBuilder.add(tool.getRunfilesSupplier());
         } else {
           // Map all depArtifacts to the respective label using the multimaps.
-          Iterables.addAll(mapGet(tempLabelMap, label), files);
+          mapGet(tempLabelMap, label).addAll(files.toList());
         }
       }
     }
 
     this.resolvedTools = resolvedToolsBuilder.build();
-    this.toolsRunfilesSuppliers = SkylarkList.createImmutable(toolsRunfilesBuilder.build());
+    this.toolsRunfilesSuppliers = StarlarkList.immutableCopyOf(toolsRunfilesBuilder.build());
     ImmutableMap.Builder<Label, ImmutableCollection<Artifact>> labelMapBuilder =
         ImmutableMap.builder();
     for (Map.Entry<Label, Collection<Artifact>> entry : tempLabelMap.entrySet()) {
@@ -212,7 +221,7 @@ public final class CommandHelper {
     return resolvedTools;
   }
 
-  public SkylarkList<RunfilesSupplier> getToolsRunfilesSuppliers() {
+  public Sequence<RunfilesSupplier> getToolsRunfilesSuppliers() {
     return toolsRunfilesSuppliers;
   }
 
@@ -234,11 +243,8 @@ public final class CommandHelper {
     return values;
   }
 
-  /**
-   * Resolves a command, and expands known locations for $(location)
-   * variables.
-   */
-  @Deprecated // Only exists to support a legacy Skylark API.
+  /** Resolves a command, and expands known locations for $(location) variables. */
+  @Deprecated // Only exists to support a legacy Starlark API.
   public String resolveCommandAndExpandLabels(
       String command, @Nullable String attribute, boolean allowDataInLabel) {
     LocationExpander expander;
@@ -273,36 +279,17 @@ public final class CommandHelper {
   }
 
   private static Pair<List<String>, Artifact> buildCommandLineMaybeWithScriptFile(
-      RuleContext ruleContext, String command, String scriptPostFix, PathFragment shellPath) {
+      RuleContext ruleContext, String command, CommandConstructor constructor) {
     List<String> argv;
     Artifact scriptFileArtifact = null;
     if (command.length() <= maxCommandLength) {
-      argv = buildCommandLineSimpleArgv(command, shellPath);
+      argv = constructor.asExecArgv(command);
     } else {
       // Use script file.
-      scriptFileArtifact = buildCommandLineArtifact(ruleContext, command, scriptPostFix);
-      argv = buildCommandLineArgvWithArtifact(scriptFileArtifact, shellPath);
+      scriptFileArtifact = constructor.commandAsScript(ruleContext, command);
+      argv = constructor.asExecArgv(scriptFileArtifact);
     }
     return Pair.of(argv, scriptFileArtifact);
-  }
-
-  private static ImmutableList<String> buildCommandLineArgvWithArtifact(Artifact scriptFileArtifact,
-      PathFragment shellPath) {
-    return ImmutableList.of(shellPath.getPathString(), scriptFileArtifact.getExecPathString());
-  }
-
-  private static Artifact buildCommandLineArtifact(RuleContext ruleContext, String command,
-      String scriptPostFix) {
-    String scriptFileName = ruleContext.getTarget().getName() + scriptPostFix;
-    String scriptFileContents = "#!/bin/bash\n" + command;
-    Artifact scriptFileArtifact = FileWriteAction.createFile(
-        ruleContext, scriptFileName, scriptFileContents, /*executable=*/true);
-    return scriptFileArtifact;
-  }
-
-  private static ImmutableList<String> buildCommandLineSimpleArgv(String command,
-      PathFragment shellPath) {
-    return ImmutableList.of(shellPath.getPathString(), "-c", command);
   }
 
   /**
@@ -314,49 +301,24 @@ public final class CommandHelper {
    * this method does nothing and returns null.
    */
   @Nullable
-  public static Artifact shellCommandHelperScriptMaybe(
-      RuleContext ruleCtx,
-      String command,
-      String scriptPostFix,
-      Map<String, String> executionInfo) {
+  public static Artifact commandHelperScriptMaybe(
+      RuleContext ruleCtx, String command, CommandConstructor constructor) {
     if (command.length() <= maxCommandLength) {
       return null;
     } else {
-      return buildCommandLineArtifact(ruleCtx, command, scriptPostFix);
+      return constructor.commandAsScript(ruleCtx, command);
     }
-  }
-
-  /**
-   * Builds the set of command-line arguments. Creates a bash script if the command line is longer
-   * than the allowed maximum {@link #maxCommandLength}. Fixes up the input artifact list with the
-   * created bash script when required.
-   */
-  public List<String> buildCommandLine(
-      PathFragment shExecutable,
-      String command,
-      NestedSetBuilder<Artifact> inputs,
-      String scriptPostFix) {
-    return buildCommandLine(
-        shExecutable, command, inputs, scriptPostFix, ImmutableMap.<String, String>of());
   }
 
   /**
    * Builds the set of command-line arguments using the specified shell path. Creates a bash script
    * if the command line is longer than the allowed maximum {@link #maxCommandLength}. Fixes up the
    * input artifact list with the created bash script when required.
-   *
-   * @param executionInfo an execution info map of the action associated with the command line to be
-   *     built.
    */
   public List<String> buildCommandLine(
-      PathFragment shExecutable,
-      String command,
-      NestedSetBuilder<Artifact> inputs,
-      String scriptPostFix,
-      Map<String, String> executionInfo) {
+      String command, NestedSetBuilder<Artifact> inputs, CommandConstructor constructor) {
     Pair<List<String>, Artifact> argvAndScriptFile =
-        buildCommandLineMaybeWithScriptFile(
-            ruleContext, command, scriptPostFix, shellPath(executionInfo, shExecutable));
+        buildCommandLineMaybeWithScriptFile(ruleContext, command, constructor);
     if (argvAndScriptFile.second != null) {
       inputs.add(argvAndScriptFile.second);
     }
@@ -369,14 +331,9 @@ public final class CommandHelper {
    * created bash script when required.
    */
   public List<String> buildCommandLine(
-      PathFragment shExecutable,
-      String command,
-      List<Artifact> inputs,
-      String scriptPostFix,
-      Map<String, String> executionInfo) {
+      String command, List<Artifact> inputs, CommandConstructor constructor) {
     Pair<List<String>, Artifact> argvAndScriptFile =
-        buildCommandLineMaybeWithScriptFile(
-            ruleContext, command, scriptPostFix, shellPath(executionInfo, shExecutable));
+        buildCommandLineMaybeWithScriptFile(ruleContext, command, constructor);
     if (argvAndScriptFile.second != null) {
       inputs.add(argvAndScriptFile.second);
     }
@@ -384,10 +341,26 @@ public final class CommandHelper {
   }
 
   /** Returns the path to the shell for an action with the given execution requirements. */
-  private PathFragment shellPath(Map<String, String> executionInfo, PathFragment shExecutable) {
+  private static PathFragment shellPath(
+      Map<String, String> executionInfo, PathFragment shExecutable) {
     // Use vanilla /bin/bash for actions running on mac machines.
     return executionInfo.containsKey(ExecutionRequirements.REQUIRES_DARWIN)
         ? PathFragment.create("/bin/bash")
         : shExecutable;
+  }
+
+  public static BashCommandConstructor buildBashCommandConstructor(
+      Map<String, String> executionInfo, PathFragment shExecutable, String scriptPostFix) {
+    return new BashCommandConstructor(shellPath(executionInfo, shExecutable), scriptPostFix);
+  }
+
+  public static WindowsBatchCommandConstructor buildWindowsBatchCommandConstructor(
+      String scriptPostFix) {
+    return new WindowsBatchCommandConstructor(scriptPostFix);
+  }
+
+  public static WindowsPowershellCommandConstructor buildWindowsPowershellCommandConstructor(
+      String scriptPostFix) {
+    return new WindowsPowershellCommandConstructor(scriptPostFix);
   }
 }

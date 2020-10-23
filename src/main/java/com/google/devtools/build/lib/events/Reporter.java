@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import java.io.PrintStream;
 import java.util.HashSet;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import net.starlark.java.syntax.Location;
 
 /**
  * The reporter is the primary means of reporting events such as errors, warnings, progress
@@ -60,8 +61,8 @@ public final class Reporter implements ExtendedEventHandler, ExceptionListener {
   private final HashSet<String> eventsShown = new HashSet<>();
 
   /**
-   * The tag that indicates to the reporter to suppress this event if it's a duplicate of another
-   * event with this tag.
+   * The tag that indicates to the reporter to show this event exactly once, regardless of the
+   * output filter, and to suppress this event if it's a duplicate of another event with this tag.
    */
   public static final String SHOW_ONCE_TAG = "showOnce";
 
@@ -125,6 +126,7 @@ public final class Reporter implements ExtendedEventHandler, ExceptionListener {
     if (e.getKind() != EventKind.ERROR
         && e.getKind() != EventKind.DEBUG
         && e.getTag() != null
+        && !e.getTag().equals(SHOW_ONCE_TAG)
         && !showOutput(e.getTag())) {
       return;
     }

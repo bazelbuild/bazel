@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skyframe.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertNoEvents;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.io.IOException;
+import java.util.concurrent.ForkJoinPool;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -36,8 +37,8 @@ import org.junit.runners.JUnit4;
 /**
  * Simple tests for {@link BazelPackageLoader}.
  *
- * <p>Bazel's unit and integration tests do sanity checks with {@link BazelPackageLoader} under the
- * covers, so we get pretty exhaustive correctness tests for free.
+ * <p>Bazel's unit and integration tests do consistency checks with {@link BazelPackageLoader} under
+ * the covers, so we get pretty exhaustive correctness tests for free.
  */
 @RunWith(JUnit4.class)
 public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
@@ -58,7 +59,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
     fetchExternalRepo(RepositoryName.create("@bazel_tools"));
   }
 
-  private void mockEmbeddedTools(Path embeddedBinaries) throws IOException {
+  private static void mockEmbeddedTools(Path embeddedBinaries) throws IOException {
     Path tools = embeddedBinaries.getRelative("embedded_tools");
     tools.getRelative("tools/cpp").createDirectoryAndParents();
     tools.getRelative("tools/osx").createDirectoryAndParents();
@@ -86,27 +87,40 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
         "",
         "def http_file(**kwargs):",
         "  pass");
+    FileSystemUtils.writeIsoLatin1(
+        tools.getRelative("tools/build_defs/repo/utils.bzl"),
+        "def maybe(repo_rule, name, **kwargs):",
+        "  if name not in native.existing_rules():",
+        "    repo_rule(name = name, **kwargs)");
+    FileSystemUtils.writeIsoLatin1(tools.getRelative("tools/jdk/BUILD"));
+    FileSystemUtils.writeIsoLatin1(
+        tools.getRelative("tools/jdk/local_java_repository.bzl"),
+        "def local_java_repository(**kwargs):",
+        "  pass");
   }
 
   private void fetchExternalRepo(RepositoryName externalRepo) {
-    PackageLoader pkgLoaderForFetch =
-        newPackageLoaderBuilder(root)
-            .setFetchForTesting()
-            .useDefaultSkylarkSemantics()
-            .build();
-    // Load the package '' in this repo. This package may or may not exist; we don't care since we
-    // merely need the side-effects of the 'fetch' work.
-    PackageIdentifier pkgId = PackageIdentifier.create(externalRepo, PathFragment.create(""));
-    try {
-      pkgLoaderForFetch.loadPackage(pkgId);
-    } catch (NoSuchPackageException | InterruptedException e) {
-      // Doesn't matter; see above comment.
+    try (PackageLoader pkgLoaderForFetch =
+        newPackageLoaderBuilder(root).setFetchForTesting().useDefaultStarlarkSemantics().build()) {
+      // Load the package '' in this repo. This package may or may not exist; we don't care since we
+      // merely need the side-effects of the 'fetch' work.
+      PackageIdentifier pkgId = PackageIdentifier.create(externalRepo, PathFragment.create(""));
+      try {
+        pkgLoaderForFetch.loadPackage(pkgId);
+      } catch (NoSuchPackageException | InterruptedException e) {
+        // Doesn't matter; see above comment.
+      }
     }
   }
 
   @Override
   protected BazelPackageLoader.Builder newPackageLoaderBuilder(Root workspaceDir) {
     return BazelPackageLoader.builder(workspaceDir, installBase, outputBase);
+  }
+
+  @Override
+  protected ForkJoinPool extractLegacyGlobbingForkJoinPool(PackageLoader packageLoader) {
+    return ((BazelPackageLoader) packageLoader).forkJoinPoolForLegacyGlobbing;
   }
 
   @Test
@@ -117,13 +131,14 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
     RepositoryName rRepoName = RepositoryName.create("@r");
     fetchExternalRepo(rRepoName);
 
-    PackageLoader pkgLoader = newPackageLoader();
     PackageIdentifier pkgId = PackageIdentifier.create(rRepoName, PathFragment.create("good"));
-    Package goodPkg = pkgLoader.loadPackage(pkgId);
+    Package goodPkg;
+    try (PackageLoader pkgLoader = newPackageLoader()) {
+      goodPkg = pkgLoader.loadPackage(pkgId);
+    }
     assertThat(goodPkg.containsErrors()).isFalse();
     assertThat(goodPkg.getTarget("good").getAssociatedRule().getRuleClass())
         .isEqualTo("sh_library");
-    assertNoEvents(goodPkg.getEvents());
     assertNoEvents(handler.getEvents());
   }
 
@@ -137,14 +152,15 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
     RepositoryName rRepoName = RepositoryName.create("@r");
     fetchExternalRepo(rRepoName);
 
-    PackageLoader pkgLoader = newPackageLoader();
     PackageIdentifier pkgId =
         PackageIdentifier.create(rRepoName, PathFragment.create(""));
-    Package goodPkg = pkgLoader.loadPackage(pkgId);
+    Package goodPkg;
+    try (PackageLoader pkgLoader = newPackageLoader()) {
+      goodPkg = pkgLoader.loadPackage(pkgId);
+    }
     assertThat(goodPkg.containsErrors()).isFalse();
     assertThat(goodPkg.getTarget("good").getAssociatedRule().getRuleClass())
         .isEqualTo("sh_library");
-    assertNoEvents(goodPkg.getEvents());
     assertNoEvents(handler.getEvents());
   }
 
@@ -154,12 +170,13 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
     file("a/sub/a.txt");
     file("a/sub/BUILD.bazel");
 
-    PackageLoader pkgLoader = newPackageLoader();
     PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(PathFragment.create("a"));
-    Package aPkg = pkgLoader.loadPackage(pkgId);
+    Package aPkg;
+    try (PackageLoader pkgLoader = newPackageLoader()) {
+      aPkg = pkgLoader.loadPackage(pkgId);
+    }
     assertThat(aPkg.containsErrors()).isFalse();
     assertThrows(NoSuchTargetException.class, () -> aPkg.getTarget("sub/a.txt"));
-    assertNoEvents(aPkg.getEvents());
     assertNoEvents(handler.getEvents());
   }
 }

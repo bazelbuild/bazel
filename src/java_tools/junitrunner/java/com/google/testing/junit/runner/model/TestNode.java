@@ -14,6 +14,7 @@
 
 package com.google.testing.junit.runner.model;
 
+import com.google.testing.junit.runner.util.TestClock.TestInstant;
 import java.util.List;
 import javax.annotation.Nullable;
 import org.junit.runner.Description;
@@ -52,31 +53,23 @@ public abstract class TestNode {
    */
   public abstract boolean isTestCase();
 
-  /**
-   * Indicates that the test represented by this node was skipped.
-   */
-  public abstract void testSkipped(long now);
+  /** Indicates that the test represented by this node was skipped. */
+  public abstract void testSkipped(TestInstant now);
 
   /**
    * Indicates that the test represented by this node was ignored or suppressed due to being
    * annotated with {@code @Ignore} or {@code @Suppress}.
    */
-  public abstract void testSuppressed(long now);
+  public abstract void testSuppressed(TestInstant now);
 
-  /**
-   * Indicates that the test represented by this node was interrupted.
-   */
-  public abstract void testInterrupted(long now);
+  /** Indicates that the test represented by this node was interrupted. */
+  public abstract void testInterrupted(TestInstant now);
 
-  /**
-   * Adds a failure to the test represented by this node.
-   */
-  public abstract void testFailure(Throwable throwable, long now);
+  /** Adds a failure to the test represented by this node. */
+  public abstract void testFailure(Throwable throwable, TestInstant now);
 
-  /**
-   * Indicates that a dynamically generated test case or suite failed.
-   */
-  public abstract void dynamicTestFailure(Description test, Throwable throwable, long now);
+  /** Indicates that a dynamically generated test case or suite failed. */
+  public abstract void dynamicTestFailure(Description test, Throwable throwable, TestInstant now);
 
   /**
    * Template-method that creates a {@link TestResult} object that represents the test outcome of

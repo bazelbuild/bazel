@@ -1,0 +1,217 @@
+// Copyright 2018 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package analysis;
+
+import "src/main/protobuf/build.proto";
+
+option java_package = "com.google.devtools.build.lib.analysis";
+option java_outer_classname = "AnalysisProtosV2";
+
+// Container for the action graph properties.
+message ActionGraphContainer {
+  repeated Artifact artifacts = 1;
+  repeated Action actions = 2;
+  repeated Target targets = 3;
+  repeated DepSetOfFiles dep_set_of_files = 4;
+  repeated Configuration configuration = 5;
+  repeated AspectDescriptor aspect_descriptors = 6;
+  repeated RuleClass rule_classes = 7;
+  repeated PathFragment path_fragments = 8;
+}
+
+// Represents a single artifact, whether it's a source file or a derived output
+// file.
+message Artifact {
+  // Identifier for this artifact; this is a uint32, only valid for this
+  // particular dump of the analysis.
+  uint32 id = 1;
+
+  // The id of the PathFragment that represents the relative path of the file
+  // within the execution root.
+  uint32 path_fragment_id = 2;
+
+  // True iff the artifact is a tree artifact, i.e. the above exec_path refers
+  // a directory.
+  bool is_tree_artifact = 3;
+}
+
+// Represents a single action, which is a function from Artifact(s) to
+// Artifact(s).
+message Action {
+  // The target that was responsible for the creation of the action.
+  uint32 target_id = 1;
+
+  // The aspects that were responsible for the creation of the action (if any).
+  // In the case of aspect-on-aspect, AspectDescriptors are listed in
+  // topological order of the dependency graph.
+  // e.g. [A, B] would imply that aspect A is applied on top of aspect B.
+  repeated uint32 aspect_descriptor_ids = 2;
+
+  // Encodes all significant behavior that might affect the output. The key
+  // must change if the work performed by the execution of this action changes.
+  // Note that the key doesn't include checksums of the input files.
+  string action_key = 3;
+
+  // The mnemonic for this kind of action.
+  string mnemonic = 4;
+
+  // The configuration under which this action is executed.
+  uint32 configuration_id = 5;
+
+  // The command line arguments of the action. This will be only set if
+  // explicitly requested.
+  repeated string arguments = 6;
+
+  // The list of environment variables to be set before executing the command.
+  repeated KeyValuePair environment_variables = 7;
+
+  // The set of input dep sets that the action depends upon. If the action does
+  // input discovery, the contents of this set might change during execution.
+  repeated uint32 input_dep_set_ids = 8;
+
+  // The list of Artifact IDs that represent the output files that this action
+  // will generate.
+  repeated uint32 output_ids = 9;
+
+  // True iff the action does input discovery during execution.
+  bool discovers_inputs = 10;
+
+  // Execution info for the action.  Remote execution services may use this
+  // information to modify the execution environment, but actions will
+  // generally not be aware of it.
+  repeated KeyValuePair execution_info = 11;
+
+  // The list of param files. This will be only set if explicitly requested.
+  repeated ParamFile param_files = 12;
+
+  // The id to an Artifact that is the primary output of this action.
+  uint32 primary_output_id = 13;
+}
+
+// Represents a single target (without configuration information) that is
+// associated with an action.
+message Target {
+  // Identifier for this target; this is a uint32, only valid for this
+  // particular dump of the analysis.
+  uint32 id = 1;
+
+  // Label of the target, e.g. //foo:bar.
+  string label = 2;
+
+  // Class of the rule.
+  uint32 rule_class_id = 3;
+}
+
+message RuleClass {
+  // Identifier for this rule class; this is a uint32, only valid for
+  // this particular dump of the analysis.
+  uint32 id = 1;
+
+  // Name of the rule class, e.g. cc_library.
+  string name = 2;
+}
+
+// Represents an invocation specific descriptor of an aspect.
+message AspectDescriptor {
+  // Identifier for this aspect descriptor; this is a uint32, only valid
+  // for the particular dump of the analysis.
+  uint32 id = 1;
+
+  // The name of the corresponding aspect. For native aspects, it's the Java
+  // class name, for Starlark aspects it's the bzl file followed by a % sign
+  // followed by the name of the aspect.
+  string name = 2;
+
+  // The list of parameters bound to a particular invocation of that aspect on
+  // a target. Note that aspects can be executed multiple times on the same
+  // target in different order.
+  repeated KeyValuePair parameters = 3;
+}
+
+message DepSetOfFiles {
+  // Identifier for this named set of files; this is a uint32, only
+  // valid for the particular dump of the analysis.
+  uint32 id = 1;
+
+  // Other transitively included named set of files.
+  repeated uint32 transitive_dep_set_ids = 2;
+
+  // The list of input artifact IDs that are immediately contained in this set.
+  repeated uint32 direct_artifact_ids = 3;
+}
+
+message Configuration {
+  // Identifier for this configuration; this is a uint32, only valid for
+  // the particular dump of the analysis.
+  uint32 id = 1;
+
+  // The mnemonic representing the build configuration.
+  string mnemonic = 2;
+
+  // The platform string.
+  string platform_name = 3;
+
+  // The checksum representation of the configuration options;
+  string checksum = 4;
+}
+
+message KeyValuePair {
+  // The variable name.
+  string key = 1;
+
+  // The variable value.
+  string value = 2;
+}
+
+message ConfiguredTarget {
+  // The target. We use blaze_query.Target defined in build.proto instead of
+  // the Target defined in this file because blaze_query.Target is much heavier
+  // and will output proto results similar to what users are familiar with from
+  // regular blaze query.
+  blaze_query.Target target = 1;
+
+  // The configuration
+  Configuration configuration = 2;
+}
+
+// Container for cquery results
+message CqueryResult {
+  // All the configuredtargets returns by cquery
+  repeated ConfiguredTarget results = 1;
+}
+
+// Content of a param file.
+message ParamFile {
+  // The exec path of the param file artifact.
+  string exec_path = 1;
+
+  // The arguments in the param file.
+  // Each argument corresponds to a line in the param file.
+  repeated string arguments = 2;
+}
+
+// The path fragment that makes up a full path.
+message PathFragment {
+  // Identifier for this path fragment.
+  uint32 id = 1;
+
+  // The label of the section in the path.
+  string label = 2;
+
+  // The id of the parent path fragment.
+  uint32 parent_id = 3;
+}

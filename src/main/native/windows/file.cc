@@ -16,17 +16,22 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 
-#include <windows.h>
-#include <WinIoCtl.h>
+#include "src/main/native/windows/file.h"
 
+#include <WinIoCtl.h>
 #include <stdint.h>  // uint8_t
+#include <windows.h>
 
 #include <memory>
 #include <sstream>
 #include <string>
+#include <vector>
 
-#include "src/main/native/windows/file.h"
 #include "src/main/native/windows/util.h"
+
+#ifndef IO_REPARSE_TAG_PROJFS
+#define IO_REPARSE_TAG_PROJFS 0x9000001C
+#endif
 
 namespace bazel {
 namespace windows {
@@ -44,14 +49,6 @@ wstring RemoveUncPrefixMaybe(const wstring& path) {
   return bazel::windows::HasUncPrefix(path.c_str()) ? path.substr(4) : path;
 }
 
-bool HasDriveSpecifierPrefix(const wstring& p) {
-  if (HasUncPrefix(p.c_str())) {
-    return p.size() >= 7 && iswalpha(p[4]) && p[5] == ':' && p[6] == '\\';
-  } else {
-    return p.size() >= 3 && iswalpha(p[0]) && p[1] == ':' && p[2] == '\\';
-  }
-}
-
 bool IsAbsoluteNormalizedWindowsPath(const wstring& p) {
   if (p.empty()) {
     return false;
@@ -63,7 +60,7 @@ bool IsAbsoluteNormalizedWindowsPath(const wstring& p) {
     return false;
   }
 
-  return HasDriveSpecifierPrefix(p) && p.find(L".\\") != 0 &&
+  return HasDriveSpecifierPrefix(p.c_str()) && p.find(L".\\") != 0 &&
          p.find(L"\\.\\") == wstring::npos && p.find(L"\\.") != p.size() - 2 &&
          p.find(L"..\\") != 0 && p.find(L"\\..\\") == wstring::npos &&
          p.find(L"\\..") != p.size() - 3;
@@ -420,6 +417,46 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
   return CreateJunctionResult::kSuccess;
 }
 
+int CreateSymlink(const wstring& symlink_name, const wstring& symlink_target,
+                   wstring* error) {
+  if (!IsAbsoluteNormalizedWindowsPath(symlink_name)) {
+    if (error) {
+      *error = MakeErrorMessage(
+          WSTR(__FILE__), __LINE__, L"CreateSymlink", symlink_name,
+          L"expected an absolute Windows path for symlink_name");
+    }
+    return CreateSymlinkResult::kError;
+  }
+  if (!IsAbsoluteNormalizedWindowsPath(symlink_target)) {
+    if (error) {
+      *error = MakeErrorMessage(
+          WSTR(__FILE__), __LINE__, L"CreateSymlink", symlink_target,
+          L"expected an absolute Windows path for symlink_target");
+    }
+    return CreateSymlinkResult::kError;
+  }
+
+  const wstring name = AddUncPrefixMaybe(symlink_name);
+  const wstring target = AddUncPrefixMaybe(symlink_target);
+
+  DWORD attrs = GetFileAttributesW(target.c_str());
+  if (attrs & FILE_ATTRIBUTE_DIRECTORY) {
+    // Instead of creating a symlink to a directory use a Junction.
+    return CreateSymlinkResult::kTargetIsDirectory;
+  }
+
+  if (!CreateSymbolicLinkW(name.c_str(), target.c_str(),
+                           SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE)) {
+     // The flag SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE requires
+     // developer mode enabled, which we expect if using symbolic linking.
+     *error = MakeErrorMessage(
+               WSTR(__FILE__), __LINE__, L"CreateSymlink", symlink_target,
+               L"createSymbolicLinkW failed");
+     return CreateSymlinkResult::kError;
+  }
+  return CreateSymlinkResult::kSuccess;
+}
+
 int ReadSymlinkOrJunction(const wstring& path, wstring* result,
                           wstring* error) {
   if (!IsAbsoluteNormalizedWindowsPath(path)) {
@@ -490,6 +527,10 @@ int ReadSymlinkOrJunction(const wstring& path, wstring* result,
       *result = wstring(
           p, buf->MountPointReparseBuffer.SubstituteNameLength / sizeof(WCHAR));
       return ReadSymlinkOrJunctionResult::kSuccess;
+    }
+    case IO_REPARSE_TAG_PROJFS: {
+      // Virtual File System for Git
+      return ReadSymlinkOrJunctionResult::kNotALink;
     }
     default:
       return ReadSymlinkOrJunctionResult::kUnknownLinkType;
@@ -596,6 +637,15 @@ int DeletePath(const wstring& path, wstring* error) {
                                   GetLastError(), error);
   }
 
+  if (attr & FILE_ATTRIBUTE_READONLY) {
+    // Remove the read-only attribute.
+    attr &= ~FILE_ATTRIBUTE_READONLY;
+    if (!SetFileAttributesW(wpath, attr)) {
+      return GetResultFromErrorCode(L"SetFileAttributesW", path, GetLastError(),
+                                    error);
+    }
+  }
+
   if (attr & FILE_ATTRIBUTE_DIRECTORY) {
     // It's a directory or a junction, RemoveDirectoryW should be used.
     //
@@ -667,14 +717,6 @@ int DeletePath(const wstring& path, wstring* error) {
     }
   } else {
     // It's a regular file or symlink, DeleteFileW should be used.
-    if (attr & FILE_ATTRIBUTE_READONLY) {
-      // Remove the read-only attribute.
-      attr &= ~FILE_ATTRIBUTE_READONLY;
-      if (!SetFileAttributesW(wpath, attr)) {
-        return GetResultFromErrorCode(L"SetFileAttributesW", path,
-                                      GetLastError(), error);
-      }
-    }
     if (!DeleteFileW(wpath)) {
       // Failed to delete the file or symlink.
       return GetResultFromErrorCode(L"DeleteFileW", path,
@@ -683,6 +725,111 @@ int DeletePath(const wstring& path, wstring* error) {
   }
 
   return DeletePathResult::kSuccess;
+}
+
+template <typename C>
+std::basic_string<C> NormalizeImpl(const std::basic_string<C>& p) {
+  if (p.empty()) {
+    return p;
+  }
+  typedef std::basic_string<C> Str;
+  static const Str kDot(1, '.');
+  static const Str kDotDot(2, '.');
+  std::vector<std::pair<typename Str::size_type, typename Str::size_type> >
+      segments;
+  typename Str::size_type seg_start = Str::npos;
+  bool first = true;
+  bool abs = false;
+  bool starts_with_dot = false;
+  for (typename Str::size_type i = HasUncPrefix(p.c_str()) ? 4 : 0;
+       i <= p.size(); ++i) {
+    if (seg_start == Str::npos) {
+      if (i < p.size() && p[i] != '/' && p[i] != '\\') {
+        seg_start = i;
+      }
+    } else {
+      if (i == p.size() || (p[i] == '/' || p[i] == '\\')) {
+        // The current character ends a segment.
+        typename Str::size_type len = i - seg_start;
+        if (first) {
+          first = false;
+          abs = len == 2 &&
+                ((p[seg_start] >= 'A' && p[seg_start] <= 'Z') ||
+                 (p[seg_start] >= 'a' && p[seg_start] <= 'z')) &&
+                p[seg_start + 1] == ':';
+          segments.push_back(std::make_pair(seg_start, len));
+          starts_with_dot = !abs && p.compare(seg_start, len, kDot) == 0;
+        } else {
+          if (p.compare(seg_start, len, kDot) == 0) {
+            if (segments.empty()) {
+              // Retain "." if that is the first (and possibly only segment).
+              segments.push_back(std::make_pair(seg_start, len));
+              starts_with_dot = true;
+            }
+          } else {
+            if (starts_with_dot) {
+              // Delete the existing "." if that was the only path segment.
+              segments.clear();
+              starts_with_dot = false;
+            }
+            if (p.compare(seg_start, len, kDotDot) == 0) {
+              if (segments.empty() ||
+                  p.compare(segments.back().first, segments.back().second,
+                            kDotDot) == 0) {
+                // Preserve ".." if the path is relative and there are only ".."
+                // segment(s) at the front.
+                segments.push_back(std::make_pair(seg_start, len));
+              } else if (!abs || segments.size() > 1) {
+                // Remove the last segment unless the path is already at the
+                // root directory.
+                segments.pop_back();
+              }  // Ignore ".." otherwise.
+            } else {
+              // This is a normal path segment, i.e. neither "." nor ".."
+              segments.push_back(std::make_pair(seg_start, len));
+            }
+          }
+        }
+        // Indicate that there's no segment started.
+        seg_start = Str::npos;
+      }
+    }
+  }
+  std::basic_stringstream<C> res;
+  first = true;
+  for (const auto& i : segments) {
+    Str s = p.substr(i.first, i.second);
+    if (first) {
+      first = false;
+    } else {
+      res << '\\';
+    }
+    res << s;
+  }
+  if (abs && segments.size() == 1) {
+    res << '\\';
+  }
+  return res.str();
+}
+
+std::string Normalize(const std::string& p) { return NormalizeImpl(p); }
+
+std::wstring Normalize(const std::wstring& p) { return NormalizeImpl(p); }
+
+bool GetCwd(std::wstring* result, DWORD* err_code) {
+  // Maximum path is 32767 characters, with null terminator that is 0x8000.
+  static constexpr DWORD kMaxPath = 0x8000;
+  WCHAR buf[kMaxPath];
+  DWORD len = GetCurrentDirectoryW(kMaxPath, buf);
+  if (len > 0 && len < kMaxPath) {
+    *result = buf;
+    return true;
+  } else {
+    if (err_code) {
+      *err_code = GetLastError();
+    }
+    return false;
+  }
 }
 
 }  // namespace windows

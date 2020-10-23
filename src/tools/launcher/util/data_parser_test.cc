@@ -102,7 +102,7 @@ class LaunchDataParserTest : public ::testing::Test {
     if (item == parsed_launch_info->end()) {
       return "Cannot find key: " + key;
     }
-    return blaze_util::WstringToString(item->second);
+    return blaze_util::WstringToCstring(item->second);
   }
 
   string test_tmpdir;

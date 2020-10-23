@@ -21,15 +21,15 @@ import java.util.Collection;
 /** Interface for {@link BuildEvent}s reporting artifacts as named sets */
 public interface EventReportingArtifacts extends BuildEvent {
 
-  /** Pair of artifacts and a path resolver. */
+  /** Pair of artifacts and a @{link CompletionContext}. */
   class ReportedArtifacts {
     public final Collection<NestedSet<Artifact>> artifacts;
-    public final ArtifactPathResolver pathResolver;
+    public final CompletionContext completionContext;
 
     public ReportedArtifacts(
-        Collection<NestedSet<Artifact>> artifacts, ArtifactPathResolver pathResolver) {
+        Collection<NestedSet<Artifact>> artifacts, CompletionContext completionContext) {
       this.artifacts = artifacts;
-      this.pathResolver = pathResolver;
+      this.completionContext = completionContext;
     }
   }
 

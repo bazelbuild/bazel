@@ -1,10 +1,10 @@
+load("@rules_pkg//:pkg.bzl", "pkg_deb", "pkg_tar")
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
     visibility = ["//scripts:__subpackages__"],
 )
-
-load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar", "pkg_deb")
 
 pkg_tar(
     name = "bazel-bin",
@@ -26,15 +26,25 @@ pkg_tar(
 )
 
 genrule(
-    name = "rename-bazel-completion",
+    name = "rename-bash-completion",
     srcs = ["//scripts:bash_completion"],
     outs = ["etc/bash_completion.d/bazel"],
     cmd = "cp $< $@",
 )
 
+genrule(
+    name = "rename-zsh-completion",
+    srcs = ["//scripts/zsh_completion:_bazel"],
+    outs = ["usr/share/zsh/vendor-completions/_bazel"],
+    cmd = "cp $< $@",
+)
+
 pkg_tar(
     name = "bazel-completion",
-    srcs = [":etc/bash_completion.d/bazel"],
+    srcs = [
+        ":etc/bash_completion.d/bazel",
+        ":usr/share/zsh/vendor-completions/_bazel",
+    ],
     mode = "0644",
     strip_prefix = ".",
 )
@@ -69,27 +79,27 @@ genrule(
 pkg_deb(
     name = "bazel-debian",
     architecture = "amd64",
-    built_using = "bazel (HEAD)",
+    built_using = "bazel",
     conffiles = [
-        "etc/bash_completion.d/bazel",
-        "etc/bazel.bazelrc",
+        "/etc/bash_completion.d/bazel",
+        "/etc/bazel.bazelrc",
+        "/usr/share/zsh/vendor-completions/_bazel",
     ],
     data = ":debian-data",
     depends = [
         # Keep in sync with Depends section in ./control
         "g++",
         "zlib1g-dev",
-        "bash-completion",
         "unzip",
-        "python",
     ],
     description_file = "description",
-    homepage = "http://bazel.build",
+    homepage = "https://bazel.build",
     maintainer = "The Bazel Authors <bazel-dev@googlegroups.com>",
     package = "bazel",
     suggests = [
         # Keep in sync with Suggests section in ./control
         "google-jdk | java8-sdk-headless | java8-jdk | java8-sdk | oracle-java8-installer",
+        "bash-completion",
     ],
     version_file = ":version.txt",
     visibility = ["//scripts/packages:__pkg__"],

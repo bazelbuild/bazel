@@ -61,23 +61,35 @@ public class LabelsFunction implements QueryFunction {
       final Callback<T> callback) {
     final String attrName = args.get(0).getWord();
     final Uniquifier<T> uniquifier = env.createUniquifier();
-    return env.eval(args.get(1).getExpression(), context, new Callback<T>() {
-      @Override
-      public void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
-        for (T input : partialResult) {
-          if (env.getAccessor().isRule(input)) {
-            List<T> targets = uniquifier.unique(
-                env.getAccessor().getLabelListAttr(expression, input, attrName,
-                    "in '" + attrName + "' of rule " + env.getAccessor().getLabel(input) + ": "));
-            List<T> result = new ArrayList<>(targets.size());
-            for (T target : targets) {
-              result.add(env.getOrCreate(target));
+    return env.eval(
+        args.get(1).getExpression(),
+        context,
+        new Callback<T>() {
+          @Override
+          public void process(Iterable<T> partialResult)
+              throws QueryException, InterruptedException {
+            for (T input : partialResult) {
+              if (env.getAccessor().isRule(input)) {
+                List<T> targets =
+                    uniquifier.unique(
+                        env.getAccessor()
+                            .getPrerequisites(
+                                expression,
+                                input,
+                                attrName,
+                                "in '"
+                                    + attrName
+                                    + "' of rule "
+                                    + env.getAccessor().getLabel(input)
+                                    + ": "));
+                List<T> result = new ArrayList<>(targets.size());
+                for (T target : targets) {
+                  result.add(env.getOrCreate(target));
+                }
+                callback.process(result);
+              }
             }
-            callback.process(result);
           }
-        }
-
-      }
-    });
+        });
   }
 }

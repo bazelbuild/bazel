@@ -16,7 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
-import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.CompletionFunction.TopLevelActionLookupKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -31,23 +32,21 @@ public class AspectCompletionValue implements SkyValue {
 
   private AspectCompletionValue() {}
 
-  public static Iterable<SkyKey> keys(
-      Collection<AspectValue> targets, final TopLevelArtifactContext ctx) {
-    return Iterables.transform(
-        targets, aspectValue -> AspectCompletionKey.create(aspectValue.getKey(), ctx));
+  public static Iterable<SkyKey> keys(Collection<AspectKey> keys, TopLevelArtifactContext ctx) {
+    return Iterables.transform(keys, k -> AspectCompletionKey.create(k, ctx));
   }
 
   /** The key of an AspectCompletionValue. */
   @AutoValue
-  public abstract static class AspectCompletionKey implements SkyKey {
+  public abstract static class AspectCompletionKey implements TopLevelActionLookupKey {
     public static AspectCompletionKey create(
         AspectKey aspectKey, TopLevelArtifactContext topLevelArtifactContext) {
       return new AutoValue_AspectCompletionValue_AspectCompletionKey(
-          aspectKey, topLevelArtifactContext);
+          topLevelArtifactContext, aspectKey);
     }
 
-    public abstract AspectKey aspectKey();
-    public abstract TopLevelArtifactContext topLevelArtifactContext();
+    @Override
+    public abstract AspectKey actionLookupKey();
 
     @Override
     public SkyFunctionName functionName() {

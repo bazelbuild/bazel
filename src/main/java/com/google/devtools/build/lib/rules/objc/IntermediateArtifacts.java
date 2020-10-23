@@ -21,9 +21,9 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -189,11 +189,6 @@ public final class IntermediateArtifacts {
     String basename = PathFragment.create(ruleContext.getLabel().getName()).getBaseName();
     return scopedArtifact(PathFragment.create(String.format(
         "lib%s%s.a", basename, archiveFileNameSuffix)));
-  }
-
-  /** The artifact for the .headers file output by the header thinning action for this source. */
-  public Artifact headersListFile(Artifact objectFile) {
-    return ruleContext.getRelatedArtifact(objectFile.getRootRelativePath(), ".headers_list");
   }
 
   /**

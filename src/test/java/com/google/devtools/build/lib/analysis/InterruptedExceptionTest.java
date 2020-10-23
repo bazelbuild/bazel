@@ -13,10 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
-import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -38,7 +38,7 @@ public class InterruptedExceptionTest extends AnalysisTestCase {
 
   @Override
   protected FileSystem createFileSystem() {
-    return new InMemoryFileSystem(BlazeClock.instance()) {
+    return new InMemoryFileSystem(DigestHashFunction.SHA256) {
       @Override
       protected Collection<Dirent> readdir(Path path, boolean followSymlinks) throws IOException {
         if (path.toString().contains("causes_interrupt")) {
@@ -60,7 +60,7 @@ public class InterruptedExceptionTest extends AnalysisTestCase {
   }
 
   @Test
-  public void testSkylarkGlobInterruptedException() throws Exception {
+  public void testStarlarkGlobInterruptedException() throws Exception {
     scratch.file("a/gen.bzl",
         "def gen():",
         "  native.filegroup(name = 'a', srcs = native.glob(['**/*']))");

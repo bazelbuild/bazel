@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
-/** Constants shared between {@link CodecScanner} and {@code AutoCodecProcessor}. */
+/** Constants shared between {@link CodecScanner} and {@code SerializationConstantProcessor}. */
 public class CodecScanningConstants {
   /**
    * Name of static field in RegisteredSingleton classes. Any class whose name ends in {@link

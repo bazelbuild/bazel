@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.android;
 
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.ApkInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.ApkInfoApi;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
 
 /**
  * Fake implementation of {@link ApkInfoApi}.
@@ -42,17 +42,32 @@ public class FakeApkInfo implements ApkInfoApi<FileApi> {
   }
 
   @Override
-  public String toProto(Location loc) throws EvalException {
+  public ImmutableList<FileApi> getSigningKeys() {
+    return null;
+  }
+
+  @Override
+  public FileApi getSigningLineage() {
+    return null;
+  }
+
+  @Override
+  public FileApi getCoverageMetadata() {
+    return null;
+  }
+
+  @Override
+  public String toProto() throws EvalException {
     return "";
   }
 
   @Override
-  public String toJson(Location loc) throws EvalException {
+  public String toJson() throws EvalException {
     return "";
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 
   /**
    * Fake implementation of {@link ApkInfoApiProvider}.
@@ -60,11 +75,11 @@ public class FakeApkInfo implements ApkInfoApi<FileApi> {
   public static class FakeApkInfoProvider implements ApkInfoApiProvider {
 
     @Override
-    public ApkInfoApi<?> createInfo(SkylarkDict<?, ?> kwargs, Location loc) throws EvalException {
+    public ApkInfoApi<?> createInfo(Dict<String, Object> kwargs) {
       return new FakeApkInfo();
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {}
+    public void repr(Printer printer) {}
   }
 }

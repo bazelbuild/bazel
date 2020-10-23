@@ -171,11 +171,13 @@ public class NotifyingHelper {
     MARK_DIRTY,
     MARK_CLEAN,
     IS_CHANGED,
+    GET_DIRTY_STATE,
     GET_VALUE_WITH_METADATA,
     IS_DIRTY,
     IS_READY,
     CHECK_IF_DONE,
-    GET_ALL_DIRECT_DEPS_FOR_INCOMPLETE_NODE
+    GET_ALL_DIRECT_DEPS_FOR_INCOMPLETE_NODE,
+    RESET_FOR_RESTART_FROM_SCRATCH,
   }
 
   /**
@@ -218,7 +220,7 @@ public class NotifyingHelper {
   }
 
   /** {@link NodeEntry} that informs a {@link Listener} of various method calls. */
-  protected class NotifyingNodeEntry extends DelegatingNodeEntry {
+  protected class NotifyingNodeEntry extends DelegatingNodeEntry implements TestOnlyNodeEntry {
     private final SkyKey myKey;
     private final ThinNodeEntry delegate;
 
@@ -228,7 +230,7 @@ public class NotifyingHelper {
     }
 
     @Override
-    protected NodeEntry getDelegate() {
+    public NodeEntry getDelegate() {
       return (NodeEntry) delegate;
     }
 
@@ -274,11 +276,9 @@ public class NotifyingHelper {
     }
 
     @Override
-    public Set<SkyKey> setValue(
-        SkyValue value, Version version, DepFingerprintList depFingerprintList)
-        throws InterruptedException {
+    public Set<SkyKey> setValue(SkyValue value, Version version) throws InterruptedException {
       graphListener.accept(myKey, EventType.SET_VALUE, Order.BEFORE, value);
-      Set<SkyKey> result = super.setValue(value, version, depFingerprintList);
+      Set<SkyKey> result = super.setValue(value, version);
       graphListener.accept(myKey, EventType.SET_VALUE, Order.AFTER, value);
       return result;
     }
@@ -296,9 +296,9 @@ public class NotifyingHelper {
     }
 
     @Override
-    public Set<SkyKey> markClean() throws InterruptedException {
+    public NodeValueAndRdepsToSignal markClean() throws InterruptedException {
       graphListener.accept(myKey, EventType.MARK_CLEAN, Order.BEFORE, this);
-      Set<SkyKey> result = super.markClean();
+      NodeValueAndRdepsToSignal result = super.markClean();
       graphListener.accept(myKey, EventType.MARK_CLEAN, Order.AFTER, this);
       return result;
     }
@@ -322,6 +322,14 @@ public class NotifyingHelper {
     }
 
     @Override
+    public DirtyState getDirtyState() {
+      graphListener.accept(myKey, EventType.GET_DIRTY_STATE, Order.BEFORE, this);
+      DirtyState dirtyState = super.getDirtyState();
+      graphListener.accept(myKey, EventType.GET_DIRTY_STATE, Order.AFTER, dirtyState);
+      return dirtyState;
+    }
+
+    @Override
     public SkyValue getValueMaybeWithMetadata() throws InterruptedException {
       graphListener.accept(myKey, EventType.GET_VALUE_WITH_METADATA, Order.BEFORE, this);
       return super.getValueMaybeWithMetadata();
@@ -341,6 +349,12 @@ public class NotifyingHelper {
       graphListener.accept(
           myKey, EventType.GET_ALL_DIRECT_DEPS_FOR_INCOMPLETE_NODE, Order.BEFORE, this);
       return super.getAllDirectDepsForIncompleteNode();
+    }
+
+    @Override
+    public void resetForRestartFromScratch() {
+      getDelegate().resetForRestartFromScratch();
+      graphListener.accept(myKey, EventType.RESET_FOR_RESTART_FROM_SCRATCH, Order.AFTER, this);
     }
 
     @Override

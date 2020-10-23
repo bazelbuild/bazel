@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsCheckingLevel;
@@ -99,7 +98,7 @@ public final class ImportDepsCheckActionBuilder {
     ruleContext.registerAction(
         new SpawnAction.Builder()
             .useDefaultShellEnvironment()
-            .setExecutable(ruleContext.getExecutablePrerequisite("$import_deps_checker", Mode.HOST))
+            .setExecutable(ruleContext.getExecutablePrerequisite("$import_deps_checker"))
             .addTransitiveInputs(jarsToCheck)
             .addTransitiveInputs(declaredDeps)
             .addTransitiveInputs(transitiveDeps)

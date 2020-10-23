@@ -36,12 +36,16 @@ public final class ConfigMatchingProvider implements TransitiveInfoProvider {
   private final Label label;
   private final ImmutableMultimap<String, String> settingsMap;
   private final Map<Label, String> flagSettingsMap;
+  private final ImmutableSet<String> requiredFragmentOptions;
   private final boolean matches;
 
   /**
    * @param label the build label corresponding to this matcher
    * @param settingsMap the condition settings that trigger this matcher
    * @param flagSettingsMap the label-keyed settings that trigger this matcher
+   * @param requiredFragmentOptions {@link FragmentOptions} required to match the options this
+   *     matcher checks. This provides comparable functionality to {@link
+   *     com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider}.
    * @param matches whether or not this matcher matches the configuration associated with its
    *     configured target
    */
@@ -50,10 +54,12 @@ public final class ConfigMatchingProvider implements TransitiveInfoProvider {
       Label label,
       ImmutableMultimap<String, String> settingsMap,
       Map<Label, String> flagSettingsMap,
+      ImmutableSet<String> requiredFragmentOptions,
       boolean matches) {
     this.label = label;
     this.settingsMap = settingsMap;
     this.flagSettingsMap = flagSettingsMap;
+    this.requiredFragmentOptions = requiredFragmentOptions;
     this.matches = matches;
   }
 
@@ -70,6 +76,10 @@ public final class ConfigMatchingProvider implements TransitiveInfoProvider {
    */
   public boolean matches() {
     return matches;
+  }
+
+  public ImmutableSet<String> getRequiredFragmentOptions() {
+    return requiredFragmentOptions;
   }
 
   /**
@@ -102,6 +112,7 @@ public final class ConfigMatchingProvider implements TransitiveInfoProvider {
   }
 
   /** Format this provider as its label. */
+  @Override
   public String toString() {
     return label.toString();
   }

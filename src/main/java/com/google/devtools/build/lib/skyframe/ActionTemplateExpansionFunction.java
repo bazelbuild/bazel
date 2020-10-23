@@ -13,27 +13,37 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.ActionTemplate.ActionTemplateExpansionException;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
-import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 import javax.annotation.Nullable;
 
 /**
@@ -64,23 +74,22 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     }
     ActionTemplate<?> actionTemplate = value.getActionTemplate(key.getActionIndex());
 
-    // Requests the TreeArtifactValue object for the input TreeArtifact.
-    SkyKey artifactValueKey = ArtifactSkyKey.key(actionTemplate.getInputTreeArtifact(), true);
-    TreeArtifactValue treeArtifactValue = (TreeArtifactValue) env.getValue(artifactValueKey);
+    TreeArtifactValue treeArtifactValue =
+        (TreeArtifactValue) env.getValue(actionTemplate.getInputTreeArtifact());
 
     // Input TreeArtifact is not ready yet.
     if (env.valuesMissing()) {
       return null;
     }
-    Iterable<TreeFileArtifact> inputTreeFileArtifacts = treeArtifactValue.getChildren();
+    ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts = treeArtifactValue.getChildren();
     GeneratingActions generatingActions;
     try {
       // Expand the action template using the list of expanded input TreeFileArtifacts.
       // TODO(rduan): Add a check to verify the inputs of expanded actions are subsets of inputs
       // of the ActionTemplate.
-      generatingActions =
-          checkActionAndArtifactConflicts(
-              actionTemplate.generateActionForInputArtifacts(inputTreeFileArtifacts, key));
+      ImmutableList<? extends Action> actions =
+          generateAndValidateActionsFromTemplate(actionTemplate, inputTreeFileArtifacts, key);
+      generatingActions = checkActionAndArtifactConflicts(actions, key);
     } catch (ActionConflictException e) {
       e.reportTo(env.getListener());
       throw new ActionTemplateExpansionFunctionException(e);
@@ -110,19 +119,110 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     }
   }
 
-  private GeneratingActions checkActionAndArtifactConflicts(Iterable<? extends Action> actions)
+  private static ImmutableList<? extends Action> generateAndValidateActionsFromTemplate(
+      ActionTemplate<?> actionTemplate,
+      ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts,
+      ActionTemplateExpansionKey key)
+      throws ActionTemplateExpansionException {
+    Set<Artifact> outputs = actionTemplate.getOutputs();
+    for (Artifact output : outputs) {
+      Preconditions.checkState(
+          output.isTreeArtifact(),
+          "%s declares an output which is not a tree artifact: %s",
+          actionTemplate,
+          output);
+    }
+    ImmutableList<? extends Action> actions =
+        actionTemplate.generateActionsForInputArtifacts(inputTreeFileArtifacts, key);
+    for (Action action : actions) {
+      for (Artifact output : action.getOutputs()) {
+        Preconditions.checkState(
+            output.getArtifactOwner().equals(key),
+            "%s generated an action with an output owned by the wrong owner: %s",
+            actionTemplate,
+            action);
+        Preconditions.checkState(
+            output.hasParent(),
+            "%s generated an action which outputs a non-TreeFileArtifact: %s",
+            actionTemplate,
+            action);
+        Preconditions.checkState(
+            outputs.contains(output.getParent()),
+            "%s generated an action with an output under an undeclared tree: %s",
+            actionTemplate,
+            action);
+      }
+    }
+    return actions;
+  }
+
+  private GeneratingActions checkActionAndArtifactConflicts(
+      ImmutableList<? extends Action> actions,
+      ActionTemplateExpansionKey key)
       throws ActionConflictException, ArtifactPrefixConflictException {
     GeneratingActions generatingActions =
-        Actions.findAndThrowActionConflict(actionKeyContext, ImmutableList.copyOf(actions));
+        Actions.assignOwnersAndFindAndThrowActionConflict(
+            actionKeyContext, ImmutableList.copyOf(actions), key);
     Map<ActionAnalysisMetadata, ArtifactPrefixConflictException> artifactPrefixConflictMap =
-        Actions.findArtifactPrefixConflicts(
-            ActionLookupValue.getMapForConsistencyCheck(
-                generatingActions.getGeneratingActionIndex(), generatingActions.getActions()));
+        findArtifactPrefixConflicts(getMapForConsistencyCheck(generatingActions.getActions()));
 
     if (!artifactPrefixConflictMap.isEmpty()) {
       throw artifactPrefixConflictMap.values().iterator().next();
     }
     return generatingActions;
+  }
+
+  private static ImmutableMap<Artifact, ActionAnalysisMetadata> getMapForConsistencyCheck(
+      List<? extends ActionAnalysisMetadata> actions) {
+    if (actions.isEmpty()) {
+      return ImmutableMap.of();
+    }
+    HashMap<Artifact, ActionAnalysisMetadata> result =
+        Maps.newHashMapWithExpectedSize(actions.size() * actions.get(0).getOutputs().size());
+    for (ActionAnalysisMetadata action : actions) {
+      for (Artifact output : action.getOutputs()) {
+        result.put(output, action);
+      }
+    }
+    return ImmutableMap.copyOf(result);
+  }
+
+  /**
+   * Finds Artifact prefix conflicts between generated artifacts. An artifact prefix conflict
+   * happens if one action generates an artifact whose path is a prefix of another artifact's path.
+   * Those two artifacts cannot exist simultaneously in the output tree.
+   *
+   * @param generatingActions a map between generated artifacts and their associated generating
+   *     actions.
+   * @return a map between actions that generated the conflicting artifacts and their associated
+   *     {@link ArtifactPrefixConflictException}.
+   */
+  private static Map<ActionAnalysisMetadata, ArtifactPrefixConflictException>
+      findArtifactPrefixConflicts(Map<Artifact, ActionAnalysisMetadata> generatingActions) {
+    TreeMap<PathFragment, Artifact> artifactPathMap =
+        new TreeMap<>(Actions.comparatorForPrefixConflicts());
+    for (Artifact artifact : generatingActions.keySet()) {
+      artifactPathMap.put(artifact.getExecPath(), artifact);
+    }
+
+    return Actions.findArtifactPrefixConflicts(
+        new MapBasedImmutableActionGraph(generatingActions),
+        artifactPathMap,
+        /*strictConflictChecks=*/ true);
+  }
+
+  private static class MapBasedImmutableActionGraph implements ActionGraph {
+    private final Map<Artifact, ActionAnalysisMetadata> generatingActions;
+
+    MapBasedImmutableActionGraph(Map<Artifact, ActionAnalysisMetadata> generatingActions) {
+      this.generatingActions = ImmutableMap.copyOf(generatingActions);
+    }
+
+    @Nullable
+    @Override
+    public ActionAnalysisMetadata getGeneratingAction(Artifact artifact) {
+      return generatingActions.get(artifact);
+    }
   }
 
   @Nullable

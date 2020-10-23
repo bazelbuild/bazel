@@ -14,37 +14,40 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.concurrent.BatchCallback;
+import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.WalkableGraph;
-import java.util.LinkedHashSet;
 import java.util.List;
 
 /** Looks up {@link RecursivePkgValue}s of given roots in a {@link WalkableGraph}. */
 public class RecursivePkgValueRootPackageExtractor implements RootPackageExtractor {
 
-  public Iterable<PathFragment> getPackagesFromRoots(
+  @Override
+  public void streamPackagesFromRoots(
+      BatchCallback<PackageIdentifier, UnusedException> results,
       WalkableGraph graph,
       List<Root> roots,
       ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
-      ImmutableSet<PathFragment> blacklistedSubdirectories,
+      ImmutableSet<PathFragment> ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException {
-
-    ImmutableSet filteredBlacklistedSubdirectories =
+    ImmutableSet<PathFragment> filteredIgnoredSubdirectories =
         ImmutableSet.copyOf(
             Iterables.filter(
-                blacklistedSubdirectories,
+                ignoredSubdirectories,
                 path -> !path.equals(directory) && path.startsWith(directory)));
 
-    LinkedHashSet<PathFragment> packageNames = new LinkedHashSet<>();
     for (Root root : roots) {
       // Note: no need to check if lookup == null because it will never be null.
       // {@link RecursivePkgFunction} handles all errors in a keep_going build.
@@ -55,24 +58,22 @@ public class RecursivePkgValueRootPackageExtractor implements RootPackageExtract
                   RecursivePkgValue.key(
                       repository,
                       RootedPath.toRootedPath(root, directory),
-                      filteredBlacklistedSubdirectories));
+                      filteredIgnoredSubdirectories));
       Preconditions.checkState(
           lookup != null,
           "Root %s in repository %s could not be found in the graph.",
           root.asPath(),
           repository.getName());
-      for (String packageName : lookup.getPackages()) {
+      ImmutableList.Builder<PackageIdentifier> packageIds = ImmutableList.builder();
+      for (String packageName : lookup.getPackages().toList()) {
         // TODO(bazel-team): Make RecursivePkgValue return NestedSet<PathFragment> so this transform
         // is unnecessary.
         PathFragment packageNamePathFragment = PathFragment.create(packageName);
-        if (!Iterables.any(
-            excludedSubdirectories,
-            excludedSubdirectory -> packageNamePathFragment.startsWith(excludedSubdirectory))) {
-          packageNames.add(packageNamePathFragment);
+        if (!Iterables.any(excludedSubdirectories, packageNamePathFragment::startsWith)) {
+          packageIds.add(PackageIdentifier.create(repository, packageNamePathFragment));
         }
       }
+      results.process(packageIds.build());
     }
-
-    return packageNames;
   }
 }

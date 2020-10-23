@@ -23,12 +23,13 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
+import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -128,9 +129,13 @@ public class RegisteredToolchainsFunction implements SkyFunction {
       List<Label> labels)
       throws InterruptedException, RegisteredToolchainsFunctionException {
     ImmutableList<SkyKey> keys =
-        labels
-            .stream()
-            .map(label -> ConfiguredTargetKey.of(label, configuration))
+        labels.stream()
+            .map(
+                label ->
+                    ConfiguredTargetKey.builder()
+                        .setLabel(label)
+                        .setConfiguration(configuration)
+                        .build())
             .collect(toImmutableList());
 
     Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> values =
@@ -171,8 +176,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
                       + "]"),
               Transience.PERSISTENT);
         }
-        DeclaredToolchainInfo toolchainInfo = target.getProvider(DeclaredToolchainInfo.class);
-
+        DeclaredToolchainInfo toolchainInfo = PlatformProviderUtils.declaredToolchainInfo(target);
         if (toolchainInfo == null) {
           throw new RegisteredToolchainsFunctionException(
               new InvalidToolchainLabelException(toolchainLabel), Transience.PERSISTENT);
@@ -223,6 +227,11 @@ public class RegisteredToolchainsFunction implements SkyFunction {
 
     public InvalidToolchainLabelException(Label invalidLabel, ConfiguredValueCreationException e) {
       super(formatMessage(invalidLabel.getCanonicalForm(), e.getMessage()), e);
+    }
+
+    @Override
+    protected Code getDetailedCode() {
+      return Code.INVALID_TOOLCHAIN;
     }
 
     private static String formatMessage(String invalidPattern, String reason) {

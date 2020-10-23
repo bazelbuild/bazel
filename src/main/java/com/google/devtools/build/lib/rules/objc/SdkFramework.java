@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 
 /**
  * Represents the name of an SDK framework.
@@ -35,9 +36,9 @@ final class SdkFramework extends Value<SdkFramework> {
   }
 
   /** Returns an iterable which contains the name of each given framework in the same order. */
-  static ImmutableList<String> names(Iterable<SdkFramework> frameworks) {
+  static ImmutableList<String> names(NestedSet<SdkFramework> frameworks) {
     ImmutableList.Builder<String> result = new ImmutableList.Builder<>();
-    for (SdkFramework framework : frameworks) {
+    for (SdkFramework framework : frameworks.toList()) {
       result.add(framework.getName());
     }
     return result.build();

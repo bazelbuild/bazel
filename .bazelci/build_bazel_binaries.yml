@@ -1,30 +1,46 @@
 ---
 platforms:
-  ubuntu1404:
-    shell_commands:
-    - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-      android_ndk_repository/android_ndk_repository/' WORKSPACE
-    - rm -f WORKSPACE.bak
+  centos7:
     build_targets:
-    - "//src:bazel"
+      - "//src:bazel"
+      - "//src:bazel_nojdk"
     build_flags:
-    - "-c"
-    - "opt"
+      - "-c"
+      - "opt"
+  ubuntu1604:
+    build_targets:
+      - "//src:bazel"
+      - "//src:bazel_nojdk"
+    build_flags:
+      - "-c"
+      - "opt"
+  ubuntu1804:
+    build_targets:
+      - "//src:bazel"
+      - "//src:bazel_nojdk"
+    build_flags:
+      - "-c"
+      - "opt"
+  ubuntu2004:
+    build_targets:
+      - "//src:bazel"
+      - "//src:bazel_nojdk"
+    build_flags:
+      - "-c"
+      - "opt"
   macos:
-    shell_commands:
-    - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-      android_ndk_repository/android_ndk_repository/' WORKSPACE
-    - rm -f WORKSPACE.bak
     build_targets:
-    - "//src:bazel"
+      - "//src:bazel"
+      - "//src:bazel_nojdk"
     build_flags:
-    - "-c"
-    - "opt"
+      - "-c"
+      - "opt"
   windows:
     build_flags:
-    - "--copt=-w"
-    - "--host_copt=-w"
-    - "-c"
-    - "opt"
+      - "--copt=-w"
+      - "--host_copt=-w"
+      - "-c"
+      - "opt"
     build_targets:
-    - "//src:bazel"
+      - "//src:bazel.exe"
+      - "//src:bazel_nojdk.exe"

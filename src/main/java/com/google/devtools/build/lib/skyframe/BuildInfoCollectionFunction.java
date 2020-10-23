@@ -13,47 +13,42 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Supplier;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
-import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoContext;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoType;
+import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue.BuildInfoKeyAndConfig;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
 
 /**
- * Creates a {@link BuildInfoCollectionValue}. Only depends on the unique
- * {@link WorkspaceStatusValue} and the constant {@link PrecomputedValue#BUILD_INFO_FACTORIES}
- * injected value.
+ * Creates a {@link BuildInfoCollectionValue}. Only depends on the unique {@link
+ * WorkspaceStatusValue} and the constant {@link #BUILD_INFO_FACTORIES} injected value.
  */
 public class BuildInfoCollectionFunction implements SkyFunction {
-  private final ActionKeyContext actionKeyContext;
-  // Supplier only because the artifact factory has not yet been created at constructor time.
-  private final Supplier<ArtifactFactory> artifactFactory;
-  private final ImmutableMap<BuildInfoKey, BuildInfoFactory> buildInfoFactories;
 
-  BuildInfoCollectionFunction(
-      ActionKeyContext actionKeyContext,
-      Supplier<ArtifactFactory> artifactFactory,
-      ImmutableMap<BuildInfoKey, BuildInfoFactory> buildInfoFactories) {
+  public static final Precomputed<Map<BuildInfoKey, BuildInfoFactory>> BUILD_INFO_FACTORIES =
+      new Precomputed<>("build_info_factories");
+
+  private final ActionKeyContext actionKeyContext;
+  private final ArtifactFactory artifactFactory;
+
+  BuildInfoCollectionFunction(ActionKeyContext actionKeyContext, ArtifactFactory artifactFactory) {
     this.actionKeyContext = actionKeyContext;
     this.artifactFactory = artifactFactory;
-    this.buildInfoFactories = buildInfoFactories;
   }
 
   @Override
@@ -74,32 +69,32 @@ public class BuildInfoCollectionFunction implements SkyFunction {
     RepositoryName repositoryName = RepositoryName.createFromValidStrippedName(
         nameValue.getName());
 
-    final ArtifactFactory factory = artifactFactory.get();
+    BuildConfiguration config =
+        ((BuildConfigurationValue) result.get(keyAndConfig.getConfigKey())).getConfiguration();
+    Map<BuildInfoKey, BuildInfoFactory> buildInfoFactories = BUILD_INFO_FACTORIES.get(env);
+    BuildInfoFactory buildInfoFactory = buildInfoFactories.get(keyAndConfig.getInfoKey());
+    Preconditions.checkState(buildInfoFactory.isEnabled(config));
+
     BuildInfoContext context =
-        new BuildInfoContext() {
-          @Override
-          public Artifact getBuildInfoArtifact(
-              PathFragment rootRelativePath, ArtifactRoot root, BuildInfoType type) {
-            return type == BuildInfoType.NO_REBUILD
-                ? factory.getConstantMetadataArtifact(rootRelativePath, root, keyAndConfig)
-                : factory.getDerivedArtifact(rootRelativePath, root, keyAndConfig);
-          }
-        };
+        (rootRelativePath, root, type) ->
+            type == BuildInfoType.NO_REBUILD
+                ? artifactFactory.getConstantMetadataArtifact(rootRelativePath, root, keyAndConfig)
+                : artifactFactory.getDerivedArtifact(rootRelativePath, root, keyAndConfig);
     BuildInfoCollection collection =
-        buildInfoFactories
-            .get(keyAndConfig.getInfoKey())
-            .create(
-                context,
-                ((BuildConfigurationValue) result.get(keyAndConfig.getConfigKey()))
-                    .getConfiguration(),
-                infoArtifactValue.getStableArtifact(),
-                infoArtifactValue.getVolatileArtifact(),
-                repositoryName);
+        buildInfoFactory.create(
+            context,
+            config,
+            infoArtifactValue.getStableArtifact(),
+            infoArtifactValue.getVolatileArtifact(),
+            repositoryName);
     GeneratingActions generatingActions;
     try {
       generatingActions =
-          Actions.filterSharedActionsAndThrowActionConflict(
-              actionKeyContext, collection.getActions());
+          Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
+              actionKeyContext,
+              collection.getActions(),
+              keyAndConfig,
+              /*outputFiles=*/ null);
     } catch (ActionConflictException e) {
       throw new IllegalStateException("Action conflicts not expected in build info: " + skyKey, e);
     }

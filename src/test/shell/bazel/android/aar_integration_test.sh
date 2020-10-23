@@ -110,4 +110,31 @@ EOF
   assert_one_of $apk_contents "res/layout/mylayout.xml"
 }
 
+function test_android_binary_fat_apk_contains_all_shared_libraries() {
+  create_new_workspace
+  setup_android_sdk_support
+  setup_android_ndk_support
+  # sample.aar contains native shared libraries for x86 and armeabi-v7a
+  cp "${TEST_SRCDIR}/io_bazel/src/test/shell/bazel/android/sample.aar" .
+  cat > AndroidManifest.xml <<EOF
+<manifest package="com.example"/>
+EOF
+  cat > BUILD <<EOF
+aar_import(
+  name = "sample",
+  aar = "sample.aar",
+)
+android_binary(
+  name = "app",
+  custom_package = "com.example",
+  manifest = "AndroidManifest.xml",
+  deps = [":sample"],
+)
+EOF
+  assert_build :app --fat_apk_cpu=x86,armeabi-v7a
+  apk_contents="$(zipinfo -1 bazel-bin/app.apk)"
+  assert_one_of $apk_contents "lib/x86/libapp.so"
+  assert_one_of $apk_contents "lib/armeabi-v7a/libapp.so"
+}
+
 run_suite "aar_import integration tests"

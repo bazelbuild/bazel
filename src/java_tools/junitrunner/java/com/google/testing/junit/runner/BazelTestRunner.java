@@ -27,17 +27,14 @@ import java.util.concurrent.TimeUnit;
 /**
  * A class to run JUnit tests in a controlled environment.
  *
- * <p>Currently sets up a security manager to catch undesirable behaviour;
- * System.exit. Also has nice command line options - run with "-help" for
- * details.
+ * <p>Currently sets up a security manager to catch undesirable behaviour; System.exit. Also has
+ * nice command line options - run with "-help" for details.
  *
- * <p>This class traps writes to <code>System.err.println()</code> and
- * <code>System.out.println()</code> including the output of failed tests in
- * the error report.
+ * <p>This class traps writes to <code>System.err.println()</code> and <code>System.out.println()
+ * </code> including the output of failed tests in the error report.
  *
- * <p>It also traps SIGTERM signals to make sure that the test report is
- * written when the signal is closed by the unit test framework for running
- * over time.
+ * <p>It also traps SIGTERM signals to make sure that the test report is written when the signal is
+ * closed by the unit test framework for running over time.
  */
 public class BazelTestRunner {
   /**
@@ -69,19 +66,23 @@ public class BazelTestRunner {
     PrintStream stderr = System.err;
 
     String suiteClassName = System.getProperty(TEST_SUITE_PROPERTY_NAME);
-
-    if (args.length >= 1 && args[args.length - 1].equals("--persistent_test_runner")) {
-      System.err.println("Requested test strategy is currently unsupported.");
-      System.exit(1);
-    }
-
     if (!checkTestSuiteProperty(suiteClassName)) {
       System.exit(2);
     }
 
+    if (PersistentTestRunner.isPersistentTestRunner()) {
+      System.exit(
+          PersistentTestRunner.runPersistentTestRunner(
+              suiteClassName,
+              System.getenv("WORKSPACE_PREFIX"),
+              (suitClass, testArgs, classLoader, resolve) ->
+                  runTestsInSuite(suitClass, testArgs, classLoader, resolve)));
+    }
+
     int exitCode;
     try {
-      exitCode = runTestsInSuite(suiteClassName, args);
+      exitCode =
+          runTestsInSuite(suiteClassName, args, /* classLoader= */ null, /* resolve =*/ false);
     } catch (Throwable e) {
       // An exception was thrown by the runner. Print the error to the output stream so it will be
       // logged
@@ -132,8 +133,13 @@ public class BazelTestRunner {
     return true;
   }
 
-  private static int runTestsInSuite(String suiteClassName, String[] args) {
-    Class<?> suite = getTestClass(suiteClassName);
+  /**
+   * Runs the tests in the specified suite. Looks for the suite class in the given classLoader, or
+   * in the system classloader if none is specified.
+   */
+  private static int runTestsInSuite(
+      String suiteClassName, String[] args, ClassLoader classLoader, boolean resolve) {
+    Class<?> suite = PersistentTestRunner.getTestClass(suiteClassName, classLoader, resolve);
 
     if (suite == null) {
       // No class found corresponding to the system property passed in from Bazel
@@ -151,18 +157,6 @@ public class BazelTestRunner {
             .build()
             .runner();
     return runner.run().wasSuccessful() ? 0 : 1;
-  }
-
-  private static Class<?> getTestClass(String name) {
-    if (name == null) {
-      return null;
-    }
-
-    try {
-      return Class.forName(name);
-    } catch (ClassNotFoundException e) {
-      return null;
-    }
   }
 
   /**

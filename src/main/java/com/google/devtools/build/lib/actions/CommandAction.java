@@ -16,15 +16,21 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import java.util.List;
 
 /**
  * An action that exposes command line arguments and environment variables for the process in which
  * that command line is executed.
  */
-public interface CommandAction extends Action, ExecutionInfoSpecifier {
+public interface CommandAction extends Action {
 
-  /** Returns a list of command line arguments that implements this action. */
+  /**
+   * Returns a list of command line arguments that implements this action.
+   *
+   * <p>In most cases, this expands any params files. One notable exception is C/C++ compilation
+   * with the "compiler_param_file" feature.
+   */
   List<String> getArguments() throws CommandLineExpansionException;
 
   /**
@@ -37,5 +43,5 @@ public interface CommandAction extends Action, ExecutionInfoSpecifier {
 
   /** Returns inputs to this action, including inputs that may be pruned. */
   @VisibleForTesting // productionVisibility = Visibility.PRIVATE
-  Iterable<Artifact> getPossibleInputsForTesting();
+  NestedSet<Artifact> getPossibleInputsForTesting();
 }

@@ -87,7 +87,7 @@ public class HeaderClassLoader extends ClassLoader {
     private String internalName;
 
     public NonPrimitiveFieldCollector() {
-      super(Opcodes.ASM7);
+      super(Opcodes.ASM8);
     }
 
     @Override
@@ -117,7 +117,6 @@ public class HeaderClassLoader extends ClassLoader {
     }
   }
 
-
   /**
    * Class visitor that stubs in missing code attributes, and erases the body of the static
    * initializer of functional interfaces if the interfaces have default methods. The erasion of the
@@ -132,7 +131,7 @@ public class HeaderClassLoader extends ClassLoader {
     private final ImmutableList<FieldInfo> interfaceFields;
 
     public CodeStubber(ClassVisitor cv, ImmutableList<FieldInfo> interfaceFields) {
-      super(Opcodes.ASM7, cv);
+      super(Opcodes.ASM8, cv);
       this.interfaceFields = interfaceFields;
     }
 
@@ -178,7 +177,7 @@ public class HeaderClassLoader extends ClassLoader {
 
     public InterfaceInitializerEraser(
         MethodVisitor mv, String internalName, ImmutableList<FieldInfo> interfaceFields) {
-      super(Opcodes.ASM7);
+      super(Opcodes.ASM8);
       dest = mv;
       this.interfaceFields = interfaceFields;
     }
@@ -209,7 +208,7 @@ public class HeaderClassLoader extends ClassLoader {
     private boolean hasCode = false;
 
     public BodyStubber(MethodVisitor mv) {
-      super(Opcodes.ASM7, mv);
+      super(Opcodes.ASM8, mv);
     }
 
     @Override

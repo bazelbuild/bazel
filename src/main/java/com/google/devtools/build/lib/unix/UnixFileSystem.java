@@ -23,15 +23,18 @@ import com.google.devtools.build.lib.unix.NativePosixFiles.Dirents;
 import com.google.devtools.build.lib.unix.NativePosixFiles.ReadTypes;
 import com.google.devtools.build.lib.vfs.AbstractFileSystemWithCustomStat;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -41,11 +44,11 @@ import java.util.List;
  */
 @ThreadSafe
 public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
+  protected final String hashAttributeName;
 
-  public UnixFileSystem() throws DefaultHashFunctionNotSetException {}
-
-  public UnixFileSystem(DigestHashFunction hashFunction) {
+  public UnixFileSystem(DigestHashFunction hashFunction, String hashAttributeName) {
     super(hashFunction);
+    this.hashAttributeName = hashAttributeName;
   }
 
   /**
@@ -404,13 +407,17 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
+  protected byte[] getFastDigest(Path path) throws IOException {
+    // Attempt to obtain the digest from an extended attribute attached to the file. This is much
+    // faster than reading and digesting the file's contents on the fly, especially for large files.
+    return hashAttributeName.isEmpty() ? null : getxattr(path, hashAttributeName, true);
+  }
+
+  @Override
   protected byte[] getDigest(Path path) throws IOException {
     String name = path.toString();
     long startTime = Profiler.nanoTimeMaybe();
     try {
-      if (getDigestFunction() == DigestHashFunction.MD5) {
-        return NativePosixFiles.md5sum(name).asBytes();
-      }
       return super.getDigest(path);
     } finally {
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_MD5, name);
@@ -433,6 +440,29 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
         profiler.logSimpleTask(startTime, ProfilerTask.VFS_DELETE, dir.toString());
       }
     }
+  }
+
+  private static File createJavaIoFile(Path path) throws FileNotFoundException {
+    final String pathStr = path.getPathString();
+    if (pathStr.chars().allMatch(c -> c < 128)) {
+      return new File(pathStr);
+    }
+
+    // Paths returned from NativePosixFiles are Strings containing raw bytes from the filesystem.
+    // Java's IO subsystem expects paths to be encoded per the `sun.jnu.encoding` setting. This
+    // is difficult to handle generically, but we can special-case the most common case (UTF-8).
+    if ("UTF-8".equals(System.getProperty("sun.jnu.encoding"))) {
+      final byte[] pathBytes = pathStr.getBytes(StandardCharsets.ISO_8859_1);
+      return new File(new String(pathBytes, StandardCharsets.UTF_8));
+    }
+
+    // This will probably fail but not much that can be done without migrating to `java.nio.Files`.
+    return new File(pathStr);
+  }
+
+  @Override
+  protected InputStream createFileInputStream(Path path) throws IOException {
+    return new FileInputStream(createJavaIoFile(path));
   }
 
   @Override
@@ -470,8 +500,8 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     @Override
     public synchronized void close() throws IOException {
       if (!closed) {
-        closed = true;
         NativePosixFiles.close(fd, this);
+        closed = true;
       }
       super.close();
     }
@@ -487,7 +517,9 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     }
 
     @Override
-    public void write(byte[] b, int off, int len) throws IOException {
+    @SuppressWarnings(
+        "UnsafeFinalization") // Finalizer invokes close; close and write are synchronized.
+    public synchronized void write(byte[] b, int off, int len) throws IOException {
       if (closed) {
         throw new IOException("attempt to write to a closed Outputstream backed by a native file");
       }

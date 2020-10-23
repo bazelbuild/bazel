@@ -18,7 +18,7 @@ import com.google.testing.junit.runner.sharding.ShardingEnvironment;
 import com.google.testing.junit.runner.sharding.ShardingFilters;
 import com.google.testing.junit.runner.sharding.api.ShardingFilterFactory;
 import com.google.testing.junit.runner.util.Factory;
-import com.google.testing.junit.runner.util.Supplier;
+import java.util.function.Supplier;
 
 /**
  * A factory that supplies a {@link ShardingFilters} for testing purposes.

@@ -45,22 +45,21 @@ import javax.annotation.Nullable;
 /**
  * Encapsulates the filesystem operations needed to get state for a path. This is equivalent to an
  * 'lstat' that does not follow symlinks to determine what type of file the path is.
- * <ul>
- *   <li> For a non-existent file, the non-existence is noted.
- *   <li> For a symlink, the symlink target is noted.
- *   <li> For a directory, the existence is noted.
- *   <li> For a file, the existence is noted, along with metadata about the file (e.g.
- *        file digest). See {@link RegularFileStateValue}.
- * <ul>
  *
- * <p>This class is an implementation detail of {@link FileValue} and should not be used by
- * {@link com.google.devtools.build.skyframe.SkyFunction}s other than {@link FileFunction}. Instead,
- * {@link FileValue} should be used by {@link com.google.devtools.build.skyframe.SkyFunction}
- * consumers that care about files.
- *
- * <p>All subclasses must implement {@link #equals} and {@link #hashCode} properly.
+ * <ul>
+ *   <li>For a non-existent file, the non-existence is noted.
+ *   <li>For a symlink, the symlink target is noted.
+ *   <li>For a directory, the existence is noted.
+ *   <li>For a file, the existence is noted, along with metadata about the file (e.g. file digest).
+ *       See {@link RegularFileStateValue}.
+ *       <ul>
+ *         <p>This class is an implementation detail of {@link FileValue} and should not be used by
+ *         {@link com.google.devtools.build.skyframe.SkyFunction}s other than {@link FileFunction}.
+ *         Instead, {@link FileValue} should be used by {@link
+ *         com.google.devtools.build.skyframe.SkyFunction} consumers that care about files.
+ *         <p>All subclasses must implement {@link #equals} and {@link #hashCode} properly.
  */
-public abstract class FileStateValue implements SkyValue {
+public abstract class FileStateValue implements HasDigest, SkyValue {
   public static final SkyFunctionName FILE_STATE = SkyFunctionName.createNonHermetic("FILE_STATE");
 
   @AutoCodec
@@ -71,14 +70,13 @@ public abstract class FileStateValue implements SkyValue {
   public static final NonexistentFileStateValue NONEXISTENT_FILE_STATE_NODE =
       new NonexistentFileStateValue();
 
-  protected FileStateValue() {
-  }
+  private FileStateValue() {}
 
   public static FileStateValue create(
       RootedPath rootedPath,
       FilesystemCalls syscallCache,
       @Nullable TimestampGranularityMonitor tsgm)
-      throws InconsistentFilesystemException, IOException {
+      throws IOException {
     Path path = rootedPath.asPath();
     Dirent.Type type = syscallCache.getType(path, Symlinks.NOFOLLOW);
     if (type == null) {
@@ -91,20 +89,22 @@ public abstract class FileStateValue implements SkyValue {
         return new SymlinkFileStateValue(path.readSymbolicLinkUnchecked());
       case FILE:
       case UNKNOWN:
-        {
-          FileStatus stat = syscallCache.statIfFound(path, Symlinks.NOFOLLOW);
-          Preconditions.checkNotNull(
-              stat, "File %s found in directory, but stat failed", rootedPath);
-          return createWithStatNoFollow(rootedPath, FileStatusWithDigestAdapter.adapt(stat), tsgm);
+        FileStatus stat = syscallCache.statIfFound(path, Symlinks.NOFOLLOW);
+        if (stat == null) {
+          throw new InconsistentFilesystemException(
+              "File " + rootedPath + " found in directory, but stat failed");
         }
-      default:
-        throw new IllegalStateException(type.toString());
+        return createWithStatNoFollow(
+            rootedPath,
+            FileStatusWithDigestAdapter.adapt(stat),
+            /*digestWillBeInjected=*/ false,
+            tsgm);
     }
+    throw new AssertionError(type);
   }
 
-  public static FileStateValue create(RootedPath rootedPath,
-      @Nullable TimestampGranularityMonitor tsgm) throws InconsistentFilesystemException,
-      IOException {
+  public static FileStateValue create(
+      RootedPath rootedPath, @Nullable TimestampGranularityMonitor tsgm) throws IOException {
     Path path = rootedPath.asPath();
     // Stat, but don't throw an exception for the common case of a nonexistent file. This still
     // throws an IOException in case any other IO error is encountered.
@@ -112,19 +112,21 @@ public abstract class FileStateValue implements SkyValue {
     if (stat == null) {
       return NONEXISTENT_FILE_STATE_NODE;
     }
-    return createWithStatNoFollow(rootedPath, FileStatusWithDigestAdapter.adapt(stat), tsgm);
+    return createWithStatNoFollow(
+        rootedPath, FileStatusWithDigestAdapter.adapt(stat), /*digestWillBeInjected=*/ false, tsgm);
   }
 
   public static FileStateValue createWithStatNoFollow(
       RootedPath rootedPath,
       FileStatusWithDigest statNoFollow,
+      boolean digestWillBeInjected,
       @Nullable TimestampGranularityMonitor tsgm)
-      throws InconsistentFilesystemException, IOException {
+      throws IOException {
     Path path = rootedPath.asPath();
     if (statNoFollow.isFile()) {
       return statNoFollow.isSpecialFile()
           ? SpecialFileStateValue.fromStat(path.asFragment(), statNoFollow, tsgm)
-          : RegularFileStateValue.fromPath(path, statNoFollow, tsgm);
+          : RegularFileStateValue.fromPath(path, statNoFollow, digestWillBeInjected, tsgm);
     } else if (statNoFollow.isDirectory()) {
       return DIRECTORY_FILE_STATE_NODE;
     } else if (statNoFollow.isSymbolicLink()) {
@@ -173,11 +175,14 @@ public abstract class FileStateValue implements SkyValue {
   }
 
   @Nullable
-  byte[] getDigest() {
+  public abstract FileContentsProxy getContentsProxy();
+
+  @Nullable
+  @Override
+  public byte[] getDigest() {
     throw new IllegalStateException();
   }
 
-  @Override
   public abstract BigInteger getValueFingerprint();
 
   @Override
@@ -210,16 +215,23 @@ public abstract class FileStateValue implements SkyValue {
     }
 
     /**
-     * Create a FileFileStateValue instance corresponding to the given existing file.
+     * Creates a FileFileStateValue instance corresponding to the given existing file.
+     *
      * @param stat must be of type "File". (Not a symlink).
      */
-    private static RegularFileStateValue fromPath(Path path, FileStatusWithDigest stat,
-                                        @Nullable TimestampGranularityMonitor tsgm)
+    private static RegularFileStateValue fromPath(
+        Path path,
+        FileStatusWithDigest stat,
+        boolean digestWillBeInjected,
+        @Nullable TimestampGranularityMonitor tsgm)
         throws InconsistentFilesystemException {
       Preconditions.checkState(stat.isFile(), path);
 
       try {
-        byte[] digest = tryGetDigest(path, stat);
+        // If the digest will be injected, we can skip calling getFastDigest, but we need to store a
+        // contents proxy because if the digest is injected but is not available from the
+        // filesystem, we will need the proxy to determine whether the file was modified.
+        byte[] digest = digestWillBeInjected ? null : tryGetDigest(path, stat);
         if (digest == null) {
           // Note that TimestampGranularityMonitor#notifyDependenceOnFileTime is a thread-safe
           // method.
@@ -271,6 +283,7 @@ public abstract class FileStateValue implements SkyValue {
       return digest;
     }
 
+    @Override
     public FileContentsProxy getContentsProxy() {
       return contentsProxy;
     }
@@ -296,7 +309,10 @@ public abstract class FileStateValue implements SkyValue {
 
     @Override
     public BigInteger getValueFingerprint() {
-      BigIntegerFingerprint fp = new BigIntegerFingerprint().addDigestedBytes(digest).addLong(size);
+      BigIntegerFingerprint fp = new BigIntegerFingerprint().addLong(size);
+      if (digest != null) {
+        fp.addDigestedBytes(digest);
+      }
       if (contentsProxy != null) {
         contentsProxy.addToFingerprint(fp);
       }
@@ -350,10 +366,11 @@ public abstract class FileStateValue implements SkyValue {
 
     @Override
     @Nullable
-    byte[] getDigest() {
+    public byte[] getDigest() {
       return null;
     }
 
+    @Override
     public FileContentsProxy getContentsProxy() {
       return contentsProxy;
     }
@@ -393,12 +410,16 @@ public abstract class FileStateValue implements SkyValue {
     private static final BigInteger FINGERPRINT =
         new BigInteger(1, "DirectoryFileStateValue".getBytes(UTF_8));
 
-    private DirectoryFileStateValue() {
-    }
+    private DirectoryFileStateValue() {}
 
     @Override
     public FileStateType getType() {
       return FileStateType.DIRECTORY;
+    }
+
+    @Override
+    public FileContentsProxy getContentsProxy() {
+      throw new UnsupportedOperationException();
     }
 
     @Override
@@ -458,6 +479,11 @@ public abstract class FileStateValue implements SkyValue {
     }
 
     @Override
+    public FileContentsProxy getContentsProxy() {
+      return null;
+    }
+
+    @Override
     public BigInteger getValueFingerprint() {
       return new BigIntegerFingerprint().addPath(symlinkTarget).getFingerprint();
     }
@@ -474,12 +500,16 @@ public abstract class FileStateValue implements SkyValue {
     private static final BigInteger FINGERPRINT =
         new BigInteger(1, "NonexistentFileStateValue".getBytes(UTF_8));
 
-    private NonexistentFileStateValue() {
-    }
+    private NonexistentFileStateValue() {}
 
     @Override
     public FileStateType getType() {
       return FileStateType.NONEXISTENT;
+    }
+
+    @Override
+    public FileContentsProxy getContentsProxy() {
+      throw new UnsupportedOperationException();
     }
 
     @Override

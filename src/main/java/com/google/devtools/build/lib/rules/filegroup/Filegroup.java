@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.filegroup;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
 
 import com.google.devtools.build.lib.actions.Actions;
@@ -30,17 +31,16 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -56,7 +56,7 @@ public class Filegroup implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     String outputGroupName = ruleContext.attributes().get("output_group", Type.STRING);
-
+    BuildConfiguration configuration = checkNotNull(ruleContext.getConfiguration());
     if (outputGroupName.endsWith(INTERNAL_SUFFIX)) {
       ruleContext.throwWithAttributeError(
           "output_group", String.format(ILLEGAL_OUTPUT_GROUP_ERROR, outputGroupName));
@@ -64,58 +64,67 @@ public class Filegroup implements RuleConfiguredTargetFactory {
 
     NestedSet<Artifact> filesToBuild =
         outputGroupName.isEmpty()
-            ? PrerequisiteArtifacts.nestedSet(ruleContext, "srcs", Mode.TARGET)
-            : getArtifactsForOutputGroup(
-                outputGroupName, ruleContext.getPrerequisites("srcs", Mode.TARGET));
-
-    NestedSet<Artifact> middleman =
-        CompilationHelper.getAggregatingMiddleman(
-            ruleContext, Actions.escapeLabel(ruleContext.getLabel()), filesToBuild);
+            ? PrerequisiteArtifacts.nestedSet(ruleContext, "srcs")
+            : getArtifactsForOutputGroup(outputGroupName, ruleContext.getPrerequisites("srcs"));
 
     InstrumentedFilesInfo instrumentedFilesProvider =
-        InstrumentedFilesCollector.collect(
+        InstrumentedFilesCollector.collectTransitive(
             ruleContext,
-            // what do *we* know about whether this is a source file or not
-            new InstrumentationSpec(FileTypeSet.ANY_FILE, "srcs", "deps", "data"),
-            InstrumentedFilesCollector.NO_METADATA_COLLECTOR,
-            filesToBuild,
+            // Seems strange to have "srcs" in "dependency attributes" instead of "source
+            // attributes", but that's correct behavior here because this rule just forwards
+            // files, it doesn't process them. It doesn't know if the dependencies of the stuff
+            // in srcs is a runtime dependency of its consumers or not. Consumers decide which
+            // of the following is the case about a filegroup it depends on based on whether the
+            // attribute the dependency is via is in the consumer's source attributes or
+            // dependency attributes:
+            // * If the filegroup contains coverage-relevant source files, it should be depended
+            //   on via something in source attributes. The dependencies for actions which generate
+            //   source files are generally not runtime dependencies.
+            // * If the dependencies of the filegroup might be coverage-relevant source files (e.g.
+            //   a binary target is included in filegroup's srcs and the filegroup target is
+            //   included in some other target's data), it should be depended on via something in
+            //   dependency attributes.
+            new InstrumentationSpec(FileTypeSet.ANY_FILE).withDependencyAttributes("srcs", "data"),
             /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
 
-    RunfilesProvider runfilesProvider = RunfilesProvider.withData(
-        new Runfiles.Builder(
-            ruleContext.getWorkspaceName(),
-            ruleContext.getConfiguration().legacyExternalRunfiles())
-            .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
-            .build(),
-        // If you're visiting a filegroup as data, then we also visit its data as data.
-        new Runfiles.Builder(
-            ruleContext.getWorkspaceName(),
-            ruleContext.getConfiguration().legacyExternalRunfiles())
-            .addTransitiveArtifacts(filesToBuild)
-            .addDataDeps(ruleContext).build());
+    RunfilesProvider runfilesProvider =
+        RunfilesProvider.withData(
+            new Runfiles.Builder(
+                    ruleContext.getWorkspaceName(), configuration.legacyExternalRunfiles())
+                .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
+                .build(),
+            // If you're visiting a filegroup as data, then we also visit its data as data.
+            new Runfiles.Builder(
+                    ruleContext.getWorkspaceName(), configuration.legacyExternalRunfiles())
+                .addTransitiveArtifacts(filesToBuild)
+                .addDataDeps(ruleContext)
+                .build());
 
-    return new RuleConfiguredTargetBuilder(ruleContext)
-        .add(RunfilesProvider.class, runfilesProvider)
-        .setFilesToBuild(filesToBuild)
-        .setRunfilesSupport(null, getExecutable(filesToBuild))
-        .addNativeDeclaredProvider(instrumentedFilesProvider)
-        .add(MiddlemanProvider.class, new MiddlemanProvider(middleman))
-        .add(FilegroupPathProvider.class, new FilegroupPathProvider(getFilegroupPath(ruleContext)))
-        .build();
+    RuleConfiguredTargetBuilder builder =
+        new RuleConfiguredTargetBuilder(ruleContext)
+            .addProvider(RunfilesProvider.class, runfilesProvider)
+            .setFilesToBuild(filesToBuild)
+            .setRunfilesSupport(null, getExecutable(filesToBuild))
+            .addNativeDeclaredProvider(instrumentedFilesProvider)
+            .addProvider(
+                FilegroupPathProvider.class,
+                new FilegroupPathProvider(getFilegroupPath(ruleContext)));
+
+    if (configuration.enableAggregatingMiddleman()) {
+      builder.addProvider(
+          MiddlemanProvider.class,
+          new MiddlemanProvider(
+              CompilationHelper.getAggregatingMiddleman(
+                  ruleContext, Actions.escapeLabel(ruleContext.getLabel()), filesToBuild)));
+    }
+    return builder.build();
   }
 
   /**
    * Returns the single Artifact from filesToBuild or {@code null} if there are multiple elements.
    */
   private Artifact getExecutable(NestedSet<Artifact> filesToBuild) {
-    Iterator<Artifact> it = filesToBuild.iterator();
-    if (it.hasNext()) {
-      Artifact out = it.next();
-      if (!it.hasNext()) {
-        return out;
-      }
-    }
-    return null;
+    return filesToBuild.isSingleton() ? filesToBuild.getSingleton() : null;
   }
 
   private PathFragment getFilegroupPath(RuleContext ruleContext) {

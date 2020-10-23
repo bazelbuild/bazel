@@ -14,27 +14,23 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.apple;
 
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleDynamicFrameworkInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleDynamicFrameworkInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.ObjcProviderApi;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
 
-/**
- * Fake implementation of {@link AppleDynamicFrameworkInfoApi}.
- */
-public class FakeAppleDynamicFrameworkInfo
-    implements AppleDynamicFrameworkInfoApi<Object, FileApi> {
+/** Fake implementation of {@link AppleDynamicFrameworkInfoApi}. */
+public class FakeAppleDynamicFrameworkInfo implements AppleDynamicFrameworkInfoApi<FileApi> {
 
   @Override
-  public NestedSet<Object> getDynamicFrameworkDirs() {
+  public Depset /*<String>*/ getDynamicFrameworkDirs() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> getDynamicFrameworkFiles() {
+  public Depset /*<FileApi>*/ getDynamicFrameworkFiles() {
     return null;
   }
 
@@ -49,15 +45,15 @@ public class FakeAppleDynamicFrameworkInfo
   }
 
   @Override
-  public String toProto(Location loc) throws EvalException {
+  public String toProto() throws EvalException {
     return "";
   }
 
   @Override
-  public String toJson(Location loc) throws EvalException {
+  public String toJson() throws EvalException {
     return "";
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 }

@@ -30,11 +30,13 @@ from collections import OrderedDict
 import multiprocessing
 import os
 import pipes  # swap to shlex once on Python 3
-import Queue
 import re
 import shutil
 import subprocess
 import threading
+
+from six.moves import queue as Queue  # pylint: disable=redefined-builtin
+from six.moves import xrange  # pylint: disable=redefined-builtin
 
 PRUNED_SRC_CONTENT = 'static int DUMMY_unused __attribute__((unused,used)) = 0;'
 
@@ -51,17 +53,7 @@ def BuildReachabilityTree(dependency_mapping_files, file_open=open):
     A dict mapping J2ObjC-generated source files to the corresponding direct
     dependent source files.
   """
-  tree = dict()
-  for dependency_mapping_file in dependency_mapping_files.split(','):
-    with file_open(dependency_mapping_file, 'r') as f:
-      for line in f:
-        entry = line.strip().split(':')[0]
-        dep = line.strip().split(':')[1]
-        if entry in tree:
-          tree[entry].append(dep)
-        else:
-          tree[entry] = [dep]
-  return tree
+  return BuildArtifactSourceTree(dependency_mapping_files, file_open)
 
 
 def BuildHeaderMapping(header_mapping_files, file_open=open):
@@ -246,17 +238,7 @@ def BuildArchiveSourceFileMapping(archive_source_mapping_files, file_open):
   Returns:
     A dict mapping between archive files and their associated source files.
   """
-  tree = dict()
-  for archive_source_mapping_file in archive_source_mapping_files.split(','):
-    with file_open(archive_source_mapping_file, 'r') as f:
-      for line in f:
-        entry = line.strip().split(':')[0]
-        dep = line.strip().split(':')[1]
-        if entry in tree:
-          tree[entry].append(dep)
-        else:
-          tree[entry] = [dep]
-  return tree
+  return BuildArtifactSourceTree(archive_source_mapping_files, file_open)
 
 
 def PruneSourceFiles(input_files, output_files, dependency_mapping_files,
@@ -410,6 +392,33 @@ def PruneArchiveFile(input_archive, output_archive, dummy_archive,
   # Prevents a pre-Xcode-8 bug in which passing zero-date archive files to ld
   # would cause ld to error.
   os.utime(output_archive, None)
+
+
+def BuildArtifactSourceTree(files, file_open=open):
+  """Builds a dependency tree using from dependency mapping files.
+
+  Args:
+   files: A comma separated list of dependency mapping files.
+   file_open: Reference to the builtin open function so it may be overridden for
+     testing.
+
+  Returns:
+   A dict mapping build artifacts (possibly generated source files) to the
+   corresponding direct dependent source files.
+  """
+  tree = dict()
+  if not files:
+    return tree
+  for filename in files.split(','):
+    with file_open(filename, 'r') as f:
+      for line in f:
+        entry = line.strip().split(':')[0]
+        dep = line.strip().split(':')[1]
+        if entry in tree:
+          tree[entry].append(dep)
+        else:
+          tree[entry] = [dep]
+  return tree
 
 
 if __name__ == '__main__':

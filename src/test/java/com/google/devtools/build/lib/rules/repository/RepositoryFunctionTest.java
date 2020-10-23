@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -61,7 +60,7 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
         SkyFunction.Environment env,
         Map<String, String> markerData,
         SkyKey key)
-        throws SkyFunctionException, InterruptedException {
+        throws InterruptedException {
       return null;
     }
 
@@ -82,7 +81,9 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
             "    name = 'z',",
             "    path = 'a/b/c',",
             ")");
-    assertThat(TestingRepositoryFunction.getTargetPath(rule, rootDirectory))
+    assertThat(
+            TestingRepositoryFunction.getTargetPath(
+                TestingRepositoryFunction.getPathAttr(rule), rootDirectory))
         .isEqualTo(rootDirectory.getRelative("a/b/c").asFragment());
   }
 
@@ -92,7 +93,9 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
         "    name = 'w',",
         "    path = '/a/b/c',",
         ")");
-    assertThat(TestingRepositoryFunction.getTargetPath(rule, rootDirectory))
+    assertThat(
+            TestingRepositoryFunction.getTargetPath(
+                TestingRepositoryFunction.getPathAttr(rule), rootDirectory))
         .isEqualTo(PathFragment.create("/a/b/c"));
   }
 

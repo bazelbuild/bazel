@@ -21,12 +21,13 @@ import java.util.List;
 /**
  * Interface for parsing options from a single options specification class.
  *
- * The {@link Options#parse(Class, String...)} method in this class has no clear
- * use case. Instead, use the {@link OptionsParser} class directly, as in this
- * code snippet:
+ * <p>The {@link Options#parse(Class, String...)} method in this class has no clear use case.
+ * Instead, use the {@link OptionsParser} class directly, as in this code snippet:
  *
  * <pre>
- * OptionsParser parser = OptionsParser.newOptionsParser(FooOptions.class);
+ * OptionsParser parser = OptionsParser.builder()
+ *     .optionsClasses(FooOptions.class)
+ *     .build();
  * try {
  *   parser.parse(FooOptions.class, args);
  * } catch (OptionsParsingException e) {
@@ -50,7 +51,7 @@ public class Options<O extends OptionsBase> {
    */
   public static <O extends OptionsBase> Options<O> parse(Class<O> optionsClass, String... args)
       throws OptionsParsingException {
-    OptionsParser parser = OptionsParser.newOptionsParser(optionsClass);
+    OptionsParser parser = OptionsParser.builder().optionsClasses(optionsClass).build();
     parser.parse(OptionPriority.PriorityCategory.COMMAND_LINE, null, Arrays.asList(args));
     List<String> remainingArgs = parser.getResidue();
     return new Options<>(parser.getOptions(optionsClass), remainingArgs.toArray(new String[0]));
@@ -65,8 +66,8 @@ public class Options<O extends OptionsBase> {
       Class<O> optionsClass, boolean allowResidue, String... args) {
     OptionsParser parser = null;
     try {
-      parser = OptionsParser.newOptionsParser(optionsClass);
-      parser.setAllowResidue(allowResidue);
+      parser =
+          OptionsParser.builder().optionsClasses(optionsClass).allowResidue(allowResidue).build();
     } catch (ConstructionException e) {
       System.err.println("Error constructing the options parser: " + e.getMessage());
       System.exit(2);

@@ -56,9 +56,7 @@ public class TestSubject {
     }
   }
 
-  /**
-   * A simple resource implementation which implements Closeable.
-   */
+  /** A simple resource implementation which implements Closeable. */
   public static class SimpleResource implements Closeable {
 
     public void call(boolean throwException) {

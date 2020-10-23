@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-
 /**
  * A class of aspects.
  *
@@ -45,8 +44,8 @@ package com.google.devtools.build.lib.packages;
  * on a rule so that it can do meaningful work (for example, dexing only makes sense for configured
  * targets that produce Java code).
  *
- * <p>Aspects can be defined natively, in Java ({@link NativeAspectClass}) or in Skylark ({@link
- * SkylarkAspectClass}).
+ * <p>Aspects can be defined natively, in Java ({@link NativeAspectClass}) or in Starlark ({@link
+ * StarlarkAspectClass}).
  *
  * <p>Bazel propagates aspects through a multistage process. The general pipeline is as follows:
  *
@@ -57,7 +56,7 @@ package com.google.devtools.build.lib.packages;
  *  {@code AspectDescriptor} <- {@link AspectParameters}
  *   \
  *   V
- *  {@link Aspect} <- {@link AspectDefinition} (might require loading Skylark files)
+ *  {@link Aspect} <- {@link AspectDefinition} (might require loading Starlark files)
  *   |
  *   V
  *  {@code ConfiguredAspect}  <- {@code ConfiguredTarget}
@@ -65,8 +64,8 @@ package com.google.devtools.build.lib.packages;
  *
  * <ul>
  *   <li>{@link AspectClass} is a moniker for "user" definition of the aspect, be it a native aspect
- *       or a Skylark aspect. It contains either a reference to the native class implementing the
- *       aspect or the location of the Skylark definition of the aspect in the source tree, i.e.
+ *       or a Starlark aspect. It contains either a reference to the native class implementing the
+ *       aspect or the location of the Starlark definition of the aspect in the source tree, i.e.
  *       label of .bzl file + symbol name.
  *   <li>{@link AspectParameters} is a (key,value) pair list that can be used to parameterize aspect
  *       classes
@@ -75,8 +74,8 @@ package com.google.devtools.build.lib.packages;
  *   <li>{@link AspectDefinition} is a class encapsulating the aspect definition (what attributes
  *       aspoect has, and along which dependencies does it propagate.
  *   <li>{@link Aspect} is a fully instantiated instance of an Aspect after it is loaded. Getting an
- *       {@code Aspect} from {@code AspectDescriptor} for Skylark aspects requires adding a Skyframe
- *       dependency.
+ *       {@code Aspect} from {@code AspectDescriptor} for Starlark aspects requires adding a
+ *       Skyframe dependency.
  *   <li>{@link com.google.devtools.build.lib.analysis.ConfiguredAspect} represents a result of
  *       application of an {@link Aspect} to a given {@link
  *       com.google.devtools.build.lib.analysis.ConfiguredTarget}.

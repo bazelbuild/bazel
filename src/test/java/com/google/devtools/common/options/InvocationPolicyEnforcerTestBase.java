@@ -56,8 +56,8 @@ public class InvocationPolicyEnforcerTestBase {
     policyProto.writeTo(out);
     String policyBase64 = BaseEncoding.base64().encode(out.toByteArray());
 
-    OptionsParser startupOptionsParser = OptionsParser.newOptionsParser(
-        BlazeServerStartupOptions.class);
+    OptionsParser startupOptionsParser =
+        OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
     String policyOption = "--invocation_policy=" + policyBase64;
     startupOptionsParser.parse(policyOption);
 
@@ -71,7 +71,7 @@ public class InvocationPolicyEnforcerTestBase {
 
   @Before
   public final void setParser() throws Exception  {
-    parser = OptionsParser.newOptionsParser(TestOptions.class);
+    parser = OptionsParser.builder().optionsClasses(TestOptions.class).build();
   }
 
   @BeforeClass

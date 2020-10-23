@@ -14,15 +14,34 @@
 
 package com.google.devtools.build.lib.remote.options;
 
+import build.bazel.remote.execution.v2.Platform;
+import build.bazel.remote.execution.v2.Platform.Property;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.Converters.AssignmentConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParsingException;
+import com.google.protobuf.TextFormat;
+import com.google.protobuf.TextFormat.ParseException;
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.SortedMap;
+import java.util.regex.Pattern;
 
 /** Options for remote execution and distributed caching. */
 public final class RemoteOptions extends OptionsBase {
@@ -35,7 +54,7 @@ public final class RemoteOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Connect to the remote cache through a proxy. Currently this flag can only be used to "
-              + "configure a Unix domain socket (unix:/path/to/socket) for the HTTP cache.")
+              + "configure a Unix domain socket (unix:/path/to/socket).")
   public String remoteProxy;
 
   @Option(
@@ -54,7 +73,11 @@ public final class RemoteOptions extends OptionsBase {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "HOST or HOST:PORT of a remote execution endpoint.")
+      help =
+          "HOST or HOST:PORT of a remote execution endpoint. The supported schemas are grpc, "
+              + "grpcs (grpc with TLS enabled) and unix (local UNIX sockets). If no schema is "
+              + "provided Bazel will default to grpcs. Specify grpc:// or unix: schema to "
+              + "disable TLS.")
   public String remoteExecutor;
 
   @Option(
@@ -64,20 +87,109 @@ public final class RemoteOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "A URI of a caching endpoint. The supported schemas are http(s) and grpc. "
-              + "If no schema is provided we'll default to grpc. "
-              + "See https://docs.bazel.build/versions/master/remote-caching.html")
+          "A URI of a caching endpoint. The supported schemas are http, https, grpc, grpcs "
+              + "(grpc with TLS enabled) and unix (local UNIX sockets). If no schema is provided "
+              + "Bazel will default to grpcs. Specify grpc://, http:// or unix: schema to disable "
+              + "TLS. See https://docs.bazel.build/versions/master/remote-caching.html")
   public String remoteCache;
 
   @Option(
-      name = "remote_timeout",
-      defaultValue = "60",
+      name = "experimental_remote_downloader",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "The maximum number of seconds to wait for remote execution and cache calls. For the "
-              + "REST cache, this is both the connect and the read timeout.")
-  public int remoteTimeout;
+          "A Remote Asset API endpoint URI, to be used as a remote download proxy. The supported"
+              + " schemas are grpc, grpcs (grpc with TLS enabled) and unix (local UNIX sockets)."
+              + " If no schema is provided Bazel will default to grpcs. See: "
+              + "https://github.com/bazelbuild/remote-apis/blob/master/build/bazel/remote/asset/v1/remote_asset.proto")
+  public String remoteDownloader;
+
+  @Option(
+      name = "remote_header",
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specify a header that will be included in requests: --remote_header=Name=Value. "
+              + "Multiple headers can be passed by specifying the flag multiple times. Multiple "
+              + "values for the same name will be converted to a comma-separated list.",
+      allowMultiple = true)
+  public List<Entry<String, String>> remoteHeaders;
+
+  @Option(
+      name = "remote_cache_header",
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specify a header that will be included in cache requests: "
+              + "--remote_cache_header=Name=Value. "
+              + "Multiple headers can be passed by specifying the flag multiple times. Multiple "
+              + "values for the same name will be converted to a comma-separated list.",
+      allowMultiple = true)
+  public List<Entry<String, String>> remoteCacheHeaders;
+
+  @Option(
+      name = "remote_exec_header",
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specify a header that will be included in execution requests: "
+              + "--remote_exec_header=Name=Value. "
+              + "Multiple headers can be passed by specifying the flag multiple times. Multiple "
+              + "values for the same name will be converted to a comma-separated list.",
+      allowMultiple = true)
+  public List<Entry<String, String>> remoteExecHeaders;
+
+  @Option(
+      name = "remote_downloader_header",
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specify a header that will be included in remote downloader requests: "
+              + "--remote_downloader_header=Name=Value. "
+              + "Multiple headers can be passed by specifying the flag multiple times. Multiple "
+              + "values for the same name will be converted to a comma-separated list.",
+      allowMultiple = true)
+  public List<Entry<String, String>> remoteDownloaderHeaders;
+
+  @Option(
+      name = "remote_timeout",
+      defaultValue = "60s",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = RemoteTimeoutConverter.class,
+      help =
+          "The maximum amount of time to wait for remote execution and cache calls. For the REST"
+              + " cache, this is both the connect and the read timeout. Following units can be"
+              + " used: Days (d), hours (h), minutes (m), seconds (s), and milliseconds (ms). If"
+              + " the unit is omitted, the value is interpreted as seconds.")
+  public Duration remoteTimeout;
+
+  /** Returns the specified duration. Assumes seconds if unitless. */
+  public static class RemoteTimeoutConverter implements Converter<Duration> {
+    private static final Pattern UNITLESS_REGEX = Pattern.compile("^[0-9]+$");
+
+    @Override
+    public Duration convert(String input) throws OptionsParsingException {
+      if (UNITLESS_REGEX.matcher(input).matches()) {
+        input += "s";
+      }
+      return new Converters.DurationConverter().convert(input);
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "An immutable length of time.";
+    }
+  }
 
   @Option(
       name = "remote_accept_cached",
@@ -96,12 +208,13 @@ public final class RemoteOptions extends OptionsBase {
           "Whether to fall back to standalone local execution strategy if remote execution fails.")
   public boolean remoteLocalFallback;
 
+  @Deprecated
   @Option(
       name = "remote_local_fallback_strategy",
       defaultValue = "local",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "The strategy to use when remote execution has to fallback to local execution.")
+      help = "No-op, deprecated. See https://github.com/bazelbuild/bazel/issues/7480 for details.")
   public String remoteLocalFallbackStrategy;
 
   @Option(
@@ -113,42 +226,32 @@ public final class RemoteOptions extends OptionsBase {
   public boolean remoteUploadLocalResults;
 
   @Option(
+      name = "incompatible_remote_results_ignore_disk",
+      defaultValue = "false",
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, --noremote_upload_local_results and --noremote_accept_cached will not"
+              + " apply to the disk cache. If a combined cache is used:\n"
+              + "\t--noremote_upload_local_results will cause results to be written to the disk"
+              + " cache, but not uploaded to the remote cache.\n"
+              + "\t--noremote_accept_cached will result in Bazel checking for results in the disk"
+              + " cache, but not in the remote cache.\n"
+              + "See #8216 for details.")
+  public boolean incompatibleRemoteResultsIgnoreDisk;
+
+  @Option(
       name = "remote_instance_name",
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Value to pass as instance_name in the remote execution API.")
   public String remoteInstanceName;
-
-  @Deprecated
-  @Option(
-      name = "experimental_remote_retry",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      deprecationWarning = "Deprecated. Use --remote_retries instead.",
-      effectTags = {OptionEffectTag.NO_OP},
-      help = "This flag is deprecated and has no effect. Use --remote_retries instead.")
-  public boolean experimentalRemoteRetry;
-
-  @Deprecated
-  @Option(
-      name = "experimental_remote_retry_start_delay_millis",
-      defaultValue = "100",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      deprecationWarning = "Deprecated. Use --remote_retries instead.",
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "The initial delay before retrying a transient error. Use --remote_retries instead.")
-  public long experimentalRemoteRetryStartDelayMillis;
-
-  @Deprecated
-  @Option(
-      name = "experimental_remote_retry_max_delay_millis",
-      defaultValue = "5000",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      deprecationWarning = "Deprecated. Use --remote_retries instead.",
-      effectTags = {OptionEffectTag.NO_OP},
-      help = "This flag is deprecated and has no effect. Use --remote_retries instead.")
-  public long experimentalRemoteRetryMaxDelayMillis;
 
   @Option(
       name = "remote_retries",
@@ -160,26 +263,6 @@ public final class RemoteOptions extends OptionsBase {
           "The maximum number of attempts to retry a transient error. "
               + "If set to 0, retries are disabled.")
   public int remoteMaxRetryAttempts;
-
-  @Deprecated
-  @Option(
-      name = "experimental_remote_retry_multiplier",
-      defaultValue = "2",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      deprecationWarning = "Deprecated. Use --remote_retries instead.",
-      effectTags = {OptionEffectTag.NO_OP},
-      help = "This flag is deprecated and has no effect. Use --remote_retries instead.")
-  public double experimentalRemoteRetryMultiplier;
-
-  @Deprecated
-  @Option(
-      name = "experimental_remote_retry_jitter",
-      defaultValue = "0.1",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      deprecationWarning = "Deprecated. Use --remote_retries instead.",
-      effectTags = {OptionEffectTag.NO_OP},
-      help = "This flag is deprecated and has no effect. Use --remote_retries instead.")
-  public double experimentalRemoteRetryJitter;
 
   @Option(
       name = "disk_cache",
@@ -258,7 +341,8 @@ public final class RemoteOptions extends OptionsBase {
   public boolean allowSymlinkUpload;
 
   @Option(
-      name = "experimental_remote_download_outputs",
+      name = "remote_download_outputs",
+      oldName = "experimental_remote_download_outputs",
       defaultValue = "all",
       category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -266,8 +350,10 @@ public final class RemoteOptions extends OptionsBase {
       converter = RemoteOutputsStrategyConverter.class,
       help =
           "If set to 'minimal' doesn't download any remote build outputs to the local machine, "
-              + "except the ones required by local actions. This option can significantly reduce"
-              + " build times if network bandwidth is a bottleneck.")
+              + "except the ones required by local actions. If set to 'toplevel' behaves like"
+              + "'minimal' except that it also downloads outputs of top level targets to the local "
+              + "machine. Both options can significantly reduce build times if network bandwidth "
+              + "is a bottleneck.")
   public RemoteOutputsMode remoteOutputsMode;
 
   /** Outputs strategy flag parser */
@@ -276,6 +362,45 @@ public final class RemoteOptions extends OptionsBase {
       super(RemoteOutputsMode.class, "download remote outputs");
     }
   }
+
+  @Option(
+      name = "remote_download_minimal",
+      oldName = "experimental_remote_download_minimal",
+      defaultValue = "null",
+      expansion = {
+        "--nobuild_runfile_links",
+        "--experimental_inmemory_jdeps_files",
+        "--experimental_inmemory_dotd_files",
+        "--remote_download_outputs=minimal"
+      },
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Does not download any remote build outputs to the local machine. This flag is a "
+              + "shortcut for three flags: --experimental_inmemory_jdeps_files, "
+              + "--experimental_inmemory_dotd_files and "
+              + "--remote_download_outputs=minimal.")
+  public Void remoteOutputsMinimal;
+
+  @Option(
+      name = "remote_download_toplevel",
+      oldName = "experimental_remote_download_toplevel",
+      defaultValue = "null",
+      expansion = {
+        "--experimental_inmemory_jdeps_files",
+        "--experimental_inmemory_dotd_files",
+        "--remote_download_outputs=toplevel"
+      },
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Only downloads remote outputs of top level targets to the local machine. This flag is a "
+              + "shortcut for three flags: --experimental_inmemory_jdeps_files, "
+              + "--experimental_inmemory_dotd_files and "
+              + "--remote_download_outputs=toplevel.")
+  public Void remoteOutputsToplevel;
 
   @Option(
       name = "remote_result_cache_priority",
@@ -303,12 +428,27 @@ public final class RemoteOptions extends OptionsBase {
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
+      deprecationWarning =
+          "--remote_default_platform_properties has been deprecated in favor of"
+              + " --remote_default_exec_properties.",
       help =
           "Set the default platform properties to be set for the remote execution API, "
               + "if the execution platform does not already set remote_execution_properties. "
               + "This value will also be used if the host platform is selected as the execution "
               + "platform for remote execution.")
   public String remoteDefaultPlatformProperties;
+
+  @Option(
+      name = "remote_default_exec_properties",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      converter = AssignmentConverter.class,
+      allowMultiple = true,
+      help =
+          "Set the default exec properties to be used as the remote execution platform "
+              + "if an execution platform does not already set exec_properties.")
+  public List<Map.Entry<String, String>> remoteDefaultExecProperties;
 
   @Option(
       name = "remote_verify_downloads",
@@ -320,6 +460,21 @@ public final class RemoteOptions extends OptionsBase {
               + " discard the remotely cached values if they don't match the expected value.")
   public boolean remoteVerifyDownloads;
 
+  @Option(
+      name = "remote_download_symlink_template",
+      defaultValue = "",
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Instead of downloading remote build outputs to the local machine, create symbolic "
+              + "links. The target of the symbolic links can be specified in the form of a "
+              + "template string. This template string may contain {hash} and {size_bytes} that "
+              + "expand to the hash of the object and the size in bytes, respectively. "
+              + "These symbolic links may, for example, point to a FUSE file system "
+              + "that loads objects from the CAS on demand.")
+  public String remoteDownloadSymlinkTemplate;
+
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.
 
@@ -327,6 +482,62 @@ public final class RemoteOptions extends OptionsBase {
   public int maxOutboundMessageSize = 1024 * 1024;
 
   public boolean isRemoteEnabled() {
-    return !Strings.isNullOrEmpty(remoteCache) || !Strings.isNullOrEmpty(remoteExecutor);
+    return !Strings.isNullOrEmpty(remoteCache) || isRemoteExecutionEnabled();
+  }
+
+  public boolean isRemoteExecutionEnabled() {
+    return !Strings.isNullOrEmpty(remoteExecutor);
+  }
+
+  /**
+   * Returns the default exec properties specified by the user or an empty map if nothing was
+   * specified. Use this method instead of directly accessing the fields.
+   */
+  public SortedMap<String, String> getRemoteDefaultExecProperties() throws UserExecException {
+    boolean hasExecProperties = !remoteDefaultExecProperties.isEmpty();
+    boolean hasPlatformProperties = !remoteDefaultPlatformProperties.isEmpty();
+
+    if (hasExecProperties && hasPlatformProperties) {
+      throw new UserExecException(
+          createFailureDetail(
+              "Setting both --remote_default_platform_properties and "
+                  + "--remote_default_exec_properties is not allowed. Prefer setting "
+                  + "--remote_default_exec_properties.",
+              Code.INVALID_EXEC_AND_PLATFORM_PROPERTIES));
+    }
+
+    if (hasExecProperties) {
+      return ImmutableSortedMap.copyOf(remoteDefaultExecProperties);
+    }
+    if (hasPlatformProperties) {
+      // Try and use the provided default value.
+      final Platform platform;
+      try {
+        Platform.Builder builder = Platform.newBuilder();
+        TextFormat.getParser().merge(remoteDefaultPlatformProperties, builder);
+        platform = builder.build();
+      } catch (ParseException e) {
+        String message =
+            "Failed to parse --remote_default_platform_properties "
+                + remoteDefaultPlatformProperties;
+        throw new UserExecException(
+            e, createFailureDetail(message, Code.REMOTE_DEFAULT_PLATFORM_PROPERTIES_PARSE_FAILURE));
+      }
+
+      ImmutableSortedMap.Builder<String, String> builder = ImmutableSortedMap.naturalOrder();
+      for (Property property : platform.getPropertiesList()) {
+        builder.put(property.getName(), property.getValue());
+      }
+      return builder.build();
+    }
+
+    return ImmutableSortedMap.of();
+  }
+
+  private static FailureDetail createFailureDetail(String message, Code detailedCode) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setRemoteExecution(RemoteExecution.newBuilder().setCode(detailedCode))
+        .build();
   }
 }

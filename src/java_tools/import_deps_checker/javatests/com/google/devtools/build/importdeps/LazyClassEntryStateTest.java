@@ -14,7 +14,7 @@
 package com.google.devtools.build.importdeps;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -39,11 +39,12 @@ public class LazyClassEntryStateTest {
 
   @Test
   public void testExistingState() {
-    ExistingState state = ExistingState.create(LIST_CLASS_INFO);
+    ExistingState state = ExistingState.create(LIST_CLASS_INFO, /* direct= */ true);
 
     assertThat(state.isExistingState()).isTrue();
     assertThat(state.isIncompleteState()).isFalse();
     assertThat(state.isMissingState()).isFalse();
+    assertThat(state.direct()).isTrue();
 
     assertThat(state.asExistingState()).isSameInstanceAs(state);
     assertThrows(IllegalStateException.class, () -> state.asIncompleteState());

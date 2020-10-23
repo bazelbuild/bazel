@@ -14,6 +14,8 @@
 
 package com.google.testing.coverage;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -22,6 +24,7 @@ import org.jacoco.core.analysis.IClassCoverage;
 import org.jacoco.core.analysis.ICoverageVisitor;
 import org.jacoco.core.data.ExecutionData;
 import org.jacoco.core.data.ExecutionDataStore;
+import org.jacoco.core.internal.InputStreams;
 import org.jacoco.core.internal.data.CRC64;
 import org.jacoco.core.internal.flow.ClassProbesAdapter;
 import org.objectweb.asm.ClassReader;
@@ -38,21 +41,42 @@ public class BranchDetailAnalyzer extends Analyzer {
   private final Map<String, BranchCoverageDetail> branchDetails;
 
   public BranchDetailAnalyzer(final ExecutionDataStore executionData) {
-    super(executionData, new ICoverageVisitor() {
-      @Override
-      public void visitCoverage(IClassCoverage coverage) {
-      }
-    });
-
+    super(
+        executionData,
+        new ICoverageVisitor() {
+          @Override
+          public void visitCoverage(IClassCoverage coverage) {}
+        });
     this.executionData = executionData;
     this.branchDetails = new TreeMap<String, BranchCoverageDetail>();
+  }
+
+  // Override all analyzeClass methods.
+  @Override
+  public void analyzeClass(final InputStream input, final String location) throws IOException {
+    final byte[] buffer;
+    try {
+      buffer = InputStreams.readFully(input);
+    } catch (final IOException e) {
+      throw analyzerError(location, e);
+    }
+    analyzeClass(buffer, location);
+  }
+
+  @Override
+  public void analyzeClass(final byte[] buffer, final String location) throws IOException {
+    try {
+      analyzeClass(buffer);
+    } catch (final RuntimeException cause) {
+      throw analyzerError(location, cause);
+    }
   }
 
   @Override
   public void analyzeClass(final ClassReader reader) {
     final Map<Integer, BranchExp> lineToBranchExp = mapProbes(reader);
 
-    long classid = CRC64.checksum(reader.b);
+    long classid = CRC64.classId(reader.b);
     ExecutionData classData = executionData.get(classid);
     if (classData == null) {
       return;
@@ -76,6 +100,17 @@ public class BranchDetailAnalyzer extends Analyzer {
     if (detail.linesWithBranches().size() > 0) {
       branchDetails.put(reader.getClassName(), detail);
     }
+  }
+
+  private void analyzeClass(final byte[] source) {
+    final ClassReader reader = new ClassReader(source);
+    analyzeClass(reader);
+  }
+
+  private IOException analyzerError(final String location, final Exception cause) {
+    final IOException ex = new IOException(String.format("Error while analyzing %s.", location));
+    ex.initCause(cause);
+    return ex;
   }
 
   // Generate the line to probeExp map so that we can evaluate the coverage.

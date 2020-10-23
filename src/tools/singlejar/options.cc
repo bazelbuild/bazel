@@ -16,7 +16,7 @@
 
 #include "src/tools/singlejar/diag.h"
 
-void Options::ParseCommandLine(int argc, const char * const argv[]) {
+void Options::ParseCommandLine(int argc, const char *const argv[]) {
   ArgTokenStream tokens(argc, argv);
   std::string optarg;
   while (!tokens.AtEnd()) {
@@ -36,6 +36,7 @@ bool Options::ParseToken(ArgTokenStream *tokens) {
   if (tokens->MatchAndSet("--output", &output_jar) ||
       tokens->MatchAndSet("--main_class", &main_class) ||
       tokens->MatchAndSet("--java_launcher", &java_launcher) ||
+      tokens->MatchAndSet("--cds_archive", &cds_archive) ||
       tokens->MatchAndSet("--deploy_manifest_lines", &manifest_lines) ||
       tokens->MatchAndSet("--sources", &input_jars) ||
       tokens->MatchAndSet("--resources", &resources) ||
@@ -45,6 +46,8 @@ bool Options::ParseToken(ArgTokenStream *tokens) {
       tokens->MatchAndSet("--compression", &force_compression) ||
       tokens->MatchAndSet("--dont_change_compression", &preserve_compression) ||
       tokens->MatchAndSet("--normalize", &normalize_timestamps) ||
+      tokens->MatchAndSet("--add_missing_directories",
+                          &add_missing_directories) ||
       tokens->MatchAndSet("--no_duplicates", &no_duplicates) ||
       tokens->MatchAndSet("--verbose", &verbose) ||
       tokens->MatchAndSet("--warn_duplicate_resources",

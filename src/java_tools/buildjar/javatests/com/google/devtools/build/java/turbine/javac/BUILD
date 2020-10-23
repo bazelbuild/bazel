@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
+
 package(default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"])
 
 java_library(
@@ -78,4 +80,5 @@ filegroup(
     srcs = glob(["*.java"]) + [
         "BUILD",
     ],
+    visibility = ["//src:__subpackages__"],
 )

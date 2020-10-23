@@ -21,16 +21,15 @@
 """Convenience macro for skydoc tests."""
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
-load("@io_bazel_skydoc//stardoc:stardoc.bzl", "stardoc")
+load(":stardoc_for_testing.bzl", "stardoc")
 
 def skydoc_test(
         name,
         input_file,
         golden_file,
-        skydoc,
         deps = [],
-        whitelisted_symbols = [],
-        semantic_flags = []):
+        format = "html_tables",
+        **kwargs):
     """Creates a test target and golden-file regeneration target for skydoc testing.
 
     The test target is named "{name}_e2e_test".
@@ -38,22 +37,17 @@ def skydoc_test(
 
     Args:
       name: A unique name to qualify the created targets.
-      input_file: The label string of the skylark input file for which documentation is generated
+      input_file: The label string of the Starlark input file for which documentation is generated
           in this test.
       golden_file: The label string of the golden file containing the documentation when skydoc
           is run on the input file.
-      skydoc: The label string of the skydoc binary.
-      deps: A list of label strings of skylark file dependencies of the input_file.
-      whitelisted_symbols: A list of strings representing top-level symbols in the input file
-          to generate documentation for. If empty, documentation for all top-level symbols
-          will be generated.
-      semantic_flags: A list of canonical flags to affect Starlark semantics for the Starlark interpretter
-          during documentation generation. This should only be used to maintain compatibility with
-          non-default semantic flags required to use the given Starlark symbols. For example, if
-          <code>//foo:bar.bzl</code> does not build except when a user would specify
-          <code>--incompatible_foo_semantic=false</code>, then this attribute should contain
-          "--incompatible_foo_semantic=false"
-    """
+      deps: A list of label strings of Starlark file dependencies of the input_file.
+      format: The output format of stardoc to test.
+          Valid values: "custom", "html_tables", "markdown_tables", or "proto".
+          "html_tables" by default.
+      **kwargs: Remaining arguments to passthrough to the underlying stardoc rule.
+      """
+
     actual_generated_doc = "%s_output.txt" % name
 
     # Skydoc requires an absolute input file label to both load the target file and
@@ -79,12 +73,30 @@ def skydoc_test(
         deps = deps,
     )
 
+    # For rendering templates, use the templates under testdata/ instead of those of
+    # current Stardoc; these templates serve as 'staging' for changes to
+    # Stardoc's default templates.
+    if format == "html_tables":
+        kwargs["aspect_template"] = "test_templates/html_tables/aspect.vm"
+        kwargs["func_template"] = "test_templates/html_tables/func.vm"
+        kwargs["header_template"] = "test_templates/html_tables/header.vm"
+        kwargs["provider_template"] = "test_templates/html_tables/provider.vm"
+        kwargs["rule_template"] = "test_templates/html_tables/rule.vm"
+        format = "custom"
+    elif format == "markdown_tables":
+        kwargs["aspect_template"] = "test_templates/markdown_tables/aspect.vm"
+        kwargs["func_template"] = "test_templates/markdown_tables/func.vm"
+        kwargs["header_template"] = "test_templates/markdown_tables/header.vm"
+        kwargs["provider_template"] = "test_templates/markdown_tables/provider.vm"
+        kwargs["rule_template"] = "test_templates/markdown_tables/rule.vm"
+        format = "custom"
     stardoc(
         name = "regenerate_%s_golden" % name,
         out = actual_generated_doc,
         input = input_file,
-        symbol_names = whitelisted_symbols,
         deps = ["%s_lib" % name],
-        stardoc = skydoc,
-        semantic_flags = semantic_flags,
+        renderer = Label("//src/main/java/com/google/devtools/build/skydoc/renderer:renderer"),
+        stardoc = Label("//src/main/java/com/google/devtools/build/skydoc:skydoc"),
+        format = format,
+        **kwargs
     )

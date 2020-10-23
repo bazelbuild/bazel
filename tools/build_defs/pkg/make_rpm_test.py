@@ -148,6 +148,32 @@ class MakeRpmTest(unittest.TestCase):
           self.assertTrue(FileExists('BUILD/file2.txt'))
           self.assertCountEqual(['Goodbye'], FileContents('BUILD/file2.txt'))
 
+  def testBuild(self):
+    with make_rpm.Tempdir() as outer:
+      dummy = os.sep.join([outer, 'rpmbuild'])
+      WriteFile(
+          dummy,
+          '#!/bin/sh',
+          'mkdir -p RPMS',
+          'touch RPMS/test.rpm',
+          'echo "Wrote: $PWD/RPMS/test.rpm"',
+      )
+      os.chmod(dummy, 0o777)
+
+      with PrependPath([outer]):
+        # Create the builder and exercise it.
+        builder = make_rpm.RpmBuilder('test', '1.0', '0', 'x86', False, None)
+
+        # Create spec_file, test files.
+        WriteFile('test.spec', 'Name: test', 'Version: 0.1',
+                  'Summary: test data')
+
+        # Call RpmBuilder.
+        builder.Build('test.spec', 'test.rpm')
+
+        # Make sure files exist.
+        self.assertTrue(FileExists('test.rpm'))
+
 
 if __name__ == '__main__':
   unittest.main()

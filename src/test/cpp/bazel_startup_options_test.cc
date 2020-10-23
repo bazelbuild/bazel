@@ -16,6 +16,8 @@
 
 #include <stdlib.h>
 
+#include <memory>
+
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/workspace_layout.h"
 #include "src/test/cpp/test_util.h"
@@ -64,8 +66,21 @@ TEST_F(BazelStartupOptionsTest, JavaLoggingOptions) {
 }
 
 TEST_F(BazelStartupOptionsTest, EmptyFlagsAreInvalid) {
-  EXPECT_FALSE(startup_options_->IsNullary(""));
-  EXPECT_FALSE(startup_options_->IsNullary("--"));
+  {
+    bool result;
+    std::string error;
+    EXPECT_TRUE(startup_options_->MaybeCheckValidNullary("", &result, &error));
+    EXPECT_FALSE(result);
+  }
+
+  {
+    bool result;
+    std::string error;
+    EXPECT_TRUE(
+        startup_options_->MaybeCheckValidNullary("--", &result, &error));
+    EXPECT_FALSE(result);
+  }
+
   EXPECT_FALSE(startup_options_->IsUnary(""));
   EXPECT_FALSE(startup_options_->IsUnary("--"));
 }
@@ -78,44 +93,56 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   // member that knows the Google-internal procedure for adding/deprecating
   // startup flags.
   const StartupOptions* options = startup_options_.get();
-  ExpectIsNullaryOption(options, "batch");
-  ExpectIsNullaryOption(options, "batch_cpu_scheduling");
-  ExpectIsNullaryOption(options, "block_for_lock");
-  ExpectIsNullaryOption(options, "client_debug");
-  ExpectIsNullaryOption(options, "deep_execroot");
-  ExpectIsNullaryOption(options, "experimental_oom_more_eagerly");
-  ExpectIsNullaryOption(options, "fatal_event_bus_exceptions");
-  ExpectIsNullaryOption(options, "home_rc");
-  ExpectIsNullaryOption(options, "host_jvm_debug");
-  ExpectIsNullaryOption(options, "incompatible_windows_style_arg_escaping");
-  ExpectIsNullaryOption(options, "shutdown_on_low_sys_mem");
-  ExpectIsNullaryOption(options, "ignore_all_rc_files");
-  ExpectIsNullaryOption(options, "master_bazelrc");
-  ExpectIsNullaryOption(options, "system_rc");
-  ExpectIsNullaryOption(options, "watchfs");
-  ExpectIsNullaryOption(options, "workspace_rc");
-  ExpectIsNullaryOption(options, "write_command_log");
+  ExpectValidNullaryOption(options, "batch");
+  ExpectValidNullaryOption(options, "batch_cpu_scheduling");
+  ExpectValidNullaryOption(options, "block_for_lock");
+  ExpectValidNullaryOption(options, "client_debug");
+  ExpectValidNullaryOption(options, "fatal_event_bus_exceptions");
+  ExpectValidNullaryOption(options, "home_rc");
+  ExpectValidNullaryOption(options, "host_jvm_debug");
+  ExpectValidNullaryOption(options, "ignore_all_rc_files");
+  ExpectValidNullaryOption(options, "incompatible_enable_execution_transition");
+  ExpectValidNullaryOption(options, "master_bazelrc");
+  ExpectValidNullaryOption(options, "shutdown_on_low_sys_mem");
+  ExpectValidNullaryOption(options, "system_rc");
+  ExpectValidNullaryOption(options, "watchfs");
+  ExpectValidNullaryOption(options, "workspace_rc");
+  ExpectValidNullaryOption(options, "write_command_log");
   ExpectIsUnaryOption(options, "bazelrc");
   ExpectIsUnaryOption(options, "command_port");
   ExpectIsUnaryOption(options, "connect_timeout_secs");
   ExpectIsUnaryOption(options, "digest_function");
-  ExpectIsUnaryOption(options, "experimental_oom_more_eagerly_threshold");
-  ExpectIsUnaryOption(options, "server_javabase");
   ExpectIsUnaryOption(options, "host_jvm_args");
   ExpectIsUnaryOption(options, "host_jvm_profile");
+  ExpectIsUnaryOption(options, "install_base");
   ExpectIsUnaryOption(options, "invocation_policy");
   ExpectIsUnaryOption(options, "io_nice_level");
-  ExpectIsUnaryOption(options, "install_base");
   ExpectIsUnaryOption(options, "macos_qos_class");
   ExpectIsUnaryOption(options, "max_idle_secs");
   ExpectIsUnaryOption(options, "output_base");
   ExpectIsUnaryOption(options, "output_user_root");
+  ExpectIsUnaryOption(options, "server_javabase");
 }
 
 TEST_F(BazelStartupOptionsTest, BlazercFlagsAreNotAccepted) {
-  EXPECT_FALSE(startup_options_->IsNullary("--master_blazerc"));
+  {
+    bool result;
+    std::string error;
+    EXPECT_TRUE(startup_options_->MaybeCheckValidNullary("--master_blazerc",
+                                                         &result, &error));
+    EXPECT_FALSE(result);
+  }
+
   EXPECT_FALSE(startup_options_->IsUnary("--master_blazerc"));
-  EXPECT_FALSE(startup_options_->IsNullary("--blazerc"));
+
+  {
+    bool result;
+    std::string error;
+    EXPECT_TRUE(
+        startup_options_->MaybeCheckValidNullary("--blazerc", &result, &error));
+    EXPECT_FALSE(result);
+  }
+
   EXPECT_FALSE(startup_options_->IsUnary("--blazerc"));
 }
 

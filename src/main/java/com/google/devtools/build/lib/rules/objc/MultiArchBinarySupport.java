@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -39,7 +38,6 @@ import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
-import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
 import java.util.Map;
@@ -59,7 +57,7 @@ public class MultiArchBinarySupport {
       RuleContext ruleContext) {
     ImmutableListMultimap<BuildConfiguration, ToolchainInfo> configToProvider =
         ruleContext.getPrerequisitesByConfiguration(
-            ObjcRuleClasses.CHILD_CONFIG_ATTR, Mode.SPLIT, ToolchainInfo.PROVIDER);
+            ObjcRuleClasses.CHILD_CONFIG_ATTR, ToolchainInfo.PROVIDER);
 
     ImmutableMap.Builder<BuildConfiguration, CcToolchainProvider> result = ImmutableMap.builder();
     for (BuildConfiguration config : configToProvider.keySet()) {
@@ -132,8 +130,9 @@ public class MultiArchBinarySupport {
    *     corresponds to child configurations for this target. Can be obtained via {@link
    *     #getDependencySpecificConfigurations}
    * @param extraLinkInputs the extra linker inputs to be made available during link actions
-   * @param cpuToDepsCollectionMap a multimap from dependency configuration to the list of
-   *     provider collections which are propagated from the dependencies of that configuration
+   * @param isStampingEnabled whether linkstamping is enabled
+   * @param cpuToDepsCollectionMap a multimap from dependency configuration to the list of provider
+   *     collections which are propagated from the dependencies of that configuration
    * @param outputMapCollector a map to which output groups created by compile action generation are
    *     added
    * @return a set containing all single-architecture binaries that are linked from this call
@@ -143,6 +142,7 @@ public class MultiArchBinarySupport {
       ExtraLinkArgs extraLinkArgs,
       Set<DependencySpecificConfiguration> dependencySpecificConfigurations,
       Iterable<Artifact> extraLinkInputs,
+      boolean isStampingEnabled,
       ListMultimap<String, TransitiveInfoCollection> cpuToDepsCollectionMap,
       Map<String, NestedSet<Artifact>> outputMapCollector)
       throws RuleErrorException, InterruptedException {
@@ -181,15 +181,14 @@ public class MultiArchBinarySupport {
               .build();
 
       compilationSupport
-          .registerCompileAndArchiveActions(
-              compilationArtifacts, objcProvider, dependencySpecificConfiguration.toolchain())
+          .registerCompileAndArchiveActions(compilationArtifacts, ObjcCompilationContext.EMPTY)
           .registerLinkActions(
               objcProvider,
               j2ObjcMappingFileProvider,
               j2ObjcEntryClassProvider,
               extraLinkArgs,
               extraLinkInputs,
-              dependencySpecificConfiguration.toolchain())
+              isStampingEnabled)
           .validateAttributes();
       ruleContext.assertNoErrors();
     }
@@ -214,19 +213,19 @@ public class MultiArchBinarySupport {
       Map<BuildConfiguration, CcToolchainProvider> childConfigurationsAndToolchains,
       ImmutableListMultimap<String, TransitiveInfoCollection> cpuToDepsCollectionMap,
       ImmutableListMultimap<String, ConfiguredTargetAndData> cpuToCTATDepsCollectionMap,
-      Iterable<TransitiveInfoCollection> dylibProviders)
+      ImmutableList<TransitiveInfoCollection> dylibProviders)
       throws RuleErrorException, InterruptedException {
     Iterable<ObjcProvider> dylibObjcProviders = getDylibObjcProviders(dylibProviders);
     Iterable<ObjcProtoProvider> dylibProtoProviders =
-        getTypedProviders(dylibProviders, ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+        getTypedProviders(dylibProviders, ObjcProtoProvider.STARLARK_CONSTRUCTOR);
     NestedSet<Artifact> protosToAvoid = protoArtifactsToAvoid(dylibProtoProviders);
     ImmutableSet.Builder<DependencySpecificConfiguration> childInfoBuilder = ImmutableSet.builder();
 
     for (BuildConfiguration childToolchainConfig : childConfigurationsAndToolchains.keySet()) {
       String childCpu = childToolchainConfig.getCpu();
       Iterable<TransitiveInfoCollection> infoCollections = cpuToDepsCollectionMap.get(childCpu);
-      Iterable<ObjcProtoProvider> depProtoProviders =
-          getTypedProviders(infoCollections, ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+      ImmutableList<ObjcProtoProvider> depProtoProviders =
+          getTypedProviders(infoCollections, ObjcProtoProvider.STARLARK_CONSTRUCTOR);
       Optional<ObjcProvider> protosObjcProvider;
       if (ObjcRuleClasses.objcConfiguration(ruleContext).enableAppleBinaryNativeProtos()) {
         ProtobufSupport protoSupport =
@@ -234,12 +233,11 @@ public class MultiArchBinarySupport {
                     ruleContext,
                     childToolchainConfig,
                     protosToAvoid,
-                    ImmutableList.<ProtoInfo>of(),
                     depProtoProviders,
                     ProtobufSupport.getTransitivePortableProtoFilters(depProtoProviders),
                     childConfigurationsAndToolchains.get(childToolchainConfig))
-                .registerGenerationActions()
-                .registerCompilationActions();
+                .registerGenerationAction()
+                .registerCompilationAction();
         protosObjcProvider = protoSupport.getObjcProvider();
       } else {
         protosObjcProvider = Optional.absent();
@@ -260,7 +258,7 @@ public class MultiArchBinarySupport {
               intermediateArtifacts,
               nullToEmptyList(cpuToCTATDepsCollectionMap.get(childCpu)),
               additionalDepProviders);
-      ObjcProvider objcProviderWithDylibSymbols = common.getObjcProvider();
+      ObjcProvider objcProviderWithDylibSymbols = common.getObjcProviderBuilder().build();
       ObjcProvider objcProvider =
           objcProviderWithDylibSymbols.subtractSubtrees(dylibObjcProviders, ImmutableList.of());
 
@@ -276,22 +274,24 @@ public class MultiArchBinarySupport {
   }
 
   private static Iterable<ObjcProvider> getDylibObjcProviders(
-      Iterable<TransitiveInfoCollection> transitiveInfoCollections) {
+      ImmutableList<TransitiveInfoCollection> transitiveInfoCollections) {
     // Dylibs.
-    Iterable<ObjcProvider> frameworkObjcProviders =
-        Streams.stream(getTypedProviders(transitiveInfoCollections,
-            AppleDynamicFrameworkInfo.SKYLARK_CONSTRUCTOR))
-        .map(frameworkProvider -> frameworkProvider.getDepsObjcProvider())
-        .collect(ImmutableList.toImmutableList());
+    ImmutableList<ObjcProvider> frameworkObjcProviders =
+        getTypedProviders(transitiveInfoCollections, AppleDynamicFrameworkInfo.STARLARK_CONSTRUCTOR)
+            .stream()
+            .map(frameworkProvider -> frameworkProvider.getDepsObjcProvider())
+            .collect(ImmutableList.toImmutableList());
     // Bundle Loaders.
-    Iterable<ObjcProvider> executableObjcProviders =
-        Streams.stream(getTypedProviders(transitiveInfoCollections,
-            AppleExecutableBinaryInfo.SKYLARK_CONSTRUCTOR))
-        .map(frameworkProvider -> frameworkProvider.getDepsObjcProvider())
-        .collect(ImmutableList.toImmutableList());
+    ImmutableList<ObjcProvider> executableObjcProviders =
+        getTypedProviders(transitiveInfoCollections, AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR)
+            .stream()
+            .map(frameworkProvider -> frameworkProvider.getDepsObjcProvider())
+            .collect(ImmutableList.toImmutableList());
 
-    return Iterables.concat(frameworkObjcProviders, executableObjcProviders,
-        getTypedProviders(transitiveInfoCollections, ObjcProvider.SKYLARK_CONSTRUCTOR));
+    return Iterables.concat(
+        frameworkObjcProviders,
+        executableObjcProviders,
+        getTypedProviders(transitiveInfoCollections, ObjcProvider.STARLARK_CONSTRUCTOR));
   }
 
   private ObjcCommon common(
@@ -302,7 +302,7 @@ public class MultiArchBinarySupport {
       Iterable<ObjcProvider> additionalDepProviders) throws InterruptedException {
 
     ObjcCommon.Builder commonBuilder =
-        new ObjcCommon.Builder(ruleContext, buildConfiguration)
+        new ObjcCommon.Builder(ObjcCommon.Purpose.LINK_ONLY, ruleContext, buildConfiguration)
             .setCompilationAttributes(
                 CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
             .addDeps(propagatedConfiguredTargetAndDataDeps)
@@ -322,35 +322,30 @@ public class MultiArchBinarySupport {
       Iterable<ObjcProtoProvider> avoidedProviders) {
     NestedSetBuilder<Artifact> avoidArtifacts = NestedSetBuilder.stableOrder();
     for (ObjcProtoProvider avoidProvider : avoidedProviders) {
-      for (NestedSet<Artifact> avoidProviderOutputGroup : avoidProvider.getProtoGroups()) {
-        avoidArtifacts.addTransitive(avoidProviderOutputGroup);
-      }
+      avoidArtifacts.addTransitive(avoidProvider.getProtoFiles());
     }
     return avoidArtifacts.build();
   }
 
   @Deprecated // Use BuiltinProvider instead.
-  private static <T extends Info> Iterable<T> getTypedProviders(
-      Iterable<TransitiveInfoCollection> infoCollections,
-      NativeProvider<T> providerClass) {
+  private static <T extends Info> ImmutableList<T> getTypedProviders(
+      Iterable<TransitiveInfoCollection> infoCollections, NativeProvider<T> providerClass) {
     return Streams.stream(infoCollections)
         .filter(infoCollection -> infoCollection.get(providerClass) != null)
         .map(infoCollection -> infoCollection.get(providerClass))
         .collect(ImmutableList.toImmutableList());
   }
 
-  private static <T extends Info> Iterable<T> getTypedProviders(
-      Iterable<TransitiveInfoCollection> infoCollections,
-      BuiltinProvider<T> providerClass) {
+  private static <T extends Info> ImmutableList<T> getTypedProviders(
+      Iterable<TransitiveInfoCollection> infoCollections, BuiltinProvider<T> providerClass) {
     return Streams.stream(infoCollections)
         .filter(infoCollection -> infoCollection.get(providerClass) != null)
         .map(infoCollection -> infoCollection.get(providerClass))
         .collect(ImmutableList.toImmutableList());
   }
 
-  private static <T extends TransitiveInfoProvider> Iterable<T> getTypedProviders(
-      Iterable<TransitiveInfoCollection> infoCollections,
-      Class<T> providerClass) {
+  private static <T extends TransitiveInfoProvider> ImmutableList<T> getTypedProviders(
+      Iterable<TransitiveInfoCollection> infoCollections, Class<T> providerClass) {
     return Streams.stream(infoCollections)
         .filter(infoCollection -> infoCollection.getProvider(providerClass) != null)
         .map(infoCollection -> infoCollection.getProvider(providerClass))

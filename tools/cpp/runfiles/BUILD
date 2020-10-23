@@ -1,5 +1,7 @@
 package(default_visibility = ["//visibility:private"])
 
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+
 filegroup(
     name = "srcs",
     srcs = glob(
@@ -61,7 +63,6 @@ cc_test(
     visibility = ["//visibility:public"],
     deps = [
         ":runfiles",
-        "//src/main/cpp/util:filesystem",
         "@com_google_googletest//:gtest_main",
     ],
 )

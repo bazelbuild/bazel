@@ -13,12 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.includescanning;
 
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Hints;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.IncludeScanning;
+import com.google.devtools.build.lib.server.FailureDetails.IncludeScanning.Code;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -35,8 +37,8 @@ import javax.annotation.Nullable;
  * INCLUDE_HINTS file.
  */
 public class IncludeHintsFunction implements SkyFunction {
-  // TODO(b/111722810): We don't re-run compiles if INCLUDE_HINTS file changes, because it is not
-  // present in the action graph. This is an incremental compilation bug.
+  // TODO(b/111722810): the action cache is not sensitive to changes in the INCLUDE_HINTS file, so
+  //  even though Skyframe handles changes, we may still not re-execute an affected action.
   @AutoCodec
   public static final SkyKey INCLUDE_HINTS_KEY =
       (SkyKey) () -> IncludeScanningSkyFunctions.INCLUDE_HINTS;
@@ -60,14 +62,26 @@ public class IncludeHintsFunction implements SkyFunction {
       if (env.valuesMissing()) {
         return null;
       }
-      Preconditions.checkState(hintsLookupValue.hasContainingPackage(), "%s %s",
-          hintsFile, hintsLookupValue);
+      if (!hintsLookupValue.hasContainingPackage()) {
+        String reasonForNoContainingPackage = hintsLookupValue.getReasonForNoContainingPackage();
+        String message =
+            String.format(
+                "INCLUDE_HINTS file %s was not in a package%s",
+                hintsFile,
+                reasonForNoContainingPackage != null ? ": " + reasonForNoContainingPackage : "");
+        throw new IncludeHintsFunctionException(
+            new EnvironmentalExecException(
+                createFailureDetail(message, Code.INCLUDE_HINTS_FILE_NOT_IN_PACKAGE)));
+      }
       hintsPackageRoot = hintsLookupValue.getContainingPackageRoot();
       env.getValueOrThrow(FileValue.key(RootedPath.toRootedPath(hintsPackageRoot, hintsFile)),
           IOException.class);
     } catch (IOException | BuildFileNotFoundException e) {
-      throw new IncludeHintsFunctionException(new EnvironmentalExecException(
-          "could not read INCLUDE_HINTS file", e));
+      throw new IncludeHintsFunctionException(
+          new EnvironmentalExecException(
+              e,
+              createFailureDetail(
+                  "could not read INCLUDE_HINTS file", Code.INCLUDE_HINTS_READ_FAILURE)));
     }
     if (env.valuesMissing()) {
       return null;
@@ -75,8 +89,11 @@ public class IncludeHintsFunction implements SkyFunction {
     try {
       return Hints.getRules(hintsPackageRoot.getRelative(hintsFile));
     } catch (IOException e) {
-      throw new IncludeHintsFunctionException(new EnvironmentalExecException(
-          "could not read INCLUDE_HINTS file", e));
+      throw new IncludeHintsFunctionException(
+          new EnvironmentalExecException(
+              e,
+              createFailureDetail(
+                  "could not read INCLUDE_HINTS file", Code.INCLUDE_HINTS_READ_FAILURE)));
     }
   }
 
@@ -84,6 +101,13 @@ public class IncludeHintsFunction implements SkyFunction {
   @Override
   public String extractTag(SkyKey skyKey) {
     return null;
+  }
+
+  private static FailureDetail createFailureDetail(String message, Code detailedCode) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setIncludeScanning(IncludeScanning.newBuilder().setCode(detailedCode))
+        .build();
   }
 
   /**

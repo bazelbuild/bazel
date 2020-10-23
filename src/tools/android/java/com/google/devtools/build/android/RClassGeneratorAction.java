@@ -93,17 +93,16 @@ public class RClassGeneratorAction {
     public String packageForR;
 
     @Option(
-      name = "library",
-      allowMultiple = true,
-      defaultValue = "",
-      converter = DependencySymbolFileProviderConverter.class,
-      category = "input",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "R.txt and manifests for the libraries in this binary's deps. We will write "
-              + "class files for the libraries as well. Expected format: lib1/R.txt[:lib2/R.txt]"
-    )
+        name = "library",
+        allowMultiple = true,
+        defaultValue = "null",
+        converter = DependencySymbolFileProviderConverter.class,
+        category = "input",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "R.txt and manifests for the libraries in this binary's deps. We will write "
+                + "class files for the libraries as well. Expected format: lib1/R.txt[:lib2/R.txt]")
     public List<DependencySymbolFileProvider> libraries;
 
     @Option(
@@ -148,9 +147,11 @@ public class RClassGeneratorAction {
 
   public static void main(String[] args) throws Exception {
     final Stopwatch timer = Stopwatch.createStarted();
-    OptionsParser optionsParser = OptionsParser.newOptionsParser(Options.class);
-    optionsParser.enableParamsFileSupport(
-        new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
+    OptionsParser optionsParser =
+        OptionsParser.builder()
+            .optionsClasses(Options.class, ResourceProcessorCommonOptions.class)
+            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
+            .build();
     optionsParser.parseAndExitUponError(args);
     Options options = optionsParser.getOptions(Options.class);
     Preconditions.checkNotNull(options.classJarOutput);
@@ -187,7 +188,7 @@ public class RClassGeneratorAction {
         logger.fine(
             String.format("Load symbols finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
         // For now, assuming not used for libraries and setting final access for fields.
-        fullSymbolValues.writeClassesTo(libSymbolMap, null, classOutPath, options.finalFields);
+        fullSymbolValues.writeClassesTo(libSymbolMap, null, classOutPath, true);
         logger.fine(
             String.format("Finished R.class at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
       } else {

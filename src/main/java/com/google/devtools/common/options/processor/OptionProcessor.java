@@ -19,6 +19,7 @@ import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.ExpansionFunction;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
@@ -56,17 +57,20 @@ import javax.tools.Diagnostic;
  * Annotation processor for {@link Option}.
  *
  * <p>Checks the following invariants about {@link Option}-annotated fields ("options"):
+ *
  * <ul>
- * <li>The {@link OptionsParser} only accepts options in {@link OptionsBase}-inheriting classes
- * <li>All options must be declared publicly and be neither static nor final.
- * <li>All options that must be used on the command line must have sensible names without
+ *   <li>The {@link OptionsParser} only accepts options in {@link OptionsBase}-inheriting classes
+ *   <li>All options must be declared publicly and be neither static nor final.
+ *   <li>All options that must be used on the command line must have sensible names without
  *       whitespace or other confusing characters, such as equal signs.
- * <li>The type of the option must match the converter that will convert the unparsed string value
+ *   <li>The type of the option must match the converter that will convert the unparsed string value
  *       into the option type. For options that do not specify a converter, check that there is a
  *       valid match in the {@link Converters#DEFAULT_CONVERTERS} list.
- * <li>Options must list valid combinations of tags and documentation categories.
- * <li>Expansion options and options with implicit requirements cannot expand in more than one way,
- *       how multiple expansions would interact is not defined and should not be necessary.
+ *   <li>Options must list valid combinations of tags and documentation categories.
+ *   <li>Expansion options and options with implicit requirements cannot expand in more than one
+ *       way, how multiple expansions would interact is not defined and should not be necessary.
+ *   <li>Multiple options must not declare default value (see {@link
+ *       #MULTIPLE_OPTIONS_DEFAULT_VALUE_EXCEPTIONS} for exceptions).
  * </ul>
  *
  * <p>These properties can be relied upon at runtime without additional checks.
@@ -278,9 +282,7 @@ public final class OptionProcessor extends AbstractProcessor {
     // instead check that T of Converter<T> matches the option's type, but this is all we can
     // do.
     List<ExecutableElement> methodList =
-        elementUtils
-            .getAllMembers(converterElement)
-            .stream()
+        elementUtils.getAllMembers(converterElement).stream()
             .filter(element -> element.getKind() == ElementKind.METHOD)
             .map(methodElement -> (ExecutableElement) methodElement)
             .filter(methodElement -> methodElement.getSimpleName().contentEquals("convert"))
@@ -487,6 +489,46 @@ public final class OptionProcessor extends AbstractProcessor {
     }
   }
 
+  private static boolean hasSpecialNullDefaultValue(Option annotation) {
+    return OptionDefinition.SPECIAL_NULL_DEFAULT_VALUE.equals(annotation.defaultValue());
+  }
+
+  /**
+   * Options that are allowed to have default values.
+   *
+   * <p>DO NOT ADD new (especially production) options here - the long-term goal is to prohibit
+   * multiple options to have default values.
+   */
+  private static final ImmutableList<String> MULTIPLE_OPTIONS_DEFAULT_VALUE_EXCEPTIONS =
+      ImmutableList.of(
+          // Multiple options used in OptionDefinitionTest
+          "non_empty_string_multiple_option",
+          "empty_string_multiple_option",
+          // Production multiple options that still have default value.
+          // Mostly due to backward compatibility reasons.
+          "runs_per_test",
+          "flaky_test_attempts",
+          "worker_max_instances");
+
+  private static boolean isMultipleOptionDefaultValueException(Option annotation) {
+    return MULTIPLE_OPTIONS_DEFAULT_VALUE_EXCEPTIONS.contains(annotation.name());
+  }
+
+  private static void checkNoDefaultValueForMultipleOption(VariableElement optionField)
+      throws OptionProcessorException {
+    Option annotation = optionField.getAnnotation(Option.class);
+
+    if (annotation.allowMultiple()
+        && !hasSpecialNullDefaultValue(annotation)
+        && !isMultipleOptionDefaultValueException(annotation)) {
+      String message =
+          String.format(
+              "Default values for multiple options are not allowed - use \"%s\" special value",
+              "null");
+      throw new OptionProcessorException(optionField, message);
+    }
+  }
+
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
     for (Element annotatedElement : roundEnv.getElementsAnnotatedWith(Option.class)) {
@@ -503,12 +545,12 @@ public final class OptionProcessor extends AbstractProcessor {
         checkConverter(optionField);
         checkEffectTagRationality(optionField);
         checkMetadataTagAndCategoryRationality(optionField);
+        checkNoDefaultValueForMultipleOption(optionField);
       } catch (OptionProcessorException e) {
         error(e.getElementInError(), e.getMessage());
       }
     }
-    // Claim all Option annotated fields.
-    return true;
+    return false;
   }
 
   /**

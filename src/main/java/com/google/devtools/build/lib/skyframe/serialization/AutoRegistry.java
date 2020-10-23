@@ -34,15 +34,19 @@ public class AutoRegistry {
   private static final Supplier<ObjectCodecRegistry> SUPPLIER =
       Suppliers.memoize(AutoRegistry::create);
 
-  /* Common ancestor of common.google.devtools.build and com.google.devtools.common.options,
-   * where Tristate lives. */
-  private static final String PACKAGE_PREFIX = "com.google.devtools";
+  // Build codecs only for Bazel and Starlark classes.
+  private static boolean packageFilter(String name) {
+    return name.startsWith("com.google.devtools.build")
+        || name.startsWith("com.google.devtools.common.options") // e.g. for Tristate
+        || name.startsWith("net.starlark.java");
+  }
 
   /** Class name prefixes to blacklist for {@link DynamicCodec}. */
   private static final ImmutableList<String> CLASS_NAME_PREFIX_BLACKLIST =
       ImmutableList.of(
           "com.google.devtools.build.lib.google",
           "com.google.devtools.build.lib.vfs",
+          "com.google.devtools.build.lib.bazel.rules.ninja",
           "com.google.devtools.build.lib.actions.ArtifactFactory",
           "com.google.devtools.build.lib.packages.PackageFactory$BuiltInRuleFunction",
           "com.google.devtools.build.skyframe.SkyFunctionEnvironment");
@@ -55,9 +59,9 @@ public class AutoRegistry {
           "java.lang.StackTraceElement",
           "java.lang.invoke.SerializedLambda",
           "com.google.common.base.Predicates$InPredicate",
-          // Sadly, these builders are serialized as part of SkylarkCustomCommandLine$Builder, which
-          // apparently can be preserved through analysis. We may investigate if this actually has
-          // performance/correctness implications.
+          // Sadly, these builders are serialized as part of StarlarkCustomCommandLine$Builder,
+          // which apparently can be preserved through analysis. We may investigate if this actually
+          // has performance/correctness implications.
           "com.google.common.collect.ImmutableList$Builder");
 
   private static final ImmutableList<Object> REFERENCE_CONSTANTS_TO_REGISTER =
@@ -77,7 +81,8 @@ public class AutoRegistry {
 
   private static ObjectCodecRegistry create() {
     try {
-      ObjectCodecRegistry.Builder registry = CodecScanner.initializeCodecRegistry(PACKAGE_PREFIX);
+      ObjectCodecRegistry.Builder registry =
+          CodecScanner.initializeCodecRegistry(AutoRegistry::packageFilter);
       for (String className : EXTERNAL_CLASS_NAMES_TO_REGISTER) {
         registry.addClassName(className);
       }

@@ -26,9 +26,6 @@ source "${CURRENT_DIR}/remote_helpers.sh" \
 function set_up() {
   bazel clean --expunge >& $TEST_log
   repo_cache_dir=$TEST_TMPDIR/repository_cache
-  # TODO(b/37617303): make test UI-independent
-  add_to_bazelrc "fetch --noexperimental_ui"
-  add_to_bazelrc "build --noexperimental_ui"
 }
 
 function tear_down() {
@@ -41,7 +38,8 @@ function setup_repository() {
 
   # Test with the extension
   serve_file $repo2_zip
-  cat > WORKSPACE <<EOF
+  rm WORKSPACE
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
@@ -53,14 +51,14 @@ http_archive(
 EOF
 }
 
-function setup_skylark_repository() {
+function setup_starlark_repository() {
   # Prepare HTTP server with Python
   local server_dir="${TEST_TMPDIR}/server_dir"
   mkdir -p "${server_dir}"
 
   zip_file="${server_dir}/zip_file.zip"
 
-  touch "${server_dir}"/WORKSPACE
+  create_workspace_with_default_repos "${server_dir}"/WORKSPACE
   echo "some content" > "${server_dir}"/file
   zip -0 -ry $zip_file "${server_dir}"/WORKSPACE "${server_dir}"/file >& $TEST_log
 
@@ -69,46 +67,11 @@ function setup_skylark_repository() {
   # Start HTTP server with Python
   startup_server "${server_dir}"
 
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('//:test.bzl', 'repo')
 repo(name = 'foo')
 EOF
   touch BUILD
-}
-
-function setup_maven_repository() {
-  mkdir -p zoo
-  cat > zoo/BUILD <<EOF
-java_binary(
-    name = "ball-pit",
-    srcs = ["BallPit.java"],
-    main_class = "BallPit",
-    deps = ["//external:mongoose"],
-)
-EOF
-
-  cat > zoo/BallPit.java <<EOF
-import carnivore.Mongoose;
-
-public class BallPit {
-    public static void main(String args[]) {
-        Mongoose.frolic();
-    }
-}
-EOF
-
-  serve_artifact com.example.carnivore carnivore 1.23
-
-  cat > WORKSPACE <<EOF
-maven_jar(
-    name = 'endangered',
-    artifact = "com.example.carnivore:carnivore:1.23",
-    repository = 'http://localhost:$fileserver_port/',
-    sha1 = '$sha1',
-    sha1_src = '$sha1_src',
-)
-bind(name = 'mongoose', actual = '@endangered//jar')
-EOF
 }
 
 # Test downloading a file from a repository.
@@ -169,7 +132,7 @@ EOF
   mkdir -p zoo
 
   if [[ $write_workspace = 0 ]]; then
-    cat > WORKSPACE <<EOF
+    cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
@@ -289,19 +252,26 @@ function test_write_cache_without_hash() {
   setup_repository
 
   # Have a WORKSPACE file without the specified sha256
-  cat > WORKSPACE <<EOF
+  rm WORKSPACE
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = 'endangered',
-    url = 'http://localhost:$nc_port/bleh',
+    url = 'file://$repo2_zip',
     type = 'zip',
-)
+    )
 EOF
 
   # Fetch; as we did not specify a hash, we expect bazel to tell us the hash
   # in an info message.
-  bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
+  #
+  # The intended use case is, of course, downloading from a known-to-be-good
+  # upstream https site. Here we test with plain http, which we have to allow
+  # to do without checksum. But we can safely do so, as the loopback device
+  # is reasonably safe against man-in-the-middle attacks.
+  bazel fetch --repository_cache="$repo_cache_dir" \
+        //zoo:breeding-program >& $TEST_log \
     || fail "expected fetch to succeed"
 
   expect_log "${sha256}"
@@ -309,13 +279,15 @@ EOF
   # Shutdown the server; so fetching again won't work
   shutdown_server
   bazel clean --expunge
+  rm -f $repo2_zip
 
   # As we don't have a predicted cache, we expect fetching to fail now.
   bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
     && fail "expected failure" || :
 
   # However, if we add the hash, the value is taken from cache
-  cat > WORKSPACE <<EOF
+  rm WORKSPACE
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
@@ -349,8 +321,8 @@ function test_failed_fetch_without_cache() {
   expect_log "Error downloading"
 }
 
-function test_skylark_download_file_exists_in_cache() {
-  setup_skylark_repository
+function test_starlark_download_file_exists_in_cache() {
+  setup_starlark_repository
 
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
@@ -368,8 +340,8 @@ EOF
   fi
 }
 
-function test_skylark_download_and_extract_file_exists_in_cache() {
-  setup_skylark_repository
+function test_starlark_download_and_extract_file_exists_in_cache() {
+  setup_starlark_repository
 
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
@@ -387,8 +359,8 @@ EOF
   fi
 }
 
-function test_load_cached_value_skylark_download() {
-  setup_skylark_repository
+function test_load_cached_value_starlark_download() {
+  setup_starlark_repository
 
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
@@ -412,8 +384,8 @@ EOF
   expect_log "All external dependencies fetched successfully"
 }
 
-function test_skylark_download_fail_without_cache() {
-  setup_skylark_repository
+function test_starlark_download_fail_without_cache() {
+  setup_starlark_repository
 
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
@@ -440,8 +412,8 @@ EOF
   expect_log "Error downloading"
 }
 
-function test_load_cached_value_skylark_download_and_extract() {
-  setup_skylark_repository
+function test_load_cached_value_starlark_download_and_extract() {
+  setup_starlark_repository
 
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
@@ -465,8 +437,8 @@ EOF
   expect_log "All external dependencies fetched successfully"
 }
 
-function test_skylark_download_and_extract_fail_without_cache() {
-  setup_skylark_repository
+function test_starlark_download_and_extract_fail_without_cache() {
+  setup_starlark_repository
 
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
@@ -491,58 +463,6 @@ EOF
     && echo "Expected fetch to fail"
 
   expect_log "Error downloading"
-}
-
-function test_maven_jar_exists_in_cache() {
-  setup_maven_repository
-
-  bazel fetch --repository_cache="$repo_cache_dir" //zoo:ball-pit >& $TEST_log \
-    || echo "Expected fetch to succeed"
-
-  if [ ! -f $repo_cache_dir/content_addressable/sha1/$sha1/file ]; then
-    fail "the jar file was not cached successfully"
-  fi
-
-  if [ ! -f $repo_cache_dir/content_addressable/sha1/$sha1_src/file ]; then
-    fail "the sources file was not cached successfully"
-  fi
-}
-
-function test_load_cached_value_maven_jar() {
-  setup_maven_repository
-
-  bazel fetch --repository_cache="$repo_cache_dir" //zoo:ball-pit >& $TEST_log \
-    || echo "Expected fetch to succeed"
-
-  # Kill the server
-  shutdown_server
-  bazel clean --expunge
-
-  # Fetch again
-  bazel fetch --repository_cache="$repo_cache_dir" //zoo:ball-pit >& $TEST_log \
-    || echo "Expected fetch to succeed"
-
-  expect_log "All external dependencies fetched successfully"
-}
-
-function test_maven_jar_fail_without_cache() {
-  setup_maven_repository
-
-  bazel fetch --repository_cache="$repo_cache_dir" //zoo:ball-pit >& $TEST_log \
-    || echo "Expected fetch to succeed"
-
-  # Kill the server
-  shutdown_server
-  bazel clean --expunge
-
-  # Clean the repository cache
-  rm -rf "$repo_cache_dir"
-
-  # Fetch again
-  bazel fetch --repository_cache="$repo_cache_dir" //zoo:ball-pit >& $TEST_log \
-    && echo "Expected fetch to fail"
-
-  expect_log "Failed to fetch Maven dependency"
 }
 
 run_suite "repository cache tests"

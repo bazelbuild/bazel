@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -20,19 +21,22 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.Artifact.MissingExpansionException;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetManifest;
+import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehavior;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
-import com.google.devtools.build.lib.exec.FilesetManifest.RelativeSymlinkBehavior;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
@@ -44,7 +48,7 @@ import java.util.TreeMap;
  * laid out.
  */
 public class SpawnInputExpander {
-  @VisibleForTesting static final ActionInput EMPTY_FILE = new EmptyActionInput("/dev/null");
+  public static final ActionInput EMPTY_FILE = new EmptyActionInput("/dev/null");
 
   private final Path execRoot;
   private final boolean strict;
@@ -96,9 +100,7 @@ public class SpawnInputExpander {
       PathFragment targetLocation,
       ActionInput input) {
     Preconditions.checkArgument(!targetLocation.isAbsolute(), targetLocation);
-    if (!inputMappings.containsKey(targetLocation)) {
-      inputMappings.put(targetLocation, input);
-    }
+    inputMappings.put(targetLocation, input);
   }
 
   /** Adds runfiles inputs from runfilesSupplier to inputMappings. */
@@ -107,12 +109,10 @@ public class SpawnInputExpander {
       Map<PathFragment, ActionInput> inputMap,
       RunfilesSupplier runfilesSupplier,
       MetadataProvider actionFileCache,
-      ArtifactExpander artifactExpander,
-      ArtifactPathResolver pathResolver,
-      boolean expandTreeArtifactsInRunfiles)
+      ArtifactExpander artifactExpander)
       throws IOException {
     Map<PathFragment, Map<PathFragment, Artifact>> rootsAndMappings =
-        runfilesSupplier.getMappings(pathResolver);
+        runfilesSupplier.getMappings();
 
     for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> rootAndMappings :
         rootsAndMappings.entrySet()) {
@@ -123,16 +123,24 @@ public class SpawnInputExpander {
         Artifact localArtifact = mapping.getValue();
         if (localArtifact != null) {
           Preconditions.checkState(!localArtifact.isMiddlemanArtifact());
-          if (expandTreeArtifactsInRunfiles && localArtifact.isTreeArtifact()) {
+          if (localArtifact.isTreeArtifact()) {
             List<ActionInput> expandedInputs =
                 ActionInputHelper.expandArtifacts(
-                    Collections.singletonList(localArtifact), artifactExpander);
+                    NestedSetBuilder.create(Order.STABLE_ORDER, localArtifact), artifactExpander);
             for (ActionInput input : expandedInputs) {
               addMapping(
                   inputMap,
                   location.getRelative(((TreeFileArtifact) input).getParentRelativePath()),
                   input);
             }
+          } else if (localArtifact.isFileset()) {
+            ImmutableList<FilesetOutputSymlink> filesetLinks;
+            try {
+              filesetLinks = artifactExpander.getFileset(localArtifact);
+            } catch (MissingExpansionException e) {
+              throw new IllegalStateException(e);
+            }
+            addFilesetManifest(location, localArtifact, filesetLinks, inputMap);
           } else {
             if (strict) {
               failIfDirectory(actionFileCache, localArtifact);
@@ -144,6 +152,17 @@ public class SpawnInputExpander {
         }
       }
     }
+  }
+
+  /** Adds runfiles inputs from runfilesSupplier to inputMappings. */
+  public Map<PathFragment, ActionInput> addRunfilesToInputs(
+      RunfilesSupplier runfilesSupplier,
+      MetadataProvider actionFileCache,
+      ArtifactExpander artifactExpander)
+      throws IOException {
+    Map<PathFragment, ActionInput> inputMap = new HashMap<>();
+    addRunfilesToInputs(inputMap, runfilesSupplier, actionFileCache, artifactExpander);
+    return inputMap;
   }
 
   private static void failIfDirectory(MetadataProvider actionFileCache, ActionInput input)
@@ -160,10 +179,20 @@ public class SpawnInputExpander {
       Map<PathFragment, ActionInput> inputMappings)
       throws IOException {
     for (Artifact fileset : filesetMappings.keySet()) {
-      ImmutableList<FilesetOutputSymlink> outputSymlinks = filesetMappings.get(fileset);
-      FilesetManifest filesetManifest =
-          FilesetManifest.constructFilesetManifest(
-              outputSymlinks, fileset.getExecPath(), relSymlinkBehavior);
+      addFilesetManifest(
+          fileset.getExecPath(), fileset, filesetMappings.get(fileset), inputMappings);
+    }
+  }
+
+  void addFilesetManifest(
+      PathFragment location,
+      Artifact filesetArtifact,
+      ImmutableList<FilesetOutputSymlink> filesetLinks,
+      Map<PathFragment, ActionInput> inputMappings)
+      throws IOException {
+    Preconditions.checkState(filesetArtifact.isFileset(), filesetArtifact);
+    FilesetManifest filesetManifest =
+        FilesetManifest.constructFilesetManifest(filesetLinks, location, relSymlinkBehavior);
 
       for (Map.Entry<PathFragment, String> mapping : filesetManifest.getEntries().entrySet()) {
         String value = mapping.getValue();
@@ -173,7 +202,6 @@ public class SpawnInputExpander {
                 : ActionInputHelper.fromPath(execRoot.getRelative(value).getPathString());
         addMapping(inputMappings, mapping.getKey(), artifact);
       }
-    }
   }
 
   private void addInputs(
@@ -197,22 +225,13 @@ public class SpawnInputExpander {
    * <p>The returned map contains all runfiles, but not the {@code MANIFEST}.
    */
   public SortedMap<PathFragment, ActionInput> getInputMapping(
-      Spawn spawn,
-      ArtifactExpander artifactExpander,
-      ArtifactPathResolver pathResolver,
-      MetadataProvider actionInputFileCache,
-      boolean expandTreeArtifactsInRunfiles)
+      Spawn spawn, ArtifactExpander artifactExpander, MetadataProvider actionInputFileCache)
       throws IOException {
 
     TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
     addInputs(inputMap, spawn, artifactExpander);
     addRunfilesToInputs(
-        inputMap,
-        spawn.getRunfilesSupplier(),
-        actionInputFileCache,
-        artifactExpander,
-        pathResolver,
-        expandTreeArtifactsInRunfiles);
+        inputMap, spawn.getRunfilesSupplier(), actionInputFileCache, artifactExpander);
     addFilesetManifests(spawn.getFilesetMappings(), inputMap);
     return inputMap;
   }

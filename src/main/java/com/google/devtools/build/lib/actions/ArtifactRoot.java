@@ -15,17 +15,19 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.FileRootApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.io.Serializable;
 import java.util.Objects;
+import net.starlark.java.eval.Printer;
 
 /**
  * A root for an artifact. The roots are the directories containing artifacts, and they are mapped
@@ -47,7 +49,6 @@ import java.util.Objects;
 @Immutable
 public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializable, FileRootApi {
   private static final Interner<ArtifactRoot> INTERNER = Interners.newWeakInterner();
-
   /**
    * Do not use except in tests and in {@link
    * com.google.devtools.build.lib.skyframe.SkyframeExecutor}.
@@ -59,16 +60,51 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
   }
 
   /**
-   * Returns the given path as a derived root, relative to the given exec root. The root must be a
-   * proper sub-directory of the exec root (i.e. not equal). Neither may be {@code null}.
+   * Do not use except in tests and in {@link
+   * com.google.devtools.build.lib.skyframe.SkyframeExecutor}.
    *
-   * <p>Be careful with this method - all derived roots must be registered with the artifact factory
-   * before the analysis phase.
+   * <p>Returns the given path as the external source root. The path should end with {@link
+   * LabelConstants.EXTERNAL_REPOSITORY_LOCATION} since the external repository root is always
+   * $OUTPUT_BASE/external regardless of the layout of the exec root.
    */
-  public static ArtifactRoot asDerivedRoot(Path execRoot, Path root) {
-    Preconditions.checkArgument(root.startsWith(execRoot));
-    Preconditions.checkArgument(!root.equals(execRoot));
-    PathFragment execPath = root.relativeTo(execRoot);
+  public static ArtifactRoot asExternalSourceRoot(Root root) {
+    Preconditions.checkArgument(
+        root.asPath().asFragment().endsWith(LabelConstants.EXTERNAL_REPOSITORY_LOCATION));
+    return new ArtifactRoot(root, PathFragment.EMPTY_FRAGMENT, RootType.ExternalSource);
+  }
+
+  /**
+   * Constructs an ArtifactRoot given the output prefixes. (eg, "bin"), and (eg, "testlogs")
+   * relative to the execRoot.
+   *
+   * <p>Be careful with this method - all derived roots must be within the derived artifacts tree,
+   * defined in ArtifactFactory (see {@link ArtifactFactory#isDerivedArtifact(PathFragment)}).
+   */
+  public static ArtifactRoot asDerivedRoot(Path execRoot, String... prefixes) {
+    PathFragment execPath = PathFragment.EMPTY_FRAGMENT;
+    for (String prefix : prefixes) {
+      // Tests can have empty segments here, be gentle to them.
+      if (!prefix.isEmpty()) {
+        execPath = execPath.getChild(prefix);
+      }
+    }
+    return asDerivedRoot(execRoot, execPath);
+  }
+
+  /**
+   * Constructs an {@link ArtifactRoot} given the execPath, relative to the execRoot.
+   *
+   * <p>Be careful with this method - all derived roots must be within the derived artifacts tree,
+   * defined in ArtifactFactory (see {@link ArtifactFactory#isDerivedArtifact(PathFragment)}).
+   */
+  public static ArtifactRoot asDerivedRoot(Path execRoot, PathFragment execPath) {
+    // Make sure that we are not creating a derived artifact under the execRoot.
+    Preconditions.checkArgument(!execPath.isEmpty(), "empty execPath");
+    Preconditions.checkArgument(
+        !execPath.getSegments().contains(".."),
+        "execPath: %s contains parent directory reference (..)",
+        execPath);
+    Path root = execRoot.getRelative(execPath);
     return INTERNER.intern(new ArtifactRoot(Root.fromPath(root), execPath, RootType.Output));
   }
 
@@ -82,15 +118,21 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
 
   @AutoCodec.VisibleForSerialization
   @AutoCodec.Instantiator
-  static ArtifactRoot createForSerialization(Root root, PathFragment execPath, RootType rootType) {
-    return INTERNER.intern(new ArtifactRoot(root, execPath, rootType));
+  static ArtifactRoot createForSerialization(
+      Root rootForSerialization, PathFragment execPath, RootType rootType) {
+    if (rootType != RootType.Output) {
+      return INTERNER.intern(new ArtifactRoot(rootForSerialization, execPath, rootType));
+    }
+    return asDerivedRoot(
+        rootForSerialization.asPath(), execPath.getSegments().toArray(new String[0]));
   }
 
   @AutoCodec.VisibleForSerialization
   enum RootType {
     Source,
     Output,
-    Middleman
+    Middleman,
+    ExternalSource
   }
 
   private final Root root;
@@ -101,6 +143,11 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
     this.root = Preconditions.checkNotNull(root);
     this.execPath = execPath;
     this.rootType = rootType;
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
   }
 
   public Root getRoot() {
@@ -120,9 +167,16 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
     return getExecPath().getPathString();
   }
 
+  public ImmutableList<String> getComponents() {
+    return execPath.getSegments();
+  }
 
   public boolean isSourceRoot() {
-    return rootType == RootType.Source;
+    return rootType == RootType.Source || isExternalSourceRoot();
+  }
+
+  public boolean isExternalSourceRoot() {
+    return rootType == RootType.ExternalSource;
   }
 
   boolean isMiddlemanRoot() {
@@ -137,6 +191,31 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
   @Override
   public int hashCode() {
     return Objects.hash(root, execPath, rootType);
+  }
+
+  /**
+   * The Root of a derived ArtifactRoot contains the exec path. In order to avoid duplicating that
+   * path, and enable the Root to be serialized as a constant, we return the "exec root" Root here,
+   * by stripping the exec path. That Root is likely to be serialized as a constant by {@link
+   * Root.RootCodec}, saving a lot of serialized bytes on the wire.
+   */
+  @SuppressWarnings("unused") // Used by @AutoCodec.
+  Root getRootForSerialization() {
+    if (rootType != RootType.Output) {
+      return root;
+    }
+    // Find fragment of root that does not include execPath and return just that root. It is likely
+    // to be serialized as a constant by RootCodec. For instance, if the original exec root was
+    // /execroot, and this root was /execroot/bazel-out/bin, with execPath bazel-out/bin, then we
+    // just serialize /execroot and bazel-out/bin separately.
+    // We just want to strip execPath from root, but I don't know a trivial way to do that.
+    PathFragment rootFragment = root.asPath().asFragment();
+    return Root.fromPath(
+        root.asPath()
+            .getFileSystem()
+            .getPath(
+                rootFragment.subFragment(
+                    0, rootFragment.segmentCount() - execPath.segmentCount())));
   }
 
   @Override
@@ -157,7 +236,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append(isSourceRoot() ? "<source root>" : "<derived root>");
   }
 }

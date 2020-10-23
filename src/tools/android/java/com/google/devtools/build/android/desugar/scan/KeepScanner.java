@@ -56,66 +56,64 @@ class KeepScanner {
 
   public static class KeepScannerOptions extends OptionsBase {
     @Option(
-      name = "input",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = OptionEffectTag.UNKNOWN,
-      converter = ExistingPathConverter.class,
-      abbrev = 'i',
-      help = "Input Jar with classes to scan."
-    )
+        name = "input",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = OptionEffectTag.UNKNOWN,
+        converter = ExistingPathConverter.class,
+        abbrev = 'i',
+        help = "Input Jar with classes to scan.")
     public Path inputJars;
 
     @Option(
-      name = "classpath_entry",
-      allowMultiple = true,
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      converter = ExistingPathConverter.class,
-      help =
-          "Ordered classpath (Jar or directory) to resolve symbols in the --input Jar, like "
-              + "javac's -cp flag."
-    )
+        name = "classpath_entry",
+        allowMultiple = true,
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        converter = ExistingPathConverter.class,
+        help =
+            "Ordered classpath (Jar or directory) to resolve symbols in the --input Jar, like "
+                + "javac's -cp flag.")
     public List<Path> classpath;
 
     @Option(
-      name = "bootclasspath_entry",
-      allowMultiple = true,
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      converter = ExistingPathConverter.class,
-      help =
-          "Bootclasspath that was used to compile the --input Jar with, like javac's "
-              + "-bootclasspath flag (required)."
-    )
+        name = "bootclasspath_entry",
+        allowMultiple = true,
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        converter = ExistingPathConverter.class,
+        help =
+            "Bootclasspath that was used to compile the --input Jar with, like javac's "
+                + "-bootclasspath flag (required).")
     public List<Path> bootclasspath;
 
     @Option(
-      name = "keep_file",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = OptionEffectTag.UNKNOWN,
-      converter = PathConverter.class,
-      help = "Where to write keep rules to."
-    )
+        name = "keep_file",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = OptionEffectTag.UNKNOWN,
+        converter = PathConverter.class,
+        help = "Where to write keep rules to.")
     public Path keepDest;
 
     @Option(
-      name = "prefix",
-      defaultValue = "j$/",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = OptionEffectTag.UNKNOWN,
-      help = "type to scan for."
-    )
+        name = "prefix",
+        defaultValue = "j$/",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = OptionEffectTag.UNKNOWN,
+        help = "type to scan for.")
     public String prefix;
   }
 
   public static void main(String... args) throws Exception {
-    OptionsParser parser = OptionsParser.newOptionsParser(KeepScannerOptions.class);
-    parser.setAllowResidue(false);
-    parser.enableParamsFileSupport(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
+    OptionsParser parser =
+        OptionsParser.builder()
+            .optionsClasses(KeepScannerOptions.class)
+            .allowResidue(false)
+            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
+            .build();
     parser.parseAndExitUponError(args);
     KeepScannerOptions options = parser.getOptions(KeepScannerOptions.class);
 
@@ -131,9 +129,10 @@ class KeepScanner {
       // isn't part of the input itself we shouldn't need to include the input in the classloader.
       CoreLibraryRewriter noopRewriter = new CoreLibraryRewriter("");
       ClassLoader classloader =
-          new HeaderClassLoader(classpath, noopRewriter,
-              new HeaderClassLoader(bootclasspath, noopRewriter,
-                  new ThrowingClassLoader()));
+          new HeaderClassLoader(
+              classpath,
+              noopRewriter,
+              new HeaderClassLoader(bootclasspath, noopRewriter, new ThrowingClassLoader()));
       seeds = scan(checkNotNull(options.inputJars), options.prefix, classloader);
     }
 
@@ -145,20 +144,17 @@ class KeepScanner {
   }
 
   /**
-   * Writes a -keep rule for each class listing any members to keep.  We sort classes and members
-   * so the output is deterministic.
+   * Writes a -keep rule for each class listing any members to keep. We sort classes and members so
+   * the output is deterministic.
    */
   private static void writeKeepDirectives(
       PrintStream out, Map<String, ImmutableSet<KeepReference>> seeds) {
-    seeds
-        .entrySet()
-        .stream()
+    seeds.entrySet().stream()
         .sorted(comparing(Map.Entry::getKey))
         .forEachOrdered(
             type -> {
               out.printf("-keep class %s {%n", type.getKey().replace('/', '.'));
-              type.getValue()
-                  .stream()
+              type.getValue().stream()
                   .filter(KeepReference::isMemberReference)
                   .sorted(comparing(KeepReference::name).thenComparing(KeepReference::desc))
                   .map(ref -> toKeepDescriptor(ref))
@@ -200,9 +196,9 @@ class KeepScanner {
 
   /**
    * Find the nearest definition of the given reference in the class hierarchy and return the
-   * modified reference.  This is needed b/c bytecode sometimes refers to a method or field using
-   * an owner type that inherits the method or field instead of defining the member itself.
-   * In that case we need to find and keep the inherited definition.
+   * modified reference. This is needed b/c bytecode sometimes refers to a method or field using an
+   * owner type that inherits the method or field instead of defining the member itself. In that
+   * case we need to find and keep the inherited definition.
    */
   private static KeepReference nearestDeclaration(KeepReference ref, ClassLoader classpath) {
     if (!ref.isMemberReference() || "<init>".equals(ref.name())) {

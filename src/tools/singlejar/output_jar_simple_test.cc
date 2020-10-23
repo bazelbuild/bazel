@@ -62,6 +62,10 @@ static bool HasSubstr(const string &s, const string &what) {
   return string::npos != s.find(what);
 }
 
+static bool EndsWith(const string &s, const string &what) {
+  return what.size() <= s.size() && s.substr(s.size() - what.size()) == what;
+}
+
 // A subclass of the OutputJar which concatenates the contents of each
 // entry in the data/ directory from the input archives.
 class CustomOutputJar : public OutputJar {
@@ -271,6 +275,36 @@ TEST_F(OutputJarSimpleTest, JavaLauncher) {
   EXPECT_TRUE(lh->is());
   EXPECT_EQ(static_cast<uint64_t>(statbuf.st_size), cdh->local_header_offset());
   input_jar.Close();
+}
+
+// --cds_archive option
+TEST_F(OutputJarSimpleTest, CDSArchive) {
+  string out_path = OutputFilePath("out.jar");
+  string launcher_path = CreateTextFile("launcher", "Dummy");
+  string cds_archive_path = CreateTextFile("classes.jsa", "Dummy");
+  CreateOutput(out_path, {"--java_launcher", launcher_path,
+                          "--cds_archive", cds_archive_path});
+
+  // check META-INF/MANIFEST.MF attribute
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  size_t pagesize;
+#ifndef _WIN32
+  pagesize = sysconf(_SC_PAGESIZE);
+#else
+  SYSTEM_INFO si;
+  GetSystemInfo(&si);
+  pagesize = si.dwPageSize;
+#endif
+  char attr[128];
+  snprintf(attr, sizeof(attr), "Jsa-Offset: %ld", pagesize);
+  EXPECT_PRED2(HasSubstr, manifest, attr);
+
+  // check build-data.properties entry
+  string build_properties = GetEntryContents(out_path, "build-data.properties");
+  char prop[4096];
+  snprintf(prop, sizeof(prop), "\ncds.archive=%s\n",
+           cds_archive_path.c_str());
+  EXPECT_PRED2(HasSubstr, build_properties, prop);
 }
 
 // --main_class option.
@@ -581,6 +615,81 @@ TEST_F(OutputJarSimpleTest, Normalize) {
     ASSERT_EQ(nullptr, lh->unix_time_extra_field())
         << entry_name << ": LH should not have Unix Time extra field";
   }
+  input_jar.Close();
+}
+
+// --add_missing_directories
+TEST_F(OutputJarSimpleTest, AddMissingDirectories) {
+  string out_path = OutputFilePath("out.jar");
+  string testjar_path = OutputFilePath("testinput.jar");
+
+  std::string jar_tool_path = runfiles->Rlocation(JAR_TOOL_PATH);
+  string textfile_path =
+      CreateTextFile("a/b/jar_testinput.txt", "jar_inputtext");
+  string classfile1_path = CreateTextFile("a/c/Foo.class", "Dummy");
+  string classfile2_path = CreateTextFile("c/Foo.class", "Dummy");
+  string classfile3_path = CreateTextFile("c/Bar.class", "Dummy");
+  unlink(testjar_path.c_str());
+  ASSERT_EQ(
+      0, RunCommand(jar_tool_path.c_str(), "-cf", testjar_path.c_str(),
+                    textfile_path.c_str(), classfile1_path.c_str(),
+                    classfile2_path.c_str(), classfile3_path.c_str(), nullptr));
+
+  CreateOutput(out_path, {"--normalize", "--add_missing_directories",
+                          "--sources", testjar_path});
+
+  // Scan all entries, verify that *.class entries have timestamp
+  // 01/01/2010 00:00:02 and the rest have the timestamp of 01/01/2010 00:00:00.
+  InputJar input_jar;
+  ASSERT_TRUE(input_jar.Open(out_path));
+  const LH *lh;
+  const CDH *cdh;
+  bool seen_a = false;
+  bool seen_ab = false;
+  bool seen_ac = false;
+  bool seen_c = false;
+  while ((cdh = input_jar.NextEntry(&lh))) {
+    string entry_name = cdh->file_name_string();
+    EXPECT_EQ(lh->last_mod_file_date(), cdh->last_mod_file_date())
+        << entry_name << " modification date";
+    EXPECT_EQ(lh->last_mod_file_time(), cdh->last_mod_file_time())
+        << entry_name << " modification time";
+    EXPECT_EQ(15393, cdh->last_mod_file_date())
+        << entry_name << " modification date should be 01/01/2010";
+    auto n = entry_name.size() - strlen(".class");
+    if (0 == strcmp(entry_name.c_str() + n, ".class")) {
+      EXPECT_EQ(1, cdh->last_mod_file_time())
+          << entry_name
+          << " modification time for .class entry should be 00:00:02";
+    } else {
+      EXPECT_EQ(0, cdh->last_mod_file_time())
+          << entry_name
+          << " modification time for non .class entry should be 00:00:00";
+    }
+    // Zip creates Unix timestamps, too. Check that normalization removes them.
+    ASSERT_EQ(nullptr, cdh->unix_time_extra_field())
+        << entry_name << ": CDH should not have Unix Time extra field";
+    ASSERT_EQ(nullptr, lh->unix_time_extra_field())
+        << entry_name << ": LH should not have Unix Time extra field";
+
+    if (EndsWith(entry_name, "/a/")) {
+      EXPECT_FALSE(seen_a) << "a/ duplicate";
+      seen_a = true;
+    } else if (EndsWith(entry_name, "/a/b/")) {
+      EXPECT_FALSE(seen_ab) << "a/b/ duplicate";
+      seen_ab = true;
+    } else if (EndsWith(entry_name, "/a/c/")) {
+      EXPECT_FALSE(seen_ac) << "a/c/ duplicate";
+      seen_ac = true;
+    } else if (EndsWith(entry_name, "/c/")) {
+      EXPECT_FALSE(seen_c) << "c/ duplicate";
+      seen_c = true;
+    }
+  }
+  EXPECT_TRUE(seen_a) << "a/ entry missing";
+  EXPECT_TRUE(seen_ab) << "a/b/ entry missing";
+  EXPECT_TRUE(seen_ac) << "a/c/ entry missing";
+  EXPECT_TRUE(seen_c) << "c/ entry missing";
   input_jar.Close();
 }
 

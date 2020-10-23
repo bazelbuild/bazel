@@ -15,10 +15,6 @@
 package com.google.devtools.build.remote.worker;
 
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
-import static java.util.logging.Level.FINE;
-import static java.util.logging.Level.INFO;
-import static java.util.logging.Level.SEVERE;
-import static java.util.logging.Level.WARNING;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -29,24 +25,26 @@ import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.ExecutionGrpc.ExecutionImplBase;
 import build.bazel.remote.execution.v2.Platform;
+import build.bazel.remote.execution.v2.Platform.Property;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.WaitExecutionRequest;
 import com.google.common.base.Throwables;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.remote.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.ExecutionStatusException;
-import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.shell.FutureCommandResult;
+import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.longrunning.Operation;
@@ -74,16 +72,15 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import javax.annotation.Nullable;
 
 /** A basic implementation of an {@link ExecutionImplBase} service. */
 final class ExecutionServer extends ExecutionImplBase {
-  private static final Logger logger = Logger.getLogger(ExecutionServer.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   // The name of the container image entry in the Platform proto
   // (see third_party/googleapis/devtools/remoteexecution/*/remote_execution.proto and
-  // remote_default_platform_properties in
+  // remote_default_exec_properties in
   // src/main/java/com/google/devtools/build/lib/remote/RemoteOptions.java)
   private static final String CONTAINER_IMAGE_ENTRY_NAME = "container-image";
   private static final String DOCKER_IMAGE_PREFIX = "docker://";
@@ -96,7 +93,7 @@ final class ExecutionServer extends ExecutionImplBase {
   private final Path workPath;
   private final Path sandboxPath;
   private final RemoteWorkerOptions workerOptions;
-  private final SimpleBlobStoreActionCache cache;
+  private final OnDiskBlobStoreCache cache;
   private final ConcurrentHashMap<String, ListenableFuture<ActionResult>> operationsCache;
   private final ListeningExecutorService executorService;
   private final DigestUtil digestUtil;
@@ -105,7 +102,7 @@ final class ExecutionServer extends ExecutionImplBase {
       Path workPath,
       Path sandboxPath,
       RemoteWorkerOptions workerOptions,
-      SimpleBlobStoreActionCache cache,
+      OnDiskBlobStoreCache cache,
       ConcurrentHashMap<String, ListenableFuture<ActionResult>> operationsCache,
       DigestUtil digestUtil) {
     this.workPath = workPath;
@@ -176,7 +173,7 @@ final class ExecutionServer extends ExecutionImplBase {
             if (e instanceof ExecutionStatusException) {
               resp = ((ExecutionStatusException) e).getResponse();
             } else {
-              logger.log(Level.SEVERE, "Work failed: " + opName, e);
+              logger.atSevere().withCause(e).log("Work failed: %s", opName);
               resp =
                   ExecuteResponse.newBuilder()
                       .setStatus(StatusUtils.internalErrorStatus(e))
@@ -211,6 +208,7 @@ final class ExecutionServer extends ExecutionImplBase {
     waitExecution(opName, future, responseObserver);
   }
 
+  @SuppressWarnings("LogAndThrow")
   private ActionResult execute(ExecuteRequest request, String id)
       throws IOException, InterruptedException, StatusException {
     Path tempRoot = workPath.getRelative("build-" + id);
@@ -222,25 +220,21 @@ final class ExecutionServer extends ExecutionImplBase {
           String.format(
               "build-request-id: %s command-id: %s action-id: %s",
               meta.getCorrelatedInvocationsId(), meta.getToolInvocationId(), meta.getActionId());
-      logger.log(FINE, "Received work for: {0}", workDetails);
+      logger.atFine().log("Received work for: %s", workDetails);
       ActionResult result = execute(request.getActionDigest(), tempRoot);
-      logger.log(FINE, "Completed {0}.", workDetails);
+      logger.atFine().log("Completed %s", workDetails);
       return result;
     } catch (Exception e) {
-      logger.log(Level.SEVERE, "Work failed: {0} {1}.", new Object[] {workDetails, e});
+      logger.atSevere().withCause(e).log("Work failed: %s", workDetails);
       throw e;
     } finally {
       if (workerOptions.debug) {
-        logger.log(INFO, "Preserving work directory {0}.", tempRoot);
+        logger.atInfo().log("Preserving work directory %s", tempRoot);
       } else {
         try {
           tempRoot.deleteTree();
         } catch (IOException e) {
-          logger.log(
-              SEVERE,
-              String.format(
-                  "Failed to delete tmp directory %s: %s",
-                  tempRoot, Throwables.getStackTraceAsString(e)));
+          logger.atSevere().withCause(e).log("Failed to delete tmp directory %s", tempRoot);
         }
       }
     }
@@ -248,8 +242,8 @@ final class ExecutionServer extends ExecutionImplBase {
 
   private ActionResult execute(Digest actionDigest, Path execRoot)
       throws IOException, InterruptedException, StatusException {
-    Command command = null;
-    Action action = null;
+    Command command;
+    Action action;
     ActionKey actionKey = digestUtil.asActionKey(actionDigest);
     try {
       action = Action.parseFrom(getFromFuture(cache.downloadBlob(actionDigest)));
@@ -283,86 +277,92 @@ final class ExecutionServer extends ExecutionImplBase {
     long startTime = System.currentTimeMillis();
     CommandResult cmdResult = null;
 
-    FutureCommandResult futureCmdResult = null;
-    try {
-      futureCmdResult = cmd.executeAsync();
-    } catch (CommandException e) {
-      Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
-    }
+    String uuid = UUID.randomUUID().toString();
+    Path stdout = execRoot.getChild("stdout-" + uuid);
+    Path stderr = execRoot.getChild("stderr-" + uuid);
+    try (FileOutErr outErr = new FileOutErr(stdout, stderr)) {
 
-    if (futureCmdResult != null) {
+      FutureCommandResult futureCmdResult = null;
       try {
-        cmdResult = futureCmdResult.get();
-      } catch (AbnormalTerminationException e) {
-        cmdResult = e.getResult();
+        futureCmdResult = cmd.executeAsync(outErr.getOutputStream(), outErr.getErrorStream());
+      } catch (CommandException e) {
+        Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
       }
-    }
 
-    long timeoutMillis =
-        action.hasTimeout()
-            ? Durations.toMillis(action.getTimeout())
-            : TimeUnit.MINUTES.toMillis(15);
-    boolean wasTimeout =
-        (cmdResult != null && cmdResult.getTerminationStatus().timedOut())
-            || wasTimeout(timeoutMillis, System.currentTimeMillis() - startTime);
-    final int exitCode;
-    Status errStatus = null;
-    ExecuteResponse.Builder resp = ExecuteResponse.newBuilder();
-    if (wasTimeout) {
-      final String errMessage =
-          String.format(
-              "Command:\n%s\nexceeded deadline of %f seconds.",
-              Arrays.toString(command.getArgumentsList().toArray()), timeoutMillis / 1000.0);
-      logger.warning(errMessage);
-      errStatus =
-          Status.newBuilder()
-              .setCode(Code.DEADLINE_EXCEEDED.getNumber())
-              .setMessage(errMessage)
-              .build();
-      exitCode = LOCAL_EXEC_ERROR;
-    } else if (cmdResult == null) {
-      exitCode = LOCAL_EXEC_ERROR;
-    } else {
-      exitCode = cmdResult.getTerminationStatus().getRawExitCode();
-    }
+      if (futureCmdResult != null) {
+        try {
+          cmdResult = futureCmdResult.get();
+        } catch (AbnormalTerminationException e) {
+          cmdResult = e.getResult();
+        }
+      }
 
-    ActionResult.Builder result = ActionResult.newBuilder();
-    boolean setResult = exitCode == 0 && !action.getDoNotCache();
-    try {
-      cache.upload(result, actionKey, action, command, execRoot, outputs, setResult);
-    } catch (ExecException e) {
-      if (errStatus == null) {
+      long timeoutMillis =
+          action.hasTimeout()
+              ? Durations.toMillis(action.getTimeout())
+              : TimeUnit.MINUTES.toMillis(15);
+      boolean wasTimeout =
+          (cmdResult != null && cmdResult.getTerminationStatus().timedOut())
+              || wasTimeout(timeoutMillis, System.currentTimeMillis() - startTime);
+      final int exitCode;
+      Status errStatus = null;
+      ExecuteResponse.Builder resp = ExecuteResponse.newBuilder();
+      if (wasTimeout) {
+        final String errMessage =
+            String.format(
+                "Command:\n%s\nexceeded deadline of %f seconds.",
+                Arrays.toString(command.getArgumentsList().toArray()), timeoutMillis / 1000.0);
+        logger.atWarning().log(errMessage);
         errStatus =
             Status.newBuilder()
-                .setCode(Code.FAILED_PRECONDITION.getNumber())
-                .setMessage(e.getMessage())
+                .setCode(Code.DEADLINE_EXCEEDED.getNumber())
+                .setMessage(errMessage)
                 .build();
+        exitCode = LOCAL_EXEC_ERROR;
+      } else if (cmdResult == null) {
+        exitCode = LOCAL_EXEC_ERROR;
+      } else {
+        exitCode = cmdResult.getTerminationStatus().getRawExitCode();
       }
+
+      ActionResult result = null;
+      try {
+        result = cache.upload(actionKey, action, command, execRoot, outputs, outErr, exitCode);
+      } catch (ExecException e) {
+        if (errStatus == null) {
+          errStatus =
+              Status.newBuilder()
+                  .setCode(Code.FAILED_PRECONDITION.getNumber())
+                  .setMessage(e.getMessage())
+                  .build();
+        }
+      }
+
+      if (result == null) {
+        result = ActionResult.newBuilder().setExitCode(exitCode).build();
+      }
+
+      resp.setResult(result);
+
+      if (errStatus != null) {
+        resp.setStatus(errStatus);
+        throw new ExecutionStatusException(errStatus, resp.build());
+      }
+
+      return result;
     }
-    byte[] stdout = cmdResult.getStdout();
-    byte[] stderr = cmdResult.getStderr();
-    cache.uploadOutErr(result, stdout, stderr);
-    ActionResult finalResult = result.setExitCode(exitCode).build();
-    resp.setResult(finalResult);
-    if (errStatus != null) {
-      resp.setStatus(errStatus);
-      throw new ExecutionStatusException(errStatus, resp.build());
-    } else if (setResult) {
-      cache.setCachedActionResult(actionKey, finalResult);
-    }
-    return finalResult;
   }
 
   // Returns true if the OS being run on is Windows (or some close approximation thereof).
-  private boolean isWindows() {
+  private static boolean isWindows() {
     return System.getProperty("os.name").startsWith("Windows");
   }
 
-  private boolean wasTimeout(long timeoutMillis, long wallTimeMillis) {
+  private static boolean wasTimeout(long timeoutMillis, long wallTimeMillis) {
     return timeoutMillis > 0 && wallTimeMillis > timeoutMillis;
   }
 
-  private Map<String, String> getEnvironmentVariables(Command command) {
+  private static Map<String, String> getEnvironmentVariables(Command command) {
     HashMap<String, String> result = new HashMap<>();
     for (EnvironmentVariable v : command.getEnvironmentVariablesList()) {
       result.put(v.getName(), v.getValue());
@@ -376,7 +376,7 @@ final class ExecutionServer extends ExecutionImplBase {
   // This is used to set "-u UID" flag for commands running inside Docker containers. There are
   // only a small handful of cases where uid is vital (e.g., if strict permissions are set on the
   // output files), so most use cases would work without setting uid.
-  private long getUid() {
+  private static long getUid() throws InterruptedException {
     com.google.devtools.build.lib.shell.Command cmd =
         new com.google.devtools.build.lib.shell.Command(
             new String[] {"id", "-u"},
@@ -389,15 +389,15 @@ final class ExecutionServer extends ExecutionImplBase {
       cmd.execute(stdout, stderr);
       return Long.parseLong(stdout.toString().trim());
     } catch (CommandException | NumberFormatException e) {
-      logger.log(
-          WARNING, "Could not get UID for passing to Docker container. Proceeding without it.", e);
+      logger.atWarning().withCause(e).log(
+          "Could not get UID for passing to Docker container. Proceeding without it");
       return -1;
     }
   }
 
   // Checks Action for docker container definition. If no docker container specified, returns
   // null. Otherwise returns docker container name from the parameters.
-  private String dockerContainer(Command cmd) throws StatusException {
+  private static String dockerContainer(Command cmd) throws StatusException {
     String result = null;
     for (Platform.Property property : cmd.getPlatform().getPropertiesList()) {
       if (property.getName().equals(CONTAINER_IMAGE_ENTRY_NAME)) {
@@ -423,13 +423,29 @@ final class ExecutionServer extends ExecutionImplBase {
     return result;
   }
 
+  private static String platformAsString(@Nullable Platform platform) {
+    if (platform == null) {
+      return "";
+    }
+
+    String separator = "";
+    StringBuilder value = new StringBuilder();
+    for (Property property : platform.getPropertiesList()) {
+      value.append(separator).append(property.getName()).append("=").append(property.getValue());
+      separator = ",";
+    }
+    return value.toString();
+  }
+
   // Converts the Command proto into the shell Command object.
   // If no docker container is specified, creates a Command straight from the
   // arguments. Otherwise, returns a Command that would run the specified command inside the
   // specified docker container.
   private com.google.devtools.build.lib.shell.Command getCommand(Command cmd, String pathString)
-      throws StatusException {
+      throws StatusException, InterruptedException {
     Map<String, String> environmentVariables = getEnvironmentVariables(cmd);
+    // This allows Bazel's integration tests to test for the remote platform.
+    environmentVariables.put("BAZEL_REMOTE_PLATFORM", platformAsString(cmd.getPlatform()));
     String container = dockerContainer(cmd);
     if (container != null) {
       // Run command inside a docker container.

@@ -132,3 +132,4 @@ EOF
     # We're testing a formerly non-hermetic interaction, so disable the sandbox.
     bazel test --spawn_strategy=standalone --test_output=errors :check_runfiles
 }
+

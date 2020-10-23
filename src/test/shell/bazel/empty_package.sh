@@ -47,7 +47,7 @@ EOF
 function test_empty_external() {
   mkdir foo
   cd foo
-  touch WORKSPACE
+  create_workspace_with_default_repos WORKSPACE
   # Create a dummy BUILD file, otherwise `bazel build` will complain that there
   # were no targets to build.
   cat > BUILD <<EOF

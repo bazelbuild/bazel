@@ -14,13 +14,9 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.hash.Hashing;
-import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DigestFunctionConverter;
-import java.lang.reflect.Field;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -33,20 +29,6 @@ import org.junit.runners.JUnit4;
 public class DigestHashFunctionGlobalsTest {
   private final DigestFunctionConverter converter = new DigestFunctionConverter();
 
-  @Before
-  public void resetStaticDefault() throws IllegalAccessException, NoSuchFieldException {
-    // The default is effectively a Singleton, and it does not allow itself to be set multiple
-    // times. In order to test this reasonably, though, we reset the sentinel boolean to false and
-    // the value to null, which are the values before setDefault is called.
-    Field defaultHasBeenSet = DigestHashFunction.class.getDeclaredField("defaultHasBeenSet");
-    defaultHasBeenSet.setAccessible(true);
-    defaultHasBeenSet.set(null, false);
-
-    Field defaultValue = DigestHashFunction.class.getDeclaredField("defaultHash");
-    defaultValue.setAccessible(true);
-    defaultValue.set(null, null);
-  }
-
   @Test
   public void convertReturnsTheSameValueAsTheConstant() throws Exception {
     assertThat(converter.convert("sha-256")).isSameInstanceAs(DigestHashFunction.SHA256);
@@ -58,9 +40,6 @@ public class DigestHashFunctionGlobalsTest {
     assertThat(converter.convert("sha-1")).isSameInstanceAs(DigestHashFunction.SHA1);
     assertThat(converter.convert("SHA1")).isSameInstanceAs(DigestHashFunction.SHA1);
     assertThat(converter.convert("sha1")).isSameInstanceAs(DigestHashFunction.SHA1);
-
-    assertThat(converter.convert("MD5")).isSameInstanceAs(DigestHashFunction.MD5);
-    assertThat(converter.convert("md5")).isSameInstanceAs(DigestHashFunction.MD5);
   }
 
   @Test
@@ -85,24 +64,5 @@ public class DigestHashFunctionGlobalsTest {
     assertThat(converter.convert("SHA_384")).isSameInstanceAs(converter.convert("SHA-384"));
     assertThat(converter.convert("Sha_384")).isSameInstanceAs(converter.convert("SHA-384"));
     assertThat(converter.convert("sha_384")).isSameInstanceAs(converter.convert("SHA-384"));
-  }
-
-  @Test
-  public void unsetDefaultThrows() {
-    assertThrows(DefaultHashFunctionNotSetException.class, () -> DigestHashFunction.getDefault());
-  }
-
-  @Test
-  public void setDefaultDoesNotThrow() throws Exception {
-    DigestHashFunction.setDefault(DigestHashFunction.SHA1);
-    DigestHashFunction.getDefault();
-  }
-
-  @Test
-  public void cannotSetDefaultMultipleTimes() throws Exception {
-    DigestHashFunction.setDefault(DigestHashFunction.MD5);
-    assertThrows(
-        DigestHashFunction.DefaultAlreadySetException.class,
-        () -> DigestHashFunction.setDefault(DigestHashFunction.SHA1));
   }
 }

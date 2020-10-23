@@ -3,13 +3,21 @@ You need to load the rules in your BUILD file for use, like:
 load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
 """
 
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_java//java:defs.bzl", "java_library")
+load("@rules_proto//proto:defs.bzl", "ProtoInfo")
+
 def _path_ignoring_repository(f):
     if (len(f.owner.workspace_root) == 0):
         return f.short_path
 
-    # If |f| is a generated file, it will have "bazel-out/*/genfiles" prefix
-    # before "external/workspace", so we need to add the starting index of "external/workspace"
-    return f.path[f.path.find(f.owner.workspace_root) + len(f.owner.workspace_root) + 1:]
+    virtual_imports = "/_virtual_imports/"
+    if virtual_imports in f.path:
+        return f.path.split(virtual_imports)[1].split("/", 1)[1]
+    else:
+        # If |f| is a generated file, it will have "bazel-out/*/genfiles" prefix
+        # before "external/workspace", so we need to add the starting index of "external/workspace"
+        return f.path[f.path.find(f.owner.workspace_root) + len(f.owner.workspace_root) + 1:]
 
 def _gensource_impl(ctx):
     if len(ctx.attr.srcs) > 1:
@@ -18,11 +26,11 @@ def _gensource_impl(ctx):
         if s.label.package != ctx.label.package:
             print(("in srcs attribute of {0}: Proto source with label {1} should be in " +
                    "same package as consuming rule").format(ctx.label, s.label))
-    srcdotjar = ctx.new_file(ctx.label.name + ".jar")
-    srcs = [f for dep in ctx.attr.srcs for f in dep.proto.direct_sources]
-    includes = [f for dep in ctx.attr.srcs for f in dep.proto.transitive_imports.to_list()]
+    srcdotjar = ctx.actions.declare_file(ctx.label.name + ".jar")
+    srcs = [f for dep in ctx.attr.srcs for f in dep[ProtoInfo].direct_sources]
+    includes = [f for dep in ctx.attr.srcs for f in dep[ProtoInfo].transitive_imports.to_list()]
 
-    ctx.action(
+    ctx.actions.run_shell(
         command = " ".join([
                                ctx.executable._protoc.path,
                                "--plugin=protoc-gen-grpc-java={0}".format(ctx.executable._java_plugin.path),
@@ -30,12 +38,13 @@ def _gensource_impl(ctx):
                            ] +
                            ["-I{0}={1}".format(_path_ignoring_repository(include), include.path) for include in includes] +
                            [src.path for src in srcs]),
-        inputs = [ctx.executable._java_plugin, ctx.executable._protoc] + srcs + includes,
+        inputs = srcs + includes,
+        tools = [ctx.executable._java_plugin, ctx.executable._protoc],
         outputs = [srcdotjar],
         use_default_shell_env = True,
     )
 
-    ctx.action(
+    ctx.actions.run_shell(
         command = "cp '%s' '%s'" % (srcdotjar.path, ctx.outputs.srcjar.path),
         inputs = [srcdotjar],
         outputs = [ctx.outputs.srcjar],
@@ -46,7 +55,7 @@ _java_grpc_gensource = rule(
         "srcs": attr.label_list(
             mandatory = True,
             allow_empty = False,
-            providers = ["proto"],
+            providers = [ProtoInfo],
         ),
         "enable_deprecated": attr.bool(
             default = False,
@@ -97,7 +106,7 @@ def java_grpc_library(name, srcs, deps, enable_deprecated = None, visibility = N
         ],
         **kwargs
     )
-    native.java_library(
+    java_library(
         name = name,
         srcs = [gensource_name],
         visibility = visibility,
@@ -140,7 +149,7 @@ def grpc_cc_library(
             ],
             ":windows": ["/we4013"],
         })
-    native.cc_library(
+    cc_library(
         name = name,
         srcs = srcs,
         defines = ["GRPC_ARES=0"],  # Our use case doesn't need ares.

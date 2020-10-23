@@ -21,9 +21,10 @@ import build.bazel.remote.execution.v2.DigestFunction;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashingOutputStream;
 import com.google.common.io.BaseEncoding;
-import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.Message;
 import java.io.ByteArrayOutputStream;
@@ -33,22 +34,6 @@ import java.io.OutputStream;
 /** Utility methods to work with {@link Digest}. */
 public class DigestUtil {
 
-  /**
-   * A special type of Digest that is used only as a remote action cache key. This is a separate
-   * type in order to prevent accidentally using other Digests as action keys.
-   */
-  public static final class ActionKey {
-    private final Digest digest;
-
-    public Digest getDigest() {
-      return digest;
-    }
-
-    public ActionKey(Digest digest) {
-      this.digest = digest;
-    }
-  }
-
   private final DigestHashFunction hashFn;
 
   public DigestUtil(DigestHashFunction hashFn) {
@@ -56,15 +41,15 @@ public class DigestUtil {
   }
 
   /** Returns the currently used digest function. */
-  public DigestFunction getDigestFunction() {
+  public DigestFunction.Value getDigestFunction() {
     for (String name : hashFn.getNames()) {
       try {
-        return DigestFunction.valueOf(name);
+        return DigestFunction.Value.valueOf(name);
       } catch (IllegalArgumentException e) {
         // continue.
       }
     }
-    return DigestFunction.UNKNOWN;
+    return DigestFunction.Value.UNKNOWN;
   }
 
   public Digest compute(byte[] blob) {
@@ -76,7 +61,7 @@ public class DigestUtil {
   }
 
   public Digest compute(Path file, long fileSize) throws IOException {
-    return buildDigest(DigestUtils.getDigestOrFail(file, fileSize), fileSize);
+    return buildDigest(DigestUtils.getDigestWithManualFallback(file, fileSize), fileSize);
   }
 
   public Digest compute(VirtualActionInput input) throws IOException {
@@ -98,16 +83,16 @@ public class DigestUtil {
     return compute(str.getBytes(UTF_8));
   }
 
-  public DigestUtil.ActionKey computeActionKey(Action action) {
-    return new DigestUtil.ActionKey(compute(action));
+  public ActionKey computeActionKey(Action action) {
+    return new ActionKey(compute(action));
   }
 
   /**
    * Assumes that the given Digest is a valid digest of an Action, and creates an ActionKey wrapper.
    * This should not be called on the client side!
    */
-  public DigestUtil.ActionKey asActionKey(Digest digest) {
-    return new DigestUtil.ActionKey(digest);
+  public ActionKey asActionKey(Digest digest) {
+    return new ActionKey(digest);
   }
 
   /** Returns the hash of {@code data} in binary. */
@@ -131,7 +116,7 @@ public class DigestUtil {
     return new HashingOutputStream(hashFn.getHashFunction(), out);
   }
 
-  public String toString(Digest digest) {
+  public static String toString(Digest digest) {
     return digest.getHash() + "/" + digest.getSizeBytes();
   }
 

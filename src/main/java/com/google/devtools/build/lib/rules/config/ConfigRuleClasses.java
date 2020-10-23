@@ -17,21 +17,20 @@ package com.google.devtools.build.lib.rules.config;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static com.google.devtools.build.lib.syntax.Type.STRING_DICT;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_DICT;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.packages.Type;
 
 /**
  * Definitions for rule classes that specify or manipulate configuration settings.
@@ -110,12 +109,14 @@ public class ConfigRuleClasses {
    *
    * instance matches all its flag values in the configurable attribute owner's configuration.
    *
-   * <p>This rule isn't accessed through the standard {@link RuleContext#getPrerequisites}
-   * interface. This is because Bazel constructs a rule's configured attribute map *before* its
-   * {@link RuleContext} is created (in fact, the map is an input to the context's constructor). And
-   * the config_settings referenced by the rule's configurable attributes are themselves inputs to
-   * that map. So Bazel has special logic to read and properly apply config_setting instances. See
-   * {@link com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction#getConfigConditions} for
+   * <p>This rule isn't accessed through the standard {@link
+   * com.google.devtools.build.lib.analysis.RuleContext#getPrerequisites} interface. This is because
+   * Bazel constructs a rule's configured attribute map *before* its {@link
+   * com.google.devtools.build.lib.analysis.RuleContext} is created (in fact, the map is an input to
+   * the context's constructor). And the config_settings referenced by the rule's configurable
+   * attributes are themselves inputs to that map. So Bazel has special logic to read and properly
+   * apply config_setting instances. See {@link
+   * com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction#getConfigConditions} for
    * details.
    */
   public static final class ConfigSettingRule implements RuleDefinition {
@@ -154,9 +155,6 @@ public class ConfigRuleClasses {
           /* <!-- #BLAZE_RULE(config_setting).ATTRIBUTE(values) -->
           The set of configuration values that match this rule (expressed as Bazel flags)
 
-          <i>(Dictionary mapping flags to expected values, both expressed as strings;
-             mandatory)</i>
-
           <p>This rule inherits the configuration of the configured target that
             references it in a <code>select</code> statement. It is considered to
             "match" a Bazel invocation if, for every entry in the dictionary, its
@@ -193,14 +191,9 @@ public class ConfigRuleClasses {
           The same as <a href="${link config_setting.values}"><code>values</code></a> but
           specifically for the <code>--define</code> flag.
 
-          <p><code>--define</code> is special for two reasons:
-
-          <ol>
-            <li>It's the primary interface Bazel has today for declaring user-definable settings.
-            </li>
-            <li>Its syntax (<code>--define KEY=VAL</code>) means <code>KEY=VAL</code> is
-            a <i>value</i> from a Bazel flag perspective.</li>
-          </ol>
+          <p><code>--define</code> is special because its syntax (<code>--define KEY=VAL</code>)
+            means <code>KEY=VAL</code> is a <i>value</i> from a Bazel flag perspective.
+          </p>
 
           <p>That means:
 
@@ -225,7 +218,7 @@ public class ConfigRuleClasses {
                 })
           </pre>
 
-          <p>corrrectly matches <code>bazel build //foo --define a=1 --define b=2</code>.
+          <p>correctly matches <code>bazel build //foo --define a=1 --define b=2</code>.
 
           <p><code>--define</code> can still appear in
           <a href="${link config_setting.values}"><code>values</code></a> with normal flag syntax,
@@ -234,11 +227,23 @@ public class ConfigRuleClasses {
           .add(
               attr(DEFINE_SETTINGS_ATTRIBUTE, STRING_DICT)
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
+
+          /* <!-- #BLAZE_RULE(config_setting).ATTRIBUTE(flag_values) -->
+          The same as <a href="${link config_setting.values}"><code>values</code></a> but
+          for <a href="https://docs.bazel.build/versions/master/skylark/config.html#user-defined-build-settings">
+          Starlark-defined flags</a>.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+
+          // Originally this attribute was a map of feature flags targets -> feature flag values,
+          // the latter of which are always strings. Now it also includes starlark build setting
+          // targets -> starlark build setting values. In other places in the starlark configuration
+          // API, starlark setting values are passed as their actual object instead of a string
+          // representation. It would be more consistent to be able to pass starlark setting values
+          // as objects to this attribute as well. But attributes are strongly-typed so
+          // label->object dict is not an option for attribute types right now.
           .add(
               attr(FLAG_SETTINGS_ATTRIBUTE, LABEL_KEYED_STRING_DICT)
-                  .undocumented("the feature flag feature has not yet been launched")
                   .allowedFileTypes()
-                  .mandatoryProviders(ImmutableList.of(ConfigFeatureFlagProvider.id()))
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
           /* <!-- #BLAZE_RULE(config_setting).ATTRIBUTE(constraint_values) -->
           The minimum set of <code>constraint_values</code> that the target platform must specify
@@ -274,7 +279,7 @@ public class ConfigRuleClasses {
           .build();
     }
   }
-  /*<!-- #BLAZE_RULE (NAME = config_setting, TYPE = OTHER, FAMILY = General)[GENERIC_RULE] -->
+  /*<!-- #BLAZE_RULE (NAME = config_setting, FAMILY = General)[GENERIC_RULE] -->
 
   <p>
     Matches an expected configuration state (expressed as Bazel flags or platform constraints) for
@@ -321,46 +326,66 @@ public class ConfigRuleClasses {
   config_setting(
       name = "64bit_glibc_2_25",
       constraint_values = [
-          "@bazel_tools//platforms:x86_64",
+          "@platforms//cpu:x86_64",
           "//example:glibc_2_25",
       ]
   )
   </pre>
 
-  In all these cases, it is possible for the configuration state to change during the build, for
-  instance if a dependency of a target needs to be built for a different platform than the target
-  itself. This means that even when a <code>config_setting</code> does not match the top-level
-  command-line flags, it may still match a deeper part of the build, and vice versa.
+  In all these cases, it's possible for the configuration to change within the build, for example if
+  a target needs to be built for a different platform than its dep. This means that even when a
+  <code>config_setting</code> doesn't match the top-level command-line flags, it may still match
+  some build targets.
 
   <h4 id="config_setting_notes">Notes</h4>
+  <ul>
+    <li>See <a href="${link select}">select</a> for what happens when multiple
+       <code>config_setting</code>s match the current configuration state.
+    </li>
 
-  <p>See <a href="${link select}">select</a> for what happens when multiple
-     <code>config_setting</code>s match the current configuration state.
-  </p>
+    <li>For flags that support shorthand forms (e.g. <code>--compilation_mode</code> vs.
+      <code>-c</code>), <code>values</code> definitions must use the full form. These automatically
+      match invocations using either form.
+    </li>
 
-  <p>For flags that support shorthand forms (e.g. <code>--compilation_mode</code> vs.
-    <code>-c</code>), <code>values</code> definitions must use the full form. These automatically
-    match invocations using either form.
-  </p>
+    <li>
+      If a flag takes multiple values (like <code>--copt=-Da --copt=-Db</code> or a list-typed
+      <a href="https://docs.bazel.build/versions/master/skylark/config.html#user-defined-build-settings">
+      Starlark flag</a>), <code>values = { "flag": "a" }</code> matches if <code>"a"</code> is
+      present <i>anywhere</i> in the actual list.
 
-  <p>The currently endorsed method for creating custom conditions that can't be expressed through
-    dedicated build flags is through the <code>--define</code> flag. Use this flag with caution:
-    it's not ideal and only endorsed for lack of a currently better workaround. See the
-    <a href="${link common-definitions#configurable-attributes}">
-    Configurable attributes</a> section for more discussion.
-  </p>
+      <p>
+        <code>values = { "myflag": "a,b" }</code> works the same way: this matches
+        <code>--myflag=a --myflag=b</code>, <code>--myflag=a --myflag=b --myflag=c</code>,
+        <code>--myflag=a,b</code>, and <code>--myflag=c,b,a</code>. Exact semantics vary between
+        flags. For example, <code>--copt</code> doesn't support multiple values <i>in the same
+        instance</i>: <code>--copt=a,b</code> produces <code>["a,b"]</code> while <code>--copt=a
+        --copt=b</code> produces <code>["a", "b"]</code> (so <code>values = { "copt": "a,b" }</code>
+        matches the former but not the latter). But <code>--ios_multi_cpus</code> (for Apple rules)
+        <i>does</i>: <code>-ios_multi_cpus=a,b</code> and <code>ios_multi_cpus=a --ios_multi_cpus=b
+        </code> both produce <code>["a", "b"]</code>. Check flag definitions and test your
+        conditions carefully to verify exact expectations.
+      </p>
+    </li>
 
-  <p>Avoid repeating identical <code>config_setting</code> definitions in different packages.
-    Instead, prefer to reference a common <code>config_setting</code> target that is defined in a
-    single package.
-  </p>
+    <li>If you need to define conditions that aren't modeled by built-in Bazel flags, use
+      <a href="https://docs.bazel.build/versions/master/skylark/config.html#user-defined-build-settings">
+      Starlark-defined flags</a>. You can also use <code>--define</code>, but this offers weaker
+      support and is not recommended. See
+      <a href="${link common-definitions#configurable-attributes}">here</a> for more discussion.
+    </li>
 
-  <p><a href="general.html#config_setting.values"><code>values</code></a>,
-     <a href="general.html#config_setting.define_values"><code>define_values</code></a>, and
-     <a href="general.html#config_setting.constraint_values"><code>constraint_values</code></a>
-     can be used in any combination in the same <code>config_setting</code> but at least one must be
-     set for any given <code>config_setting</code>.
-  </p>
+    <li>Avoid repeating identical <code>config_setting</code> definitions in different packages.
+      Instead, reference a common <code>config_setting</code> that defined in a canonical package.
+    </li>
+
+    <li><a href="general.html#config_setting.values"><code>values</code></a>,
+       <a href="general.html#config_setting.define_values"><code>define_values</code></a>, and
+       <a href="general.html#config_setting.constraint_values"><code>constraint_values</code></a>
+       can be used in any combination in the same <code>config_setting</code> but at least one must
+       be set for any given <code>config_setting</code>.
+    </li>
+  </ul>
   <!-- #END_BLAZE_RULE -->*/
 
   /** Rule definition for Android's config_feature_flag rule. */
@@ -370,7 +395,7 @@ public class ConfigRuleClasses {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .setUndocumented(/* the feature flag feature has not yet been launched */)
+          .setUndocumented(/* the feature flag feature has not yet been launched */ )
           .requiresConfigurationFragments(ConfigFeatureFlagConfiguration.class)
           .add(
               attr("allowed_values", STRING_LIST)
@@ -378,10 +403,8 @@ public class ConfigRuleClasses {
                   .nonEmpty()
                   .orderIndependent()
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
-          .add(
-              attr("default_value", STRING)
-                  .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
-          .add(ConfigFeatureFlag.getWhitelistAttribute(env))
+          .add(attr("default_value", STRING).nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
+          .add(ConfigFeatureFlag.getAllowlistAttribute(env))
           .removeAttribute(BaseRuleClasses.TAGGED_TRIMMING_ATTR)
           .build();
     }

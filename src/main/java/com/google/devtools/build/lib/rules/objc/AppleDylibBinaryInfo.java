@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleDylibBinaryApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleDylibBinaryApi;
 
 /**
  * Provider containing the executable binary output that was built using an apple_binary target with
@@ -34,19 +34,19 @@ import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleDylibBinaryApi;
 @Immutable
 public final class AppleDylibBinaryInfo extends NativeInfo implements AppleDylibBinaryApi {
 
-  /** Skylark name for the AppleDylibBinaryInfo. */
-  public static final String SKYLARK_NAME = "AppleDylibBinary";
+  /** Starlark name for the AppleDylibBinaryInfo. */
+  public static final String STARLARK_NAME = "AppleDylibBinary";
 
-  /** Skylark constructor and identifier for AppleDylibBinaryInfo. */
-  public static final NativeProvider<AppleDylibBinaryInfo> SKYLARK_CONSTRUCTOR =
-      new NativeProvider<AppleDylibBinaryInfo>(AppleDylibBinaryInfo.class, SKYLARK_NAME) {};
+  /** Starlark constructor and identifier for AppleDylibBinaryInfo. */
+  public static final NativeProvider<AppleDylibBinaryInfo> STARLARK_CONSTRUCTOR =
+      new NativeProvider<AppleDylibBinaryInfo>(AppleDylibBinaryInfo.class, STARLARK_NAME) {};
 
   private final Artifact dylibBinary;
   private final ObjcProvider depsObjcProvider;
 
   public AppleDylibBinaryInfo(Artifact dylibBinary,
       ObjcProvider depsObjcProvider) {
-    super(SKYLARK_CONSTRUCTOR);
+    super(STARLARK_CONSTRUCTOR);
     this.dylibBinary = dylibBinary;
     this.depsObjcProvider = depsObjcProvider;
   }

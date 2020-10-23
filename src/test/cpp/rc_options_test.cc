@@ -34,15 +34,21 @@ using ::testing::MatchesRegex;
 class RcOptionsTest : public ::testing::Test {
  protected:
   RcOptionsTest()
-      : test_file_dir_(blaze::GetPathEnv("TEST_TMPDIR")), workspace_layout_() {}
+      : test_file_dir_(blaze_util::JoinPath(
+            blaze::GetPathEnv("TEST_TMPDIR"),
+            ::testing::UnitTest::GetInstance()->current_test_info()->name())),
+        workspace_layout_() {
+  }
 
   const string test_file_dir_;
   const WorkspaceLayout workspace_layout_;
 
   void WriteRc(const string& filename, const string& contents) {
-    bool success = blaze_util::WriteFile(
+    bool success_mkdir = blaze_util::MakeDirectories(test_file_dir_, 0755);
+    ASSERT_TRUE(success_mkdir) << "Failed to mkdir -p " << test_file_dir_;
+    bool success_write = blaze_util::WriteFile(
         contents, blaze_util::JoinPath(test_file_dir_, filename));
-    ASSERT_TRUE(success) << "Failed to write " << filename;
+    ASSERT_TRUE(success_write) << "Failed to write " << filename;
   }
 
   std::unique_ptr<RcFile> Parse(const string& filename,
@@ -105,7 +111,8 @@ TEST_F(RcOptionsTest, CommentedStartup) {
   WriteRc("commented_startup.bazelrc",
           "# startup foo");
   unordered_map<string, vector<string>> no_expected_args;
-  SuccessfullyParseRcWithExpectedArgs("whitespace.bazelrc", no_expected_args);
+  SuccessfullyParseRcWithExpectedArgs("commented_startup.bazelrc",
+                                      no_expected_args);
 }
 
 TEST_F(RcOptionsTest, EmptyStartupLine) {

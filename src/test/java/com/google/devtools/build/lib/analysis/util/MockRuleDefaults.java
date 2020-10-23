@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.analysis.util;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -88,7 +88,9 @@ public class MockRuleDefaults {
       for (Artifact artifact : ruleContext.getOutputArtifacts()) {
         ruleContext.registerAction(
             FileWriteAction.createEmptyWithInputs(
-                ruleContext.getActionOwner(), ImmutableList.of(), artifact));
+                ruleContext.getActionOwner(),
+                NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+                artifact));
       }
       return new RuleConfiguredTargetBuilder(ruleContext)
           .setFilesToBuild(filesToBuild)

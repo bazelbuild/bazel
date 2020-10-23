@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.MapMaker;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet.InterruptStrategy;
 import com.google.errorprone.annotations.DoNotCall;
 import java.util.concurrent.ConcurrentMap;
 
@@ -92,7 +93,11 @@ public final class NestedSetBuilder<E> {
   public NestedSetBuilder<E> addAll(Iterable<? extends E> elements) {
     Preconditions.checkNotNull(elements);
     if (items == null) {
-      items = CompactHashSet.createWithExpectedSize(Iterables.size(elements));
+      int n = Iterables.size(elements);
+      if (n == 0) {
+        return this; // avoid allocating an empty set
+      }
+      items = CompactHashSet.createWithExpectedSize(n);
     }
     Iterables.addAll(items, elements);
     return this;
@@ -133,7 +138,9 @@ public final class NestedSetBuilder<E> {
     Preconditions.checkNotNull(subset);
     Preconditions.checkArgument(
         order.isCompatible(subset.getOrder()),
-        "Order mismatch: %s != %s", subset.getOrder().getSkylarkName(), order.getSkylarkName());
+        "Order mismatch: %s != %s",
+        subset.getOrder().getStarlarkName(),
+        order.getStarlarkName());
     if (!subset.isEmpty()) {
       if (transitiveSets == null) {
         transitiveSets = CompactHashSet.create();
@@ -149,10 +156,27 @@ public final class NestedSetBuilder<E> {
    * <p>This method may be called multiple times with interleaved {@link #add}, {@link #addAll} and
    * {@link #addTransitive} calls.
    */
+  public NestedSet<E> build() {
+    try {
+      return buildInternal(InterruptStrategy.CRASH);
+    } catch (InterruptedException e) {
+      throw new IllegalStateException("Cannot throw with InterruptStrategy.CRASH", e);
+    }
+  }
+
+  /**
+   * Similar to {@link #build} except that if any subset is based on a deserialization future and an
+   * interrupt is observed, {@link InterruptedException} is propagated.
+   */
+  public NestedSet<E> buildInterruptibly() throws InterruptedException {
+    return buildInternal(InterruptStrategy.PROPAGATE);
+  }
+
   // Casting from CompactHashSet<NestedSet<? extends E>> to CompactHashSet<NestedSet<E>> by way of
   // CompactHashSet<?>.
   @SuppressWarnings("unchecked")
-  public NestedSet<E> build() {
+  private NestedSet<E> buildInternal(InterruptStrategy interruptStrategy)
+      throws InterruptedException {
     if (isEmpty()) {
       return order.emptySet();
     }
@@ -171,17 +195,16 @@ public final class NestedSetBuilder<E> {
     return new NestedSet<>(
         order,
         items == null ? ImmutableSet.of() : items,
-        transitiveSetsCast == null ? ImmutableSet.of() : transitiveSetsCast);
+        transitiveSetsCast == null ? ImmutableSet.of() : transitiveSetsCast,
+        interruptStrategy);
   }
 
   private static final ConcurrentMap<ImmutableList<?>, NestedSet<?>> immutableListCache =
-      new MapMaker().weakKeys().makeMap();
+      new MapMaker().concurrencyLevel(16).weakKeys().makeMap();
 
-  /**
-   * Creates a nested set from a given list of items.
-   */
+  /** Creates a nested set from a given list of items. */
   @SuppressWarnings("unchecked")
-  public static <E> NestedSet<E> wrap(Order order, Iterable<E> wrappedItems) {
+  public static <E> NestedSet<E> wrap(Order order, Iterable<? extends E> wrappedItems) {
     if (Iterables.isEmpty(wrappedItems)) {
       return order.emptySet();
     } else if (order == Order.STABLE_ORDER && wrappedItems instanceof ImmutableList) {
@@ -202,7 +225,6 @@ public final class NestedSetBuilder<E> {
   /**
    * Creates a nested set with the given list of items as its elements.
    */
-  @SuppressWarnings("unchecked")
   public static <E> NestedSet<E> create(Order order, E... elems) {
     return wrap(order, ImmutableList.copyOf(elems));
   }
@@ -242,7 +264,7 @@ public final class NestedSetBuilder<E> {
     return new NestedSetBuilder<>(Order.NAIVE_LINK_ORDER);
   }
 
-  public static <E> NestedSetBuilder<E> fromNestedSet(NestedSet<E> set) {
+  public static <E> NestedSetBuilder<E> fromNestedSet(NestedSet<? extends E> set) {
     return new NestedSetBuilder<E>(set.getOrder()).addTransitive(set);
   }
 

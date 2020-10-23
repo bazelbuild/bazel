@@ -12,6 +12,7 @@ title: ${ruleFamily.name} Rules
 
 ${ruleFamily.summary}
 
+#if (!$singlePage)
 <div class="toc">
   <h2>Rules</h2>
   <ul>
@@ -24,6 +25,7 @@ ${ruleFamily.summary}
 #end
   </ul>
 </div>
+#end
 
 #foreach ($rule in $ruleFamily.rules)
   <h2 id="${rule.ruleName}"#if($rule.isDeprecated()) class="deprecated"#end>
@@ -71,9 +73,6 @@ ${ruleFamily.summary}
     #end
     </tbody>
   </table>
-  #if ($rule.isPublicByDefault())
-    The default visibility is public: <code>visibility = ["//visibility:public"]</code>.
-  #end
 #end
 
 #if (!$singlePage)

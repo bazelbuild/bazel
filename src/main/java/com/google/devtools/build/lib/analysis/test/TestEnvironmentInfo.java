@@ -18,17 +18,16 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkbuildapi.test.TestEnvironmentInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.test.TestEnvironmentInfoApi;
 import java.util.Map;
 
 /** Provider containing any additional environment variables for use in the test action. */
 @Immutable
 public final class TestEnvironmentInfo extends NativeInfo implements TestEnvironmentInfoApi {
 
-  /** Skylark constructor and identifier for TestEnvironmentInfo. */
+  /** Starlark constructor and identifier for TestEnvironmentInfo. */
   public static final NativeProvider<TestEnvironmentInfo> PROVIDER =
-      new NativeProvider<TestEnvironmentInfo>(
-          TestEnvironmentInfo.class, "TestEnvironment") {};
+      new NativeProvider<TestEnvironmentInfo>(TestEnvironmentInfo.class, "TestEnvironment") {};
 
   private final Map<String, String> environment;
 

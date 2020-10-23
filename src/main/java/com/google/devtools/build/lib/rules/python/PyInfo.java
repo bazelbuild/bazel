@@ -16,35 +16,36 @@ package com.google.devtools.build.lib.rules.python;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.skylarkbuildapi.python.PyInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.starlarkbuildapi.python.PyInfoApi;
 import java.util.Objects;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 
 /** Instance of the provider type for the Python rules. */
-public class PyInfo extends Info implements PyInfoApi<Artifact> {
+public final class PyInfo implements Info, PyInfoApi<Artifact> {
 
   public static final String STARLARK_NAME = "PyInfo";
 
   public static final PyInfoProvider PROVIDER = new PyInfoProvider();
 
   /**
-   * Returns true if the given depset has a content type that is a subtype of the given class, and
-   * has an order compatible with the given order.
+   * Returns true if the given depset has the given content type and order compatible with the given
+   * order.
    */
   private static boolean depsetHasTypeAndCompatibleOrder(
-      SkylarkNestedSet depset, Class<?> clazz, Order order) {
+      Depset depset, Depset.ElementType type, Order order) {
     // Work around #7266 by special-casing the empty set in the type check.
-    boolean typeOk = depset.isEmpty() || depset.getContentType().canBeCastTo(clazz);
+    boolean typeOk = depset.isEmpty() || depset.getElementType().equals(type);
     boolean orderOk = depset.getOrder().isCompatible(order);
     return typeOk && orderOk;
   }
@@ -55,40 +56,55 @@ public class PyInfo extends Info implements PyInfoApi<Artifact> {
    * <p>For depsets, this includes its content type and order.
    */
   private static String describeType(Object value) {
-    String typeName = EvalUtils.getDataTypeName(value, /*fullDetails=*/ true);
-    if (value instanceof SkylarkNestedSet) {
-      return ((SkylarkNestedSet) value).getOrder().getSkylarkName() + "-ordered " + typeName;
-    } else {
-      return typeName;
+    if (value instanceof Depset) {
+      Depset depset = (Depset) value;
+      return depset.getOrder().getStarlarkName()
+          + "-ordered depset of "
+          + depset.getElementType()
+          + "s";
     }
+    return Starlark.type(value);
   }
 
-  private final SkylarkNestedSet transitiveSources;
+  private final Location location;
+  // Verified on initialization to contain Artifact.
+  private final Depset transitiveSources;
   private final boolean usesSharedLibraries;
-  private final SkylarkNestedSet imports;
+  // Verified on initialization to contain String.
+  private final Depset imports;
   private final boolean hasPy2OnlySources;
   private final boolean hasPy3OnlySources;
 
   private PyInfo(
       @Nullable Location location,
-      SkylarkNestedSet transitiveSources,
+      Depset transitiveSources,
       boolean usesSharedLibraries,
-      SkylarkNestedSet imports,
+      Depset imports,
       boolean hasPy2OnlySources,
       boolean hasPy3OnlySources) {
-    super(PROVIDER, location);
     Preconditions.checkArgument(
-        depsetHasTypeAndCompatibleOrder(transitiveSources, Artifact.class, Order.COMPILE_ORDER));
+        depsetHasTypeAndCompatibleOrder(transitiveSources, Artifact.TYPE, Order.COMPILE_ORDER));
     // TODO(brandjon): PyCommon currently requires COMPILE_ORDER, but we'll probably want to change
     // that to NAIVE_LINK (preorder). In the meantime, order isn't an invariant of the provider
     // itself, so we use STABLE here to accept any order.
     Preconditions.checkArgument(
-        depsetHasTypeAndCompatibleOrder(imports, String.class, Order.STABLE_ORDER));
+        depsetHasTypeAndCompatibleOrder(imports, Depset.ElementType.STRING, Order.STABLE_ORDER));
+    this.location = location != null ? location : Location.BUILTIN;
     this.transitiveSources = transitiveSources;
     this.usesSharedLibraries = usesSharedLibraries;
     this.imports = imports;
     this.hasPy2OnlySources = hasPy2OnlySources;
     this.hasPy3OnlySources = hasPy3OnlySources;
+  }
+
+  @Override
+  public PyInfoProvider getProvider() {
+    return PROVIDER;
+  }
+
+  @Override
+  public Location getCreationLoc() {
+    return location;
   }
 
   @Override
@@ -118,8 +134,17 @@ public class PyInfo extends Info implements PyInfoApi<Artifact> {
   }
 
   @Override
-  public SkylarkNestedSet getTransitiveSources() {
+  public Depset getTransitiveSources() {
     return transitiveSources;
+  }
+
+  public NestedSet<Artifact> getTransitiveSourcesSet() {
+    try {
+      return transitiveSources.getSet(Artifact.class);
+    } catch (TypeException e) {
+      throw new IllegalStateException(
+          "'transitiveSources' depset was found to be invalid type " + imports.getElementType(), e);
+    }
   }
 
   @Override
@@ -128,8 +153,17 @@ public class PyInfo extends Info implements PyInfoApi<Artifact> {
   }
 
   @Override
-  public SkylarkNestedSet getImports() {
+  public Depset getImports() {
     return imports;
+  }
+
+  public NestedSet<String> getImportsSet() {
+    try {
+      return imports.getSet(String.class);
+    } catch (TypeException e) {
+      throw new IllegalStateException(
+          "'imports' depset was found to be invalid type " + imports.getElementType(), e);
+    }
   }
 
   @Override
@@ -152,37 +186,35 @@ public class PyInfo extends Info implements PyInfoApi<Artifact> {
 
     @Override
     public PyInfo constructor(
-        SkylarkNestedSet transitiveSources,
+        Depset transitiveSources,
         boolean usesSharedLibraries,
         Object importsUncast,
         boolean hasPy2OnlySources,
         boolean hasPy3OnlySources,
-        Location loc)
+        StarlarkThread thread)
         throws EvalException {
-      SkylarkNestedSet imports =
-          importsUncast.equals(Runtime.UNBOUND)
-              ? SkylarkNestedSet.of(String.class, NestedSetBuilder.emptySet(Order.COMPILE_ORDER))
-              : (SkylarkNestedSet) importsUncast;
+      Depset imports =
+          importsUncast.equals(Starlark.UNBOUND)
+              ? Depset.of(Depset.ElementType.STRING, NestedSetBuilder.emptySet(Order.COMPILE_ORDER))
+              : (Depset) importsUncast;
 
+      if (!depsetHasTypeAndCompatibleOrder(transitiveSources, Artifact.TYPE, Order.COMPILE_ORDER)) {
+        throw Starlark.errorf(
+            "'transitive_sources' field should be a postorder-compatible depset of Files (got a"
+                + " '%s')",
+            describeType(transitiveSources));
+      }
       if (!depsetHasTypeAndCompatibleOrder(
-          transitiveSources, Artifact.class, Order.COMPILE_ORDER)) {
-        throw new EvalException(
-            loc,
-            String.format(
-                "'transitive_sources' field should be a postorder-compatible depset of Files (got "
-                    + "a '%s')",
-                describeType(transitiveSources)));
+          imports, Depset.ElementType.STRING, Order.STABLE_ORDER)) {
+        throw Starlark.errorf(
+            "'imports' field should be a depset of strings (got a '%s')", describeType(imports));
       }
-      if (!depsetHasTypeAndCompatibleOrder(imports, String.class, Order.STABLE_ORDER)) {
-        throw new EvalException(
-            loc,
-            String.format(
-                "'imports' field should be a depset of strings (got a '%s')",
-                describeType(imports)));
-      }
+      // Validate depset parameters
+      Depset.cast(transitiveSources, Artifact.class, "transitive_sources");
+      Depset.cast(imports, String.class, "imports");
 
       return new PyInfo(
-          loc,
+          thread.getCallerLocation(),
           transitiveSources,
           usesSharedLibraries,
           imports,
@@ -241,9 +273,9 @@ public class PyInfo extends Info implements PyInfoApi<Artifact> {
       Preconditions.checkNotNull(transitiveSources);
       return new PyInfo(
           location,
-          SkylarkNestedSet.of(Artifact.class, transitiveSources),
+          Depset.of(Artifact.TYPE, transitiveSources),
           usesSharedLibraries,
-          SkylarkNestedSet.of(String.class, imports),
+          Depset.of(Depset.ElementType.STRING, imports),
           hasPy2OnlySources,
           hasPy3OnlySources);
     }

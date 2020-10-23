@@ -99,7 +99,7 @@ public class PrintingEventHandler extends AbstractEventHandler
           StringBuilder builder = new StringBuilder();
           builder.append(event.getKind()).append(": ");
           if (event.getLocation() != null) {
-            builder.append(event.getLocation().print()).append(": ");
+            builder.append(event.getLocation()).append(": ");
           }
           builder.append(event.getMessage()).append("\n");
           outErr.getErrorStream().write(builder.toString().getBytes(StandardCharsets.UTF_8));
@@ -118,16 +118,13 @@ public class PrintingEventHandler extends AbstractEventHandler
   }
 
   private void handleFollowUpEvents(Event event) {
-    if (event.getStdErr() != null) {
-      handle(
-          Event.of(
-              EventKind.STDERR, null, event.getStdErr().getBytes(StandardCharsets.ISO_8859_1)));
+    byte[] stderr = event.getStdErr();
+    if (stderr != null) {
+      handle(Event.of(EventKind.STDERR, null, stderr));
     }
-    if (event.getStdOut() != null) {
-      handle(
-          Event.of(
-              EventKind.STDOUT, null, event.getStdOut().getBytes(StandardCharsets.ISO_8859_1)));
+    byte[] stdout = event.getStdOut();
+    if (stdout != null) {
+      handle(Event.of(EventKind.STDOUT, null, stdout));
     }
   }
-
 }

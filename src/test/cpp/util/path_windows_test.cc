@@ -11,9 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+
 #include <stdio.h>
 #include <string.h>
-#include <windows.h>
 
 #include <algorithm>
 #include <memory>
@@ -39,90 +44,6 @@ namespace blaze_util {
 using std::string;
 using std::unique_ptr;
 using std::wstring;
-
-TEST(PathWindowsTest, TestNormalizeWindowsPath) {
-#define ASSERT_NORMALIZE(x, y)                                          \
-  {                                                                     \
-    std::string result;                                                 \
-    EXPECT_TRUE(blaze_util::TestOnly_NormalizeWindowsPath(x, &result)); \
-    EXPECT_EQ(result, y);                                               \
-  }
-
-  ASSERT_NORMALIZE("", "");
-  ASSERT_NORMALIZE("a", "a");
-  ASSERT_NORMALIZE("foo/bar", "foo\\bar");
-  ASSERT_NORMALIZE("foo/../bar", "bar");
-  ASSERT_NORMALIZE("a/", "a");
-  ASSERT_NORMALIZE("foo", "foo");
-  ASSERT_NORMALIZE("foo/", "foo");
-  ASSERT_NORMALIZE(".", ".");
-  ASSERT_NORMALIZE("./", ".");
-  ASSERT_NORMALIZE("..", "..");
-  ASSERT_NORMALIZE("../", "..");
-  ASSERT_NORMALIZE("./..", "..");
-  ASSERT_NORMALIZE("./../", "..");
-  ASSERT_NORMALIZE("../.", "..");
-  ASSERT_NORMALIZE(".././", "..");
-  ASSERT_NORMALIZE("...", "...");
-  ASSERT_NORMALIZE(".../", "...");
-  ASSERT_NORMALIZE("a/", "a");
-  ASSERT_NORMALIZE(".a", ".a");
-  ASSERT_NORMALIZE("..a", "..a");
-  ASSERT_NORMALIZE("...a", "...a");
-  ASSERT_NORMALIZE("./a", "a");
-  ASSERT_NORMALIZE("././a", "a");
-  ASSERT_NORMALIZE("./../a", "..\\a");
-  ASSERT_NORMALIZE(".././a", "..\\a");
-  ASSERT_NORMALIZE("../../a", "..\\..\\a");
-  ASSERT_NORMALIZE("../.../a", "..\\...\\a");
-  ASSERT_NORMALIZE(".../../a", "a");
-  ASSERT_NORMALIZE("a/..", "");
-  ASSERT_NORMALIZE("a/../", "");
-  ASSERT_NORMALIZE("a/./../", "");
-
-  ASSERT_NORMALIZE("c:/", "c:\\");
-  ASSERT_NORMALIZE("c:/a", "c:\\a");
-  ASSERT_NORMALIZE("c:/foo/bar", "c:\\foo\\bar");
-  ASSERT_NORMALIZE("c:/foo/../bar", "c:\\bar");
-  ASSERT_NORMALIZE("d:/a/", "d:\\a");
-  ASSERT_NORMALIZE("D:/foo", "D:\\foo");
-  ASSERT_NORMALIZE("c:/foo/", "c:\\foo");
-  ASSERT_NORMALIZE("c:/.", "c:\\");
-  ASSERT_NORMALIZE("c:/./", "c:\\");
-  ASSERT_NORMALIZE("c:/..", "c:\\");
-  ASSERT_NORMALIZE("c:/../", "c:\\");
-  ASSERT_NORMALIZE("c:/./..", "c:\\");
-  ASSERT_NORMALIZE("c:/./../", "c:\\");
-  ASSERT_NORMALIZE("c:/../.", "c:\\");
-  ASSERT_NORMALIZE("c:/.././", "c:\\");
-  ASSERT_NORMALIZE("c:/...", "c:\\...");
-  ASSERT_NORMALIZE("c:/.../", "c:\\...");
-  ASSERT_NORMALIZE("c:/.a", "c:\\.a");
-  ASSERT_NORMALIZE("c:/..a", "c:\\..a");
-  ASSERT_NORMALIZE("c:/...a", "c:\\...a");
-  ASSERT_NORMALIZE("c:/./a", "c:\\a");
-  ASSERT_NORMALIZE("c:/././a", "c:\\a");
-  ASSERT_NORMALIZE("c:/./../a", "c:\\a");
-  ASSERT_NORMALIZE("c:/.././a", "c:\\a");
-  ASSERT_NORMALIZE("c:/../../a", "c:\\a");
-  ASSERT_NORMALIZE("c:/../.../a", "c:\\...\\a");
-  ASSERT_NORMALIZE("c:/.../../a", "c:\\a");
-  ASSERT_NORMALIZE("c:/a/..", "c:\\");
-  ASSERT_NORMALIZE("c:/a/../", "c:\\");
-  ASSERT_NORMALIZE("c:/a/./../", "c:\\");
-
-  ASSERT_NORMALIZE("foo", "foo");
-  ASSERT_NORMALIZE("foo/", "foo");
-  ASSERT_NORMALIZE("foo//bar", "foo\\bar");
-  ASSERT_NORMALIZE("../..//foo/./bar", "..\\..\\foo\\bar");
-  ASSERT_NORMALIZE("../foo/baz/../bar", "..\\foo\\bar");
-  ASSERT_NORMALIZE("c:", "c:\\");
-  ASSERT_NORMALIZE("c:/", "c:\\");
-  ASSERT_NORMALIZE("c:\\", "c:\\");
-  ASSERT_NORMALIZE("c:\\..//foo/./bar/", "c:\\foo\\bar");
-  ASSERT_NORMALIZE("../foo", "..\\foo");
-#undef ASSERT_NORMALIZE
-}
 
 TEST(PathWindowsTest, TestDirname) {
   ASSERT_EQ("", Dirname(""));
@@ -278,7 +199,7 @@ TEST(PathWindowsTest, TestAsAbsoluteWindowsPath) {
   ASSERT_EQ(L"\\\\?\\c:\\non-existent", actual);
 
   WCHAR cwd[MAX_PATH];
-  wstring cwdw(CstringToWstring(GetCwd().c_str()).get());
+  wstring cwdw(CstringToWstring(GetCwd()));
   wstring expected =
       wstring(L"\\\\?\\") + cwdw +
       ((cwdw.back() == L'\\') ? L"non-existent" : L"\\non-existent");

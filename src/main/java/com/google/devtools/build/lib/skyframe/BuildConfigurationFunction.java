@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
-
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
@@ -31,14 +29,17 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * A builder for {@link BuildConfigurationValue} instances.
@@ -90,6 +91,11 @@ public class BuildConfigurationFunction implements SkyFunction {
       return null;
     }
 
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (starlarkSemantics == null) {
+      return null;
+    }
+
     ClassToInstanceMap<Fragment> fragmentsMap = MutableClassToInstanceMap.create();
     for (Fragment fragment : fragments) {
       fragmentsMap.put(fragment.getClass(), fragment);
@@ -107,7 +113,8 @@ public class BuildConfigurationFunction implements SkyFunction {
             key.getOptionsDiff(),
             ruleClassProvider.getReservedActionMnemonics(),
             actionEnvironment,
-            workspaceNameValue.getName());
+            workspaceNameValue.getName(),
+            starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
     return new BuildConfigurationValue(config);
   }
 
@@ -117,7 +124,7 @@ public class BuildConfigurationFunction implements SkyFunction {
     ImmutableSortedSet<Class<? extends Fragment>> fragmentClasses = key.getFragments();
     ImmutableSet.Builder<Fragment> fragments =
         ImmutableSet.builderWithExpectedSize(fragmentClasses.size());
-    for (Class<? extends BuildConfiguration.Fragment> fragmentClass : fragmentClasses) {
+    for (Class<? extends Fragment> fragmentClass : fragmentClasses) {
       BuildOptions trimmedOptions =
           options.trim(
               BuildConfiguration.getOptionsClasses(
@@ -145,10 +152,10 @@ public class BuildConfigurationFunction implements SkyFunction {
   abstract static class FragmentKey {
     abstract BuildOptions getBuildOptions();
 
-    abstract Class<? extends BuildConfiguration.Fragment> getFragmentClass();
+    abstract Class<? extends Fragment> getFragmentClass();
 
     private static FragmentKey create(
-        BuildOptions buildOptions, Class<? extends BuildConfiguration.Fragment> fragmentClass) {
+        BuildOptions buildOptions, Class<? extends Fragment> fragmentClass) {
       return new AutoValue_BuildConfigurationFunction_FragmentKey(buildOptions, fragmentClass);
     }
   }

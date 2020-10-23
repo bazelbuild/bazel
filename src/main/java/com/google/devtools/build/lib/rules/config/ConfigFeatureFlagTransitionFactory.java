@@ -16,12 +16,16 @@ package com.google.devtools.build.lib.rules.config;
 
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -55,11 +59,16 @@ public class ConfigFeatureFlagTransitionFactory implements TransitionFactory<Rul
     }
 
     @Override
-    public BuildOptions patch(BuildOptions options) {
+    public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+      return ImmutableSet.of(ConfigFeatureFlagOptions.class);
+    }
+
+    @Override
+    public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
       if (!options.contains(ConfigFeatureFlagOptions.class)) {
-        return options;
+        return options.underlying();
       }
-      return FeatureFlagValue.replaceFlagValues(options, flagValues);
+      return FeatureFlagValue.replaceFlagValues(options.underlying(), flagValues);
     }
 
     @Override

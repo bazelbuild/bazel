@@ -23,7 +23,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
@@ -47,9 +47,11 @@ public class Aapt2ResourceShrinkingAction {
     final Profiler profiler = LoggingProfiler.createAndStart("shrink").startTask("flags");
     // Parse arguments.
     OptionsParser optionsParser =
-        OptionsParser.newOptionsParser(ImmutableList.of(Options.class, Aapt2ConfigOptions.class));
-    optionsParser.enableParamsFileSupport(
-        new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
+        OptionsParser.builder()
+            .optionsClasses(
+                Options.class, Aapt2ConfigOptions.class, ResourceProcessorCommonOptions.class)
+            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
+            .build();
     optionsParser.parseAndExitUponError(args);
     Aapt2ConfigOptions aapt2ConfigOptions = optionsParser.getOptions(Aapt2ConfigOptions.class);
     Options options = optionsParser.getOptions(Options.class);
@@ -68,7 +70,7 @@ public class Aapt2ResourceShrinkingAction {
               .profileUsing(profiler)
               .dependencies(ImmutableList.of(StaticLibrary.from(aapt2ConfigOptions.androidJar)));
 
-      final Set<String> packages = new HashSet<>(resourcesZip.asPackages());
+      final Set<String> packages = new LinkedHashSet<>(resourcesZip.asPackages());
 
       profiler.recordEndOf("setup").startTask("resourceShrinker");
 
@@ -84,6 +86,9 @@ public class Aapt2ResourceShrinkingAction {
             .writeBinaryTo(linker, options.shrunkApk, aapt2ConfigOptions.resourceTableAsProto)
             .writeReportTo(options.log)
             .writeResourcesToZip(options.shrunkResources);
+        if (options.resourcesConfigOutput != null) {
+          shrunk.writeResourcesConfigTo(options.resourcesConfigOutput);
+        }
         if (options.rTxtOutput != null) {
           // Fulfill the contract -- however, we do not generate an R.txt from the shrunk
           // resources.

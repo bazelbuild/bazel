@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 
 package com.google.devtools.build.lib.vfs;
 
@@ -21,28 +22,22 @@ import com.google.common.collect.Lists;
 import com.google.common.io.ByteSource;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.nio.channels.ReadableByteChannel;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
-/**
- * This interface models a file system using UNIX the naming scheme.
- */
+/** This interface models a file system. */
 @ThreadSafe
 public abstract class FileSystem {
 
   private final DigestHashFunction digestFunction;
-
-  public FileSystem() throws DefaultHashFunctionNotSetException {
-    digestFunction = DigestHashFunction.getDefault();
-  }
 
   public FileSystem(DigestHashFunction digestFunction) {
     this.digestFunction = Preconditions.checkNotNull(digestFunction);
@@ -242,12 +237,22 @@ public abstract class FileSystem {
         Path first = iterator.next();
         deleteTreesBelow(first);
         try {
-          first.delete();
+          // If the directory is not executable, delete(), depending on implementation, may decide
+          // that the directory entry does not exist and return false without throwing.
+          if (!first.delete()) {
+            throw new IOException(
+                "Unable to delete \"" + first + "\": directory entry does not exist");
+          }
         } catch (IOException e) {
           // If we couldn't delete the first entry in a directory, it may be because the directory
-          // (not the entry!) is not writable. Try granting this permission and retry. If the retry
-          // fails, give up.
+          // (not the entry!) is not writable or executable. Try granting this permission and retry.
+          // If the retry fails, give up. Note that we have to retry deleteTreesBelow() too in case
+          // first is itself a directory; if the directory were not executable, the initial
+          // first.deleteTreesBelow() call would have been a silent no-op (since first.isDirectory()
+          // would have returned false) and sub-entries of first would not have been deleted.
           dir.setWritable(true);
+          dir.setExecutable(true);
+          deleteTreesBelow(first);
           first.delete();
         }
       }
@@ -698,6 +703,15 @@ public abstract class FileSystem {
    * @throws IOException if there was an error opening the file for reading
    */
   protected abstract InputStream getInputStream(Path path) throws IOException;
+
+  /**
+   * Creates a ReadableFileChannel accessing the file denoted by the path.
+   *
+   * @throws IOException if there was an error opening the file for reading
+   */
+  protected ReadableByteChannel createReadableByteChannel(Path path) throws IOException {
+    throw new UnsupportedOperationException();
+  }
 
   /**
    * Creates an OutputStream accessing the file denoted by path.

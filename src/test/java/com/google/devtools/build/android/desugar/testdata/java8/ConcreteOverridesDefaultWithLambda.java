@@ -23,16 +23,14 @@ public class ConcreteOverridesDefaultWithLambda implements DefaultInterfaceWithL
 
   @Override
   public List<String> defaultWithLambda() {
-    return ImmutableList.of(0, 3)
-        .stream()
+    return ImmutableList.of(0, 3).stream()
         .map(i -> i == 0 ? TWO : String.valueOf(i))
         .collect(Collectors.toList());
   }
 
   @Override
   public List<String> digits() {
-    return ImmutableList.of(0, 4)
-        .stream()
+    return ImmutableList.of(0, 4).stream()
         .map(i -> i == 0 ? THREE : String.valueOf(i))
         .collect(Collectors.toList());
   }

@@ -14,21 +14,33 @@
 
 #include "src/main/tools/process-wrapper-legacy.h"
 
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#if defined(__linux__)
+#include <sys/prctl.h>
+#endif
+
+#include <errno.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
-#include <vector>
 
 #include "src/main/tools/logging.h"
 #include "src/main/tools/process-tools.h"
 #include "src/main/tools/process-wrapper-options.h"
 #include "src/main/tools/process-wrapper.h"
+
+static bool child_subreaper_enabled = false;
+#if defined(__linux__)
+#if !defined(PR_SET_CHILD_SUBREAPER)
+// https://github.com/torvalds/linux/blob/v5.7/tools/include/uapi/linux/prctl.h#L158
+#define PR_SET_CHILD_SUBREAPER 36
+#endif
+#endif
 
 pid_t LegacyProcessWrapper::child_pid = 0;
 volatile sig_atomic_t LegacyProcessWrapper::last_signal = 0;
@@ -39,6 +51,16 @@ void LegacyProcessWrapper::RunCommand() {
 }
 
 void LegacyProcessWrapper::SpawnChild() {
+#if defined(__linux__)
+  if (prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) == 0) {
+    child_subreaper_enabled = true;
+  } else {
+    if (errno != EINVAL) {
+      DIE("prctl");
+    }
+  }
+#endif
+
   child_pid = fork();
   if (child_pid < 0) {
     DIE("fork");
@@ -60,28 +82,78 @@ void LegacyProcessWrapper::SpawnChild() {
   }
 }
 
+// Sets up signal handlers to kill all subprocesses when the given signal is
+// triggered. Whether subprocesses are abruptly terminated or not depends on
+// the signal type and the user configuration.
+void LegacyProcessWrapper::SetupSignalHandlers() {
+  // SIGALRM represents a timeout so we should give the process a bit of time
+  // to die gracefully if it needs it.
+  InstallSignalHandler(SIGALRM, OnGracefulSignal);
+
+  // Termination signals should kill the process quickly, as it's typically
+  // blocking the return of the prompt after a user hits "Ctrl-C". But we allow
+  // customizing the behavior of SIGTERM because it's used by the dynamic
+  // scheduler to terminate process trees in a controlled manner.
+  if (opt.graceful_sigterm) {
+    InstallSignalHandler(SIGTERM, OnGracefulSignal);
+  } else {
+    InstallSignalHandler(SIGTERM, OnAbruptSignal);
+  }
+  InstallSignalHandler(SIGINT, OnAbruptSignal);
+}
+
 void LegacyProcessWrapper::WaitForChild() {
-  // Set up a signal handler which kills all subprocesses when the given signal
-  // is triggered.
-  InstallSignalHandler(SIGALRM, OnSignal);
-  InstallSignalHandler(SIGTERM, OnSignal);
-  InstallSignalHandler(SIGINT, OnSignal);
+  SetupSignalHandlers();
   if (opt.timeout_secs > 0) {
     SetTimeout(opt.timeout_secs);
   }
 
-  int status;
-  if (!opt.stats_path.empty()) {
-    struct rusage child_rusage;
-    status = WaitChildWithRusage(child_pid, &child_rusage);
-    WriteStatsToFile(&child_rusage, opt.stats_path);
-  } else {
-    status = WaitChild(child_pid);
+  // On macOS, we have to ensure the whole process group is terminated before
+  // collecting the status of the PID we are interested in. (Otherwise other
+  // processes could race us and grab the PGID.)
+#if defined(__APPLE__)
+  if (WaitForProcessToTerminate(child_pid) == -1) {
+    DIE("WaitForProcessToTerminate");
   }
 
   // The child is done for, but may have grandchildren that we still have to
   // kill.
   kill(-child_pid, SIGKILL);
+
+  if (WaitForProcessGroupToTerminate(child_pid) == -1) {
+    DIE("WaitForProcessGroupToTerminate");
+  }
+#endif
+
+  int status;
+  if (!opt.stats_path.empty()) {
+    struct rusage child_rusage;
+    status = WaitChildWithRusage(child_pid, &child_rusage,
+                                 child_subreaper_enabled);
+    WriteStatsToFile(&child_rusage, opt.stats_path);
+  } else {
+    status = WaitChild(child_pid, child_subreaper_enabled);
+  }
+
+#if !defined(__APPLE__)
+  if (child_subreaper_enabled) {
+    // If we enabled the child subreaper feature (on Linux), now that we have
+    // collected the status of the PID we were interested in, terminate the
+    // rest of the process group and wait until all the children are gone.
+    //
+    // If you are wondering why we don't use a PID namespace instead, it's
+    // because those can have subtle effects on the processes we spawn (like
+    // them assuming that the PIDs that they get are unique). The linux-sandbox
+    // offers this functionality.
+    if (TerminateAndWaitForAll(child_pid) == -1) {
+      DIE("TerminateAndWaitForAll");
+    }
+  } else {
+    // The child is done for, but may have grandchildren that we still have to
+    // kill.
+    kill(-child_pid, SIGKILL);
+  }
+#endif
 
   if (last_signal > 0) {
     // Don't trust the exit code if we got a timeout or signal.
@@ -97,16 +169,13 @@ void LegacyProcessWrapper::WaitForChild() {
 }
 
 // Called when timeout or signal occurs.
-void LegacyProcessWrapper::OnSignal(int sig) {
+void LegacyProcessWrapper::OnAbruptSignal(int sig) {
   last_signal = sig;
+  KillEverything(child_pid, false, opt.kill_delay_secs);
+}
 
-  if (sig == SIGALRM) {
-    // SIGALRM represents a timeout, so we should give the process a bit of time
-    // to die gracefully if it needs it.
-    KillEverything(child_pid, true, opt.kill_delay_secs);
-  } else {
-    // Signals should kill the process quickly, as it's typically blocking the
-    // return of the prompt after a user hits "Ctrl-C".
-    KillEverything(child_pid, false, opt.kill_delay_secs);
-  }
+// Called when timeout or signal occurs.
+void LegacyProcessWrapper::OnGracefulSignal(int sig) {
+  last_signal = sig;
+  KillEverything(child_pid, true, opt.kill_delay_secs);
 }

@@ -104,11 +104,11 @@ function test_query_buildfiles_with_load() {
     printf "//$pkg/y:rules.bzl\0//$pkg/y:BUILD\0//$pkg/x:BUILD\0" >$pkg/null.ref.log
     cmp $pkg/null.ref.log $pkg/null.log || fail "Expected match"
 
-    # Missing skylark file:
+    # Missing Starlark file:
     rm -f $pkg/y/rules.bzl
     bazel query --noshow_progress "buildfiles(//$pkg/x)" 2>$TEST_log &&
         fail "Expected error"
-    expect_log "Unable to load file '//$pkg/y:rules.bzl'"
+    expect_log "cannot load '//$pkg/y:rules.bzl'"
 }
 
 # Regression test for:
@@ -159,9 +159,7 @@ function test_bazelrc_option() {
     local -r pkg="${FUNCNAME}"
     mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
-    if [[ "$(get_real_path "${bazelrc}")" != "$(get_real_path ".${PRODUCT_NAME}rc")" ]]; then
-      cp "${bazelrc}" ".${PRODUCT_NAME}rc"
-    fi
+    cp "${bazelrc}" ".${PRODUCT_NAME}rc" || true
 
     echo "build --subcommands" >>".${PRODUCT_NAME}rc"    # default bazelrc
     $PATH_TO_BAZEL_BIN info --announce_rc >/dev/null 2>$TEST_log
@@ -288,8 +286,8 @@ function test_glob_with_subpackage2() {
     assert_equals "3" $(wc -l "$TEST_log")
 }
 
-# Regression test for bug "ASTFileLookupFunction has an unnoted
-# dependency on the PathPackageLocator".
+# Regression test for b/19767102 ("BzlCompileFunction has an unnoted dependency
+# on the PathPackageLocator").
 function test_incremental_deleting_package_roots() {
   local -r pkg="${FUNCNAME}"
   mkdir -p "$pkg" || fail "could not create \"$pkg\""
@@ -325,36 +323,32 @@ function test_no_package_loading_on_benign_workspace_file_changes() {
 
   echo 'workspace(name="wsname1")' > WORKSPACE
   echo 'sh_library(name="shname1")' > $pkg/foo/BUILD
-  # TODO(b/37617303): make tests UI-independent
-  bazel query --noexperimental_ui //$pkg/foo:all >& "$TEST_log" \
+  bazel query --experimental_ui_debug_all_events //$pkg/foo:all >& "$TEST_log" \
       || fail "Expected success"
   expect_log "Loading package: $pkg/foo"
   expect_log "//$pkg/foo:shname1"
 
   echo 'sh_library(name="shname2")' > $pkg/foo/BUILD
-  # TODO(b/37617303): make tests UI-independent
-  bazel query --noexperimental_ui //$pkg/foo:all >& "$TEST_log" \
+  bazel query --experimental_ui_debug_all_events //$pkg/foo:all >& "$TEST_log" \
       || fail "Expected success"
   expect_log "Loading package: $pkg/foo"
   expect_log "//$pkg/foo:shname2"
 
   # Test that comment changes do not cause package reloading
   echo '#benign comment' >> WORKSPACE
-  # TODO(b/37617303): make tests UI-independent
-  bazel query --noexperimental_ui //$pkg/foo:all >& "$TEST_log" \
+  bazel query --experimental_ui_debug_all_events //$pkg/foo:all >& "$TEST_log" \
       || fail "Expected success"
   expect_not_log "Loading package: $pkg/foo"
   expect_log "//$pkg/foo:shname2"
 
   echo 'workspace(name="wsname2")' > WORKSPACE
-  # TODO(b/37617303): make tests UI-independent
-  bazel query --noexperimental_ui //$pkg/foo:all >& "$TEST_log" \
+  bazel query --experimental_ui_debug_all_events //$pkg/foo:all >& "$TEST_log" \
       || fail "Expected success"
   expect_log "Loading package: $pkg/foo"
   expect_log "//$pkg/foo:shname2"
 }
 
-function test_incompatible_disallow_load_labels_to_cross_package_boundaries() {
+function test_disallow_load_labels_to_cross_package_boundaries() {
   local -r pkg="${FUNCNAME}"
   mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
@@ -365,20 +359,8 @@ function test_incompatible_disallow_load_labels_to_cross_package_boundaries() {
   touch "$pkg"/foo/a/b/BUILD
   echo "b = 42" > "$pkg"/foo/a/b/b.bzl
 
-  bazel query \
-    --incompatible_disallow_load_labels_to_cross_package_boundaries=false \
-    "$pkg/foo:BUILD" >& "$TEST_log" || fail "Expected success"
-  expect_log "//$pkg/foo:BUILD"
-
-  bazel query \
-    --incompatible_disallow_load_labels_to_cross_package_boundaries=true \
-    "$pkg/foo:BUILD" >& "$TEST_log" && fail "Expected failure"
-  expect_log "Label '//$pkg/foo/a:b/b.bzl' crosses boundary of subpackage '$pkg/foo/a/b'"
-
-  bazel query \
-    --incompatible_disallow_load_labels_to_cross_package_boundaries=false \
-    "$pkg/foo:BUILD" >& "$TEST_log" || fail "Expected success"
-  expect_log "//$pkg/foo:BUILD"
+  bazel query "$pkg/foo:BUILD" >& "$TEST_log" && fail "Expected failure"
+  expect_log "Label '//$pkg/foo/a:b/b.bzl' is invalid because '$pkg/foo/a/b' is a subpackage"
 }
 
 function test_package_loading_errors_in_target_parsing() {
@@ -389,11 +371,259 @@ function test_package_loading_errors_in_target_parsing() {
   do
     for target_pattern in "//bad:BUILD" "//bad:all" "//bad/..."
     do
-      bazel build --nobuild "$target_pattern" >& "$TEST_log" \
+      bazel build --nobuild "$keep_going" "$target_pattern" >& "$TEST_log" \
         && fail "Expected failure"
       expect_log "Build did NOT complete successfully"
     done
   done
+}
+
+function test_severe_package_loading_errors_via_test_suites_in_target_parsing() {
+
+  mkdir -p bad || fail "mkdir failed"
+  cat > bad/BUILD <<EOF
+load("//bad:bad.bzl", "some_val")
+sh_test(name = "some_test", srcs = ["test.sh"])
+EOF
+
+  cat > bad/bad.bzl <<EOF
+fail()
+EOF
+
+  mkdir dependsonbad || fail "mkdir failed"
+  cat > dependsonbad/BUILD <<EOF
+test_suite(name = "suite", tests = ["//bad:some_test"])
+EOF
+
+  for keep_going in "--keep_going" "--nokeep_going"
+  do
+    bazel build --nobuild "$keep_going" //dependsonbad:suite >& "$TEST_log" \
+      && fail "Expected failure"
+    local exit_code=$?
+    assert_equals 1 "$exit_code"
+    expect_log "Build did NOT complete successfully"
+    expect_not_log "Illegal"
+  done
+}
+
+function test_illegal_glob_exclude_pattern_in_bzl() {
+  mkdir badglob-bzl || fail "mkdir failed"
+  cat > badglob-bzl/BUILD <<EOF
+load("//badglob-bzl:badglob.bzl", "f")
+f()
+EOF
+  cat > badglob-bzl/badglob.bzl  <<EOF
+def f():
+  return native.glob(include = ["BUILD"], exclude = ["a/**b/c"])
+EOF
+
+  bazel query //badglob-bzl:BUILD >& "$TEST_log" && fail "Expected failure"
+  local exit_code=$?
+  assert_equals 7 "$exit_code"
+  expect_log "recursive wildcard must be its own segment"
+  expect_not_log "IllegalArgumentException"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/9176
+function test_windows_only__glob_with_junction() {
+  if ! $is_windows; then
+    echo "Skipping $FUNCNAME because execution platform is not Windows"
+    return
+  fi
+
+  mkdir -p foo/bar foo2
+  touch foo/bar/x.txt
+  touch foo/a.txt
+  touch foo2/b.txt
+  cat >BUILD <<eof
+filegroup(name = 'x', srcs = glob(["foo/**"]))
+filegroup(name = 'y', srcs = glob(["foo2/**"]))
+eof
+  # Create junction foo2/bar2 -> foo/bar
+  cmd.exe /C mklink /J foo2\\bar2 foo\\bar >NUL
+
+  bazel query 'deps(//:x)' >& "$TEST_log"
+  expect_log "//:x"
+  expect_log "//:foo/a.txt"
+  expect_log "//:foo/bar/x.txt"
+
+  bazel query 'deps(//:y)' >& "$TEST_log"
+  expect_log "//:y"
+  expect_log "//:foo2/b.txt"
+  expect_log "//:foo2/bar2/x.txt"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/pull/9269#issuecomment-531221290
+# Verify that bazel-bin and the other bazel-* symlinks are not treated as
+# packages when expanding the "//..." pattern.
+function test_bazel_bin_is_not_a_package() {
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir "$pkg" || fail "Could not mkdir $pkg"
+  echo "filegroup(name = '$pkg')" > "$pkg/BUILD"
+  setup_skylib_support
+  # Ensure bazel-<pkg> is created.
+  bazel build --symlink_prefix="foo_prefix-" "//$pkg" || fail "build failed"
+  [[ -d "foo_prefix-bin" ]] || fail "bazel-bin was not created"
+
+  # Assert that "//..." does not expand to //foo_prefix-*
+  bazel query //... >& "$TEST_log"
+  expect_log_once "//$pkg:$pkg"
+  expect_log_once "//.*:$pkg"
+  expect_not_log "//foo_prefix"
+}
+
+function test_starlark_cpu_profile() {
+  if $is_windows; then
+    echo "Starlark profiler is not supported on Microsoft Windows."
+    return
+  fi
+
+  mkdir -p test
+  echo 'load("inc.bzl", "main"); main()' > test/BUILD
+  cat >> test/inc.bzl <<'EOF'
+def main():
+   for i in range(2000):
+      foo()
+def foo():
+   list(range(10000))
+   sorted(range(10000))
+main() # uses ~3 seconds of CPU
+EOF
+  bazel query --starlark_cpu_profile="${TEST_TMPDIR}/pprof.gz" test/BUILD
+  # We don't depend on pprof, so just look for some strings in the raw file.
+  gunzip "${TEST_TMPDIR}/pprof.gz"
+  for str in sorted list range foo test/BUILD test/inc.bzl main; do
+    grep -q sorted "${TEST_TMPDIR}/pprof" ||
+      fail "string '$str' not found in profiler output"
+  done
+}
+
+# Test that actions.write correctly emits a UTF-8 encoded attribute value as
+# UTF-8.
+function test_actions_write_utf8_attribute() {
+  local -r pkg="${FUNCNAME}"
+  mkdir -p "$pkg" || fail "could not create \"$pkg\""
+
+  cat >"${pkg}/def.bzl" <<'EOF'
+def _write_attribute_impl(ctx):
+    ctx.actions.write(
+        output = ctx.outputs.out,
+        # adding a NL at the end to make the diff below easier
+        content = ctx.attr.text + '\n',
+    )
+    return []
+
+write_attribute = rule(
+    implementation = _write_attribute_impl,
+    attrs = {
+        "text": attr.string(),
+        "out": attr.output(),
+    },
+)
+EOF
+
+  cat >"${pkg}/BUILD" <<'EOF'
+load(":def.bzl", "write_attribute")
+write_attribute(
+    name = "text_with_non_latin1_chars",
+    # U+41, U+2117, U+4E16, U+1F63F  (1,2,3,4-byte UTF-8 encodings), 10 bytes.
+    text = "A©世😿",
+    out = "out",
+)
+EOF
+  bazel build "${pkg}:text_with_non_latin1_chars" || fail "Expected build to succeed"
+  diff $(bazel info "${PRODUCT_NAME}-bin")/$pkg/out <(echo 'A©世😿') || fail 'diff failed'
+}
+
+# Test that actions.write emits a file name containing non-Latin1 characters as
+# a UTF-8 encoded string.
+function test_actions_write_not_latin1_path() {
+  # TODO(https://github.com/bazelbuild/bazel/issues/11602): Enable after that is fixed.
+  if $is_windows ; then
+    echo 'Skipping test_actions_write_not_latin1_path on Windows. See #11602'
+    return
+  fi
+
+  local -r pkg="${FUNCNAME}"
+  mkdir -p "$pkg" || fail "could not create \"$pkg\""
+
+  filename='A©世😿.file'  # see above for an explanation.
+  echo hello >"${pkg}/${filename}"
+
+  cat >"${pkg}/def.bzl" <<'EOF'
+def _write_paths_impl(ctx):
+    # srcs is a list, but we only expect one entry.
+    if len(ctx.attr.srcs) != 1:
+        fail('expected exactly 1 file for srcs. got %d' % len(ctx.attr.srcs))
+    file_name = ctx.attr.srcs[0].label.name
+    ctx.actions.write(
+        output = ctx.outputs.out,
+        content = file_name,
+    )
+    return []
+
+write_paths = rule(
+    implementation = _write_paths_impl,
+    attrs = {
+        "srcs": attr.label_list(allow_files=True),
+        "out": attr.output(),
+    },
+)
+EOF
+
+  cat >"${pkg}/BUILD" <<'EOF'
+load(":def.bzl", "write_paths")
+write_paths(
+    name = "path_with_non_latin1",
+    # Use a glob to ensure that the value is read from the file system and not
+    # out of BUILD.
+    srcs = glob(["*.file"]),
+    out = "paths.txt",
+)
+EOF
+
+  bazel build "${pkg}:path_with_non_latin1" >output 2>&1 || (
+    echo '== build output'
+    cat output
+    fail "Expected build to succeed"
+  )
+  assert_contains "^${filename}$" $(bazel info "${PRODUCT_NAME}-bin")/$pkg/paths.txt
+}
+
+function test_path_from_subdir() {
+  local -r pkg="${FUNCNAME}"
+  mkdir -p "$pkg/subdir" || fail "could not create \"$pkg/subdir\""
+  touch "$pkg/subdir/BUILD" || fail "Could not touch"
+  echo 'filegroup(name = "foo", srcs = [])' > "$pkg/BUILD" || fail "echo"
+  cd "$pkg/subdir"
+  bazel query '../BUILD + ../foo' >output 2> "$TEST_log" \
+      || fail "Expected success"
+  assert_contains "^//$pkg:BUILD\$" output
+  assert_contains "^//$pkg:foo\$" output
+}
+
+function test_target_with_BUILD() {
+  local -r pkg="${FUNCNAME}"
+  mkdir -p "$pkg" || fail "could not create \"$pkg\""
+  echo 'filegroup(name = "foo/BUILD", srcs = [])' > "$pkg/BUILD" || fail "echo"
+  bazel query "$pkg/foo/BUILD" >output 2> "$TEST_log" || fail "Expected success"
+  assert_contains "^//$pkg:foo/BUILD\$" output
+}
+
+function test_directory_with_BUILD() {
+  local -r pkg="${FUNCNAME}"
+  mkdir -p "$pkg/BUILD" || fail "could not create \"$pkg/BUILD\""
+  touch "$pkg/BUILD/BUILD" || fail "Couldn't touch"
+  bazel query "$pkg/BUILD" >output 2> "$TEST_log" || fail "Expected success"
+  assert_contains "^//$pkg/BUILD:BUILD\$" output
+}
+
+function test_missing_BUILD() {
+  local -r pkg="${FUNCNAME}"
+  mkdir -p "$pkg/subdir1/subdir2" || fail "could not create under \"$pkg\""
+  touch "$pkg/BUILD" || fail "Couldn't touch"
+  bazel query "$pkg/subdir1/subdir2/BUILD" &> "$TEST_log" && fail "Should fail"
+  expect_log "no such target '//${pkg}:subdir1/subdir2/BUILD'"
 }
 
 run_suite "Integration tests of ${PRODUCT_NAME} using loading/analysis phases."

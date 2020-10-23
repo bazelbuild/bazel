@@ -26,7 +26,7 @@ class CcImportTest(test_base.TestBase):
                          system_provided=0,
                          linkstatic=1,
                          provide_header=True):
-    self.ScratchFile('WORKSPACE')
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
 
     # We use the outputs of cc_binary and cc_library as precompiled
     # libraries for cc_import
@@ -245,11 +245,6 @@ class CcImportTest(test_base.TestBase):
     self.assertIn('this rule is missing dependency declarations for the'
                   ' following files included by \'main/b.cc\':',
                   ''.join(stderr))
-
-  def AssertFileContentContains(self, file_path, entry):
-    with open(file_path, 'r') as f:
-      if entry not in f.read():
-        self.fail('File "%s" does not contain "%s"' % (file_path, entry))
 
 
 if __name__ == '__main__':

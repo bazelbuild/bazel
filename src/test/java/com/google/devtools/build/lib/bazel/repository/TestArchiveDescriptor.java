@@ -68,8 +68,8 @@ public class TestArchiveDescriptor {
   DecompressorDescriptor.Builder createDescriptorBuilder() throws IOException {
     FileSystem testFS =
         OS.getCurrent() == OS.WINDOWS
-            ? new JavaIoFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS)
-            : new UnixFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
+            ? new JavaIoFileSystem(DigestHashFunction.SHA256)
+            : new UnixFileSystem(DigestHashFunction.SHA256, /*hashAttributeName=*/ "");
 
     // do not rely on TestConstants.JAVATESTS_ROOT end with slash, but ensure separators
     // are not duplicated

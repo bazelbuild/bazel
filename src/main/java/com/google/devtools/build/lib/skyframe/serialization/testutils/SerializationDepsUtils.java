@@ -68,10 +68,15 @@ public class SerializationDepsUtils {
         }
 
         @Override
-        public Path getPathFromSourceExecPath(PathFragment execPath) {
+        public Path getPathFromSourceExecPath(Path execRoot, PathFragment execPath) {
           throw new UnsupportedOperationException();
         }
       };
+    }
+
+    @Override
+    public Artifact.DerivedArtifact intern(Artifact.DerivedArtifact original) {
+      return original;
     }
   }
 }

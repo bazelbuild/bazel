@@ -114,7 +114,7 @@ class DexBuilder {
     }
 
     OptionsParser optionsParser =
-        OptionsParser.newOptionsParser(Options.class, DexingOptions.class);
+        OptionsParser.builder().optionsClasses(Options.class, DexingOptions.class).build();
     optionsParser.parseAndExitUponError(args);
     Options options = optionsParser.getOptions(Options.class);
     if (options.persistentWorker) {
@@ -192,6 +192,7 @@ class DexBuilder {
           WorkResponse.newBuilder()
               .setOutput(output)
               .setExitCode(exitCode)
+              .setRequestId(request.getRequestId())
               .build()
               .writeDelimitedTo(System.out);
           System.out.flush();
@@ -209,8 +210,10 @@ class DexBuilder {
       List<String> args)
       throws OptionsParsingException, IOException, InterruptedException, ExecutionException {
     OptionsParser optionsParser =
-        OptionsParser.newOptionsParser(Options.class, DexingOptions.class);
-    optionsParser.setAllowResidue(false);
+        OptionsParser.builder()
+            .optionsClasses(Options.class, DexingOptions.class)
+            .allowResidue(false)
+            .build();
     optionsParser.parse(args);
     Options options = optionsParser.getOptions(Options.class);
     try (ZipFile in = new ZipFile(options.inputJar.toFile());

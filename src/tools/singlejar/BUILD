@@ -1,6 +1,10 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
 # Description:
 #   singlejar C++ implementation.
 package(default_visibility = ["//src:__subpackages__"])
+
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
 
 filegroup(
     name = "srcs",
@@ -70,6 +74,7 @@ cc_binary(
     ],
     linkopts = select({
         "//src/conditions:freebsd": ["-lm"],
+        "//src/conditions:openbsd": ["-lm"],
         "//conditions:default": [],
     }),
     linkstatic = 1,
@@ -88,6 +93,7 @@ cc_binary(
     ],
     linkopts = select({
         "//src/conditions:freebsd": ["-lm"],
+        "//src/conditions:openbsd": ["-lm"],
         "//conditions:default": [],
     }),
     linkstatic = 1,
@@ -453,7 +459,10 @@ cc_library(
 cc_library(
     name = "token_stream",
     hdrs = ["token_stream.h"],
-    deps = [":diag"],
+    deps = [
+        ":diag",
+        "//src/main/cpp/util",
+    ],
 )
 
 filegroup(

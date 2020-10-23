@@ -16,11 +16,12 @@ syntax = "proto3";
 
 package build_event_stream;
 
+import "src/main/protobuf/command_line.proto";
+import "src/main/protobuf/failure_details.proto";
+import "src/main/protobuf/invocation_policy.proto";
+
 option java_package = "com.google.devtools.build.lib.buildeventstream";
 option java_outer_classname = "BuildEventStreamProtos";
-
-import "src/main/protobuf/invocation_policy.proto";
-import "src/main/protobuf/command_line.proto";
 
 // Identifier for a build event. It is deliberately structured to also provide
 // information about which build target etc the event is related to.
@@ -49,13 +50,11 @@ message BuildEventId {
 
   // Identifier of an event indicating the beginning of a build; this will
   // normally be the first event.
-  message BuildStartedId {
-  }
+  message BuildStartedId {}
 
   // Identifier on an event indicating the original commandline received by
   // the bazel server.
-  message UnstructuredCommandLineId {
-  }
+  message UnstructuredCommandLineId {}
 
   // Identifier on an event describing the commandline received by Bazel.
   message StructuredCommandLineId {
@@ -67,13 +66,11 @@ message BuildEventId {
   }
 
   // Identifier of an event indicating the workspace status.
-  message WorkspaceStatusId {
-  }
+  message WorkspaceStatusId {}
 
   // Identifier on an event reporting on the options included in the command
   // line, both explicitly and implicitly.
-  message OptionsParsedId {
-  }
+  message OptionsParsedId {}
 
   // Identifier of an event reporting that an external resource was fetched
   // from.
@@ -91,6 +88,10 @@ message BuildEventId {
   message PatternExpandedId {
     repeated string pattern = 1;
   }
+
+  message WorkspaceConfigId {}
+
+  message BuildMetadataId {}
 
   // Identifier of an event indicating that a target has been expanded by
   // identifying for which configurations it should be build.
@@ -180,18 +181,18 @@ message BuildEventId {
   }
 
   // Identifier of the BuildFinished event, indicating the end of a build.
-  message BuildFinishedId {
-  }
+  message BuildFinishedId {}
 
   // Identifier of an event providing additional logs/statistics after
   // completion of the build.
-  message BuildToolLogsId {
-  }
+  message BuildToolLogsId {}
 
   // Identifier of an event providing build metrics after completion
   // of the build.
-  message BuildMetricsId {
-  }
+  message BuildMetricsId {}
+
+  // Identifier of an event providing convenience symlinks information.
+  message ConvenienceSymlinksIdentifiedId {}
 
   oneof id {
     UnknownBuildEventId unknown = 1;
@@ -216,6 +217,9 @@ message BuildEventId {
     BuildFinishedId build_finished = 9;
     BuildToolLogsId build_tool_logs = 20;
     BuildMetricsId build_metrics = 22;
+    WorkspaceConfigId workspace = 23;
+    BuildMetadataId build_metadata = 24;
+    ConvenienceSymlinksIdentifiedId convenience_symlinks_identified = 25;
   }
 }
 
@@ -254,8 +258,8 @@ message Aborted {
     // remote execution of actions) was not available in the expected way.
     REMOTE_ENVIRONMENT_FAILURE = 3;
 
-    // Failure due to reasons entirely internal to the build tool, e.g.,
-    // running out of memory.
+    // Failure due to reasons entirely internal to the build tool, i.e. an
+    // unexpected crash due to programmer error.
     INTERNAL = 4;
 
     // A Failure occurred in the loading phase of a target.
@@ -266,6 +270,15 @@ message Aborted {
 
     // Target build was skipped (e.g. due to incompatible CPU constraints).
     SKIPPED = 7;
+
+    // Build incomplete due to an earlier build failure (e.g. --keep_going was
+    // set to false causing the build be ended upon failure).
+    INCOMPLETE = 10;
+
+    // The build tool ran out of memory and crashed. Not yet used. OOMs are
+    // currently reported as INTERNAL.
+    // TODO(b/170643206): Use this reason for OOMs after updating consumers.
+    OUT_OF_MEMORY = 11;
   }
   AbortReason reason = 1;
 
@@ -304,6 +317,13 @@ message BuildStarted {
 
   // The process ID of the Bazel server.
   int64 server_pid = 8;
+}
+
+// Configuration related to the blaze workspace and output tree.
+message WorkspaceConfig {
+  // The root of the local blaze exec root. All output files live underneath
+  // this at "blaze-out/".
+  string local_exec_root = 1;
 }
 
 // Payload of an event reporting the command-line of the invocation as
@@ -345,6 +365,13 @@ message WorkspaceStatus {
   repeated Item item = 1;
 }
 
+// Payload of an event reporting custom key-value metadata associated with the
+// build.
+message BuildMetadata {
+  // Custom metadata for the build.
+  map<string, string> metadata = 1;
+}
+
 // Payload of an event reporting details of a given configuration.
 message Configuration {
   string mnemonic = 1;
@@ -357,8 +384,7 @@ message Configuration {
 // The main information is in the chaining part: the id will contain the
 // target pattern that was expanded and the children id will contain the
 // target or target pattern it was expanded to.
-message PatternExpanded {
-}
+message PatternExpanded {}
 
 // Enumeration type characterizing the size of a test, as specified by the
 // test rule.
@@ -388,6 +414,13 @@ message TargetConfigured {
 }
 
 message File {
+  // A sequence of prefixes to apply to the file name to construct a full path.
+  // In most but not all cases, there will be 3 entries:
+  //  1. A root output directory, eg "bazel-out"
+  //  2. A configuration mnemonic, eg "k8-fastbuild"
+  //  3. An output category, eg "genfiles"
+  repeated string path_prefix = 4;
+
   // identifier indicating the nature of the file (e.g., "stdout", "stderr")
   string name = 1;
 
@@ -443,6 +476,12 @@ message ActionExecuted {
 
   // The command-line of the action, if the action is a command.
   repeated string command_line = 9;
+
+  // List of paths to log files
+  repeated File action_metadata_logs = 10;
+
+  // Only populated if success = false, and sometimes not even then.
+  failure_details.FailureDetail failure_detail = 11;
 }
 
 // Collection of all output files belonging to that output group.
@@ -482,11 +521,21 @@ message TargetComplete {
   // new clients should not use it.
   repeated File important_output = 4 [deprecated = true];
 
+  // Report output artifacts (referenced transitively via output_group) which
+  // emit directories instead of singleton files. These directory_output entries
+  // will never include a uri.
+  repeated File directory_output = 8;
+
   // List of tags associated with this configured target.
   repeated string tag = 3;
 
   // The timeout specified for test actions under this configured target.
   int64 test_timeout_seconds = 7;
+
+  // Failure information about the target, only populated if success is false,
+  // and sometimes not even then. Equal to one of the ActionExecuted
+  // failure_detail fields for one of the root cause ActionExecuted events.
+  failure_details.FailureDetail failure_detail = 9;
 }
 
 enum TestStatus {
@@ -499,7 +548,7 @@ enum TestStatus {
   REMOTE_FAILURE = 6;
   FAILED_TO_BUILD = 7;
   TOOL_HALTED_BEFORE_TESTING = 8;
-};
+}
 
 // Payload on events reporting about individual test action.
 message TestResult {
@@ -571,8 +620,6 @@ message TestResult {
 }
 
 // Payload of the event summarizing a test.
-// TODO(aehlig): extend event with additional information as soon as we known
-// which additional information we need for test summaries.
 message TestSummary {
   // Wrapper around BlazeTestStatus to support importing that enum to proto3.
   // Overall status of test, accumulated over all runs, shards, and attempts.
@@ -580,6 +627,12 @@ message TestSummary {
 
   // Total number of runs
   int32 total_run_count = 1;
+
+  // Number of runs.
+  int32 run_count = 10;
+
+  // Number of shards.
+  int32 shard_count = 11;
 
   // Path to logs of passed runs.
   repeated File passed = 3;
@@ -589,6 +642,15 @@ message TestSummary {
 
   // Total number of cached test actions
   int32 total_num_cached = 6;
+
+  // When the test first started running.
+  int64 first_start_time_millis = 7;
+
+  // When the last test action completed.
+  int64 last_stop_time_millis = 8;
+
+  // The total runtime of the test.
+  int64 total_run_duration_millis = 9;
 }
 
 // Event indicating the end of a build.
@@ -607,6 +669,15 @@ message BuildFinished {
     int32 code = 2;
   }
 
+  // Things that happened during the build that could be of interest.
+  message AnomalyReport {
+    // Was the build suspended at any time during the build.
+    // Examples of suspensions are SIGSTOP, or the hardware being put to sleep.
+    // If was_suspended is true, then most of the timings for this build are
+    // suspect.
+    bool was_suspended = 1;
+  }
+
   // If the build succeeded or failed.
   bool overall_success = 1 [deprecated = true];
 
@@ -618,6 +689,8 @@ message BuildFinished {
   // TODO(buchgr): Use google.protobuf.Timestamp once bazel's protoc supports
   // it.
   int64 finish_time_millis = 2;
+
+  AnomalyReport anomaly_report = 4;
 }
 
 message BuildMetrics {
@@ -639,6 +712,10 @@ message BuildMetrics {
     // --bep_publish_used_heap_size_post_build is set,
     // since it forces a full GC.
     int64 used_heap_size_post_build = 1;
+
+    // Size of the peak JVM heap size in bytes post GC. Note that this reports 0
+    // if there was no major GC during the build.
+    int64 peak_post_gc_heap_size = 2;
   }
   MemoryMetrics memory_metrics = 2;
 
@@ -658,11 +735,60 @@ message BuildMetrics {
     int64 packages_loaded = 1;
   }
   PackageMetrics package_metrics = 4;
+
+  message TimingMetrics {
+    // The CPU time in milliseconds consumed during this build.
+    int64 cpu_time_in_ms = 1;
+    // The elapsed wall time in milliseconds during this build.
+    int64 wall_time_in_ms = 2;
+  }
+  TimingMetrics timing_metrics = 5;
 }
 
 // Event providing additional statistics/logs after completion of the build.
 message BuildToolLogs {
   repeated File log = 1;
+}
+
+// Event describing all convenience symlinks (i.e., workspace symlinks) to be
+// created or deleted once the execution phase has begun. Note that this event
+// does not say anything about whether or not the build tool actually executed
+// these filesystem operations; it only says what logical operations should be
+// performed. This event is emitted exactly once per build; if no symlinks are
+// to be modified, the event is still emitted with empty contents.
+message ConvenienceSymlinksIdentified {
+  repeated ConvenienceSymlink convenience_symlinks = 1;
+}
+
+// The message that contains what type of action to perform on a given path and
+// target of a symlink.
+message ConvenienceSymlink {
+  enum Action {
+    UNKNOWN = 0;
+
+    // Indicates a symlink should be created, or overwritten if it already
+    // exists.
+    CREATE = 1;
+
+    // Indicates a symlink should be deleted if it already exists.
+    DELETE = 2;
+  }
+
+  // The path of the symlink to be created or deleted, absolute or relative to
+  // the workspace, creating any directories necessary. If a symlink already
+  // exists at that location, then it should be replaced by a symlink pointing
+  // to the new target.
+  string path = 1;
+
+  // The operation we are performing on the symlink.
+  Action action = 2;
+
+  // If action is CREATE, this is the target path that the symlink should point
+  // to. If the path points underneath the output base, it is relative to the
+  // output base; otherwise it is absolute.
+  //
+  // If action is DELETE, this field is not set.
+  string target = 3;
 }
 
 // Message describing a build event. Events will have an identifier that
@@ -695,5 +821,8 @@ message BuildEvent {
     BuildFinished finished = 14;
     BuildToolLogs build_tool_logs = 23;
     BuildMetrics build_metrics = 24;
-  };
+    WorkspaceConfig workspace_info = 25;
+    BuildMetadata build_metadata = 26;
+    ConvenienceSymlinksIdentified convenience_symlinks_identified = 27;
+  }
 }

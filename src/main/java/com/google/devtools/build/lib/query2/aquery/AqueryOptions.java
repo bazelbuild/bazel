@@ -13,10 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.aquery;
 
-import com.google.devtools.build.lib.query2.CommonQueryOptions;
+import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 
 /** Options class for aquery specific query options. */
 public class AqueryOptions extends CommonQueryOptions {
@@ -27,7 +28,7 @@ public class AqueryOptions extends CommonQueryOptions {
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
           "The format in which the aquery results should be printed. Allowed values for aquery "
-              + "are: text, textproto, proto.")
+              + "are: text, textproto, proto, jsonproto.")
   public String outputFormat;
 
   @Option(
@@ -46,14 +47,6 @@ public class AqueryOptions extends CommonQueryOptions {
       help =
           "Includes names of the action inputs and outputs in the output " + "(potentially large).")
   public boolean includeArtifacts;
-
-  @Option(
-      name = "include_aspects",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.QUERY,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help = "Whether to include aspect generated actions in the output.")
-  public boolean useAspects;
 
   @Option(
       name = "include_param_files",
@@ -76,4 +69,18 @@ public class AqueryOptions extends CommonQueryOptions {
               + "Note: Specifying a target with --skyframe_state is currently not supported. "
               + "This flag is only available with --output=proto or --output=textproto.")
   public boolean queryCurrentSkyframeState;
+
+  @Option(
+      name = "incompatible_proto_output_v2",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "Whether aquery should print proto/textproto results with proto v2 "
+              + "(with ids in uint64 instead of string).")
+  public boolean protoV2;
 }

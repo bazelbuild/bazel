@@ -32,7 +32,7 @@ function create_fake_sandboxfs() {
   local version="${1}"; shift
 
   cat >"${path}" <<EOF
-#! /bin/sh
+#!/bin/sh
 
 rm -f "${log}"
 trap 'echo "Terminated" >>"${log}"' EXIT TERM
@@ -103,7 +103,7 @@ function test_explicit_sandboxfs_not_found() {
     --experimental_sandboxfs_path="/non-existent/sandboxfs" \
     //hello >"${TEST_log}" 2>&1 && fail "Build succeeded but should have failed"
 
-  expect_log "/non-existent/sandboxfs.*not be found"
+  expect_log "Failed to get sandboxfs version.*/non-existent/sandboxfs"
 }
 
 function test_explicit_sandboxfs_is_invalid() {

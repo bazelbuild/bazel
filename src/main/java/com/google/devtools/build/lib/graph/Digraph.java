@@ -80,9 +80,8 @@ public final class Digraph<T> implements Cloneable {
   public Digraph() {}
 
   /**
-   * Sanity-check: assert that a node is indeed a member of this graph and not
-   * another one.  Perform this check whenever a function is supplied a node by
-   * the user.
+   * Check that a node is indeed a member of this graph and not another one. Perform this check
+   * whenever a function is supplied a node by the user.
    */
   private final void checkNode(Node<T> node) {
     if (getNode(node.getLabel()) != node) {
@@ -483,17 +482,16 @@ public final class Digraph<T> implements Cloneable {
   }
 
   /**
-   * Returns the image of this graph in a given function, expressed as a
-   * mapping from labels to some other domain.
+   * Returns the image of this graph in a given function, expressed as a mapping from labels to some
+   * other domain.
    */
-  public <IMAGE> Digraph<IMAGE>
-    createImageUnderMapping(Map<T, IMAGE> map) {
-    Digraph<IMAGE> imageGraph = new Digraph<>();
+  public <ImageT> Digraph<ImageT> createImageUnderMapping(Map<T, ImageT> map) {
+    Digraph<ImageT> imageGraph = new Digraph<>();
 
     for (Node<T> fromNode: nodes.values()) {
       T fromLabel = fromNode.getLabel();
 
-      IMAGE fromImage = map.get(fromLabel);
+      ImageT fromImage = map.get(fromLabel);
       if (fromImage == null) {
         throw new IllegalArgumentException(
             "Incomplete function: undefined for " + fromLabel);
@@ -503,7 +501,7 @@ public final class Digraph<T> implements Cloneable {
       for (Node<T> toNode: fromNode.getSuccessors()) {
         T toLabel = toNode.getLabel();
 
-        IMAGE toImage = map.get(toLabel);
+        ImageT toImage = map.get(toLabel);
         if (toImage == null) {
           throw new IllegalArgumentException(
             "Incomplete function: undefined for " + toLabel);
@@ -830,35 +828,32 @@ public final class Digraph<T> implements Cloneable {
   }
 
   /**
-   * Find strongly connected components using path-based strong component
-   * algorithm. This has the advantage over the default method of returning
-   * the components in postorder.
+   * Find strongly connected components using path-based strong component algorithm. This has the
+   * advantage over the default method of returning the components in postorder.
    *
-   * We visit nodes depth-first, keeping track of the order that
-   * we visit them in (preorder). Our goal is to find the smallest node (in
-   * this preorder of visitation) reachable from a given node. We keep track of the
-   * smallest node pointed to so far at the top of a stack. If we ever find an
-   * already-visited node, then if it is not already part of a component, we
-   * pop nodes from that stack until we reach this already-visited node's number
-   * or an even smaller one.
+   * <p>We visit nodes depth-first, keeping track of the order that we visit them in (preorder). Our
+   * goal is to find the smallest node (in this preorder of visitation) reachable from a given node.
+   * We keep track of the smallest node pointed to so far at the top of a stack. If we ever find an
+   * already-visited node, then if it is not already part of a component, we pop nodes from that
+   * stack until we reach this already-visited node's number or an even smaller one.
    *
-   * Once the depth-first visitation of a node is complete, if this node's
-   * number is at the top of the stack, then it is the "first" element visited
-   * in its strongly connected component. Hence we pop all elements that were
-   * pushed onto the visitation stack and put them in a strongly connected
-   * component with this one, then send a passed-in {@link Digraph.NodeSetReceiver} this component.
+   * <p>Once the depth-first visitation of a node is complete, if this node's number is at the top
+   * of the stack, then it is the "first" element visited in its strongly connected component. Hence
+   * we pop all elements that were pushed onto the visitation stack and put them in a strongly
+   * connected component with this one, then send a passed-in {@link Digraph.NodeSetReceiver} this
+   * component.
    */
-  private class SccVisitor<T> {
+  private static class SccVisitor<T2> {
     // Nodes already assigned to a strongly connected component.
-    private final Set<Node<T>> assigned = new HashSet<>();
+    private final Set<Node<T2>> assigned = new HashSet<>();
 
     // The order each node was visited in.
-    private final Map<Node<T>, Integer> preorder = new HashMap<>();
+    private final Map<Node<T2>, Integer> preorder = new HashMap<>();
 
     // Stack of all nodes visited whose SCC has not yet been determined. When an SCC is found,
     // that SCC is an initial segment of this stack, and is popped off. Every time a new node is
     // visited, it is put on this stack.
-    private final List<Node<T>> stack = new ArrayList<>();
+    private final List<Node<T2>> stack = new ArrayList<>();
 
     // Stack of visited indices for the first-visited nodes in each of their known-so-far
     // strongly connected components. A node pushes its index on when it is visited. If any of
@@ -877,7 +872,7 @@ public final class Digraph<T> implements Cloneable {
     // Index of node being visited.
     private int counter = 0;
 
-    private void visit(NodeSetReceiver<T> visitor, Node<T> node) {
+    private void visit(NodeSetReceiver<T2> visitor, Node<T2> node) {
       if (preorder.containsKey(node)) {
         // This can only happen if this was a non-recursive call, and a previous
         // visit call had already visited node.
@@ -887,7 +882,7 @@ public final class Digraph<T> implements Cloneable {
       stack.add(node);
       preorderStack.add(counter++);
       int preorderLength = preorderStack.size();
-      for (Node<T> succ : node.getSuccessors()) {
+      for (Node<T2> succ : node.getSuccessors()) {
         Integer succPreorder = preorder.get(succ);
         if (succPreorder == null) {
           visit(visitor, succ);
@@ -907,8 +902,8 @@ public final class Digraph<T> implements Cloneable {
         // nodes that were part of a cycle with this node. So this node is the first-visited
         // element in its strongly connected component, and we collect the component.
         preorderStack.remove(preorderStack.size() - 1);
-        Set<Node<T>> scc = new HashSet<>();
-        Node<T> compNode;
+        Set<Node<T2>> scc = new HashSet<>();
+        Node<T2> compNode;
         do {
           compNode = stack.remove(stack.size() - 1);
           assigned.add(compNode);

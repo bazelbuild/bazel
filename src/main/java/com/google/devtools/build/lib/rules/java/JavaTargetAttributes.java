@@ -24,15 +24,14 @@ import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.Strict
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -55,32 +54,32 @@ public class JavaTargetAttributes {
     // without duplicates that has a stable and deterministic iteration order,
     // but is not sorted according to a property of the elements. Thus we are
     // stuck with Set.
-    private final Set<Artifact> sourceFiles = new LinkedHashSet<>();
+    private final List<Artifact> sourceFiles = new ArrayList<>();
 
     private final NestedSetBuilder<Artifact> runtimeClassPath = NestedSetBuilder.naiveLinkOrder();
 
-    private final NestedSetBuilder<Artifact> compileTimeClassPath =
+    private final NestedSetBuilder<Artifact> compileTimeClassPathBuilder =
         NestedSetBuilder.naiveLinkOrder();
 
-    private final List<Artifact> bootClassPath = new ArrayList<>();
-    private final List<Artifact> sourcePath = new ArrayList<>();
-    private final List<Artifact> nativeLibraries = new ArrayList<>();
+    private BootClassPathInfo bootClassPath = BootClassPathInfo.empty();
+    private ImmutableList<Artifact> sourcePath = ImmutableList.of();
+    private final ImmutableList.Builder<Artifact> nativeLibraries = ImmutableList.builder();
 
     private JavaPluginInfoProvider plugins = JavaPluginInfoProvider.empty();
 
     private final Map<PathFragment, Artifact> resources = new LinkedHashMap<>();
     private final NestedSetBuilder<Artifact> resourceJars = NestedSetBuilder.stableOrder();
-    private final List<Artifact> messages = new ArrayList<>();
+    private final ImmutableList.Builder<Artifact> messages = ImmutableList.builder();
     private final List<Artifact> sourceJars = new ArrayList<>();
 
-    private final List<Artifact> classPathResources = new ArrayList<>();
+    private final ImmutableList.Builder<Artifact> classPathResources = ImmutableList.builder();
 
-    private final Set<Artifact> additionalOutputs = new LinkedHashSet<>();
+    private final ImmutableSet.Builder<Artifact> additionalOutputs = ImmutableSet.builder();
 
     /** @see {@link #setStrictJavaDeps}. */
     private StrictDepsMode strictJavaDeps = StrictDepsMode.ERROR;
 
-    private final NestedSetBuilder<Artifact> directJars = NestedSetBuilder.naiveLinkOrder();
+    private final NestedSetBuilder<Artifact> directJarsBuilder = NestedSetBuilder.naiveLinkOrder();
     private final NestedSetBuilder<Artifact> compileTimeDependencyArtifacts =
         NestedSetBuilder.stableOrder();
     private Label targetLabel;
@@ -158,9 +157,15 @@ public class JavaTargetAttributes {
       return this;
     }
 
+    public Builder addCompileTimeClassPathEntry(Artifact entry) {
+      Preconditions.checkArgument(!built);
+      compileTimeClassPathBuilder.add(entry);
+      return this;
+    }
+
     public Builder addCompileTimeClassPathEntries(NestedSet<Artifact> entries) {
       Preconditions.checkArgument(!built);
-      compileTimeClassPath.addTransitive(entries);
+      compileTimeClassPathBuilder.addTransitive(entries);
       return this;
     }
 
@@ -182,19 +187,19 @@ public class JavaTargetAttributes {
      * <p>If this method is called, then the bootclasspath specified in this JavaTargetAttributes
      * instance overrides the default bootclasspath.
      */
-    public Builder setBootClassPath(List<Artifact> jars) {
+    public Builder setBootClassPath(BootClassPathInfo bootClassPath) {
       Preconditions.checkArgument(!built);
-      Preconditions.checkArgument(!jars.isEmpty());
-      Preconditions.checkState(bootClassPath.isEmpty());
-      bootClassPath.addAll(jars);
+      Preconditions.checkArgument(!bootClassPath.isEmpty());
+      Preconditions.checkState(this.bootClassPath.isEmpty());
+      this.bootClassPath = bootClassPath;
       return this;
     }
 
     /** Sets the sourcepath to be passed to the Java compiler. */
-    public Builder setSourcePath(List<Artifact> artifacts) {
+    public Builder setSourcePath(ImmutableList<Artifact> artifacts) {
       Preconditions.checkArgument(!built);
       Preconditions.checkArgument(sourcePath.isEmpty());
-      sourcePath.addAll(artifacts);
+      this.sourcePath = artifacts;
       return this;
     }
 
@@ -229,7 +234,13 @@ public class JavaTargetAttributes {
      */
     public Builder addDirectJars(NestedSet<Artifact> directJars) {
       Preconditions.checkArgument(!built);
-      this.directJars.addTransitive(directJars);
+      this.directJarsBuilder.addTransitive(directJars);
+      return this;
+    }
+
+    public Builder addDirectJar(Artifact directJar) {
+      Preconditions.checkArgument(!built);
+      this.directJarsBuilder.add(directJar);
       return this;
     }
 
@@ -306,65 +317,52 @@ public class JavaTargetAttributes {
     /** Adds additional outputs to this target's compile action. */
     public Builder addAdditionalOutputs(Iterable<Artifact> outputs) {
       Preconditions.checkArgument(!built);
-      Iterables.addAll(additionalOutputs, outputs);
+      additionalOutputs.addAll(outputs);
       return this;
     }
 
     public JavaTargetAttributes build() {
       built = true;
+      NestedSet<Artifact> directJars = directJarsBuilder.build();
+      NestedSet<Artifact> compileTimeClassPath =
+          NestedSetBuilder.<Artifact>naiveLinkOrder()
+              .addTransitive(directJars)
+              .addTransitive(compileTimeClassPathBuilder.build())
+              .build();
       return new JavaTargetAttributes(
-          sourceFiles,
-          runtimeClassPath,
+          ImmutableSet.copyOf(sourceFiles),
+          runtimeClassPath.build(),
           compileTimeClassPath,
           bootClassPath,
           sourcePath,
-          nativeLibraries,
+          nativeLibraries.build(),
           plugins,
-          resources,
+          ImmutableMap.copyOf(resources),
           resourceJars.build(),
-          messages,
-          sourceJars,
-          classPathResources,
-          additionalOutputs,
-          directJars.build(),
+          messages.build(),
+          ImmutableList.copyOf(sourceJars),
+          classPathResources.build(),
+          additionalOutputs.build(),
+          directJars,
           compileTimeDependencyArtifacts.build(),
           targetLabel,
           injectingRuleKind,
-          excludedArtifacts,
+          excludedArtifacts.build(),
           strictJavaDeps);
     }
 
-    // TODO(bazel-team): delete the following methods - users should use the built
+    // TODO(bazel-team): delete the following method - users should use the built
     // JavaTargetAttributes instead of accessing mutable state in the Builder.
-
-    /** @deprecated prefer {@link JavaTargetAttributes#getSourceFiles} */
-    @Deprecated
-    public Set<Artifact> getSourceFiles() {
-      return sourceFiles;
-    }
-
     /** @deprecated prefer {@link JavaTargetAttributes#hasSources} */
     @Deprecated
     public boolean hasSources() {
       return !sourceFiles.isEmpty() || !sourceJars.isEmpty();
     }
 
-    /**
-     * @deprecated prefer to use a built {@link JavaTargetAttributes} instead of accessing mutable
-     *     state in the {@link Builder}.
-     */
+    /** @deprecated prefer {@link JavaTargetAttributes#getSourceFiles} */
     @Deprecated
     public boolean hasSourceFiles() {
       return !sourceFiles.isEmpty();
-    }
-
-    /**
-     * @deprecated prefer to use a built {@link JavaTargetAttributes} instead of accessing mutable
-     *     state in the {@link Builder}.
-     */
-    @Deprecated
-    public boolean hasSourceJars() {
-      return !sourceJars.isEmpty();
     }
   }
 
@@ -377,7 +375,7 @@ public class JavaTargetAttributes {
   private final NestedSet<Artifact> runtimeClassPath;
   private final NestedSet<Artifact> compileTimeClassPath;
 
-  private final ImmutableList<Artifact> bootClassPath;
+  private final BootClassPathInfo bootClassPath;
   private final ImmutableList<Artifact> sourcePath;
   private final ImmutableList<Artifact> nativeLibraries;
 
@@ -403,48 +401,76 @@ public class JavaTargetAttributes {
 
   /** Constructor of JavaTargetAttributes. */
   private JavaTargetAttributes(
-      Set<Artifact> sourceFiles,
-      NestedSetBuilder<Artifact> runtimeClassPath,
-      NestedSetBuilder<Artifact> compileTimeClassPath,
-      List<Artifact> bootClassPath,
-      List<Artifact> sourcePath,
-      List<Artifact> nativeLibraries,
+      ImmutableSet<Artifact> sourceFiles,
+      NestedSet<Artifact> runtimeClassPath,
+      NestedSet<Artifact> compileTimeClassPath,
+      BootClassPathInfo bootClassPath,
+      ImmutableList<Artifact> sourcePath,
+      ImmutableList<Artifact> nativeLibraries,
       JavaPluginInfoProvider plugins,
-      Map<PathFragment, Artifact> resources,
+      ImmutableMap<PathFragment, Artifact> resources,
       NestedSet<Artifact> resourceJars,
-      List<Artifact> messages,
-      List<Artifact> sourceJars,
-      List<Artifact> classPathResources,
-      Set<Artifact> additionalOutputs,
+      ImmutableList<Artifact> messages,
+      ImmutableList<Artifact> sourceJars,
+      ImmutableList<Artifact> classPathResources,
+      ImmutableSet<Artifact> additionalOutputs,
       NestedSet<Artifact> directJars,
       NestedSet<Artifact> compileTimeDependencyArtifacts,
       Label targetLabel,
       @Nullable String injectingRuleKind,
-      NestedSetBuilder<Artifact> excludedArtifacts,
+      NestedSet<Artifact> excludedArtifacts,
       StrictDepsMode strictJavaDeps) {
-    this.sourceFiles = ImmutableSet.copyOf(sourceFiles);
-    this.runtimeClassPath = runtimeClassPath.build();
+    this.sourceFiles = sourceFiles;
+    this.runtimeClassPath = runtimeClassPath;
     this.directJars = directJars;
-    this.compileTimeClassPath =
-        NestedSetBuilder.<Artifact>naiveLinkOrder()
-            .addTransitive(directJars)
-            .addTransitive(compileTimeClassPath.build())
-            .build();
-    this.bootClassPath = ImmutableList.copyOf(bootClassPath);
-    this.sourcePath = ImmutableList.copyOf(sourcePath);
-    this.nativeLibraries = ImmutableList.copyOf(nativeLibraries);
+    this.compileTimeClassPath = compileTimeClassPath;
+    this.bootClassPath = bootClassPath;
+    this.sourcePath = sourcePath;
+    this.nativeLibraries = nativeLibraries;
     this.plugins = plugins;
-    this.resources = ImmutableMap.copyOf(resources);
+    this.resources = resources;
     this.resourceJars = resourceJars;
-    this.messages = ImmutableList.copyOf(messages);
-    this.sourceJars = ImmutableList.copyOf(sourceJars);
-    this.classPathResources = ImmutableList.copyOf(classPathResources);
-    this.additionalOutputs = ImmutableSet.copyOf(additionalOutputs);
+    this.messages = messages;
+    this.sourceJars = sourceJars;
+    this.classPathResources = classPathResources;
+    this.additionalOutputs = additionalOutputs;
     this.compileTimeDependencyArtifacts = compileTimeDependencyArtifacts;
     this.targetLabel = targetLabel;
     this.injectingRuleKind = injectingRuleKind;
-    this.excludedArtifacts = excludedArtifacts.build();
+    this.excludedArtifacts = excludedArtifacts;
     this.strictJavaDeps = strictJavaDeps;
+  }
+
+  JavaTargetAttributes withAdditionalClassPathEntries(
+      NestedSet<Artifact> additionalClassPathEntries) {
+    NestedSet<Artifact> compileTimeClassPath =
+        NestedSetBuilder.fromNestedSet(additionalClassPathEntries)
+            .addTransitive(this.compileTimeClassPath)
+            .build();
+    NestedSet<Artifact> directJars =
+        NestedSetBuilder.fromNestedSet(additionalClassPathEntries)
+            .addTransitive(this.directJars)
+            .build();
+    return new JavaTargetAttributes(
+        sourceFiles,
+        runtimeClassPath,
+        compileTimeClassPath,
+        bootClassPath,
+        sourcePath,
+        nativeLibraries,
+        plugins,
+        resources,
+        resourceJars,
+        messages,
+        sourceJars,
+        classPathResources,
+        additionalOutputs,
+        directJars,
+        compileTimeDependencyArtifacts,
+        targetLabel,
+        injectingRuleKind,
+        excludedArtifacts,
+        strictJavaDeps);
   }
 
   public NestedSet<Artifact> getDirectJars() {
@@ -497,14 +523,17 @@ public class JavaTargetAttributes {
    *
    * <p>This excludes the artifacts made available by jars in the deployment environment.
    */
-  public Iterable<Artifact> getRuntimeClassPathForArchive() {
-    Iterable<Artifact> runtimeClasspath = getRuntimeClassPath();
+  public NestedSet<Artifact> getRuntimeClassPathForArchive() {
+    NestedSet<Artifact> runtimeClasspath = getRuntimeClassPath();
 
     if (getExcludedArtifacts().isEmpty()) {
       return runtimeClasspath;
     } else {
-      return Iterables.filter(
-          runtimeClasspath, Predicates.not(Predicates.in(getExcludedArtifacts().toSet())));
+      return NestedSetBuilder.wrap(
+          Order.STABLE_ORDER,
+          Iterables.filter(
+              runtimeClasspath.toList(),
+              Predicates.not(Predicates.in(getExcludedArtifacts().toSet()))));
     }
   }
 
@@ -512,7 +541,7 @@ public class JavaTargetAttributes {
     return compileTimeClassPath;
   }
 
-  public ImmutableList<Artifact> getBootClassPath() {
+  public BootClassPathInfo getBootClassPath() {
     return bootClassPath;
   }
 

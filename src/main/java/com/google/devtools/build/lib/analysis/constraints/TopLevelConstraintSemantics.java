@@ -34,6 +34,9 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue.Key;
 import java.util.Collection;
 import java.util.List;
@@ -141,24 +144,28 @@ public class TopLevelConstraintSemantics {
 
       // Check auto-detected CPU environments.
       try {
-        if (!getMissingEnvironments(topLevelTarget,
-            autoConfigureTargetEnvironments(config, config.getAutoCpuEnvironmentGroup()))
+        if (!getMissingEnvironments(
+                topLevelTarget,
+                autoConfigureTargetEnvironments(config, config.getAutoCpuEnvironmentGroup()))
             .isEmpty()) {
           badTargets.add(topLevelTarget);
         }
-      } catch (NoSuchPackageException
-          | NoSuchTargetException e) {
-        throw new ViewCreationFailedException("invalid target environment", e);
+      } catch (NoSuchPackageException | NoSuchTargetException e) {
+        throw new ViewCreationFailedException(
+            "invalid target environment", e.getDetailedExitCode().getFailureDetail(), e);
       }
     }
 
     if (!exceptionInducingTargets.isEmpty()) {
-      throw new ViewCreationFailedException(getBadTargetsUserMessage(exceptionInducingTargets));
+      String badTargetsUserMessage = getBadTargetsUserMessage(exceptionInducingTargets);
+      throw new ViewCreationFailedException(
+          badTargetsUserMessage,
+          FailureDetail.newBuilder()
+              .setMessage(badTargetsUserMessage)
+              .setAnalysis(Analysis.newBuilder().setCode(Code.TARGETS_MISSING_ENVIRONMENTS))
+              .build());
     }
-    return ImmutableSet.copyOf(
-        badTargets
-            .addAll(exceptionInducingTargets.keySet())
-            .build());
+    return ImmutableSet.copyOf(badTargets.addAll(exceptionInducingTargets.keySet()).build());
   }
 
   /**
@@ -208,13 +215,17 @@ public class TopLevelConstraintSemantics {
         Target env = packageManager.getTarget(eventHandler, envLabel);
         expectedEnvironmentsBuilder.put(
             ConstraintSemantics.getEnvironmentGroup(env).getEnvironmentLabels(), envLabel);
-      } catch (NoSuchPackageException | NoSuchTargetException
+      } catch (NoSuchPackageException
+          | NoSuchTargetException
           | ConstraintSemantics.EnvironmentLookupException e) {
-        throw new ViewCreationFailedException("invalid target environment", e);
+        throw new ViewCreationFailedException(
+            "invalid target environment", e.getDetailedExitCode().getFailureDetail(), e);
       }
     }
     EnvironmentCollection expectedEnvironments = expectedEnvironmentsBuilder.build();
 
+    // Dereference any aliases that might be present.
+    topLevelTarget = topLevelTarget.getActual();
     // Now check the target against expected environments.
     TransitiveInfoCollection asProvider;
     if (topLevelTarget instanceof OutputFileConfiguredTarget) {
@@ -224,15 +235,17 @@ public class TopLevelConstraintSemantics {
     }
     SupportedEnvironmentsProvider provider =
         Verify.verifyNotNull(asProvider.getProvider(SupportedEnvironmentsProvider.class));
-    return ConstraintSemantics
-        .getUnsupportedEnvironments(provider.getRefinedEnvironments(), expectedEnvironments)
+    return RuleContextConstraintSemantics.getUnsupportedEnvironments(
+            provider.getRefinedEnvironments(), expectedEnvironments)
         .stream()
         // We apply this filter because the target might also not support default environments in
         // other environment groups. We don't care about those. We only care about the environments
         // explicitly referenced.
         .filter(Predicates.in(expectedEnvironmentLabels))
-        .map(environment ->
-            new MissingEnvironment(environment, provider.getRemovedEnvironmentCulprit(environment)))
+        .map(
+            environment ->
+                new MissingEnvironment(
+                    environment, provider.getRemovedEnvironmentCulprit(environment)))
         .collect(Collectors.toSet());
   }
 
@@ -269,7 +282,7 @@ public class TopLevelConstraintSemantics {
             msg.add(" "); // Pretty-format for clarity.
           }
           msg.add(
-              ConstraintSemantics.getMissingEnvironmentCulpritMessage(
+              RuleContextConstraintSemantics.getMissingEnvironmentCulpritMessage(
                   missingEnvironment.environment, missingEnvironment.culprit));
           lastEntryWasMultiline = true;
         }

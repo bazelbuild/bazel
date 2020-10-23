@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -100,10 +100,13 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
         scratch.file(
             "pkg/BUILD", "sh_library(name = 'x', deps = ['z', 'z'])", "sh_library(name = 'z')");
 
-    // In the first case below, we will hit see an error on "//pkg:x", and therefore
-    // not traverse into "//pkg:z" due to fail-fast.
+    // We expect an error on "//pkg:x". However, we can still finish the evaluation and also return
+    // "//pkg:z" even without keep_going.
     assertLabelsVisited(
-        ImmutableSet.of("//pkg:x"), ImmutableSet.of("//pkg:x"), EXPECT_ERROR, !KEEP_GOING);
+        ImmutableSet.of("//pkg:x", "//pkg:z"),
+        ImmutableSet.of("//pkg:x"),
+        EXPECT_ERROR,
+        !KEEP_GOING);
     assertContainsEvent("Label '//pkg:z' is duplicated in the 'deps' attribute of rule 'x'");
     assertLabelsVisitedWithErrors(
         ImmutableSet.of("//pkg:x", "//pkg:z"), ImmutableSet.of("//pkg:x"));
@@ -143,11 +146,25 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
         "pkg/BUILD", "sh_library(name = 'x', deps = ['z', 'z'])", "sh_library(name = 'z')");
     buildFile.setLastModifiedTime(buildFile.getLastModifiedTime() + 1);
     syncPackages();
+    // We expect an error on "//pkg:x". However, we can still finish the evaluation and also return
+    // "//pkg:z" even without keep_going.
     assertLabelsVisited(
-        ImmutableSet.of("//pkg:x"), ImmutableSet.of("//pkg:x"), EXPECT_ERROR, !KEEP_GOING);
+        ImmutableSet.of("//pkg:x", "//pkg:z"),
+        ImmutableSet.of("//pkg:x"),
+        EXPECT_ERROR,
+        !KEEP_GOING);
     // Check stability (not redundant).
     assertLabelsVisited(
-        ImmutableSet.of("//pkg:x"), ImmutableSet.of("//pkg:x"), EXPECT_ERROR, !KEEP_GOING);
+        ImmutableSet.of("//pkg:x", "//pkg:z"),
+        ImmutableSet.of("//pkg:x"),
+        EXPECT_ERROR,
+        !KEEP_GOING);
+    // Also check keep-going.
+    assertLabelsVisited(
+        ImmutableSet.of("//pkg:x", "//pkg:z"),
+        ImmutableSet.of("//pkg:x"),
+        EXPECT_ERROR,
+        KEEP_GOING);
   }
 
   @Test
@@ -376,8 +393,8 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
     scratch.file(
         "parent/BUILD",
         "sh_library(name = 'parent', deps = ['//child:child'])",
-        "invalidbuildsyntax");
-    scratch.file("child/BUILD", "sh_library(name = 'child')", "invalidbuildsyntax");
+        "x = 1//0"); // dynamic error
+    scratch.file("child/BUILD", "sh_library(name = 'child')", "x = 1//0"); // dynamic error
     assertLabelsVisited(
         ImmutableSet.of("//parent:parent", "//child:child"),
         ImmutableSet.of("//parent:parent"),
@@ -399,18 +416,18 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
 
   @Test
   public void testWithNoSubincludes() throws Exception {
-    PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
-    packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PRIVATE;
-    packageCacheOptions.showLoadingProgress = true;
-    packageCacheOptions.globbingThreads = 7;
+    PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+    packageOptions.defaultVisibility = ConstantRuleVisibility.PRIVATE;
+    packageOptions.showLoadingProgress = true;
+    packageOptions.globbingThreads = 7;
     getSkyframeExecutor()
         .preparePackageLoading(
             new PathPackageLocator(
                 outputBase,
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
-            packageCacheOptions,
-            Options.getDefaults(StarlarkSemanticsOptions.class),
+            packageOptions,
+            Options.getDefaults(BuildLanguageOptions.class),
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));

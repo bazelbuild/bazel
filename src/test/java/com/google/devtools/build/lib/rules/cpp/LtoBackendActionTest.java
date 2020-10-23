@@ -14,12 +14,15 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
@@ -30,10 +33,14 @@ import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -73,10 +80,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
     destinationArtifact = getBinArtifactWithNoOwner("output");
     allBitcodeFiles =
         new BitcodeFiles(
-            ImmutableMap.<PathFragment, Artifact>builder()
-                .put(bitcode1Artifact.getExecPath(), bitcode1Artifact)
-                .put(bitcode2Artifact.getExecPath(), bitcode2Artifact)
-                .build());
+            NestedSetBuilder.create(Order.STABLE_ORDER, bitcode1Artifact, bitcode2Artifact));
   }
 
   @Before
@@ -90,13 +94,16 @@ public class LtoBackendActionTest extends BuildViewTestCase {
             ActionInputPrefetcher.NONE,
             actionKeyContext,
             /*metadataHandler=*/ null,
+            /*rewindingEnabled=*/ false,
+            LostInputsCheck.NONE,
             new FileOutErr(),
             new StoredEventHandler(),
             /*clientEnv=*/ ImmutableMap.of(),
             /*topLevelFilesets=*/ ImmutableMap.of(),
             /*artifactExpander=*/ null,
             /*actionFileSystem=*/ null,
-            /*skyframeDepsResult=*/ null);
+            /*skyframeDepsResult=*/ null,
+            NestedSetExpander.DEFAULT);
   }
 
   @Test
@@ -114,7 +121,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
     LtoBackendAction action = (LtoBackendAction) actions[0];
     assertThat(action.getOwner().getLabel())
         .isEqualTo(ActionsTestUtil.NULL_ACTION_OWNER.getLabel());
-    assertThat(action.getInputs()).containsExactly(bitcode1Artifact, index1Artifact);
+    assertThat(action.getInputs().toList()).containsExactly(bitcode1Artifact, index1Artifact);
     assertThat(action.getOutputs()).containsExactly(destinationArtifact);
     assertThat(action.getSpawn().getLocalResources())
         .isEqualTo(AbstractAction.DEFAULT_RESOURCE_SET);
@@ -125,7 +132,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
     // Discover inputs, which should not add any inputs since bitcode1.imports is empty.
     action.discoverInputs(context);
     assertThat(action.inputsDiscovered()).isTrue();
-    assertThat(action.getInputs()).containsExactly(bitcode1Artifact, index1Artifact);
+    assertThat(action.getInputs().toList()).containsExactly(bitcode1Artifact, index1Artifact);
   }
 
   @Test
@@ -143,7 +150,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
     LtoBackendAction action = (LtoBackendAction) actions[0];
     assertThat(action.getOwner().getLabel())
         .isEqualTo(ActionsTestUtil.NULL_ACTION_OWNER.getLabel());
-    assertThat(action.getInputs()).containsExactly(bitcode2Artifact, index2Artifact);
+    assertThat(action.getInputs().toList()).containsExactly(bitcode2Artifact, index2Artifact);
     assertThat(action.getOutputs()).containsExactly(destinationArtifact);
     assertThat(action.getSpawn().getLocalResources())
         .isEqualTo(AbstractAction.DEFAULT_RESOURCE_SET);
@@ -154,7 +161,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
     // Discover inputs, which should add bitcode1.o which is listed in bitcode2.imports.
     action.discoverInputs(context);
     assertThat(action.inputsDiscovered()).isTrue();
-    assertThat(action.getInputs())
+    assertThat(action.getInputs().toList())
         .containsExactly(bitcode1Artifact, bitcode2Artifact, index2Artifact);
   }
 
@@ -190,19 +197,33 @@ public class LtoBackendActionTest extends BuildViewTestCase {
             builder.setExecutable(executable);
 
             if (attributesToFlip.contains(KeyAttributes.IMPORTS_INFO)) {
-              builder.addImportsInfo(new BitcodeFiles(ImmutableMap.of()), artifactAimports);
+              builder.addImportsInfo(
+                  new BitcodeFiles(NestedSetBuilder.emptySet(Order.STABLE_ORDER)),
+                  artifactAimports);
             } else {
-              builder.addImportsInfo(new BitcodeFiles(ImmutableMap.of()), artifactBimports);
+              builder.addImportsInfo(
+                  new BitcodeFiles(NestedSetBuilder.emptySet(Order.STABLE_ORDER)),
+                  artifactBimports);
             }
 
             builder.setMnemonic(attributesToFlip.contains(KeyAttributes.MNEMONIC) ? "a" : "b");
 
             if (attributesToFlip.contains(KeyAttributes.RUNFILES_SUPPLIER)) {
               builder.addRunfilesSupplier(
-                  new RunfilesSupplierImpl(PathFragment.create("a"), Runfiles.EMPTY, artifactA));
+                  new RunfilesSupplierImpl(
+                      PathFragment.create("a"),
+                      Runfiles.EMPTY,
+                      artifactA,
+                      /* buildRunfileLinks= */ false,
+                      /* runfileLinksEnabled= */ false));
             } else {
               builder.addRunfilesSupplier(
-                  new RunfilesSupplierImpl(PathFragment.create("a"), Runfiles.EMPTY, artifactB));
+                  new RunfilesSupplierImpl(
+                      PathFragment.create("a"),
+                      Runfiles.EMPTY,
+                      artifactB,
+                      /* buildRunfileLinks= */ false,
+                      /* runfileLinksEnabled= */ false));
             }
 
             if (attributesToFlip.contains(KeyAttributes.INPUT)) {
@@ -226,5 +247,26 @@ public class LtoBackendActionTest extends BuildViewTestCase {
           }
         },
         actionKeyContext);
+  }
+
+  @Test
+  public void discoverInputs_missingInputErrorMessage() throws Exception {
+    FileSystemUtils.writeIsoLatin1(imports1Artifact.getPath(), "file1.o", "file2.o", "file3.o");
+
+    Action[] actions =
+        new LtoBackendAction.Builder()
+            .addImportsInfo(
+                new BitcodeFiles(
+                    new NestedSetBuilder<Artifact>(Order.STABLE_ORDER)
+                        .add(getSourceArtifact("file2.o"))
+                        .build()),
+                imports1Artifact)
+            .setExecutable(scratch.file("/bin/clang").asFragment())
+            .addOutput(destinationArtifact)
+            .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
+    ActionExecutionException e =
+        assertThrows(ActionExecutionException.class, () -> actions[0].discoverInputs(context));
+
+    assertThat(e).hasMessageThat().endsWith("(first 10): file1.o, file3.o");
   }
 }

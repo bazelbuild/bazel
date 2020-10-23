@@ -1,0 +1,27 @@
+# Description:
+#   This package contains stubs for the Starlark "build API".
+#   Ultimately, this package may be broken out of the Bazel package hierarchy to
+#   be standalone. Thus, this package should not depend on Bazel-specific
+#   packages (only those which contain pure-Starlark concepts, such as the
+#   interpreter or annotation interfaces).
+
+load("@rules_java//java:defs.bzl", "java_library")
+
+package(default_visibility = ["//src:__subpackages__"])
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src:__subpackages__"],
+)
+
+java_library(
+    name = "stubs",
+    srcs = glob(["*.java"]),
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
+    ],
+)

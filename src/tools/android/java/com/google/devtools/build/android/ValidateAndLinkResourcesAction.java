@@ -14,13 +14,17 @@
 // Copyright 2017 The Bazel Authors. All rights reserved.
 package com.google.devtools.build.android;
 
-import static java.util.logging.Level.SEVERE;
-
+import com.android.aapt.Resources.Reference;
+import com.android.aapt.Resources.XmlNode;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.android.aapt2.Aapt2ConfigOptions;
 import com.google.devtools.build.android.aapt2.CompiledResources;
 import com.google.devtools.build.android.aapt2.ResourceLinker;
 import com.google.devtools.build.android.aapt2.StaticLibrary;
+import com.google.devtools.build.android.resources.Visibility;
+import com.google.devtools.build.android.xml.ProtoXmlUtils;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -30,9 +34,8 @@ import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
 /** Performs resource validation and static linking for compiled android resources. */
 public class ValidateAndLinkResourcesAction {
@@ -56,7 +59,7 @@ public class ValidateAndLinkResourcesAction {
         name = "compiledDep",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "",
+        defaultValue = "null",
         converter = Converters.PathListConverter.class,
         category = "input",
         allowMultiple = true,
@@ -148,14 +151,13 @@ public class ValidateAndLinkResourcesAction {
     public Path sourceJarOut;
   }
 
-  private static final Logger logger =
-      Logger.getLogger(ValidateAndLinkResourcesAction.class.getName());
-
   public static void main(String[] args) throws Exception {
-    final OptionsParser optionsParser =
-        OptionsParser.newOptionsParser(Options.class, Aapt2ConfigOptions.class);
-    optionsParser.enableParamsFileSupport(
-        new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
+    OptionsParser optionsParser =
+        OptionsParser.builder()
+            .optionsClasses(
+                Options.class, Aapt2ConfigOptions.class, ResourceProcessorCommonOptions.class)
+            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
+            .build();
     optionsParser.parse(args);
 
     Options options = optionsParser.getOptions(Options.class);
@@ -181,14 +183,25 @@ public class ValidateAndLinkResourcesAction {
                           .writeDummyManifestForAapt(
                               scopedTmp.getPath().resolve("manifest-aapt-dummy"),
                               options.packageForR));
-      profiler.recordEndOf("manifest").startTask("link");
+      List<CompiledResources> deps =
+          options.compiledDeps.stream()
+              .map(CompiledResources::from)
+              .collect(ImmutableList.toImmutableList());
+      profiler.recordEndOf("manifest").startTask("validate");
+
+      // TODO(b/146663858): distinguish direct/transitive deps for "strict deps".
+      // TODO(b/128711690): validate AndroidManifest.xml
+      checkVisibilityOfResourceReferences(
+          /*androidManifest=*/ XmlNode.getDefaultInstance(), resources, deps);
+
+      profiler.recordEndOf("validate").startTask("link");
       ResourceLinker.create(aapt2Options.aapt2, executorService, scopedTmp.getPath())
           .profileUsing(profiler)
+          // NB: these names are really confusing.
+          //   .dependencies is meant for linking in android.jar
+          //   .include is meant for regular dependencies
           .dependencies(Optional.ofNullable(options.deprecatedLibraries).orElse(options.libraries))
-          .include(
-              options.compiledDeps.stream()
-                  .map(CompiledResources::from)
-                  .collect(Collectors.toList()))
+          .include(deps)
           .buildVersion(aapt2Options.buildToolsVersion)
           .outputAsProto(aapt2Options.resourceTableAsProto)
           .linkStatically(resources)
@@ -196,9 +209,71 @@ public class ValidateAndLinkResourcesAction {
           .copySourceJarTo(options.sourceJarOut)
           .copyRTxtTo(options.rTxtOut);
       profiler.recordEndOf("link");
-    } catch (Exception e) {
-      logger.log(SEVERE, "Error while validating and linking resources", e);
-      throw e;
+    }
+  }
+
+  /**
+   * Validates that resources referenced from AndroidManifest.xml and res/ are visible.
+   *
+   * @param androidManifest AndroidManifest in protobuf format; while {@link CompiledResources} also
+   *     contains a manifest, aapt2 requires it to be regular XML and only converts it to protobuf
+   *     after "linking".
+   * @param compiled resources of a compilation unit (i.e. an android_library rule)
+   * @param deps resources from the transitive closure of the rule's "deps" attribute
+   */
+  static void checkVisibilityOfResourceReferences(
+      XmlNode androidManifest, CompiledResources compiled, List<CompiledResources> deps) {
+    ImmutableSet<String> privateResourceNames =
+        deps.stream()
+            .flatMap(
+                cr ->
+                    AndroidCompiledDataDeserializer.create(
+                        /*includeFileContentsForValidation=*/ false)
+                        .read(DependencyInfo.UNKNOWN, cr.getZip())
+                        .entrySet()
+                        .stream())
+            .filter(entry -> entry.getValue().getVisibility() == Visibility.PRIVATE)
+            .map(entry -> ((FullyQualifiedName) entry.getKey()).asQualifiedReference())
+            .collect(ImmutableSet.toImmutableSet());
+
+    StringBuilder errorMessage = new StringBuilder();
+    {
+      List<String> referencedPrivateResources =
+          ProtoXmlUtils.getAllResourceReferences(androidManifest).stream()
+              .map(Reference::getName)
+              .filter(privateResourceNames::contains)
+              .collect(ImmutableList.toImmutableList());
+      if (!referencedPrivateResources.isEmpty()) {
+        errorMessage
+            .append("AndroidManifest.xml references external private resources ")
+            .append(referencedPrivateResources)
+            .append('\n');
+      }
+    }
+
+    for (Map.Entry<DataKey, DataResource> resource :
+        AndroidCompiledDataDeserializer.create(/*includeFileContentsForValidation=*/ true)
+            .read(DependencyInfo.UNKNOWN, compiled.getZip())
+            .entrySet()) {
+      List<String> referencedPrivateResources =
+          resource.getValue().getReferencedResources().stream()
+              .map(Reference::getName)
+              .filter(privateResourceNames::contains)
+              .collect(ImmutableList.toImmutableList());
+
+      if (!referencedPrivateResources.isEmpty()) {
+        errorMessage
+            .append(resource.getKey().toPrettyString())
+            .append(" (defined in ")
+            .append(resource.getValue().source().getPath())
+            .append(") references external private resources ")
+            .append(referencedPrivateResources)
+            .append('\n');
+      }
+    }
+
+    if (errorMessage.length() != 0) {
+      throw new UserException(errorMessage.toString());
     }
   }
 }

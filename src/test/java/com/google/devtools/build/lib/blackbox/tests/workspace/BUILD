@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_test")
+
 package(default_testonly = 1)
 
 filegroup(
@@ -35,19 +37,53 @@ java_test(
 )
 
 java_test(
-    name = "BazelEmbeddedSkylarkBlackBoxTest",
+    name = "BazelEmbeddedStarlarkBlackBoxTest",
     timeout = "moderate",
     srcs = [
-        "BazelEmbeddedSkylarkBlackBoxTest.java",
+        "BazelEmbeddedStarlarkBlackBoxTest.java",
         "RepoWithRuleWritingTextGenerator.java",
         "WorkspaceTestUtils.java",
     ],
     tags = ["black_box_test"],
     deps = common_deps + [
-        "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:bazel-repository",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/test/java/com/google/devtools/build/lib:foundations_testutil",
+        "//src/test/java/com/google/devtools/build/lib/vfs/util",
+        "//src/test/java/com/google/devtools/build/lib/events:testutil",
+    ],
+)
+
+java_test(
+    name = "GitRepositoryBlackBoxTest",
+    timeout = "moderate",
+    srcs = [
+        "GitRepositoryBlackBoxTest.java",
+        "GitRepositoryHelper.java",
+        "RepoWithRuleWritingTextGenerator.java",
+        "WorkspaceTestUtils.java",
+    ],
+    tags = ["black_box_test"],
+    deps = common_deps + [
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/vfs/util",
+        "//src/test/java/com/google/devtools/build/lib/events:testutil",
+    ],
+)
+
+java_test(
+    name = "PatchApiBlackBoxTest",
+    timeout = "moderate",
+    srcs = [
+        "PatchApiBlackBoxTest.java",
+        "WorkspaceTestUtils.java",
+    ],
+    tags = ["black_box_test"],
+    deps = common_deps + [
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/vfs/util",
+        "//src/test/java/com/google/devtools/build/lib/events:testutil",
     ],
 )
 
@@ -55,7 +91,9 @@ test_suite(
     name = "ws_black_box_tests",
     tags = ["black_box_test"],
     tests = [
-        "BazelEmbeddedSkylarkBlackBoxTest",
+        "BazelEmbeddedStarlarkBlackBoxTest",
+        "GitRepositoryBlackBoxTest",
+        "PatchApiBlackBoxTest",
         "RepoWithRuleWritingTextGeneratorTest",
         "WorkspaceBlackBoxTest",
     ],

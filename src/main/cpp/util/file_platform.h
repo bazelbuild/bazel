@@ -23,6 +23,8 @@
 
 namespace blaze_util {
 
+class Path;
+
 class IPipe;
 
 IPipe* CreatePipe();
@@ -40,17 +42,17 @@ class IFileMtime {
   // TODO(laszlocsomor): move this function, and with it the whole IFileMtime
   // class into blaze_util_<platform>.cc, because it is Bazel-specific logic,
   // not generic file-handling logic.
-  virtual bool IsUntampered(const std::string &path) = 0;
+  virtual bool IsUntampered(const Path &path) = 0;
 
   // Sets the mtime of file under `path` to the current time.
   // Returns true if the mtime was changed successfully.
-  virtual bool SetToNow(const std::string &path) = 0;
+  virtual bool SetToNow(const Path &path) = 0;
 
   // Sets the mtime of file under `path` to the distant future.
   // "Distant future" should be on the order of some years into the future, like
   // a decade.
   // Returns true if the mtime was changed successfully.
-  virtual bool SetToDistantFuture(const std::string &path) = 0;
+  virtual bool SetToDistantFuture(const Path &path) = 0;
 };
 
 // Creates a platform-specific implementation of `IFileMtime`.
@@ -91,15 +93,20 @@ int ReadFromHandle(file_handle_type handle, void *data, size_t size,
 // Returns false on error. Can be called from a signal handler.
 bool ReadFile(const std::string &filename, std::string *content,
               int max_size = 0);
+bool ReadFile(const Path &path, std::string *content, int max_size = 0);
 
 // Reads up to `size` bytes from the file `filename` into `data`.
 // There must be enough memory allocated at `data`.
 // Returns true on success, false on error.
 bool ReadFile(const std::string &filename, void *data, size_t size);
+bool ReadFile(const Path &filename, void *data, size_t size);
 
 // Writes `size` bytes from `data` into file `filename` and chmods it to `perm`.
 // Returns false on failure, sets errno.
 bool WriteFile(const void *data, size_t size, const std::string &filename,
+               unsigned int perm = 0644);
+
+bool WriteFile(const void *data, size_t size, const Path &path,
                unsigned int perm = 0644);
 
 // Result of a `WriteToStdOutErr` operation.
@@ -136,14 +143,16 @@ int RenameDirectory(const std::string &old_name, const std::string &new_name);
 // Reads which directory a symlink points to. Puts the target of the symlink
 // in ``result`` and returns if the operation was successful. Will not work on
 // symlinks that don't point to directories on Windows.
-bool ReadDirectorySymlink(const std::string &symlink, std::string *result);
+bool ReadDirectorySymlink(const blaze_util::Path &symlink, std::string *result);
 
 // Unlinks the file given by 'file_path'.
 // Returns true on success. In case of failure sets errno.
 bool UnlinkPath(const std::string &file_path);
+bool UnlinkPath(const Path &file_path);
 
 // Returns true if this path exists, following symlinks.
 bool PathExists(const std::string& path);
+bool PathExists(const Path &path);
 
 // Returns the real, absolute path corresponding to `path`.
 // The method resolves all symlink components of `path`.
@@ -155,27 +164,42 @@ std::string MakeCanonical(const char *path);
 // Returns true if `path` exists, is a file or symlink to one, and is readable.
 // Follows symlinks.
 bool CanReadFile(const std::string &path);
+bool CanReadFile(const Path &path);
 
 // Returns true if `path` exists, is a file or symlink to one, and is writable.
 // Follows symlinks.
 bool CanExecuteFile(const std::string &path);
+bool CanExecuteFile(const Path &path);
 
 // Returns true if `path` exists, is a directory or symlink/junction to one, and
 // is both readable and writable.
 // Follows symlinks/junctions.
 bool CanAccessDirectory(const std::string &path);
+bool CanAccessDirectory(const Path &path);
 
 // Returns true if `path` refers to a directory or a symlink/junction to one.
 bool IsDirectory(const std::string& path);
+bool IsDirectory(const Path &path);
 
 // Calls fsync() on the file (or directory) specified in 'file_path'.
 // pdie() if syncing fails.
 void SyncFile(const std::string& path);
+void SyncFile(const Path &path);
 
 // mkdir -p path. All newly created directories use the given mode.
 // `mode` should be an octal permission mask, e.g. 0755.
 // Returns false on failure, sets errno.
 bool MakeDirectories(const std::string &path, unsigned int mode);
+bool MakeDirectories(const Path &path, unsigned int mode);
+
+// Creates a directory starting with prefix for temporary usage. The directory
+// name is guaranteed to be at least unique to this process.
+std::string CreateTempDir(const std::string &prefix);
+
+// Removes the specified path or directory, and in the latter case, all of its
+// contents. Returns true iff the path doesn't exists when the method completes
+// (including if the path didn't exist to begin with). Does not follow symlinks.
+bool RemoveRecursively(const std::string &path);
 
 // Returns the current working directory.
 // The path is platform-specific (e.g. Windows path of Windows) and absolute.

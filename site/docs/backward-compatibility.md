@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Backward Compatibility
+title: Backward compatibility
 ---
 
-# Backward Compatibility
+# Backward compatibility
 
 Bazel is evolving, and we will make changes to Bazel that at times will be
 incompatible and require some changes from Bazel users.
@@ -13,6 +13,7 @@ incompatible and require some changes from Bazel users.
 * All incompatible changes: label [**incompatible-change**](https://github.com/bazelbuild/bazel/issues?q=label%3Aincompatible-change)
 * Expected breaking change in release X.Y: label **breaking-change-X.Y** (for example: [**breaking-change-0.21**](https://github.com/bazelbuild/bazel/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3Abreaking-change-0.21))
 * Release X.Y is in a migration window: label **migration-X.Y** (for example: [**migration-0.21**](https://github.com/bazelbuild/bazel/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3Amigration-0.21))
+
 
 ## At a glance
 
@@ -24,6 +25,14 @@ incompatible and require some changes from Bazel users.
 1. We announce what set of flags we intend to flip with the next release one release in advance.
 1. APIs and behavior guarded by an `--experimental_*` flag can change at any time.
 1. Users should never run their production builds with `--experimental_*`  or `--incompatible_*` flags.
+
+## How to follow this policy
+
+* [For Bazel users - how to update
+  Bazel](updating-bazel.html)
+* [For contributors - best practices for incompatible changes](https://bazel.build/breaking-changes-guide.html)
+* <a href='https://github.com/bazelbuild/continuous-integration/tree/master/docs/release-playbook.%6D%64'>For release managers - how to update issue labels and release</a>
+
 
 ## What is stable functionality?
 
@@ -84,5 +93,6 @@ migration window are marked with a label "migration-X.Y" label (for example
 All the incompatible changes that are expected to happen in release X.Y
 are marked with a label "breaking-change-X.Y" (for example
 [breaking-change-0.21](https://github.com/bazelbuild/bazel/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3Abreaking-change-0.21)).
+
 
 

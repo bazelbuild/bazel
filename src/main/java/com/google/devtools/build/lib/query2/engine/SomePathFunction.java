@@ -19,6 +19,7 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.CustomFunctionQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCallable;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
@@ -62,6 +63,23 @@ class SomePathFunction implements QueryFunction {
     final QueryTaskFuture<ThreadSafeMutableSet<T>> toValueFuture =
         QueryUtil.evalAll(env, context, args.get(1).getExpression());
 
+    if (env instanceof CustomFunctionQueryEnvironment) {
+      return env.whenAllSucceedCall(
+          ImmutableList.of(fromValueFuture, toValueFuture),
+          new QueryTaskCallable<Void>() {
+            @Override
+            public Void call() throws QueryException, InterruptedException {
+              ThreadSafeMutableSet<T> fromValue = fromValueFuture.getIfSuccessful();
+              ThreadSafeMutableSet<T> toValue = toValueFuture.getIfSuccessful();
+
+              env.buildTransitiveClosure(expression, fromValue, Integer.MAX_VALUE);
+
+              ((CustomFunctionQueryEnvironment<T>) env)
+                  .somePath(fromValue, toValue, expression, callback);
+              return null;
+            }
+          });
+    }
     return env.whenAllSucceedCall(
         ImmutableList.of(fromValueFuture, toValueFuture),
         new QueryTaskCallable<Void>() {

@@ -14,12 +14,13 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import java.util.Map;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 
 /**
  * The provider for the built-in type {@code struct}.
@@ -37,32 +38,34 @@ public final class StructProvider extends BuiltinProvider<StructImpl>
   }
 
   @Override
-  public StructImpl createStruct(SkylarkDict<?, ?> kwargs, Location loc) throws EvalException {
-    Map<String, Object> kwargsMap = kwargs.getContents(String.class, Object.class, "kwargs");
-    if (kwargsMap.containsKey("to_json")) {
-      throw new EvalException(loc, "cannot override built-in struct function 'to_json'");
+  public StructImpl createStruct(Dict<String, Object> kwargs, StarlarkThread thread)
+      throws EvalException {
+    return create(kwargs, thread.getCallerLocation());
+  }
+
+  // Called from StarlarkRepositoryContext. TODO(adonovan): eliminate.
+  public StructImpl createWithBuiltinLocation(Dict<String, Object> kwargs) throws EvalException {
+    return create(kwargs, Location.BUILTIN);
+  }
+
+  private StructImpl create(Dict<String, Object> kwargs, Location location) throws EvalException {
+    if (kwargs.containsKey("to_json")) {
+      throw Starlark.errorf("cannot override built-in struct function 'to_json'");
     }
-    if (kwargsMap.containsKey("to_proto")) {
-      throw new EvalException(loc, "cannot override built-in struct function 'to_proto'");
+    if (kwargs.containsKey("to_proto")) {
+      throw Starlark.errorf("cannot override built-in struct function 'to_proto'");
     }
-    return SkylarkInfo.createSchemaless(this, kwargsMap, loc);
+    return StarlarkInfo.create(this, kwargs, location);
   }
 
   /**
    * Creates a struct with the given field values and message format for unknown fields.
    *
    * <p>The custom message is useful for objects that have fields but aren't exactly used as
-   * providers, such as the {@code native} object, and the struct fields of {@code ctx} like
-   * {@code ctx.attr}.
-   * */
-  public SkylarkInfo create(
-      Map<String, Object> values, String errorMessageFormatForUnknownField) {
-    return SkylarkInfo.createSchemalessWithCustomMessage(
-        this, values, errorMessageFormatForUnknownField);
-  }
-
-  /** Creates an empty struct with the given location. */
-  public SkylarkInfo createEmpty(Location loc) {
-    return SkylarkInfo.createSchemaless(this, ImmutableMap.of(), loc);
+   * providers, such as the {@code native} object, and the struct fields of {@code ctx} like {@code
+   * ctx.attr}.
+   */
+  public StarlarkInfo create(Map<String, Object> values, String errorMessageFormatForUnknownField) {
+    return StarlarkInfo.createWithCustomMessage(this, values, errorMessageFormatForUnknownField);
   }
 }

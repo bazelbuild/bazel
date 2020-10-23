@@ -72,4 +72,23 @@ public class BazelAndroidLocalTestTest extends AndroidLocalTestTest {
   @Override
   public void checkMainClass(ConfiguredTarget target, String targetName, boolean coverageEnabled)
       throws Exception {}
+
+  @Override
+  public void testDeployJar() throws Exception {
+    // TODO(jingwen): Implement actual test.
+  }
+
+  @Override
+  public void testInferredJavaPackageFromPackageName() throws Exception {
+    // TODO(jingwen): Implement actual test.
+  }
+
+  @Override
+  public void testFeatureFlagPolicyIsNotUsedIfFlagValuesNotUsed() throws Exception {
+    // TODO(jingwen): Implement actual test.
+  }
+
+  @Override
+  public void androidManifestMergerOrderAlphabeticalByConfiguration_MergeesSortedByPathInBinOrGen()
+      throws Exception {}
 }

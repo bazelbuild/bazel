@@ -15,11 +15,10 @@
 package com.google.devtools.build.lib.bazel.rules.python;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -35,7 +34,7 @@ import com.google.devtools.common.options.OptionMetadataTag;
 
 /** Bazel-specific Python configuration. */
 @Immutable
-public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
+public class BazelPythonConfiguration extends Fragment {
 
   /** Bazel-specific Python configuration options. */
   public static final class Options extends FragmentOptions {

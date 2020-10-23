@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.sandbox;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -31,14 +32,20 @@ import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.TreeDeleter;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.shell.AbnormalTerminationException;
-import com.google.devtools.build.lib.shell.Command;
-import com.google.devtools.build.lib.shell.CommandException;
-import com.google.devtools.build.lib.shell.CommandResult;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Sandbox;
+import com.google.devtools.build.lib.server.FailureDetails.Sandbox.Code;
 import com.google.devtools.build.lib.shell.ExecutionStatistics;
+import com.google.devtools.build.lib.shell.Subprocess;
+import com.google.devtools.build.lib.shell.SubprocessBuilder;
+import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
-import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -48,7 +55,6 @@ import java.util.Map;
 /** Abstract common ancestor for sandbox spawn runners implementing the common parts. */
 abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   private static final int LOCAL_EXEC_ERROR = -1;
-  private static final int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/128 + /*SIGALRM=*/14;
 
   private static final String SANDBOX_DEBUG_SUGGESTION =
       "\n\nUse --sandbox_debug to see verbose messages from the sandbox";
@@ -57,6 +63,8 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   private final boolean verboseFailures;
   private final ImmutableSet<Path> inaccessiblePaths;
   protected final BinTools binTools;
+  private final Path execRoot;
+  private final ResourceManager resourceManager;
 
   public AbstractSandboxSpawnRunner(CommandEnvironment cmdEnv) {
     this.sandboxOptions = cmdEnv.getOptions().getOptions(SandboxOptions.class);
@@ -64,19 +72,25 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     this.inaccessiblePaths =
         sandboxOptions.getInaccessiblePaths(cmdEnv.getRuntime().getFileSystem());
     this.binTools = cmdEnv.getBlazeWorkspace().getBinTools();
+    this.execRoot = cmdEnv.getExecRoot();
+    this.resourceManager = cmdEnv.getLocalResourceManager();
   }
 
   @Override
-  public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
-      throws ExecException, IOException, InterruptedException {
+  public final SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
+      throws ExecException, InterruptedException {
     ActionExecutionMetadata owner = spawn.getResourceOwner();
     context.report(ProgressStatus.SCHEDULING, getName());
     try (ResourceHandle ignored =
-        ResourceManager.instance().acquireResources(owner, spawn.getLocalResources())) {
+        resourceManager.acquireResources(owner, spawn.getLocalResources())) {
       context.report(ProgressStatus.EXECUTING, getName());
-      return actuallyExec(spawn, context);
+      SandboxedSpawn sandbox = prepareSpawn(spawn, context);
+      return runSpawn(spawn, sandbox, context);
     } catch (IOException e) {
-      throw new UserExecException("I/O exception during sandboxed execution", e);
+      FailureDetail failureDetail =
+          createFailureDetail(
+              "I/O exception during sandboxed execution", Code.EXECUTION_IO_EXCEPTION);
+      throw new UserExecException(e, failureDetail);
     }
   }
 
@@ -85,29 +99,33 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     return Spawns.mayBeSandboxed(spawn);
   }
 
-  // TODO(laszlocsomor): refactor this class to make `actuallyExec`'s contract clearer: the caller
-  // of `actuallyExec` should not depend on `actuallyExec` calling `runSpawn` because it's easy to
-  // forget to do so in `actuallyExec`'s implementations.
-  protected abstract SpawnResult actuallyExec(Spawn spawn, SpawnExecutionContext context)
-      throws ExecException, InterruptedException, IOException;
+  @Override
+  public boolean handlesCaching() {
+    return false;
+  }
 
-  protected SpawnResult runSpawn(
-      Spawn originalSpawn,
-      SandboxedSpawn sandbox,
-      SpawnExecutionContext context,
-      Path execRoot,
-      Duration timeout,
-      Path statisticsPath)
+  protected abstract SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
+      throws IOException, ExecException, InterruptedException;
+
+  private SpawnResult runSpawn(
+      Spawn originalSpawn, SandboxedSpawn sandbox, SpawnExecutionContext context)
       throws IOException, InterruptedException {
     try {
-      sandbox.createFileSystem();
-      OutErr outErr = context.getFileOutErr();
-      context.prefetchInputs();
+      try (SilentCloseable c = Profiler.instance().profile("sandbox.createFileSystem")) {
+        sandbox.createFileSystem();
+      }
+      FileOutErr outErr = context.getFileOutErr();
+      try (SilentCloseable c = Profiler.instance().profile("context.prefetchInputs")) {
+        context.prefetchInputs();
+      }
 
-      SpawnResult result = run(originalSpawn, sandbox, outErr, timeout, statisticsPath);
+      SpawnResult result;
+      try (SilentCloseable c = Profiler.instance().profile("subprocess.run")) {
+        result = run(originalSpawn, sandbox, context.getTimeout(), outErr);
+      }
 
       context.lockOutputFiles();
-      try {
+      try (SilentCloseable c = Profiler.instance().profile("sandbox.copyOutputs")) {
         // We copy the outputs even when the command failed.
         sandbox.copyOutputs(execRoot);
       } catch (IOException e) {
@@ -116,79 +134,112 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       return result;
     } finally {
       if (!sandboxOptions.sandboxDebug) {
-        sandbox.delete();
+        try (SilentCloseable c = Profiler.instance().profile("sandbox.delete")) {
+          sandbox.delete();
+        }
       }
     }
   }
 
-  private final SpawnResult run(
-      Spawn originalSpawn,
-      SandboxedSpawn sandbox,
-      OutErr outErr,
-      Duration timeout,
-      Path statisticsPath)
-      throws IOException, InterruptedException {
-    Command cmd = new Command(
-        sandbox.getArguments().toArray(new String[0]),
-        sandbox.getEnvironment(),
-        sandbox.getSandboxExecRoot().getPathFile());
-    String failureMessage;
+  private String makeFailureMessage(Spawn originalSpawn, SandboxedSpawn sandbox) {
     if (sandboxOptions.sandboxDebug) {
-      failureMessage =
-          CommandFailureUtils.describeCommandFailure(
-              true,
-              sandbox.getArguments(),
-              sandbox.getEnvironment(),
-              sandbox.getSandboxExecRoot().getPathString(),
-              null);
+      return CommandFailureUtils.describeCommandFailure(
+          true,
+          sandbox.getArguments(),
+          sandbox.getEnvironment(),
+          sandbox.getSandboxExecRoot().getPathString(),
+          null);
     } else {
-      failureMessage =
-          CommandFailureUtils.describeCommandFailure(
-                  verboseFailures,
-                  originalSpawn.getArguments(),
-                  originalSpawn.getEnvironment(),
-                  sandbox.getSandboxExecRoot().getPathString(),
-                  originalSpawn.getExecutionPlatform())
-              + SANDBOX_DEBUG_SUGGESTION;
+      return CommandFailureUtils.describeCommandFailure(
+              verboseFailures,
+              originalSpawn.getArguments(),
+              originalSpawn.getEnvironment(),
+              sandbox.getSandboxExecRoot().getPathString(),
+              originalSpawn.getExecutionPlatform())
+          + SANDBOX_DEBUG_SUGGESTION;
     }
+  }
 
+  private final SpawnResult run(
+      Spawn originalSpawn, SandboxedSpawn sandbox, Duration timeout, FileOutErr outErr)
+      throws IOException, InterruptedException {
+    SubprocessBuilder subprocessBuilder = new SubprocessBuilder();
+    subprocessBuilder.setWorkingDirectory(sandbox.getSandboxExecRoot().getPathFile());
+    subprocessBuilder.setStdout(outErr.getOutputPath().getPathFile());
+    subprocessBuilder.setStderr(outErr.getErrorPath().getPathFile());
+    subprocessBuilder.setEnv(sandbox.getEnvironment());
+    subprocessBuilder.setArgv(ImmutableList.copyOf(sandbox.getArguments()));
+    boolean useSubprocessTimeout = sandbox.useSubprocessTimeout();
+    if (useSubprocessTimeout) {
+      subprocessBuilder.setTimeoutMillis(timeout.toMillis());
+    }
     long startTime = System.currentTimeMillis();
-    CommandResult commandResult;
+    TerminationStatus terminationStatus;
     try {
-      commandResult = cmd.execute(outErr.getOutputStream(), outErr.getErrorStream());
-      if (Thread.currentThread().isInterrupted()) {
-        throw new InterruptedException();
+      Subprocess subprocess = subprocessBuilder.start();
+      subprocess.getOutputStream().close();
+      try {
+        subprocess.waitFor();
+        terminationStatus = new TerminationStatus(subprocess.exitValue(), subprocess.timedout());
+      } catch (InterruptedException e) {
+        subprocess.destroyAndWait();
+        throw e;
       }
-    } catch (AbnormalTerminationException e) {
-      if (Thread.currentThread().isInterrupted()) {
-        throw new InterruptedException();
-      }
-      commandResult = e.getResult();
-    } catch (CommandException e) {
-      // At the time this comment was written, this must be a ExecFailedException encapsulating an
-      // IOException from the underlying Subprocess.Factory.
+    } catch (IOException e) {
       String msg = e.getMessage() == null ? e.getClass().getName() : e.getMessage();
-      outErr.getErrorStream().write(("Action failed to execute: " + msg + "\n").getBytes(UTF_8));
+      outErr
+          .getErrorStream()
+          .write(("Action failed to execute: java.io.IOException: " + msg + "\n").getBytes(UTF_8));
       outErr.getErrorStream().flush();
+      String message = makeFailureMessage(originalSpawn, sandbox);
       return new SpawnResult.Builder()
           .setRunnerName(getName())
           .setStatus(Status.EXECUTION_FAILED)
           .setExitCode(LOCAL_EXEC_ERROR)
-          .setFailureMessage(failureMessage)
+          .setFailureMessage(message)
+          .setFailureDetail(createFailureDetail(message, Code.EXECUTION_FAILED))
           .build();
     }
 
-    // TODO(b/62588075): Calculate wall time inside commands instead?
+    // TODO(b/62588075): Calculate wall time inside Subprocess instead?
     Duration wallTime = Duration.ofMillis(System.currentTimeMillis() - startTime);
-    boolean wasTimeout = wasTimeout(timeout, wallTime);
-    int exitCode =
-        wasTimeout
-            ? POSIX_TIMEOUT_EXIT_CODE
-            : commandResult.getTerminationStatus().getRawExitCode();
-    Status status =
-        wasTimeout
-            ? Status.TIMEOUT
-            : (exitCode == 0) ? Status.SUCCESS : Status.NON_ZERO_EXIT;
+    boolean wasTimeout =
+        (useSubprocessTimeout && terminationStatus.timedOut())
+            || (!useSubprocessTimeout && wasTimeout(timeout, wallTime));
+
+    int exitCode;
+    Status status;
+    String failureMessage;
+    FailureDetail failureDetail;
+    if (wasTimeout) {
+      exitCode = SpawnResult.POSIX_TIMEOUT_EXIT_CODE;
+      status = Status.TIMEOUT;
+      failureMessage = makeFailureMessage(originalSpawn, sandbox);
+      failureDetail =
+          FailureDetail.newBuilder()
+              .setMessage(failureMessage)
+              .setSpawn(
+                  FailureDetails.Spawn.newBuilder().setCode(FailureDetails.Spawn.Code.TIMEOUT))
+              .build();
+    } else {
+      exitCode = terminationStatus.getRawExitCode();
+      if (exitCode == 0) {
+        status = Status.SUCCESS;
+        failureMessage = "";
+        failureDetail = null;
+      } else {
+        status = Status.NON_ZERO_EXIT;
+        failureMessage = makeFailureMessage(originalSpawn, sandbox);
+        failureDetail =
+            FailureDetail.newBuilder()
+                .setMessage(failureMessage)
+                .setSpawn(
+                    FailureDetails.Spawn.newBuilder()
+                        .setCode(FailureDetails.Spawn.Code.NON_ZERO_EXIT)
+                        .setSpawnExitCode(exitCode))
+                .build();
+      }
+    }
 
     SpawnResult.Builder spawnResultBuilder =
         new SpawnResult.Builder()
@@ -196,8 +247,13 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
             .setStatus(status)
             .setExitCode(exitCode)
             .setWallTime(wallTime)
-            .setFailureMessage(status != Status.SUCCESS || exitCode != 0 ? failureMessage : "");
+            .setFailureMessage(failureMessage);
 
+    if (failureDetail != null) {
+      spawnResultBuilder.setFailureDetail(failureDetail);
+    }
+
+    Path statisticsPath = sandbox.getStatisticsPath();
     if (statisticsPath != null) {
       ExecutionStatistics.getResourceUsage(statisticsPath)
           .ifPresent(
@@ -229,7 +285,13 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       throws IOException {
     // We have to make the TEST_TMPDIR directory writable if it is specified.
     ImmutableSet.Builder<Path> writablePaths = ImmutableSet.builder();
-    writablePaths.add(sandboxExecRoot);
+
+    // On Windows, sandboxExecRoot is actually the main execroot. We will specify
+    // exactly which output path is writable.
+    if (OS.getCurrent() != OS.WINDOWS) {
+      writablePaths.add(sandboxExecRoot);
+    }
+
     String testTmpdir = env.get("TEST_TMPDIR");
     if (testTmpdir != null) {
       addWritablePath(
@@ -238,23 +300,37 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
           testTmpdir,
           "Cannot resolve symlinks in TEST_TMPDIR because it doesn't exist: \"%s\"");
     }
-    addWritablePath(
-        sandboxExecRoot,
-        writablePaths,
-        // As of 2018-01-09:
-        // - every caller of `getWritableDirs` passes a LocalEnvProvider-processed environment as
-        //   `env`, and in every case that's either PosixLocalEnvProvider or XcodeLocalEnvProvider,
-        //   therefore `env` surely has an entry for TMPDIR
-        // - Bazel-on-Windows does not yet support sandboxing, so we don't need to add env[TMP] and
-        //   env[TEMP] as writable paths.
-        Preconditions.checkNotNull(env.get("TMPDIR")),
-        "Cannot resolve symlinks in TMPDIR because it doesn't exist: \"%s\"");
+    // As of 2019-07-08:
+    // - every caller of `getWritableDirs` passes a LocalEnvProvider-processed environment as
+    //   `env`, therefore `env` surely has an entry for TMPDIR on Unix and TEMP/TMP on Windows.
+    if (OS.getCurrent() == OS.WINDOWS) {
+      addWritablePath(
+          sandboxExecRoot,
+          writablePaths,
+          Preconditions.checkNotNull(env.get("TEMP")),
+          "Cannot resolve symlinks in TEMP because it doesn't exist: \"%s\"");
+      addWritablePath(
+          sandboxExecRoot,
+          writablePaths,
+          Preconditions.checkNotNull(env.get("TMP")),
+          "Cannot resolve symlinks in TMP because it doesn't exist: \"%s\"");
+    } else {
+      addWritablePath(
+          sandboxExecRoot,
+          writablePaths,
+          Preconditions.checkNotNull(env.get("TMPDIR")),
+          "Cannot resolve symlinks in TMPDIR because it doesn't exist: \"%s\"");
+    }
 
     FileSystem fileSystem = sandboxExecRoot.getFileSystem();
     for (String writablePath : sandboxOptions.sandboxWritablePath) {
       Path path = fileSystem.getPath(writablePath);
       writablePaths.add(path);
-      writablePaths.add(path.resolveSymbolicLinks());
+      // TODO(laszlocsomor): Remove if guard when path.resolveSymbolicLinks supports non-symlink
+      // TODO(laszlocsomor): Figure out why OS.getCurrent() != OS.WINDOWS is required, and remove it
+      if (OS.getCurrent() != OS.WINDOWS || path.isSymbolicLink()) {
+        writablePaths.add(path.resolveSymbolicLinks());
+      }
     }
 
     return writablePaths.build();
@@ -276,7 +352,14 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       // If `path` itself is a symlink, then adding it to `writablePaths` would result in making
       // the symlink itself writable, not what it points to. Therefore we need to resolve symlinks
       // in `path`, however for that we need `path` to exist.
-      writablePaths.add(path.resolveSymbolicLinks());
+      //
+      // TODO(laszlocsomor): Remove if guard when path.resolveSymbolicLinks supports non-symlink
+      // TODO(laszlocsomor): Figure out why OS.getCurrent() != OS.WINDOWS is required, and remove it
+      if (OS.getCurrent() != OS.WINDOWS || path.isSymbolicLink()) {
+        writablePaths.add(path.resolveSymbolicLinks());
+      } else {
+        writablePaths.add(path);
+      }
     } else {
       throw new IOException(String.format(pathDoesNotExistErrorTemplate, path.getPathString()));
     }
@@ -298,5 +381,12 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
         treeDeleter.deleteTree(child);
       }
     }
+  }
+
+  static FailureDetail createFailureDetail(String message, Code detailedCode) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setSandbox(Sandbox.newBuilder().setCode(detailedCode))
+        .build();
   }
 }

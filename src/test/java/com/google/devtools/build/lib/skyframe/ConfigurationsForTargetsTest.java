@@ -15,28 +15,23 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Supplier;
-import com.google.common.base.VerifyException;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Collections2;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
+import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
-import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -146,7 +141,8 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
                 (TargetAndConfiguration) skyKey.argument(),
                 ImmutableList.<Aspect>of(),
                 ImmutableMap.<Label, ConfigMatchingProvider>of(),
-                /*toolchainContext=*/ null,
+                /* toolchainContexts= */ null,
+                /* useToolchainTransition= */ false,
                 stateProvider.lateBoundRuleClassProvider(),
                 stateProvider.lateBoundHostConfig(),
                 NestedSetBuilder.<Package>stableOrder(),
@@ -230,6 +226,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
     Object evalResult = SkyframeExecutorTestUtils.evaluate(
         skyframeExecutor, key, /*keepGoing=*/false, reporter);
     skyframeExecutor.getSkyframeBuildView().enableAnalysis(false);
+    @SuppressWarnings("unchecked")
     SkyValue value = ((EvaluationResult<ComputeDependenciesFunction.Value>) evalResult).get(key);
     return ((ComputeDependenciesFunction.Value) value).depMap;
   }
@@ -265,41 +262,6 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
     }
     throw new AssertionError(
         String.format("Couldn't find attribute %s for label %s", attrName, targetLabel));
-  }
-
-  @Test
-  public void putOnlyEntryCorrectWithSetMultimap() throws Exception {
-    internalTestPutOnlyEntry(HashMultimap.<String, String>create());
-  }
-
-  /**
-   * Unlike {@link SetMultimap}, {@link ListMultimap} allows duplicate <Key, value> pairs. Make
-   * sure that doesn't fool {@link ConfigurationResolver#putOnlyEntry}.
-   */
-  @Test
-  public void putOnlyEntryCorrectWithListMultimap() throws Exception {
-    internalTestPutOnlyEntry(ArrayListMultimap.<String, String>create());
-  }
-
-  private void internalTestPutOnlyEntry(Multimap<String, String> map) throws Exception {
-    ConfigurationResolver.putOnlyEntry(map, "foo", "bar");
-    ConfigurationResolver.putOnlyEntry(map, "baz", "bar");
-    VerifyException e =
-        assertThrows(
-            "Expected an exception when trying to add a new value to an existing key",
-            VerifyException.class,
-            () -> ConfigurationResolver.putOnlyEntry(map, "foo", "baz"));
-    assertThat(e)
-        .hasMessageThat()
-        .isEqualTo("couldn't insert baz: map already has values for key foo: [bar]");
-    e =
-        assertThrows(
-            "Expected an exception when trying to add a pre-existing <key, value> pair",
-            VerifyException.class,
-            () -> ConfigurationResolver.putOnlyEntry(map, "foo", "bar"));
-    assertThat(e)
-        .hasMessageThat()
-        .isEqualTo("couldn't insert bar: map already has values for key foo: [bar]");
   }
 
   @Test
@@ -361,8 +323,83 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
     // We don't care what order split deps are listed, but it must be deterministic.
     assertThat(
             ConfigurationResolver.SPLIT_DEP_ORDERING.compare(
-                Dependency.withConfiguration(dep1.getLabel(), getConfiguration(dep1)),
-                Dependency.withConfiguration(dep2.getLabel(), getConfiguration(dep2))))
+                Dependency.builder()
+                    .setLabel(dep1.getLabel())
+                    .setConfiguration(getConfiguration(dep1))
+                    .build(),
+                Dependency.builder()
+                    .setLabel(dep2.getLabel())
+                    .setConfiguration(getConfiguration(dep2))
+                    .build()))
         .isLessThan(0);
+  }
+
+  /**
+   * {@link ConfigurationResolver#resolveConfigurations} caches the transitions applied to deps. In
+   * other words, if a parent rule has 100 deps that all set { compilation_mode=dbg }, there's no
+   * need to compute that transition and request the resulting dep configuration from Skyframe 100
+   * times.
+   *
+   * <p>But we do need to make sure <bold>different</bold> transitions don't trigger false cache
+   * hits. This test checks a subtle version of that: if the same Starlark transition applies to two
+   * deps, but that transition reads their attributes and their attribute values are different, we
+   * need to make sure they're distinctly computed.
+   */
+  @Test
+  public void sameTransitionDifferentParameters() throws Exception {
+    scratch.file(
+        "tools/allowlists/function_transition_allowlist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_allowlist',",
+        "    packages = [",
+        "        '//a/...',",
+        "    ],",
+        ")");
+    scratch.file(
+        "a/defs.bzl",
+        "def _transition_impl(settings, attr):",
+        "    return {'//command_line_option:compilation_mode': attr.myattr}",
+        "my_transition = transition(",
+        "    implementation = _transition_impl,",
+        "    inputs = [],",
+        "    outputs = ['//command_line_option:compilation_mode'])",
+        "def _parent_rule_impl(ctx):",
+        "    pass",
+        "parent_rule = rule(",
+        "    implementation = _parent_rule_impl,",
+        "    attrs = {",
+        "        'dep1': attr.label(),",
+        "        'dep2': attr.label(),",
+        "    })",
+        "def _child_rule_impl(ctx):",
+        "    pass",
+        "child_rule = rule(",
+        "    implementation = _child_rule_impl,",
+        "    cfg = my_transition,",
+        "    attrs = {",
+        "        'myattr': attr.string(),",
+        "        '_allowlist_function_transition': attr.label(",
+        "            default = '//tools/allowlists/function_transition_allowlist')",
+        "    }",
+        ")");
+    scratch.file(
+        "a/BUILD",
+        "load('//a:defs.bzl', 'parent_rule', 'child_rule')",
+        "child_rule(",
+        "    name = 'child1',",
+        "    myattr = 'dbg')", // For this dep, my_transition reads myattr="dbg".
+        "child_rule(",
+        "    name = 'child2',",
+        "    myattr = 'opt')", // For this dep, my_transition reads myattr="opt".
+        "parent_rule(",
+        "    name = 'buildme',",
+        "    dep1 = ':child1',",
+        "    dep2 = ':child2')");
+
+    ConfiguredTarget child1 = Iterables.getOnlyElement(getConfiguredDeps("//a:buildme", "dep1"));
+    ConfiguredTarget child2 = Iterables.getOnlyElement(getConfiguredDeps("//a:buildme", "dep2"));
+    // Check that each dep ends up with a distinct compilation_mode value.
+    assertThat(getConfiguration(child1).getCompilationMode()).isEqualTo(CompilationMode.DBG);
+    assertThat(getConfiguration(child2).getCompilationMode()).isEqualTo(CompilationMode.OPT);
   }
 }

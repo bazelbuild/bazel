@@ -13,9 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.test;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.vfs.Path;
@@ -36,10 +39,32 @@ public interface TestActionContext extends ActionContext {
   boolean isTestKeepGoing();
 
   /**
-   * Creates a cached test result.
+   * Returns {@code true} to indicate that exclusive tests should be treated as regular parallel
+   * tests.
+   *
+   * <p>Returning {@code true} may make sense for certain forced remote test execution strategies
+   * where running tests in sequence would be wasteful.
    */
+  default boolean forceParallelTestExecution() {
+    return false;
+  }
+
+  /** Creates a cached test result. */
   TestResult newCachedTestResult(Path execRoot, TestRunnerAction action, TestResultData cached)
       throws IOException;
+
+  /**
+   * Returns a listenable future that is unique for any given combination of owner and shard number,
+   * i.e., that is cached across different runs within the same shard of the same target. This is to
+   * facilitate cross-action cancellation - if {@code runs_per_test} and {@code
+   * runs_per_test_detects_flake} are both set, then it is sufficient to have a single passing
+   * result per shard, and any concurrent actions can be cancelled.
+   *
+   * <p>Note that the output files of a test are named after the owner, which guarantees that there
+   * are no two tests with the same owner.
+   */
+  @Nullable
+  ListenableFuture<Void> getTestCancelFuture(ActionOwner owner, int shardNum);
 
   /**
    * An object representing an individual test attempt result. Note that {@link TestRunnerSpawn} is
@@ -48,11 +73,25 @@ public interface TestActionContext extends ActionContext {
    * implementations.
    */
   interface TestAttemptResult {
-    /** Returns {@code true} if the test attempt passed successfully. */
-    boolean hasPassed();
+    /** Test attempt result, splitting failures into permanent vs retriable. */
+    enum Result {
+      /** Test attempt successful. */
+      PASSED,
+      /** Test failed, potentially due to test flakiness, can be retried. */
+      FAILED_CAN_RETRY,
+      /** Permanent failure. */
+      FAILED;
+
+      boolean canRetry() {
+        return this == FAILED_CAN_RETRY;
+      }
+    }
+
+    /** Returns the overall test result. */
+    Result result();
 
     /** Returns a list of spawn results for this test attempt. */
-    List<SpawnResult> spawnResults();
+    ImmutableList<SpawnResult> spawnResults();
   }
 
   /**
@@ -102,12 +141,12 @@ public interface TestActionContext extends ActionContext {
 
       @Override
       public ListenableFuture<?> getFuture() {
-        throw new IllegalStateException();
+        return Futures.immediateFuture(null);
       }
 
       @Override
       public TestAttemptContinuation execute() {
-        throw new IllegalStateException();
+        return this;
       }
 
       @Override
@@ -126,8 +165,7 @@ public interface TestActionContext extends ActionContext {
      * return a completed result, or it may return a continuation with a non-null future
      * representing asynchronous execution.
      */
-    TestAttemptContinuation beginExecution()
-        throws InterruptedException, IOException, ExecException;
+    TestAttemptContinuation beginExecution() throws InterruptedException, IOException;
 
     /**
      * After the first attempt has run, this method is called to determine the maximum number of
@@ -144,14 +182,26 @@ public interface TestActionContext extends ActionContext {
         TestAttemptResult lastTestAttemptResult, List<FailedAttemptResult> failedAttempts)
         throws IOException;
 
+    /** Post the final test result based on the last attempt and the list of failed attempts. */
+    void finalizeCancelledTest(List<FailedAttemptResult> failedAttempts) throws IOException;
+
     /**
      * Return a {@link TestRunnerSpawn} object if test fallback is enabled, or {@code null}
      * otherwise. Test fallback is a feature to allow a test to run with one strategy until the max
      * attempts are exhausted and then run with another strategy for another set of attempts. This
      * is rarely used, and should ideally be removed.
      */
-    default TestRunnerSpawn getFallbackRunner() throws ExecException, InterruptedException {
+    default TestRunnerSpawn getFallbackRunner() throws ExecException {
       return null;
+    }
+
+    /**
+     * Return a {@link TestRunnerSpawn} object that is used on flaky retries. Flaky retry runner
+     * allows a test to run with a different strategy on flaky retries (for example, enabling test
+     * fail-fast mode to save up resources).
+     */
+    default TestRunnerSpawn getFlakyRetryRunner() throws ExecException {
+      return this;
     }
   }
 }

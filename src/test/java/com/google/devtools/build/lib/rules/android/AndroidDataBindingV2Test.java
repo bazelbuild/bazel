@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingV2Provider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
@@ -191,7 +192,8 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
                 getFirstArtifactEndingWith(allArtifacts, "lib2_with_databinding.jar"));
     assertThat(
             Iterables.filter(
-                libCompileAction.getInputs(), ActionsTestUtil.getArtifactSuffixMatcher(".bin")))
+                libCompileAction.getInputs().toList(),
+                ActionsTestUtil.getArtifactSuffixMatcher(".bin")))
         .isEmpty();
 
     // The binary's compilation includes the library's data binding results.
@@ -200,21 +202,26 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
             getGeneratingAction(getFirstArtifactEndingWith(allArtifacts, "app.jar"));
     Iterable<Artifact> depMetadataInputs =
         Iterables.filter(
-            binCompileAction.getInputs(), ActionsTestUtil.getArtifactSuffixMatcher(".bin"));
+            binCompileAction.getInputs().toList(),
+            ActionsTestUtil.getArtifactSuffixMatcher(".bin"));
 
     final String appDependentLibArtifacts =
         Iterables.getFirst(depMetadataInputs, null).getRoot().getExecPathString()
-        + "/java/android/binary/databinding/app/dependent-lib-artifacts/";
+            + "/java/android/binary/databinding/app/dependent-lib-artifacts/";
     ActionsTestUtil.execPaths(
         Iterables.filter(
-            binCompileAction.getInputs(), ActionsTestUtil.getArtifactSuffixMatcher(".bin")));
+            binCompileAction.getInputs().toList(),
+            ActionsTestUtil.getArtifactSuffixMatcher(".bin")));
     assertThat(ActionsTestUtil.execPaths(depMetadataInputs))
         .containsExactly(
-            appDependentLibArtifacts + "java/android/library/databinding/"
+            appDependentLibArtifacts
+                + "java/android/library/databinding/"
                 + "lib_with_databinding/bin-files/android.library-android.library-br.bin",
-            appDependentLibArtifacts + "java/android/library/databinding/"
+            appDependentLibArtifacts
+                + "java/android/library/databinding/"
                 + "lib_with_databinding/bin-files/android.library-android.library-setter_store.bin",
-            appDependentLibArtifacts + "java/android/library2/databinding/"
+            appDependentLibArtifacts
+                + "java/android/library2/databinding/"
                 + "lib2_with_databinding/bin-files/android.library2-android.library2-br.bin");
   }
 
@@ -346,7 +353,7 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
     writeDataBindingFilesWithNoResourcesDep();
 
     ConfiguredTarget ct = getConfiguredTarget("//java/android/lib_no_resource_files");
-    Iterable<Artifact> libArtifacts = getFilesToBuild(ct);
+    NestedSet<Artifact> libArtifacts = getFilesToBuild(ct);
 
     assertThat(getFirstArtifactEndingWith(libArtifacts, "_resources.jar")).isNull();
     assertThat(getFirstArtifactEndingWith(libArtifacts, "layout-info.zip")).isNull();
@@ -451,19 +458,15 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
     assertWithMessage(DataBindingV2Provider.NAME).that(dataBindingV2Provider).isNotNull();
 
     assertThat(
-        dataBindingV2Provider
-            .getSetterStores()
-            .stream()
-            .map(Artifact::getRootRelativePathString)
-            .collect(Collectors.toList()))
+            dataBindingV2Provider.getSetterStores().stream()
+                .map(Artifact::getRootRelativePathString)
+                .collect(Collectors.toList()))
         .containsExactly("java/a/databinding/a/bin-files/a-a-setter_store.bin");
 
     assertThat(
-        dataBindingV2Provider
-            .getClassInfos()
-            .stream()
-            .map(Artifact::getRootRelativePathString)
-            .collect(Collectors.toList()))
+            dataBindingV2Provider.getClassInfos().stream()
+                .map(Artifact::getRootRelativePathString)
+                .collect(Collectors.toList()))
         .containsExactly("java/a/databinding/a/class-info.zip");
 
     assertThat(
@@ -574,21 +577,16 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
     DataBindingV2Provider provider = c.get(DataBindingV2Provider.PROVIDER);
 
     assertThat(
-        provider
-            .getClassInfos()
-            .stream()
-            .map(Artifact::getRootRelativePathString)
-            .collect(Collectors.toList()))
+            provider.getClassInfos().stream()
+                .map(Artifact::getRootRelativePathString)
+                .collect(Collectors.toList()))
         .containsExactly(
-            "java/a/databinding/a/class-info.zip",
-            "java/b/databinding/b/class-info.zip");
+            "java/a/databinding/a/class-info.zip", "java/b/databinding/b/class-info.zip");
 
     assertThat(
-        provider
-            .getSetterStores()
-            .stream()
-            .map(Artifact::getRootRelativePathString)
-            .collect(Collectors.toList()))
+            provider.getSetterStores().stream()
+                .map(Artifact::getRootRelativePathString)
+                .collect(Collectors.toList()))
         .containsExactly(
             "java/a/databinding/a/bin-files/a-a-setter_store.bin",
             "java/b/databinding/b/bin-files/b-b-setter_store.bin");
@@ -654,9 +652,7 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
 
     checkError(
         "//java/com/bin:bin",
-        "Java package com.lib:\n"
-            + "    //java/com/lib:lib\n"
-            + "    //java/com/lib:lib2");
+        "Java package com.lib:\n" + "    //java/com/lib:lib\n" + "    //java/com/lib:lib2");
   }
 
   @Test
@@ -799,10 +795,7 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
         ")");
 
     checkError(
-        "//java/com/bin:bin",
-        "Java package com.foo:\n"
-            + "    //libA:libA\n"
-            + "    //libB:libB");
+        "//java/com/bin:bin", "Java package com.foo:\n" + "    //libA:libA\n" + "    //libB:libB");
   }
 
   @Test
@@ -845,9 +838,7 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
 
     checkError(
         "//java/com/bin:bin",
-        "Java package com.bin:\n"
-            + "    //java/com/bin:bin\n"
-            + "    //java/com/bin:lib");
+        "Java package com.bin:\n" + "    //java/com/bin:bin\n" + "    //java/com/bin:lib");
   }
 
   @Test
@@ -916,7 +907,6 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
     // Should not throw error.
     getConfiguredTarget("//java/com/bin:bin");
   }
-
 
   private void writeDataBindingFilesWithExports() throws Exception {
 
@@ -1023,14 +1013,14 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
                 getFirstArtifactEndingWith(allArtifacts, "app_dep_on_exports_and_databinding.jar"));
 
     ImmutableList<String> expectedJavacopts =
-        ImmutableList.of("-Aandroid.databinding.directDependencyPkgs="
-            + "[android.lib_with_exports,android.library1,android.library2]");
+        ImmutableList.of(
+            "-Aandroid.databinding.directDependencyPkgs="
+                + "[android.lib_with_exports,android.library1,android.library2]");
     assertThat(getJavacArguments(binCompileAction)).containsAtLeastElementsIn(expectedJavacopts);
   }
 
   @Test
-  public void testNoDependentLibraryJavaPackagesIsEmptyBrackets()
-      throws Exception {
+  public void testNoDependentLibraryJavaPackagesIsEmptyBrackets() throws Exception {
 
     scratch.file(
         "java/android/binary/BUILD",
@@ -1042,8 +1032,7 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
         "    deps = [],",
         ")");
 
-    ConfiguredTarget ctapp =
-        getConfiguredTarget("//java/android/binary:app_databinding_no_deps");
+    ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app_databinding_no_deps");
     Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
     JavaCompileAction binCompileAction =
         (JavaCompileAction)
@@ -1054,5 +1043,4 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
         ImmutableList.of("-Aandroid.databinding.directDependencyPkgs=[]");
     assertThat(getJavacArguments(binCompileAction)).containsAtLeastElementsIn(expectedJavacopts);
   }
-
 }

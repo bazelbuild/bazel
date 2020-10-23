@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.remote.logging;
 
 import static com.google.common.collect.Iterators.advance;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
-import static org.mockito.Matchers.any;
+import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;

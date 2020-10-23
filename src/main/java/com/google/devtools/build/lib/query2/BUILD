@@ -1,9 +1,11 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
 package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(
@@ -21,121 +23,95 @@ java_library(
         ],
     ),
     deps = [
-        ":abstract-blaze-query-env",
-        ":aquery-utils",
-        ":aspect-resolver",
-        ":fake-load-target",
-        ":query-engine",
-        ":query-output",
-        "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:command-utils",
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:packages-internal",
-        "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/analysis:actions/parameter_file_write_action",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/config_matching_provider",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/configuration_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/no_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/null_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/transition_factory",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:dependency_key",
+        "//src/main/java/com/google/devtools/build/lib/analysis:dependency_kind",
+        "//src/main/java/com/google/devtools/build/lib/analysis:inconsistent_aspect_order_exception",
+        "//src/main/java/com/google/devtools/build/lib/analysis:required_config_fragments_provider",
+        "//src/main/java/com/google/devtools/build/lib/analysis:starlark/function_transition_util",
+        "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_collection",
+        "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/causes",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/graph",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
+        "//src/main/java/com/google/devtools/build/lib/query2/common:UniverseSkyKey",
+        "//src/main/java/com/google/devtools/build/lib/query2/common:abstract-blaze-query-env",
+        "//src/main/java/com/google/devtools/build/lib/query2/common:options",
+        "//src/main/java/com/google/devtools/build/lib/query2/common:universe-scope",
+        "//src/main/java/com/google/devtools/build/lib/query2/compat:fake-load-target",
+        "//src/main/java/com/google/devtools/build/lib/query2/engine",
+        "//src/main/java/com/google/devtools/build/lib/query2/query/aspectresolvers",
+        "//src/main/java/com/google/devtools/build/lib/query2/query/output",
+        "//src/main/java/com/google/devtools/build/lib/rules:alias",
+        "//src/main/java/com/google/devtools/build/lib/rules:repository/workspace_file_helper",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:actiongraph/v2/aquery_output_handler",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:actiongraph/v2/monolithic_output_handler",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:actiongraph/v2/streamed_output_handler",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_value_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:containing_package_lookup_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:graph_backed_recursive_package_provider",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:ignored_package_prefixes_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:prepare_deps_of_patterns_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:recursive_package_provider_backed_target_pattern_resolver",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:recursive_pkg_value_root_package_extractor",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:target_pattern_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:toolchain_context_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:transitive_traversal_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:traversal_info_root_package_extractor",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:unloaded_toolchain_context",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_name_value",
+        "//src/main/java/com/google/devtools/build/lib/supplier",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:command",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/util:shell_escaper",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/net/starlark/java/annot",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:analysis_java_proto",
         "//src/main/protobuf:build_java_proto",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
-    ],
-)
-
-java_library(
-    name = "query-output",
-    srcs = glob(
-        ["query/output/*.java"],
-    ),
-    deps = [
-        ":abstract-blaze-query-env",
-        ":aspect-resolver",
-        ":common-query-options",
-        ":fake-load-target",
-        ":query-engine",
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:packages-internal",
-        "//src/main/java/com/google/devtools/build/lib/collect",
-        "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
-        "//src/main/java/com/google/devtools/build/lib/graph",
-        "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:build_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "abstract-blaze-query-env",
-    srcs = [
-        "AbstractBlazeQueryEnvironment.java",
-    ],
-    deps = [
-        ":query-engine",
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:packages-internal",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "common-query-options",
-    srcs = [
-        "CommonQueryOptions.java",
-    ],
-    deps = [
-        ":aspect-resolver",
-        ":query-engine",
-        "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:build_java_proto",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "aspect-resolver",
-    srcs = glob(["query/aspectresolvers/*.java"]),
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:packages-internal",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "fake-load-target",
-    srcs = [
-        "FakeLoadTarget.java",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:packages-internal",
-        "//third_party:guava",
-    ],
-)
-
-# Query library.
-java_library(
-    name = "query-engine",
-    srcs = glob(["engine/*.java"]),
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib:util",
-        "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/graph",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/protobuf:protobuf_java_util",
     ],
 )
 
@@ -146,8 +122,10 @@ java_library(
         "aquery/AqueryUtils.java",
     ],
     deps = [
-        ":query-engine",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//third_party:guava",
     ],
 )

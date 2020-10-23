@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.rules.extra;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -62,7 +62,7 @@ public final class ActionListenerRule implements RuleDefinition {
   }
 }
 
-/*<!-- #BLAZE_RULE (NAME = action_listener, TYPE = BINARY, FAMILY = Extra Actions)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = action_listener, FAMILY = Extra Actions)[GENERIC_RULE] -->
 
 <p>
   <b>DISCLAIMER:</b>

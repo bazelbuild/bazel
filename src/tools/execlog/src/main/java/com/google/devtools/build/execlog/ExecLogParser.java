@@ -169,7 +169,7 @@ final class ExecLogParser {
   }
 
   public static void main(String[] args) throws Exception {
-    OptionsParser op = OptionsParser.newOptionsParser(ParserOptions.class);
+    OptionsParser op = OptionsParser.builder().optionsClasses(ParserOptions.class).build();
     op.parseAndExitUponError(args);
 
     ParserOptions options = op.getOptions(ParserOptions.class);

@@ -13,15 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -45,7 +42,6 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
       BlazeDirectories directories,
       ActionKeyContext actionKeyContext,
       Factory workspaceStatusActionFactory,
-      ImmutableList<BuildInfoFactory> buildInfoFactories,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
@@ -55,7 +51,6 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
         .setFileSystem(fileSystem)
         .setDirectories(directories)
         .setActionKeyContext(actionKeyContext)
-        .setBuildInfoFactories(buildInfoFactories)
         .setDefaultBuildOptions(defaultBuildOptions)
         .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
         .setDiffAwarenessFactories(diffAwarenessFactories)

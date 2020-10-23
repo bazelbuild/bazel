@@ -132,9 +132,9 @@ class InputZipFile : public ZipExtractor {
   // MAX_BUFFER_SIZE must be bigger than the size of the biggest file in the
   // ZIP. It is set to 2GB here because no one has audited the code for 64-bit
   // cleanliness.
-  static const size_t INITIAL_BUFFER_SIZE = 256 * 1024;  // 256K
-  static const size_t MAX_BUFFER_SIZE = std::numeric_limits<int32_t>::max();
-  static const size_t MAX_MAPPED_REGION = 32 * 1024 * 1024;
+  static constexpr size_t INITIAL_BUFFER_SIZE = 256 * 1024;  // 256K
+  static constexpr size_t MAX_BUFFER_SIZE = std::numeric_limits<int32_t>::max();
+  static constexpr size_t MAX_MAPPED_REGION = 32 * 1024 * 1024;
 
   // These metadata fields are the fields of the ZIP header of the file being
   // processed.
@@ -321,10 +321,8 @@ bool InputZipFile::ProcessNext() {
   }
 
   // There might be an offset specified in the central directory that does
-  // not match the file offset, if so, correct the pointer.
-  if (offset != 0 && (p != (zipdata_in_ + in_offset_ + offset))) {
-    p = zipdata_in_ + offset;
-  }
+  // not match the file offset, so always update our pointer.
+  p = zipdata_in_ + in_offset_ + offset;
 
   if (EnsureRemaining(4, "signature") < 0) {
     return false;

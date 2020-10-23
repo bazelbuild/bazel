@@ -30,12 +30,14 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -52,7 +54,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
-      throws SkyFunctionException, InterruptedException {
+      throws RegisteredExecutionPlatformsFunctionException, InterruptedException {
 
     BuildConfigurationValue buildConfigurationValue =
         (BuildConfigurationValue)
@@ -131,7 +133,12 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
 
     ImmutableList<ConfiguredTargetKey> keys =
         labels.stream()
-            .map(label -> ConfiguredTargetKey.of(label, configuration))
+            .map(
+                label ->
+                    ConfiguredTargetKey.builder()
+                        .setLabel(label)
+                        .setConfiguration(configuration)
+                        .build())
             .collect(toImmutableList());
 
     Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> values =
@@ -193,18 +200,27 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
    * Used to indicate that the given {@link Label} represents a {@link ConfiguredTarget} which is
    * not a valid {@link PlatformInfo} provider.
    */
-  static final class InvalidExecutionPlatformLabelException extends Exception {
+  private static final class InvalidExecutionPlatformLabelException extends Exception
+      implements SaneAnalysisException {
 
-    public InvalidExecutionPlatformLabelException(
-        TargetPatternUtil.InvalidTargetPatternException e) {
+    InvalidExecutionPlatformLabelException(TargetPatternUtil.InvalidTargetPatternException e) {
       this(e.getInvalidPattern(), e.getTpe());
     }
 
-    public InvalidExecutionPlatformLabelException(String invalidPattern, TargetParsingException e) {
+    InvalidExecutionPlatformLabelException(String invalidPattern, TargetParsingException e) {
       super(
           String.format(
               "invalid registered execution platform '%s': %s", invalidPattern, e.getMessage()),
           e);
+    }
+
+    @Override
+    public DetailedExitCode getDetailedExitCode() {
+      return DetailedExitCode.of(
+          FailureDetail.newBuilder()
+              .setMessage(getMessage())
+              .setAnalysis(Analysis.newBuilder().setCode(Code.INVALID_EXECUTION_PLATFORM))
+              .build());
     }
   }
 
@@ -225,6 +241,8 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     }
   }
 
+  // This class uses AutoValue solely to get default equals/hashCode behavior, which is needed to
+  // make skyframe serialization work properly.
   @AutoValue
   @AutoCodec
   abstract static class HasPlatformInfo extends FilteringPolicy {
@@ -234,18 +252,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
       if (explicit) {
         return true;
       }
-
-      // If the rule requires platforms, it can't be used as a platform.
-      RuleClass ruleClass = target.getAssociatedRule().getRuleClassObject();
-      if (ruleClass == null) {
-        return false;
-      }
-
-      if (ruleClass.supportsPlatforms()) {
-        return false;
-      }
-
-      return ruleClass.getAdvertisedProviders().advertises(PlatformInfo.class);
+      return PlatformLookupUtil.hasPlatformInfo(target);
     }
 
     @AutoCodec.Instantiator

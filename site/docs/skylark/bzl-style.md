@@ -1,10 +1,9 @@
 ---
 layout: documentation
-title: .bzl Style Guide
+title: .bzl style guide
 ---
 
-# .bzl Style Guide
-
+# .bzl style guide
 
 [Starlark](language.md) is a language that defines how software is built, and as
 such it is both a programming and a configuration language.
@@ -15,7 +14,7 @@ BUILD files are intended to be simple and repetitive.
 
 All software is read more often than it is written. This is especially true for
 Starlark, as engineers read BUILD files to understand dependencies of their
-targets and details of their builds.This reading will often happen in passing,
+targets and details of their builds. This reading will often happen in passing,
 in a hurry, or in parallel to accomplishing some other task. Consequently,
 simplicity and readability are very important so that users can parse and
 comprehend BUILD files quickly.
@@ -31,14 +30,16 @@ files simple will allow you to get better tooling. As a code base grows, it
 becomes more and more frequent to do changes across many BUILD files in order to
 update a library or do a cleanup.
 
-Do not create a macro just to avoid some amount of repetition in BUILD files.
-The [DRY](https://en.wikipedia.org/wiki/Don%27t_repeat_yourself) principle
-doesn’t really apply here. The goal is not to make the file shorter; the goal is
-to make your files easy to process, both by humans and tools.
+**IMPORTANT:** Do not create a variable or macro just to avoid some amount of
+repetition in BUILD files. Your BUILD file should be easily readable both by
+developers and tools. The
+[DRY](https://en.wikipedia.org/wiki/Don%27t_repeat_yourself) principle doesn't
+really apply here.
 
 ## General advice
 
-*   Use [skylint](skylint.md).
+*   Use [Buildifier](https://github.com/bazelbuild/buildtools/tree/master/buildifier#linter)
+    as a formatter and linter.
 *   Follow [testing guidelines](testing.md).
 
 ## Style
@@ -47,14 +48,14 @@ to make your files easy to process, both by humans and tools.
 ### Python style
 
 When in doubt, follow the
-[Python style guide](https://www.python.org/dev/peps/pep-0008/). In particular,
+[PEP 8 style guide](https://www.python.org/dev/peps/pep-0008/). In particular,
 use 4 spaces for indentation (we previously recommended 2, but we now follow the
 Python convention).
 
 ### Docstring
 
-Document files and functions using [docstrings](skylint.md#docstrings). Use a
-docstring at the top of each `.bzl` file, and a docstring for each public
+Document files and functions using [docstrings](https://github.com/bazelbuild/buildtools/blob/master/WARNINGS.md#function-docstring).
+Use a docstring at the top of each `.bzl` file, and a docstring for each public
 function.
 
 ### Document rules and aspects
@@ -77,10 +78,7 @@ When possible, try to use at most 79 characters per line.
 
 ### Keyword arguments
 
-In keyword arguments, spaces around the equal sign are optional, but be
-consistent within any given call. In general, we follow the BUILD file
-convention when calling macros and native rules, and the Python convention for
-other functions, e.g.
+In keyword arguments, spaces around the equal sign are preferred:
 
 ```python
 def fct(name, srcs):
@@ -116,7 +114,7 @@ graph seen by the user is not the same as the one used by Bazel during the
 build - macros are expanded _before Bazel does any build graph analysis._
 
 Because of this, when something goes wrong, the user will need to understand
-your macro’s implementation to troubleshoot build problems. Additionally, `bazel
+your macro's implementation to troubleshoot build problems. Additionally, `bazel
 query` results can be hard to interpret because targets shown in the results
 come from macro expansion. Finally, aspects are not aware of macros, so tooling
 depending on aspects (IDEs and others) might fail.
@@ -130,8 +128,10 @@ For macros that define non-leaf nodes, follow these best practices:
 
 *   A macro should take a `name` argument and define a target with that name.
     That target becomes that macro's _main target_.
-*   All other targets defined by a macro should have their names preceded with a
-    `_`, include the `name` attribute as a prefix, and have restricted
+*   All other targets defined by a macro should have their names preceded with
+    an underscore (`_`), followed by the name attribute. For instance, if the
+    macro is supplied with the name "resources", internal targets should have
+    names beginning with "_resources". They should also have restricted
     visibility.
 *   The `name` should only be used to derive names of targets defined by the
     macro, and not for anything else. For example, don't use the name to derive
@@ -147,7 +147,7 @@ For macros that define non-leaf nodes, follow these best practices:
 
 Engineers often write macros when the Starlark API of relevant rules is
 insufficient for their specific use case, regardless of whether the rule is
-defined within Bazel in native code, or in Starlark. If you’re facing this
+defined within Bazel in native code, or in Starlark. If you're facing this
 problem, ask the rule author if they can extend the API to accomplish your
 goals.
 
@@ -155,8 +155,8 @@ As a rule of thumb, the more macros resemble the rules, the better.
 
 ## Rules
 
-*   Rules, aspects, and their attributes should use lower_case names (“snake
-    case”).
+*   Rules, aspects, and their attributes should use lower_case names ("snake
+    case").
 *   Rule names are nouns that describe the main kind of artifact produced by the
     rule, from the point of view of its dependencies (or for leaf rules, the
     user). This is not necessarily a file suffix. For instance, a rule that
@@ -191,5 +191,5 @@ As a rule of thumb, the more macros resemble the rules, the better.
 *   Design your rule with extensibility in mind. Consider that other rules might
     want to interact with your rule, access your providers, and reuse the
     actions you create.
-*   Follow [performance guidelines](performance.md) in your rules.
 
+*   Follow [performance guidelines](performance.md) in your rules.

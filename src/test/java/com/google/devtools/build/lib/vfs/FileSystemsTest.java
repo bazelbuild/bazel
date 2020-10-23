@@ -27,19 +27,7 @@ import org.junit.runners.JUnit4;
 public class FileSystemsTest {
 
   @Test
-  public void testFileSystemsCreatesOnlyOneDefaultNative() {
-    assertThat(FileSystems.getNativeFileSystem())
-        .isSameInstanceAs(FileSystems.getNativeFileSystem());
-  }
-
-  @Test
-  public void testFileSystemsCreatesOnlyOneDefaultJavaIo() {
-    assertThat(FileSystems.getJavaIoFileSystem())
-        .isSameInstanceAs(FileSystems.getJavaIoFileSystem());
-  }
-
-  @Test
-  public void testFileSystemsCanSwitchDefaults() {
+  public void testFileSystems() {
     assertThat(FileSystems.getJavaIoFileSystem())
         .isNotSameInstanceAs(FileSystems.getNativeFileSystem());
   }

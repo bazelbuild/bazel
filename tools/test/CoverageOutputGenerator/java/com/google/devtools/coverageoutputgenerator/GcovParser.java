@@ -26,12 +26,16 @@ import static com.google.devtools.coverageoutputgenerator.Constants.GCOV_LINE_MA
 import static com.google.devtools.coverageoutputgenerator.Constants.GCOV_VERSION_MARKER;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.MultimapBuilder;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -45,6 +49,7 @@ public class GcovParser {
   private List<SourceFileCoverage> allSourceFiles;
   private final InputStream inputStream;
   private SourceFileCoverage currentSourceFileCoverage;
+  private ListMultimap<Integer, String> branchValues;
 
   private GcovParser(InputStream inputStream) {
     this.inputStream = inputStream;
@@ -87,6 +92,7 @@ public class GcovParser {
     if (currentSourceFileCoverage == null) {
       return;
     }
+    recordBranchInformation(branchValues);
     allSourceFiles.add(currentSourceFileCoverage);
     currentSourceFileCoverage = null;
   }
@@ -125,6 +131,7 @@ public class GcovParser {
       return false;
     }
     currentSourceFileCoverage = new SourceFileCoverage(sourcefile);
+    branchValues = MultimapBuilder.treeKeys().arrayListValues().build();
     return true;
   }
 
@@ -142,7 +149,7 @@ public class GcovParser {
     try {
       // Ignore end_line_number since it's redundant information.
       int startLine = Integer.parseInt(items[0]);
-      int execCount = items.length == 4 ? Integer.parseInt(items[2]) : Integer.parseInt(items[1]);
+      long execCount = items.length == 4 ? Long.parseLong(items[2]) : Long.parseLong(items[1]);
       String functionName = items.length == 4 ? items[3] : items[2];
       currentSourceFileCoverage.addLineNumber(functionName, startLine);
       currentSourceFileCoverage.addFunctionExecution(functionName, execCount);
@@ -167,7 +174,7 @@ public class GcovParser {
     try {
       // Ignore has_unexecuted_block since it's not used.
       int lineNr = Integer.parseInt(items[0]);
-      int execCount = Integer.parseInt(items[1]);
+      long execCount = Long.parseLong(items[1]);
       currentSourceFileCoverage.addLine(lineNr, LineCoverage.create(lineNr, execCount, null));
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING, "gcov info contains invalid line " + line);
@@ -176,36 +183,62 @@ public class GcovParser {
     return true;
   }
 
-  // branch:line_number,branch_coverage_type
+  /** Valid lines: branch:line number,taken string */
   private boolean parseBranch(String line) {
+    // We can't add this to the source file object because we need to construct branch numbers,
+    // which can only be done once we have all the branches for a given line number.
     String lineContent = line.substring(GCOV_BRANCH_MARKER.length());
     String[] items = lineContent.split(DELIMITER, -1);
     if (items.length != 2) {
       logger.log(Level.WARNING, "gcov info contains invalid line " + line);
       return false;
     }
+    // Ignore has_unexecuted_block since it's not used.
     try {
-      // Ignore has_unexecuted_block since it's not used.
-      int lineNr = Integer.parseInt(items[0]);
+      int lineNumber = Integer.parseInt(items[0]);
       String type = items[1];
-      int execCount;
-      switch (type) {
-        case GCOV_BRANCH_NOTEXEC:
-          execCount = 0;
-          break;
-        case GCOV_BRANCH_NOTTAKEN:
-        case GCOV_BRANCH_TAKEN:
-          execCount = 1;
-          break;
-        default:
-          logger.log(Level.WARNING, "gcov info contains invalid line " + line);
-          return false;
+      if (!(type.equals(GCOV_BRANCH_NOTEXEC)
+          || type.equals(GCOV_BRANCH_NOTTAKEN)
+          || type.equals(GCOV_BRANCH_TAKEN))) {
+        logger.log(Level.WARNING, "gcov info contains invalid line " + line);
+        return false;
       }
-      currentSourceFileCoverage.addBranch(lineNr, BranchCoverage.create(lineNr, execCount));
+      branchValues.put(lineNumber, type);
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING, "gcov info contains invalid line " + line);
       return false;
     }
     return true;
+  }
+
+  private void recordBranchInformation(ListMultimap<Integer, String> branchMap) {
+    for (Map.Entry<Integer, Collection<String>> lineEntry : branchMap.asMap().entrySet()) {
+      int branchNumber = 0;
+      Collection<String> branches = lineEntry.getValue();
+      for (String value : branches) {
+        int execCount = 0;
+        boolean evaluated = false;
+        switch (value) {
+          case GCOV_BRANCH_NOTEXEC:
+            break;
+          case GCOV_BRANCH_NOTTAKEN:
+            evaluated = true;
+            break;
+          case GCOV_BRANCH_TAKEN:
+            evaluated = true;
+            execCount =
+                1; // we don't have the number of executions recorded, so simply say "1" if the
+            // branch was taken
+            break;
+          default:
+            throw new AssertionError("Invalid branch value '" + value + "'");
+        }
+        currentSourceFileCoverage.addBranch(
+            lineEntry.getKey(),
+            BranchCoverage.createWithBranch(
+                lineEntry.getKey(), Integer.toString(branchNumber), evaluated, execCount));
+        branchNumber++;
+      }
+    }
   }
 }

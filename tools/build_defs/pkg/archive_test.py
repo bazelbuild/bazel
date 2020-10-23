@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,10 +14,17 @@
 # limitations under the License.
 """Testing for archive."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import os
 import os.path
 import tarfile
 import unittest
+
+# Do not edit this line. Copybara replaces it with PY2 migration helper.
+import six
 
 from tools.build_defs.pkg import archive
 from tools.build_defs.pkg import testenv
@@ -64,10 +72,11 @@ class SimpleArFileTest(unittest.TestCase):
 
   def assertSimpleFileContent(self, names):
     datafile = os.path.join(testenv.TESTDATA_PATH, "_".join(names) + ".ar")
-    content = [{"filename": n,
-                "size": len(n.encode("utf-8")),
-                "data": n.encode("utf-8")}
-               for n in names]
+    content = [{
+        "filename": n,
+        "size": len(six.ensure_binary(n, "utf-8")),
+        "data": six.ensure_binary(n, "utf-8")
+    } for n in names]
     self.assertArFileContent(datafile, content)
 
   def testAFile(self):
@@ -143,12 +152,42 @@ class TarFileWriterTest(unittest.TestCase):
     with archive.TarFileWriter(self.tempfile) as f:
       for n in names:
         f.add_file(n, content=n)
-    content = ([{"name": "."}] +
-               [{"name": n,
-                 "size": len(n.encode("utf-8")),
-                 "data": n.encode("utf-8")}
-                for n in names])
+    content = ([{
+        "name": "."
+    }] + [{
+        "name": n,
+        "size": len(six.ensure_binary(n, "utf-8")),
+        "data": six.ensure_binary(n, "utf-8")
+    } for n in names])
     self.assertTarFileContent(self.tempfile, content)
+
+  def testDefaultMtimeNotProvided(self):
+    with archive.TarFileWriter(self.tempfile) as f:
+      self.assertEqual(f.default_mtime, 0)
+
+  def testDefaultMtimeProvided(self):
+    with archive.TarFileWriter(self.tempfile, default_mtime=1234) as f:
+      self.assertEqual(f.default_mtime, 1234)
+
+  def testPortableMtime(self):
+    with archive.TarFileWriter(self.tempfile, default_mtime="portable") as f:
+      self.assertEqual(f.default_mtime, 946684800)
+
+  def testPreserveTarMtimesTrue(self):
+    with archive.TarFileWriter(self.tempfile, preserve_tar_mtimes=True) as f:
+      input_tar_path = os.path.join(testenv.TESTDATA_PATH, "tar_test.tar")
+      f.add_tar(input_tar_path)
+      input_tar = tarfile.open(input_tar_path, "r")
+      for file_name in f.members:
+        input_file = input_tar.getmember(file_name)
+        output_file = f.tar.getmember(file_name)
+        self.assertEqual(input_file.mtime, output_file.mtime)
+
+  def testPreserveTarMtimesFalse(self):
+    with archive.TarFileWriter(self.tempfile, preserve_tar_mtimes=False) as f:
+      f.add_tar(os.path.join(testenv.TESTDATA_PATH, "tar_test.tar"))
+      for output_file in f.tar:
+        self.assertEqual(output_file.mtime, 0)
 
   def testAddFile(self):
     self.assertSimpleFileContent(["./a"])

@@ -14,24 +14,28 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigurationTransitionApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
-import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 
 /**
  * Implementation of {@link ConfigurationTransitionApi}.
@@ -43,14 +47,12 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
   private final List<String> inputs;
   private final List<String> outputs;
   private final Location location;
-  private final StoredEventHandler eventHandler;
 
   private StarlarkDefinedConfigTransition(
       List<String> inputs, List<String> outputs, Location location) {
     this.inputs = inputs;
     this.outputs = outputs;
     this.location = location;
-    this.eventHandler = new StoredEventHandler();
   }
 
   /**
@@ -83,33 +85,31 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
     return location;
   }
 
-  public StoredEventHandler getEventHandler() {
-    return eventHandler;
-  }
-
   /**
    * Given a map of a subset of the "previous" build settings, returns the changed build settings as
    * a result of applying this transition.
    *
    * @param previousSettings a map representing the previous build settings
-   * @return a list of changed build setting maps; each element of the list represents a different
-   *     child configuration (split transitions will have multiple elements in this list, other
-   *     transitions should have a single element). Each build setting map is a map from build
-   *     setting to target setting value; all other build settings will remain unchanged
+   * @return a map of changed build setting maps; each element of the map represents a different
+   *     child configuration (split transitions will have multiple elements in this map with keys
+   *     provided by the transition impl, patch transitions should have a single element keyed by
+   *     {@code PATCH_TRANSITION_KEY}). Each build setting map is a map from build setting to target
+   *     setting value; all other build settings will remain unchanged
    * @throws EvalException if there is an error evaluating the transition
    * @throws InterruptedException if evaluating the transition is interrupted
    */
-  public abstract ImmutableList<Map<String, Object>> evaluate(
-      Map<String, Object> previousSettings, StructImpl attributeMap)
+  public abstract ImmutableMap<String, Map<String, Object>> evaluate(
+      Map<String, Object> previousSettings, StructImpl attributeMap, EventHandler eventHandler)
       throws EvalException, InterruptedException;
 
   public static StarlarkDefinedConfigTransition newRegularTransition(
-      BaseFunction impl,
+      StarlarkCallable impl,
       List<String> inputs,
       List<String> outputs,
       StarlarkSemantics semantics,
-      StarlarkContext context) {
-    return new RegularTransition(impl, inputs, outputs, semantics, context);
+      StarlarkThread thread) {
+    return new RegularTransition(
+        impl, inputs, outputs, semantics, BazelStarlarkContext.from(thread));
   }
 
   public static StarlarkDefinedConfigTransition newAnalysisTestTransition(
@@ -131,13 +131,15 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
     }
 
     @Override
-    public ImmutableList<Map<String, Object>> evaluate(
-        Map<String, Object> previousSettings, StructImpl attributeMapper) {
-      return ImmutableList.of(changedSettings);
+    public ImmutableMap<String, Map<String, Object>> evaluate(
+        Map<String, Object> previousSettings,
+        StructImpl attributeMapper,
+        EventHandler eventHandler) {
+      return ImmutableMap.of(PATCH_TRANSITION_KEY, changedSettings);
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {
+    public void repr(Printer printer) {
       printer.append("<analysis_test_transition object>");
     }
 
@@ -163,16 +165,16 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
 
   /** A transition with a user-defined implementation function. */
   public static class RegularTransition extends StarlarkDefinedConfigTransition {
-    private final BaseFunction impl;
+    private final StarlarkCallable impl;
     private final StarlarkSemantics semantics;
-    private final StarlarkContext starlarkContext;
+    private final BazelStarlarkContext starlarkContext;
 
     RegularTransition(
-        BaseFunction impl,
+        StarlarkCallable impl,
         List<String> inputs,
         List<String> outputs,
         StarlarkSemantics semantics,
-        StarlarkContext context) {
+        BazelStarlarkContext context) {
       super(inputs, outputs, impl.getLocation());
       this.impl = impl;
       this.semantics = semantics;
@@ -189,61 +191,73 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
      *
      * <p>In the case of a {@link
      * com.google.devtools.build.lib.analysis.config.transitions.PatchTransition}, the impl fxn
-     * returns a {@link SkylarkDict} of option name strings to option value object.
+     * returns a {@link Dict} of option name strings to option value object.
      *
      * <p>In the case of {@link
      * com.google.devtools.build.lib.analysis.config.transitions.SplitTransition}, the impl fxn can
-     * return either a {@link SkylarkDict} of String keys to {@link SkylarkDict} values. Or it can
-     * return a list of {@link SkylarkDict}s in cases where the consumer doesn't care about
-     * differentiating between the splits (i.e. accessing later via {@code ctx.split_attrs}).
+     * return either a {@link Dict} of String keys to {@link Dict} values. Or it can return a list
+     * of {@link Dict}s in cases where the consumer doesn't care about differentiating between the
+     * splits (i.e. accessing later via {@code ctx.split_attrs}).
      *
      * @param previousSettings a map representing the previous build settings
      * @param attributeMapper a map of attributes
      */
     // TODO(bazel-team): integrate dict-of-dicts return type with ctx.split_attr
     @Override
-    public ImmutableList<Map<String, Object>> evaluate(
-        Map<String, Object> previousSettings, StructImpl attributeMapper)
+    public ImmutableMap<String, Map<String, Object>> evaluate(
+        Map<String, Object> previousSettings, StructImpl attributeMapper, EventHandler eventHandler)
         throws EvalException, InterruptedException {
       Object result;
       try {
-        result = evalFunction(impl, ImmutableList.of(previousSettings, attributeMapper));
+        result =
+            evalFunction(impl, ImmutableList.of(previousSettings, attributeMapper), eventHandler);
       } catch (EvalException e) {
-        throw new EvalException(impl.getLocation(), e.getMessage());
+        // TODO(adonovan): this doesn't look right. Consider interposing a call to a delegating
+        // wrapper just to establish a fake frame for impl, then remove the catch.
+        throw new EvalException(impl.getLocation(), e.getMessageWithStack());
       }
 
-      if (result instanceof SkylarkDict<?, ?>) {
+      if (result instanceof Dict) {
+        // If we're receiving an empty dictionary, it's an error. Even if a
+        // transition function sometimes evaluates to a no-op, it needs to return the passed in
+        // settings. Return early for now since better error reporting will happen in
+        // {@link FunctionTransitionUtil#validateFunctionOutputsMatchesDeclaredOutputs}
+        if (((Dict) result).isEmpty()) {
+          return ImmutableMap.of("error", ImmutableMap.of());
+        }
         // TODO(bazel-team): integrate keys with ctx.split_attr. Currently ctx.split_attr always
         // keys on cpu value - we should be able to key on the keys returned here.
         try {
-          Map<String, SkylarkDict> dictOfDict =
-              ((SkylarkDict<?, ?>) result)
-                  .getContents(
-                      String.class, SkylarkDict.class, "dictionary of options dictionaries");
-          ImmutableList.Builder<Map<String, Object>> builder = ImmutableList.builder();
-          for (Map.Entry<String, SkylarkDict> entry : dictOfDict.entrySet()) {
-            Map<String, Object> dict =
-                entry.getValue().getContents(String.class, Object.class, "an option dictionary");
-            builder.add(dict);
+          Map<String, ?> dictOfDict =
+              Dict.cast(result, String.class, Dict.class, "dictionary of options dictionaries");
+          ImmutableMap.Builder<String, Map<String, Object>> builder = ImmutableMap.builder();
+          for (Map.Entry<String, ?> entry : dictOfDict.entrySet()) {
+            builder.put(
+                entry.getKey(),
+                Dict.cast(entry.getValue(), String.class, Object.class, "an option dictionary"));
           }
           return builder.build();
         } catch (EvalException e) {
           // fall through
         }
         try {
-          return ImmutableList.of(
-              ((SkylarkDict<?, ?>) result)
-                  .getContents(String.class, Object.class, "dictionary of options"));
+          // Try if this is a patch transition.
+          return ImmutableMap.of(
+              PATCH_TRANSITION_KEY,
+              Dict.cast(result, String.class, Object.class, "dictionary of options"));
         } catch (EvalException e) {
           throw new EvalException(impl.getLocation(), e.getMessage());
         }
-      } else if (result instanceof SkylarkList<?>) {
-        ImmutableList.Builder<Map<String, Object>> builder = ImmutableList.builder();
+      } else if (result instanceof Sequence) {
+        ImmutableMap.Builder<String, Map<String, Object>> builder = ImmutableMap.builder();
         try {
-          for (SkylarkDict<?, ?> toOptions :
-              ((SkylarkList<?>) result)
-                  .getContents(SkylarkDict.class, "dictionary of options dictionaries")) {
-            builder.add(toOptions.getContents(String.class, Object.class, "dictionary of options"));
+          int i = 0;
+          for (Dict<?, ?> toOptions :
+              Sequence.cast(result, Dict.class, "dictionary of options dictionaries")) {
+            // TODO(b/146347033): Document this behavior.
+            builder.put(
+                Integer.toString(i++),
+                Dict.cast(toOptions, String.class, Object.class, "dictionary of options"));
           }
         } catch (EvalException e) {
           throw new EvalException(impl.getLocation(), e.getMessage());
@@ -257,22 +271,19 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {
+    public void repr(Printer printer) {
       printer.append("<transition object>");
     }
 
     /** Evaluate the input function with the given argument, and return the return value. */
-    private Object evalFunction(BaseFunction function, ImmutableList<Object> args)
+    private Object evalFunction(
+        StarlarkCallable function, ImmutableList<Object> args, EventHandler eventHandler)
         throws InterruptedException, EvalException {
-      try (Mutability mutability = Mutability.create("eval_transition_function")) {
-        Environment env =
-            Environment.builder(mutability)
-                .setSemantics(semantics)
-                .setEventHandler(getEventHandler())
-                .setStarlarkContext(starlarkContext)
-                .build();
-
-        return function.call(args, ImmutableMap.of(), null, env);
+      try (Mutability mu = Mutability.create("eval_transition_function")) {
+        StarlarkThread thread = new StarlarkThread(mu, semantics);
+        thread.setPrintHandler(Event.makeDebugPrintHandler(eventHandler));
+        starlarkContext.storeInThread(thread);
+        return Starlark.call(thread, function, args, /*kwargs=*/ ImmutableMap.of());
       }
     }
 

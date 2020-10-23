@@ -55,8 +55,6 @@ public class SingletonCodec<T> implements ObjectCodec<T> {
   @Override
   public void serialize(SerializationContext context, T t, CodedOutputStream codedOut)
       throws IOException {
-    // TODO(michajlo): See how usefully mnemonic actually winds up being for debugging, we may
-    // want to just toss it and trust that the classifier for this value is good enough.
     codedOut.writeByteArrayNoTag(mnemonic);
   }
 

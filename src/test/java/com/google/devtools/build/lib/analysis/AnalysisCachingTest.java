@@ -16,24 +16,24 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.util.AnalysisCachingTestBase;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.skyframe.AspectValue;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -46,6 +46,8 @@ import com.google.devtools.common.options.OptionsParser;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.eval.StarlarkValue;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -217,8 +219,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:x", "//conflict:_objs/x/foo.o");
     // We want to force a "dropConfiguredTargetsNow" operation, which won't inform the
     // invalidation receiver about the dropped configured targets.
-    skyframeExecutor.clearAnalysisCache(
-        ImmutableList.<ConfiguredTarget>of(), ImmutableSet.<AspectValue>of());
+    skyframeExecutor.clearAnalysisCache(ImmutableList.of(), ImmutableSet.of());
     assertContainsEvent("file 'conflict/_objs/x/foo.o' " + CONFLICT_MSG);
     eventCollector.clear();
     scratch.overwriteFile(
@@ -265,8 +266,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     useConfiguration("--cpu=k8");
     scratch.file(
         "conflict/BUILD",
-        "cc_library(name='x', srcs=['foo1.cc', 'foo2.cc', 'foo3.cc', 'foo4.cc', 'foo5.cc'"
-            + ", 'foo6.cc'])",
+        "cc_library(name='x', srcs=['foo1.cc'])",
         "genrule(name = 'foo', outs=['_objs/x/foo1.o'], srcs=['foo1.cc', 'foo2.cc', "
             + "'foo3.cc', 'foo4.cc', 'foo5.cc', 'foo6.cc'], cmd='', output_to_bindir=1)");
     reporter.removeHandler(failFastHandler); // expect errors
@@ -277,14 +277,17 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertContainsEvent("Outputs");
 
     // Validate that maximum of 5 artifacts in MandatoryInputs are part of output.
-    Pattern pattern = Pattern.compile("\tconflict\\/foo[1-6].cc");
+    Pattern pattern = Pattern.compile("\tconflict\\/foo[2-6].cc");
     Matcher matcher = pattern.matcher(event.getMessage());
     int matchCount = 0;
     while (matcher.find()) {
       matchCount++;
     }
 
-    assertThat(matchCount).isEqualTo(5);
+    assertWithMessage(
+            "Event does not contain expected number of file conflicts:\n" + event.getMessage())
+        .that(matchCount)
+        .isEqualTo(5);
   }
 
   /**
@@ -543,11 +546,19 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     public static final OptionDefinition ALSO_IRRELEVANT_OPTION =
         OptionsParser.getOptionDefinitionByName(DiffResetOptions.class, "also_irrelevant");
     public static final PatchTransition CLEAR_IRRELEVANT =
-        (options) -> {
-          BuildOptions cloned = options.clone();
-          cloned.get(DiffResetOptions.class).probablyIrrelevantOption = "(cleared)";
-          cloned.get(DiffResetOptions.class).alsoIrrelevantOption = "(cleared)";
-          return cloned;
+        new PatchTransition() {
+          @Override
+          public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+            return ImmutableSet.of(DiffResetOptions.class);
+          }
+
+          @Override
+          public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
+            BuildOptionsView cloned = options.clone();
+            cloned.get(DiffResetOptions.class).probablyIrrelevantOption = "(cleared)";
+            cloned.get(DiffResetOptions.class).alsoIrrelevantOption = "(cleared)";
+            return cloned.underlying();
+          }
         };
 
     @Option(
@@ -598,17 +609,17 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     }
   }
 
-  @SkylarkModule(name = "test_diff_fragment", doc = "fragment for testing differy fragments")
-  private static final class DiffResetFragment extends BuildConfiguration.Fragment {}
+  @StarlarkBuiltin(name = "test_diff_fragment", doc = "fragment for testing differy fragments")
+  private static final class DiffResetFragment extends Fragment implements StarlarkValue {}
 
   private static final class DiffResetFactory implements ConfigurationFragmentFactory {
     @Override
-    public BuildConfiguration.Fragment create(BuildOptions options) {
+    public Fragment create(BuildOptions options) {
       return new DiffResetFragment();
     }
 
     @Override
-    public Class<? extends BuildConfiguration.Fragment> creates() {
+    public Class<? extends Fragment> creates() {
       return DiffResetFragment.class;
     }
 

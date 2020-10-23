@@ -17,12 +17,12 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
@@ -38,10 +38,10 @@ import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
-import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
-import com.google.devtools.build.lib.query2.ErrorPrintingTargetEdgeErrorObserver;
-import com.google.devtools.build.lib.query2.FakeLoadTarget;
-import com.google.devtools.build.lib.query2.LabelVisitor;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.compat.FakeLoadTarget;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.DigraphQueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.MinDepthUniquifier;
@@ -75,7 +75,7 @@ import java.util.Set;
  */
 public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   private static final int MAX_DEPTH_FULL_SCAN_LIMIT = 20;
-  private final Map<String, Set<Target>> resolvedTargetPatterns = new HashMap<>();
+  private final Map<String, Collection<Target>> resolvedTargetPatterns = new HashMap<>();
   private final TargetPatternPreloader targetPatternPreloader;
   private final PathFragment relativeWorkingDirectory;
   private final TransitivePackageLoader transitivePackageLoader;
@@ -137,7 +137,10 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     resolvedTargetPatterns.clear();
     QueryEvalResult queryEvalResult = super.evaluateQuery(expr, callback);
     return new DigraphQueryEvalResult<>(
-        queryEvalResult.getSuccess(), queryEvalResult.isEmpty(), graph);
+        queryEvalResult.getSuccess(),
+        queryEvalResult.isEmpty(),
+        queryEvalResult.getDetailedExitCode(),
+        graph);
   }
 
   @Override
@@ -166,25 +169,30 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     // We can safely ignore the boolean error flag. The evaluateQuery() method above wraps the
     // entire query computation in an error sensor.
 
+    // This must be a collections class with a fast contains() implementation, or the code below
+    // becomes quadratic in runtime.
     Set<Target> targets = new LinkedHashSet<>(resolvedTargetPatterns.get(pattern));
 
     // Sets.filter would be more convenient here, but can't deal with exceptions.
-    Iterator<Target> targetIterator = targets.iterator();
-    while (targetIterator.hasNext()) {
-      Target target = targetIterator.next();
-      if (!validateScope(target.getLabel(), strictScope)) {
-        targetIterator.remove();
+    if (labelFilter != Predicates.<Label>alwaysTrue()) {
+      // The labelFilter is always true for bazel query; it's only used for genquery rules.
+      Iterator<Target> targetIterator = targets.iterator();
+      while (targetIterator.hasNext()) {
+        Target target = targetIterator.next();
+        if (!validateScope(target.getLabel(), strictScope)) {
+          targetIterator.remove();
+        }
       }
     }
 
-    Set<PathFragment> packages = new HashSet<>();
+    Set<PathFragment> packages = CompactHashSet.create();
     for (Target target : targets) {
       packages.add(target.getLabel().getPackageFragment());
     }
 
-    Set<Target> result = new LinkedHashSet<>();
     for (Target target : targets) {
-      result.add(getOrCreate(target));
+      // This triggers node creation in the Digraph; getOrCreate(X) returns X.
+      getOrCreate(target);
 
       // Preservation of graph order: it is important that targets obtained via
       // a wildcard such as p:* are correctly ordered w.r.t. each other, so to
@@ -215,7 +223,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         }
       }
     }
-    callback.process(result);
+    callback.process(targets);
   }
 
   @Override
@@ -226,7 +234,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     try {
       return getNode(getTargetOrThrow(label)).getLabel();
     } catch (NoSuchThingException e) {
-      throw new TargetNotFoundException(e);
+      throw new TargetNotFoundException(e, e.getDetailedExitCode());
     }
   }
 
@@ -298,12 +306,24 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   public void buildTransitiveClosure(QueryExpression caller,
                                      ThreadSafeMutableSet<Target> targetNodes,
                                      int maxDepth) throws QueryException, InterruptedException {
-    preloadTransitiveClosure(targetNodes, maxDepth);
-    labelVisitor.syncWithVisitor(eventHandler, targetNodes, keepGoing,
-        loadingPhaseThreads, maxDepth, errorObserver, new GraphBuildingObserver());
+    try (SilentCloseable closeable = Profiler.instance().profile("preloadTransitiveClosure")) {
+      preloadTransitiveClosure(targetNodes, maxDepth);
+    }
+    try (SilentCloseable closeable = Profiler.instance().profile("syncWithVisitor")) {
+      labelVisitor.syncWithVisitor(
+          eventHandler,
+          targetNodes,
+          keepGoing,
+          loadingPhaseThreads,
+          maxDepth,
+          new GraphBuildingObserver());
+    }
 
     if (errorObserver.hasErrors()) {
-      reportBuildFileError(caller, "errors were encountered while computing transitive closure");
+      handleError(
+          caller,
+          "errors were encountered while computing transitive closure",
+          errorObserver.getDetailedExitCode());
     }
   }
 
@@ -346,7 +366,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       // preloading will be outweighed by the cost of doing more work than necessary.
       Set<Label> labels = targets.stream().map(Target::getLabel).collect(toImmutableSet());
       ((SkyframeLabelVisitor) transitivePackageLoader)
-          .sync(eventHandler, labels, keepGoing, loadingPhaseThreads, false);
+          .sync(eventHandler, labels, keepGoing, loadingPhaseThreads, /* errorOnCycles= */ false);
     }
   }
 
@@ -364,16 +384,18 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
           dependencyFilter.apply(((Rule) from), attribute),
           "Disallowed edge from LabelVisitor: %s --> %s", from, to);
       makeEdge(from, to);
+      errorObserver.edge(from, attribute, to);
     }
 
     @Override
     public void node(Target node) {
       graph.createNode(node);
+      errorObserver.node(node);
     }
 
     @Override
     public void missingEdge(Target target, Label to, NoSuchThingException e) {
-      // No - op.
+      errorObserver.missingEdge(target, to, e);
     }
   }
 
@@ -417,7 +439,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
         List<Label> extensions = new ArrayList<>();
         if (loads) {
-          extensions.addAll(pkg.getSkylarkFileDependencies());
+          extensions.addAll(pkg.getStarlarkFileDependencies());
         }
 
         for (Label extension : extensions) {
@@ -452,10 +474,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       // Note that this may throw a RuntimeException if deps are missing in Skyframe and this is
       // being called from within a SkyFunction.
       resolvedTargetPatterns.putAll(
-          Maps.transformValues(
-              targetPatternPreloader.preloadTargetPatterns(
-                  eventHandler, relativeWorkingDirectory, patterns, keepGoing),
-              ResolvedTargets::getTargets));
+          targetPatternPreloader.preloadTargetPatterns(
+              eventHandler, relativeWorkingDirectory, patterns, keepGoing));
     }
   }
 

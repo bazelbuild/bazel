@@ -16,39 +16,29 @@
 
 # Script for building bazel from scratch without bazel
 
-PROTO_FILES=$(ls src/main/protobuf/*.proto src/main/java/com/google/devtools/build/lib/buildeventstream/proto/*.proto)
-LIBRARY_JARS=$(find third_party -name '*.jar' | grep -Fv JavaBuilder | grep -Fv third_party/guava | grep -Fv third_party/guava | grep -ve 'third_party/grpc/grpc.*jar' | tr "\n" " ")
-GRPC_JAVA_VERSION=1.20.0
+if [ -d derived/jars ]; then
+  ADDITIONAL_JARS=derived/jars
+else
+  DISTRIBUTION=${BAZEL_DISTRIBUTION:-debian}
+  ADDITIONAL_JARS="$(grep -o '".*\.jar"' tools/distributions/${DISTRIBUTION}/${DISTRIBUTION}_java.BUILD | sed 's/"//g' | sed 's|^|/usr/share/java/|g')"
+fi
+
+# Parse third_party/googleapis/BUILD.bazel to find the proto files we need to compile from googleapis
+GOOGLE_API_PROTOS="$(grep -o '".*\.proto"' third_party/googleapis/BUILD.bazel | sed 's/"//g' | sed 's|^|third_party/googleapis/|g')"
+PROTO_FILES=$(find third_party/remoteapis ${GOOGLE_API_PROTOS} third_party/pprof src/main/protobuf src/main/java/com/google/devtools/build/lib/buildeventstream/proto src/main/java/com/google/devtools/build/skyframe src/main/java/com/google/devtools/build/lib/skyframe/proto src/main/java/com/google/devtools/build/lib/bazel/debug src/main/java/com/google/devtools/build/lib/starlarkdebug/proto src/main/java/com/google/devtools/build/lib/packages/metrics/package_metrics.proto -name "*.proto")
+LIBRARY_JARS=$(find $ADDITIONAL_JARS third_party -name '*.jar' | grep -Fv JavaBuilder | grep -Fv third_party/guava/guava | grep -ve 'third_party/grpc/grpc.*jar' | tr "\n" " ")
+GRPC_JAVA_VERSION=1.32.2
 GRPC_LIBRARY_JARS=$(find third_party/grpc -name '*.jar' | grep -e ".*${GRPC_JAVA_VERSION}.*jar" | tr "\n" " ")
-GUAVA_VERSION=25.1
+GUAVA_VERSION=29.0
 GUAVA_JARS=$(find third_party/guava -name '*.jar' | grep -e ".*${GUAVA_VERSION}.*jar" | tr "\n" " ")
 LIBRARY_JARS="${LIBRARY_JARS} ${GRPC_LIBRARY_JARS} ${GUAVA_JARS}"
 
-# tl;dr - error_prone_core contains a copy of an older version of guava, so we
-# need to make sure the newer version of guava always appears first on the
-# classpath.
-#
-# Please read the comment in third_party/BUILD for more details.
-LIBRARY_JARS_ARRAY=($LIBRARY_JARS)
-for i in $(eval echo {0..$((${#LIBRARY_JARS_ARRAY[@]} - 1))})
-do
-  [[ "${LIBRARY_JARS_ARRAY[$i]}" =~ ^"third_party/error_prone/error_prone_core-".*\.jar$ ]] && ERROR_PRONE_INDEX=$i
-  [[ "${LIBRARY_JARS_ARRAY[$i]}" =~ ^"third_party/guava/guava-".*\.jar$ ]] && GUAVA_INDEX=$i
-done
-[ "${ERROR_PRONE_INDEX:+present}" = "present" ] || { echo "no error prone jar"; echo "${LIBRARY_JARS_ARRAY[@]}"; exit 1; }
-[ "${GUAVA_INDEX:+present}" = "present" ] || { echo "no guava jar"; exit 1; }
-if [ "$ERROR_PRONE_INDEX" -lt "$GUAVA_INDEX" ]; then
-  TEMP_FOR_SWAP="${LIBRARY_JARS_ARRAY[$ERROR_PRONE_INDEX]}"
-  LIBRARY_JARS_ARRAY[$ERROR_PRONE_INDEX]="${LIBRARY_JARS_ARRAY[$GUAVA_INDEX]}"
-  LIBRARY_JARS_ARRAY[$GUAVA_INDEX]="$TEMP_FOR_SWAP"
-  LIBRARY_JARS="${LIBRARY_JARS_ARRAY[*]}"
-fi
-
-DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java,tools/xcode-common/java/com/google/devtools/build/xcode/{common,util}} tools/java/runfiles third_party/java/dd_plist/java ${OUTPUT_DIR}/src)
-EXCLUDE_FILES="src/main/java/com/google/devtools/build/lib/server/GrpcServerImpl.java src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/testing/*"
+DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java} tools/java/runfiles ${OUTPUT_DIR}/src)
+# Exclude source files that are not needed for Bazel itself, which avoids dependencies like truth.
+EXCLUDE_FILES="src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/testing/* src/main/java/com/google/devtools/build/lib/collect/nestedset/NestedSetCodecTestUtils.java"
 # Exclude whole directories under the bazel src tree that bazel itself
 # doesn't depend on.
-EXCLUDE_DIRS="src/main/java/com/google/devtools/build/skydoc src/main/java/com/google/devtools/build/docgen tools/java/runfiles/testing"
+EXCLUDE_DIRS="src/main/java/com/google/devtools/build/skydoc src/main/java/com/google/devtools/build/docgen tools/java/runfiles/testing src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils src/main/java/com/google/devtools/common/options/testing"
 for d in $EXCLUDE_DIRS ; do
   for f in $(find $d -type f) ; do
     EXCLUDE_FILES+=" $f"
@@ -80,6 +70,26 @@ get_minor_java_version
   fail "JDK version (${JAVAC_VERSION}) is lower than ${JAVA_VERSION}, please set \$JAVA_HOME."
 
 JAR="${JAVA_HOME}/bin/jar"
+
+# Ensures unzip won't create paths longer than 259 chars (MAX_PATH) on Windows.
+function check_unzip_wont_create_long_paths() {
+  output_path="$1"
+  jars="$2"
+  if [[ "${PLATFORM}" == "windows" ]]; then
+    log "Checking if helper classes can be extracted..."
+    max_path=$((259-${#output_path}))
+    # Do not quote $jars, we rely on it being split on spaces.
+    for f in $jars ; do
+      # Get the zip entries. Match lines with a date: they have the paths.
+      entries="$(unzip -l "$f" | grep '[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}' | awk '{print $4}')"
+      for e in $entries; do
+        if [[ ${#e} -gt $max_path ]]; then
+          fail "Cannot unzip \"$f\" because the output path is too long: extracting file \"$e\" under \"$output_path\" would create a path longer than 259 characters. To fix this, set a shorter TMP value and try again. Example: export TMP=/c/tmp/bzl"
+        fi
+      done
+    done
+  fi
+}
 
 # Compiles java classes.
 function java_compilation() {
@@ -121,6 +131,8 @@ function java_compilation() {
     echo "List of compiled files:" >&2
     cat "$paramfile" >&2
   fi
+
+  check_unzip_wont_create_long_paths "${output}/classes" "$library_jars"
 
   # Use BAZEL_JAVAC_OPTS to pass additional arguments to javac, e.g.,
   # export BAZEL_JAVAC_OPTS="-J-Xmx2g -J-Xms200m"
@@ -206,10 +218,23 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
                 -I. \
                 -Isrc/main/protobuf/ \
                 -Isrc/main/java/com/google/devtools/build/lib/buildeventstream/proto/ \
+                -Isrc/main/java/com/google/devtools/build/lib/skyframe/proto/ \
+                -Isrc/main/java/com/google/devtools/build/skyframe/ \
+                -Isrc/main/java/com/google/devtools/build/lib/bazel/debug/ \
+                -Isrc/main/java/com/google/devtools/build/lib/starlarkdebug/proto/ \
+                -Ithird_party/remoteapis/ \
+                -Ithird_party/googleapis/ \
+                -Ithird_party/pprof/ \
                 --java_out=${OUTPUT_DIR}/src \
                 --plugin=protoc-gen-grpc="${GRPC_JAVA_PLUGIN-}" \
                 --grpc_out=${OUTPUT_DIR}/src "$f"
         done
+
+        # Recreate the derived directory
+        mkdir -p derived/src/java/build
+        mkdir -p derived/src/java/com
+        link_children ${OUTPUT_DIR}/src build derived/src/java
+        link_children ${OUTPUT_DIR}/src com derived/src/java
     fi
 
   java_compilation "Bazel Java" "$DIRS" "$EXCLUDE_FILES" "$LIBRARY_JARS" "${OUTPUT_DIR}"
@@ -265,8 +290,14 @@ EOF
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/python
   link_file "${PWD}/tools/python/BUILD.tools" "${BAZEL_TOOLS_REPO}/tools/python/BUILD"
 
+  # Create @bazel_tools/tools/android/BUILD
+  mkdir -p ${BAZEL_TOOLS_REPO}/tools/android
+  link_file "${PWD}/tools/android/BUILD.tools" "${BAZEL_TOOLS_REPO}/tools/android/BUILD"
+  link_children "${PWD}" tools/android "${BAZEL_TOOLS_REPO}"
+
   # Create the rest of @bazel_tools//tools/...
   link_children "${PWD}" tools/cpp "${BAZEL_TOOLS_REPO}"
+  mv -f ${BAZEL_TOOLS_REPO}/tools/cpp/BUILD.tools ${BAZEL_TOOLS_REPO}/tools/cpp/BUILD
   link_children "${PWD}" tools/python "${BAZEL_TOOLS_REPO}"
   link_children "${PWD}" tools "${BAZEL_TOOLS_REPO}"
 
@@ -279,6 +310,7 @@ EOF
   cat <<EOF >${OUTPUT_DIR}/classes/com/google/devtools/build/lib/bazel/rules/tools.WORKSPACE
 local_repository(name = 'bazel_tools', path = '${BAZEL_TOOLS_REPO}')
 bind(name = "cc_toolchain", actual = "@bazel_tools//tools/cpp:default-toolchain")
+local_config_platform(name = 'local_config_platform')
 EOF
 
   create_deploy_jar "libblaze" "com.google.devtools.build.lib.bazel.Bazel" \
@@ -287,18 +319,21 @@ fi
 
 log "Creating Bazel install base..."
 ARCHIVE_DIR=${OUTPUT_DIR}/archive
-mkdir -p ${ARCHIVE_DIR}/_embedded_binaries
+mkdir -p ${ARCHIVE_DIR}
+
+# Prepare @platforms local repository
+link_dir ${PWD}/platforms ${ARCHIVE_DIR}/platforms
 
 # Dummy build-runfiles (we can't compile C++ yet, so we can't have the real one)
 if [ "${PLATFORM}" = "windows" ]; then
   # We don't rely on runfiles trees on Windows
-  cat <<'EOF' >${ARCHIVE_DIR}/_embedded_binaries/build-runfiles${EXE_EXT}
+  cat <<'EOF' >${ARCHIVE_DIR}/build-runfiles${EXE_EXT}
 #!/bin/sh
 mkdir -p $2
 cp $1 $2/MANIFEST
 EOF
 else
-  cat <<'EOF' >${ARCHIVE_DIR}/_embedded_binaries/build-runfiles${EXE_EXT}
+  cat <<'EOF' >${ARCHIVE_DIR}/build-runfiles${EXE_EXT}
 #!/bin/sh
 # This is bash implementation of build-runfiles: reads space-separated paths
 # from each line in the file in $1, then creates a symlink under $2 for the
@@ -330,7 +365,7 @@ cp "$MANIFEST" "$TREE/MANIFEST"
 EOF
 fi
 
-chmod 0755 ${ARCHIVE_DIR}/_embedded_binaries/build-runfiles${EXE_EXT}
+chmod 0755 ${ARCHIVE_DIR}/build-runfiles${EXE_EXT}
 
 function build_jni() {
   local -r output_dir=$1
@@ -357,49 +392,24 @@ function build_jni() {
     cp "$tmp_output" "$output"
     chmod 0555 "$output"
 
-    JNI_FLAGS="-Dio.bazel.EnableJni=1 -Djava.library.path=${output_dir}"
+    JNI_FLAGS="-Djava.library.path=${output_dir}"
   else
-    # We don't need JNI on other platforms.
-    JNI_FLAGS="-Dio.bazel.EnableJni=0"
+    # We don't need JNI on other platforms. The Java NIO file system fallback is
+    # sufficient.
+    true
   fi
 }
 
-# Computes the value of the bazel.windows_unix_root JVM flag.
-# Prints the JVM flag verbatim on Windows, ready to be passed to the JVM.
-# Prints an empty string on other platforms.
-function windows_unix_root_jvm_flag() {
-  if [ "${PLATFORM}" != "windows" ]; then
-    echo ""
-    return
-  fi
-  [ -n "${BAZEL_SH}" ] || fail "\$BAZEL_SH is not defined"
-  if [ "$(basename "$BAZEL_SH")" = "bash.exe" ]; then
-    local result="$(dirname "$BAZEL_SH")"
-    if [ "$(basename "$result")" = "bin" ]; then
-      result="$(dirname "$result")"
-      if [ "$(basename "$result")" = "usr" ]; then
-        result="$(dirname "$result")"
-      fi
-      # Print the JVM flag. Replace backslashes with forward slashes so the JVM
-      # and the shell won't believe that backslashes are escaping characters.
-      echo "-Dbazel.windows_unix_root=${result//\\//}"
-      return
-    fi
-  fi
-  fail "\$BAZEL_SH=${BAZEL_SH}, must end with \"bin\\bash.exe\" or \"usr\\bin\\bash.exe\""
-}
+build_jni "${ARCHIVE_DIR}"
 
-build_jni "${ARCHIVE_DIR}/_embedded_binaries"
-
-cp src/main/tools/jdk.BUILD ${ARCHIVE_DIR}/_embedded_binaries/jdk.BUILD
 cp $OUTPUT_DIR/libblaze.jar ${ARCHIVE_DIR}
 
 # TODO(b/28965185): Remove when xcode-locator is no longer required in embedded_binaries.
 log "Compiling xcode-locator..."
 if [[ $PLATFORM == "darwin" ]]; then
-  run /usr/bin/xcrun clang -fobjc-arc -framework CoreServices -framework Foundation -o ${ARCHIVE_DIR}/_embedded_binaries/xcode-locator tools/osx/xcode_locator.m
+  run /usr/bin/xcrun --sdk macosx clang -mmacosx-version-min=10.9 -fobjc-arc -framework CoreServices -framework Foundation -o ${ARCHIVE_DIR}/xcode-locator tools/osx/xcode_locator.m
 else
-  cp tools/osx/xcode_locator_stub.sh ${ARCHIVE_DIR}/_embedded_binaries/xcode-locator
+  cp tools/osx/xcode_locator_stub.sh ${ARCHIVE_DIR}/xcode-locator
 fi
 
 function get_cwd() {
@@ -428,13 +438,13 @@ function run_bazel_jar() {
   "${JAVA_HOME}/bin/java" \
       -XX:+HeapDumpOnOutOfMemoryError -Xverify:none -Dfile.encoding=ISO-8859-1 \
       -XX:HeapDumpPath=${OUTPUT_DIR} \
-      $(windows_unix_root_jvm_flag) \
       -Djava.util.logging.config.file=${OUTPUT_DIR}/javalog.properties \
       ${JNI_FLAGS} \
       -jar ${ARCHIVE_DIR}/libblaze.jar \
       --batch \
       --install_base=${ARCHIVE_DIR} \
       --output_base=${OUTPUT_DIR}/out \
+      --failure_detail_out=${OUTPUT_DIR}/failure_detail.rawproto \
       --output_user_root=${OUTPUT_DIR}/user_root \
       --install_md5= \
       --default_system_javabase="${JAVA_HOME}" \

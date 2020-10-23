@@ -103,7 +103,7 @@ function test_bazel_uses_bundled_jdk() {
   install_base="$(bazel --batch info install_base)"
 
   # Case-insensitive match, because Windows paths are case-insensitive.
-  grep -sqi -- "^java-home: ${install_base}/_embedded_binaries/embedded_tools/jdk" $TEST_log || \
+  grep -sqi -- "^java-home: ${install_base}/embedded_tools/jdk" $TEST_log || \
       fail "bazel's java-home is not inside the install base"
 }
 
@@ -122,9 +122,35 @@ function test_bazel_license_prints_jdk_license() {
 
   expect_log '"CLASSPATH" EXCEPTION TO THE GPL' || \
       fail "'bazel license' did not print an expected string from LICENSE"
+}
 
-  expect_log "which may be included with JRE [0-9]\+, JDK [0-9]\+, and OpenJDK [0-9]\+" || \
-      fail "'bazel license' did not print an expected string from THIRD_PARTY_README"
+
+function test_bazel_reports_missing_local_jdk() {
+  # Make a JAVA_HOME with javac and without java
+  # This fails discovery on systems that rely on JAVA_HOME, rely on PATH and
+  # also on Darwin that is using /usr/libexec/java_home for discovery
+
+  mkdir bin
+  touch bin/javac
+  chmod +x bin/javac
+  export JAVA_HOME="$PWD"
+  export PATH="$PWD/bin:$PATH"
+
+  mkdir -p java/main
+  cat >java/main/BUILD <<EOF
+java_library(
+    name = 'JavaExample',
+    srcs = ['JavaExample.java'],
+)
+EOF
+
+  cat >java/main/JavaExample.java <<EOF
+public class JavaExample {
+}
+EOF
+
+  bazel build java/main:JavaExample &>"${TEST_log}" && fail "build should have failed" || true
+  expect_log "Auto-Configuration Error: Cannot find Java binary"
 }
 
 run_suite "bazel test suite"

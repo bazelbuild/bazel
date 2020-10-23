@@ -13,108 +13,83 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.protobuf.TextFormat;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.ClassObject;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.syntax.Location;
 
 /**
- * A generic skylark object with fields, constructable by calling {@code struct()} in skylark.
+ * An abstract base class for Starlark values that have fields, have to_json and to_proto methods,
+ * have an associated provider (type symbol), and may be returned as the result of analysis from one
+ * target to another.
+ *
+ * <p>StructImpl does not specify how the fields are represented; subclasses must define {@code
+ * getValue} and {@code getFieldNames}. For example, {@code NativeInfo} supplies fields from the
+ * subclass's {@code StarlarkMethod(structField=true)} annotations, and {@code StarlarkInfo}
+ * supplies fields from the map provided at its construction.
+ *
+ * <p>Two StructImpls are equivalent if they have the same provider and, for each field name
+ * reported by {@code getFieldNames} their corresponding field values are equivalent, or accessing
+ * them both returns an error.
  */
-public abstract class StructImpl extends Info
-    implements ClassObject, StructApi, Serializable {
+public abstract class StructImpl implements Info, ClassObject, StructApi {
+
+  private final Provider provider;
+  private final Location location;
 
   /**
    * Constructs an {@link StructImpl}.
    *
    * @param provider the provider describing the type of this instance
-   * @param location the Skylark location where this instance is created. If null, defaults to
+   * @param location the Starlark location where this instance is created. If null, defaults to
    *     {@link Location#BUILTIN}.
    */
   protected StructImpl(Provider provider, @Nullable Location location) {
-    super(provider, location);
+    this.provider = provider;
+    this.location = location != null ? location : Location.BUILTIN;
   }
 
-  /**
-   * Preprocesses a map of field values to convert the field names and field values to
-   * Skylark-acceptable names and types.
-   *
-   * <p>Entries are ordered by key.
-   */
-  static ImmutableSortedMap<String, Object> copyValues(Map<String, Object> values) {
-    Preconditions.checkNotNull(values);
-    ImmutableSortedMap.Builder<String, Object> builder = ImmutableSortedMap.naturalOrder();
-    for (Map.Entry<String, Object> e : values.entrySet()) {
-      builder.put(
-          Attribute.getSkylarkName(e.getKey()),
-          SkylarkType.convertToSkylark(e.getValue(), (Environment) null));
-    }
-    return builder.build();
+  @Override
+  public Provider getProvider() {
+    return provider;
   }
 
-  /**
-   * Returns whether the given field name exists.
-   *
-   * <p>This conceptually extends the API for {@link ClassObject}.
-   */
-  public abstract boolean hasField(String name);
-
-  /**
-   * <p>Wraps {@link ClassObject#getValue(String)}, returning null in cases where
-   * {@link EvalException} would have been thrown.
-   */
-  @VisibleForTesting
-  public Object getValueOrNull(String name) {
-    try {
-      return getValue(name);
-    } catch (EvalException e) {
-      return null;
-    }
+  @Override
+  public Location getCreationLoc() {
+    return location;
   }
 
   /**
    * Returns the result of {@link #getValue(String)}, cast as the given type, throwing {@link
    * EvalException} if the cast fails.
    */
-  public <T> T getValue(String key, Class<T> type) throws EvalException {
+  public final <T> T getValue(String key, Class<T> type) throws EvalException {
     Object obj = getValue(key);
     if (obj == null) {
       return null;
     }
-    SkylarkType.checkType(obj, type, key);
-    return type.cast(obj);
+    try {
+      return type.cast(obj);
+    } catch (
+        @SuppressWarnings("UnusedException")
+        ClassCastException unused) {
+      throw Starlark.errorf(
+          "for %s field, got %s, want %s", key, Starlark.type(obj), Starlark.classType(type));
+    }
   }
-
-  /**
-   * {@inheritDoc}
-   *
-   * <p>Overrides {@link ClassObject#getFieldNames()}, but does not allow {@link EvalException} to
-   * be thrown.
-   */
-  @Override
-  public abstract ImmutableCollection<String> getFieldNames();
 
   /**
    * Returns the error message format to use for unknown fields.
@@ -122,7 +97,7 @@ public abstract class StructImpl extends Info
    * <p>By default, it is the one specified by the provider.
    */
   protected String getErrorMessageFormatForUnknownField() {
-    return provider.getErrorMessageFormatForUnknownField();
+    return getProvider().getErrorMessageFormatForUnknownField();
   }
 
   @Override
@@ -141,7 +116,7 @@ public abstract class StructImpl extends Info
     if (this == other) {
       return true;
     }
-    if (!this.provider.equals(other.provider)) {
+    if (!this.getProvider().equals(other.getProvider())) {
       return false;
     }
     // Compare objects' fields and their values
@@ -161,7 +136,7 @@ public abstract class StructImpl extends Info
     List<String> fields = new ArrayList<>(getFieldNames());
     Collections.sort(fields);
     List<Object> objectsToHash = new ArrayList<>();
-    objectsToHash.add(provider);
+    objectsToHash.add(getProvider());
     for (String field : fields) {
       objectsToHash.add(field);
       objectsToHash.add(getValueOrNull(field));
@@ -170,11 +145,11 @@ public abstract class StructImpl extends Info
   }
 
   /**
-   * Convert the object to string using Skylark syntax. The output tries to be reversible (but there
-   * is no guarantee, it depends on the actual values).
+   * Convert the object to string using Starlark syntax. The output tries to be reversible (but
+   * there is no guarantee, it depends on the actual values).
    */
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     boolean first = true;
     printer.append("struct(");
     // Sort by key to ensure deterministic output.
@@ -190,83 +165,17 @@ public abstract class StructImpl extends Info
     printer.append(")");
   }
 
+  private Object getValueOrNull(String name) {
+    try {
+      return getValue(name);
+    } catch (EvalException e) {
+      return null;
+    }
+  }
+
   @Override
-  public String toProto(Location loc) throws EvalException {
-    StringBuilder sb = new StringBuilder();
-    printProtoTextMessage(this, sb, 0, loc);
-    return sb.toString();
-  }
-
-  private void printProtoTextMessage(ClassObject object, StringBuilder sb, int indent, Location loc)
-      throws EvalException {
-    // For determinism sort the fields alphabetically.
-    List<String> fields = new ArrayList<>(object.getFieldNames());
-    Collections.sort(fields);
-    for (String field : fields) {
-      printProtoTextMessage(field, object.getValue(field), sb, indent, loc);
-    }
-  }
-
-  private void printProtoTextMessage(
-      String key, Object value, StringBuilder sb, int indent, Location loc, String container)
-      throws EvalException {
-    if (value instanceof Map.Entry) {
-      Map.Entry<?, ?> entry = (Map.Entry<?, ?>) value;
-      print(sb, key + " {", indent);
-      printProtoTextMessage("key", entry.getKey(), sb, indent + 1, loc);
-      printProtoTextMessage("value", entry.getValue(), sb, indent + 1, loc);
-      print(sb, "}", indent);
-    } else if (value instanceof ClassObject) {
-      print(sb, key + " {", indent);
-      printProtoTextMessage((ClassObject) value, sb, indent + 1, loc);
-      print(sb, "}", indent);
-    } else if (value instanceof String) {
-      print(
-          sb,
-          key + ": \"" + escapeDoubleQuotesAndBackslashesAndNewlines((String) value) + "\"",
-          indent);
-    } else if (value instanceof Integer) {
-      print(sb, key + ": " + value, indent);
-    } else if (value instanceof Boolean) {
-      // We're relying on the fact that Java converts Booleans to Strings in the same way
-      // as the protocol buffers do.
-      print(sb, key + ": " + value, indent);
-    } else {
-      throw new EvalException(
-          loc,
-          "Invalid text format, expected a struct, a dict, a string, a bool, or an int but got a "
-              + EvalUtils.getDataTypeName(value)
-              + " for "
-              + container
-              + " '"
-              + key
-              + "'");
-    }
-  }
-
-  private void printProtoTextMessage(
-      String key, Object value, StringBuilder sb, int indent, Location loc) throws EvalException {
-    if (value instanceof SkylarkList) {
-      for (Object item : ((SkylarkList) value)) {
-        // TODO(bazel-team): There should be some constraint on the fields of the structs
-        // in the same list but we ignore that for now.
-        printProtoTextMessage(key, item, sb, indent, loc, "list element in struct field");
-      }
-    } else if (value instanceof SkylarkDict) {
-      for (Map.Entry<?, ?> entry : ((SkylarkDict<?, ?>) value).entrySet()) {
-        printProtoTextMessage(key, entry, sb, indent, loc, "entry of dictionary");
-      }
-    } else {
-      printProtoTextMessage(key, value, sb, indent, loc, "struct field");
-    }
-  }
-
-  private void print(StringBuilder sb, String text, int indent) {
-    for (int i = 0; i < indent; i++) {
-      sb.append("  ");
-    }
-    sb.append(text);
-    sb.append("\n");
+  public String toProto() throws EvalException {
+    return StarlarkLibrary.Proto.INSTANCE.encodeText(this);
   }
 
   /**
@@ -279,15 +188,15 @@ public abstract class StructImpl extends Info
   }
 
   @Override
-  public String toJson(Location loc) throws EvalException {
+  public String toJson() throws EvalException {
     StringBuilder sb = new StringBuilder();
-    printJson(this, sb, loc, "struct field", null);
+    printJson(this, sb, "struct field", null);
     return sb.toString();
   }
 
-  private void printJson(Object value, StringBuilder sb, Location loc, String container, String key)
+  private static void printJson(Object value, StringBuilder sb, String container, String key)
       throws EvalException {
-    if (value == Runtime.NONE) {
+    if (value == Starlark.NONE) {
       sb.append("null");
     } else if (value instanceof ClassObject) {
       sb.append("{");
@@ -296,33 +205,25 @@ public abstract class StructImpl extends Info
       for (String field : ((ClassObject) value).getFieldNames()) {
         sb.append(join);
         join = ",";
-        sb.append("\"");
-        sb.append(field);
-        sb.append("\":");
-        printJson(((ClassObject) value).getValue(field), sb, loc, "struct field", field);
+        appendJSONStringLiteral(sb, field);
+        sb.append(':');
+        printJson(((ClassObject) value).getValue(field), sb, "struct field", field);
       }
       sb.append("}");
-    } else if (value instanceof SkylarkDict) {
+    } else if (value instanceof Dict) {
       sb.append("{");
       String join = "";
-      for (Map.Entry<?, ?> entry : ((SkylarkDict<?, ?>) value).entrySet()) {
+      for (Map.Entry<?, ?> entry : ((Dict<?, ?>) value).entrySet()) {
         sb.append(join);
         join = ",";
         if (!(entry.getKey() instanceof String)) {
-          String errorMessage =
-              "Keys must be a string but got a "
-                  + EvalUtils.getDataTypeName(entry.getKey())
-                  + " for "
-                  + container;
-          if (key != null) {
-            errorMessage += " '" + key + "'";
-          }
-          throw new EvalException(loc, errorMessage);
+          throw Starlark.errorf(
+              "Keys must be a string but got a %s for %s%s",
+              Starlark.type(entry.getKey()), container, key != null ? " '" + key + "'" : "");
         }
-        sb.append("\"");
-        sb.append(entry.getKey());
-        sb.append("\":");
-        printJson(entry.getValue(), sb, loc, "dict value", String.valueOf(entry.getKey()));
+        appendJSONStringLiteral(sb, (String) entry.getKey());
+        sb.append(':');
+        printJson(entry.getValue(), sb, "dict value", String.valueOf(entry.getKey()));
       }
       sb.append("}");
     } else if (value instanceof List) {
@@ -331,37 +232,30 @@ public abstract class StructImpl extends Info
       for (Object item : ((List) value)) {
         sb.append(join);
         join = ",";
-        printJson(item, sb, loc, "list element in struct field", key);
+        printJson(item, sb, "list element in struct field", key);
       }
       sb.append("]");
     } else if (value instanceof String) {
-      sb.append("\"");
-      sb.append(jsonEscapeString((String) value));
-      sb.append("\"");
-    } else if (value instanceof Integer || value instanceof Boolean) {
+      appendJSONStringLiteral(sb, (String) value);
+    } else if (value instanceof StarlarkInt || value instanceof Boolean) {
       sb.append(value);
     } else {
-      String errorMessage =
-          "Invalid text format, expected a struct, a string, a bool, or an int "
-              + "but got a "
-              + EvalUtils.getDataTypeName(value)
-              + " for "
-              + container;
-      if (key != null) {
-        errorMessage += " '" + key + "'";
-      }
-      throw new EvalException(loc, errorMessage);
+      throw Starlark.errorf(
+          "Invalid text format, expected a struct, a string, a bool, or an int but got a %s for"
+              + " %s%s",
+          Starlark.type(value), container, key != null ? " '" + key + "'" : "");
     }
   }
 
-  private String jsonEscapeString(String string) {
-    return escapeDoubleQuotesAndBackslashesAndNewlines(string)
-        .replace("\r", "\\r")
-        .replace("\t", "\\t");
+  private static void appendJSONStringLiteral(StringBuilder out, String s) {
+    out.append('"');
+    out.append(
+        escapeDoubleQuotesAndBackslashesAndNewlines(s).replace("\r", "\\r").replace("\t", "\\t"));
+    out.append('"');
   }
 
   @Override
   public String toString() {
-    return Printer.repr(this);
+    return Starlark.repr(this);
   }
 }

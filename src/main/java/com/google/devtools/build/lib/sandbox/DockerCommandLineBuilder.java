@@ -16,7 +16,8 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.time.Duration;
@@ -25,22 +26,22 @@ import java.util.Map;
 import java.util.UUID;
 
 final class DockerCommandLineBuilder {
-  private Path processWrapper;
+  private ProcessWrapper processWrapper;
   private Path dockerClient;
   private String imageName;
   private List<String> commandArguments;
   private Path sandboxExecRoot;
   private Map<String, String> environmentVariables;
   private Duration timeout;
-  private Duration killDelay;
   private boolean createNetworkNamespace;
   private UUID uuid;
   private int uid;
   private int gid;
   private String commandId;
   private boolean privileged;
+  private List<Map.Entry<String, String>> additionalMounts;
 
-  public DockerCommandLineBuilder setProcessWrapper(Path processWrapper) {
+  public DockerCommandLineBuilder setProcessWrapper(ProcessWrapper processWrapper) {
     this.processWrapper = processWrapper;
     return this;
   }
@@ -76,11 +77,6 @@ final class DockerCommandLineBuilder {
     return this;
   }
 
-  public DockerCommandLineBuilder setKillDelay(Duration killDelay) {
-    this.killDelay = killDelay;
-    return this;
-  }
-
   public DockerCommandLineBuilder setCreateNetworkNamespace(boolean createNetworkNamespace) {
     this.createNetworkNamespace = createNetworkNamespace;
     return this;
@@ -111,6 +107,12 @@ final class DockerCommandLineBuilder {
     return this;
   }
 
+  public DockerCommandLineBuilder setAdditionalMounts(
+      List<Map.Entry<String, String>> additionalMounts) {
+    this.additionalMounts = additionalMounts;
+    return this;
+  }
+
   public List<String> build() {
     Preconditions.checkNotNull(sandboxExecRoot, "sandboxExecRoot must be set");
     Preconditions.checkState(!imageName.isEmpty(), "imageName must be set");
@@ -138,6 +140,12 @@ final class DockerCommandLineBuilder {
         "-v", sandboxExecRoot.getPathString() + ":" + execRootInsideDocker.getPathString());
     dockerCmdLine.add("-w", execRootInsideDocker.getPathString());
 
+    for (ImmutableMap.Entry<String, String> additionalMountPath : additionalMounts) {
+      final String mountTarget = additionalMountPath.getValue();
+      final String mountSource = additionalMountPath.getKey();
+      dockerCmdLine.add("-v", mountSource + ":" + mountTarget);
+    }
+
     StringBuilder uidGidFlagBuilder = new StringBuilder();
     if (uid != 0) {
       uidGidFlagBuilder.append(uid);
@@ -160,14 +168,10 @@ final class DockerCommandLineBuilder {
     dockerCmdLine.add(imageName);
     dockerCmdLine.addAll(commandArguments);
 
-    ProcessWrapperUtil.CommandLineBuilder processWrapperCmdLine =
-        ProcessWrapperUtil.commandLineBuilder(
-            this.processWrapper.getPathString(), dockerCmdLine.build());
+    ProcessWrapper.CommandLineBuilder processWrapperCmdLine =
+        processWrapper.commandLineBuilder(dockerCmdLine.build());
     if (timeout != null) {
       processWrapperCmdLine.setTimeout(timeout);
-    }
-    if (killDelay != null) {
-      processWrapperCmdLine.setKillDelay(killDelay);
     }
     return processWrapperCmdLine.build();
   }

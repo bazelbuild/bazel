@@ -1,6 +1,6 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
-load("@io_bazel_skydoc//stardoc:stardoc.bzl", "stardoc")
-load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("@io_bazel_skydoc//stardoc:html_tables_stardoc.bzl", "html_tables_stardoc")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 licenses(["notice"])  # Apache 2.0
 
@@ -33,7 +33,7 @@ REPO_BZL_FILES = [
     "utils",
 ]
 
-[stardoc(
+[html_tables_stardoc(
     name = "%s_raw_md" % (name,),
     out = "%s_raw.md" % (name,),
     input = "%s.bzl" % (name,),
@@ -41,9 +41,16 @@ REPO_BZL_FILES = [
 ) for name in REPO_BZL_FILES]
 
 [genrule(
+    name = "preamb_%s_md" % (name,),
+    srcs = [":preamb.md"],
+    outs = ["preamb_%s.md" % (name,)],
+    cmd = "sed 's/BZL_FILE_BASE_NAME/%s/g' < $< > $@" % (name,),
+) for name in REPO_BZL_FILES]
+
+[genrule(
     name = "%s_md" % (name,),
     srcs = [
-        ":preamb.md",
+        ":preamb_%s.md" % (name,),
         ":%s_raw_md" % (name,),
     ],
     outs = ["%s.md" % (name,)],

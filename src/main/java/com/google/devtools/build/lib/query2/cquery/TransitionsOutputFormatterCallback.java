@@ -13,15 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
-import com.google.common.base.Preconditions;
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.Dependency;
+import com.google.devtools.build.lib.analysis.DependencyKey;
+import com.google.devtools.build.lib.analysis.DependencyKind;
+import com.google.devtools.build.lib.analysis.DependencyKind.ToolchainDependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
-import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
-import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
+import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -31,6 +34,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionUtil;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -39,19 +43,18 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.io.OutputStream;
+import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /**
  * Output formatter that prints {@link ConfigurationTransition} information for rule configured
@@ -98,58 +101,66 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
       return;
     }
     partialResult.forEach(
-        ct -> partialResultMap.put(ct.getLabel(), accessor.getTargetFromConfiguredTarget(ct)));
+        ct ->
+            partialResultMap.put(
+                ct.getOriginalLabel(), accessor.getTargetFromConfiguredTarget(ct)));
     for (ConfiguredTarget configuredTarget : partialResult) {
-      Target target = partialResultMap.get(configuredTarget.getLabel());
-      BuildConfiguration config =
-          skyframeExecutor.getConfiguration(
-              eventHandler, configuredTarget.getConfigurationKey());
+      Target target = partialResultMap.get(configuredTarget.getOriginalLabel());
+      BuildConfiguration config = getConfiguration(configuredTarget.getConfigurationKey());
       addResult(
           getRuleClassTransition(configuredTarget, target)
-              + configuredTarget.getLabel()
-              + " ("
-              + (config != null && config.isHostConfiguration() ? "HOST" : config)
-              + ")");
+              + String.format("%s (%s)", configuredTarget.getOriginalLabel(), shortId(config)));
       if (!(configuredTarget instanceof RuleConfiguredTarget)) {
         continue;
       }
-      OrderedSetMultimap<DependencyKind, Dependency> deps;
+      OrderedSetMultimap<DependencyKind, DependencyKey> deps;
       ImmutableMap<Label, ConfigMatchingProvider> configConditions =
           ((RuleConfiguredTarget) configuredTarget).getConfigConditions();
 
       // Get a ToolchainContext to use for dependency resolution.
-      ToolchainContext toolchainContext = accessor.getToolchainContext(target, config);
+      ToolchainCollection<ToolchainContext> toolchainContexts =
+          accessor.getToolchainContexts(target, config);
       try {
         // We don't actually use fromOptions in our implementation of
         // DependencyResolver but passing to avoid passing a null and since we have the information
         // anyway.
         deps =
-            new FormatterDependencyResolver(eventHandler)
+            new FormatterDependencyResolver()
                 .dependentNodeMap(
                     new TargetAndConfiguration(target, config),
                     hostConfiguration,
                     /*aspect=*/ null,
                     configConditions,
-                    toolchainContext,
+                    toolchainContexts,
+                    DependencyResolver.shouldUseToolchainTransition(config, target),
                     trimmingTransitionFactory);
       } catch (EvalException | InconsistentAspectOrderException e) {
+        // This is an abuse of InterruptedException.
         throw new InterruptedException(e.getMessage());
       }
-      for (Map.Entry<DependencyKind, Dependency> attributeAndDep : deps.entries()) {
-        // DependencyResolver should only ever return Dependency instances with transitions and not
-        // with explicit configurations
-        Preconditions.checkState(!attributeAndDep.getValue().hasExplicitConfiguration());
+      for (Map.Entry<DependencyKind, DependencyKey> attributeAndDep : deps.entries()) {
         if (attributeAndDep.getValue().getTransition() == NoTransition.INSTANCE
             || attributeAndDep.getValue().getTransition() == NullTransition.INSTANCE) {
           continue;
         }
-        Dependency dep = attributeAndDep.getValue();
+        DependencyKey dep = attributeAndDep.getValue();
         BuildOptions fromOptions = config.getOptions();
-        List<BuildOptions> toOptions = dep.getTransition().apply(fromOptions);
+        // TODO(bazel-team): support transitions on Starlark-defined build flags. These require
+        // Skyframe loading to get flag default values. See ConfigurationResolver.applyTransition
+        // for an example of the required logic.
+        Collection<BuildOptions> toOptions =
+            dep.getTransition()
+                .apply(TransitionUtil.restrict(dep.getTransition(), fromOptions), eventHandler)
+                .values();
         String hostConfigurationChecksum = hostConfiguration.checksum();
         String dependencyName;
-        if (attributeAndDep.getKey() == DependencyResolver.TOOLCHAIN_DEPENDENCY) {
-          dependencyName = "[toolchain dependency]";
+        if (DependencyKind.isToolchain(attributeAndDep.getKey())) {
+          ToolchainDependencyKind tdk = (ToolchainDependencyKind) attributeAndDep.getKey();
+          if (tdk.isDefaultExecGroup()) {
+            dependencyName = "[toolchain dependency]";
+          } else {
+            dependencyName = String.format("[toolchain dependency: %s]", tdk.getExecGroupName());
+          }
         } else {
           dependencyName = attributeAndDep.getKey().getAttribute().getName();
         }
@@ -160,16 +171,17 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
                 .concat(dep.getLabel().toString())
                 .concat("#")
                 .concat(dep.getTransition().getName())
-                .concat(" ( -> ")
+                .concat(" -> ")
                 .concat(
                     toOptions.stream()
                         .map(
                             options -> {
                               String checksum = options.computeChecksum();
-                              return checksum.equals(hostConfigurationChecksum) ? "HOST" : checksum;
+                              return checksum.equals(hostConfigurationChecksum)
+                                  ? "HOST"
+                                  : shortId(checksum);
                             })
-                        .collect(Collectors.joining(", ")))
-                .concat(")"));
+                        .collect(joining(", "))));
         if (verbosity == CqueryOptions.Transitions.LITE) {
           continue;
         }
@@ -196,24 +208,11 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   private class FormatterDependencyResolver extends DependencyResolver {
-    private final ExtendedEventHandler eventHandler;
-
-    private FormatterDependencyResolver(ExtendedEventHandler eventHandler) {
-      this.eventHandler = eventHandler;
-    }
-
-    @Override
-    protected void invalidPackageGroupReferenceHook(TargetAndConfiguration node, Label label) {
-      eventHandler.handle(
-          Event.error(
-              TargetUtils.getLocationMaybe(node.getTarget()),
-              String.format("label '%s' does not refer to a package group", label)));
-    }
 
     @Override
     protected Map<Label, Target> getTargets(
         OrderedSetMultimap<DependencyKind, Label> labelMap,
-        Target fromTarget,
+        TargetAndConfiguration fromNode,
         NestedSetBuilder<Cause> rootCauses) {
       return labelMap.values().stream()
           .distinct()
@@ -223,4 +222,3 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
     }
   }
 }
-

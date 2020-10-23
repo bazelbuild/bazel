@@ -29,8 +29,8 @@ import com.google.testing.junit.runner.model.XmlResultWriter;
 import com.google.testing.junit.runner.sharding.ShardingEnvironment;
 import com.google.testing.junit.runner.sharding.ShardingFilters;
 import com.google.testing.junit.runner.sharding.testing.StubShardingEnvironment;
-import com.google.testing.junit.runner.util.FakeTicker;
-import com.google.testing.junit.runner.util.Ticker;
+import com.google.testing.junit.runner.util.FakeTestClock;
+import com.google.testing.junit.runner.util.TestClock;
 import java.util.List;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -46,15 +46,18 @@ import org.junit.runners.Suite.SuiteClasses;
  */
 @RunWith(JUnit4.class)
 public class JUnit4TestModelBuilderTest {
-  private final Ticker fakeTicker = new FakeTicker();
+  private final TestClock fakeTestClock = new FakeTestClock();
   private final ShardingEnvironment stubShardingEnvironment = new StubShardingEnvironment();
   private final XmlResultWriter xmlResultWriter = new AntXmlResultWriter();
 
   private JUnit4TestModelBuilder builder(Request request, String suiteName,
       ShardingEnvironment shardingEnvironment, ShardingFilters shardingFilters,
       XmlResultWriter xmlResultWriter) {
-    return new JUnit4TestModelBuilder(request, suiteName, new TestSuiteModel.Builder(
-        fakeTicker, shardingFilters, shardingEnvironment, xmlResultWriter));
+    return new JUnit4TestModelBuilder(
+        request,
+        suiteName,
+        new TestSuiteModel.Builder(
+            fakeTestClock, shardingFilters, shardingEnvironment, xmlResultWriter));
   }
 
   @Test

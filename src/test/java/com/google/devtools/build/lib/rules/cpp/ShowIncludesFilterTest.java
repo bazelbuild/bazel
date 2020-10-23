@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.ByteArrayOutputStream;
@@ -38,10 +39,10 @@ public class ShowIncludesFilterTest {
 
   @Before
   public void setUpOutputStreams() throws IOException {
-    showIncludesFilter = new ShowIncludesFilter("foo.cpp", "__main__");
+    showIncludesFilter = new ShowIncludesFilter("foo.cpp");
     output = new ByteArrayOutputStream();
     filterOutputStream = showIncludesFilter.getFilteredOutputStream(output);
-    fs = new InMemoryFileSystem();
+    fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     fs.getPath("/out").createDirectory();
   }
 
@@ -93,17 +94,31 @@ public class ShowIncludesFilterTest {
   }
 
   @Test
-  public void testMatchAllOfNotePrefixWithAbsolutePath() throws IOException {
+  // Regression tests for https://github.com/bazelbuild/bazel/issues/9172
+  public void testFindHeaderFromAbsolutePathUnderExecroot() throws IOException {
     // "Note: including file:" is the prefix
     filterOutputStream.write(
-        getBytes("Note: including file: C:\\tmp\\xxxx\\execroot\\__main__\\bar.h"));
+        getBytes("Note: including file: C:\\tmp\\xxxx\\execroot\\__main__\\foo\\bar\\bar.h"));
     filterOutputStream.flush();
     // flush to output should not work, waiting for newline
     assertThat(output.toString()).isEmpty();
     filterOutputStream.write(getBytes("\n"));
     // It's a match, output should be filtered, dependency on bar.h should be found.
     assertThat(output.toString()).isEmpty();
-    assertThat(showIncludesFilter.getDependencies()).contains("bar.h");
+    assertThat(showIncludesFilter.getDependencies()).contains("foo\\bar\\bar.h");
+  }
+
+  @Test
+  public void testFindHeaderFromAbsolutePathOutsideExecroot() throws IOException {
+    // "Note: including file:" is the prefix
+    filterOutputStream.write(getBytes("Note: including file: C:\\system\\foo\\bar\\bar.h"));
+    filterOutputStream.flush();
+    // flush to output should not work, waiting for newline
+    assertThat(output.toString()).isEmpty();
+    filterOutputStream.write(getBytes("\n"));
+    // It's a match, output should be filtered, dependency on bar.h should be found.
+    assertThat(output.toString()).isEmpty();
+    assertThat(showIncludesFilter.getDependencies()).contains("C:\\system\\foo\\bar\\bar.h");
   }
 
   @Test

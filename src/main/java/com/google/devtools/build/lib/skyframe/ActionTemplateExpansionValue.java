@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -27,16 +28,16 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
  */
 public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
   ActionTemplateExpansionValue(GeneratingActions generatingActions) {
-    super(generatingActions, /*nonceVersion=*/ null);
+    super(generatingActions);
   }
 
-  static ActionTemplateExpansionKey key(ActionLookupKey actionLookupKey, int actionIndex) {
+  public static ActionTemplateExpansionKey key(ActionLookupKey actionLookupKey, int actionIndex) {
     return ActionTemplateExpansionKey.of(actionLookupKey, actionIndex);
   }
 
   /** Key for {@link ActionTemplateExpansionValue} nodes. */
   @AutoCodec
-  public static final class ActionTemplateExpansionKey extends ActionLookupKey {
+  public static final class ActionTemplateExpansionKey implements ActionLookupKey {
     private static final Interner<ActionTemplateExpansionKey> interner =
         BlazeInterners.newWeakInterner();
 
@@ -70,7 +71,7 @@ public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
 
     /**
      * Index of the action in question in the node keyed by {@link #getActionLookupKey}. Should be
-     * passed to {@link ActionLookupValue#getAction}.
+     * passed to {@link com.google.devtools.build.lib.actions.ActionLookupValue#getAction}.
      */
     int getActionIndex() {
       return actionIndex;

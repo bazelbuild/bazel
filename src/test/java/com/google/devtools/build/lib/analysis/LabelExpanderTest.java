@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -75,7 +75,7 @@ public class LabelExpanderTest extends BuildViewTestCase {
    */
   private void collectArtifacts() {
     ImmutableMap.Builder<String, Artifact> builder = ImmutableMap.builder();
-    for (Artifact artifact : getFilesToBuild(dummyTarget)) {
+    for (Artifact artifact : getFilesToBuild(dummyTarget).toList()) {
       builder.put(artifact.getRootRelativePath().toString(), artifact);
     }
     artifactsByName = builder.build();

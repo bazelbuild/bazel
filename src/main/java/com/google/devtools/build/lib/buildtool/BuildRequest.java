@@ -23,15 +23,14 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
-import com.google.devtools.build.lib.runtime.BlazeCommandEventHandler;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
+import com.google.devtools.build.lib.runtime.UiOptions;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
@@ -75,8 +74,8 @@ public class BuildRequest implements OptionsProvider {
   private static final ImmutableList<Class<? extends OptionsBase>> MANDATORY_OPTIONS =
       ImmutableList.of(
           BuildRequestOptions.class,
-          PackageCacheOptions.class,
-          StarlarkSemanticsOptions.class,
+          PackageOptions.class,
+          BuildLanguageOptions.class,
           LoadingOptions.class,
           AnalysisOptions.class,
           ExecutionOptions.class,
@@ -118,8 +117,9 @@ public class BuildRequest implements OptionsProvider {
   /**
    * Since the OptionsProvider interface is used by many teams, this method is String-keyed even
    * though it should always contain labels for our purposes. Consumers of this method should
-   * probably use the {@link BuildOptions#labelizeStarlarkOptions} method before doing meaningful
-   * work with the results.
+   * probably use the {@link
+   * com.google.devtools.build.lib.analysis.config.BuildOptions#labelizeStarlarkOptions} method
+   * before doing meaningful work with the results.
    */
   @Override
   public Map<String, Object> getStarlarkOptions() {
@@ -200,11 +200,9 @@ public class BuildRequest implements OptionsProvider {
     return getOptions(BuildRequestOptions.class);
   }
 
-  /**
-   * Returns the set of options related to the loading phase.
-   */
-  public PackageCacheOptions getPackageCacheOptions() {
-    return getOptions(PackageCacheOptions.class);
+  /** Returns the set of options related to the loading phase. */
+  public PackageOptions getPackageOptions() {
+    return getOptions(PackageOptions.class);
   }
 
   /**
@@ -270,7 +268,7 @@ public class BuildRequest implements OptionsProvider {
    *
    * @return list of warnings
    */
-  public List<String> validateOptions() throws InvalidConfigurationException {
+  public List<String> validateOptions() {
     List<String> warnings = new ArrayList<>();
 
     int localTestJobs = getExecutionOptions().localTestJobs;
@@ -291,9 +289,13 @@ public class BuildRequest implements OptionsProvider {
 
   /** Creates a new TopLevelArtifactContext from this build request. */
   public TopLevelArtifactContext getTopLevelArtifactContext() {
+    BuildRequestOptions buildOptions = getBuildOptions();
     return new TopLevelArtifactContext(
         getOptions(ExecutionOptions.class).testStrategy.equals("exclusive"),
-        OutputGroupInfo.determineOutputGroups(getBuildOptions().outputGroups));
+        getOptions(BuildEventProtocolOptions.class).expandFilesets,
+        getOptions(BuildEventProtocolOptions.class).fullyResolveFilesetSymlinks,
+        OutputGroupInfo.determineOutputGroups(
+            buildOptions.outputGroups, buildOptions.runValidationActions));
   }
 
   public ImmutableSortedSet<String> getMultiCpus() {
@@ -312,7 +314,7 @@ public class BuildRequest implements OptionsProvider {
         commandId, commandStartTime);
 
     // All this, just to pass a global boolean from the client to the server. :(
-    if (options.getOptions(BlazeCommandEventHandler.Options.class).runningInEmacs) {
+    if (options.getOptions(UiOptions.class).runningInEmacs) {
       request.setRunningInEmacs();
     }
 

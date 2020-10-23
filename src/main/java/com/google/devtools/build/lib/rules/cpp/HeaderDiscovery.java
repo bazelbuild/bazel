@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -126,7 +126,8 @@ public class HeaderDiscovery {
    */
   @ThreadCompatible
   NestedSet<Artifact> discoverInputsFromDependencies(
-      Path execRoot, ArtifactResolver artifactResolver) throws ActionExecutionException {
+      Path execRoot, ArtifactResolver artifactResolver, boolean siblingRepositoryLayout)
+      throws ActionExecutionException {
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
     if (dependencies == null) {
       return inputs.build();
@@ -147,6 +148,11 @@ public class HeaderDiscovery {
         // the build with an error.
         if (execPath.startsWith(execRoot)) {
           execPathFragment = execPath.relativeTo(execRoot); // funky but tolerable path
+        } else if (siblingRepositoryLayout && execPath.startsWith(execRoot.getParentDirectory())) {
+          // for --experimental_sibling_repository_layout
+          execPathFragment =
+              LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
+                  execPath.relativeTo(execRoot.getParentDirectory()));
         } else {
           problems.add(execPathFragment.getPathString());
           continue;
@@ -154,20 +160,16 @@ public class HeaderDiscovery {
       }
       Artifact artifact = allowedDerivedInputsMap.get(execPathFragment);
       if (artifact == null) {
-        try {
-          RepositoryName repository =
-              PackageIdentifier.discoverFromExecPath(execPathFragment, false).getRepository();
-          artifact = artifactResolver.resolveSourceArtifact(execPathFragment, repository);
-        } catch (LabelSyntaxException e) {
-          throw new ActionExecutionException(
-              String.format("Could not find the external repository for %s", execPathFragment),
-              e,
-              action,
-              false);
-        }
+        RepositoryName repository =
+            PackageIdentifier.discoverFromExecPath(execPathFragment, false, siblingRepositoryLayout)
+                .getRepository();
+        artifact = artifactResolver.resolveSourceArtifact(execPathFragment, repository);
       }
       if (artifact != null) {
-        inputs.add(artifact);
+        // We don't need to add the sourceFile itself as it is a mandatory input.
+        if (!artifact.equals(sourceFile)) {
+          inputs.add(artifact);
+        }
         continue;
       }
 
@@ -207,7 +209,7 @@ public class HeaderDiscovery {
 
     private Collection<Path> dependencies;
     private List<Path> permittedSystemIncludePrefixes;
-    private Iterable<Artifact> allowedDerivedInputs;
+    private NestedSet<Artifact> allowedDerivedInputs;
 
     /** Sets the action for which to discover inputs. */
     public Builder setAction(Action action) {
@@ -240,7 +242,7 @@ public class HeaderDiscovery {
     }
 
     /** Sets permitted inputs to the build */
-    public Builder setAllowedDerivedinputs(Iterable<Artifact> allowedDerivedInputs) {
+    public Builder setAllowedDerivedInputs(NestedSet<Artifact> allowedDerivedInputs) {
       this.allowedDerivedInputs = allowedDerivedInputs;
       return this;
     }
@@ -249,7 +251,10 @@ public class HeaderDiscovery {
     public HeaderDiscovery build() {
       Map<PathFragment, Artifact> allowedDerivedInputsMap = new HashMap<>();
       ImmutableSet.Builder<Artifact> treeArtifacts = ImmutableSet.builder();
-      for (Artifact a : allowedDerivedInputs) {
+      for (Artifact a : allowedDerivedInputs.toList()) {
+        if (a.isSourceArtifact()) {
+          continue;
+        }
         if (a.isTreeArtifact()) {
           treeArtifacts.add(a);
         }

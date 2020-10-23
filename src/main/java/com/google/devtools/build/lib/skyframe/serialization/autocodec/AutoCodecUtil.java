@@ -14,13 +14,15 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
-import com.google.common.collect.ImmutableList;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationProcessorUtil.getGeneratedName;
+
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
+import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
@@ -51,6 +53,11 @@ class AutoCodecUtil {
   static TypeSpec.Builder initializeCodecClassBuilder(
       TypeElement encodedType, ProcessingEnvironment env) {
     TypeSpec.Builder builder = TypeSpec.classBuilder(getCodecName(encodedType));
+    builder.addAnnotation(
+        AnnotationSpec.builder(ClassName.get(SuppressWarnings.class))
+            .addMember("value", "$S", "unchecked")
+            .addMember("value", "$S", "rawtypes")
+            .build());
     return builder.addSuperinterface(
         ParameterizedTypeName.get(
             ClassName.get(ObjectCodec.class),
@@ -80,6 +87,10 @@ class AutoCodecUtil {
             .addModifiers(Modifier.PUBLIC)
             .returns(void.class)
             .addAnnotation(Override.class)
+            .addAnnotation(
+                AnnotationSpec.builder(ClassName.get(SuppressWarnings.class))
+                    .addMember("value", "$S", "unchecked")
+                    .build())
             .addException(SerializationException.class)
             .addException(IOException.class)
             .addParameter(SerializationContext.class, "context")
@@ -123,21 +134,6 @@ class AutoCodecUtil {
   }
 
   /**
-   * Returns a class name generated from the given {@code element}.
-   *
-   * <p>For {@code Foo.Bar} this is {@code Foo_Bar_suffix}.
-   */
-  static String getGeneratedName(Element element, String suffix) {
-    ImmutableList.Builder<String> classNamesBuilder = new ImmutableList.Builder<>();
-    classNamesBuilder.add(suffix);
-    do {
-      classNamesBuilder.add(element.getSimpleName().toString());
-      element = element.getEnclosingElement();
-    } while (element instanceof TypeElement);
-    return classNamesBuilder.build().reverse().stream().collect(Collectors.joining("_"));
-  }
-
-  /**
    * Name of the generated codec class.
    *
    * <p>For {@code Foo.Bar} this is {@code Foo_Bar_AutoCodec}.
@@ -148,9 +144,5 @@ class AutoCodecUtil {
 
   static TypeMirror getType(Class<?> clazz, ProcessingEnvironment env) {
     return env.getElementUtils().getTypeElement(clazz.getCanonicalName()).asType();
-  }
-
-  static boolean isSubType(TypeMirror type, Class<?> clazz, ProcessingEnvironment env) {
-    return env.getTypeUtils().isSubtype(type, getType(clazz, env));
   }
 }

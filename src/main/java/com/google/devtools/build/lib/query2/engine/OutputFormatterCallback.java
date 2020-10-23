@@ -32,12 +32,15 @@ public abstract class OutputFormatterCallback<T> implements Callback<T> {
   }
 
   /**
-   * Same as start but for closing resources or writing a footer.
+   * Flushes remaining output and cleans up resources if necessary.
    *
-   * <p>Will be called even in the case of an error.
+   * <p>This method is called whether or not there was an error.
+   *
+   * @param failFast Indicates whether or not this method is being called after an error. When true
+   *     implementations should prefer cleaning up resources and avoiding throwing unnecessary
+   *     exceptions over completing the output.
    */
-  public void close(boolean failFast) throws InterruptedException, IOException {
-  }
+  public void close(boolean failFast) throws InterruptedException, IOException {}
 
   /**
    * Note that {@link Callback} interface does not throw IOExceptions. What this implementation does
@@ -67,11 +70,11 @@ public abstract class OutputFormatterCallback<T> implements Callback<T> {
    * Use an {@code OutputFormatterCallback} with an already computed set of targets. Note that this
    * does not work in stream mode, as the {@code targets} would already be computed.
    *
-   * <p>The intended usage of this method is to use {@code StreamedFormatter} formaters in non
+   * <p>The intended usage of this method is to use {@code StreamedFormatter} formatters in non
    * streaming contexts.
    */
-  public static <T> void processAllTargets(OutputFormatterCallback<T> callback,
-      Iterable<T> targets) throws IOException, InterruptedException {
+  public static <T> void processAllTargets(OutputFormatterCallback<T> callback, Iterable<T> targets)
+      throws IOException, InterruptedException {
     boolean failFast = true;
     try {
       callback.start();

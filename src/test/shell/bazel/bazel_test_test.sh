@@ -122,6 +122,7 @@ function test_env_vars() {
   cat > WORKSPACE <<EOF
 workspace(name = "bar")
 EOF
+  add_rules_cc_to_workspace WORKSPACE
   mkdir -p foo
   cat > foo/testenv.sh <<'EOF'
 #!/bin/sh
@@ -141,6 +142,50 @@ EOF
   expect_log "pwd: .*/foo.runfiles/bar$"
   expect_log "src: .*/foo.runfiles$"
   expect_log "ws: bar$"
+}
+
+function test_run_under_external_label_with_options() {
+  mkdir -p testing run || fail "mkdir testing run failed"
+  cat <<EOF > run/BUILD
+sh_binary(
+  name='under', srcs=['under.sh'],
+  visibility=["//visibility:public"],
+)
+EOF
+
+touch run/WORKSPACE
+
+  cat <<EOF > run/under.sh
+#!/bin/sh
+echo running under @run//:under "\$*"
+EOF
+  chmod u+x run/under.sh
+
+  cat <<EOF > testing/passing_test.sh
+#!/bin/sh
+exit 0
+EOF
+  chmod u+x testing/passing_test.sh
+
+  cat <<EOF > testing/BUILD
+sh_test(
+  name = "passing_test" ,
+  srcs = [ "passing_test.sh" ])
+EOF
+
+  cat <<EOF > WORKSPACE
+local_repository(
+    name = "run",
+    path = "./run",
+)
+EOF
+
+  bazel test //testing:passing_test --run_under='@run//:under -c' \
+    --test_output=all >& $TEST_log || fail "Expected success"
+
+  expect_log 'running under @run//:under -c testing/passing_test'
+  expect_log 'passing_test *PASSED'
+  expect_log '1 test passes.$'
 }
 
 function test_run_under_label_with_options() {
@@ -178,8 +223,7 @@ EOF
 }
 
 # This test uses "--nomaster_bazelrc" since outside .bazelrc files can pollute
-# this environment and cause --experimental_ui to be turned on, which causes
-# this test to fail. Just "--bazelrc=/dev/null" is not sufficient to fix.
+# this environment. Just "--bazelrc=/dev/null" is not sufficient to fix.
 function test_run_under_path() {
   mkdir -p testing || fail "mkdir testing failed"
   echo "sh_test(name='t1', srcs=['t1.sh'])" > testing/BUILD
@@ -525,9 +569,7 @@ EOF
 
 function test_detailed_test_summary() {
   copy_examples
-  cat > WORKSPACE <<EOF
-workspace(name = "io_bazel")
-EOF
+  create_workspace_with_default_repos WORKSPACE
   setup_javatest_support
 
   local java_native_tests=//examples/java-native/src/test/java/com/example/myproject
@@ -539,8 +581,7 @@ EOF
 }
 
 # This test uses "--nomaster_bazelrc" since outside .bazelrc files can pollute
-# this environment and cause --experimental_ui to be turned on, which causes
-# this test to fail. Just "--bazelrc=/dev/null" is not sufficient to fix.
+# this environment. Just "--bazelrc=/dev/null" is not sufficient to fix.
 function test_flaky_test() {
   cat >BUILD <<EOF
 sh_test(name = "flaky", flaky = True, srcs = ["flaky.sh"])
@@ -571,38 +612,36 @@ EOF
   chmod +x true.sh flaky.sh false.sh
 
   # We do not use sandboxing so we can trick to be deterministically flaky
-  # TODO(b/37617303): make test UI-independent
-  bazel --nomaster_bazelrc test --noexperimental_ui --spawn_strategy=standalone //:flaky &> $TEST_log \
+  bazel --nomaster_bazelrc test --experimental_ui_debug_all_events \
+      --spawn_strategy=standalone //:flaky &> $TEST_log \
       || fail "//:flaky should have passed with flaky support"
   [ -f "${FLAKE_FILE}" ] || fail "Flaky test should have created the flake-file!"
 
-  expect_log_once "FAIL: //:flaky (.*/flaky/test_attempts/attempt_1.log)"
-  expect_log_once "PASS: //:flaky"
-  expect_log_once "FLAKY"
+  expect_log_once "FAIL.*: //:flaky (.*/flaky/test_attempts/attempt_1.log)"
+  expect_log_once "PASS.*: //:flaky"
+  expect_log_once "FLAKY: //:flaky"
   cat bazel-testlogs/flaky/test_attempts/attempt_1.log &> $TEST_log
   assert_equals "fail" "$(awk "NR == $(wc -l < $TEST_log)" $TEST_log)"
   assert_equals 1 $(ls bazel-testlogs/flaky/test_attempts/*.log | wc -l)
   cat bazel-testlogs/flaky/test.log &> $TEST_log
   assert_equals "pass" "$(awk "NR == $(wc -l < $TEST_log)" $TEST_log)"
 
-  # TODO(b/37617303): make test UI-independent
-  bazel --nomaster_bazelrc test --noexperimental_ui //:pass &> $TEST_log \
-      || fail "//:pass should have passed"
-  expect_log_once "PASS: //:pass"
-  expect_log_once PASSED
+  bazel --nomaster_bazelrc test --experimental_ui_debug_all_events //:pass \
+      &> $TEST_log || fail "//:pass should have passed"
+  expect_log_once "PASS.*: //:pass"
+  expect_log_once "PASSED"
   [ ! -d bazel-test_logs/pass/test_attempts ] \
     || fail "Got test attempts while expected non for non-flaky tests"
   cat bazel-testlogs/flaky/test.log &> $TEST_log
   assert_equals "pass" "$(tail -1 bazel-testlogs/flaky/test.log)"
 
-  # TODO(b/37617303): make test UI-independent
-  bazel --nomaster_bazelrc test --noexperimental_ui //:fail &> $TEST_log \
-      && fail "//:fail should have failed" \
+  bazel --nomaster_bazelrc test --experimental_ui_debug_all_events //:fail \
+      &> $TEST_log && fail "//:fail should have failed" \
       || true
-  expect_log_n "FAIL: //:fail (.*/fail/test_attempts/attempt_..log)" 2
-  expect_log_once "FAIL: //:fail (.*/fail/test.log)"
-  expect_log_once "FAILED"
-  expect_log_once ".*/fail/test.log$"
+  expect_log_n "FAIL.*: //:fail (.*/fail/test_attempts/attempt_..log)" 2
+  expect_log_once "FAIL.*: //:fail (.*/fail/test.log)"
+  expect_log_once "FAILED: //:fail"
+  expect_log_n ".*/fail/test.log$" 2
   cat bazel-testlogs/fail/test_attempts/attempt_1.log &> $TEST_log
   assert_equals "fail" "$(awk "NR == $(wc -l < $TEST_log)" $TEST_log)"
   assert_equals 2 $(ls bazel-testlogs/fail/test_attempts/*.log | wc -l)

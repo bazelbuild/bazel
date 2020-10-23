@@ -103,7 +103,7 @@ public final class ServerDirectories {
 
   @VisibleForTesting
   public static Path getEmbeddedBinariesRoot(Path installBase) {
-    return installBase.getChild("_embedded_binaries");
+    return installBase;
   }
 
   /**

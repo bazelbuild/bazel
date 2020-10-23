@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.BuildType.Selector;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
-import com.google.devtools.build.lib.syntax.Type;
 import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -33,17 +32,12 @@ import javax.annotation.Nullable;
  */
 public class RawAttributeMapper extends AbstractAttributeMapper {
 
-  RawAttributeMapper(
-      Package pkg, RuleClass ruleClass, Label ruleLabel, AttributeContainer attributes) {
-    super(pkg, ruleClass, ruleLabel, attributes);
+  RawAttributeMapper(Rule rule) {
+    super(rule);
   }
 
   public static RawAttributeMapper of(Rule rule) {
-    return new RawAttributeMapper(
-        rule.getPackage(),
-        rule.getRuleClassObject(),
-        rule.getLabel(),
-        rule.getAttributeContainer());
+    return new RawAttributeMapper(rule);
   }
 
   /**

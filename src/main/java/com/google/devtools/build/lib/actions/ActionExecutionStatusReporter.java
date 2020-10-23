@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -104,11 +105,13 @@ public final class ActionExecutionStatusReporter {
     actionStatus.put(action, Pair.of(message, clock.nanoTime()));
   }
 
-  /**
-   * Remove action from the list of active actions.
-   */
+  /** Remove action from the list of active actions. Action must be present. */
   public void remove(Action action) {
-    Preconditions.checkNotNull(actionStatus.remove(action), action);
+    Pair<String, Long> status = actionStatus.remove(action);
+    if (status == null) {
+      BugReport.sendBugReport(
+          new IllegalStateException("Action not present: " + action.prettyPrint()));
+    }
   }
 
   @Subscribe
@@ -120,9 +123,9 @@ public final class ActionExecutionStatusReporter {
 
   @Subscribe
   @AllowConcurrentEvents
-  public void updateStatus(AnalyzingActionEvent event) {
+  public void updateStatus(ScanningActionEvent event) {
     ActionExecutionMetadata action = event.getActionMetadata();
-    setStatus(action, "Analyzing");
+    setStatus(action, "Scanning");
   }
 
   @Subscribe
@@ -137,6 +140,12 @@ public final class ActionExecutionStatusReporter {
   public void updateStatus(RunningActionEvent event) {
     ActionExecutionMetadata action = event.getActionMetadata();
     setStatus(action, String.format("Running (%s)", event.getStrategy()));
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
+  public void updateStatus(StoppedScanningActionEvent event) {
+    remove(event.getAction());
   }
 
   public int getCount() {

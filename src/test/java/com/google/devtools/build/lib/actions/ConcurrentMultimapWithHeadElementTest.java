@@ -108,13 +108,12 @@ public class ConcurrentMultimapWithHeadElementTest {
     for (int i = 0; i < 10000; i++) {
       assertThat(multimap.putAndGet("key", "val")).isEqualTo("val");
       final CountDownLatch threadStart = new CountDownLatch(1);
-      TestThread testThread = new TestThread() {
-        @Override
-        public void runTest() throws Exception {
-          threadStart.countDown();
-          multimap.remove("key", "val");
-        }
-      };
+      TestThread testThread =
+          new TestThread(
+              () -> {
+                threadStart.countDown();
+                multimap.remove("key", "val");
+              });
       testThread.start();
       assertThat(threadStart.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
       assertThat(multimap.putAndGet("key", "val2"))

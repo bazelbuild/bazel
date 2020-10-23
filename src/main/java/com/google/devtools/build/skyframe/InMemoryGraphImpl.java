@@ -38,7 +38,8 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   protected final ConcurrentMap<SkyKey, NodeEntry> nodeMap = new ConcurrentHashMap<>(1024);
   private final boolean keepEdges;
 
-  InMemoryGraphImpl() {
+  @VisibleForTesting
+  public InMemoryGraphImpl() {
     this(/*keepEdges=*/ true);
   }
 

@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.worker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.sandbox.SymlinkedSandboxedSpawn;
 import com.google.devtools.build.lib.sandbox.SynchronousTreeDeleter;
@@ -25,19 +27,19 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
-import java.util.Map;
+import java.util.LinkedHashSet;
+import java.util.Optional;
 import java.util.Set;
 
 /** Creates and manages the contents of a working directory of a persistent worker. */
 final class WorkerExecRoot extends SymlinkedSandboxedSpawn {
   private final Path workDir;
+  private final SandboxInputs inputs;
+  private final SandboxOutputs outputs;
   private final Set<PathFragment> workerFiles;
 
   public WorkerExecRoot(
-      Path workDir,
-      Map<PathFragment, Path> inputs,
-      SandboxOutputs outputs,
-      Set<PathFragment> workerFiles) {
+      Path workDir, SandboxInputs inputs, SandboxOutputs outputs, Set<PathFragment> workerFiles) {
     super(
         workDir,
         workDir,
@@ -46,54 +48,128 @@ final class WorkerExecRoot extends SymlinkedSandboxedSpawn {
         inputs,
         outputs,
         ImmutableSet.of(),
-        new SynchronousTreeDeleter());
+        new SynchronousTreeDeleter(),
+        /*statisticsPath=*/ null);
     this.workDir = workDir;
+    this.inputs = inputs;
+    this.outputs = outputs;
     this.workerFiles = workerFiles;
   }
 
   @Override
   public void createFileSystem() throws IOException {
     workDir.createDirectoryAndParents();
-    deleteExceptAllowedFiles(workDir, workerFiles);
-    super.createFileSystem();
+
+    // First compute all the inputs and directories that we need. This is based only on
+    // `workerFiles`, `inputs` and `outputs` and won't do any I/O.
+    Set<PathFragment> inputsToCreate = new LinkedHashSet<>();
+    LinkedHashSet<PathFragment> dirsToCreate = new LinkedHashSet<>();
+    populateInputsAndDirsToCreate(inputsToCreate, dirsToCreate);
+
+    // Then do a full traversal of the `workDir`. This will use what we computed above, delete
+    // anything unnecessary and update `inputsToCreate`/`dirsToCreate` if something is can be left
+    // without changes (e.g., a symlink that already points to the right destination).
+    cleanExisting(workDir, inputsToCreate, dirsToCreate);
+
+    // Finally, create anything that is still missing.
+    createDirectories(dirsToCreate);
+    createInputs(inputsToCreate);
+
+    inputs.materializeVirtualInputs(workDir);
   }
 
-  private void deleteExceptAllowedFiles(Path root, Set<PathFragment> allowedFiles)
+  /** Populates the provided sets with the inputs and directories than need to be created. */
+  private void populateInputsAndDirsToCreate(
+      Set<PathFragment> inputsToCreate, LinkedHashSet<PathFragment> dirsToCreate) {
+    // Add all worker files and the ancestor directories.
+    for (PathFragment path : workerFiles) {
+      inputsToCreate.add(path);
+      for (int i = 0; i < path.segmentCount(); i++) {
+        dirsToCreate.add(path.subFragment(0, i));
+      }
+    }
+
+    // Add all inputs files and the ancestor directories.
+    Iterable<PathFragment> allInputs =
+        Iterables.concat(inputs.getFiles().keySet(), inputs.getSymlinks().keySet());
+    for (PathFragment path : allInputs) {
+      inputsToCreate.add(path);
+      for (int i = 0; i < path.segmentCount(); i++) {
+        dirsToCreate.add(path.subFragment(0, i));
+      }
+    }
+
+    // And all ancestor directories of outputs. Note that we don't add the files themselves -- any
+    // pre-existing files that have the same path as an output should get deleted.
+    for (PathFragment path : Iterables.concat(outputs.files(), outputs.dirs())) {
+      for (int i = 0; i < path.segmentCount(); i++) {
+        dirsToCreate.add(path.subFragment(0, i));
+      }
+    }
+
+    // Add all ouput directories, must be created after their parents above
+    dirsToCreate.addAll(outputs.dirs());
+  }
+
+  /**
+   * Deletes unnecessary files/directories and updates the sets if something on disk is already
+   * correct and doesn't need any changes.
+   */
+  private void cleanExisting(
+      Path root, Set<PathFragment> inputsToCreate, Set<PathFragment> dirsToCreate)
       throws IOException {
-    for (Path p : root.getDirectoryEntries()) {
-      FileStatus stat = p.stat(Symlinks.NOFOLLOW);
-      if (!stat.isDirectory()) {
-        if (!allowedFiles.contains(p.relativeTo(workDir))) {
-          p.delete();
+    for (Path path : root.getDirectoryEntries()) {
+      FileStatus stat = path.stat(Symlinks.NOFOLLOW);
+      PathFragment pathRelativeToWorkDir = path.relativeTo(workDir);
+      Optional<PathFragment> destination = getExpectedSymlinkDestination(pathRelativeToWorkDir);
+      if (destination.isPresent()) {
+        if (stat.isSymbolicLink() && path.readSymbolicLink().equals(destination.get())) {
+          inputsToCreate.remove(pathRelativeToWorkDir);
+        } else {
+          path.delete();
         }
-      } else {
-        deleteExceptAllowedFiles(p, allowedFiles);
-        if (p.readdir(Symlinks.NOFOLLOW).isEmpty()) {
-          p.delete();
+      } else if (stat.isDirectory()) {
+        if (dirsToCreate.contains(pathRelativeToWorkDir)) {
+          cleanExisting(path, inputsToCreate, dirsToCreate);
+          dirsToCreate.remove(pathRelativeToWorkDir);
+        } else {
+          path.deleteTree();
         }
+      } else if (!inputsToCreate.contains(pathRelativeToWorkDir)) {
+        path.delete();
       }
     }
   }
 
-  @Override
-  protected void createInputs(Map<PathFragment, Path> inputs) throws IOException {
-    // All input files are relative to the execroot.
-    for (Map.Entry<PathFragment, Path> entry : inputs.entrySet()) {
-      Path key = workDir.getRelative(entry.getKey());
-      FileStatus keyStat = key.statNullable(Symlinks.NOFOLLOW);
-      if (keyStat != null) {
-        if (keyStat.isSymbolicLink()
-            && entry.getValue() != null
-            && key.readSymbolicLink().equals(entry.getValue().asFragment())) {
-          continue;
+  private Optional<PathFragment> getExpectedSymlinkDestination(PathFragment fragment) {
+    Path file = inputs.getFiles().get(fragment);
+    if (file != null) {
+      return Optional.of(file.asFragment());
+    }
+    return Optional.ofNullable(inputs.getSymlinks().get(fragment));
+  }
+
+  private void createDirectories(Iterable<PathFragment> dirsToCreate) throws IOException {
+    for (PathFragment fragment : dirsToCreate) {
+      workDir.getRelative(fragment).createDirectory();
+    }
+  }
+
+  private void createInputs(Iterable<PathFragment> inputsToCreate) throws IOException {
+    for (PathFragment fragment : inputsToCreate) {
+      Path key = workDir.getRelative(fragment);
+      if (inputs.getFiles().containsKey(fragment)) {
+        Path fileDest = inputs.getFiles().get(fragment);
+        if (fileDest != null) {
+          key.createSymbolicLink(fileDest);
+        } else {
+          FileSystemUtils.createEmptyFile(key);
         }
-        key.delete();
-      }
-      // A null value means that we're supposed to create an empty file as the input.
-      if (entry.getValue() != null) {
-        key.createSymbolicLink(entry.getValue());
-      } else {
-        FileSystemUtils.createEmptyFile(key);
+      } else if (inputs.getSymlinks().containsKey(fragment)) {
+        PathFragment symlinkDest = inputs.getSymlinks().get(fragment);
+        if (symlinkDest != null) {
+          key.createSymbolicLink(symlinkDest);
+        }
       }
     }
   }

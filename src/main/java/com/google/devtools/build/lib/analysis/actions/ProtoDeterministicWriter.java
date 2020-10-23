@@ -13,27 +13,41 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
-import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction.DeterministicWriter;
 import com.google.protobuf.AbstractMessageLite;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
 
-/** A {@link DeterministicWriter} wrapping an {@link AbstractMessageLite} object. */
+/** A {@link DeterministicWriter} wrapping an {@link AbstractMessageLite} supplier. */
 public class ProtoDeterministicWriter implements DeterministicWriter {
-  private final AbstractMessageLite message;
+  private final MessageSupplier messageSupplier;
 
-  public ProtoDeterministicWriter(AbstractMessageLite message) {
-    this.message = message;
+  /** Constructs a {@link ProtoDeterministicWriter} with an eagerly constructed message. */
+  public ProtoDeterministicWriter(AbstractMessageLite<?, ?> message) {
+    this.messageSupplier = () -> message;
+  }
+
+  /**
+   * Constructs a {@link ProtoDeterministicWriter} with the given supplier. The supplier may be
+   * called multiple times.
+   */
+  public ProtoDeterministicWriter(MessageSupplier supplier) {
+    this.messageSupplier = supplier;
   }
 
   @Override
   public void writeOutputFile(OutputStream out) throws IOException {
-    message.writeTo(out);
+    messageSupplier.getMessage().writeTo(out);
   }
 
   @Override
   public ByteString getBytes() throws IOException {
-    return message.toByteString();
+    return messageSupplier.getMessage().toByteString();
+  }
+
+  /** Supplies an {@link AbstractMessageLite}, possibly throwing {@link IOException}. */
+  @FunctionalInterface
+  public interface MessageSupplier {
+    AbstractMessageLite<?, ?> getMessage() throws IOException;
   }
 }

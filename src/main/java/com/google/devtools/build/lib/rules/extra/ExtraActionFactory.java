@@ -27,10 +27,9 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.ShToolchain;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.extra.ExtraActionSpec;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 
@@ -49,7 +48,7 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
     CommandHelper commandHelper =
         CommandHelper.builder(context).addHostToolDependencies("tools").build();
 
-    resolvedData.addAll(context.getPrerequisiteArtifacts("data", Mode.DONT_CHECK).list());
+    resolvedData.addAll(context.getPrerequisiteArtifacts("data").list());
     List<String>outputTemplates =
         context.attributes().get("out_templates", Type.STRING_LIST);
 

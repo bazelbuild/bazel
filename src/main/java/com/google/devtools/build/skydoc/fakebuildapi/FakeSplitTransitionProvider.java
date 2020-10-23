@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
-import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
+import net.starlark.java.eval.Printer;
 
 /** Fake implementation of {@link SplitTransitionProviderApi}. */
 public class FakeSplitTransitionProvider implements SplitTransitionProviderApi {
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 }

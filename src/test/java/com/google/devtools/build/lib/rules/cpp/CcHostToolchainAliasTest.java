@@ -37,7 +37,7 @@ public class CcHostToolchainAliasTest extends BuildViewTestCase {
     CcToolchainProvider toolchainProvider =
         (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
 
-    assertThat(toolchainProvider.isHostConfiguration()).isTrue();
+    assertThat(toolchainProvider.isToolConfiguration()).isTrue();
   }
 
   @Test

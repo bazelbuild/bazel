@@ -17,6 +17,7 @@ package com.google.testing.junit.runner;
 import com.google.testing.junit.runner.internal.SignalHandlers;
 import com.google.testing.junit.runner.internal.SignalHandlersFactory;
 import com.google.testing.junit.runner.junit4.CancellableRequestFactoryFactory;
+import com.google.testing.junit.runner.junit4.ClockFactory;
 import com.google.testing.junit.runner.junit4.CurrentRunningTestFactory;
 import com.google.testing.junit.runner.junit4.JUnit4ConfigFactory;
 import com.google.testing.junit.runner.junit4.JUnit4InstanceModules;
@@ -37,7 +38,6 @@ import com.google.testing.junit.runner.junit4.SignalHandlerInstallerFactory;
 import com.google.testing.junit.runner.junit4.StackTraceListenerFactory;
 import com.google.testing.junit.runner.junit4.TestSuiteModelSupplierFactory;
 import com.google.testing.junit.runner.junit4.TextListenerFactory;
-import com.google.testing.junit.runner.junit4.TickerFactory;
 import com.google.testing.junit.runner.junit4.TopLevelSuiteFactory;
 import com.google.testing.junit.runner.junit4.TopLevelSuiteNameFactory;
 import com.google.testing.junit.runner.junit4.XmlListenerFactory;
@@ -50,17 +50,17 @@ import com.google.testing.junit.runner.sharding.ShardingFilters;
 import com.google.testing.junit.runner.sharding.ShardingFiltersFactory;
 import com.google.testing.junit.runner.util.MemoizingSupplier;
 import com.google.testing.junit.runner.util.SetFactory;
-import com.google.testing.junit.runner.util.Supplier;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.Set;
+import java.util.function.Supplier;
 import org.junit.internal.TextListener;
 import org.junit.runner.Request;
 import org.junit.runner.notification.RunListener;
 
 /**
- * Utility class to create a JUnit4Runner instance from a {@link Builder}. All required 
- * dependencies are being injected automatically.
+ * Utility class to create a JUnit4Runner instance from a {@link Builder}. All required dependencies
+ * are being injected automatically.
  */
 public final class JUnit4Bazel {
   private Supplier<Class<?>> topLevelSuiteSupplier;
@@ -153,7 +153,7 @@ public final class JUnit4Bazel {
 
     this.builderSupplier =
         TestSuiteModelBuilderFactory.create(
-            TickerFactory.create(),
+            ClockFactory.create(),
             shardingFiltersSupplier,
             ShardingEnvironmentFactory.create(),
             resultWriterSupplier);

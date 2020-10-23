@@ -79,7 +79,10 @@ public interface EvaluationProgressReceiver {
    *
    * <p>{@code state} indicates the new state of the value.
    *
-   * <p>May be called concurrently from multiple threads, possibly with the same {@code key}.
+   * <p>May be called concurrently from multiple threads.
+   *
+   * <p>If {@code state} is {@link InvalidationState#DIRTY}, should only be called after a
+   * successful {@link ThinNodeEntry#markDirty} call: a call that returns a non-null value.
    */
   void invalidated(SkyKey skyKey, InvalidationState state);
 

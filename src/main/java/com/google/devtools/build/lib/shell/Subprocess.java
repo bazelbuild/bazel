@@ -31,14 +31,19 @@ public interface Subprocess extends Closeable {
   /**
    * Returns the exit value of the process.
    *
-   * <p>Throws {@code IOException} if the process has not terminated yet.
+   * <p>Throws {@code IllegalThreadStateException} if the process has not terminated yet.
    */
   int exitValue();
 
   /**
    * Returns the if the process has finished.
+   *
+   * <p>This may cause the process to be destroyed as a side effect, for example due to a timeout.
    */
   boolean finished();
+
+  /** Returns true if the process is still alive. Does not block or cause any side effects. */
+  boolean isAlive();
 
   /**
    * Returns if the process timed out.
@@ -71,4 +76,33 @@ public interface Subprocess extends Closeable {
    */
   @Override
   void close();
+
+  /** Waits for the process to finish in a non-interruptible manner. */
+  default void waitForUninterruptibly() {
+    boolean wasInterrupted = false;
+    try {
+      while (true) {
+        try {
+          waitFor();
+          return;
+        } catch (InterruptedException ie) {
+          wasInterrupted = true;
+        }
+      }
+    } finally {
+      // Read this for detailed explanation: http://www.ibm.com/developerworks/library/j-jtp05236/
+      if (wasInterrupted) {
+        Thread.currentThread().interrupt(); // preserve interrupted status
+      }
+    }
+  }
+
+  /**
+   * Kills the subprocess and awaits for its termination so that we know it has released any
+   * resources it may have held.
+   */
+  default void destroyAndWait() {
+    destroy();
+    waitForUninterruptibly();
+  }
 }

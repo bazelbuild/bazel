@@ -22,10 +22,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
+import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.OutputFilter.RegexOutputFilter;
 import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.vfs.Path;
@@ -41,19 +40,6 @@ import java.util.regex.Pattern;
  * Base class for BuildView test cases.
  */
 public abstract class BuildViewTestBase extends AnalysisTestCase {
-
-  protected static int getFrequencyOfErrorsWithLocation(
-      PathFragment path, EventCollector eventCollector) {
-    int frequency = 0;
-    for (Event event : eventCollector) {
-      if (event.getLocation() != null) {
-        if (path.equals(event.getLocation().getPath())) {
-          frequency++;
-        }
-      }
-    }
-    return frequency;
-  }
 
   protected final void setupDummyRule() throws Exception {
     scratch.file("pkg/BUILD",
@@ -93,17 +79,15 @@ public abstract class BuildViewTestBase extends AnalysisTestCase {
     scratch.file("okaypkg/BUILD",
         "sh_library(name = 'transitively-a-cycle',",
         "           srcs = ['//symlinkcycle:cycle'])");
-    Path badpkgBuildFile = scratch.file("badpkg/BUILD",
-        "exports_files(['okay-target'])",
-        "invalidbuildsyntax");
+    Path badpkgBuildFile = scratch.file("badpkg/BUILD", "exports_files(['okay-target'])", "fail()");
     if (incremental) {
       update(defaultFlags().with(Flag.KEEP_GOING), "//okaypkg:transitively-a-cycle");
       assertContainsEvent("circular symlinks detected");
       eventCollector.clear();
     }
     update(defaultFlags().with(Flag.KEEP_GOING), "//parent:foo");
-    assertThat(getFrequencyOfErrorsWithLocation(badpkgBuildFile.asFragment(), eventCollector))
-        .isEqualTo(1);
+    // Each event string may contain stack traces and error messages with multiple file names.
+    assertContainsEventWithFrequency(badpkgBuildFile.asFragment().getPathString(), 1);
     // TODO(nharmata): This test currently only works because each BuildViewTest#update call
     // dirties all FileNodes that are in error. There is actually a skyframe bug with cycle
     // reporting on incremental builds (see b/14622820).
@@ -152,7 +136,13 @@ public abstract class BuildViewTestBase extends AnalysisTestCase {
       events.add(event);
     }
 
+    @Subscribe
+    public void analysisFailureCause(AnalysisRootCauseEvent event) {
+      causes.add(event);
+    }
+
     public final List<AnalysisFailureEvent> events = new ArrayList<>();
+    public final List<AnalysisRootCauseEvent> causes = new ArrayList<>();
   }
 
   /**

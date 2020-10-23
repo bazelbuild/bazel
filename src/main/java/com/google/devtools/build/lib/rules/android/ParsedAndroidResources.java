@@ -16,11 +16,10 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
 import java.util.Objects;
 import java.util.Optional;
@@ -28,7 +27,7 @@ import javax.annotation.Nullable;
 
 /** Wraps parsed (and, if requested, compiled) android resources. */
 public class ParsedAndroidResources extends AndroidResources {
-  private final Artifact symbols;
+  @Nullable private final Artifact symbols;
   @Nullable private final Artifact compiledSymbols;
   private final Label label;
   private final StampedAndroidManifest manifest;
@@ -38,39 +37,20 @@ public class ParsedAndroidResources extends AndroidResources {
       AndroidDataContext dataContext,
       AndroidResources resources,
       StampedAndroidManifest manifest,
-      AndroidAaptVersion aaptVersion,
       DataBindingContext dataBindingContext)
       throws InterruptedException {
-
-    boolean isAapt2 = aaptVersion == AndroidAaptVersion.AAPT2;
-
     AndroidResourceParsingActionBuilder builder = new AndroidResourceParsingActionBuilder();
 
-    if (isAapt2) {
-      // TODO(corysmith): Centralize the data binding processing and zipping into a single
-      // action. Data binding processing needs to be triggered here as well as the merger to
-      // avoid aapt2 from throwing an error during compilation.
-      dataBindingContext.supplyLayoutInfo(
-          layoutInfo ->
-              builder.setDataBindingInfoZip(
-                  getDummyDataBindingArtifact(dataContext.getActionConstructionContext())));
-    }
-
+    // TODO(b/120093531): This is only used in Databinding v1.
+    dataBindingContext.supplyLayoutInfo(builder::setDataBindingInfoZip);
     // In databinding v2, this strips out the databinding and generates the layout info file.
     AndroidResources databindingProcessedResources =
         dataBindingContext.processResources(dataContext, resources, manifest.getPackage());
 
     return builder
-        .setOutput(dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_MERGED_SYMBOLS))
         .setCompiledSymbolsOutput(
-            isAapt2
-                ? dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS)
-                : null)
-        .build(
-            dataContext,
-            databindingProcessedResources,
-            manifest,
-            dataBindingContext);
+            dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS))
+        .build(dataContext, databindingProcessedResources, manifest, dataBindingContext);
   }
 
   @VisibleForTesting
@@ -80,7 +60,7 @@ public class ParsedAndroidResources extends AndroidResources {
 
   public static ParsedAndroidResources of(
       AndroidResources resources,
-      Artifact symbols,
+      @Nullable Artifact symbols,
       @Nullable Artifact compiledSymbols,
       Label label,
       StampedAndroidManifest manifest,
@@ -114,6 +94,7 @@ public class ParsedAndroidResources extends AndroidResources {
     this.dataBindingContext = dataBindingContext;
   }
 
+  @Nullable
   public Artifact getSymbols() {
     return symbols;
   }
@@ -148,12 +129,9 @@ public class ParsedAndroidResources extends AndroidResources {
   }
 
   /** Merges this target's resources with resources from dependencies. */
-  MergedAndroidResources merge(
-      AndroidDataContext dataContext,
-      ResourceDependencies resourceDeps,
-      AndroidAaptVersion aaptVersion)
+  MergedAndroidResources merge(AndroidDataContext dataContext, ResourceDependencies resourceDeps)
       throws InterruptedException {
-    return MergedAndroidResources.mergeFrom(dataContext, this, resourceDeps, aaptVersion);
+    return MergedAndroidResources.mergeFrom(dataContext, this, resourceDeps);
   }
 
   @Override
@@ -174,7 +152,7 @@ public class ParsedAndroidResources extends AndroidResources {
     }
 
     ParsedAndroidResources other = (ParsedAndroidResources) object;
-    return symbols.equals(other.symbols)
+    return Objects.equals(symbols, other.symbols)
         && Objects.equals(compiledSymbols, other.compiledSymbols)
         && label.equals(other.label)
         && manifest.equals(other.manifest);

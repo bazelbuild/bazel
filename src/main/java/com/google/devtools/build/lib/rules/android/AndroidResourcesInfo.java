@@ -13,16 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidResourcesInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidResourcesInfoApi;
+import net.starlark.java.eval.EvalException;
 
 /** A provider that supplies ResourceContainers from its transitive closure. */
 @Immutable
@@ -57,6 +59,7 @@ public class AndroidResourcesInfo extends NativeInfo
   private final NestedSet<Artifact> transitiveResources;
   private final NestedSet<Artifact> transitiveManifests;
   private final NestedSet<Artifact> transitiveAapt2RTxt;
+  private final NestedSet<Artifact> transitiveAapt2ValidationArtifacts;
   private final NestedSet<Artifact> transitiveSymbolsBin;
   private final NestedSet<Artifact> transitiveCompiledSymbols;
   private final NestedSet<Artifact> transitiveStaticLib;
@@ -71,6 +74,7 @@ public class AndroidResourcesInfo extends NativeInfo
       NestedSet<Artifact> transitiveResources,
       NestedSet<Artifact> transitiveManifests,
       NestedSet<Artifact> transitiveAapt2RTxt,
+      NestedSet<Artifact> transitiveAapt2ValidationArtifacts,
       NestedSet<Artifact> transitiveSymbolsBin,
       NestedSet<Artifact> transitiveCompiledSymbols,
       NestedSet<Artifact> transitiveStaticLib,
@@ -84,6 +88,7 @@ public class AndroidResourcesInfo extends NativeInfo
     this.transitiveResources = transitiveResources;
     this.transitiveManifests = transitiveManifests;
     this.transitiveAapt2RTxt = transitiveAapt2RTxt;
+    this.transitiveAapt2ValidationArtifacts = transitiveAapt2ValidationArtifacts;
     this.transitiveSymbolsBin = transitiveSymbolsBin;
     this.transitiveCompiledSymbols = transitiveCompiledSymbols;
     this.transitiveStaticLib = transitiveStaticLib;
@@ -106,47 +111,92 @@ public class AndroidResourcesInfo extends NativeInfo
   }
 
   @Override
+  public Depset /*<ValidatedAndroidResources>*/ getTransitiveAndroidResourcesForStarlark() {
+    return Depset.of(ValidatedAndroidResources.TYPE, transitiveAndroidResources);
+  }
+
   public NestedSet<ValidatedAndroidResources> getTransitiveAndroidResources() {
     return transitiveAndroidResources;
   }
 
   @Override
+  public Depset /*<ValidatedAndroidResources>*/ getDirectAndroidResourcesForStarlark() {
+    return Depset.of(ValidatedAndroidResources.TYPE, directAndroidResources);
+  }
+
   public NestedSet<ValidatedAndroidResources> getDirectAndroidResources() {
     return directAndroidResources;
   }
 
   @Override
+  public Depset /*<Artifact>*/ getTransitiveResourcesForStarlark() {
+    return Depset.of(Artifact.TYPE, transitiveResources);
+  }
+
   public NestedSet<Artifact> getTransitiveResources() {
     return transitiveResources;
   }
 
   @Override
+  public Depset /*<Artifact>*/ getTransitiveManifestsForStarlark() {
+    return Depset.of(Artifact.TYPE, transitiveManifests);
+  }
+
   public NestedSet<Artifact> getTransitiveManifests() {
     return transitiveManifests;
   }
 
   @Override
+  public Depset /*<Artifact>*/ getTransitiveAapt2RTxtForStarlark() {
+    return Depset.of(Artifact.TYPE, transitiveAapt2RTxt);
+  }
+
   public NestedSet<Artifact> getTransitiveAapt2RTxt() {
     return transitiveAapt2RTxt;
   }
 
   @Override
+  public Depset /*<Artifact>*/ getTransitiveAapt2ValidationArtifactsForStarlark() {
+    return Depset.of(Artifact.TYPE, transitiveAapt2ValidationArtifacts);
+  }
+
+  NestedSet<Artifact> getTransitiveAapt2ValidationArtifacts() {
+    return transitiveAapt2ValidationArtifacts;
+  }
+
+  @Override
+  public Depset /*<Artifact>*/ getTransitiveSymbolsBinForStarlark() {
+    return Depset.of(Artifact.TYPE, transitiveSymbolsBin);
+  }
+
   public NestedSet<Artifact> getTransitiveSymbolsBin() {
     return transitiveSymbolsBin;
   }
 
   @Override
-  public NestedSet<Artifact> getTransitiveCompiledSymbols() {
+  public Depset /*<Artifact>*/ getTransitiveCompiledSymbolsForStarlark() {
+    return Depset.of(Artifact.TYPE, transitiveCompiledSymbols);
+  }
+
+  NestedSet<Artifact> getTransitiveCompiledSymbols() {
     return transitiveCompiledSymbols;
   }
 
   @Override
-  public NestedSet<Artifact> getTransitiveStaticLib() {
+  public Depset /*<Artifact>*/ getTransitiveStaticLibForStarlark() {
+    return Depset.of(Artifact.TYPE, transitiveStaticLib);
+  }
+
+  NestedSet<Artifact> getTransitiveStaticLib() {
     return transitiveStaticLib;
   }
 
   @Override
-  public NestedSet<Artifact> getTransitiveRTxt() {
+  public Depset /*<Artifact>*/ getTransitiveRTxtForStarlark() {
+    return Depset.of(Artifact.TYPE, transitiveRTxt);
+  }
+
+  NestedSet<Artifact> getTransitiveRTxt() {
     return transitiveRTxt;
   }
 
@@ -164,33 +214,53 @@ public class AndroidResourcesInfo extends NativeInfo
         Label label,
         AndroidManifestInfo manifest,
         Artifact rTxt,
-        SkylarkNestedSet transitiveAndroidResources,
-        SkylarkNestedSet directAndroidResources,
-        SkylarkNestedSet transitiveResources,
-        SkylarkNestedSet transitiveManifests,
-        SkylarkNestedSet transitiveAapt2RTxt,
-        SkylarkNestedSet transitiveSymbolsBin,
-        SkylarkNestedSet transitiveCompiledSymbols,
-        SkylarkNestedSet transitiveStaticLib,
-        SkylarkNestedSet transitiveRTxt)
+        Depset transitiveAndroidResources,
+        Depset directAndroidResources,
+        Depset transitiveResources,
+        Depset transitiveManifests,
+        Depset transitiveAapt2RTxt,
+        Depset transitiveSymbolsBin,
+        Depset transitiveCompiledSymbols,
+        Object transitiveStaticLib,
+        Object transitiveRTxt,
+        Object transitiveAapt2ValidationArtifacts)
         throws EvalException {
       return new AndroidResourcesInfo(
           label,
           manifest,
           rTxt,
-          nestedSet(transitiveAndroidResources, ValidatedAndroidResources.class),
-          nestedSet(directAndroidResources, ValidatedAndroidResources.class),
-          nestedSet(transitiveResources, Artifact.class),
-          nestedSet(transitiveManifests, Artifact.class),
-          nestedSet(transitiveAapt2RTxt, Artifact.class),
-          nestedSet(transitiveSymbolsBin, Artifact.class),
-          nestedSet(transitiveCompiledSymbols, Artifact.class),
-          nestedSet(transitiveStaticLib, Artifact.class),
-          nestedSet(transitiveRTxt, Artifact.class));
+          nestedSet(
+              transitiveAndroidResources,
+              ValidatedAndroidResources.class,
+              "transitive_android_resources"),
+          nestedSet(
+              directAndroidResources, ValidatedAndroidResources.class, "direct_android_resources"),
+          nestedSet(transitiveResources, Artifact.class, "transitive_resources"),
+          nestedSet(transitiveManifests, Artifact.class, "transitive_manifests"),
+          nestedSet(transitiveAapt2RTxt, Artifact.class, "transitive_aapt2_r_txt"),
+          nestedSet(transitiveAapt2ValidationArtifacts, Artifact.class, "validation_artifacts"),
+          nestedSet(transitiveSymbolsBin, Artifact.class, "transitive_symbols_bin"),
+          nestedSet(transitiveCompiledSymbols, Artifact.class, "transitive_compiled_symbols"),
+          nestedSet(transitiveStaticLib, Artifact.class, "transitive_static_lib"),
+          nestedSet(transitiveRTxt, Artifact.class, "transitive_r_txt"));
     }
 
-    private <T> NestedSet<T> nestedSet(SkylarkNestedSet from, Class<T> with) {
-      return NestedSetBuilder.<T>stableOrder().addTransitive(from.getSet(with)).build();
+    private static <T> NestedSet<T> nestedSet(Depset from, Class<T> with, String fieldName)
+        throws EvalException {
+      return NestedSetBuilder.<T>stableOrder()
+          .addTransitive(Depset.cast(from, with, fieldName))
+          .build();
+    }
+
+    private static <T> NestedSet<T> nestedSet(Object from, Class<T> with, String fieldName)
+        throws EvalException {
+      Preconditions.checkArgument(
+          from instanceof Depset || from == net.starlark.java.eval.Starlark.UNBOUND);
+
+      if (from instanceof Depset) {
+        return nestedSet((Depset) from, with, fieldName);
+      }
+      return NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     }
   }
 }

@@ -80,11 +80,10 @@ public interface ArtifactResolver {
   Map<PathFragment, Artifact> resolveSourceArtifacts(
       Iterable<PathFragment> execPaths, PackageRootResolver resolver) throws InterruptedException;
 
-  Path getPathFromSourceExecPath(PathFragment execPath);
+  Path getPathFromSourceExecPath(Path execRoot, PathFragment execPath);
 
-  /**
-   * Supplies an {@link ArtifactFactory}. We define a custom interface because parameterized types
-   * are not allowed as dependencies to serialization.
-   */
-  interface ArtifactResolverSupplier extends Supplier<ArtifactResolver> {}
+  /** Supplies an {@link ArtifactFactory} and allows for interning of derived artifacts. */
+  interface ArtifactResolverSupplier extends Supplier<ArtifactResolver> {
+    Artifact.DerivedArtifact intern(Artifact.DerivedArtifact original);
+  }
 }

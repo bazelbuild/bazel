@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
+import com.google.devtools.build.lib.exec.ExecutionOptions.TestOutputFormat;
 import com.google.devtools.build.lib.exec.TestLogHelper;
-import com.google.devtools.build.lib.exec.TestStrategy.TestOutputFormat;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter.Mode;
@@ -44,14 +44,13 @@ public class TestSummaryPrinter {
     String getPathStringToPrint(Path path);
   }
 
-  /**
-   * Print the cached test log to the given printer.
-   */
+  /** Print the cached test log to the given printer. */
   public static void printCachedOutput(
       TestSummary summary,
       TestOutputFormat testOutput,
       AnsiTerminalPrinter printer,
-      TestLogPathFormatter testLogPathFormatter) {
+      TestLogPathFormatter testLogPathFormatter,
+      int maxTestOutputBytes) {
 
     String testName = summary.getLabel().toString();
     List<String> allLogs = new ArrayList<>();
@@ -70,7 +69,7 @@ public class TestSummaryPrinter {
     if (TestLogHelper.shouldOutputTestLog(testOutput, false)) {
       for (Path path : summary.getFailedLogs()) {
         try {
-          TestLogHelper.writeTestLog(path, testName, printer.getOutputStream());
+          TestLogHelper.writeTestLog(path, testName, printer.getOutputStream(), maxTestOutputBytes);
         } catch (IOException e) {
           printer.printLn("==================== Could not read test output for " + testName);
           LoggingUtil.logToRemote(Level.WARNING, "Error while reading test log", e);
@@ -82,7 +81,7 @@ public class TestSummaryPrinter {
     if (TestLogHelper.shouldOutputTestLog(testOutput, true)) {
       for (Path path : summary.getPassedLogs()) {
         try {
-          TestLogHelper.writeTestLog(path, testName, printer.getOutputStream());
+          TestLogHelper.writeTestLog(path, testName, printer.getOutputStream(), maxTestOutputBytes);
         } catch (Exception e) {
           printer.printLn("==================== Could not read test output for " + testName);
           LoggingUtil.logToRemote(Level.WARNING, "Error while reading test log", e);
@@ -127,7 +126,7 @@ public class TestSummaryPrinter {
       boolean withConfigurationName) {
     BlazeTestStatus status = summary.getStatus();
     // Skip output for tests that failed to build.
-    if (status == BlazeTestStatus.FAILED_TO_BUILD
+    if ((!verboseSummary && status == BlazeTestStatus.FAILED_TO_BUILD)
         || status == BlazeTestStatus.BLAZE_HALTED_BEFORE_TESTING) {
       return;
     }

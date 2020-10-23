@@ -1,5 +1,7 @@
 # Actions for Android rules.
 
+load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+
 package(default_visibility = ["//visibility:public"])
 
 filegroup(
@@ -13,6 +15,7 @@ filegroup(
         "//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/junctions:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/proto:srcs",
+        "//src/tools/android/java/com/google/devtools/build/android/r8:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/ziputils:embedded_tools",
     ],
 )
@@ -26,6 +29,7 @@ java_binary(
         "//src/tools/android/java/com/google/devtools/build/android/desugar/scan",
         "//src/tools/android/java/com/google/devtools/build/android/dexer:dexerdeps",
         "//src/tools/android/java/com/google/devtools/build/android/idlclass:idlclass_lib",
+        "//src/tools/android/java/com/google/devtools/build/android/r8:dexerdeps",
         "//src/tools/android/java/com/google/devtools/build/android/ziputils:ziputils_lib",
     ],
 )
@@ -52,12 +56,20 @@ java_binary(
 
 java_library(
     name = "android_builder_lib",
-    srcs = glob([
-        "*.java",
-        "xml/*.java",
-        "aapt2/*.java",
-    ]),
+    srcs = glob(
+        [
+            "*.java",
+            "xml/*.java",
+            "aapt2/*.java",
+        ],
+        exclude = ["DependencyInfo.java"],
+    ),
+    exports = [
+        # Separated out to avoid a dependency cycle with resources/, but it logically belongs here.
+        ":dependency_info",
+    ],
     deps = [
+        ":dependency_info",
         "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:libSingleJar",
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
         "//src/main/java/com/google/devtools/common/options",
@@ -69,12 +81,22 @@ java_library(
         "//src/tools/android/java/com/google/devtools/build/android/ziputils:ziputils_lib",
         "//third_party:android_common_25_0_0",
         "//third_party:asm",
+        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/java/android_databinding:exec",
         "//third_party/java/aosp_gradle_core",
         "//third_party/java/jcommander",
         "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "dependency_info",
+    srcs = ["DependencyInfo.java"],
+    visibility = [":__subpackages__"],
+    deps = [
+        "//third_party:auto_value",
     ],
 )
 
@@ -87,6 +109,7 @@ filegroup(
         "//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/junctions:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/proto:srcs",
+        "//src/tools/android/java/com/google/devtools/build/android/r8:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/resources:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/ziputils:srcs",
     ],

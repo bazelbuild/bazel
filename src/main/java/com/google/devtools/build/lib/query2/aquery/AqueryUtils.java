@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.query2.engine.OutputsFunction.OUTPUT
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 
 /** Utility class for Aquery */
 public class AqueryUtils {
@@ -33,7 +34,7 @@ public class AqueryUtils {
    */
   public static boolean matchesAqueryFilters(
       ActionAnalysisMetadata action, AqueryActionFilter actionFilters) {
-    Iterable<Artifact> inputs = action.getInputs();
+    NestedSet<Artifact> inputs = action.getInputs();
     Iterable<Artifact> outputs = action.getOutputs();
     String mnemonic = action.getMnemonic();
 
@@ -45,12 +46,11 @@ public class AqueryUtils {
 
     if (actionFilters.hasFilterForFunction(INPUTS)) {
       Boolean containsFile =
-          Streams.stream(inputs)
-              .map(
+          inputs.toList().stream()
+              .anyMatch(
                   artifact ->
                       actionFilters.matchesAllPatternsForFunction(
-                          INPUTS, artifact.getExecPathString()))
-              .reduce(false, Boolean::logicalOr);
+                          INPUTS, artifact.getExecPathString()));
 
       if (!containsFile) {
         return false;
@@ -60,11 +60,10 @@ public class AqueryUtils {
     if (actionFilters.hasFilterForFunction(OUTPUTS)) {
       Boolean containsFile =
           Streams.stream(outputs)
-              .map(
+              .anyMatch(
                   artifact ->
                       actionFilters.matchesAllPatternsForFunction(
-                          OUTPUTS, artifact.getExecPathString()))
-              .reduce(false, Boolean::logicalOr);
+                          OUTPUTS, artifact.getExecPathString()));
 
       return containsFile;
     }

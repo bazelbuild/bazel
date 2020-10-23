@@ -13,21 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimap;
-import com.google.common.collect.Multimaps;
-import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
-import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Map;
 
 /**
  * TestCompletionFunction builds all relevant test artifacts of a {@link
@@ -53,62 +47,22 @@ public final class TestCompletionFunction implements SkyFunction {
     ConfiguredTarget ct = ctValue.getConfiguredTarget();
     if (key.exclusiveTesting()) {
       // Request test execution iteratively if testing exclusively.
-      for (Artifact testArtifact : TestProvider.getTestStatusArtifacts(ct)) {
-        ActionLookupValue.ActionLookupKey actionLookupKey =
-            ArtifactFunction.getActionLookupKey(testArtifact);
-        ActionLookupValue actionLookupValue =
-            ArtifactFunction.getActionLookupValue(actionLookupKey, env, testArtifact);
-        if (actionLookupValue == null) {
-          BugReport.sendBugReport(
-              new IllegalStateException(
-                  "Unexpected absent value for "
-                      + actionLookupKey
-                      + " from "
-                      + testArtifact
-                      + " and "
-                      + ct
-                      + " for "
-                      + skyKey));
-          return null;
-        }
-        env.getValue(getActionLookupData(testArtifact, actionLookupKey, actionLookupValue));
+      for (Artifact.DerivedArtifact testArtifact : TestProvider.getTestStatusArtifacts(ct)) {
+        env.getValue(testArtifact.getGeneratingActionKey());
         if (env.valuesMissing()) {
           return null;
         }
       }
     } else {
-      Multimap<ActionLookupValue.ActionLookupKey, Artifact> keyToArtifactMap =
-          Multimaps.index(
-              TestProvider.getTestStatusArtifacts(ct), ArtifactFunction::getActionLookupKey);
-      Map<SkyKey, SkyValue> actionLookupValues = env.getValues(keyToArtifactMap.keySet());
-      if (env.valuesMissing()) {
-        return null;
-      }
       env.getValues(
-          keyToArtifactMap
-              .entries()
-              .stream()
-              .map(
-                  entry ->
-                      getActionLookupData(
-                          entry.getValue(),
-                          entry.getKey(),
-                          (ActionLookupValue) actionLookupValues.get(entry.getKey())))
-              .distinct()
-              .collect(ImmutableSet.toImmutableSet()));
+          Iterables.transform(
+              TestProvider.getTestStatusArtifacts(ct),
+              Artifact.DerivedArtifact::getGeneratingActionKey));
       if (env.valuesMissing()) {
         return null;
       }
     }
     return TestCompletionValue.TEST_COMPLETION_MARKER;
-  }
-
-  private static ActionLookupData getActionLookupData(
-      Artifact artifact,
-      ActionLookupValue.ActionLookupKey actionLookupKey,
-      ActionLookupValue actionLookupValue) {
-    return ActionExecutionValue.key(
-        actionLookupKey, actionLookupValue.getGeneratingActionIndex(artifact));
   }
 
   @Override

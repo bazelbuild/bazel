@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.test;
 
-import com.google.devtools.build.lib.skylarkbuildapi.test.AnalysisTestResultInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.test.AnalysisTestResultInfoApi.AnalysisTestResultInfoProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.starlarkbuildapi.test.AnalysisTestResultInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.test.AnalysisTestResultInfoApi.AnalysisTestResultInfoProviderApi;
+import net.starlark.java.eval.Printer;
 
 /**
  * Fake implementation of {@link AnalysisTestResultInfoProviderApi}.
@@ -29,5 +29,5 @@ public class FakeAnalysisTestResultInfoProvider implements AnalysisTestResultInf
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 }

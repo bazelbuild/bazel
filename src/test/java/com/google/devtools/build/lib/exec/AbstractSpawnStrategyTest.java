@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.eq;
+import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -30,21 +30,31 @@ import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.Protos.EnvironmentVariable;
 import com.google.devtools.build.lib.exec.Protos.File;
+import com.google.devtools.build.lib.exec.Protos.Platform;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
 import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.io.MessageOutputStream;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.common.options.Options;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -57,16 +67,21 @@ import org.mockito.MockitoAnnotations;
 @RunWith(JUnit4.class)
 @TestSpec(size = Suite.SMALL_TESTS)
 public class AbstractSpawnStrategyTest {
+  private static final FailureDetail NON_ZERO_EXIT_DETAILS =
+      FailureDetail.newBuilder()
+          .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.NON_ZERO_EXIT))
+          .build();
+
   private static class TestedSpawnStrategy extends AbstractSpawnStrategy {
     public TestedSpawnStrategy(Path execRoot, SpawnRunner spawnRunner) {
-      super(execRoot, spawnRunner);
+      super(execRoot, spawnRunner, /*verboseFailures=*/ true);
     }
   }
 
   private static final Spawn SIMPLE_SPAWN =
       new SpawnBuilder("/bin/echo", "Hi!").withEnvironment("VARIABLE", "value").build();
 
-  private final FileSystem fs = new InMemoryFileSystem();
+  private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
   private final Path execRoot = fs.getPath("/execroot");
   private Scratch scratch;
   private ArtifactRoot rootDir;
@@ -79,6 +94,8 @@ public class AbstractSpawnStrategyTest {
     MockitoAnnotations.initMocks(this);
     scratch = new Scratch(fs);
     rootDir = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/execroot")));
+    StoredEventHandler eventHandler = new StoredEventHandler();
+    when(actionExecutionContext.getEventHandler()).thenReturn(eventHandler);
   }
 
   @Test
@@ -107,6 +124,7 @@ public class AbstractSpawnStrategyTest {
         new SpawnResult.Builder()
             .setStatus(Status.NON_ZERO_EXIT)
             .setExitCode(1)
+            .setFailureDetail(NON_ZERO_EXIT_DETAILS)
             .setRunnerName("test")
             .build();
     when(spawnRunner.execAsync(any(Spawn.class), any(SpawnExecutionContext.class)))
@@ -140,7 +158,6 @@ public class AbstractSpawnStrategyTest {
     verify(spawnRunner, never()).execAsync(any(Spawn.class), any(SpawnExecutionContext.class));
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   public void testCacheMiss() throws Exception {
     SpawnCache cache = mock(SpawnCache.class);
@@ -166,7 +183,6 @@ public class AbstractSpawnStrategyTest {
     verify(entry).store(eq(spawnResult));
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   public void testCacheMissWithNonZeroExit() throws Exception {
     SpawnCache cache = mock(SpawnCache.class);
@@ -181,6 +197,7 @@ public class AbstractSpawnStrategyTest {
         new SpawnResult.Builder()
             .setStatus(Status.NON_ZERO_EXIT)
             .setExitCode(1)
+            .setFailureDetail(NON_ZERO_EXIT_DETAILS)
             .setRunnerName("test")
             .build();
     when(spawnRunner.execAsync(any(Spawn.class), any(SpawnExecutionContext.class)))
@@ -201,21 +218,9 @@ public class AbstractSpawnStrategyTest {
 
   @Test
   public void testLogSpawn() throws Exception {
-    when(actionExecutionContext.getContext(eq(SpawnCache.class))).thenReturn(SpawnCache.NO_CACHE);
-    when(actionExecutionContext.getExecRoot()).thenReturn(execRoot);
-    when(actionExecutionContext.getContext(eq(SpawnLogContext.class)))
-        .thenReturn(new SpawnLogContext(execRoot, messageOutput));
-    when(spawnRunner.execAsync(any(Spawn.class), any(SpawnExecutionContext.class)))
-        .thenReturn(
-            FutureSpawn.immediate(
-                new SpawnResult.Builder()
-                    .setStatus(Status.NON_ZERO_EXIT)
-                    .setExitCode(23)
-                    .setRunnerName("runner")
-                    .build()));
-    when(actionExecutionContext.getMetadataProvider()).thenReturn(mock(MetadataProvider.class));
+    setUpExecutionContext(/* remoteOptions= */ null);
 
-    Artifact input = new Artifact(scratch.file("/execroot/foo", "1"), rootDir);
+    Artifact input = ActionsTestUtil.createArtifact(rootDir, scratch.file("/execroot/foo", "1"));
     scratch.file("/execroot/out1", "123");
     scratch.file("/execroot/out2", "123");
     Spawn spawn =
@@ -244,9 +249,10 @@ public class AbstractSpawnStrategyTest {
                     .setPath("foo")
                     .setDigest(
                         Digest.newBuilder()
-                            .setHash("b026324c6904b2a9cb4b88d6d61c81d1")
+                            .setHash(
+                                "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865")
                             .setSizeBytes(2)
-                            .setHashFunctionName("MD5")
+                            .setHashFunctionName("SHA-256")
                             .build())
                     .build())
             .addListedOutputs("out1")
@@ -256,9 +262,10 @@ public class AbstractSpawnStrategyTest {
                     .setPath("out1")
                     .setDigest(
                         Digest.newBuilder()
-                            .setHash("ba1f2511fc30423bdbb183fe33f3dd0f")
+                            .setHash(
+                                "181210f8f9c779c26da1d9b2075bde0127302ee0e3fca38c9a83f5b1dd8e5d3b")
                             .setSizeBytes(4)
-                            .setHashFunctionName("MD5")
+                            .setHashFunctionName("SHA-256")
                             .build())
                     .build())
             .addActualOutputs(
@@ -266,9 +273,10 @@ public class AbstractSpawnStrategyTest {
                     .setPath("out2")
                     .setDigest(
                         Digest.newBuilder()
-                            .setHash("ba1f2511fc30423bdbb183fe33f3dd0f")
+                            .setHash(
+                                "181210f8f9c779c26da1d9b2075bde0127302ee0e3fca38c9a83f5b1dd8e5d3b")
                             .setSizeBytes(4)
-                            .setHashFunctionName("MD5")
+                            .setHashFunctionName("SHA-256")
                             .build())
                     .build())
             .setStatus("NON_ZERO_EXIT")
@@ -280,5 +288,127 @@ public class AbstractSpawnStrategyTest {
             .setRunner("runner")
             .build();
     verify(messageOutput).write(expectedSpawnLog);
+  }
+
+  @Test
+  public void testLogSpawn_noPlatform_noLoggedPlatform() throws Exception {
+    setUpExecutionContext(/* remoteOptions= */ null);
+
+    Spawn spawn = new SpawnBuilder("cmd").build();
+
+    assertThrows(
+        SpawnExecException.class,
+        () -> new TestedSpawnStrategy(execRoot, spawnRunner).exec(spawn, actionExecutionContext));
+
+    SpawnExec expected = defaultSpawnExecBuilder("cmd").build();
+    verify(messageOutput).write(expected);
+  }
+
+  @Test
+  public void testLogSpawn_defaultPlatform_getsLogged() throws Exception {
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.remoteDefaultPlatformProperties =
+        String.join(
+            "\n",
+            "properties: {",
+            " name: \"b\"",
+            " value: \"2\"",
+            "}",
+            "properties: {",
+            " name: \"a\"",
+            " value: \"1\"",
+            "}");
+
+    setUpExecutionContext(remoteOptions);
+    Spawn spawn = new SpawnBuilder("cmd").build();
+    assertThrows(
+        SpawnExecException.class,
+        () -> new TestedSpawnStrategy(execRoot, spawnRunner).exec(spawn, actionExecutionContext));
+
+    Platform platform =
+        Platform.newBuilder()
+            .addProperties(Platform.Property.newBuilder().setName("a").setValue("1"))
+            .addProperties(Platform.Property.newBuilder().setName("b").setValue("2"))
+            .build();
+    SpawnExec expected = defaultSpawnExecBuilder("cmd").setPlatform(platform).build();
+    verify(messageOutput).write(expected); // output will reflect default properties
+  }
+
+  @Test
+  public void testLogSpawn_specifiedPlatform_overridesDefault() throws Exception {
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.remoteDefaultPlatformProperties =
+        String.join(
+            "\n",
+            "properties: {",
+            " name: \"b\"",
+            " value: \"2\"",
+            "}",
+            "properties: {",
+            " name: \"a\"",
+            " value: \"1\"",
+            "}");
+    setUpExecutionContext(remoteOptions);
+
+    PlatformInfo platformInfo =
+        PlatformInfo.builder()
+            .setRemoteExecutionProperties(
+                String.join(
+                    "\n",
+                    "properties: {",
+                    " name: \"new\"",
+                    " value: \"val\"",
+                    "}",
+                    "properties: {",
+                    " name: \"new2\"",
+                    " value: \"val2\"",
+                    "}"))
+            .build();
+    Spawn spawn = new SpawnBuilder("cmd").withPlatform(platformInfo).build();
+
+    assertThrows(
+        SpawnExecException.class,
+        () -> new TestedSpawnStrategy(execRoot, spawnRunner).exec(spawn, actionExecutionContext));
+
+    // If the platform is specified on the spawn, it is used even if a default if specified in the
+    // options.
+    Platform platform =
+        Platform.newBuilder()
+            .addProperties(Platform.Property.newBuilder().setName("new").setValue("val"))
+            .addProperties(Platform.Property.newBuilder().setName("new2").setValue("val2"))
+            .build();
+    SpawnExec expected = defaultSpawnExecBuilder("cmd").setPlatform(platform).build();
+
+    verify(messageOutput).write(expected); // output will reflect default properties
+  }
+
+  private void setUpExecutionContext(RemoteOptions remoteOptions) throws Exception {
+    when(actionExecutionContext.getContext(eq(SpawnCache.class))).thenReturn(SpawnCache.NO_CACHE);
+    when(actionExecutionContext.getExecRoot()).thenReturn(execRoot);
+    when(actionExecutionContext.getContext(eq(SpawnLogContext.class)))
+        .thenReturn(new SpawnLogContext(execRoot, messageOutput, remoteOptions));
+    when(spawnRunner.execAsync(any(Spawn.class), any(SpawnExecutionContext.class)))
+        .thenReturn(
+            FutureSpawn.immediate(
+                new SpawnResult.Builder()
+                    .setStatus(Status.NON_ZERO_EXIT)
+                    .setExitCode(23)
+                    .setFailureDetail(NON_ZERO_EXIT_DETAILS)
+                    .setRunnerName("runner")
+                    .build()));
+    when(actionExecutionContext.getMetadataProvider()).thenReturn(mock(MetadataProvider.class));
+  }
+
+  /** Returns a SpawnExec pre-populated with values for a default spawn */
+  private static SpawnExec.Builder defaultSpawnExecBuilder(String cmd) {
+    return SpawnExec.newBuilder()
+        .addCommandArgs(cmd)
+        .setRemotable(true)
+        .setCacheable(true)
+        .setProgressMessage("progress message")
+        .setMnemonic("Mnemonic")
+        .setRunner("runner")
+        .setStatus("NON_ZERO_EXIT")
+        .setExitCode(23);
   }
 }

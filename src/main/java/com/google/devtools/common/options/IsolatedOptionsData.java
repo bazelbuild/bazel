@@ -222,9 +222,9 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
   }
 
   /**
-   * Constructs an {@link IsolatedOptionsData} object for a parser that knows about the given
-   * {@link OptionsBase} classes. No inter-option analysis is done. Performs basic sanity checking
-   * on each option in isolation.
+   * Constructs an {@link IsolatedOptionsData} object for a parser that knows about the given {@link
+   * OptionsBase} classes. No inter-option analysis is done. Performs basic validity checks on each
+   * option in isolation.
    */
   static IsolatedOptionsData from(Collection<Class<? extends OptionsBase>> classes) {
     // Mind which fields have to preserve order.

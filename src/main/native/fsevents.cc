@@ -11,29 +11,37 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include <CoreServices/CoreServices.h>
 #include <jni.h>
 #include <pthread.h>
 #include <stdlib.h>
+
 #include <list>
 #include <string>
+
+namespace {
 
 // A structure to pass around the FSEvents info and the list of paths.
 struct JNIEventsDiffAwareness {
   // FSEvents run loop (thread)
   CFRunLoopRef runLoop;
+
   // FSEvents stream reference (reference to the listened stream)
   FSEventStreamRef stream;
-  // List of paths that have been changed since last polling
+
+  // If true, fsevents dropped events so we don't know what changed exactly.
+  bool everything_changed;
+
+  // List of paths that have been changed since last polling.
   std::list<std::string> paths;
-  // Mutex to protect concurrent access of paths.
-  // FsEventsDiffAwarenessCallback fill that list which is emptied
-  // by the MacOSXEventsDiffAwareness#poll() method.
-  // The former is called inside the FsEvents run loop and the latter
-  // from Java threads.
+
+  // Mutex to protect concurrent accesses to paths and everything_changed.
   pthread_mutex_t mutex;
 
-  JNIEventsDiffAwareness() { pthread_mutex_init(&mutex, nullptr); }
+  JNIEventsDiffAwareness() : everything_changed(false) {
+    pthread_mutex_init(&mutex, nullptr);
+  }
 
   ~JNIEventsDiffAwareness() { pthread_mutex_destroy(&mutex); }
 };
@@ -44,21 +52,34 @@ void FsEventsDiffAwarenessCallback(ConstFSEventStreamRef streamRef,
                                    void *eventPaths,
                                    const FSEventStreamEventFlags eventFlags[],
                                    const FSEventStreamEventId eventIds[]) {
-  /* We are just returning the list of modified path but we could return a bit
-   * more information,
-   * see
-   * https://developer.apple.com/library/mac/documentation/Darwin/Reference/FSEvents_Ref/#//apple_ref/doc/c_ref/FSEventStreamCallback
-   * If we ever do more, we should be careful because creation and deletion
-   * event get coaslesced
-   * into one single entry.
-   */
   char **paths = static_cast<char **>(eventPaths);
 
   JNIEventsDiffAwareness *info =
       static_cast<JNIEventsDiffAwareness *>(clientCallBackInfo);
   pthread_mutex_lock(&(info->mutex));
   for (int i = 0; i < numEvents; i++) {
-    info->paths.push_back(std::string(paths[i]));
+    if ((eventFlags[i] & kFSEventStreamEventFlagMustScanSubDirs) != 0) {
+      // Either we lost events or they were coalesced. Assume everything changed
+      // and give up, which matches the fsevents documentation in that the
+      // caller is expected to rescan the directory contents on its own.
+      info->everything_changed = true;
+      break;
+    } else if ((eventFlags[i] & kFSEventStreamEventFlagItemIsDir) != 0 &&
+        (eventFlags[i] & kFSEventStreamEventFlagItemRenamed) != 0) {
+      // A directory was renamed. When this happens, fsevents may or may not
+      // give us individual events about which files changed underneath, which
+      // means we have to rescan the directories in order to know what changed.
+      //
+      // The problem is that we cannot rescan the source of the move to discover
+      // which files "disappeared"... so we have no choice but to rescan
+      // everything. Well, in theory, we could try to track directory inodes and
+      // using those to guess which files within them moved... but that'd be way
+      // too much complexity for this rather-uncommon use case.
+      info->everything_changed = true;
+      break;
+    } else {
+      info->paths.push_back(std::string(paths[i]));
+    }
   }
   pthread_mutex_unlock(&(info->mutex));
 }
@@ -111,14 +132,21 @@ JNIEventsDiffAwareness *GetInfo(JNIEnv *env, jobject fsEventsDiffAwareness) {
   return reinterpret_cast<JNIEventsDiffAwareness *>(field);
 }
 
+}  // namespace
+
 extern "C" JNIEXPORT void JNICALL
 Java_com_google_devtools_build_lib_skyframe_MacOSXFsEventsDiffAwareness_run(
-    JNIEnv *env, jobject fsEventsDiffAwareness) {
+    JNIEnv *env, jobject fsEventsDiffAwareness, jobject listening) {
   JNIEventsDiffAwareness *info = GetInfo(env, fsEventsDiffAwareness);
   info->runLoop = CFRunLoopGetCurrent();
   FSEventStreamScheduleWithRunLoop(info->stream, info->runLoop,
                                    kCFRunLoopDefaultMode);
   FSEventStreamStart(info->stream);
+
+  jclass countDownLatchClass = env->GetObjectClass(listening);
+  jmethodID countDownMethod =
+      env->GetMethodID(countDownLatchClass, "countDown", "()V");
+  env->CallVoidMethod(listening, countDownMethod);
   CFRunLoopRun();
 }
 
@@ -128,14 +156,21 @@ Java_com_google_devtools_build_lib_skyframe_MacOSXFsEventsDiffAwareness_poll(
   JNIEventsDiffAwareness *info = GetInfo(env, fsEventsDiffAwareness);
   pthread_mutex_lock(&(info->mutex));
 
-  jclass classString = env->FindClass("java/lang/String");
-  jobjectArray result =
-      env->NewObjectArray(info->paths.size(), classString, NULL);
-  int i = 0;
-  for (auto it = info->paths.begin(); it != info->paths.end(); it++, i++) {
-    env->SetObjectArrayElement(result, i, env->NewStringUTF(it->c_str()));
+  jobjectArray result;
+  if (info->everything_changed) {
+    result = NULL;
+  } else {
+    jclass classString = env->FindClass("java/lang/String");
+    result = env->NewObjectArray(info->paths.size(), classString, NULL);
+    int i = 0;
+    for (auto it = info->paths.begin(); it != info->paths.end(); it++, i++) {
+      env->SetObjectArrayElement(result, i, env->NewStringUTF(it->c_str()));
+    }
   }
+
+  info->everything_changed = false;
   info->paths.clear();
+
   pthread_mutex_unlock(&(info->mutex));
   return result;
 }

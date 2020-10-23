@@ -26,6 +26,8 @@ public final class WindowsLocalEnvProvider implements LocalEnvProvider {
   /**
    * Create a new {@link WindowsLocalEnvProvider}.
    *
+   * <p>Use {@link LocalEnvProvider#forCurrentOs(Map)} to instantiate this.
+   *
    * @param clientEnv a map of the current Bazel command's environment
    */
   public WindowsLocalEnvProvider(Map<String, String> clientEnv) {
@@ -47,7 +49,7 @@ public final class WindowsLocalEnvProvider implements LocalEnvProvider {
    * <p>The values for TMP and TEMP will use backslashes as directory separators.
    */
   @Override
-  public Map<String, String> rewriteLocalEnv(
+  public ImmutableMap<String, String> rewriteLocalEnv(
       Map<String, String> env, BinTools binTools, String fallbackTmpDir) {
     ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
     result.putAll(Maps.filterKeys(env, k -> !k.equals("TMP") && !k.equals("TEMP")));

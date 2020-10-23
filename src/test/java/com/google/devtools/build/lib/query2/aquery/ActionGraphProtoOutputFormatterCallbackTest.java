@@ -31,10 +31,9 @@ import com.google.devtools.build.lib.analysis.AnalysisProtos.ParamFile;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.Target;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.aquery.ActionGraphProtoOutputFormatterCallback.OutputType;
-import com.google.devtools.build.lib.query2.engine.ActionGraphQueryHelper;
-import com.google.devtools.build.lib.query2.engine.ActionGraphQueryTest;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
@@ -447,7 +446,7 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         "    outputs = [ctx.outputs.outfile],",
         "    executable = 'dummy',",
         "    arguments = ['--non-param-file-flag', args],",
-        "    mnemonic = 'SkylarkAction'",
+        "    mnemonic = 'StarlarkAction'",
         "  )",
         "test_rule = rule(",
         "  implementation = _impl,",
@@ -483,7 +482,7 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         "test/a.bzl",
         "def _impl(ctx):",
         "  directory = ctx.actions.declare_directory(ctx.attr.name + \"_artifact.cc\")",
-        "  ctx.action(",
+        "  ctx.actions.run_shell(",
         "    inputs = ctx.files.srcs,",
         "    outputs = [directory],",
         "    mnemonic = 'MoveTreeArtifact',",
@@ -523,7 +522,7 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
   }
 
   @Test
-  public void testIncludeAspects_AspectOnAspect() throws Exception {
+  public void testIncludeAspects_aspectOnAspect() throws Exception {
     options.useAspects = true;
     writeFile(
         "test/rule.bzl",
@@ -536,7 +535,7 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         "  if hasattr(ctx.rule.attr, 'srcs'):",
         "    out = ctx.actions.declare_file('out_jpl_{}'.format(target))",
         "    ctx.actions.run(",
-        "      inputs = [f for src in ctx.rule.attr.srcs for f in src.files],",
+        "      inputs = [f for src in ctx.rule.attr.srcs for f in src.files.to_list()],",
         "      outputs = [out],",
         "      executable = 'dummy',",
         "      mnemonic = 'MyJplAspect'",
@@ -561,7 +560,7 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         "  if hasattr(ctx.rule.attr, 'srcs'):",
         "    out = ctx.actions.declare_file('out{}'.format(target))",
         "    ctx.actions.run(",
-        "      inputs = [f for src in ctx.rule.attr.srcs for f in src.files],",
+        "      inputs = [f for src in ctx.rule.attr.srcs for f in src.files.to_list()],",
         "      outputs = [out],",
         "      executable = 'dummy',",
         "      mnemonic = 'MyAspect'",
@@ -591,7 +590,8 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         "load(':rule.bzl', 'my_rule', 'my_jpl_rule')",
         "proto_library(",
         "  name = 'x',",
-        "  srcs = [':x.proto']",
+        "  srcs = [':x.proto'],",
+        MockProtoSupport.MIGRATION_TAG,
         ")",
         "my_jpl_rule(",
         "  name = 'my_java_proto',",
@@ -638,7 +638,7 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
   }
 
   @Test
-  public void testIncludeAspects_SingleAspect() throws Exception {
+  public void testIncludeAspects_singleAspect() throws Exception {
     options.useAspects = true;
     writeFile(
         "test/rule.bzl",
@@ -651,7 +651,7 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         "  if hasattr(ctx.rule.attr, 'srcs'):",
         "    out = ctx.actions.declare_file('out_jpl_{}'.format(target))",
         "    ctx.actions.run(",
-        "      inputs = [f for src in ctx.rule.attr.srcs for f in src.files],",
+        "      inputs = [f for src in ctx.rule.attr.srcs for f in src.files.to_list()],",
         "      outputs = [out],",
         "      executable = 'dummy',",
         "      mnemonic = 'MyJplAspect'",
@@ -681,7 +681,8 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         "load(':rule.bzl', 'my_jpl_rule')",
         "proto_library(",
         "  name = 'x',",
-        "  srcs = [':x.proto']",
+        "  srcs = [':x.proto'],",
+        MockProtoSupport.MIGRATION_TAG,
         ")",
         "my_jpl_rule(",
         "  name = 'my_java_proto',",
@@ -736,7 +737,7 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         "  if hasattr(ctx.rule.attr, 'srcs'):",
         "    out = ctx.actions.declare_file(outfilename)",
         "    ctx.actions.run(",
-        "      inputs = [f for src in ctx.rule.attr.srcs for f in src.files],",
+        "      inputs = [f for src in ctx.rule.attr.srcs for f in src.files.to_list()],",
         "      outputs = [out],",
         "      executable = 'dummy',",
         "      mnemonic = mnemonic",
@@ -780,7 +781,8 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         "load(':rule.bzl', 'my_jpl_rule', 'my_random_rule')",
         "proto_library(",
         "  name = 'x',",
-        "  srcs = [':x.proto']",
+        "  srcs = [':x.proto'],",
+        MockProtoSupport.MIGRATION_TAG,
         ")",
         "my_jpl_rule(",
         "  name = 'target_1',",
@@ -832,7 +834,7 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
   }
 
   @Test
-  public void testIncludeAspects_flagDisabled_NoAspect() throws Exception {
+  public void testIncludeAspects_flagDisabled_noAspect() throws Exception {
     // The flag --include_aspects is set to false by default.
     writeFile(
         "test/rule.bzl",
@@ -845,7 +847,7 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         "  if hasattr(ctx.rule.attr, 'srcs'):",
         "    out = ctx.actions.declare_file('out_jpl_{}'.format(target))",
         "    ctx.actions.run(",
-        "      inputs = [f for src in ctx.rule.attr.srcs for f in src.files],",
+        "      inputs = [f for src in ctx.rule.attr.srcs for f in src.files.to_list()],",
         "      outputs = [out],",
         "      executable = 'dummy',",
         "      mnemonic = 'MyJplAspect'",
@@ -875,7 +877,8 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         "load(':rule.bzl', 'my_jpl_rule')",
         "proto_library(",
         "  name = 'x',",
-        "  srcs = [':x.proto']",
+        "  srcs = [':x.proto'],",
+        MockProtoSupport.MIGRATION_TAG,
         ")",
         "my_jpl_rule(",
         "  name = 'my_java_proto',",

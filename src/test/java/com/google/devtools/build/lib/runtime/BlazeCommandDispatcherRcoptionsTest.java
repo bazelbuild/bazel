@@ -25,10 +25,8 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.bazel.rules.DefaultBuildOptionsForDiffing;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -79,7 +77,7 @@ public class BlazeCommandDispatcherRcoptionsTest {
     public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
       FooOptions fooOptions = options.getOptions(FooOptions.class);
       env.getReporter().getOutErr().printOut("" + fooOptions.numOption);
-      return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+      return BlazeCommandResult.success();
     }
 
     @Override
@@ -100,7 +98,7 @@ public class BlazeCommandDispatcherRcoptionsTest {
       env.getReporter()
           .getOutErr()
           .printOut("" + fooOptions.numOption + " " + fooOptions.stringOption);
-      return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+      return BlazeCommandResult.success();
     }
 
     @Override
@@ -139,7 +137,7 @@ public class BlazeCommandDispatcherRcoptionsTest {
             .setProductName(productName)
             .setServerDirectories(serverDirectories)
             .setStartupOptionsProvider(
-                OptionsParser.newOptionsParser(BlazeServerStartupOptions.class))
+                OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build())
             .addBlazeModule(
                 new BlazeModule() {
                   @Override
@@ -156,7 +154,7 @@ public class BlazeCommandDispatcherRcoptionsTest {
                 new BlazeModule() {
                   @Override
                   public BuildOptions getDefaultBuildOptions(BlazeRuntime runtime) {
-                    return DefaultBuildOptionsForDiffing.getDefaultBuildOptionsForFragments(
+                    return BuildOptions.getDefaultBuildOptionsForFragments(
                         runtime.getRuleClassProvider().getConfigurationOptions());
                   }
                 })
@@ -174,7 +172,8 @@ public class BlazeCommandDispatcherRcoptionsTest {
         ImmutableList.of(
             "--rc_source=/home/jrluser/.blazerc", "--default_override=0:common=--numoption=99");
 
-    BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime, reportNum);
+    runtime.overrideCommands(ImmutableList.of(reportNum));
+    BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime);
     List<String> cmdLine = Lists.newArrayList("reportnum");
     cmdLine.addAll(blazercOpts);
 
@@ -191,7 +190,8 @@ public class BlazeCommandDispatcherRcoptionsTest {
             "--default_override=0:reportnum=--numoption=42",
             "--default_override=0:common=--numoption=99");
 
-    BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime, reportNum);
+    runtime.overrideCommands(ImmutableList.of(reportNum));
+    BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime);
     List<String> cmdLine = Lists.newArrayList("reportnum");
     cmdLine.addAll(blazercOpts);
 
@@ -208,7 +208,8 @@ public class BlazeCommandDispatcherRcoptionsTest {
             "--default_override=0:common=--numoption=99",
             "--default_override=0:reportnum=--numoption=42");
 
-    BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime, reportNum);
+    runtime.overrideCommands(ImmutableList.of(reportNum));
+    BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime);
     List<String> cmdLine = Lists.newArrayList("reportnum");
     cmdLine.addAll(blazercOpts);
 
@@ -226,7 +227,8 @@ public class BlazeCommandDispatcherRcoptionsTest {
             "--rc_source=/home/jrluser/.blazerc",
             "--default_override=1:common=--numoption=99");
 
-    BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime, reportNum, reportAll);
+    runtime.overrideCommands(ImmutableList.of(reportNum, reportAll));
+    BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime);
     List<String> cmdLine = Lists.newArrayList("reportall");
     cmdLine.addAll(blazercOpts);
 
@@ -247,7 +249,8 @@ public class BlazeCommandDispatcherRcoptionsTest {
             "--rc_source=/home/jrluser/.blazerc",
             "--default_override=1:common=--numoption=99");
 
-    BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime, reportNum, reportAll);
+    runtime.overrideCommands(ImmutableList.of(reportNum, reportAll));
+    BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime);
     List<String> cmdLine = Lists.newArrayList("reportall");
     cmdLine.addAll(blazercOpts);
 
@@ -266,7 +269,8 @@ public class BlazeCommandDispatcherRcoptionsTest {
             "--rc_source=/etc/bazelrc",
             "--default_override=1:common=--numoption=99");
 
-    BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime, reportNum, reportAll);
+    runtime.overrideCommands(ImmutableList.of(reportNum, reportAll));
+    BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime);
     List<String> cmdLine = Lists.newArrayList("reportall");
     cmdLine.addAll(blazercOpts);
 
@@ -292,10 +296,10 @@ public class BlazeCommandDispatcherRcoptionsTest {
                 "--rc_source=/doesnt/matter/2/bazelrc",
                 "--default_override=0:reportallinherited=--stringoption=reportallinherited"));
 
+    runtime.overrideCommands(ImmutableList.of(reportNum, reportAll, reportAllInherited));
     for (List<ImmutableList<String>> e : Collections2.permutations(blazercOpts)) {
       outErr.reset();
-      BlazeCommandDispatcher dispatch =
-          new BlazeCommandDispatcher(runtime, reportNum, reportAll, reportAllInherited);
+      BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime);
       List<String> cmdLine = Lists.newArrayList("reportallinherited");
       List<String> orderedOpts = ImmutableList.copyOf(Iterables.concat(e));
       cmdLine.addAll(orderedOpts);

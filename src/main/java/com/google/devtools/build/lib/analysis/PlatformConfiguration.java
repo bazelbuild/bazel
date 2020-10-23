@@ -15,33 +15,50 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
-import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformConfigurationApi;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.PlatformConfigurationApi;
+import com.google.devtools.build.lib.util.RegexFilter;
 import java.util.List;
+import java.util.Map;
 
 /** A configuration fragment describing the current platform configuration. */
 @ThreadSafety.Immutable
-public class PlatformConfiguration extends BuildConfiguration.Fragment
-    implements PlatformConfigurationApi {
+public class PlatformConfiguration extends Fragment implements PlatformConfigurationApi {
   private final Label hostPlatform;
   private final ImmutableList<String> extraExecutionPlatforms;
   private final Label targetPlatform;
   private final ImmutableList<String> extraToolchains;
-  private final ImmutableList<Label> enabledToolchainTypes;
+  private final List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints;
 
   PlatformConfiguration(
       Label hostPlatform,
       ImmutableList<String> extraExecutionPlatforms,
       Label targetPlatform,
       ImmutableList<String> extraToolchains,
-      ImmutableList<Label> enabledToolchainTypes) {
+      List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints) {
     this.hostPlatform = hostPlatform;
     this.extraExecutionPlatforms = extraExecutionPlatforms;
     this.targetPlatform = targetPlatform;
     this.extraToolchains = extraToolchains;
-    this.enabledToolchainTypes = enabledToolchainTypes;
+    this.targetFilterToAdditionalExecConstraints = targetFilterToAdditionalExecConstraints;
+  }
+
+  @Override
+  public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
+    PlatformOptions platformOptions = buildOptions.get(PlatformOptions.class);
+    // TODO(https://github.com/bazelbuild/bazel/issues/6519): Implement true multiplatform builds.
+    if (platformOptions.platforms.size() > 1) {
+      reporter.handle(
+          Event.warn(
+              String.format(
+                  "--platforms only supports a single target platform: using the first option %s",
+                  this.targetPlatform)));
+    }
   }
 
   @Override
@@ -80,12 +97,18 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment
     return extraToolchains;
   }
 
-  @Override
-  public List<Label> getEnabledToolchainTypes() {
-    return enabledToolchainTypes;
-  }
-
-  public boolean isToolchainTypeEnabled(Label toolchainType) {
-    return getEnabledToolchainTypes().contains(toolchainType);
+  /**
+   * Returns a list of labels referring to additional constraint value targets which should be taken
+   * into account when resolving the toolchains/execution platform for the target with the given
+   * label.
+   */
+  public List<Label> getAdditionalExecutionConstraintsFor(Label label) {
+    ImmutableList.Builder<Label> constraints = ImmutableList.builder();
+    for (Map.Entry<RegexFilter, List<Label>> filter : targetFilterToAdditionalExecConstraints) {
+      if (filter.getKey().isIncluded(label.getCanonicalForm())) {
+        constraints.addAll(filter.getValue());
+      }
+    }
+    return constraints.build();
   }
 }

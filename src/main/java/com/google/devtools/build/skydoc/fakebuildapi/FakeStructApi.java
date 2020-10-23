@@ -14,17 +14,19 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.common.collect.Ordering;
+import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.ClassObject;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * Fake implementation of {@link StructApi}.
@@ -42,19 +44,45 @@ public class FakeStructApi implements StructApi, ClassObject {
   }
 
   @Override
-  public String toProto(Location loc) throws EvalException {
+  public String toProto() throws EvalException {
     return "";
   }
 
   @Override
-  public String toJson(Location loc) throws EvalException {
+  public String toJson() throws EvalException {
     return "";
   }
 
-  // TODO(cparsons): Implement repr to match the real Struct's repr, as it affects the
-  // "default value" documentation of functions.
+  /**
+   * Wraps {@link ClassObject#getValue(String)}, returning null in cases where {@link EvalException}
+   * would have been thrown.
+   */
+  @VisibleForTesting
+  public Object getValueOrNull(String name) {
+    try {
+      return getValue(name);
+    } catch (EvalException e) {
+      throw new IllegalStateException("getValue should not throw an exception", e);
+    }
+  }
+
+  /** Converts the object to string using Starlark syntax. */
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {
+    boolean first = true;
+    printer.append("struct(");
+    for (String fieldName : Ordering.natural().sortedCopy(getFieldNames())) {
+      if (!first) {
+        printer.append(", ");
+      }
+      first = false;
+      printer.append(fieldName);
+      printer.append(" = ");
+      printer.repr(getValueOrNull(fieldName));
+    }
+
+    printer.append(")");
+  }
 
   @Nullable
   @Override
@@ -63,7 +91,7 @@ public class FakeStructApi implements StructApi, ClassObject {
   }
 
   @Override
-  public ImmutableCollection<String> getFieldNames() throws EvalException {
+  public ImmutableCollection<String> getFieldNames() {
     return ImmutableList.copyOf(objects.keySet());
   }
 
@@ -79,12 +107,11 @@ public class FakeStructApi implements StructApi, ClassObject {
   public static class FakeStructProviderApi implements StructProviderApi {
 
     @Override
-    public StructApi createStruct(SkylarkDict<?, ?> kwargs, Location loc) throws EvalException {
-      return new FakeStructApi(kwargs.getContents(String.class, Object.class, "kwargs"));
+    public StructApi createStruct(Dict<String, Object> kwargs, StarlarkThread thread) {
+      return new FakeStructApi(kwargs);
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {}
+    public void repr(Printer printer) {}
   }
 }
-

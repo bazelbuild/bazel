@@ -14,7 +14,10 @@
 package com.google.devtools.build.lib.query2;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.AspectValue;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -24,7 +27,8 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccess
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryVisibility;
-import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
+import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -39,7 +43,7 @@ import java.util.Set;
 /**
  * A {@link TargetAccessor} for {@link ConfiguredTargetValue} objects.
  *
- * <p>Incomplete; we'll implement getLabelListAttr and getVisibility when needed.
+ * <p>Incomplete; we'll implement getPrerequisites and getVisibility when needed.
  */
 public class ConfiguredTargetValueAccessor implements TargetAccessor<ConfiguredTargetValue> {
 
@@ -94,7 +98,7 @@ public class ConfiguredTargetValueAccessor implements TargetAccessor<ConfiguredT
   }
 
   @Override
-  public List<ConfiguredTargetValue> getLabelListAttr(
+  public List<ConfiguredTargetValue> getPrerequisites(
       QueryExpression caller,
       ConfiguredTargetValue configuredTargetValue,
       String attrName,
@@ -125,10 +129,12 @@ public class ConfiguredTargetValueAccessor implements TargetAccessor<ConfiguredT
   }
 
   @Override
-  public Set<QueryVisibility<ConfiguredTargetValue>> getVisibility(ConfiguredTargetValue from)
-      throws QueryException, InterruptedException {
+  public ImmutableSet<QueryVisibility<ConfiguredTargetValue>> getVisibility(
+      QueryExpression caller, ConfiguredTargetValue from) throws QueryException {
     // TODO(bazel-team): implement this if needed.
-    throw new UnsupportedOperationException();
+    throw new QueryException(
+        "visible() is not supported on configured targets",
+        ConfigurableQuery.Code.VISIBLE_FUNCTION_NOT_SUPPORTED);
   }
 
   private Target getTargetFromConfiguredTargetValue(ConfiguredTargetValue configuredTargetValue) {
@@ -143,11 +149,12 @@ public class ConfiguredTargetValueAccessor implements TargetAccessor<ConfiguredT
     SkyKey skyKey = configuredTargetKeyExtractor.extractKey(configuredTargetValue);
     Iterable<SkyKey> revDeps =
         Iterables.concat(walkableGraph.getReverseDeps(ImmutableList.of(skyKey)).values());
+    Label label = configuredTargetValue.getConfiguredTarget().getLabel();
     for (SkyKey revDep : revDeps) {
       SkyFunctionName skyFunctionName = revDep.functionName();
       if (SkyFunctions.ASPECT.equals(skyFunctionName)) {
         AspectValue aspectValue = (AspectValue) walkableGraph.getValue(revDep);
-        if (aspectValue.getLabel().equals(configuredTargetValue.getConfiguredTarget().getLabel())) {
+        if (((AspectKey) revDep).getLabel().equals(label)) {
           result.add(aspectValue);
         }
       }

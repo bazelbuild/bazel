@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
 package(default_visibility = [
     "//src/java_tools/junitrunner:junitrunner_package_group",
 ])
@@ -22,4 +24,5 @@ filegroup(
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/api:srcs",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/testing:srcs",
     ],
+    visibility = ["//src:__subpackages__"],
 )

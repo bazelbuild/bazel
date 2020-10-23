@@ -25,47 +25,34 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
+import com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
+import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.ConvenienceSymlinks.SymlinkDefinition;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentProvider;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
-import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
-import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
+import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
-import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
-import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
-import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
-import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.Environment.Extension;
-import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
-import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.SkylarkUtils;
-import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.packages.SymbolGenerator;
+import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsProvider;
@@ -81,142 +68,18 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkAnnotations;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * Knows about every rule Blaze supports and the associated configuration options.
  *
- * <p>This class is initialized on server startup and the set of rules, build info factories
- * and configuration options is guaranteed not to change over the life time of the Blaze server.
+ * <p>This class is initialized on server startup and the set of rules, build info factories and
+ * configuration options is guaranteed not to change over the life time of the Blaze server.
  */
-public class ConfiguredRuleClassProvider implements RuleClassProvider {
-
-  /**
-   * Predicate for determining whether the analysis cache should be cleared, given the new and old
-   * value of an option which has changed and the values of the other new options.
-   */
-  @FunctionalInterface
-  public interface OptionsDiffPredicate {
-    public static final OptionsDiffPredicate ALWAYS_INVALIDATE =
-        (options, option, oldValue, newValue) -> true;
-
-    public boolean apply(
-        BuildOptions newOptions, OptionDefinition option, Object oldValue, Object newValue);
-  }
-
-  /**
-   * Custom dependency validation logic.
-   */
-  public interface PrerequisiteValidator {
-    /**
-     * Checks whether the rule in {@code contextBuilder} is allowed to depend on {@code
-     * prerequisite} through the attribute {@code attribute}.
-     *
-     * <p>Can be used for enforcing any organization-specific policies about the layout of the
-     * workspace.
-     */
-    void validate(
-        RuleContext.Builder contextBuilder,
-        ConfiguredTargetAndData prerequisite,
-        Attribute attribute);
-  }
-
-  /** Validator to check for and warn on the deprecation of dependencies. */
-  public static final class DeprecationValidator implements PrerequisiteValidator {
-    /** Checks if the given prerequisite is deprecated and prints a warning if so. */
-    @Override
-    public void validate(
-        RuleContext.Builder contextBuilder,
-        ConfiguredTargetAndData prerequisite,
-        Attribute attribute) {
-      validateDirectPrerequisiteForDeprecation(
-          contextBuilder, contextBuilder.getRule(), prerequisite, contextBuilder.forAspect());
-    }
-
-    /**
-     * Returns whether two packages are considered the same for purposes of deprecation warnings.
-     * Dependencies within the same package do not print deprecation warnings; a package in the
-     * javatests directory may also depend on its corresponding java package without a warning.
-     */
-    public static boolean isSameLogicalPackage(
-        PackageIdentifier thisPackage, PackageIdentifier prerequisitePackage) {
-      if (thisPackage.equals(prerequisitePackage)) {
-        // If the packages are equal, they are the same logical package (and just the same package).
-        return true;
-      }
-      if (!thisPackage.getRepository().equals(prerequisitePackage.getRepository())) {
-        // If the packages are in different repositories, they are not the same logical package.
-        return false;
-      }
-      // If the packages are in the same repository, it's allowed iff this package is the javatests
-      // companion to the prerequisite java package.
-      String thisPackagePath = thisPackage.getPackageFragment().getPathString();
-      String prerequisitePackagePath = prerequisitePackage.getPackageFragment().getPathString();
-      return thisPackagePath.startsWith("javatests/")
-          && prerequisitePackagePath.startsWith("java/")
-          && thisPackagePath.substring("javatests/".length()).equals(
-              prerequisitePackagePath.substring("java/".length()));
-    }
-
-    /** Returns whether a deprecation warning should be printed for the prerequisite described. */
-    private static boolean shouldEmitDeprecationWarningFor(
-        String thisDeprecation, PackageIdentifier thisPackage,
-        String prerequisiteDeprecation, PackageIdentifier prerequisitePackage,
-        boolean forAspect) {
-      // Don't report deprecation edges from javatests to java or within a package;
-      // otherwise tests of deprecated code generate nuisance warnings.
-      // Don't report deprecation if the current target is also deprecated,
-      // or if the current context is evaluating an aspect,
-      // as the base target would have already printed the deprecation warnings.
-      return (!forAspect
-          && prerequisiteDeprecation != null
-          && !isSameLogicalPackage(thisPackage, prerequisitePackage)
-          && thisDeprecation == null);
-    }
-
-    /** Checks if the given prerequisite is deprecated and prints a warning if so. */
-    public static void validateDirectPrerequisiteForDeprecation(
-        RuleErrorConsumer errors,
-        Rule rule,
-        ConfiguredTargetAndData prerequisite,
-        boolean forAspect) {
-      Target prerequisiteTarget = prerequisite.getTarget();
-      Label prerequisiteLabel = prerequisiteTarget.getLabel();
-      PackageIdentifier thatPackage = prerequisiteLabel.getPackageIdentifier();
-      PackageIdentifier thisPackage = rule.getLabel().getPackageIdentifier();
-
-      if (prerequisiteTarget instanceof Rule) {
-        Rule prerequisiteRule = (Rule) prerequisiteTarget;
-        String thisDeprecation =
-            NonconfigurableAttributeMapper.of(rule).has("deprecation", Type.STRING)
-                ? NonconfigurableAttributeMapper.of(rule).get("deprecation", Type.STRING)
-                : null;
-        String thatDeprecation =
-            NonconfigurableAttributeMapper.of(prerequisiteRule).has("deprecation", Type.STRING)
-                ? NonconfigurableAttributeMapper.of(prerequisiteRule)
-                    .get("deprecation", Type.STRING)
-                : null;
-        if (shouldEmitDeprecationWarningFor(
-            thisDeprecation, thisPackage, thatDeprecation, thatPackage, forAspect)) {
-          errors.ruleWarning("target '" + rule.getLabel() +  "' depends on deprecated target '"
-              + prerequisiteLabel + "': " + thatDeprecation);
-        }
-      }
-
-      if (prerequisiteTarget instanceof OutputFile) {
-        Rule generatingRule = ((OutputFile) prerequisiteTarget).getGeneratingRule();
-        String thisDeprecation =
-            NonconfigurableAttributeMapper.of(rule).get("deprecation", Type.STRING);
-        String thatDeprecation =
-            NonconfigurableAttributeMapper.of(generatingRule).get("deprecation", Type.STRING);
-        if (shouldEmitDeprecationWarningFor(
-            thisDeprecation, thisPackage, thatDeprecation, thatPackage, forAspect)) {
-          errors.ruleWarning("target '" + rule.getLabel() + "' depends on the output file "
-              + prerequisiteLabel + " of a deprecated rule " + generatingRule.getLabel()
-              + "': " + thatDeprecation);
-        }
-      }
-    }
-  }
+// This class has no subclasses except those created by the evil that is mockery.
+public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
 
   /**
    * A coherent set of options, fragments, aspects and rules; each of these may declare a dependency
@@ -250,23 +113,26 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private final Map<Class<? extends RuleDefinition>, RuleClass> ruleMap = new HashMap<>();
     private final Digraph<Class<? extends RuleDefinition>> dependencyGraph =
         new Digraph<>();
-    private List<Class<? extends BuildConfiguration.Fragment>> universalFragments =
-        new ArrayList<>();
-    @Nullable private TransitionFactory<Rule> trimmingTransitionFactory;
+    private final List<Class<? extends Fragment>> universalFragments = new ArrayList<>();
+    @Nullable private TransitionFactory<Rule> trimmingTransitionFactory = null;
+    @Nullable private PatchTransition toolchainTaggedTrimmingTransition = null;
     private OptionsDiffPredicate shouldInvalidateCacheForOptionDiff =
         OptionsDiffPredicate.ALWAYS_INVALIDATE;
     private PrerequisiteValidator prerequisiteValidator;
-    private ImmutableList.Builder<Bootstrap> skylarkBootstraps =
-        ImmutableList.<Bootstrap>builder();
-    private ImmutableMap.Builder<String, Object> skylarkAccessibleTopLevels =
+    private final ImmutableList.Builder<Bootstrap> starlarkBootstraps = ImmutableList.builder();
+    private ImmutableMap.Builder<String, Object> starlarkAccessibleTopLevels =
         ImmutableMap.builder();
+    private final ImmutableList.Builder<SymlinkDefinition> symlinkDefinitions =
+        ImmutableList.builder();
     private Set<String> reservedActionMnemonics = new TreeSet<>();
     private BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider =
         (BuildOptions options) -> ActionEnvironment.EMPTY;
-    private ConstraintSemantics constraintSemantics = new ConstraintSemantics();
+    private ConstraintSemantics<RuleContext> constraintSemantics =
+        new RuleContextConstraintSemantics();
 
     private ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy =
         ThirdPartyLicenseExistencePolicy.USER_CONTROLLABLE;
+    private boolean enableExecutionTransition = false;
 
     public Builder addWorkspaceFilePrefix(String contents) {
       defaultWorkspaceFilePrefix.append(contents);
@@ -334,7 +200,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     /**
      * Adds a configuration fragment factory and all build options required by its fragment.
      *
-     * <p>Note that configuration fragments annotated with a Skylark name must have a unique name;
+     * <p>Note that configuration fragments annotated with a Starlark name must have a unique name;
      * no two different configuration fragments can share the same name.
      */
     public Builder addConfigurationFragment(ConfigurationFragmentFactory factory) {
@@ -354,19 +220,23 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return this;
     }
 
-    public Builder addUniversalConfigurationFragment(
-        Class<? extends BuildConfiguration.Fragment> fragment) {
+    public Builder addUniversalConfigurationFragment(Class<? extends Fragment> fragment) {
       this.universalFragments.add(fragment);
       return this;
     }
 
-    public Builder addSkylarkBootstrap(Bootstrap bootstrap) {
-      this.skylarkBootstraps.add(bootstrap);
+    public Builder addStarlarkBootstrap(Bootstrap bootstrap) {
+      this.starlarkBootstraps.add(bootstrap);
       return this;
     }
 
-    public Builder addSkylarkAccessibleTopLevels(String name, Object object) {
-      this.skylarkAccessibleTopLevels.put(name, object);
+    public Builder addStarlarkAccessibleTopLevels(String name, Object object) {
+      this.starlarkAccessibleTopLevels.put(name, object);
+      return this;
+    }
+
+    public Builder addSymlinkDefinition(SymlinkDefinition symlinkDefinition) {
+      this.symlinkDefinitions.add(symlinkDefinition);
       return this;
     }
 
@@ -386,7 +256,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
      * don't depend on rules that aren't compatible with the same environments. Defaults to
      * {@ConstraintSemantics}. See {@ConstraintSemantics} for more details.
      */
-    public Builder setConstraintSemantics(ConstraintSemantics constraintSemantics) {
+    public Builder setConstraintSemantics(ConstraintSemantics<RuleContext> constraintSemantics) {
       this.constraintSemantics = constraintSemantics;
       return this;
     }
@@ -422,6 +292,14 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return this;
     }
 
+    /** Sets the transition manual feature flag trimming should apply to toolchain deps. */
+    public Builder setToolchainTaggedTrimmingTransition(PatchTransition transition) {
+      Preconditions.checkNotNull(transition);
+      Preconditions.checkState(toolchainTaggedTrimmingTransition == null);
+      this.toolchainTaggedTrimmingTransition = transition;
+      return this;
+    }
+
     /**
      * Overrides the transition factory run over all targets.
      *
@@ -443,6 +321,16 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           this.shouldInvalidateCacheForOptionDiff.equals(OptionsDiffPredicate.ALWAYS_INVALIDATE),
           "Cache invalidation function was already set");
       this.shouldInvalidateCacheForOptionDiff = shouldInvalidateCacheForOptionDiff;
+      return this;
+    }
+
+    @Override
+    public boolean enableExecutionTransition() {
+      return enableExecutionTransition;
+    }
+
+    public Builder enableExecutionTransition(boolean flag) {
+      this.enableExecutionTransition = flag;
       return this;
     }
 
@@ -533,10 +421,12 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           ImmutableList.copyOf(configurationFragmentFactories),
           ImmutableList.copyOf(universalFragments),
           trimmingTransitionFactory,
+          toolchainTaggedTrimmingTransition,
           shouldInvalidateCacheForOptionDiff,
           prerequisiteValidator,
-          skylarkAccessibleTopLevels.build(),
-          skylarkBootstraps.build(),
+          starlarkAccessibleTopLevels.build(),
+          starlarkBootstraps.build(),
+          symlinkDefinitions.build(),
           ImmutableSet.copyOf(reservedActionMnemonics),
           actionEnvironmentProvider,
           constraintSemantics,
@@ -613,20 +503,27 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   /** The transition factory used to produce the transition that will trim targets. */
   @Nullable private final TransitionFactory<Rule> trimmingTransitionFactory;
 
+  /** The transition to apply to toolchain deps for manual trimming. */
+  @Nullable private final PatchTransition toolchainTaggedTrimmingTransition;
+
   /** The predicate used to determine whether a diff requires the cache to be invalidated. */
   private final OptionsDiffPredicate shouldInvalidateCacheForOptionDiff;
 
   /**
-   * Configuration fragments that should be available to all rules even when they don't
-   * explicitly require it.
+   * Configuration fragments that should be available to all rules even when they don't explicitly
+   * require it.
    */
-  private final ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments;
+  private final ImmutableList<Class<? extends Fragment>> universalFragments;
 
   private final ImmutableList<BuildInfoFactory> buildInfoFactories;
 
   private final PrerequisiteValidator prerequisiteValidator;
 
-  private final Environment.GlobalFrame globals;
+  private final ImmutableMap<String, Object> nativeRuleSpecificBindings;
+
+  private final ImmutableMap<String, Object> environment;
+
+  private final ImmutableList<SymlinkDefinition> symlinkDefinitions;
 
   private final ImmutableSet<String> reservedActionMnemonics;
 
@@ -634,7 +531,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   private final ImmutableMap<String, Class<?>> configurationFragmentMap;
 
-  private final ConstraintSemantics constraintSemantics;
+  private final ConstraintSemantics<RuleContext> constraintSemantics;
 
   private final ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy;
 
@@ -650,15 +547,17 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       ImmutableList<Class<? extends FragmentOptions>> configurationOptions,
       ImmutableList<ConfigurationFragmentFactory> configurationFragments,
-      ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments,
+      ImmutableList<Class<? extends Fragment>> universalFragments,
       @Nullable TransitionFactory<Rule> trimmingTransitionFactory,
+      PatchTransition toolchainTaggedTrimmingTransition,
       OptionsDiffPredicate shouldInvalidateCacheForOptionDiff,
       PrerequisiteValidator prerequisiteValidator,
-      ImmutableMap<String, Object> skylarkAccessibleJavaClasses,
-      ImmutableList<Bootstrap> skylarkBootstraps,
+      ImmutableMap<String, Object> starlarkAccessibleJavaClasses,
+      ImmutableList<Bootstrap> starlarkBootstraps,
+      ImmutableList<SymlinkDefinition> symlinkDefinitions,
       ImmutableSet<String> reservedActionMnemonics,
       BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider,
-      ConstraintSemantics constraintSemantics,
+      ConstraintSemantics<RuleContext> constraintSemantics,
       ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy) {
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
@@ -674,12 +573,16 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.optionsToFragmentMap = computeOptionsToFragmentMap(configurationFragments);
     this.universalFragments = universalFragments;
     this.trimmingTransitionFactory = trimmingTransitionFactory;
+    this.toolchainTaggedTrimmingTransition = toolchainTaggedTrimmingTransition;
     this.shouldInvalidateCacheForOptionDiff = shouldInvalidateCacheForOptionDiff;
     this.prerequisiteValidator = prerequisiteValidator;
-    this.globals = createGlobals(skylarkAccessibleJavaClasses, skylarkBootstraps);
+    this.nativeRuleSpecificBindings =
+        createNativeRuleSpecificBindings(starlarkAccessibleJavaClasses, starlarkBootstraps);
+    this.environment = createEnvironment(nativeRuleSpecificBindings);
+    this.symlinkDefinitions = symlinkDefinitions;
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.actionEnvironmentProvider = actionEnvironmentProvider;
-    this.configurationFragmentMap = createFragmentMap(configurationFragmentFactories);
+    this.configurationFragmentMap = createFragmentMap(configurationFragments);
     this.constraintSemantics = constraintSemantics;
     this.thirdPartyLicenseExistencePolicy = thirdPartyLicenseExistencePolicy;
   }
@@ -749,16 +652,16 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     return nativeAspectClassMap.get(key);
   }
 
-  /**
-   * Returns a list of build info factories that are needed for the supported languages.
-   */
-  public ImmutableList<BuildInfoFactory> getBuildInfoFactories() {
-    return buildInfoFactories;
+  public Map<BuildInfoKey, BuildInfoFactory> getBuildInfoFactoriesAsMap() {
+    ImmutableMap.Builder<BuildInfoKey, BuildInfoFactory> factoryMapBuilder = ImmutableMap.builder();
+    for (BuildInfoFactory factory : buildInfoFactories) {
+      factoryMapBuilder.put(factory.getKey(), factory);
+    }
+    return factoryMapBuilder.build();
   }
 
-  /**
-   * Returns the set of configuration fragments provided by this module.
-   */
+  /** Returns the set of configuration fragments provided by this module. */
+  @Override
   public ImmutableList<ConfigurationFragmentFactory> getConfigurationFragments() {
     return configurationFragmentFactories;
   }
@@ -778,6 +681,16 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   @Nullable
   public TransitionFactory<Rule> getTrimmingTransitionFactory() {
     return trimmingTransitionFactory;
+  }
+
+  /**
+   * Returns the transition manual feature flag trimming should apply to toolchain deps.
+   *
+   * <p>See extra notes on {@link #getTrimmingTransitionFactory()}.
+   */
+  @Nullable
+  public PatchTransition getToolchainTaggedTrimmingTransition() {
+    return toolchainTaggedTrimmingTransition;
   }
 
   /** Returns whether the analysis cache should be invalidated for the given option diff. */
@@ -801,10 +714,10 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   }
 
   /**
-   * Returns the configuration fragment that should be available to all rules even when they
-   * don't explicitly require it.
+   * Returns the configuration fragment that should be available to all rules even when they don't
+   * explicitly require it.
    */
-  public ImmutableList<Class<? extends BuildConfiguration.Fragment>> getUniversalFragments() {
+  public ImmutableList<Class<? extends Fragment>> getUniversalFragments() {
     return universalFragments;
   }
 
@@ -815,18 +728,25 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     return BuildOptions.of(configurationOptions, optionsProvider);
   }
 
-  private Environment.GlobalFrame createGlobals(
-      ImmutableMap<String, Object> skylarkAccessibleTopLevels,
+  private static ImmutableMap<String, Object> createNativeRuleSpecificBindings(
+      ImmutableMap<String, Object> starlarkAccessibleTopLevels,
       ImmutableList<Bootstrap> bootstraps) {
-    ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
-
-    SkylarkModules.addSkylarkGlobalsToBuilder(envBuilder);
-    envBuilder.putAll(skylarkAccessibleTopLevels.entrySet());
+    ImmutableMap.Builder<String, Object> bindings = ImmutableMap.builder();
+    bindings.putAll(starlarkAccessibleTopLevels);
     for (Bootstrap bootstrap : bootstraps) {
-      bootstrap.addBindingsToBuilder(envBuilder);
+      bootstrap.addBindingsToBuilder(bindings);
     }
+    return bindings.build();
+  }
 
-    return GlobalFrame.createForBuiltins(envBuilder.build());
+  private static ImmutableMap<String, Object> createEnvironment(
+      ImmutableMap<String, Object> nativeRuleSpecificBindings) {
+    ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
+    // Add predeclared symbols of the Bazel build language.
+    StarlarkModules.addPredeclared(envBuilder);
+    // Add all the extensions registered with the rule class provider.
+    envBuilder.putAll(nativeRuleSpecificBindings);
+    return envBuilder.build();
   }
 
   private static ImmutableMap<String, Class<?>> createFragmentMap(
@@ -834,7 +754,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     ImmutableMap.Builder<String, Class<?>> mapBuilder = ImmutableMap.builder();
     for (ConfigurationFragmentFactory fragmentFactory : configurationFragmentFactories) {
       Class<? extends Fragment> fragmentClass = fragmentFactory.creates();
-      SkylarkModule fragmentModule = SkylarkInterfaceUtils.getSkylarkModule((fragmentClass));
+      StarlarkBuiltin fragmentModule = StarlarkAnnotations.getStarlarkBuiltin(fragmentClass);
       if (fragmentModule != null) {
         mapBuilder.put(fragmentModule.name(), fragmentClass);
       }
@@ -842,52 +762,33 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     return mapBuilder.build();
   }
 
-  private Environment createSkylarkRuleClassEnvironment(
-      Mutability mutability,
-      GlobalFrame globals,
-      StarlarkSemantics starlarkSemantics,
-      EventHandler eventHandler,
-      String astFileContentHashCode,
-      Map<String, Extension> importMap,
-      ImmutableMap<RepositoryName, RepositoryName> repoMapping,
-      Label callerLabel) {
-    BazelStarlarkContext context =
-        new BazelStarlarkContext(
-            toolsRepository,
-            configurationFragmentMap,
-            repoMapping,
-            new SymbolGenerator<>(callerLabel));
-    Environment env =
-        Environment.builder(mutability)
-            .setGlobals(globals)
-            .setSemantics(starlarkSemantics)
-            .setEventHandler(eventHandler)
-            .setFileContentHashCode(astFileContentHashCode)
-            .setStarlarkContext(context)
-            .setImportedExtensions(importMap)
-            .build();
-    SkylarkUtils.setPhase(env, Phase.LOADING);
-    return env;
+  @Override
+  public ImmutableMap<String, Object> getNativeRuleSpecificBindings() {
+    // Include rule-related stuff like CcInfo, but not core stuff like rule(). Essentially, this
+    // is intended to include things that could in principle be migrated to Starlark (and hence
+    // should be overridable by @builtins); in practice it means anything specifically registered
+    // with the RuleClassProvider.
+    return nativeRuleSpecificBindings;
   }
 
   @Override
-  public Environment createSkylarkRuleClassEnvironment(
-      Label extensionLabel,
-      Mutability mutability,
-      StarlarkSemantics starlarkSemantics,
-      EventHandler eventHandler,
-      String astFileContentHashCode,
-      Map<String, Extension> importMap,
+  public ImmutableMap<String, Object> getEnvironment() {
+    return environment;
+  }
+
+  @Override
+  public void setStarlarkThreadContext(
+      StarlarkThread thread,
+      Label fileLabel,
       ImmutableMap<RepositoryName, RepositoryName> repoMapping) {
-    return createSkylarkRuleClassEnvironment(
-        mutability,
-        globals.withLabel(extensionLabel),
-        starlarkSemantics,
-        eventHandler,
-        astFileContentHashCode,
-        importMap,
-        repoMapping,
-        extensionLabel);
+    new BazelStarlarkContext(
+            BazelStarlarkContext.Phase.LOADING,
+            toolsRepository,
+            configurationFragmentMap,
+            repoMapping,
+            new SymbolGenerator<>(fileLabel),
+            /*analysisRuleLabel=*/ null)
+        .storeInThread(thread);
   }
 
   @Override
@@ -905,7 +806,21 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     return configurationFragmentMap;
   }
 
-  public ConstraintSemantics getConstraintSemantics() {
+  /**
+   * Returns the symlink definitions introduced by the fragments registered with this rule class
+   * provider.
+   *
+   * <p>This only includes definitions added by {@link #addSymlinkDefinition}, not the standard
+   * symlinks in {@link ConvenienceSymlinks#getStandardLinkDefinitions}.
+   *
+   * <p>Note: Usages of custom symlink definitions should be rare. Currently it is only used to
+   * implement the py2-bin / py3-bin symlinks.
+   */
+  public ImmutableList<SymlinkDefinition> getSymlinkDefinitions() {
+    return symlinkDefinitions;
+  }
+
+  public ConstraintSemantics<RuleContext> getConstraintSemantics() {
     return constraintSemantics;
   }
 
@@ -914,18 +829,9 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     return thirdPartyLicenseExistencePolicy;
   }
 
-  /** Returns all skylark objects in global scope for this RuleClassProvider. */
-  public Map<String, Object> getTransitiveGlobalBindings() {
-    return globals.getTransitiveBindings();
-  }
-
-  public Object getGlobalsForConstantRegistration() {
-    return globals;
-  }
-
-  /** Returns all registered {@link BuildConfiguration.Fragment} classes. */
-  public ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> getAllFragments() {
-    ImmutableSortedSet.Builder<Class<? extends BuildConfiguration.Fragment>> fragmentsBuilder =
+  /** Returns all registered {@link Fragment} classes. */
+  public ImmutableSortedSet<Class<? extends Fragment>> getAllFragments() {
+    ImmutableSortedSet.Builder<Class<? extends Fragment>> fragmentsBuilder =
         ImmutableSortedSet.orderedBy(BuildConfiguration.lexicalFragmentSorter);
     for (ConfigurationFragmentFactory factory : getConfigurationFragments()) {
       fragmentsBuilder.add(factory.creates());
@@ -934,7 +840,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     return fragmentsBuilder.build();
   }
 
-  /** Returns a reserved set of action mnemonics. These cannot be used from a Skylark action. */
+  /** Returns a reserved set of action mnemonics. These cannot be used from a Starlark action. */
   public ImmutableSet<String> getReservedActionMnemonics() {
     return reservedActionMnemonics;
   }

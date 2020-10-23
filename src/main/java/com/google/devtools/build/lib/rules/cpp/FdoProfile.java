@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
 /** Implementation for the {@code fdo_profile} rule. */
@@ -30,14 +29,13 @@ public final class FdoProfile implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws RuleErrorException, ActionConflictException {
-
+    CcCommon.checkRuleLoadedThroughMacro(ruleContext);
     FdoInputFile inputFile = FdoInputFile.fromProfileRule(ruleContext);
     if (ruleContext.hasErrors()) {
       return null;
     }
 
-    Artifact protoProfileArtifact =
-        ruleContext.getPrerequisiteArtifact("proto_profile", Mode.TARGET);
+    Artifact protoProfileArtifact = ruleContext.getPrerequisiteArtifact("proto_profile");
     if (protoProfileArtifact != null && !protoProfileArtifact.isSourceArtifact()) {
       ruleContext.attributeError("proto_profile", "the target is not an input file");
     }

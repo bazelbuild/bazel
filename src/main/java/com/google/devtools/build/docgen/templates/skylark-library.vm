@@ -2,6 +2,12 @@
 layout: documentation
 title: ${module.title}
 ---
+
+<a href="../concepts.html">Extensions</a> &gt;
+<a href="skylark-overview.html">API reference</a> &gt;
+${module.title}
+
+<!-- {% raw %} -->
 <h1 id="modules.${module.name}">${module.title}</h1>
 
 ${module.documentation}
@@ -12,7 +18,9 @@ ${module.documentation}
   <ul>
   #foreach ($method in $module.methods)
     #if ($method.documented())
-    <li><a href="#${method.name}">${method.name}</a></li>
+    <li>
+      <a href="#${method.name}">${method.name}</a>
+    </li>
     #end
   #end
   </ul>
@@ -29,7 +37,8 @@ ${module.documentation}
     ${method.documentation}
 
     #if (!$method.params.isEmpty())
-      <h3>Parameters</h3>
+      <!-- no_toc is a class used by the jekyll-toc plugin for docs.bazel.build -->
+      <h3 class="no_toc">Parameters</h3>
       <table class="table table-bordered table-condensed table-params">
         <colgroup>
           <col class="col-param">
@@ -48,10 +57,12 @@ ${module.documentation}
               <code>${param.name}</code>
             </td>
             <td>
-            #if (!$param.type.isEmpty())
-              <p><code>${param.type}</code></p>
+            #if (!$param.defaultValue.isEmpty())
+             <code>${param.type}</code>; default = ${param.defaultValue}<br/>
+            #else
+             <code>${param.type}</code>; required<br/>
             #end
-              <p>${param.documentation}</p>
+              ${param.documentation}
             </td>
           </tr>
         #end
@@ -61,3 +72,5 @@ ${module.documentation}
     ${method.returnTypeExtraMessage}
   #end
 #end
+
+<!-- {% endraw %} -->

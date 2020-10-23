@@ -13,15 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import static com.google.devtools.build.lib.exec.TestStrategy.TestSummaryFormat.DETAILED;
-import static com.google.devtools.build.lib.exec.TestStrategy.TestSummaryFormat.TESTCASE;
+import static com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat.DETAILED;
+import static com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat.TESTCASE;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.ExecutionOptions.TestOutputFormat;
+import com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat;
 import com.google.devtools.build.lib.exec.TestLogHelper;
-import com.google.devtools.build.lib.exec.TestStrategy.TestOutputFormat;
-import com.google.devtools.build.lib.exec.TestStrategy.TestSummaryFormat;
 import com.google.devtools.build.lib.runtime.TestSummaryPrinter.TestLogPathFormatter;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
@@ -40,6 +42,12 @@ import java.util.Set;
  * Prints the test results to a terminal.
  */
 public class TerminalTestResultNotifier implements TestResultNotifier {
+  // The number of failed-to-build tests to report.
+  // (We do not want to report hundreds of failed-to-build tests as it would probably be caused
+  // by some intermediate target not related to tests themselves.)
+  // The total number of failed-to-build tests will be reported in any case.
+  @VisibleForTesting public static final int NUM_FAILED_TO_BUILD = 5;
+
   private static class TestResultStats {
     int numberOfTargets;
     int passCount;
@@ -53,6 +61,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
 
     int totalTestCases;
     int totalFailedTestCases;
+    int totalUnknownTestCases;
   }
 
   /**
@@ -128,40 +137,42 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
   }
 
   /**
-   * Prints a test result summary that contains only failed tests.
+   * Prints test result summary.
+   *
+   * @param summaries summaries of tests {@link TestSummary}
+   * @param showAllTests if true, print information about each test regardless of its status
+   * @param showNoStatusTests if true, print information about not executed tests (no status tests)
+   * @param printFailedTestCases if true, print details about which test cases in a test failed
    */
-  private void printDetailedTestResultSummary(Set<TestSummary> summaries) {
+  private void printSummary(
+      Set<TestSummary> summaries,
+      boolean showAllTests,
+      boolean showNoStatusTests,
+      boolean printFailedTestCases) {
     boolean withConfig = duplicateLabels(summaries);
+    int numFailedToBuildReported = 0;
     for (TestSummary summary : summaries) {
-      if (summary.getStatus() != BlazeTestStatus.PASSED) {
-        TestSummaryPrinter.print(
-            summary,
-            printer,
-            testLogPathFormatter,
-            summaryOptions.verboseSummary,
-            true,
-            withConfig);
+      if (!showAllTests
+          && (BlazeTestStatus.PASSED == summary.getStatus()
+              || (!showNoStatusTests && BlazeTestStatus.NO_STATUS == summary.getStatus()))) {
+        continue;
       }
-    }
-  }
-
-  /**
-   * Prints a full test result summary.
-   */
-  private void printShortSummary(Set<TestSummary> summaries, boolean showPassingTests) {
-    boolean withConfig = duplicateLabels(summaries);
-    for (TestSummary summary : summaries) {
-      if ((summary.getStatus() != BlazeTestStatus.PASSED
-              && summary.getStatus() != BlazeTestStatus.NO_STATUS)
-          || showPassingTests) {
-        TestSummaryPrinter.print(
-            summary,
-            printer,
-            testLogPathFormatter,
-            summaryOptions.verboseSummary,
-            false,
-            withConfig);
+      if (BlazeTestStatus.FAILED_TO_BUILD == summary.getStatus()) {
+        if (numFailedToBuildReported == NUM_FAILED_TO_BUILD) {
+          printer.printLn("(Skipping other failed to build tests)");
+        }
+        numFailedToBuildReported++;
+        if (numFailedToBuildReported > NUM_FAILED_TO_BUILD) {
+          continue;
+        }
       }
+      TestSummaryPrinter.print(
+          summary,
+          printer,
+          testLogPathFormatter,
+          summaryOptions.verboseSummary,
+          printFailedTestCases,
+          withConfig);
     }
   }
 
@@ -185,13 +196,20 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
     stats.numberOfTargets = summaries.size();
     stats.numberOfExecutedTargets = numberOfExecutedTargets;
 
-    TestOutputFormat testOutput = options.getOptions(ExecutionOptions.class).testOutput;
+    ExecutionOptions executionOptions =
+        Preconditions.checkNotNull(options.getOptions(ExecutionOptions.class));
+    TestOutputFormat testOutput = executionOptions.testOutput;
 
     for (TestSummary summary : summaries) {
       if (summary.isLocalActionCached()
           && TestLogHelper.shouldOutputTestLog(testOutput,
               TestResult.isBlazeTestStatusPassed(summary.getStatus()))) {
-        TestSummaryPrinter.printCachedOutput(summary, testOutput, printer, testLogPathFormatter);
+        TestSummaryPrinter.printCachedOutput(
+            summary,
+            testOutput,
+            printer,
+            testLogPathFormatter,
+            executionOptions.maxTestOutputBytes);
       }
     }
 
@@ -212,24 +230,37 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
         stats.wasUnreportedWrongSize = true;
       }
 
-      stats.totalFailedTestCases += summary.getFailedTestCases().size();
       stats.totalTestCases += summary.getTotalTestCases();
+      stats.totalUnknownTestCases += summary.getUnkownTestCases();
+      stats.totalFailedTestCases += summary.getFailedTestCases().size();
     }
 
     stats.failedCount = summaries.size() - stats.passCount;
 
-    TestSummaryFormat testSummaryFormat = options.getOptions(ExecutionOptions.class).testSummary;
+    TestSummaryFormat testSummaryFormat = executionOptions.testSummary;
     switch (testSummaryFormat) {
       case DETAILED:
-        printDetailedTestResultSummary(summaries);
+        printSummary(
+            summaries,
+            /* showAllTests= */ false,
+            /* showNoStatusTests= */ true,
+            /* printFailedTestCases= */ true);
         break;
 
       case SHORT:
-        printShortSummary(summaries, /* showPassingTests= */ true);
+        printSummary(
+            summaries,
+            /* showAllTests= */ true,
+            /* showNoStatusTests= */ false,
+            /* printFailedTestCases= */ false);
         break;
 
       case TERSE:
-        printShortSummary(summaries, /* showPassingTests= */ false);
+        printSummary(
+            summaries,
+            /* showAllTests= */ false,
+            /* showNoStatusTests= */ false,
+            /* printFailedTestCases= */ false);
         break;
 
       case TESTCASE:
@@ -255,7 +286,8 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
   private void printStats(TestResultStats stats) {
     TestSummaryFormat testSummaryFormat = options.getOptions(ExecutionOptions.class).testSummary;
     if (testSummaryFormat == DETAILED || testSummaryFormat == TESTCASE) {
-      int passCount = stats.totalTestCases - stats.totalFailedTestCases;
+      int passCount =
+          stats.totalTestCases - stats.totalFailedTestCases - stats.totalUnknownTestCases;
       String message =
           String.format(
               "Test cases: finished with %s%d passing%s and %s%d failing%s out of %d test cases",
@@ -266,10 +298,10 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
               stats.totalFailedTestCases,
               AnsiTerminalPrinter.Mode.DEFAULT,
               stats.totalTestCases);
-      if (passCount > 0 && stats.totalFailedTestCases == 0 && stats.failedCount > 0) {
+      if (stats.totalUnknownTestCases != 0) {
         // It is possible for a target to fail even if all of its test cases pass. To avoid
         // confusion, we append the following disclaimer.
-        message += "\n(however note that at least one target failed)";
+        message += " (some targets did not have test case information)";
       }
       printer.printLn(message);
     }

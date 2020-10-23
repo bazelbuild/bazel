@@ -17,14 +17,13 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 import static com.google.common.io.ByteStreams.toByteArray;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.repository.downloader.DownloaderTestUtils.makeUrl;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyLong;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Matchers.same;
+import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -33,8 +32,11 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
+import com.google.common.base.Function;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.RetryingInputStream.Reconnector;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.testutil.ManualClock;
@@ -42,8 +44,10 @@ import com.google.devtools.build.lib.util.Sleeper;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.Map;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -69,6 +73,11 @@ public class HttpConnectorMultiplexerTest {
   private static final byte[] data2 = "second".getBytes(UTF_8);
   private static final byte[] data3 = "third".getBytes(UTF_8);
 
+  private static final Optional<Checksum> DUMMY_CHECKSUM =
+      Optional.of(
+          Checksum.fromString(
+              KeyType.SHA256, "abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd"));
+
   @Rule
   public final ExpectedException thrown = ExpectedException.none();
 
@@ -91,50 +100,63 @@ public class HttpConnectorMultiplexerTest {
 
   @Before
   public void before() throws Exception {
-    when(connector.connect(eq(URL1), any(ImmutableMap.class))).thenReturn(connection1);
-    when(connector.connect(eq(URL2), any(ImmutableMap.class))).thenReturn(connection2);
-    when(connector.connect(eq(URL3), any(ImmutableMap.class))).thenReturn(connection3);
-    when(streamFactory
-            .create(same(connection1), any(URL.class), anyString(), any(Reconnector.class)))
+    when(connector.connect(eq(URL1), any(Function.class))).thenReturn(connection1);
+    when(connector.connect(eq(URL2), any(Function.class))).thenReturn(connection2);
+    when(connector.connect(eq(URL3), any(Function.class))).thenReturn(connection3);
+    when(streamFactory.create(
+            same(connection1),
+            any(URL.class),
+            any(Optional.class),
+            any(Reconnector.class),
+            any(Optional.class)))
         .thenReturn(stream1);
-    when(streamFactory
-            .create(same(connection2), any(URL.class), anyString(), any(Reconnector.class)))
+    when(streamFactory.create(
+            same(connection2),
+            any(URL.class),
+            any(Optional.class),
+            any(Reconnector.class),
+            any(Optional.class)))
         .thenReturn(stream2);
-    when(streamFactory
-            .create(same(connection3), any(URL.class), anyString(), any(Reconnector.class)))
+    when(streamFactory.create(
+            same(connection3),
+            any(URL.class),
+            any(Optional.class),
+            any(Reconnector.class),
+            any(Optional.class)))
         .thenReturn(stream3);
   }
 
   @Test
   public void emptyList_throwsIae() throws Exception {
     thrown.expect(IllegalArgumentException.class);
-    multiplexer.connect(ImmutableList.<URL>of(), "");
+    multiplexer.connect(ImmutableList.<URL>of(), null);
   }
 
   @Test
   public void ftpUrl_throwsIae() throws Exception {
     thrown.expect(IllegalArgumentException.class);
-    multiplexer.connect(asList(new URL("ftp://lol.example")), "");
+    multiplexer.connect(asList(new URL("ftp://lol.example")), null);
   }
 
   @Test
   public void threadIsInterrupted_throwsIeProntoAndDoesNothingElse() throws Exception {
     final AtomicBoolean wasInterrupted = new AtomicBoolean(true);
-    Thread task = new Thread(
-        new Runnable() {
-          @Override
-          public void run() {
-            Thread.currentThread().interrupt();
-            try {
-              multiplexer.connect(asList(new URL("http://lol.example")), "");
-            } catch (InterruptedIOException ignored) {
-              return;
-            } catch (Exception ignored) {
-              // ignored
-            }
-            wasInterrupted.set(false);
-          }
-        });
+    Thread task =
+        new Thread(
+            new Runnable() {
+              @Override
+              public void run() {
+                Thread.currentThread().interrupt();
+                try {
+                  multiplexer.connect(asList(new URL("http://lol.example")), null);
+                } catch (InterruptedIOException ignored) {
+                  return;
+                } catch (Exception ignored) {
+                  // ignored
+                }
+                wasInterrupted.set(false);
+              }
+            });
     task.start();
     task.join();
     assertThat(wasInterrupted.get()).isTrue();
@@ -143,20 +165,25 @@ public class HttpConnectorMultiplexerTest {
 
   @Test
   public void singleUrl_justCallsConnector() throws Exception {
-    assertThat(toByteArray(multiplexer.connect(asList(URL1), "abc"))).isEqualTo(data1);
-    verify(connector).connect(eq(URL1), any(ImmutableMap.class));
+    assertThat(toByteArray(multiplexer.connect(asList(URL1), DUMMY_CHECKSUM))).isEqualTo(data1);
+    verify(connector).connect(eq(URL1), any(Function.class));
     verify(streamFactory)
-        .create(any(URLConnection.class), any(URL.class), eq("abc"), any(Reconnector.class));
+        .create(
+            any(URLConnection.class),
+            any(URL.class),
+            eq(DUMMY_CHECKSUM),
+            any(Reconnector.class),
+            any(Optional.class));
     verifyNoMoreInteractions(sleeper, connector, streamFactory);
   }
 
   @Test
   public void multipleUrlsFail_throwsIOException() throws Exception {
-    when(connector.connect(any(URL.class), any(ImmutableMap.class))).thenThrow(new IOException());
+    when(connector.connect(any(URL.class), any(Function.class))).thenThrow(new IOException());
     IOException e =
-        assertThrows(IOException.class, () -> multiplexer.connect(asList(URL1, URL2, URL3), ""));
+        assertThrows(IOException.class, () -> multiplexer.connect(asList(URL1, URL2, URL3), null));
     assertThat(e).hasMessageThat().contains("All mirrors are down");
-    verify(connector, times(3)).connect(any(URL.class), any(ImmutableMap.class));
+    verify(connector, times(3)).connect(any(URL.class), any(Function.class));
     verify(sleeper, times(2)).sleepMillis(anyLong());
     verifyNoMoreInteractions(sleeper, connector, streamFactory);
   }
@@ -171,13 +198,19 @@ public class HttpConnectorMultiplexerTest {
             return null;
           }
         }).when(sleeper).sleepMillis(anyLong());
-    when(connector.connect(eq(URL1), any(ImmutableMap.class))).thenThrow(new IOException());
-    assertThat(toByteArray(multiplexer.connect(asList(URL1, URL2), "abc"))).isEqualTo(data2);
+    when(connector.connect(eq(URL1), any(Function.class))).thenThrow(new IOException());
+    assertThat(toByteArray(multiplexer.connect(asList(URL1, URL2), DUMMY_CHECKSUM)))
+        .isEqualTo(data2);
     assertThat(clock.currentTimeMillis()).isEqualTo(1000L);
-    verify(connector).connect(eq(URL1), any(ImmutableMap.class));
-    verify(connector).connect(eq(URL2), any(ImmutableMap.class));
+    verify(connector).connect(eq(URL1), any(Function.class));
+    verify(connector).connect(eq(URL2), any(Function.class));
     verify(streamFactory)
-        .create(any(URLConnection.class), any(URL.class), eq("abc"), any(Reconnector.class));
+        .create(
+            any(URLConnection.class),
+            any(URL.class),
+            eq(DUMMY_CHECKSUM),
+            any(Reconnector.class),
+            any(Optional.class));
     verify(sleeper).sleepMillis(anyLong());
     verifyNoMoreInteractions(sleeper, connector, streamFactory);
   }
@@ -186,14 +219,15 @@ public class HttpConnectorMultiplexerTest {
   public void twoSuccessfulUrlsAndFirstWins_returnsFirstAndInterruptsSecond() throws Exception {
     final CyclicBarrier barrier = new CyclicBarrier(2);
     final AtomicBoolean wasInterrupted = new AtomicBoolean(true);
-    when(connector.connect(eq(URL1), any(ImmutableMap.class))).thenAnswer(
-        new Answer<URLConnection>() {
-          @Override
-          public URLConnection answer(InvocationOnMock invocation) throws Throwable {
-            barrier.await();
-            return connection1;
-          }
-        });
+    when(connector.connect(eq(URL1), any(Function.class)))
+        .thenAnswer(
+            new Answer<URLConnection>() {
+              @Override
+              public URLConnection answer(InvocationOnMock invocation) throws Throwable {
+                barrier.await();
+                return connection1;
+              }
+            });
     doAnswer(
         new Answer<Void>() {
           @Override
@@ -204,7 +238,8 @@ public class HttpConnectorMultiplexerTest {
             return null;
           }
         }).when(sleeper).sleepMillis(anyLong());
-    assertThat(toByteArray(multiplexer.connect(asList(URL1, URL2), "abc"))).isEqualTo(data1);
+    assertThat(toByteArray(multiplexer.connect(asList(URL1, URL2), DUMMY_CHECKSUM)))
+        .isEqualTo(data1);
     assertThat(wasInterrupted.get()).isTrue();
   }
 
@@ -214,40 +249,43 @@ public class HttpConnectorMultiplexerTest {
     final AtomicBoolean wasInterrupted1 = new AtomicBoolean(true);
     final AtomicBoolean wasInterrupted2 = new AtomicBoolean(true);
     final AtomicBoolean wasInterrupted3 = new AtomicBoolean(true);
-    when(connector.connect(eq(URL1), any(ImmutableMap.class))).thenAnswer(
-        new Answer<URLConnection>() {
-          @Override
-          public URLConnection answer(InvocationOnMock invocation) throws Throwable {
-            barrier.await();
-            TimeUnit.MILLISECONDS.sleep(10000);
-            wasInterrupted1.set(false);
-            throw new RuntimeException();
-          }
-        });
-    when(connector.connect(eq(URL2), any(ImmutableMap.class))).thenAnswer(
-        new Answer<URLConnection>() {
-          @Override
-          public URLConnection answer(InvocationOnMock invocation) throws Throwable {
-            barrier.await();
-            TimeUnit.MILLISECONDS.sleep(10000);
-            wasInterrupted2.set(false);
-            throw new RuntimeException();
-          }
-        });
-    Thread task = new Thread(
-        new Runnable() {
-          @Override
-          public void run() {
-            try {
-              multiplexer.connect(asList(URL1, URL2), "");
-            } catch (InterruptedIOException ignored) {
-              return;
-            } catch (Exception ignored) {
-              // ignored
-            }
-            wasInterrupted3.set(false);
-          }
-        });
+    when(connector.connect(eq(URL1), any(Function.class)))
+        .thenAnswer(
+            new Answer<URLConnection>() {
+              @Override
+              public URLConnection answer(InvocationOnMock invocation) throws Throwable {
+                barrier.await();
+                TimeUnit.MILLISECONDS.sleep(10000);
+                wasInterrupted1.set(false);
+                throw new RuntimeException();
+              }
+            });
+    when(connector.connect(eq(URL2), any(Function.class)))
+        .thenAnswer(
+            new Answer<URLConnection>() {
+              @Override
+              public URLConnection answer(InvocationOnMock invocation) throws Throwable {
+                barrier.await();
+                TimeUnit.MILLISECONDS.sleep(10000);
+                wasInterrupted2.set(false);
+                throw new RuntimeException();
+              }
+            });
+    Thread task =
+        new Thread(
+            new Runnable() {
+              @Override
+              public void run() {
+                try {
+                  multiplexer.connect(asList(URL1, URL2), null);
+                } catch (InterruptedIOException ignored) {
+                  return;
+                } catch (Exception ignored) {
+                  // ignored
+                }
+                wasInterrupted3.set(false);
+              }
+            });
     task.start();
     barrier.await();
     task.interrupt();
@@ -259,5 +297,54 @@ public class HttpConnectorMultiplexerTest {
 
   private static HttpStream fakeStream(URL url, byte[] data) {
     return new HttpStream(new ByteArrayInputStream(data), url);
+  }
+
+  @Test
+  public void testHeaderComputationFunction() throws Exception {
+    Map<String, String> baseHeaders =
+        ImmutableMap.of("Accept-Encoding", "gzip", "User-Agent", "Bazel/testing");
+    Map<URI, Map<String, String>> additionalHeaders =
+        ImmutableMap.of(
+            new URI("http://hosting.example.com/user/foo/file.txt"),
+            ImmutableMap.of("Authentication", "Zm9vOmZvb3NlY3JldA=="));
+
+    Function<URL, ImmutableMap<String, String>> headerFunction =
+        HttpConnectorMultiplexer.getHeaderFunction(baseHeaders, additionalHeaders);
+
+    // Unreleated URL
+    assertThat(headerFunction.apply(new URL("http://example.org/some/path/file.txt")))
+        .containsExactly("Accept-Encoding", "gzip", "User-Agent", "Bazel/testing");
+
+    // With auth headers
+    assertThat(headerFunction.apply(new URL("http://hosting.example.com/user/foo/file.txt")))
+        .containsExactly(
+            "Accept-Encoding",
+            "gzip",
+            "User-Agent",
+            "Bazel/testing",
+            "Authentication",
+            "Zm9vOmZvb3NlY3JldA==");
+
+    // Other hosts
+    assertThat(headerFunction.apply(new URL("http://hosting2.example.com/user/foo/file.txt")))
+        .containsExactly("Accept-Encoding", "gzip", "User-Agent", "Bazel/testing");
+    assertThat(headerFunction.apply(new URL("http://sub.hosting.example.com/user/foo/file.txt")))
+        .containsExactly("Accept-Encoding", "gzip", "User-Agent", "Bazel/testing");
+    assertThat(headerFunction.apply(new URL("http://example.com/user/foo/file.txt")))
+        .containsExactly("Accept-Encoding", "gzip", "User-Agent", "Bazel/testing");
+    assertThat(
+            headerFunction.apply(
+                new URL("http://hosting.example.com.evil.example/user/foo/file.txt")))
+        .containsExactly("Accept-Encoding", "gzip", "User-Agent", "Bazel/testing");
+
+    // Verify that URL-specific headers overwrite
+    Map<String, String> annonAuth =
+        ImmutableMap.of("Authentication", "YW5vbnltb3VzOmZvb0BleGFtcGxlLm9yZw==");
+    Function<URL, ImmutableMap<String, String>> combinedHeaders =
+        HttpConnectorMultiplexer.getHeaderFunction(annonAuth, additionalHeaders);
+    assertThat(combinedHeaders.apply(new URL("http://hosting.example.com/user/foo/file.txt")))
+        .containsExactly("Authentication", "Zm9vOmZvb3NlY3JldA==");
+    assertThat(combinedHeaders.apply(new URL("http://unreleated.example.org/user/foo/file.txt")))
+        .containsExactly("Authentication", "YW5vbnltb3VzOmZvb0BleGFtcGxlLm9yZw==");
   }
 }

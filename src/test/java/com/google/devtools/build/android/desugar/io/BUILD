@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_test")
+
 # Description:
 #   Tests for the Java 8 desugaring tool for Android.
 package(

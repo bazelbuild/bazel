@@ -16,32 +16,39 @@ package com.google.devtools.build.lib.analysis.configuredtargets;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.TargetContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import net.starlark.java.eval.Printer;
 
 /** A ConfiguredTarget for an OutputFile. */
 @AutoCodec
+@Immutable
 public class OutputFileConfiguredTarget extends FileConfiguredTarget {
 
   private final Artifact artifact;
-  private final TransitiveInfoCollection generatingRule;
+  private final ConfiguredTarget generatingRule;
 
   public OutputFileConfiguredTarget(
-      TargetContext targetContext, OutputFile outputFile,
-      TransitiveInfoCollection generatingRule, Artifact outputArtifact) {
+      TargetContext targetContext,
+      OutputFile outputFile,
+      ConfiguredTarget generatingRule,
+      Artifact outputArtifact) {
     this(
         targetContext.getLabel(),
         targetContext.getConfigurationKey(),
@@ -58,8 +65,17 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget {
       BuildConfigurationValue.Key configurationKey,
       NestedSet<PackageGroupContents> visibility,
       Artifact artifact,
-      TransitiveInfoCollection generatingRule) {
-    super(label, configurationKey, visibility, artifact, instrumentedFilesInfo(generatingRule));
+      ConfiguredTarget generatingRule) {
+
+    super(
+        label,
+        configurationKey,
+        visibility,
+        artifact,
+        instrumentedFilesInfo(generatingRule),
+        generatingRule.getProvider(RequiredConfigFragmentsProvider.class),
+        Preconditions.checkNotNull(generatingRule).get(OutputGroupInfo.STARLARK_CONSTRUCTOR));
+
     this.artifact = artifact;
     this.generatingRule = Preconditions.checkNotNull(generatingRule);
   }
@@ -67,11 +83,11 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget {
   private static InstrumentedFilesInfo instrumentedFilesInfo(
       TransitiveInfoCollection generatingRule) {
     Preconditions.checkNotNull(generatingRule);
-    InstrumentedFilesInfo provider = generatingRule.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR);
+    InstrumentedFilesInfo provider = generatingRule.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
     return provider == null ? InstrumentedFilesInfo.EMPTY : provider;
   }
 
-  public TransitiveInfoCollection getGeneratingRule() {
+  public ConfiguredTarget getGeneratingRule() {
     return generatingRule;
   }
 
@@ -113,7 +129,7 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<output file target " + getLabel() + ">");
   }
 }

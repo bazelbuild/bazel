@@ -14,13 +14,21 @@
 
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
+
+import com.google.common.base.Functions;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
-import com.google.common.collect.Sets.SetView;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.SaneAnalysisException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.Set;
 
 /**
@@ -61,7 +69,7 @@ public interface MutableActionGraph extends ActionGraph {
    * about the artifact for which the conflict is found, and data about the two conflicting actions
    * and their owners.
    */
-  final class ActionConflictException extends Exception {
+  final class ActionConflictException extends Exception implements SaneAnalysisException {
 
     private final Artifact artifact;
     private final String suffix;
@@ -96,6 +104,15 @@ public interface MutableActionGraph extends ActionGraph {
       eventListener.handle(Event.error(msg));
     }
 
+    @Override
+    public DetailedExitCode getDetailedExitCode() {
+      return DetailedExitCode.of(
+          FailureDetail.newBuilder()
+              .setMessage(getMessage())
+              .setAnalysis(Analysis.newBuilder().setCode(Code.ACTION_CONFLICT))
+              .build());
+    }
+
     private static void addStringDetail(
         StringBuilder sb, String key, String valueA, String valueB) {
       valueA = valueA != null ? valueA : "(null)";
@@ -110,10 +127,8 @@ public interface MutableActionGraph extends ActionGraph {
 
     private static void addListDetail(
         StringBuilder sb, String key, Iterable<Artifact> valueA, Iterable<Artifact> valueB) {
-      Set<Artifact> setA = ImmutableSet.copyOf(valueA);
-      Set<Artifact> setB = ImmutableSet.copyOf(valueB);
-      SetView<Artifact> diffA = Sets.difference(setA, setB);
-      SetView<Artifact> diffB = Sets.difference(setB, setA);
+      Set<Artifact> diffA = differenceWithoutOwner(valueA, valueB);
+      Set<Artifact> diffB = differenceWithoutOwner(valueB, valueA);
 
       sb.append(key).append(": ");
       if (diffA.isEmpty() && diffB.isEmpty()) {
@@ -137,15 +152,42 @@ public interface MutableActionGraph extends ActionGraph {
       }
     }
 
+    /** Returns items in {@code valueA} that are not in {@code valueB}, ignoring the owner. */
+    private static Set<Artifact> differenceWithoutOwner(
+        Iterable<Artifact> valueA, Iterable<Artifact> valueB) {
+      ImmutableSet.Builder<Artifact> diff = new ImmutableSet.Builder<>();
+
+      // Group valueB by exec path for easier checks.
+      ImmutableListMultimap<String, Artifact> mapB =
+          Streams.stream(valueB)
+              .collect(toImmutableListMultimap(Artifact::getExecPathString, Functions.identity()));
+      for (Artifact a : valueA) {
+        boolean found = false;
+        for (Artifact b : mapB.get(a.getExecPathString())) {
+          if (a.equalsWithoutOwner(b)) {
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          diff.add(a);
+        }
+      }
+
+      return diff.build();
+    }
+
     /** Pretty print action diffs (at most {@code MAX_DIFF_ARTIFACTS_TO_REPORT} lines). */
-    private static void prettyPrintArtifactDiffs(StringBuilder sb, SetView<Artifact> diff) {
+    private static void prettyPrintArtifactDiffs(StringBuilder sb, Set<Artifact> diff) {
       for (Artifact artifact : Iterables.limit(diff, MAX_DIFF_ARTIFACTS_TO_REPORT)) {
         sb.append("\t" + artifact.prettyPrint() + "\n");
       }
     }
 
     private static String getKey(ActionKeyContext actionKeyContext, ActionAnalysisMetadata action) {
-      return action instanceof Action ? ((Action) action).getKey(actionKeyContext) : null;
+      return action instanceof Action
+          ? ((Action) action).getKey(actionKeyContext, /*artifactExpander=*/ null)
+          : null;
     }
 
     // See also Actions.canBeShared()
@@ -195,7 +237,7 @@ public interface MutableActionGraph extends ActionGraph {
               && aPrimaryInput.toString().equals(bPrimaryInput.toString()))) {
         Artifact aPrimaryOutput = a.getPrimaryOutput();
         Artifact bPrimaryOutput = b.getPrimaryOutput();
-        if (!aPrimaryOutput.equals(bPrimaryOutput)) {
+        if (!aPrimaryOutput.equalsWithoutOwner(bPrimaryOutput)) {
           sb.append("Primary outputs are different: ")
               .append(System.identityHashCode(aPrimaryOutput))
               .append(", ")
@@ -206,7 +248,11 @@ public interface MutableActionGraph extends ActionGraph {
         ArtifactOwner bArtifactOwner = bPrimaryOutput.getArtifactOwner();
         addStringDetail(
             sb, "Owner information", aArtifactOwner.toString(), bArtifactOwner.toString());
-        addListDetail(sb, "MandatoryInputs", a.getMandatoryInputs(), b.getMandatoryInputs());
+        addListDetail(
+            sb,
+            "MandatoryInputs",
+            a.getMandatoryInputs().toList(),
+            b.getMandatoryInputs().toList());
         addListDetail(sb, "Outputs", a.getOutputs(), b.getOutputs());
       }
 

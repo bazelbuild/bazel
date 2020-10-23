@@ -59,17 +59,16 @@ fi
 
 # Tests in this file do not actually start a Python interpreter, but plug in a
 # fake stub executable to serve as the "interpreter".
+#
+# Note that this means this suite cannot be used for tests of the actual stub
+# script under Windows, since the stub script never runs (the launcher uses the
+# mock interpreter rather than a system interpreter, see discussion in #7947).
 
 use_fake_python_runtimes_for_testsuite
 
 #### TESTS #############################################################
 
-# Tests that Python 2 or Python 3 is actually invoked, with and without flag
-# overrides.
-# TODO(brandjon): This test can probably be replaced by a test that simply
-# checks that Python 2 and 3 "interpreters" (the fake runtimes) can be invoked,
-# without checking the force_python behavior that's already covered in analysis
-# unit tests.
+# Tests that Python 2 or Python 3 is actually invoked.
 function test_python_version() {
   mkdir -p test
   touch test/main2.py test/main3.py
@@ -84,32 +83,10 @@ py_binary(name = "main3",
 )
 EOF
 
-  # No flag, use the default from the rule.
   bazel run //test:main2 \
       &> $TEST_log || fail "bazel run failed"
   expect_log "I am Python 2"
   bazel run //test:main3 \
-      &> $TEST_log || fail "bazel run failed"
-  expect_log "I am Python 3"
-
-  # These assertions try to override the version, which is legacy semantics.
-  FLAG="--incompatible_allow_python_version_transitions=false \
---incompatible_py3_is_default=false \
---incompatible_py2_outputs_are_suffixed=false"
-
-  # Force to Python 2.
-  bazel run //test:main2 $FLAG --python_version=PY2 \
-      &> $TEST_log || fail "bazel run failed"
-  expect_log "I am Python 2"
-  bazel run //test:main3 $FLAG --python_version=PY2 \
-      &> $TEST_log || fail "bazel run failed"
-  expect_log "I am Python 2"
-
-  # Force to Python 3.
-  bazel run //test:main2 $FLAG --python_version=PY3 \
-      &> $TEST_log || fail "bazel run failed"
-  expect_log "I am Python 3"
-  bazel run //test:main3 $FLAG --python_version=PY3 \
       &> $TEST_log || fail "bazel run failed"
   expect_log "I am Python 3"
 }
@@ -130,11 +107,9 @@ py_library(
 EOF
   touch test/lib2.py test/lib3.py
 
-  EXPFLAG="--incompatible_allow_python_version_transitions=true"
-
-  bazel build --python_version=PY2 $EXPFLAG //test:* \
+  bazel build --python_version=PY2 //test:* \
       &> $TEST_log || fail "bazel build failed"
-  bazel build --python_version=PY3 $EXPFLAG //test:* \
+  bazel build --python_version=PY3 //test:* \
       &> $TEST_log || fail "bazel build failed"
 }
 
@@ -199,10 +174,7 @@ py_binary(
 EOF
 
   # Build cc at the top level, along with the outer halves of both paths to cc.
-  # Make sure to use the new version transition semantics.
   bazel build --nobuild //test:cc //test:path_A_outer //test:path_B_outer \
-      --incompatible_remove_old_python_version_api=true \
-      --incompatible_allow_python_version_transitions=true \
       &> $TEST_log || fail "bazel run failed"
 }
 

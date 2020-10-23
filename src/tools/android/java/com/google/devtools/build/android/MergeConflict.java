@@ -17,9 +17,11 @@ import com.android.annotations.VisibleForTesting;
 import com.android.annotations.concurrency.Immutable;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.AndroidDataMerger.SourceChecker;
 import java.io.IOException;
 import java.util.Objects;
+import java.util.ServiceLoader;
 
 /**
  * Represents a conflict of two DataResources or DataAssets.
@@ -28,6 +30,12 @@ import java.util.Objects;
  */
 @Immutable
 public class MergeConflict {
+
+  private static final class LazyHolder {
+    static final ImmutableList<MergeConflictExempter> MERGE_CONFLICT_EXEMPTERS =
+        ImmutableList.copyOf(ServiceLoader.load(MergeConflictExempter.class));
+  }
+
   private static final String CONFLICT_MESSAGE =
       "\n\u001B[31mCONFLICT:\u001B[0m"
           + " %s is provided with ambiguous priority from:\n\t%s\n\t%s";
@@ -87,9 +95,22 @@ public class MergeConflict {
   }
 
   boolean isValidWith(SourceChecker checker) throws IOException {
-    return !primary.valueEquals(overwritten)
+    return dataKey.shouldDetectConflicts()
+        && !primary.valueEquals(overwritten)
         && primary.compareMergePriorityTo(overwritten) == 0
-        && !checker.checkEquality(primary.source(), overwritten.source());
+        // TODO: SourceChecker can probably be removed, since the only no-op use is from AAR
+        // generation (which shouldn't need to do these checks anyway).
+        && !checker.checkEquality(primary.source(), overwritten.source())
+        && !isExempted();
+  }
+
+  private boolean isExempted() {
+    for (MergeConflictExempter mce : LazyHolder.MERGE_CONFLICT_EXEMPTERS) {
+      if (mce.shouldAllow(dataKey, primary, overwritten)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @Override

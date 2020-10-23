@@ -20,13 +20,12 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationOutputsApi;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcCompilationOutputsApi;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
 
 /** A structured representation of the compilation outputs of a C++ rule. */
 public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
@@ -102,23 +101,13 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
   }
 
   @Override
-  public SkylarkList<Artifact> getSkylarkObjectFiles(
-      boolean usePic, Location location, Environment environment) throws EvalException {
-    CcCommon.checkLocationWhitelisted(
-        environment.getSemantics(),
-        location,
-        environment.getGlobals().getLabel().getPackageIdentifier().toString());
-    return SkylarkList.createImmutable(getObjectFiles(usePic));
+  public Sequence<Artifact> getStarlarkObjects() throws EvalException {
+    return StarlarkList.immutableCopyOf(getObjectFiles(/* usePic= */ false));
   }
 
   @Override
-  public SkylarkList<Artifact> getSkylarkObjects(Location location) throws EvalException {
-    return SkylarkList.createImmutable(getObjectFiles(/* usePic= */ false));
-  }
-
-  @Override
-  public SkylarkList<Artifact> getSkylarkPicObjects(Location location) throws EvalException {
-    return SkylarkList.createImmutable(getObjectFiles(/* usePic= */ true));
+  public Sequence<Artifact> getStarlarkPicObjects() throws EvalException {
+    return StarlarkList.immutableCopyOf(getObjectFiles(/* usePic= */ true));
   }
 
   /** Returns information about bitcode object files resulting from compilation. */

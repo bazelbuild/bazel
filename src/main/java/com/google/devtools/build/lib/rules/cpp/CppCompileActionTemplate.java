@@ -13,38 +13,41 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionKeyCacher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /** An {@link ActionTemplate} that expands into {@link CppCompileAction}s at execution time. */
 public final class CppCompileActionTemplate extends ActionKeyCacher
     implements ActionTemplate<CppCompileAction> {
   private final CppCompileActionBuilder cppCompileActionBuilder;
-  private final Artifact sourceTreeArtifact;
-  private final Artifact outputTreeArtifact;
-  private final Artifact dotdTreeArtifact;
+  private final SpecialArtifact sourceTreeArtifact;
+  private final SpecialArtifact outputTreeArtifact;
+  private final SpecialArtifact dotdTreeArtifact;
   private final CcToolchainProvider toolchain;
   private final Iterable<ArtifactCategory> categories;
   private final ActionOwner actionOwner;
@@ -66,9 +69,9 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
    * @param actionOwner the owner of this {@link ActionTemplate}.
    */
   CppCompileActionTemplate(
-      Artifact sourceTreeArtifact,
-      Artifact outputTreeArtifact,
-      Artifact dotdTreeArtifact,
+      SpecialArtifact sourceTreeArtifact,
+      SpecialArtifact outputTreeArtifact,
+      SpecialArtifact dotdTreeArtifact,
       CppCompileActionBuilder cppCompileActionBuilder,
       CcToolchainProvider toolchain,
       Iterable<ArtifactCategory> categories,
@@ -79,17 +82,17 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
     this.dotdTreeArtifact = dotdTreeArtifact;
     this.toolchain = toolchain;
     this.categories = categories;
-    this.actionOwner = actionOwner;
+    this.actionOwner = checkNotNull(actionOwner, outputTreeArtifact);
     this.mandatoryInputs = cppCompileActionBuilder.buildMandatoryInputs();
     this.allInputs =
         NestedSetBuilder.fromNestedSet(mandatoryInputs)
-            .addAll(cppCompileActionBuilder.buildInputsForInvalidation())
+            .addTransitive(cppCompileActionBuilder.buildInputsForInvalidation())
             .build();
   }
 
   @Override
-  public Iterable<CppCompileAction> generateActionForInputArtifacts(
-      Iterable<TreeFileArtifact> inputTreeFileArtifacts, ArtifactOwner artifactOwner)
+  public ImmutableList<CppCompileAction> generateActionsForInputArtifacts(
+      ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner)
       throws ActionTemplateExpansionException {
     ImmutableList.Builder<CppCompileAction> expandedActions = new ImmutableList.Builder<>();
 
@@ -110,7 +113,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
       }
       if (isSource || (isHeader && shouldCompileHeaders() && !isTextualInclude)) {
         sourcesBuilder.add(inputTreeFileArtifact);
-      } else if (!isSource && !isHeader) {
+      } else if (!isHeader) {
         throw new ActionTemplateExpansionException(
             String.format(
                 "Artifact '%s' expanded from the directory artifact '%s' is neither header "
@@ -125,11 +128,14 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
       try {
         String outputName = outputTreeFileArtifactName(inputTreeFileArtifact);
         TreeFileArtifact outputTreeFileArtifact =
-            ActionInputHelper.treeFileArtifact(
-                outputTreeArtifact, PathFragment.create(outputName), artifactOwner);
-        TreeFileArtifact dotdFileArtifact =
-            ActionInputHelper.treeFileArtifact(
-                dotdTreeArtifact, PathFragment.create(outputName + ".d"), artifactOwner);
+            TreeFileArtifact.createTemplateExpansionOutput(
+                outputTreeArtifact, outputName, artifactOwner);
+        TreeFileArtifact dotdFileArtifact = null;
+        if (dotdTreeArtifact != null) {
+          dotdFileArtifact =
+              TreeFileArtifact.createTemplateExpansionOutput(
+                  dotdTreeArtifact, outputName + ".d", artifactOwner);
+        }
         expandedActions.add(
             createAction(
                 inputTreeFileArtifact, outputTreeFileArtifact, dotdFileArtifact, privateHeaders));
@@ -142,7 +148,10 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp)
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable Artifact.ArtifactExpander artifactExpander,
+      Fingerprint fp)
       throws CommandLineExpansionException {
     CompileCommandLine commandLine =
         CppCompileAction.buildCommandLine(
@@ -164,9 +173,12 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
         cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeSrcs(),
         cppCompileActionBuilder.buildMandatoryInputs(),
         cppCompileActionBuilder.buildPrunableHeaders(),
-        cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeDirs(),
+        cppCompileActionBuilder.getCcCompilationContext().getLooseHdrsDirs(),
         cppCompileActionBuilder.getBuiltinIncludeDirectories(),
-        cppCompileActionBuilder.buildInputsForInvalidation());
+        cppCompileActionBuilder.buildInputsForInvalidation(),
+        toolchain
+            .getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas()
+            .validateTopLevelHeaderInclusions());
   }
 
   private boolean shouldCompileHeaders() {
@@ -176,7 +188,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   private CppCompileAction createAction(
       Artifact sourceTreeFileArtifact,
       Artifact outputTreeFileArtifact,
-      Artifact dotdFileArtifact,
+      @Nullable Artifact dotdFileArtifact,
       ImmutableList<Artifact> privateHeaders)
       throws ActionTemplateExpansionException {
     CppCompileActionBuilder builder = new CppCompileActionBuilder(cppCompileActionBuilder);
@@ -192,12 +204,11 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
     buildVariables.overrideStringVariable(
         CompileBuildVariables.OUTPUT_FILE.getVariableName(),
         outputTreeFileArtifact.getExecPathString());
-    buildVariables.overrideStringVariable(
-        CompileBuildVariables.OUTPUT_OBJECT_FILE.getVariableName(),
-        outputTreeFileArtifact.getExecPathString());
-    buildVariables.overrideStringVariable(
-        CompileBuildVariables.DEPENDENCY_FILE.getVariableName(),
-        dotdFileArtifact.getExecPathString());
+    if (dotdFileArtifact != null) {
+      buildVariables.overrideStringVariable(
+          CompileBuildVariables.DEPENDENCY_FILE.getVariableName(),
+          dotdFileArtifact.getExecPathString());
+    }
 
     builder.setVariables(buildVariables.build());
 
@@ -222,12 +233,12 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   }
 
   @Override
-  public Artifact getInputTreeArtifact() {
+  public SpecialArtifact getInputTreeArtifact() {
     return sourceTreeArtifact;
   }
 
   @Override
-  public Artifact getOutputTreeArtifact() {
+  public SpecialArtifact getOutputTreeArtifact() {
     return outputTreeArtifact;
   }
 
@@ -247,7 +258,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   }
 
   @Override
-  public Iterable<Artifact> getMandatoryInputs() {
+  public NestedSet<Artifact> getMandatoryInputs() {
     return NestedSetBuilder.<Artifact>compileOrder()
         .add(sourceTreeArtifact)
         .addTransitive(mandatoryInputs)
@@ -255,24 +266,23 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   }
 
   @Override
-  public Iterable<Artifact> getInputFilesForExtraAction(
-      ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException, InterruptedException {
-    return ImmutableList.of();
+  public NestedSet<Artifact> getInputFilesForExtraAction(
+      ActionExecutionContext actionExecutionContext) {
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
   @Override
   public ImmutableSet<Artifact> getMandatoryOutputs() {
-    return ImmutableSet.<Artifact>of();
+    return ImmutableSet.of();
   }
 
   @Override
-  public Iterable<Artifact> getTools() {
-    return ImmutableList.<Artifact>of();
+  public NestedSet<Artifact> getTools() {
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
   @Override
-  public Iterable<Artifact> getInputs() {
+  public NestedSet<Artifact> getInputs() {
     return NestedSetBuilder.<Artifact>stableOrder()
         .add(sourceTreeArtifact)
         .addTransitive(allInputs)
@@ -281,22 +291,15 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
 
   @Override
   public ImmutableSet<Artifact> getOutputs() {
+    if (dotdTreeArtifact == null) {
+      return ImmutableSet.of(outputTreeArtifact);
+    }
     return ImmutableSet.of(outputTreeArtifact, dotdTreeArtifact);
   }
 
   @Override
   public Iterable<String> getClientEnvironmentVariables() {
-    return ImmutableList.<String>of();
-  }
-
-  @Override
-  public Artifact getPrimaryInput() {
-    return sourceTreeArtifact;
-  }
-
-  @Override
-  public Artifact getPrimaryOutput() {
-    return outputTreeArtifact;
+    return ImmutableList.of();
   }
 
   @Override
@@ -318,7 +321,16 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
 
   @Override
   public String prettyPrint() {
-    return String.format(
-        "CppCompileActionTemplate compiling " + sourceTreeArtifact.getExecPathString());
+    return "CppCompileActionTemplate compiling " + sourceTreeArtifact.getExecPathString();
+  }
+
+  @Override
+  public String describe() {
+    return "Compiling all C++ files in " + sourceTreeArtifact.prettyPrint();
+  }
+
+  @Override
+  public String toString() {
+    return prettyPrint();
   }
 }

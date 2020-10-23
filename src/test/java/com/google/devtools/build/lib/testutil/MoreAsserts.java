@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.testutil;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.common.truth.Truth.assert_;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
@@ -68,8 +67,7 @@ public class MoreAsserts {
       Object start, final Class<?> clazz) {
     Predicate<Object> p = obj -> clazz.isAssignableFrom(obj.getClass());
     if (isRetained(p, start)) {
-      assert_().fail(
-          "Found an instance of " + clazz.getCanonicalName() + " reachable from " + start);
+      fail("Found an instance of " + clazz.getCanonicalName() + " reachable from " + start);
     }
   }
 
@@ -321,6 +319,13 @@ public class MoreAsserts {
     fail(failureMessage);
   }
 
+  public static void assertNotContainsEventRegex(
+      Iterable<Event> eventCollector, String unexpectedEventRegex) {
+    for (Event event : eventCollector) {
+      assertThat(event.toString()).doesNotMatch(unexpectedEventRegex);
+    }
+  }
+
   /**
    * If the specified EventCollector contains an event which has
    * 'expectedEvent' as a substring, an informative assertion fails.
@@ -411,12 +416,12 @@ public class MoreAsserts {
   }
 
   /**
-   * Check to see if each element of expectedMessages is the beginning of a message
-   * in eventCollector, in order, as in {@link #containsSublistWithGapsAndEqualityChecker}.
-   * If not, an informative assertion is failed
+   * Check to see if each element of expectedMessages is the beginning of a message in
+   * eventCollector, in order, as in {@link #containsSublistWithGapsAndEqualityChecker}. If not, an
+   * informative assertion is failed
    */
-  protected static void assertContainsEventsInOrder(Iterable<Event> eventCollector,
-      String... expectedMessages) {
+  public static void assertContainsEventsInOrder(
+      Iterable<Event> eventCollector, String... expectedMessages) {
     String failure =
         containsSublistWithGapsAndEqualityChecker(
             ImmutableList.copyOf(eventCollector),
@@ -465,57 +470,5 @@ public class MoreAsserts {
     List<Event> foundEvents = builder.build();
     assertWithMessage(events.toString()).that(foundEvents).hasSize(expectedFrequency);
     return foundEvents;
-  }
-
-  /*
-   * This method will be in JUnit 4.13. Instead of patching Bazel's JUnit jar to contain the
-   * <a href="https://github.com/junit-team/junit4/commit/bdb1799">patch</a>, we define it here.
-   * Once JUnit 4.13 is released, we will switcher callers to use org.junit.Assert#assertThrows
-   * instead. See https://github.com/bazelbuild/bazel/issues/3729.
-   */
-  public static <T extends Throwable> T assertThrows(
-      Class<T> expectedThrowable, ThrowingRunnable runnable) {
-    return assertThrows("", expectedThrowable, runnable);
-  }
-
-  /*
-   * This method will be in JUnit 4.13. Instead of patching Bazel's JUnit jar to contain the
-   * <a href="https://github.com/junit-team/junit4/commit/bdb1799">patch</a>, we define it here.
-   * Once JUnit 4.13 is released, we will switcher callers to use org.junit.Assert#assertThrows
-   * instead. See https://github.com/bazelbuild/bazel/issues/3729.
-   */
-  public static <T extends Throwable> T assertThrows(
-      String message, Class<T> expectedThrowable, ThrowingRunnable runnable) {
-    try {
-      runnable.run();
-    } catch (Throwable actualThrown) {
-      if (expectedThrowable.isInstance(actualThrown)) {
-        @SuppressWarnings("unchecked")
-        T retVal = (T) actualThrown;
-        return retVal;
-      } else {
-        throw new AssertionError(
-            buildPrefix(message)
-                + String.format(
-                    "expected %s to be thrown, but %s was thrown",
-                    expectedThrowable.getSimpleName(), actualThrown.getClass().getSimpleName()),
-            actualThrown);
-      }
-    }
-    String mismatchMessage =
-        buildPrefix(message)
-            + String.format(
-                "expected %s to be thrown, but nothing was thrown",
-                expectedThrowable.getSimpleName());
-    throw new AssertionError(mismatchMessage);
-  }
-
-  private static String buildPrefix(String message) {
-    return message != null && message.length() != 0 ? message + ": " : "";
-  }
-
-  /** A helper interface for {@link #assertThrows}. */
-  public interface ThrowingRunnable {
-    void run() throws Throwable;
   }
 }

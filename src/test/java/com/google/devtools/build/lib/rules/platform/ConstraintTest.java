@@ -23,9 +23,9 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.syntax.Runtime;
+import net.starlark.java.eval.Starlark;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -141,7 +141,7 @@ public class ConstraintTest extends BuildViewTestCase {
 
   @Test
   public void testConstraint_defaultValue_starlark() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_platforms_api=true");
+    setBuildLanguageOptions("--experimental_platforms_api=true");
     scratch.file(
         "constraint_default/BUILD",
         "constraint_setting(name = 'basic',",
@@ -180,7 +180,7 @@ public class ConstraintTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new SkylarkKey(
+                new StarlarkProvider.Key(
                     Label.parseAbsolute("//verify:verify.bzl", ImmutableMap.of()), "result"));
 
     @SuppressWarnings("unchecked")
@@ -198,7 +198,7 @@ public class ConstraintTest extends BuildViewTestCase {
 
   @Test
   public void testConstraint_defaultValue_notSet_starlark() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_platforms_api=true");
+    setBuildLanguageOptions("--experimental_platforms_api=true");
     scratch.file("constraint_default/BUILD", "constraint_setting(name = 'basic')");
 
     scratch.file(
@@ -230,10 +230,10 @@ public class ConstraintTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new SkylarkKey(
+                new StarlarkProvider.Key(
                     Label.parseAbsolute("//verify:verify.bzl", ImmutableMap.of()), "result"));
 
-    assertThat(info.getValue("default_value")).isEqualTo(Runtime.NONE);
+    assertThat(info.getValue("default_value")).isEqualTo(Starlark.NONE);
 
     boolean hasConstraintValue = (boolean) info.getValue("has_default_value");
     assertThat(hasConstraintValue).isFalse();

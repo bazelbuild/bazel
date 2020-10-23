@@ -42,6 +42,7 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
+    CcCommon.checkRuleLoadedThroughMacro(ruleContext);
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
 
     String transformedCpu = cppConfiguration.getTransformedCpuFromOptions();
@@ -113,7 +114,7 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
       throws RuleErrorException {
     T selectedAttributes = null;
     for (TransitiveInfoCollection dep : ruleContext.getPrerequisiteMap("toolchains").values()) {
-      T attributes = (T) dep.get(ToolchainInfo.PROVIDER);
+      T attributes = clazz.cast(dep.get(ToolchainInfo.PROVIDER));
       if (attributes != null && attributes.getCcToolchainLabel().equals(selectedCcToolchain)) {
         selectedAttributes = attributes;
         break;

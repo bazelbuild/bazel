@@ -20,13 +20,15 @@ import static com.google.devtools.build.lib.bazel.repository.downloader.Download
 import static com.google.devtools.build.lib.bazel.repository.downloader.HttpParser.readHttpRequest;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Arrays.asList;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyLong;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.Sleeper;
@@ -61,8 +63,7 @@ public class HttpConnectorMultiplexerIntegrationTest {
   @Rule
   public final ExpectedException thrown = ExpectedException.none();
 
-  @Rule
-  public final Timeout globalTimeout = new Timeout(10000);
+  @Rule public final Timeout globalTimeout = new Timeout(20000);
 
   private final ExecutorService executor = Executors.newFixedThreadPool(3);
   private final ProxyHelper proxyHelper = mock(ProxyHelper.class);
@@ -71,13 +72,18 @@ public class HttpConnectorMultiplexerIntegrationTest {
   private final Sleeper sleeper = mock(Sleeper.class);
   private final Locale locale = Locale.US;
   private final HttpConnector connector =
-      new HttpConnector(locale, eventHandler, proxyHelper, sleeper);
+      new HttpConnector(locale, eventHandler, proxyHelper, sleeper, 0.15f);
   private final ProgressInputStream.Factory progressInputStreamFactory =
       new ProgressInputStream.Factory(locale, clock, eventHandler);
   private final HttpStream.Factory httpStreamFactory =
       new HttpStream.Factory(progressInputStreamFactory);
   private final HttpConnectorMultiplexer multiplexer =
       new HttpConnectorMultiplexer(eventHandler, connector, httpStreamFactory, clock, sleeper);
+
+  private static final Optional<Checksum> HELLO_SHA256 =
+      Optional.of(
+          Checksum.fromString(
+              KeyType.SHA256, "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"));
 
   @Before
   public void before() throws Exception {
@@ -95,7 +101,7 @@ public class HttpConnectorMultiplexerIntegrationTest {
     try (ServerSocket server1 = new ServerSocket(0, 1, InetAddress.getByName(null));
         ServerSocket server2 = new ServerSocket(0, 1, InetAddress.getByName(null))) {
       for (final ServerSocket server : asList(server1, server2)) {
-        @SuppressWarnings("unused") 
+        @SuppressWarnings("unused")
         Future<?> possiblyIgnoredError =
             executor.submit(
                 new Callable<Object>() {
@@ -121,11 +127,11 @@ public class HttpConnectorMultiplexerIntegrationTest {
       phaser.arriveAndAwaitAdvance();
       phaser.arriveAndDeregister();
       try (HttpStream stream =
-              multiplexer.connect(
-                  ImmutableList.of(
-                      new URL(String.format("http://localhost:%d", server1.getLocalPort())),
-                      new URL(String.format("http://localhost:%d", server2.getLocalPort()))),
-                  "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824")) {
+          multiplexer.connect(
+              ImmutableList.of(
+                  new URL(String.format("http://localhost:%d", server1.getLocalPort())),
+                  new URL(String.format("http://localhost:%d", server2.getLocalPort()))),
+              HELLO_SHA256)) {
         assertThat(toByteArray(stream)).isEqualTo("hello".getBytes(US_ASCII));
       }
     }
@@ -186,11 +192,11 @@ public class HttpConnectorMultiplexerIntegrationTest {
                 }
               });
       try (HttpStream stream =
-              multiplexer.connect(
-                  ImmutableList.of(
-                      new URL(String.format("http://localhost:%d", server1.getLocalPort())),
-                      new URL(String.format("http://localhost:%d", server2.getLocalPort()))),
-                  "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824")) {
+          multiplexer.connect(
+              ImmutableList.of(
+                  new URL(String.format("http://localhost:%d", server1.getLocalPort())),
+                  new URL(String.format("http://localhost:%d", server2.getLocalPort()))),
+              HELLO_SHA256)) {
         assertThat(toByteArray(stream)).isEqualTo("hello".getBytes(US_ASCII));
       }
     }
@@ -231,7 +237,51 @@ public class HttpConnectorMultiplexerIntegrationTest {
               new URL(String.format("http://localhost:%d", server1.getLocalPort())),
               new URL(String.format("http://localhost:%d", server2.getLocalPort())),
               new URL(String.format("http://localhost:%d", server3.getLocalPort()))),
-          "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9825");
+          HELLO_SHA256);
+    }
+  }
+
+  @Test
+  public void firstUrlSocketTimeout_secondOk() throws Exception {
+
+    try (ServerSocket server1 = new ServerSocket(0, 1, InetAddress.getByName(null));
+        ServerSocket server2 = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executor.submit(
+              () -> {
+                try (Socket socket = server1.accept()) {
+                  // Do nothing to cause SocketTimeoutException on client side.
+                }
+                return null;
+              });
+
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError2 =
+          executor.submit(
+              () -> {
+                try (Socket socket = server2.accept()) {
+                  readHttpRequest(socket.getInputStream());
+                  sendLines(
+                      socket,
+                      "HTTP/1.1 200 OK",
+                      "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                      "Connection: close",
+                      "",
+                      "hello");
+                }
+                return null;
+              });
+
+      try (HttpStream stream =
+          multiplexer.connect(
+              ImmutableList.of(
+                  new URL(String.format("http://localhost:%d", server1.getLocalPort())),
+                  new URL(String.format("http://localhost:%d", server2.getLocalPort()))),
+              HELLO_SHA256)) {
+        assertThat(toByteArray(stream)).isEqualTo("hello".getBytes(US_ASCII));
+      }
     }
   }
 }

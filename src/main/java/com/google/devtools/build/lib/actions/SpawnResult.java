@@ -15,9 +15,14 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.shell.TerminationStatus;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import java.io.InputStream;
 import java.time.Duration;
@@ -25,17 +30,13 @@ import java.util.Locale;
 import java.util.Optional;
 import javax.annotation.Nullable;
 
-/**
- * The result of a spawn execution.
- *
- * <p>DO NOT IMPLEMENT THIS INTERFACE! Use {@link SpawnResult.Builder} to create instances instead.
- * This is a temporary situation as long as we still have separate internal and external
- * implementations - the plan is to merge the two into a single immutable, final class.
- */
-// TODO(ulfjack): Change this from an interface to an immutable, final class.
+/** The result of a {@link Spawn}'s execution. */
 public interface SpawnResult {
+
+  int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/ 128 + /*SIGALRM=*/ 14;
+
   /** The status of the attempted Spawn execution. */
-  public enum Status {
+  enum Status {
     /** Subprocess executed successfully, and returned a zero exit code. */
     SUCCESS,
 
@@ -52,27 +53,32 @@ public interface SpawnResult {
     OUT_OF_MEMORY(true),
 
     /**
-     * Subprocess did not execute. This error is not catastrophic - Bazel will try to continue the
-     * build if keep_going is enabled, possibly attempt to rerun the same spawn, and attempt to run
-     * other actions.
+     * Subprocess did not execute, it's not the user's fault, and the error is not catastrophic. If
+     * keep_going is enabled then Bazel will try to continue the build, possibly will attempt to
+     * rerun the same spawn, and possibly will attempt to run other actions.
      */
     EXECUTION_FAILED,
 
     /**
-     * Subprocess did not execute. Do not retry, and exit immediately even if keep_going is enabled.
+     * Subprocess did not execute, it's not the user's fault, and the error is catastrophic. Bazel
+     * will not rerun this spawn. Bazel will attempt to not run other actions (regardless of whether
+     * keep_going is enabled).
      */
     EXECUTION_FAILED_CATASTROPHICALLY,
 
     /**
-     * Subprocess did not execute in a way that indicates that the user can fix it. For example, a
-     * remote system may have denied the execution due to too many inputs or too large inputs.
+     * Subprocess did not execute, it may be the user's fault, and the error is not catastrophic.
+     * The user may be able to fix it. For example, a remote system may have denied the execution
+     * due to too many inputs or too large inputs.
      */
     EXECUTION_DENIED(true),
 
     /**
-     * The remote execution system is overloaded and had to refuse execution for this Spawn.
+     * Subprocess did not execute, it may be the user's fault, and the error is catastrophic. The
+     * user may be able to prevent it from reoccurring. For example, an input file's contents may
+     * have been modified by the user intra-build.
      */
-    REMOTE_EXECUTOR_OVERLOADED,
+    EXECUTION_DENIED_CATASTROPHICALLY(true),
 
     /**
      * The result of the remotely executed Spawn could not be retrieved due to errors in the remote
@@ -82,11 +88,11 @@ public interface SpawnResult {
 
     private final boolean isUserError;
 
-    private Status(boolean isUserError) {
+    Status(boolean isUserError) {
       this.isUserError = isUserError;
     }
 
-    private Status() {
+    Status() {
       this(false);
     }
 
@@ -96,45 +102,72 @@ public interface SpawnResult {
   }
 
   /**
-   * Returns whether the spawn was actually run, regardless of the exit code. I.e., returns
-   * {@code true} if {@link #status} is any of {@link Status#SUCCESS}, {@link Status#NON_ZERO_EXIT},
-   * {@link Status#TIMEOUT} or {@link Status#OUT_OF_MEMORY}.
+   * Returns whether the spawn was actually run, regardless of the exit code. I.e., returns {@code
+   * true} if {@link #status} is any of {@link Status#SUCCESS}, {@link Status#NON_ZERO_EXIT}, {@link
+   * Status#TIMEOUT} or {@link Status#OUT_OF_MEMORY}.
    *
    * <p>Returns false if there were errors that prevented the spawn from being run, such as network
    * errors, missing local files, errors setting up sandboxing, etc.
    */
-  boolean setupSuccess();
+  default boolean setupSuccess() {
+    Status status = status();
+    return status == Status.SUCCESS
+        || status == Status.NON_ZERO_EXIT
+        || status == Status.TIMEOUT
+        || status == Status.OUT_OF_MEMORY;
+  }
 
-  /** Returns true if the status was {@link Status#EXECUTION_FAILED_CATASTROPHICALLY}. */
-  boolean isCatastrophe();
+  /**
+   * Returns true if the status was {@link Status#EXECUTION_FAILED_CATASTROPHICALLY} or {@link
+   * Status#EXECUTION_DENIED_CATASTROPHICALLY}.
+   */
+  default boolean isCatastrophe() {
+    return status() == Status.EXECUTION_FAILED_CATASTROPHICALLY
+        || status() == Status.EXECUTION_DENIED_CATASTROPHICALLY;
+  }
 
-  /** The status of the attempted Spawn execution. */
+  /** Returns the status of the attempted Spawn execution. */
   Status status();
 
   /**
-   * The exit code of the subprocess if the subprocess was executed. Should only be called if
-   * {@link #status} returns {@link Status#SUCCESS} or {@link Status#NON_ZERO_EXIT}.
+   * Returns the exit code of the subprocess if the subprocess was executed.
    *
-   * <p>This method must return a non-zero exit code if the status is {@link Status#TIMEOUT} or
-   * {@link Status#OUT_OF_MEMORY}. It is recommended to return 128 + 14 when the status is
-   * {@link Status#TIMEOUT}, which corresponds to the Unix signal SIGALRM.
+   * <p>Returns zero if {@link #status} returns {@link Status#SUCCESS}.
    *
-   * <p>This method may throw {@link IllegalStateException} if called for any other status.
+   * <p>Returns non-zero if {@link #status} returns {@link Status#NON_ZERO_EXIT} or {@link
+   * Status#OUT_OF_MEMORY}.
+   *
+   * <p>Returns 128 + 14 (corresponding to the Unix signal SIGALRM) if {@link #status} returns
+   * {@link Status#TIMEOUT}.
+   *
+   * <p>Otherwise, the returned value is not meaningful.
    */
+  // TODO(mschaller): clean up all uses of this method when {@code !this.setupSuccess()}
   int exitCode();
 
   /**
-   * The host name of the executor or {@code null}. This information is intended for debugging
-   * purposes, especially for remote execution systems. Remote caches usually do not store the
-   * original host name, so this is generally {@code null} for cache hits.
+   * A detailed representation of what failed if {@link #status} is not {@link Status#SUCCESS}, and
+   * {@code null} otherwise.
    */
-  @Nullable String getExecutorHostName();
+  @Nullable
+  FailureDetail failureDetail();
 
   /**
-   * The name of the SpawnRunner that executed the spawn. It should always be defined, unless
-   * isCacheHit is true, in which case the spawn was not actually run.
+   * Returns the host name of the executor or {@code null}. This information is intended for
+   * debugging purposes, especially for remote execution systems. Remote caches usually do not store
+   * the original host name, so this is generally {@code null} for cache hits.
+   */
+  @Nullable
+  String getExecutorHostName();
+
+  /**
+   * Returns the name of the SpawnRunner that executed the spawn. It should always be defined,
+   * unless isCacheHit is true, in which case the spawn was not actually run.
    */
   String getRunnerName();
+
+  /** Returns optional details about the runner. */
+  String getRunnerSubtype();
 
   /**
    * Returns the wall time taken by the {@link Spawn}'s execution.
@@ -186,7 +219,7 @@ public interface SpawnResult {
 
   SpawnMetrics getMetrics();
 
-  /** Whether the spawn result was a cache hit. */
+  /** Returns whether the spawn result was a cache hit. */
   boolean isCacheHit();
 
   /** Returns an optional custom failure message for the result. */
@@ -195,11 +228,10 @@ public interface SpawnResult {
   }
 
   /**
-   * SpawnResults can optionally support returning outputs in-memory. Such outputs can be obtained
-   * from this method if so. This behavior is optional, and can be triggered with
-   * {@link ExecutionRequirements#REMOTE_EXECUTION_INLINE_OUTPUTS}.
+   * Returns a {@link Spawn}'s output in-memory, if supported and available.
    *
-   * @param output
+   * <p>This behavior may be triggered with {@link
+   * ExecutionRequirements#REMOTE_EXECUTION_INLINE_OUTPUTS}.
    */
   @Nullable
   default InputStream getInMemoryOutput(ActionInput output) {
@@ -207,17 +239,26 @@ public interface SpawnResult {
   }
 
   String getDetailMessage(
-      String messagePrefix, String message, boolean catastrophe, boolean forciblyRunRemotely);
+      String message,
+      boolean catastrophe,
+      boolean forciblyRunRemotely);
 
-  /**
-   * Basic implementation of {@link SpawnResult}.
-   */
-  @Immutable @ThreadSafe
-  public static final class SimpleSpawnResult implements SpawnResult {
+  /** Returns a file path to the action metadata log. */
+  Optional<MetadataLog> getActionMetadataLog();
+
+  /** Whether the spawn result was obtained through remote strategy. */
+  boolean wasRemote();
+
+  /** Basic implementation of {@link SpawnResult}. */
+  @Immutable
+  @ThreadSafe
+  final class SimpleSpawnResult implements SpawnResult {
     private final int exitCode;
     private final Status status;
+    @Nullable private final FailureDetail failureDetail;
     private final String executorHostName;
     private final String runnerName;
+    private final String runnerSubtype;
     private final SpawnMetrics spawnMetrics;
     private final Optional<Duration> wallTime;
     private final Optional<Duration> userTime;
@@ -225,16 +266,22 @@ public interface SpawnResult {
     private final Optional<Long> numBlockOutputOperations;
     private final Optional<Long> numBlockInputOperations;
     private final Optional<Long> numInvoluntaryContextSwitches;
+    private final Optional<MetadataLog> actionMetadataLog;
     private final boolean cacheHit;
     private final String failureMessage;
-    private final ActionInput inMemoryOutputFile;
-    private final ByteString inMemoryContents;
+
+    // Invariant: Either both have a value or both are null.
+    @Nullable private final ActionInput inMemoryOutputFile;
+    @Nullable private final ByteString inMemoryContents;
+    private final boolean remote;
 
     SimpleSpawnResult(Builder builder) {
       this.exitCode = builder.exitCode;
       this.status = Preconditions.checkNotNull(builder.status);
+      this.failureDetail = builder.failureDetail;
       this.executorHostName = builder.executorHostName;
       this.runnerName = builder.runnerName;
+      this.runnerSubtype = builder.runnerSubtype;
       this.spawnMetrics = builder.spawnMetrics != null
           ? builder.spawnMetrics
           : SpawnMetrics.forLocalExecution(builder.wallTime.orElse(Duration.ZERO));
@@ -248,19 +295,8 @@ public interface SpawnResult {
       this.failureMessage = builder.failureMessage;
       this.inMemoryOutputFile = builder.inMemoryOutputFile;
       this.inMemoryContents = builder.inMemoryContents;
-    }
-
-    @Override
-    public boolean setupSuccess() {
-      return status == Status.SUCCESS
-          || status == Status.NON_ZERO_EXIT
-          || status == Status.TIMEOUT
-          || status == Status.OUT_OF_MEMORY;
-    }
-
-    @Override
-    public boolean isCatastrophe() {
-      return status == Status.EXECUTION_FAILED_CATASTROPHICALLY;
+      this.actionMetadataLog = builder.actionMetadataLog;
+      this.remote = builder.remote;
     }
 
     @Override
@@ -274,6 +310,12 @@ public interface SpawnResult {
     }
 
     @Override
+    @Nullable
+    public FailureDetail failureDetail() {
+      return failureDetail;
+    }
+
+    @Override
     public String getExecutorHostName() {
       return executorHostName;
     }
@@ -281,6 +323,11 @@ public interface SpawnResult {
     @Override
     public String getRunnerName() {
       return runnerName;
+    }
+
+    @Override
+    public String getRunnerSubtype() {
+      return runnerSubtype;
     }
 
     @Override
@@ -330,11 +377,13 @@ public interface SpawnResult {
 
     @Override
     public String getDetailMessage(
-        String messagePrefix, String message, boolean catastrophe, boolean forciblyRunRemotely) {
+        String message,
+        boolean catastrophe,
+        boolean forciblyRunRemotely) {
       TerminationStatus status = new TerminationStatus(
           exitCode(), status() == Status.TIMEOUT);
-      String reason = " (" + status.toShortString() + ")"; // e.g " (Exit 1)"
-      String explanation = status.exited() ? "" : ": " + message;
+      String reason = "(" + status.toShortString() + ")"; // e.g "(Exit 1)"
+      String explanation = Strings.isNullOrEmpty(message) ? "" : ": " + message;
 
       if (!status().isConsideredUserError()) {
         String errorDetail = status().name().toLowerCase(Locale.US)
@@ -361,7 +410,7 @@ public interface SpawnResult {
       if (!Strings.isNullOrEmpty(failureMessage)) {
         explanation += " " + failureMessage;
       }
-      return messagePrefix + " failed" + reason + explanation;
+      return reason + explanation;
     }
 
     @Nullable
@@ -372,16 +421,26 @@ public interface SpawnResult {
       }
       return null;
     }
+
+    @Override
+    public Optional<MetadataLog> getActionMetadataLog() {
+      return actionMetadataLog;
+    }
+
+    @Override
+    public boolean wasRemote() {
+      return remote;
+    }
   }
 
-  /**
-   * Builder class for {@link SpawnResult}.
-   */
-  public static final class Builder {
+  /** Builder class for {@link SpawnResult}. */
+  final class Builder {
     private int exitCode;
     private Status status;
+    private FailureDetail failureDetail;
     private String executorHostName;
     private String runnerName = "";
+    private String runnerSubtype = "";
     private SpawnMetrics spawnMetrics;
     private Optional<Duration> wallTime = Optional.empty();
     private Optional<Duration> userTime = Optional.empty();
@@ -389,22 +448,50 @@ public interface SpawnResult {
     private Optional<Long> numBlockOutputOperations = Optional.empty();
     private Optional<Long> numBlockInputOperations = Optional.empty();
     private Optional<Long> numInvoluntaryContextSwitches = Optional.empty();
+    private Optional<MetadataLog> actionMetadataLog = Optional.empty();
     private boolean cacheHit;
     private String failureMessage = "";
-    /* Invariant: Either both have a value or both are null. */
-    private ActionInput inMemoryOutputFile;
-    private ByteString inMemoryContents;
+
+    // Invariant: Either both have a value or both are null.
+    @Nullable private ActionInput inMemoryOutputFile;
+    @Nullable private ByteString inMemoryContents;
+    private boolean remote;
 
     public SpawnResult build() {
       Preconditions.checkArgument(!runnerName.isEmpty());
-      if (status == Status.SUCCESS) {
-        Preconditions.checkArgument(exitCode == 0);
+
+      switch (status) {
+        case SUCCESS:
+          Preconditions.checkArgument(exitCode == 0, exitCode);
+          Preconditions.checkArgument(failureDetail == null, failureDetail);
+          break;
+        case TIMEOUT:
+          Preconditions.checkArgument(exitCode == POSIX_TIMEOUT_EXIT_CODE, exitCode);
+          // Fall through.
+        default:
+          Preconditions.checkArgument(
+              exitCode != 0,
+              "Failed spawn with status %s had exit code 0 (%s %s)",
+              status,
+              failureMessage,
+              failureDetail);
+          Preconditions.checkArgument(
+              failureDetail != null,
+              "Failed spawn with status %s and exit code %s had no failure detail (%s)",
+              status,
+              exitCode,
+              failureMessage);
+          if (!status.isConsideredUserError()
+              && ExitCode.BUILD_FAILURE.equals(DetailedExitCode.getExitCode(failureDetail))) {
+            BugReport.sendBugReport(
+                new IllegalStateException(
+                    String.format(
+                        "System error %s should not have failure detail %s with 'build failure'"
+                            + " exit code (%s)",
+                        status, failureDetail, failureMessage)));
+          }
       }
-      if (status == Status.NON_ZERO_EXIT
-          || status == Status.TIMEOUT
-          || status == Status.OUT_OF_MEMORY) {
-        Preconditions.checkArgument(exitCode != 0);
-      }
+
       return new SimpleSpawnResult(this);
     }
 
@@ -415,6 +502,11 @@ public interface SpawnResult {
 
     public Builder setStatus(Status status) {
       this.status = status;
+      return this;
+    }
+
+    public Builder setFailureDetail(FailureDetail failureDetail) {
+      this.failureDetail = failureDetail;
       return this;
     }
 
@@ -463,21 +555,6 @@ public interface SpawnResult {
       return this;
     }
 
-    public Builder setWallTime(Optional<Duration> wallTime) {
-      this.wallTime = wallTime;
-      return this;
-    }
-
-    public Builder setUserTime(Optional<Duration> userTime) {
-      this.userTime = userTime;
-      return this;
-    }
-
-    public Builder setSystemTime(Optional<Duration> systemTime) {
-      this.systemTime = systemTime;
-      return this;
-    }
-
     public Builder setCacheHit(boolean cacheHit) {
       this.cacheHit = cacheHit;
       return this;
@@ -492,6 +569,35 @@ public interface SpawnResult {
       this.inMemoryOutputFile = Preconditions.checkNotNull(outputFile);
       this.inMemoryContents = Preconditions.checkNotNull(contents);
       return this;
+    }
+
+    Builder setActionMetadataLog(MetadataLog actionMetadataLog) {
+      this.actionMetadataLog = Optional.of(actionMetadataLog);
+      return this;
+    }
+
+    public Builder setRemote(boolean remote) {
+      this.remote = remote;
+      return this;
+    }
+  }
+
+  /** A {@link Spawn}'s metadata name and {@link Path}. */
+  final class MetadataLog {
+    private final String name;
+    private final Path filePath;
+
+    public MetadataLog(String name, Path filePath) {
+      this.name = name;
+      this.filePath = filePath;
+    }
+
+    public String getName() {
+      return this.name;
+    }
+
+    public Path getFilePath() {
+      return this.filePath;
     }
   }
 }

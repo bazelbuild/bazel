@@ -41,6 +41,7 @@ import com.google.devtools.build.android.AndroidCompiledDataDeserializer;
 import com.google.devtools.build.android.AndroidResourceOutputs;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.Profiler;
+import com.google.devtools.build.android.ResourceProcessorBusyBox;
 import com.google.devtools.build.android.aapt2.ResourceCompiler.CompiledType;
 import com.google.devtools.build.android.ziputils.DataDescriptor;
 import com.google.devtools.build.android.ziputils.DirectoryEntry;
@@ -56,7 +57,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Collection;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -101,6 +102,9 @@ public class ResourceLinker {
   private static final ImmutableSet<String> PSEUDO_LOCALE_FILTERS =
       ImmutableSet.of("en_XA", "ar_XB");
 
+  private static final boolean OVERRIDE_STYLES_INSTEAD_OF_OVERLAYING =
+      ResourceProcessorBusyBox.getProperty("override_styles_instead_of_overlaying");
+
   /** Represents errors thrown during linking. */
   public static class LinkError extends Aapt2Exception {
 
@@ -129,11 +133,9 @@ public class ResourceLinker {
 
   private Revision buildToolsVersion;
   private List<String> densities = ImmutableList.of();
-  private Path androidJar;
   private Profiler profiler = Profiler.empty();
   private List<String> uncompressedExtensions = ImmutableList.of();
   private List<String> resourceConfigs = ImmutableList.of();
-  private Path baseApk;
   private List<CompiledResources> include = ImmutableList.of();
   private List<Path> assetDirs = ImmutableList.of();
   private boolean conditionalKeepRules = false;
@@ -193,11 +195,6 @@ public class ResourceLinker {
     return this;
   }
 
-  public ResourceLinker baseApkToLinkAgainst(Path baseApk) {
-    this.baseApk = baseApk;
-    return this;
-  }
-
   public ResourceLinker customPackage(String customPackage) {
     this.customPackage = customPackage;
     return this;
@@ -244,6 +241,8 @@ public class ResourceLinker {
                   "-R", compiledResourcesToPaths(compiled, IS_FLAT_FILE), workingDirectory)
               .addRepeated("-I", pathsToLinkAgainst)
               .add("--auto-add-overlay")
+              .when(OVERRIDE_STYLES_INSTEAD_OF_OVERLAYING)
+              .thenAdd("--override-styles-instead-of-overlaying")
               .add("-o", outPath)
               .when(linkAgainst.size() == 1) // If using all compiled resources, generates sources
               .thenAdd("--java", javaSourceDirectory)
@@ -272,6 +271,8 @@ public class ResourceLinker {
                 .addRepeated(
                     "-R", pathsToLinkAgainst.stream().filter(IS_JAR.negate()).collect(toList()))
                 .add("--auto-add-overlay")
+                .when(OVERRIDE_STYLES_INSTEAD_OF_OVERLAYING)
+                .thenAdd("--override-styles-instead-of-overlaying")
                 .add("-o", outPath.resolveSibling("transitive.apk"))
                 .add("--java", javaSourceDirectory)
                 .add("--output-text-symbols", rTxt)
@@ -290,10 +291,20 @@ public class ResourceLinker {
 
   private List<String> compiledResourcesToPaths(
       CompiledResources compiled, Predicate<DirectoryEntry> shouldKeep) {
-    // Using sequential streams to maintain the overlay order for aapt2.
-    return Stream.concat(include.stream(), Stream.of(compiled))
-        .sequential()
-        .map(CompiledResources::getZip)
+    // NB: "include" can have duplicates, in particular because Aapt2ResourcePackagingAction
+    // creates this by concatenating two different options.  Since the *last* definition of anything
+    // takes precedence, keep the last instance of each entry.
+    List<Path> dedupedZips =
+        Stream.concat(include.stream(), Stream.of(compiled))
+            .map(CompiledResources::getZip)
+            .collect(ImmutableList.toImmutableList())
+            .reverse()
+            .stream()
+            .distinct()
+            .collect(ImmutableList.toImmutableList())
+            .reverse();
+
+    return dedupedZips.stream()
         .map(z -> executorService.submit(() -> filterZip(z, shouldKeep)))
         .map(rethrowLinkError(Future::get))
         // the process will always take as long as the longest Future
@@ -307,10 +318,6 @@ public class ResourceLinker {
             .resolve("filtered")
             // make absolute paths relative so that resolve will make a new path.
             .resolve(path.isAbsolute() ? path.subpath(1, path.getNameCount()) : path);
-    // TODO(74258184): How can this path already exist?
-    if (Files.exists(outPath)) {
-      return outPath;
-    }
     Files.createDirectories(outPath.getParent());
     try (FileChannel inChannel = FileChannel.open(path, StandardOpenOption.READ);
         FileChannel outChannel =
@@ -381,6 +388,8 @@ public class ResourceLinker {
             .add("--manifest", compiled.getManifest())
             // Enables resource redefinition and merging
             .add("--auto-add-overlay")
+            .when(OVERRIDE_STYLES_INSTEAD_OF_OVERLAYING)
+            .thenAdd("--override-styles-instead-of-overlaying")
             // Always link to proto, as resource shrinking needs the extra information.
             .add("--proto-format")
             .when(debug)
@@ -422,8 +431,7 @@ public class ResourceLinker {
             .add("-o", linked)
             .execute(String.format("Linking %s", compiled.getManifest())));
     profiler.recordEndOf("fulllink");
-    return ProtoApk.readFrom(
-        densities.size() < 2 ? linked : optimizeForDensities(compiled, linked));
+    return ProtoApk.readFrom(optimize(compiled, linked));
   }
 
   private Path combineApks(Path protoApk, Path binaryApk, Path workingDirectory)
@@ -440,7 +448,7 @@ public class ResourceLinker {
       final ZipIn nonResourcesIn = new ZipIn(nonResourceChannel, protoApk.toString());
       final ZipOut zipOut = new ZipOut(outChannel, combined.toString());
 
-      Set<String> skip = new HashSet<>();
+      Set<String> skip = new LinkedHashSet<>();
       skip.add("resources.pb");
       final EntryHandler entryHandler =
           (in, header, dirEntry, data) -> {
@@ -451,8 +459,8 @@ public class ResourceLinker {
               String comment = dirEntry.getComment();
               byte[] extra = dirEntry.getExtraData();
               zipOut.nextEntry(
-                  dirEntry.clone(filename, extra, comment).set(CENTIM, DosTime.EPOCH.time));
-              zipOut.write(header.clone(filename, extra).set(LOCTIM, DosTime.EPOCH.time));
+                  dirEntry.clone(filename, extra, comment).set(CENTIM, DosTime.EPOCHISH.time));
+              zipOut.write(header.clone(filename, extra).set(LOCTIM, DosTime.EPOCHISH.time));
               zipOut.write(data);
               if ((header.get(LOCFLG) & LocalFileHeader.SIZE_MASKED_FLAG) != 0) {
                 DataDescriptor desc =
@@ -489,11 +497,8 @@ public class ResourceLinker {
     Path attributes = workingDirectory.resolve("tool.attributes");
     // extract tool annotations from the compile resources.
     final SdkToolAttributeWriter writer = new SdkToolAttributeWriter(attributes);
-    final AndroidCompiledDataDeserializer compiledDataDeserializer =
-        AndroidCompiledDataDeserializer.create();
     for (CompiledResources resources : FluentIterable.from(include).append(compiled)) {
-      compiledDataDeserializer
-          .readAttributes(resources)
+      AndroidCompiledDataDeserializer.readAttributes(resources)
           .forEach((key, value) -> value.writeResource((FullyQualifiedName) key, writer));
     }
     writer.flush();
@@ -501,7 +506,11 @@ public class ResourceLinker {
     return attributes;
   }
 
-  private Path optimizeForDensities(CompiledResources compiled, Path binary) throws IOException {
+  private Path optimize(CompiledResources compiled, Path binary) throws IOException {
+    if (densities.size() < 2) {
+      return binary;
+    }
+
     profiler.startTask("optimize");
     final Path optimized = workingDirectory.resolve("optimized." + PROTO_EXTENSION);
     logger.fine(
@@ -511,7 +520,11 @@ public class ResourceLinker {
             .add("optimize")
             .when(Objects.equals(logger.getLevel(), Level.FINE))
             .thenAdd("-v")
-            .add("--target-densities", densities.stream().collect(Collectors.joining(",")))
+            // TODO(b/138166830): Simplify behavior specific to number of densities. There's likely
+            // little to lose in passing a single-element density list, which we would confirm in
+            // the APK analyzer dashboard.
+            .when(densities.size() >= 2)
+            .thenAdd("--target-densities", densities.stream().collect(Collectors.joining(",")))
             .add("-o", optimized)
             .add(binary.toString())
             .execute(String.format("Optimizing %s", compiled.getManifest())));
@@ -590,11 +603,6 @@ public class ResourceLinker {
     return this;
   }
 
-  public ResourceLinker using(Path androidJar) {
-    this.androidJar = androidJar;
-    return this;
-  }
-
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
@@ -603,10 +611,8 @@ public class ResourceLinker {
         .add("buildToolsVersion", buildToolsVersion)
         .add("workingDirectory", workingDirectory)
         .add("densities", densities)
-        .add("androidJar", androidJar)
         .add("uncompressedExtensions", uncompressedExtensions)
         .add("resourceConfigs", resourceConfigs)
-        .add("baseApk", baseApk)
         .toString();
   }
 }

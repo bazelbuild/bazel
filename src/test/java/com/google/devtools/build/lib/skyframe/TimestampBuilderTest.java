@@ -15,16 +15,21 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.Sets;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.util.TestAction;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import java.util.Collection;
-import java.util.Collections;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -35,12 +40,15 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class TimestampBuilderTest extends TimestampBuilderTestCase {
+  private static NestedSet<Artifact> asNestedSet(Artifact... artifacts) {
+    return NestedSetBuilder.create(Order.STABLE_ORDER, artifacts);
+  }
 
   @Test
   public void testAmnesiacBuilderAlwaysRebuilds() throws Exception {
     // [action] -> hello
     Artifact hello = createDerivedArtifact("hello");
-    Button button = createActionButton(emptySet, Sets.newHashSet(hello));
+    Button button = createActionButton(emptyNestedSet, ImmutableSet.of(hello));
 
     button.pressed = false;
     buildArtifacts(amnesiacBuilder(), hello);
@@ -62,7 +70,7 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
   public void testBuilderDoesntRevisitActions() throws Exception {
     // [action] -> hello
     Artifact hello = createDerivedArtifact("hello");
-    Counter counter = createActionCounter(emptySet, Sets.newHashSet(hello));
+    Counter counter = createActionCounter(emptyNestedSet, ImmutableSet.of(hello));
 
     Builder amnesiacBuilder = amnesiacBuilder();
 
@@ -79,22 +87,10 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
   }
 
   @Test
-  public void testBuildingNonexistentSourcefileFails() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    Artifact hello = createSourceArtifact("hello");
-    BuildFailedException e =
-        assertThrows(
-            "Expected input file to be missing",
-            BuildFailedException.class,
-            () -> buildArtifacts(cachingBuilder(), hello));
-    assertThat(e).hasMessageThat().isEqualTo("missing input file '" + hello.getPath() + "'");
-  }
-
-  @Test
   public void testCachingBuilderCachesUntilReset() throws Exception {
     // [action] -> hello
     Artifact hello = createDerivedArtifact("hello");
-    Button button = createActionButton(emptySet, Sets.newHashSet(hello));
+    Button button = createActionButton(emptyNestedSet, ImmutableSet.of(hello));
 
     button.pressed = false;
     buildArtifacts(cachingBuilder(), hello);
@@ -114,10 +110,11 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
   @Test
   public void testUnneededInputs() throws Exception {
     Artifact hello = createSourceArtifact("hello");
-    BlazeTestUtils.makeEmptyFile(hello.getPath());
+    FileSystemUtils.createDirectoryAndParents(hello.getPath().getParentDirectory());
+    FileSystemUtils.writeContentAsLatin1(hello.getPath(), "content1");
     Artifact optional = createSourceArtifact("hello.optional");
     Artifact goodbye = createDerivedArtifact("goodbye");
-    Button button = createActionButton(Sets.newHashSet(hello, optional), Sets.newHashSet(goodbye));
+    Button button = createActionButton(asNestedSet(hello, optional), ImmutableSet.of(goodbye));
 
     button.pressed = false;
     buildArtifacts(cachingBuilder(), goodbye);
@@ -128,6 +125,7 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
     assertThat(button.pressed).isFalse(); // not rebuilt
 
     BlazeTestUtils.makeEmptyFile(optional.getPath());
+    FileSystemUtils.writeContentAsLatin1(hello.getPath(), "content2");
 
     button.pressed = false;
     buildArtifacts(cachingBuilder(), goodbye);
@@ -138,6 +136,7 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
     assertThat(button.pressed).isFalse(); // not rebuilt
 
     optional.getPath().delete();
+    FileSystemUtils.writeContentAsLatin1(hello.getPath(), "content3");
 
     button.pressed = false;
     buildArtifacts(cachingBuilder(), goodbye);
@@ -154,7 +153,7 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
     Artifact hello = createSourceArtifact("hello");
     BlazeTestUtils.makeEmptyFile(hello.getPath());
     Artifact goodbye = createDerivedArtifact("goodbye");
-    Button button = createActionButton(Sets.newHashSet(hello), Sets.newHashSet(goodbye));
+    Button button = createActionButton(asNestedSet(hello), ImmutableSet.of(goodbye));
 
     button.pressed = false;
     buildArtifacts(cachingBuilder(), goodbye);
@@ -185,7 +184,7 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
     FileSystemUtils.writeContentAsLatin1(hello.getPath(), "content1");
 
     Artifact goodbye = createDerivedArtifact("goodbye");
-    Button button = createActionButton(Sets.newHashSet(hello), Sets.newHashSet(goodbye));
+    Button button = createActionButton(asNestedSet(hello), ImmutableSet.of(goodbye));
 
     button.pressed = false;
     buildArtifacts(cachingBuilder(), goodbye);
@@ -216,7 +215,7 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
   public void testModifyingOutputCausesActionReexecution() throws Exception {
     // [action] -> hello
     Artifact hello = createDerivedArtifact("hello");
-    Button button = createActionButton(emptySet, Sets.newHashSet(hello));
+    Button button = createActionButton(emptyNestedSet, ImmutableSet.of(hello));
 
     button.pressed = false;
     buildArtifacts(cachingBuilder(), hello);
@@ -249,7 +248,7 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
     Button button1 = new Button();
     registerAction(new CopyingAction(button1, hello, wazuup));
     Artifact goodbye = createDerivedArtifact("goodbye");
-    Button button2 = createActionButton(Sets.newHashSet(wazuup), Sets.newHashSet(goodbye));
+    Button button2 = createActionButton(asNestedSet(wazuup), ImmutableSet.of(goodbye));
 
     button1.pressed = button2.pressed = false;
     buildArtifacts(cachingBuilder(), wazuup);
@@ -286,11 +285,9 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
 
     Artifact anOutputFile = createDerivedArtifact("anOutputFile");
     Artifact anotherOutputFile = createDerivedArtifact("anotherOutputFile");
-    Collection<Artifact> noInputs = Collections.emptySet();
 
-    Button aButton = createActionButton(noInputs, Sets.newHashSet(anOutputFile));
-    Button anotherButton = createActionButton(noInputs,
-                                              Sets.newHashSet(anotherOutputFile));
+    Button aButton = createActionButton(emptyNestedSet, ImmutableSet.of(anOutputFile));
+    Button anotherButton = createActionButton(emptyNestedSet, ImmutableSet.of(anotherOutputFile));
 
     buildArtifacts(cachingBuilder(), anOutputFile, anotherOutputFile);
 
@@ -306,7 +303,7 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
   }
 
   @Test
-  public void testMissingSourceFileIsAnError() throws Exception {
+  public void testMissingSourceFileIsAnError() {
     // A missing input to an action must be treated as an error because there's
     // a risk that the action that consumes it will succeed, but with a
     // different behavior (imagine that it globs over the directory, for
@@ -318,11 +315,15 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
     // to allow the action to proceed to execution in this case.)
 
     reporter.removeHandler(failFastHandler);
-    Artifact in = createSourceArtifact("in"); // doesn't exist
+    // doesn't exist
+    Artifact in =
+        new Artifact.SourceArtifact(
+            ArtifactRoot.asSourceRoot(Root.fromPath(fileSystem.getPath("/src"))),
+            PathFragment.create("in/in"),
+            () -> Label.parseAbsoluteUnchecked("//in:in"));
     Artifact out = createDerivedArtifact("out");
 
-    registerAction(new TestAction(TestAction.NO_EFFECT, Collections.singleton(in),
-        Collections.singleton(out)));
+    registerAction(new TestAction(TestAction.NO_EFFECT, asNestedSet(in), ImmutableSet.of(out)));
 
     BuildFailedException e =
         assertThrows(BuildFailedException.class, () -> buildArtifacts(amnesiacBuilder(), out));

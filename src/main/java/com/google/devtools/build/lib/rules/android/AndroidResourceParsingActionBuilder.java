@@ -18,7 +18,6 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
@@ -34,7 +33,7 @@ public class AndroidResourceParsingActionBuilder {
   private AndroidAssets assets = AndroidAssets.empty();
 
   // The symbols file is a required output
-  private Artifact output;
+  @Nullable private Artifact output;
 
   // Optional outputs
   @Nullable private Artifact compiledSymbols;
@@ -89,15 +88,17 @@ public class AndroidResourceParsingActionBuilder {
     Iterable<Artifact> resourceArtifacts =
         Iterables.concat(assets.getAssets(), resources.getResources());
 
-    BusyBoxActionBuilder.create(dataContext, "PARSE")
-        .addInput("--primaryData", resourceDirectories, resourceArtifacts)
-        .addOutput("--output", output)
-        .buildAndRegister("Parsing Android resources", "AndroidResourceParser");
+    if (output != null) {
+      BusyBoxActionBuilder.create(dataContext, "PARSE")
+          .addInput("--primaryData", resourceDirectories, resourceArtifacts)
+          .addOutput("--output", output)
+          .buildAndRegister("Parsing Android resources", "AndroidResourceParser");
+    }
 
     if (compiledSymbols != null) {
       BusyBoxActionBuilder compiledBuilder =
           BusyBoxActionBuilder.create(dataContext, "COMPILE_LIBRARY_RESOURCES")
-              .addAapt(AndroidAaptVersion.AAPT2)
+              .addAapt()
               .addInput("--resources", resourceDirectories, resourceArtifacts)
               .addOutput("--output", compiledSymbols);
 

@@ -12,8 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
 #include "src/main/native/windows/process.h"
 
+#include <windows.h>
 #include <VersionHelpers.h>
 
 #include <memory>
@@ -45,14 +50,18 @@ static bool DupeHandle(HANDLE h, AutoHandle* out, std::wstring* error) {
 bool WaitableProcess::Create(const std::wstring& argv0,
                              const std::wstring& argv_rest, void* env,
                              const std::wstring& wcwd, std::wstring* error) {
-  AutoHandle dup_in, dup_out, dup_err;
-  if (!DupeHandle(GetStdHandle(STD_INPUT_HANDLE), &dup_in, error) ||
-      !DupeHandle(GetStdHandle(STD_OUTPUT_HANDLE), &dup_out, error) ||
-      !DupeHandle(GetStdHandle(STD_ERROR_HANDLE), &dup_err, error)) {
-    return false;
-  }
-  return Create(argv0, argv_rest, env, wcwd, dup_in, dup_out, dup_err, nullptr,
-                true, error);
+  // On Windows 7, the subprocess cannot inherit console handles via the
+  // attribute list (CreateProcessW fails with ERROR_NO_SYSTEM_RESOURCES).
+  // If we pass only invalid handles here, the Create method creates an
+  // AutoAttributeList with 0 handles and initializes the STARTUPINFOEXW as
+  // empty and disallowing handle inheritance. At the same time, CreateProcessW
+  // specifies neither CREATE_NEW_CONSOLE nor DETACHED_PROCESS, so the
+  // subprocess *does* inherit the console, which is exactly what we want, and
+  // it works on all supported Windows versions.
+  // Fixes https://github.com/bazelbuild/bazel/issues/8676
+  return Create(argv0, argv_rest, env, wcwd, INVALID_HANDLE_VALUE,
+                INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE, nullptr, true, true,
+                error);
 }
 
 bool WaitableProcess::Create(const std::wstring& argv0,
@@ -62,7 +71,7 @@ bool WaitableProcess::Create(const std::wstring& argv0,
                              LARGE_INTEGER* opt_out_start_time,
                              std::wstring* error) {
   return Create(argv0, argv_rest, env, wcwd, stdin_process, stdout_process,
-                stderr_process, opt_out_start_time, false, error);
+                stderr_process, opt_out_start_time, false, false, error);
 }
 
 bool WaitableProcess::Create(const std::wstring& argv0,
@@ -70,7 +79,8 @@ bool WaitableProcess::Create(const std::wstring& argv0,
                              const std::wstring& wcwd, HANDLE stdin_process,
                              HANDLE stdout_process, HANDLE stderr_process,
                              LARGE_INTEGER* opt_out_start_time,
-                             bool create_window, std::wstring* error) {
+                             bool create_window, bool handle_signals,
+                             std::wstring* error) {
   std::wstring cwd;
   std::wstring error_msg(AsShortPath(wcwd, &cwd));
   if (!error_msg.empty()) {
@@ -145,8 +155,8 @@ bool WaitableProcess::Create(const std::wstring& argv0,
   static constexpr size_t kMaxCmdline = 32767;
 
   std::wstring cmd_sample = mutable_commandline.get();
-  if (cmd_sample.size() > 200) {
-    cmd_sample = cmd_sample.substr(0, 195) + L"(...)";
+  if (cmd_sample.size() > 500) {
+    cmd_sample = cmd_sample.substr(0, 495) + L"(...)";
   }
   if (wcsnlen_s(mutable_commandline.get(), kMaxCmdline) == kMaxCmdline) {
     std::wstringstream error_msg;
@@ -168,7 +178,9 @@ bool WaitableProcess::Create(const std::wstring& argv0,
           /* lpThreadAttributes */ NULL,
           /* bInheritHandles */ attr_list->InheritAnyHandles() ? TRUE : FALSE,
           /* dwCreationFlags */ (create_window ? 0 : CREATE_NO_WINDOW) |
-              CREATE_NEW_PROCESS_GROUP  // So that Ctrl-Break isn't propagated
+              (handle_signals ? 0
+                              : CREATE_NEW_PROCESS_GROUP)  // So that Ctrl-Break
+                                                           // isn't propagated
               | CREATE_SUSPENDED  // So that it doesn't start a new job itself
               | EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
           /* lpEnvironment */ env,
@@ -176,8 +188,19 @@ bool WaitableProcess::Create(const std::wstring& argv0,
           /* lpStartupInfo */ &info.StartupInfo,
           /* lpProcessInformation */ &process_info)) {
     DWORD err = GetLastError();
+
+    std::wstring errmsg;
+    if (err == ERROR_NO_SYSTEM_RESOURCES && !IsWindows8OrGreater() &&
+        attr_list->HasConsoleHandle()) {
+      errmsg =
+          L"Unrecoverable error: host OS is Windows 7 and subprocess"
+          " got an inheritable console handle";
+    } else {
+      errmsg = GetLastErrorString(err) + L" (error: " + ToString(err) + L")";
+    }
+
     *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"CreateProcessW",
-                              cmd_sample, err);
+                              cmd_sample, errmsg);
     return false;
   }
 
@@ -345,6 +368,96 @@ bool WaitableProcess::Terminate(std::wstring* error) {
 
   *error = L"";
   return true;
+}
+
+// Escape arguments for CreateProcessW.
+//
+// This algorithm is based on information found in
+// http://daviddeley.com/autohotkey/parameters/parameters.htm
+//
+// The following source specifies a similar algorithm:
+// https://blogs.msdn.microsoft.com/twistylittlepassagesallalike/2011/04/23/everyone-quotes-command-line-arguments-the-wrong-way/
+// unfortunately I found this algorithm only after creating the one below, but
+// fortunately they seem to do the same.
+std::wstring WindowsEscapeArg(const std::wstring& s) {
+  if (s.empty()) {
+    return L"\"\"";
+  } else {
+    bool needs_escaping = false;
+    for (const auto& c : s) {
+      if (c == ' ' || c == '"') {
+        needs_escaping = true;
+        break;
+      }
+    }
+    if (!needs_escaping) {
+      return s;
+    }
+  }
+
+  std::wostringstream result;
+  result << L'"';
+  int start = 0;
+  for (int i = 0; i < s.size(); ++i) {
+    char c = s[i];
+    if (c == '"' || c == '\\') {
+      // Copy the segment since the last special character.
+      if (start >= 0) {
+        result << s.substr(start, i - start);
+        start = -1;
+      }
+
+      // Handle the current special character.
+      if (c == '"') {
+        // This is a quote character. Escape it with a single backslash.
+        result << L"\\\"";
+      } else {
+        // This is a backslash (or the first one in a run of backslashes).
+        // Whether we escape it depends on whether the run ends with a quote.
+        int run_len = 1;
+        int j = i + 1;
+        while (j < s.size() && s[j] == '\\') {
+          run_len++;
+          j++;
+        }
+        if (j == s.size()) {
+          // The run of backslashes goes to the end.
+          // We have to escape every backslash with another backslash.
+          for (int k = 0; k < run_len * 2; ++k) {
+            result << L'\\';
+          }
+          break;
+        } else if (j < s.size() && s[j] == '"') {
+          // The run of backslashes is terminated by a quote.
+          // We have to escape every backslash with another backslash, and
+          // escape the quote with one backslash.
+          for (int k = 0; k < run_len * 2; ++k) {
+            result << L'\\';
+          }
+          result << L"\\\"";
+          i += run_len;  // 'i' is also increased in the loop iteration step
+        } else {
+          // No quote found. Each backslash counts for itself, they must not be
+          // escaped.
+          for (int k = 0; k < run_len; ++k) {
+            result << L'\\';
+          }
+          i += run_len - 1;  // 'i' is also increased in the loop iteration step
+        }
+      }
+    } else {
+      // This is not a special character. Start the segment if necessary.
+      if (start < 0) {
+        start = i;
+      }
+    }
+  }
+  // Save final segment after the last special character.
+  if (start != -1) {
+    result << s.substr(start);
+  }
+  result << L'"';
+  return result.str();
 }
 
 }  // namespace windows

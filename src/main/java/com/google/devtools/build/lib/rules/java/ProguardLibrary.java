@@ -15,20 +15,17 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.Multimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import java.util.Collection;
-import java.util.Map;
 
 /**
  * Helpers for implementing rules which export Proguard specs.
@@ -39,11 +36,8 @@ import java.util.Map;
 public final class ProguardLibrary {
 
   private static final String LOCAL_SPEC_ATTRIBUTE = "proguard_specs";
-  private static final ImmutableMultimap<Mode, String> DEPENDENCY_ATTRIBUTES =
-      ImmutableMultimap.<Mode, String>builder()
-          .putAll(Mode.TARGET, "deps", "exports", "runtime_deps")
-          .putAll(Mode.HOST, "plugins", "exported_plugins")
-          .build();
+  private static final ImmutableSet<String> DEPENDENCY_ATTRIBUTES =
+      ImmutableSet.of("deps", "exports", "runtime_deps", "plugins", "exported_plugins");
 
   private final RuleContext ruleContext;
 
@@ -61,21 +55,20 @@ public final class ProguardLibrary {
    * Collects the validated proguard specs exported by this rule and its dependencies through the
    * given attributes.
    */
-  public NestedSet<Artifact> collectProguardSpecs(Multimap<Mode, String> attributes) {
+  public NestedSet<Artifact> collectProguardSpecs(Iterable<String> attributes) {
     NestedSetBuilder<Artifact> specsBuilder = NestedSetBuilder.naiveLinkOrder();
 
-    for (Map.Entry<Mode, String> attribute : attributes.entries()) {
-      specsBuilder.addTransitive(
-          collectProguardSpecsFromAttribute(attribute.getValue(), attribute.getKey()));
+    for (String attribute : attributes) {
+      specsBuilder.addTransitive(collectProguardSpecsFromAttribute(attribute));
     }
 
     Collection<Artifact> localSpecs = collectLocalProguardSpecs();
     if (!localSpecs.isEmpty()) {
-      // Pass our local proguard configs through the validator, which checks a whitelist.
-      FilesToRunProvider proguardWhitelister =
-          ruleContext.getExecutablePrerequisite("$proguard_whitelister", Mode.HOST);
+      // Pass our local proguard configs through the validator, which checks an allowlist.
+      FilesToRunProvider proguardAllowlister =
+          ruleContext.getExecutablePrerequisite("$proguard_whitelister");
       for (Artifact specToValidate : localSpecs) {
-        specsBuilder.add(validateProguardSpec(proguardWhitelister, specToValidate));
+        specsBuilder.add(validateProguardSpec(proguardAllowlister, specToValidate));
       }
     }
 
@@ -87,31 +80,31 @@ public final class ProguardLibrary {
     if (!ruleContext.attributes().has(LOCAL_SPEC_ATTRIBUTE, BuildType.LABEL_LIST)) {
       return ImmutableList.of();
     }
-    return ruleContext.getPrerequisiteArtifacts(LOCAL_SPEC_ATTRIBUTE, Mode.TARGET).list();
+    return ruleContext.getPrerequisiteArtifacts(LOCAL_SPEC_ATTRIBUTE).list();
   }
 
   /**
    * Collects the proguard specs exported by dependencies on the given LABEL_LIST/LABEL attribute.
    */
-  private NestedSet<Artifact> collectProguardSpecsFromAttribute(String attributeName, Mode mode) {
+  private NestedSet<Artifact> collectProguardSpecsFromAttribute(String attributeName) {
     if (!ruleContext.attributes().has(attributeName, BuildType.LABEL_LIST)
         && !ruleContext.attributes().has(attributeName, BuildType.LABEL)) {
       return NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     }
     NestedSetBuilder<Artifact> dependencySpecsBuilder = NestedSetBuilder.naiveLinkOrder();
     for (ProguardSpecProvider provider :
-        ruleContext.getPrerequisites(attributeName, mode, ProguardSpecProvider.PROVIDER)) {
+        ruleContext.getPrerequisites(attributeName, ProguardSpecProvider.PROVIDER)) {
       dependencySpecsBuilder.addTransitive(provider.getTransitiveProguardSpecs());
     }
     return dependencySpecsBuilder.build();
   }
 
   /**
-   * Creates an action to run the Proguard whitelister over the given Proguard spec and returns the
+   * Creates an action to run the Proguard allowlister over the given Proguard spec and returns the
    * validated Proguard spec, ready to be exported.
    */
   private Artifact validateProguardSpec(
-      FilesToRunProvider proguardWhitelister, Artifact specToValidate) {
+      FilesToRunProvider proguardAllowlister, Artifact specToValidate) {
     // If we're validating j/a/b/testapp/proguard.cfg, the output will be:
     // j/a/b/testapp/proguard.cfg_valid
     Artifact output =
@@ -125,7 +118,7 @@ public final class ProguardLibrary {
         new SpawnAction.Builder()
             .addInput(specToValidate)
             .addOutput(output)
-            .setExecutable(proguardWhitelister)
+            .setExecutable(proguardAllowlister)
             .setProgressMessage("Validating proguard configuration")
             .setMnemonic("ValidateProguard")
             .addCommandLine(

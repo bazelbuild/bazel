@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.repository;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -83,14 +83,15 @@ public class NewLocalRepositoryRule implements RuleDefinition {
         .build();
   }
 }
-/*<!-- #BLAZE_RULE (NAME = new_local_repository, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = new_local_repository, FAMILY = Workspace)[GENERIC_RULE] -->
 
 <p>Allows a local directory to be turned into a Bazel repository. This means that the current
   repository can define and use targets from anywhere on the filesystem.</p>
 
 <p>This rule creates a Bazel repository by creating a WORKSPACE file and subdirectory containing
 symlinks to the BUILD file and path given.  The build file should create targets relative to the
-<code>path</code>.
+<code>path</code>. For directories that already contain a WORKSPACE file and a BUILD file, the
+<a href="#local_repository"><code>local_repository</code></a> rule can be used.
 
 <h4 id="new_local_repository_examples">Examples</h4>
 

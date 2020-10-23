@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.events.Location;
+import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -71,17 +71,14 @@ public class ToolchainInfoTest extends BuildViewTestCase {
     new EqualsTester()
         .addEqualityGroup(
             // Base case.
-            ToolchainInfo.create(
-                ImmutableMap.<String, Object>of("foo", "val1", "bar", "val2"),
-                Location.BUILTIN),
-            ToolchainInfo.create(
-                ImmutableMap.<String, Object>of("foo", "val1", "bar", "val2"),
-                Location.BUILTIN))
+            new ToolchainInfo(
+                ImmutableMap.<String, Object>of("foo", "val1", "bar", "val2"), Location.BUILTIN),
+            new ToolchainInfo(
+                ImmutableMap.<String, Object>of("foo", "val1", "bar", "val2"), Location.BUILTIN))
         .addEqualityGroup(
             // Different data.
-            ToolchainInfo.create(
-                ImmutableMap.<String, Object>of("foo", "val1", "bar", "val3"),
-                Location.BUILTIN))
+            new ToolchainInfo(
+                ImmutableMap.<String, Object>of("foo", "val1", "bar", "val3"), Location.BUILTIN))
         .testEquals();
   }
 }

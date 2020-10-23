@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.buildeventstream.transports;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -31,9 +31,10 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildStarted;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Progress;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TargetComplete;
@@ -48,11 +49,11 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
 import org.junit.After;
 import org.junit.Before;
@@ -61,7 +62,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.Matchers;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
@@ -98,7 +99,7 @@ public class BinaryFormatFileTransportTest {
         BuildEventStreamProtos.BuildEvent.newBuilder()
             .setStarted(BuildStarted.newBuilder().setCommand("build"))
             .build();
-    when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(started);
+    when(buildEvent.asStreamProto(ArgumentMatchers.<BuildEventContext>any())).thenReturn(started);
     BinaryFormatFileTransport transport =
         new BinaryFormatFileTransport(
             outputStream,
@@ -109,14 +110,14 @@ public class BinaryFormatFileTransportTest {
 
     BuildEventStreamProtos.BuildEvent progress =
         BuildEventStreamProtos.BuildEvent.newBuilder().setProgress(Progress.newBuilder()).build();
-    when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(progress);
+    when(buildEvent.asStreamProto(ArgumentMatchers.<BuildEventContext>any())).thenReturn(progress);
     transport.sendBuildEvent(buildEvent);
 
     BuildEventStreamProtos.BuildEvent completed =
         BuildEventStreamProtos.BuildEvent.newBuilder()
             .setCompleted(TargetComplete.newBuilder().setSuccess(true))
             .build();
-    when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(completed);
+    when(buildEvent.asStreamProto(ArgumentMatchers.<BuildEventContext>any())).thenReturn(completed);
     transport.sendBuildEvent(buildEvent);
 
     transport.close().get();
@@ -140,6 +141,11 @@ public class BinaryFormatFileTransportTest {
               @Override
               public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
                 return Futures.immediateCancelledFuture();
+              }
+
+              @Override
+              public boolean mayBeSlow() {
+                return false;
               }
 
               @Override
@@ -175,7 +181,7 @@ public class BinaryFormatFileTransportTest {
         BuildEventStreamProtos.BuildEvent.newBuilder()
             .setStarted(BuildStarted.newBuilder().setCommand("build"))
             .build();
-    when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(started);
+    when(buildEvent.asStreamProto(ArgumentMatchers.<BuildEventContext>any())).thenReturn(started);
 
     BinaryFormatFileTransport transport =
         new BinaryFormatFileTransport(
@@ -206,7 +212,7 @@ public class BinaryFormatFileTransportTest {
         BuildEventStreamProtos.BuildEvent.newBuilder()
             .setStarted(BuildStarted.newBuilder().setCommand("build"))
             .build();
-    when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(started);
+    when(buildEvent.asStreamProto(ArgumentMatchers.<BuildEventContext>any())).thenReturn(started);
 
     BinaryFormatFileTransport transport =
         new BinaryFormatFileTransport(
@@ -240,20 +246,27 @@ public class BinaryFormatFileTransportTest {
     BuildEvent event1 = new WithLocalFilesEvent(ImmutableList.of(file1));
     BuildEvent event2 = new WithLocalFilesEvent(ImmutableList.of(file2));
 
-    BuildEventArtifactUploader uploader = Mockito.spy(new BuildEventArtifactUploader() {
-      @Override
-      public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
-        if (files.containsKey(file1)) {
-          LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(200));
-        }
-        return Futures.immediateFuture(new FileUriPathConverter());
-      }
+    BuildEventArtifactUploader uploader =
+        Mockito.spy(
+            new BuildEventArtifactUploader() {
+              @Override
+              public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
+                if (files.containsKey(file1)) {
+                  LockSupport.parkNanos(Duration.ofMillis(200).toNanos());
+                }
+                return Futures.immediateFuture(new FileUriPathConverter());
+              }
 
-      @Override
-      public void shutdown() {
-        // Intentionally left empty.
-      }
-    });
+              @Override
+              public boolean mayBeSlow() {
+                return true;
+              }
+
+              @Override
+              public void shutdown() {
+                // Intentionally left empty.
+              }
+            });
     File output = tmp.newFile();
     BufferedOutputStream outputStream =
         new BufferedOutputStream(Files.newOutputStream(Paths.get(output.getAbsolutePath())));
@@ -290,6 +303,11 @@ public class BinaryFormatFileTransportTest {
               }
 
               @Override
+              public boolean mayBeSlow() {
+                return false;
+              }
+
+              @Override
               public void shutdown() {
                 // Intentionally left empty.
               }
@@ -318,17 +336,24 @@ public class BinaryFormatFileTransportTest {
     BuildEvent event = new WithLocalFilesEvent(ImmutableList.of(file1));
 
     SettableFuture<PathConverter> upload = SettableFuture.create();
-    BuildEventArtifactUploader uploader = Mockito.spy(new BuildEventArtifactUploader() {
-      @Override
-      public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
-        return upload;
-      }
+    BuildEventArtifactUploader uploader =
+        Mockito.spy(
+            new BuildEventArtifactUploader() {
+              @Override
+              public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
+                return upload;
+              }
 
-      @Override
-      public void shutdown() {
-        // Intentionally left empty.
-      }
-    });
+              @Override
+              public boolean mayBeSlow() {
+                return false;
+              }
+
+              @Override
+              public void shutdown() {
+                // Intentionally left empty.
+              }
+            });
 
     File output = tmp.newFile();
     BufferedOutputStream outputStream =
@@ -371,7 +396,7 @@ public class BinaryFormatFileTransportTest {
     @Override
     public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext context) {
       return BuildEventStreamProtos.BuildEvent.newBuilder()
-          .setId(BuildEventId.progressId(id).asStreamProto())
+          .setId(BuildEventIdUtil.progressId(id))
           .setProgress(
               BuildEventStreamProtos.Progress.newBuilder()
                   .setStdout(
@@ -385,12 +410,12 @@ public class BinaryFormatFileTransportTest {
 
     @Override
     public BuildEventId getEventId() {
-      return BuildEventId.progressId(id);
+      return BuildEventIdUtil.progressId(id);
     }
 
     @Override
     public Collection<BuildEventId> getChildrenEvents() {
-      return ImmutableList.of(BuildEventId.progressId(id + 1));
+      return ImmutableList.of(BuildEventIdUtil.progressId(id + 1));
     }
   }
 }

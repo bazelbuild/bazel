@@ -10,9 +10,13 @@ collecting data across a target’s transitive dependencies. Since this use case
 concerns the [analysis phase](concepts.md#evaluation-model), depsets are useful
 for authors of rules and aspects, but probably not macros.
 
-The main feature of depsets is that they support a time- and space-efficient
-merge operation, whose cost is independent of the size of the existing contents.
-Depsets also have well-defined ordering semantics.
+The defining feature of depset is its time- and space-efficient union operation.
+The depset constructor accepts a list of elements ("direct") and a list of other
+depsets ("transitive"), and returns a depset representing a set containing all the
+direct elements and the union of all the transitive sets. Conceptually, the
+constructor creates a new graph node that has the direct and transitive nodes
+as its successors. Depsets have a well-defined ordering semantics, based on
+traversal of this graph.
 
 Example uses of depsets include:
 
@@ -22,11 +26,8 @@ Example uses of depsets include:
 *   for an interpreted language, storing the transitive source files that will
     be included in an executable's runfiles
 
-If you don't need the merge operation, consider using another type, such as
+If you don't need the union operation, consider using another type, such as
 [list](lib/list.html) or [dict](lib/dict.html).
-
-* ToC
-{:toc}
 
 ## Full example
 
@@ -229,7 +230,7 @@ t = depset(["b", "c"])
 # in a loop, and convert it to a dictionary for fast membership tests.
 t_items = {e: None for e in t.to_list()}
 diff_items = [x for x in s.to_list() if x not in t_items]
-# Convert back to depset if it's still going to be used for merge operations.
+# Convert back to depset if it's still going to be used for union operations.
 s = depset(diff_items)
 print(s)  # depset(["a"])
 ```
@@ -261,7 +262,7 @@ duplicate elements in different nodes of the DAG.
 def create(order):
   cd = depset(["c", "d"], order = order)
   gh = depset(["g", "h"], order = order)
-  return depset(["a", "b", "e", "f"], transitive = [cd, gh])
+  return depset(["a", "b", "e", "f"], transitive = [cd, gh], order = order)
 
 print(create("postorder").to_list())  # ["c", "d", "g", "h", "a", "b", "e", "f"]
 print(create("preorder").to_list())   # ["a", "b", "e", "f", "c", "d", "g", "h"]
@@ -287,13 +288,6 @@ the depset is created with the constructor’s `order` keyword argument. If this
 argument is omitted, the depset has the special `default` order, in which case
 there are no guarantees about the order of any of its elements (except that it
 is deterministic).
-
-For safety, depsets with different orders cannot be merged with the `+` operator
-unless one of them uses the default order; the resulting depset’s order is the
-same as the left operand. Note that when two depsets of different order are
-merged in this way, the child may appear to have had its elements rearranged
-when it is traversed via the parent. **The `+` operator is deprecated, anyway;
-use the `transitive` argument instead.**
 
 ## Performance
 
@@ -355,22 +349,5 @@ at the end in a binary rule is fine, since the overall cost is just O(n). It’s
 when many non-terminal targets try to call `to_list()` that we start to get into
 quadratic behavior.
 
-## Upcoming changes
-
-The API for depsets is being updated to be more consistent. Here are some recent
-and/or upcoming changes.
-
-*   When it's necessary to retrieve a depset's contents, this should be done by
-    explicitly converting the depset to a list via its `to_list()` method. Do
-    not iterate directly over the depset itself; direct iteration is deprecated
-    and will be removed. For example, don't use `list(...)`, `sorted(...)`, or
-    other functions expecting an iterable, on depsets. The rationale of this
-    change is that iterating over depsets is generally expensive, and expensive
-    operations should be made obvious in code.
-
-*   Depset elements currently must have the same type, e.g. all ints or all
-    strings. This restriction will be lifted.
-
-*   A merge operation should be done by using the `transitive` argument in the
-    depset constructor. All other methods (`|` and `+` operators, and the
-    `union` method) are deprecated and will be going away.
+The [performance](performance.md) page also contains information about using
+depsets efficiently.

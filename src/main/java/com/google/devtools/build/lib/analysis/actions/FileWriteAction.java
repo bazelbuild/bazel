@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -22,6 +22,9 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -32,11 +35,17 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
+import javax.annotation.Nullable;
 
 /**
  * Action to write a file whose contents are known at analysis time.
  *
- * <p>The output is always UTF-8 encoded.
+ * <p>The output file is generally encoded as UTF-8, but by an unusual path. BUILD files and
+ * directory entries, which are actually UTF-8, are misinterpreted by Bazel as Latin1, so that most
+ * Strings within the build language use this unusual representation. FileWriteAction writes those
+ * Strings out again as Latin1.
+ *
+ * <p>TODO(b/146554973): Change this implementation when that is addressed.
  *
  * <p>TODO(bazel-team): Choose a better name to distinguish this class from {@link
  * BinaryFileWriteAction}.
@@ -44,19 +53,6 @@ import java.util.zip.GZIPOutputStream;
 @AutoCodec
 @Immutable // if fileContents is immutable
 public final class FileWriteAction extends AbstractFileWriteAction {
-
-  /** Whether or not transparent compression is possible. */
-  public static enum Compression {
-    /** No compression, ever. */
-    DISALLOW,
-    /** May compress. */
-    ALLOW;
-
-    /** Maps true/false to allow/disallow respectively. */
-    public static Compression fromBoolean(boolean allow) {
-      return allow ? ALLOW : DISALLOW;
-    }
-  }
 
   private static final String GUID = "332877c7-ca9f-4731-b387-54f620408522";
 
@@ -81,7 +77,7 @@ public final class FileWriteAction extends AbstractFileWriteAction {
 
   private FileWriteAction(
       ActionOwner owner,
-      Iterable<Artifact> inputs,
+      NestedSet<Artifact> inputs,
       Artifact output,
       CharSequence fileContents,
       boolean makeExecutable,
@@ -102,7 +98,7 @@ public final class FileWriteAction extends AbstractFileWriteAction {
   @AutoCodec.Instantiator
   FileWriteAction(
       ActionOwner owner,
-      Iterable<Artifact> inputs,
+      NestedSet<Artifact> inputs,
       Artifact primaryOutput,
       CharSequence fileContents,
       boolean makeExecutable) {
@@ -121,7 +117,7 @@ public final class FileWriteAction extends AbstractFileWriteAction {
    * @param output the Artifact that will be created by executing this Action
    */
   public static FileWriteAction createEmptyWithInputs(
-      ActionOwner owner, Iterable<Artifact> inputs, Artifact output) {
+      ActionOwner owner, NestedSet<Artifact> inputs, Artifact output) {
     return new FileWriteAction(owner, inputs, output, "", false, Compression.DISALLOW);
   }
 
@@ -142,15 +138,19 @@ public final class FileWriteAction extends AbstractFileWriteAction {
       boolean makeExecutable,
       Compression allowCompression) {
     return new FileWriteAction(
-        owner, Artifact.NO_ARTIFACTS, output, fileContents, makeExecutable, allowCompression);
+        owner,
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        output,
+        fileContents,
+        makeExecutable,
+        allowCompression);
   }
 
   /**
    * Creates a new FileWriteAction instance.
    *
-   * <p>There are no inputs. Transparent compression is controlled by the {@code
-   * --experimental_transparent_compression} flag. No reference to the {@link
-   * ActionConstructionContext} will be maintained.
+   * <p>There are no inputs. No reference to the {@link ActionConstructionContext} will be
+   * maintained.
    *
    * @param context the action construction context
    * @param output the Artifact that will be created by executing this Action
@@ -164,11 +164,11 @@ public final class FileWriteAction extends AbstractFileWriteAction {
       boolean makeExecutable) {
     return new FileWriteAction(
         context.getActionOwner(),
-        Artifact.NO_ARTIFACTS,
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         output,
         fileContents,
         makeExecutable,
-        context.getConfiguration().transparentCompression());
+        Compression.ALLOW);
   }
 
   private static final class CompressedString extends LazyString {
@@ -176,7 +176,7 @@ public final class FileWriteAction extends AbstractFileWriteAction {
     final int uncompressedSize;
 
     CompressedString(String chars) {
-      byte[] dataToCompress = chars.getBytes(UTF_8);
+      byte[] dataToCompress = chars.getBytes(ISO_8859_1);
       ByteArrayOutputStream byteStream = new ByteArrayOutputStream(dataToCompress.length);
       try (GZIPOutputStream zipStream = new GZIPOutputStream(byteStream)) {
         zipStream.write(dataToCompress);
@@ -207,7 +207,7 @@ public final class FileWriteAction extends AbstractFileWriteAction {
         // This should be impossible since we're reading from a byte array.
         throw new RuntimeException(e);
       }
-      return new String(uncompressedBytes, UTF_8);
+      return new String(uncompressedBytes, ISO_8859_1);
     }
   }
 
@@ -221,13 +221,18 @@ public final class FileWriteAction extends AbstractFileWriteAction {
    *
    * <p>Note that if the string is lazily computed or compressed, calling this method will force its
    * computation or decompression. No attempt is made by FileWriteAction to cache the result.
+   *
+   * <p>Note that the content is a not a normal Java String. When Bazel parses BUILD files, it
+   * misinterprets the bytes as Latin1, so a code point with a 3-byte UTF-8 encoding will take 3
+   * chars internally. To reverse this process, you must encode this string as Latin1, giving you
+   * back the correct UTF-8 encoding of the original input.
    */
   public String getFileContents() {
     return fileContents.toString();
   }
 
   @Override
-  public String getSkylarkContent() {
+  public String getStarlarkContent() {
     return getFileContents();
   }
 
@@ -240,14 +245,17 @@ public final class FileWriteAction extends AbstractFileWriteAction {
     return new DeterministicWriter() {
       @Override
       public void writeOutputFile(OutputStream out) throws IOException {
-        out.write(getFileContents().getBytes(UTF_8));
+        out.write(getFileContents().getBytes(ISO_8859_1));
       }
     };
   }
 
   /** Computes the Action key for this action by computing the fingerprint for the file contents. */
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable Artifact.ArtifactExpander artifactExpander,
+      Fingerprint fp) {
     fp.addString(GUID);
     fp.addString(String.valueOf(makeExecutable));
     fp.addString(getFileContents());
@@ -265,9 +273,8 @@ public final class FileWriteAction extends AbstractFileWriteAction {
    */
   public static Artifact createFile(
       RuleContext ruleContext, String fileName, CharSequence contents, boolean executable) {
-    Artifact scriptFileArtifact = ruleContext.getPackageRelativeArtifact(
-        fileName, ruleContext.getConfiguration().getGenfilesDirectory(
-            ruleContext.getRule().getRepository()));
+    Artifact scriptFileArtifact =
+        ruleContext.getPackageRelativeArtifact(fileName, ruleContext.getGenfilesDirectory());
     ruleContext.registerAction(
         FileWriteAction.create(ruleContext, scriptFileArtifact, contents, executable));
     return scriptFileArtifact;

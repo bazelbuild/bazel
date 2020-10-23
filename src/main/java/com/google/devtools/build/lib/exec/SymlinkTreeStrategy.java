@@ -13,25 +13,48 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import com.google.common.collect.ImmutableMap;
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.MissingExpansionException;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
+import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
+import com.google.devtools.build.lib.server.FailureDetails.Execution;
+import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputService;
-import java.util.logging.Logger;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.IOException;
+import java.time.Duration;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Implements SymlinkTreeAction by using the output service or by running an embedded script to
  * create the symlink tree.
  */
-@ExecutionStrategy(contextType = SymlinkTreeActionContext.class)
 public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
-  private static final Logger logger = Logger.getLogger(SymlinkTreeStrategy.class.getName());
+  private static final Duration MIN_LOGGING = Duration.ofMillis(100);
+
+  @VisibleForTesting
+  static final Function<Artifact, PathFragment> TO_PATH =
+      (artifact) -> artifact == null ? null : artifact.getPath().asFragment();
 
   private final OutputService outputService;
   private final BinTools binTools;
@@ -43,36 +66,137 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
 
   @Override
   public void createSymlinks(
-      SymlinkTreeAction action,
-      ActionExecutionContext actionExecutionContext,
-      ImmutableMap<String, String> shellEnvironment,
-      boolean enableRunfiles)
+      SymlinkTreeAction action, ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     actionExecutionContext.getEventHandler().post(new RunningActionEvent(action, "local"));
     try (AutoProfiler p =
-        AutoProfiler.logged(
-            "running " + action.prettyPrint(), logger, /*minTimeForLoggingInMilliseconds=*/ 100)) {
+        GoogleAutoProfilerUtils.logged("running " + action.prettyPrint(), MIN_LOGGING)) {
       try {
         if (outputService != null && outputService.canCreateSymlinkTree()) {
-          outputService.createSymlinkTree(
-              actionExecutionContext.getInputPath(action.getInputManifest()),
-              actionExecutionContext.getInputPath(action.getOutputManifest()),
-              action.isFilesetTree(),
-              action.getOutputManifest().getExecPath().getParentDirectory());
-        } else {
-          SymlinkTreeHelper helper =
-              new SymlinkTreeHelper(
-                  actionExecutionContext.getInputPath(action.getInputManifest()),
+          Path inputManifest =
+              action.getInputManifest() == null
+                  ? null
+                  : actionExecutionContext.getInputPath(action.getInputManifest());
+          Map<PathFragment, PathFragment> symlinks;
+          if (action.getRunfiles() != null) {
+            symlinks = Maps.transformValues(runfilesToMap(action, actionExecutionContext), TO_PATH);
+          } else {
+            Preconditions.checkState(action.isFilesetTree());
+            checkNotNull(inputManifest);
+
+            ImmutableList<FilesetOutputSymlink> filesetLinks;
+            try {
+              filesetLinks =
                   actionExecutionContext
-                      .getInputPath(action.getOutputManifest())
-                      .getParentDirectory(),
-                  action.isFilesetTree());
-          helper.createSymlinks(actionExecutionContext, binTools, shellEnvironment, enableRunfiles);
+                      .getArtifactExpander()
+                      .getFileset(action.getInputManifest());
+            } catch (MissingExpansionException e) {
+              throw new IllegalStateException(e);
+            }
+
+            symlinks =
+                SymlinkTreeHelper.processFilesetLinks(
+                    filesetLinks,
+                    action.getFilesetRoot(),
+                    actionExecutionContext.getExecRoot().asFragment());
+          }
+
+          outputService.createSymlinkTree(
+              symlinks,
+              action.getOutputManifest().getExecPath().getParentDirectory());
+
+          createOutput(action, actionExecutionContext, inputManifest);
+        } else if (!action.isRunfilesEnabled()) {
+          createSymlinkTreeHelper(action, actionExecutionContext).copyManifest();
+        } else if (action.getInputManifest() == null
+            || (action.inprocessSymlinkCreation() && !action.isFilesetTree())) {
+          try {
+            Map<PathFragment, Artifact> runfiles = runfilesToMap(action, actionExecutionContext);
+            createSymlinkTreeHelper(action, actionExecutionContext)
+                .createSymlinksDirectly(
+                    action.getOutputManifest().getPath().getParentDirectory(), runfiles);
+          } catch (IOException e) {
+            throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_CREATION_IO_EXCEPTION)
+                .toActionExecutionException(action);
+          }
+
+          Path inputManifest =
+              action.getInputManifest() == null
+                  ? null
+                  : actionExecutionContext.getInputPath(action.getInputManifest());
+          createOutput(action, actionExecutionContext, inputManifest);
+        } else {
+          Map<String, String> resolvedEnv = new LinkedHashMap<>();
+          action.getEnvironment().resolve(resolvedEnv, actionExecutionContext.getClientEnv());
+          createSymlinkTreeHelper(action, actionExecutionContext)
+              .createSymlinksUsingCommand(
+                  actionExecutionContext.getExecRoot(),
+                  binTools,
+                  resolvedEnv,
+                  actionExecutionContext.getFileOutErr());
         }
       } catch (ExecException e) {
-        throw e.toActionExecutionException(
-            action.getProgressMessage(), actionExecutionContext.getVerboseFailures(), action);
+        throw e.toActionExecutionException(action);
       }
     }
+  }
+
+  private static Map<PathFragment, Artifact> runfilesToMap(
+      SymlinkTreeAction action, ActionExecutionContext actionExecutionContext) {
+    // This call outputs warnings about overlapping symlinks. However, this is already called by the
+    // SourceManifestAction, so it can happen that we generate the warning twice. If the input
+    // manifest is null, then we print the warning. Otherwise we assume that the
+    // SourceManifestAction already printed it.
+    return action
+        .getRunfiles()
+        .getRunfilesInputs(
+            action.getInputManifest() == null ? actionExecutionContext.getEventHandler() : null,
+            action.getOwner().getLocation());
+  }
+
+  private static void createOutput(
+      SymlinkTreeAction action, ActionExecutionContext actionExecutionContext, Path inputManifest)
+      throws EnvironmentalExecException {
+    Path outputManifest = actionExecutionContext.getInputPath(action.getOutputManifest());
+    if (inputManifest == null) {
+      // If we don't have an input manifest, then create a file containing a fingerprint of
+      // the runfiles object.
+      Fingerprint fp = new Fingerprint();
+      action.getRunfiles().fingerprint(fp);
+      String hexDigest = fp.hexDigestAndReset();
+      try {
+        FileSystemUtils.writeContentAsLatin1(outputManifest, hexDigest);
+      } catch (IOException e) {
+        throw createLinkFailureException(outputManifest, e);
+      }
+    } else {
+      // Link output manifest on success. We avoid a file copy as these manifests may be
+      // large. Note that this step has to come last because the OutputService may delete any
+      // pre-existing symlink tree before creating a new one.
+      try {
+        outputManifest.createSymbolicLink(inputManifest);
+      } catch (IOException e) {
+        throw createLinkFailureException(outputManifest, e);
+      }
+    }
+  }
+
+  private static SymlinkTreeHelper createSymlinkTreeHelper(
+      SymlinkTreeAction action, ActionExecutionContext actionExecutionContext) {
+    return new SymlinkTreeHelper(
+        actionExecutionContext.getInputPath(action.getInputManifest()),
+        actionExecutionContext.getInputPath(action.getOutputManifest()).getParentDirectory(),
+        action.isFilesetTree());
+  }
+
+  private static EnvironmentalExecException createLinkFailureException(
+      Path outputManifest, IOException e) {
+    return new EnvironmentalExecException(
+        e,
+        FailureDetail.newBuilder()
+            .setMessage("Failed to link output manifest '" + outputManifest.getPathString() + "'")
+            .setExecution(
+                Execution.newBuilder().setCode(Code.SYMLINK_TREE_MANIFEST_LINK_IO_EXCEPTION))
+            .build());
   }
 }

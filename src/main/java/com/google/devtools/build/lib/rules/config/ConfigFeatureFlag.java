@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.rules.config;
 
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -26,48 +26,48 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.syntax.Printer;
 import java.util.List;
 import java.util.Optional;
+import net.starlark.java.eval.Starlark;
 
 /**
  * The implementation of the config_feature_flag rule for defining custom flags for Android rules.
  */
 public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
   /** The name of the policy that is used to restrict access to the config_feature_flag rule. */
-  private static final String WHITELIST_NAME = "config_feature_flag";
+  private static final String ALLOWLIST_NAME = "config_feature_flag";
 
   /** The label of the policy that is used to restrict access to the config_feature_flag rule. */
-  private static final String WHITELIST_LABEL =
-      "//tools/whitelists/config_feature_flag:config_feature_flag";
+  private static final String ALLOWLIST_LABEL =
+      "//tools/allowlists/config_feature_flag:config_feature_flag";
 
   /** Constructs a definition for the attribute used to restrict access to config_feature_flag. */
-  public static Attribute.Builder<Label> getWhitelistAttribute(RuleDefinitionEnvironment env) {
-    return Whitelist.getAttributeFromWhitelistName(WHITELIST_NAME)
-        .value(env.getToolsLabel(WHITELIST_LABEL));
+  public static Attribute.Builder<Label> getAllowlistAttribute(RuleDefinitionEnvironment env) {
+    return Allowlist.getAttributeFromAllowlistName(ALLOWLIST_NAME)
+        .value(env.getToolsLabel(ALLOWLIST_LABEL));
   }
 
   /**
    * Constructs a definition for the attribute used to restrict access to config_feature_flag. The
-   * whitelist will only be reached if the given {@code attributeToInspect} has a value explicitly
+   * allowlist will only be reached if the given {@code attributeToInspect} has a value explicitly
    * specified. It must be non-configurable.
    */
-  public static Attribute.Builder<Label> getWhitelistAttribute(
+  public static Attribute.Builder<Label> getAllowlistAttribute(
       RuleDefinitionEnvironment env, String attributeToInspect) {
-    final Label label = env.getToolsLabel(WHITELIST_LABEL);
-    return Whitelist.getAttributeFromWhitelistName(WHITELIST_NAME)
+    final Label label = env.getToolsLabel(ALLOWLIST_LABEL);
+    return Allowlist.getAttributeFromAllowlistName(ALLOWLIST_NAME)
         .value(
             new ComputedDefault() {
               @Override
@@ -81,22 +81,21 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
    * Returns whether config_feature_flag and related features are available to the current rule.
    *
    * <p>The current rule must have an attribute defined on it created with {@link
-   * #getWhitelistAttribute}.
+   * #getAllowlistAttribute}.
    */
   public static boolean isAvailable(RuleContext ruleContext) {
-    return Whitelist.isAvailable(ruleContext, WHITELIST_NAME);
+    return Allowlist.isAvailable(ruleContext, ALLOWLIST_NAME);
   }
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     if (!ConfigFeatureFlag.isAvailable(ruleContext)) {
-      ruleContext.ruleError(
+      throw ruleContext.throwWithRuleError(
           String.format(
               "the %s rule is not available in package '%s'",
               ruleContext.getRuleClassNameForLogging(),
               ruleContext.getLabel().getPackageIdentifier()));
-      throw new RuleErrorException();
     }
 
     List<String> specifiedValues = ruleContext.attributes().get("allowed_values", STRING_LIST);
@@ -113,7 +112,7 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
       ruleContext.attributeError(
           "allowed_values",
           "cannot contain duplicates, but contained multiple of "
-              + Printer.repr(duplicates.build()));
+              + Starlark.repr(duplicates.build()));
     }
 
     Optional<String> defaultValue =
@@ -124,9 +123,9 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
       ruleContext.attributeError(
           "default_value",
           "must be one of "
-              + Printer.repr(values.asList())
+              + Starlark.repr(values.asList())
               + ", but was "
-              + Printer.repr(defaultValue.get()));
+              + Starlark.repr(defaultValue.get()));
     }
 
     if (ruleContext.hasErrors()) {
@@ -141,17 +140,17 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
             .getFeatureFlagValue(ruleContext.getOwner());
 
     if (configuredValue.isPresent() && !isValidValue.apply(configuredValue.get())) {
-      // TODO(mstaib): When configurationError is available, use that instead.
+      // TODO(b/140635901): When configurationError is available, use that instead.
       ruleContext.ruleError(
           "value must be one of "
-              + Printer.repr(values.asList())
+              + Starlark.repr(values.asList())
               + ", but was "
-              + Printer.repr(configuredValue.get()));
+              + Starlark.repr(configuredValue.get()));
       return null;
     }
 
     if (!configuredValue.isPresent() && !defaultValue.isPresent()) {
-      // TODO(mstaib): When configurationError is available, use that instead.
+      // TODO(b/140635901): When configurationError is available, use that instead.
       ruleContext.ruleError("flag has no default and must be set, but was not set");
       return null;
     }

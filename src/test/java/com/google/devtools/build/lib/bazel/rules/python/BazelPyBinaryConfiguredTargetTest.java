@@ -40,6 +40,10 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
   private static final String TOOLCHAIN_TYPE =
       TestConstants.TOOLS_REPOSITORY + "//tools/python:toolchain_type";
 
+  private static String join(String... lines) {
+    return String.join("\n", lines);
+  }
+
   /**
    * Given a {@code py_binary} or {@code py_test} target, returns the path of the Python interpreter
    * used by the generated stub script.
@@ -281,7 +285,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
     if (lines.length == 0) {
       indentedBody = "    pass";
     } else {
-      indentedBody = "    " + String.join("\n", lines).replace("\n", "\n    ");
+      indentedBody = "    " + join(lines).replace("\n", "\n    ");
     }
     scratch.file(
         "toolchains/rules.bzl",
@@ -371,5 +375,63 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
     assertContainsEvent(
         "Error retrieving the Python runtime from the toolchain: Expected field 'py3_runtime' to "
             + "have a runtime with python_version = 'PY3', but got python_version = 'PY2'");
+  }
+
+  @Test
+  public void explicitInitPy_CanBeGloballyEnabled() throws Exception {
+    scratch.file(
+        "pkg/BUILD",
+        join(
+            "py_binary(", //
+            "    name = 'foo',",
+            "    srcs = ['foo.py'],",
+            ")"));
+    useConfiguration("--incompatible_default_to_explicit_init_py=true");
+    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames().toList())
+        .isEmpty();
+  }
+
+  @Test
+  public void explicitInitPy_CanBeSelectivelyDisabled() throws Exception {
+    scratch.file(
+        "pkg/BUILD",
+        join(
+            "py_binary(", //
+            "    name = 'foo',",
+            "    srcs = ['foo.py'],",
+            "    legacy_create_init = True,",
+            ")"));
+    useConfiguration("--incompatible_default_to_explicit_init_py=true");
+    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames().toList())
+        .containsExactly("pkg/__init__.py");
+  }
+
+  @Test
+  public void explicitInitPy_CanBeGloballyDisabled() throws Exception {
+    scratch.file(
+        "pkg/BUILD",
+        join(
+            "py_binary(", //
+            "    name = 'foo',",
+            "    srcs = ['foo.py'],",
+            ")"));
+    useConfiguration("--incompatible_default_to_explicit_init_py=false");
+    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames().toList())
+        .containsExactly("pkg/__init__.py");
+  }
+
+  @Test
+  public void explicitInitPy_CanBeSelectivelyEnabled() throws Exception {
+    scratch.file(
+        "pkg/BUILD",
+        join(
+            "py_binary(", //
+            "    name = 'foo',",
+            "    srcs = ['foo.py'],",
+            "    legacy_create_init = False,",
+            ")"));
+    useConfiguration("--incompatible_default_to_explicit_init_py=false");
+    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames().toList())
+        .isEmpty();
   }
 }

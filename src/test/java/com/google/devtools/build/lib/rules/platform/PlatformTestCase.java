@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.platform;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Base class for tests that want to use builders to create platforms and constraints. */
@@ -103,6 +105,7 @@ public class PlatformTestCase extends BuildViewTestCase {
     private final List<String> constraintValues = new ArrayList<>();
     private Label parentLabel = null;
     private String remoteExecutionProperties = "";
+    private ImmutableMap<String, String> execProperties;
 
     public PlatformBuilder(String name) {
       this.label = Label.parseAbsoluteUnchecked(name);
@@ -123,6 +126,11 @@ public class PlatformTestCase extends BuildViewTestCase {
       return this;
     }
 
+    public PlatformBuilder setExecProperties(ImmutableMap<String, String> value) {
+      this.execProperties = value;
+      return this;
+    }
+
     public List<String> lines() {
       ImmutableList.Builder<String> lines = ImmutableList.builder();
 
@@ -137,6 +145,13 @@ public class PlatformTestCase extends BuildViewTestCase {
       lines.add("  ],");
       if (!Strings.isNullOrEmpty(remoteExecutionProperties)) {
         lines.add("  remote_execution_properties = '" + remoteExecutionProperties + "',");
+      }
+      if (execProperties != null && !execProperties.isEmpty()) {
+        lines.add("  exec_properties = { ");
+        for (Map.Entry<String, String> entry : execProperties.entrySet()) {
+          lines.add("    \"" + entry.getKey() + "\": \"" + entry.getValue() + "\",");
+        }
+        lines.add("  }");
       }
       lines.add(")");
 

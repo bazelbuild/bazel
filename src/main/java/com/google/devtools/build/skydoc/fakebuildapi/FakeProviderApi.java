@@ -14,43 +14,33 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
-import javax.annotation.Nullable;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Tuple;
 
-/**
- * Fake implementation of {@link ProviderApi}. This fake is a subclass of {@link BaseFunction},
- * as providers are themselves callable.
- */
-public class FakeProviderApi extends BaseFunction implements ProviderApi {
+/** Fake callable implementation of {@link ProviderApi}. */
+public class FakeProviderApi implements StarlarkCallable, ProviderApi {
 
   /**
    * Each fake is constructed with a unique name, controlled by this counter being the name suffix.
    */
   private static int idCounter = 0;
 
-  public FakeProviderApi() {
-    super("ProviderIdentifier" + idCounter++,
-        FunctionSignature.WithValues.create(FunctionSignature.KWARGS));
-  }
+  private final String name = "ProviderIdentifier" + idCounter++;
 
   @Override
-  protected Object call(Object[] args, @Nullable FuncallExpression ast, Environment env)
-      throws EvalException, InterruptedException {
+  public Object call(StarlarkThread thread, Tuple<Object> args, Dict<String, Object> kwargs) {
     return new FakeStructApi();
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public String getName() {
+    return name;
+  }
 
   @Override
-  public boolean equals(@Nullable Object other) {
-    // Use exact object matching.
-    return this == other;
-  }
+  public void repr(Printer printer) {}
 }

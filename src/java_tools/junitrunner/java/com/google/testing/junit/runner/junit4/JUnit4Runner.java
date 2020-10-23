@@ -20,12 +20,12 @@ import com.google.testing.junit.runner.internal.Stdout;
 import com.google.testing.junit.runner.internal.junit4.CancellableRequestFactory;
 import com.google.testing.junit.runner.model.TestSuiteModel;
 import com.google.testing.junit.runner.util.GoogleTestSecurityManager;
-import com.google.testing.junit.runner.util.Supplier;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Set;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 import org.junit.internal.runners.ErrorReportingRunner;
@@ -36,6 +36,7 @@ import org.junit.runner.Result;
 import org.junit.runner.Runner;
 import org.junit.runner.manipulation.Filter;
 import org.junit.runner.manipulation.NoTestsRemainException;
+import org.junit.runner.notification.Failure;
 import org.junit.runner.notification.RunListener;
 import org.junit.runner.notification.RunNotifier;
 
@@ -99,6 +100,9 @@ public class JUnit4Runner {
     JUnitCore core = new JUnitCore();
     for (RunListener runListener : runListeners) {
       core.addListener(runListener);
+    }
+    if (config.getTestRunnerFailFast()) {
+      core.addListener(new StopOnFailureRunListener(requestFactory));
     }
 
     File exitFile = getExitFile();
@@ -282,5 +286,20 @@ public class JUnit4Runner {
    */
   public interface Initializer {
     void initialize();
+  }
+
+  /** RunListener that requests test execution to stop upon first failure. */
+  private static class StopOnFailureRunListener extends RunListener {
+
+    private final CancellableRequestFactory cancellableRequestFactory;
+
+    public StopOnFailureRunListener(CancellableRequestFactory cancellableRequestFactory) {
+      this.cancellableRequestFactory = cancellableRequestFactory;
+    }
+
+    @Override
+    public void testFailure(Failure failure) throws Exception {
+      cancellableRequestFactory.cancelRunOrderly();
+    }
   }
 }

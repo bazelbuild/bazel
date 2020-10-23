@@ -96,18 +96,54 @@ eof
   echo "dummy" >$pkg/B/a.txt
 
   # Build 1: g.txt should contain external/B/a.txt
-  cd $pkg/A
-  bazel build //:G || fail "build failed"
-  cat bazel-genfiles/g.txt >$TEST_log
+  ( cd $pkg/A
+    bazel build //:G
+    cat bazel-genfiles/g.txt >$TEST_log
+  )
   expect_log "external/B/a.txt"
   expect_not_log "external/B/b.txt"
 
   # Build 2: add B/b.txt and see if the glob picks it up.
-  echo "dummy" > ../B/b.txt
-  bazel build //:G || fail "build failed"
-  cat bazel-genfiles/g.txt >$TEST_log
+  # Shut down the server afterwards so the test cleanup can remove $pkg/A.
+  ( cd $pkg/A
+    echo "dummy" > ../B/b.txt
+    bazel build //:G || fail "build failed"
+    cat bazel-genfiles/g.txt >$TEST_log
+    bazel shutdown >& /dev/null
+  )
   expect_log "external/B/a.txt"
   expect_log "external/B/b.txt"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/9176
+function test_recursive_glob_in_new_local_repository() {
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg/A" "$pkg/B/subdir/inner"
+  touch "$pkg/B/root.txt"
+  touch "$pkg/B/subdir/outer.txt"
+  touch "$pkg/B/subdir/inner/inner.txt"
+  cat >"$pkg/A/WORKSPACE" <<eof
+new_local_repository(
+    name = "myext",
+    path = "../B",
+    build_file = "BUILD.myext",
+)
+eof
+  cat >"$pkg/A/BUILD.myext" <<eof
+filegroup(name = "all_files", srcs = glob(["**"]))
+eof
+
+  # Shut down the server afterwards so the test cleanup can remove $pkg/A.
+  ( cd "$pkg/A"
+    bazel query 'deps(@myext//:all_files)' >& "$TEST_log"
+    bazel shutdown >& /dev/null
+  )
+  expect_log '@myext//:all_files'
+  expect_log '@myext//:subdir/outer.txt'
+  expect_log '@myext//:subdir/inner/inner.txt'
+  expect_log '@myext//:root.txt'
+  expect_log '@myext//:WORKSPACE'
+  expect_log '@myext//:BUILD.bazel'
 }
 
 run_suite "new_local_repository correctness tests"

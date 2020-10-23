@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
 package(default_visibility = ["//visibility:public"])
 
 java_library(
@@ -15,4 +17,5 @@ filegroup(
     srcs = glob(["**/*.java"]) + [
         "BUILD",
     ],
+    visibility = ["//src:__subpackages__"],
 )

@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSe
 import com.google.devtools.build.lib.analysis.PlatformConfigurationLoader;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.rules.core.CoreRules;
-import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.PlatformBootstrap;
 
 /**
  * Rules for supporting different platforms in Bazel.
@@ -43,7 +43,7 @@ public class PlatformRules implements RuleSet {
 
     builder.addRuleDefinition(new ToolchainRule());
 
-    builder.addSkylarkBootstrap(new PlatformBootstrap(new PlatformCommon()));
+    builder.addStarlarkBootstrap(new PlatformBootstrap(new PlatformCommon()));
   }
 
   @Override

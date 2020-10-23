@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,26 +24,27 @@ import os
 import re
 import shutil
 import subprocess
-import sys
 import tempfile
 
-# pylint: disable=g-direct-third-party-import
-from third_party.py import gflags
+# Do not edit this line. Copybara replaces it with PY2 migration helper.
+from absl import app
+from absl import flags
+import six
 
-gflags.DEFINE_string('rpmbuild', '', 'Path to rpmbuild executable')
-gflags.DEFINE_string('name', '', 'The name of the software being packaged.')
-gflags.DEFINE_string('version', '',
-                     'The version of the software being packaged.')
-gflags.DEFINE_string('release', '',
-                     'The release of the software being packaged.')
-gflags.DEFINE_string('arch', '',
-                     'The CPU architecture of the software being packaged.')
+flags.DEFINE_string('rpmbuild', '', 'Path to rpmbuild executable')
+flags.DEFINE_string('name', '', 'The name of the software being packaged.')
+flags.DEFINE_string('version', '',
+                    'The version of the software being packaged.')
+flags.DEFINE_string('release', '',
+                    'The release of the software being packaged.')
+flags.DEFINE_string('arch', '',
+                    'The CPU architecture of the software being packaged.')
 
-gflags.DEFINE_string('spec_file', '',
-                     'The file containing the RPM specification.')
-gflags.DEFINE_string('out_file', '',
-                     'The destination to save the resulting RPM file to.')
-gflags.DEFINE_boolean('debug', False, 'Print debug messages.')
+flags.DEFINE_string('spec_file', '',
+                    'The file containing the RPM specification.')
+flags.DEFINE_string('out_file', '',
+                    'The destination to save the resulting RPM file to.')
+flags.DEFINE_boolean('debug', False, 'Print debug messages.')
 
 
 # Setup to safely create a temporary directory and clean it up when done.
@@ -125,10 +127,10 @@ def CopyAndRewrite(input_file, output_file, replacements=None):
     for line in fileinput.input(input_file):
       if replacements:
         for prefix, text in replacements.items():
-          if line.startswith(prefix):
-            line = prefix + ' ' + text + '\n'
+          if six.ensure_str(line).startswith(prefix):
+            line = prefix + ' ' + six.ensure_str(text) + '\n'
             break
-      output.write(line)
+      output.write(six.ensure_str(line))
 
 
 def IsExe(fpath):
@@ -250,7 +252,7 @@ class RpmBuilder(object):
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         env={'LANG': 'C'})
-    output = p.communicate()[0]
+    output = p.communicate()[0].decode()
 
     if p.returncode == 0:
       # Find the created file.
@@ -301,5 +303,5 @@ def main(argv=()):
 
 
 if __name__ == '__main__':
-  FLAGS = gflags.FLAGS
-  main(FLAGS(sys.argv))
+  FLAGS = flags.FLAGS
+  app.run(main)

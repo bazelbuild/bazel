@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.windows;
 
 import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.shell.Subprocess;
-import com.google.devtools.build.lib.windows.jni.WindowsProcesses;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -114,17 +113,20 @@ public class WindowsSubprocess implements Subprocess {
   }
 
   private static final AtomicInteger THREAD_SEQUENCE_NUMBER = new AtomicInteger(1);
-  private static final ExecutorService WAITER_POOL = Executors.newCachedThreadPool(
-      new ThreadFactory() {
-        @Override
-        public Thread newThread(Runnable runnable) {
-          Thread thread = new Thread(null, runnable,
-              "Windows-Process-Waiter-Thread-" + THREAD_SEQUENCE_NUMBER.getAndIncrement(),
-              16 * 1024);
-          thread.setDaemon(true);
-          return thread;
-        }
-      });
+  private static final ExecutorService WAITER_POOL =
+      Executors.newCachedThreadPool(
+          new ThreadFactory() {
+            @Override
+            public Thread newThread(Runnable runnable) {
+              Thread thread =
+                  new Thread(
+                      null,
+                      runnable,
+                      "Windows-Process-Waiter-Thread-" + THREAD_SEQUENCE_NUMBER.getAndIncrement());
+              thread.setDaemon(true);
+              return thread;
+            }
+          });
 
   private volatile long nativeProcess;
   private final OutputStream stdinStream;
@@ -205,6 +207,11 @@ public class WindowsSubprocess implements Subprocess {
   @Override
   public boolean finished() {
     return processFuture.isDone();
+  }
+
+  @Override
+  public boolean isAlive() {
+    return !processFuture.isDone();
   }
 
   @Override

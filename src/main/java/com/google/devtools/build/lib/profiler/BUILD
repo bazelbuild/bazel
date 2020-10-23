@@ -1,44 +1,69 @@
+load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+
 package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(
     name = "profiler",
-    srcs = glob([
-        "*.java",
-    ]),
-    visibility = ["//visibility:public"],
+    srcs = [
+        "AutoProfiler.java",
+        "CollectLocalCpuUsage.java",
+        "MemoryProfiler.java",
+        "MetricData.java",
+        "PredicateBasedStatRecorder.java",
+        "ProfilePhase.java",
+        "Profiler.java",
+        "ProfilerTask.java",
+        "SilentCloseable.java",
+        "SingleStatRecorder.java",
+        "StatRecorder.java",
+        "TimeSeries.java",
+    ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:base-util",
         "//src/main/java/com/google/devtools/build/lib/clock",
-        "//src/main/java/com/google/devtools/build/lib/collect",
+        "//src/main/java/com/google/devtools/build/lib/collect:extrema",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:flogger",
+        "//third_party:error_prone_annotations",
         "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
 
-# Profiler chart library.
 java_library(
-    name = "profiler-output",
-    srcs = glob([
-        "analysis/*.java",
-        "chart/*.java",
-        "output/*.java",
-        "statistics/*.java",
-    ]),
+    name = "google-auto-profiler-utils",
+    srcs = ["GoogleAutoProfilerUtils.java"],
     deps = [
         ":profiler",
-        "//src/main/java/com/google/devtools/build/lib:util",
-        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//third_party:flogger",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "profiler-output",
+    srcs =
+        [
+            "JsonProfile.java",
+            "TraceEvent.java",
+        ] + glob([
+            "output/*.java",
+            "statistics/*.java",
+        ]),
+    deps = [
+        ":profiler",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:var_int",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:auto_value",
+        "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

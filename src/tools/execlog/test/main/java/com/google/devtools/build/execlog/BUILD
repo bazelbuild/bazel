@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_test")
+
 package(
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
@@ -21,7 +23,6 @@ java_test(
     srcs = ["ExecLogParserTest.java"],
     test_class = "com.google.devtools.build.execlog.ExecLogParserTest",
     deps = [
-        "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:spawn_java_proto",
         "//src/tools/execlog/src/main/java/com/google/devtools/build/execlog:parser",
         "//third_party:junit4",

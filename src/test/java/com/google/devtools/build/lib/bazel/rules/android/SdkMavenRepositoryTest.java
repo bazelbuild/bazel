@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.vfs.Path;
 import org.junit.Before;
 import org.junit.Test;
@@ -95,7 +95,7 @@ public class SdkMavenRepositoryTest extends BuildViewTestCase {
     sdkMavenRepository.writeBuildFiles(workspaceDir);
 
     Path groupIdPath = scratch.resolve("com.google.android");
-    assertThat(workspaceDir.getDirectoryEntries()).containsAllOf(repoPath, groupIdPath);
+    assertThat(workspaceDir.getDirectoryEntries()).containsAtLeast(repoPath, groupIdPath);
 
     Path buildFilePath = groupIdPath.getRelative("BUILD");
     assertThat(groupIdPath.getDirectoryEntries()).containsExactly(buildFilePath);

@@ -14,16 +14,16 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.License.DistributionType;
-import com.google.devtools.build.lib.skylarkbuildapi.TargetApi;
+import com.google.devtools.build.lib.starlarkbuildapi.TargetApi;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /**
- *  A node in the build dependency graph, identified by a Label.
+ * A node in the build dependency graph, identified by a Label.
  *
- * This SkylarkModule does not contain any documentation since Skylark's Target type refers to
+ * <p>This StarlarkBuiltin does not contain any documentation since Starlark's Target type refers to
  * TransitiveInfoCollection.class, which contains the appropriate documentation.
  */
 public interface Target extends TargetApi {
@@ -55,6 +55,12 @@ public interface Target extends TargetApi {
 
   /**
    * Returns the place where the target was defined.
+   *
+   * <p>The location of a rule instance is generally its "generator location", the location of the
+   * outermost call on the stack, which is in the BUILD file. However, the location of a source file
+   * target created by an explicit call to {@code exports_files} is the location of the innermost
+   * call, which may be in an arbitrary .bzl file and is not necessarily beneath the package's
+   * directory. The inconsistency seems unintentional.
    */
   Location getLocation();
 

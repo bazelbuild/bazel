@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.shell;
 
 import com.google.common.base.Preconditions;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Uninterruptibles;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
@@ -26,8 +27,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * This class provides convenience methods for consuming (actively reading)
@@ -36,9 +35,7 @@ import java.util.logging.Logger;
  * and streaming ({@link #createStreamingConsumers(OutputStream, OutputStream)}).
  */
 final class Consumers {
-
-  private static final Logger logger =
-      Logger.getLogger("com.google.devtools.build.lib.shell.Command");
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private Consumers() {}
 
@@ -120,11 +117,9 @@ final class Consumers {
     void waitForCompletion() throws IOException;
   }
 
-  /**
-   * This consumer sends the input to a stream while consuming it.
-   */
+  /** This consumer sends the input to a stream while consuming it. */
   private static class StreamingConsumer extends FutureConsumption {
-    private OutputStream out;
+    private final OutputStream out;
 
     StreamingConsumer(OutputStream out) {
       this.out = out;
@@ -137,7 +132,7 @@ final class Consumers {
 
     @Override
     public void logConsumptionStrategy() {
-      logger.finer("Output will be sent to streams provided by client");
+      logger.atFiner().log("Output will be sent to streams provided by client");
     }
 
     @Override protected Runnable createConsumingAndClosingSink(InputStream in,
@@ -152,7 +147,7 @@ final class Consumers {
    * calling {@link #getAccumulatedOut()}.
    */
   private static class AccumulatingConsumer extends FutureConsumption {
-    private ByteArrayOutputStream out = new ByteArrayOutputStream();
+    private final ByteArrayOutputStream out = new ByteArrayOutputStream();
 
     @Override
     public ByteArrayOutputStream getAccumulatedOut() {
@@ -161,33 +156,11 @@ final class Consumers {
 
     @Override
     public void logConsumptionStrategy() {
-      logger.finer("Output will be accumulated (promptly read off) and returned");
+      logger.atFiner().log("Output will be accumulated (promptly read off) and returned");
     }
 
     @Override public Runnable createConsumingAndClosingSink(InputStream in, boolean closeConsumer) {
       return new ClosingSink(in, out);
-    }
-  }
-
-  /**
-   * This consumer just discards whatever it reads.
-   */
-  private static class DiscardingConsumer extends FutureConsumption {
-    private DiscardingConsumer() {
-    }
-
-    @Override
-    public ByteArrayOutputStream getAccumulatedOut() {
-      return CommandResult.NO_OUTPUT_COLLECTED;
-    }
-
-    @Override
-    public void logConsumptionStrategy() {
-      logger.finer("Output will be ignored");
-    }
-
-    @Override public Runnable createConsumingAndClosingSink(InputStream in, boolean closeConsumer) {
-      return new ClosingSink(in);
     }
   }
 
@@ -245,8 +218,7 @@ final class Consumers {
   }
 
   private static class AccumulatorThreadFactory implements ThreadFactory {
-
-    private static AtomicInteger threadInitNumber = new AtomicInteger(0);
+    private static final AtomicInteger threadInitNumber = new AtomicInteger(0);
 
     @Override
     public Thread newThread(final Runnable runnable) {
@@ -264,7 +236,6 @@ final class Consumers {
    * A sink that closes its input stream once its done.
    */
   private static class ClosingSink implements Runnable {
-
     private final InputStream in;
     private final OutputStream out;
     private final Runnable sink;
@@ -317,8 +288,7 @@ final class Consumers {
     try {
       closeable.close();
     } catch (IOException ioe) {
-      String message = "Unexpected exception while closing input stream";
-      logger.log(Level.WARNING, message, ioe);
+      logger.atWarning().withCause(ioe).log("Unexpected exception while closing input stream");
     }
   }
 

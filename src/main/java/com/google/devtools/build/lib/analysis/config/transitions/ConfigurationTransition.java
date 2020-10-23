@@ -14,19 +14,66 @@
 
 package com.google.devtools.build.lib.analysis.config.transitions;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import java.util.List;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.util.ClassName;
+import java.util.Map;
 
 /**
  * A configuration transition.
  */
 public interface ConfigurationTransition {
   /**
-   * Returns the list of {@code BuildOptions} after applying this transition.
-   *
-   * <p>Returning an empty or null list triggers a {@link RuntimeException}.
+   * A designated key string for patch transitions. See {@link ConfigurationTransition#apply} for
+   * its usage.
    */
-  List<BuildOptions> apply(BuildOptions buildOptions);
+  String PATCH_TRANSITION_KEY = "";
+
+  /**
+   * Declares the {@link FragmentOptions} this transition may read.
+   *
+   * <p>Blaze throws an {@link IllegalArgumentException} if {@link #apply} is called on an options
+   * fragment that isn't declared here.
+   */
+  default ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+    return ImmutableSet.of();
+  }
+
+  /**
+   * {@link #requiresOptionFragments()} variation for Starlark transitions, which need a {@link
+   * BuildOptions} instance to map required options to their {@link FragmentOptions}.
+   *
+   * <p>This version pre-translates the fragments to their final string representations. This is
+   * because Starlark transitions can depend on both native fragments and Starlark flags. The latter
+   * are reported directly, not as part of a larger fragment.
+   *
+   * <p>Non-Starlark transitions should override {@link #requiresOptionFragments()} and ignore this.
+   *
+   * <p>Callers may ignore this method if they know they're not calling into a Starlark transition.
+   */
+  default ImmutableSet<String> requiresOptionFragments(BuildOptions options) {
+    return requiresOptionFragments().stream()
+        .map(ClassName::getSimpleNameWithOuter)
+        .collect(toImmutableSet());
+  }
+
+  /**
+   * Returns the map of {@code BuildOptions} after applying this transition. The returned map keys
+   * are only used for dealing with split transitions. Patch transitions, including internal, native
+   * Patch transitions, should return a single entry map with key {@code PATCH_TRANSITION_KEY}.
+   *
+   * <p>Blaze throws an {@link IllegalArgumentException} if this method reads any options fragment
+   * not declared in {@link #requiresOptionFragments}.
+   *
+   * <p>Returning an empty or null map triggers a {@link RuntimeException}.
+   */
+  Map<String, BuildOptions> apply(BuildOptionsView buildOptions, EventHandler eventHandler)
+      throws InterruptedException;
 
   /**
    * We want to keep the number of transition interfaces no larger than what's necessary to maintain

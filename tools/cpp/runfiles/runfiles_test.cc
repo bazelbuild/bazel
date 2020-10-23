@@ -24,8 +24,6 @@
 #include <vector>
 
 #include "gtest/gtest.h"
-#include "src/main/cpp/util/file.h"
-#include "src/main/cpp/util/path.h"
 
 #define RUNFILES_TEST_TOSTRING_HELPER(x) #x
 #define RUNFILES_TEST_TOSTRING(x) RUNFILES_TEST_TOSTRING_HELPER(x)
@@ -99,14 +97,14 @@ string RunfilesTest::GetTemp() {
 #ifdef _WIN32
   DWORD size = ::GetEnvironmentVariableA("TEST_TMPDIR", NULL, 0);
   if (size == 0) {
-    return std::move(string());  // unset or empty envvar
+    return string();  // unset or empty envvar
   }
   unique_ptr<char[]> value(new char[size]);
   ::GetEnvironmentVariableA("TEST_TMPDIR", value.get(), size);
-  return std::move(string(value.get()));
+  return value.get();
 #else
   char* result = getenv("TEST_TMPDIR");
-  return result != NULL ? std::move(string(result)) : std::move(string());
+  return result != NULL ? string(result) : string();
 #endif
 }
 
@@ -122,19 +120,34 @@ RunfilesTest::MockFile* RunfilesTest::MockFile::Create(
     return nullptr;
   }
 
-  string tmp(std::move(RunfilesTest::GetTemp()));
+  string tmp(RunfilesTest::GetTemp());
   if (tmp.empty()) {
     cerr << "WARNING: " << __FILE__ << "(" << __LINE__
          << "): $TEST_TMPDIR is empty" << endl;
     return nullptr;
   }
   string path(tmp + "/" + name);
-  string dirname = blaze_util::Dirname(path);
-  if (!blaze_util::MakeDirectories(dirname, 0777)) {
-    cerr << "WARNING: " << __FILE__ << "(" << __LINE__ << "): MakeDirectories("
-         << dirname << ") failed" << endl;
-    return nullptr;
+
+  string::size_type i = 0;
+#ifdef _WIN32
+  while ((i = name.find_first_of("/\\", i + 1)) != string::npos) {
+    string d = tmp + "\\" + name.substr(0, i);
+    if (!CreateDirectoryA(d.c_str(), NULL)) {
+      cerr << "ERROR: " << __FILE__ << "(" << __LINE__
+           << "): failed to create directory \"" << d << "\"" << endl;
+      return nullptr;
+    }
   }
+#else
+  while ((i = name.find_first_of('/', i + 1)) != string::npos) {
+    string d = tmp + "/" + name.substr(0, i);
+    if (mkdir(d.c_str(), 0777)) {
+      cerr << "ERROR: " << __FILE__ << "(" << __LINE__
+           << "): failed to create directory \"" << d << "\"" << endl;
+      return nullptr;
+    }
+  }
+#endif
 
   auto stm = std::ofstream(path);
   for (auto i : lines) {

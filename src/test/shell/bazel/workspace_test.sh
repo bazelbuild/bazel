@@ -23,7 +23,7 @@ export JAVA_RUNFILES=$BAZEL_RUNFILES
 
 function setup_repo() {
   mkdir -p $1
-  touch $1/WORKSPACE
+  create_workspace_with_default_repos $1/WORKSPACE
   echo $2 > $1/thing
   cat > $1/BUILD <<EOF
 genrule(
@@ -67,7 +67,7 @@ function test_path_with_spaces() {
   ws="a b"
   mkdir "$ws"
   cd "$ws"
-  touch WORKSPACE
+  create_workspace_with_default_repos WORKSPACE
 
   bazel info &> $TEST_log && fail "Info succeeeded"
   bazel help &> $TEST_log || fail "Help failed"
@@ -86,10 +86,10 @@ function test_middleman_conflict() {
     >$test_repo1/BUILD
   echo 'filegroup(name="test", srcs=["test.in"], visibility=["//visibility:public"])' \
     >$test_repo2/BUILD
-  touch $test_repo1/WORKSPACE
-  touch $test_repo2/WORKSPACE
+  create_workspace_with_default_repos $test_repo1/WORKSPACE
+  create_workspace_with_default_repos $test_repo2/WORKSPACE
 
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 local_repository(name = 'repo1', path='$test_repo1')
 local_repository(name = 'repo2', path='$test_repo2')
 EOF
@@ -122,7 +122,7 @@ EOF
 }
 
 function test_no_select() {
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 new_local_repository(
     name = "foo",
     path = "/path/to/foo",
@@ -131,17 +131,15 @@ new_local_repository(
         "//conditions:default" : "BUILD.2"}),
 )
 EOF
-
   bazel build @foo//... &> $TEST_log && fail "Failure expected" || true
-  expect_log "select() cannot be used in WORKSPACE files"
+  expect_log "got value of type 'select' for attribute 'build_file' of new_local_repository rule 'foo'; select may not be used in repository rules"
 }
 
 function test_macro_select() {
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('//:foo.bzl', 'foo_repo')
 foo_repo()
 EOF
-
   touch BUILD
   cat > foo.bzl <<EOF
 def foo_repo():
@@ -155,7 +153,7 @@ def foo_repo():
 EOF
 
   bazel build @foo//... &> $TEST_log && fail "Failure expected" || true
-  expect_log "select() cannot be used in macros called from WORKSPACE files"
+  expect_log "got value of type 'select' for attribute 'build_file' of new_local_repository rule 'foo'"
 }
 
 function test_clean() {
@@ -173,8 +171,8 @@ EOF
   [ ! -L bazel-x ] || fail "bazel-x should have been removed"
 }
 
-function test_skylark_flags_affect_workspace() {
-  cat > WORKSPACE <<EOF
+function test_starlark_flags_affect_workspace() {
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("//:macro.bzl", "macro")
 print("In workspace: ")
 macro()
@@ -187,25 +185,25 @@ EOF
 genrule(name = "x", cmd = "echo hi > $@", outs = ["x.out"], srcs = [])
 EOF
 
-  MARKER="<== skylark flag test ==>"
+  MARKER="<== Starlark flag test ==>"
 
-  # Sanity check.
+  # Initial check.
   bazel build //:x &>"$TEST_log" \
     || fail "Expected build to succeed"
   expect_log "In workspace: " "Did not find workspace print output"
   expect_log "In workspace macro: " "Did not find workspace macro print output"
   expect_not_log "$MARKER" \
     "Marker string '$MARKER' was seen even though \
-    --internal_skylark_flag_test_canary wasn't passed"
+    --internal_starlark_flag_test_canary wasn't passed"
 
   # Build with the special testing flag that appends a marker string to all
   # print() calls.
-  bazel build //:x --internal_skylark_flag_test_canary &>"$TEST_log" \
+  bazel build //:x --internal_starlark_flag_test_canary &>"$TEST_log" \
     || fail "Expected build to succeed"
   expect_log "In workspace: $MARKER" \
-    "Skylark flags are not propagating to workspace evaluation"
+    "Starlark flags are not propagating to workspace evaluation"
   expect_log "In workspace macro: $MARKER" \
-    "Skylark flags are not propagating to workspace macro evaluation"
+    "Starlark flags are not propagating to workspace macro evaluation"
 }
 
 function test_workspace_name() {
@@ -240,7 +238,7 @@ EOF
 
 function test_workspace_override() {
   mkdir -p original
-  touch original/WORKSPACE
+  create_workspace_with_default_repos original/WORKSPACE
   cat > original/BUILD <<'EOF'
 genrule(
     name = "gen",
@@ -250,7 +248,7 @@ genrule(
 EOF
 
   mkdir -p override
-  touch override/WORKSPACE
+  create_workspace_with_default_repos override/WORKSPACE
   cat > override/BUILD <<'EOF'
 genrule(
     name = "gen",
@@ -259,7 +257,7 @@ genrule(
 )
 EOF
 
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 local_repository(
     name = "o",
     path = "original",
@@ -276,6 +274,66 @@ EOF
   bazel build --override_repository="o=$PWD/override" @o//:gen &> $TEST_log \
     || fail "Expected build to succeed"
   assert_contains "override" bazel-genfiles/external/o/gen.out
+
+  bazel build @o//:gen &> $TEST_log \
+    || fail "Expected build to succeed"
+  assert_contains "original" bazel-genfiles/external/o/gen.out
+
+  # For multiple override options, the latest should win
+  bazel build --override_repository=o=/ignoreme \
+        --override_repository="o=$PWD/override" \
+        @o//:gen &> $TEST_log \
+    || fail "Expected build to succeed"
+  assert_contains "override" bazel-genfiles/external/o/gen.out
+
+}
+
+function test_workspace_override_starlark(){
+  mkdir -p original
+  create_workspace_with_default_repos original/WORKSPACE
+  cat > original/BUILD <<'EOF'
+genrule(
+    name = "gen",
+    cmd = "echo 'original' > $@",
+    outs = ["gen.out"],
+)
+EOF
+  tar cvf original.tar original
+  rm -rf original
+
+  mkdir -p override
+  create_workspace_with_default_repos override/WORKSPACE
+  cat > override/BUILD <<'EOF'
+genrule(
+    name = "gen",
+    cmd = "echo 'override' > $@",
+    outs = ["gen.out"],
+)
+EOF
+
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "o",
+    url = "file://$PWD/original.tar",
+    strip_prefix = "original",
+)
+EOF
+  bazel build --override_repository="o=$PWD/override" @o//:gen &> $TEST_log \
+    || fail "Expected build to succeed"
+  assert_contains "override" bazel-genfiles/external/o/gen.out
+
+  bazel build @o//:gen &> $TEST_log \
+    || fail "Expected build to succeed"
+  assert_contains "original" bazel-genfiles/external/o/gen.out
+
+  bazel build --override_repository="o=$PWD/override" @o//:gen &> $TEST_log \
+    || fail "Expected build to succeed"
+  assert_contains "override" bazel-genfiles/external/o/gen.out
+
+  bazel build @o//:gen &> $TEST_log \
+    || fail "Expected build to succeed"
+  assert_contains "original" bazel-genfiles/external/o/gen.out
 }
 
 function test_workspace_addition_change() {
@@ -297,7 +355,7 @@ genrule(
 )
 EOF
 
-  touch WORKSPACE
+  create_workspace_with_default_repos WORKSPACE
   cat > repo_one/WORKSPACE <<EOF
 workspace(name = "new_repo")
 EOF
@@ -348,12 +406,12 @@ EOF
   cd tree
 
   # Do initial load of the packages
-  bazel query --noexperimental_ui \
+  bazel query --experimental_ui_debug_all_events \
         //oak:all >& "$TEST_log" || fail "Expected success"
   expect_log "Loading package: oak"
   expect_log "//oak:oak"
 
-  bazel query --noexperimental_ui \
+  bazel query --experimental_ui_debug_all_events \
         @flower//daisy:all >& "$TEST_log" || fail "Expected success"
   expect_log "Loading package: @flower//daisy"
   expect_log "@flower//daisy:daisy"
@@ -369,13 +427,13 @@ local_repository(
 EOF
 
   # Test that packages in the tree workspace are not affected
-  bazel query --noexperimental_ui \
+  bazel query --experimental_ui_debug_all_events \
         //oak:all >& "$TEST_log" || fail "Expected success"
   expect_not_log "Loading package: oak"
   expect_log "//oak:oak"
 
   # Test that packages in the flower workspace are reloaded
-  bazel query --noexperimental_ui \
+  bazel query --experimental_ui_debug_all_events \
         @flower//daisy:all >& "$TEST_log" || fail "Expected success"
   expect_log "Loading package: @flower//daisy"
   expect_log "@flower//daisy:daisy"
@@ -394,7 +452,7 @@ EOF
 
   # Repository y is a substitute for x
   mkdir -p y
-  touch y/WORKSPACE
+  create_workspace_with_default_repos y/WORKSPACE
   touch y/BUILD
   cat > y/symbol.bzl <<EOF
 Y_SYMBOL = "y_symbol"
@@ -402,7 +460,7 @@ EOF
 
   # Repository a refers to @x
   mkdir -p a
-  touch a/WORKSPACE
+  create_workspace_with_default_repos a/WORKSPACE
   cat > a/BUILD<<EOF
 load("@x//:symbol.bzl", "Y_SYMBOL")
 genrule(name = "a",
@@ -431,7 +489,7 @@ EOF
 
   # Repository y is a substitute for x
   mkdir -p y
-  touch y/WORKSPACE
+  create_workspace_with_default_repos y/WORKSPACE
   touch y/BUILD
   cat > y/symbol.bzl <<EOF
 Y_SYMBOL = "y_symbol"
@@ -439,7 +497,7 @@ EOF
 
   # Repository a refers to @x
   mkdir -p a
-  touch a/WORKSPACE
+  create_workspace_with_default_repos a/WORKSPACE
   cat > a/BUILD<<EOF
 load("//:foo.bzl", "foo_symbol")
 genrule(name = "a",
@@ -461,7 +519,7 @@ EOF
 function test_repository_reassignment_label_in_build() {
   # Repository a refers to @x
   mkdir -p a
-  touch a/WORKSPACE
+  create_workspace_with_default_repos a/WORKSPACE
   cat > a/BUILD<<EOF
 genrule(name = "a",
         srcs = ["@x//:x.txt"],
@@ -472,7 +530,7 @@ EOF
 
   # Repository b is a substitute for x
   mkdir -p b
-  touch b/WORKSPACE
+  create_workspace_with_default_repos b/WORKSPACE
   cat >b/BUILD <<EOF
 exports_files(srcs = ["x.txt"])
 EOF
@@ -496,7 +554,7 @@ EOF
 function test_repository_reassignment_location() {
   # Repository a refers to @x
   mkdir -p a
-  touch a/WORKSPACE
+  create_workspace_with_default_repos a/WORKSPACE
   cat > a/BUILD<<EOF
 genrule(name = "a",
         srcs = ["@x//:x.txt"],
@@ -508,7 +566,7 @@ EOF
 
   # Repository b is a substitute for x
   mkdir -p b
-  touch b/WORKSPACE
+  create_workspace_with_default_repos b/WORKSPACE
   cat >b/BUILD <<EOF
 exports_files(srcs = ["x.txt"])
 EOF
@@ -534,7 +592,7 @@ function test_repo_mapping_starlark_rules() {
   EXTREPODIR=`pwd`
 
   mkdir -p a
-  touch a/WORKSPACE
+  create_workspace_with_default_repos a/WORKSPACE
   cat > a/BUILD<<EOF
 genrule(name = "a",
         srcs = ["@x//:x.txt"],
@@ -547,7 +605,7 @@ EOF
   rm -rf a
 
   mkdir -p b
-  touch b/WORKSPACE
+  create_workspace_with_default_repos b/WORKSPACE
   cat >b/BUILD <<EOF
 exports_files(srcs = ["x.txt"])
 EOF
@@ -577,7 +635,7 @@ EOF
 function test_remapping_with_label_relative() {
   # create foo repository
   mkdir foo
-  touch foo/WORKSPACE
+  create_workspace_with_default_repos foo/WORKSPACE
   cat >foo/foo.bzl <<EOF
 x = Label("//blah:blah").relative("@a//:baz")
 print(x)
@@ -611,7 +669,7 @@ EOF
 function test_remapping_label_constructor() {
   # create foo repository
   mkdir foo
-  touch foo/WORKSPACE
+  create_workspace_with_default_repos foo/WORKSPACE
   cat >foo/foo.bzl <<EOF
 x = Label("@a//blah:blah")
 print(x)
@@ -655,7 +713,7 @@ cc_library(
 )
 EOF
 
-  touch WORKSPACE
+  create_workspace_with_default_repos WORKSPACE
   touch repo_one/BUILD
   touch repo_two/BUILD
 
@@ -673,7 +731,7 @@ def _print_aspect_impl(target, ctx):
   if hasattr(ctx.rule.attr, 'srcs'):
     # Output '1' for each file in srcs.
     for src in ctx.rule.attr.srcs:
-      for f in src.files:
+      for f in src.files.to_list():
         print(1)
   return []
 
@@ -726,7 +784,7 @@ a = 1
 EOF
 
   cd mainrepo
-  bazel query --incompatible_remap_main_repo //... &>"$TEST_log" \
+  bazel query //... &>"$TEST_log" \
       || fail "Expected query to succeed"
   expect_log "def.bzl loaded"
   expect_not_log "external"
@@ -748,13 +806,13 @@ x = 10
 EOF
 
   mkdir -p a
-  touch a/WORKSPACE
+  create_workspace_with_default_repos a/WORKSPACE
   echo "load('@mainrepo//:def.bzl', 'x')"> a/BUILD
 
   # the bzl file should be loaded from the main workspace and
   # not as an external repository
   cd mainrepo
-  bazel query --incompatible_remap_main_repo @a//... &>"$TEST_log" \
+  bazel query @a//... &>"$TEST_log" \
       || fail "Expected query to succeed"
   expect_log "def.bzl loaded"
   expect_not_log "external"
@@ -772,8 +830,7 @@ EOF
   # now that @mainrepo doesn't exist within workspace "a",
   # the query should fail
   cd mainrepo
-  bazel query --incompatible_remap_main_repo \
-      @a//... &>"$TEST_log" \
+  bazel query @a//... &>"$TEST_log" \
       && fail "Failure expected" || true
 }
 
@@ -808,10 +865,10 @@ function test_external_rule() {
   rm -rf true
   mkdir extref
   echo 'cc_binary(name="it", deps=["//external:true"])' > extref/BUILD
-  touch extref/WORKSPACE
+  create_workspace_with_default_repos extref/WORKSPACE
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
@@ -832,4 +889,309 @@ EOF
   expect_log '//external:true.*build rule.*expected'
 }
 
+function test_remap_execution_platform() {
+    # Regression test for issue https://github.com/bazelbuild/bazel/issues/7773,
+    # using the reproduction case as reported
+    cat > WORKSPACE <<'EOF'
+workspace(name = "my_ws")
+
+register_execution_platforms("@my_ws//platforms:my_host_platform")
+EOF
+    mkdir platforms
+    cat > platforms/BUILD <<'EOF'
+package(default_visibility = ["//visibility:public"])
+
+constraint_setting(name = "machine_size")
+constraint_value(name = "large_machine", constraint_setting = ":machine_size")
+constraint_value(name = "small_machine", constraint_setting = ":machine_size")
+
+platform(
+    name = "my_host_platform",
+    parents = ["@bazel_tools//platforms:host_platform"],
+    constraint_values = [
+        ":large_machine"
+    ]
+)
+EOF
+    mkdir code
+    cat > code/BUILD <<'EOF'
+sh_library(
+	name = "foo",
+	srcs = ["foo.sh"],
+	exec_compatible_with = ["@my_ws//platforms:large_machine"]
+)
+EOF
+    echo exit 0 > code/foo.sh
+    chmod u+x code/foo.sh
+
+
+    bazel build //code/... \
+          > "${TEST_log}" 2>&1 || fail "expected success"
+}
+
+function test_remap_toolchain_deps() {
+    # Regression test for the registration pattern of toolchains used in
+    # bazel-skylib, where the failure to handle it correctly caused the
+    # roll back of the first attempt of enabling renaming in tool chains.
+    cat > WORKSPACE <<'EOF'
+workspace(name = "my_ws")
+
+register_toolchains("@my_ws//toolchains:sample_toolchain")
+EOF
+    mkdir toolchains
+    cat > toolchains/toolchain.bzl <<'EOF'
+def _impl(ctx):
+  return [platform_common.ToolchainInfo()]
+
+mytoolchain = rule(
+  implementation = _impl,
+  attrs = {},
+)
+EOF
+    cat > toolchains/rule.bzl <<'EOF'
+def _impl(ctx):
+  # Ensure the toolchain is available under the requested (non-canonical)
+  # name
+  print("toolchain is %s" %
+        (ctx.toolchains["@my_ws//toolchains:my_toolchain_type"],))
+  pass
+
+testrule = rule(
+  implementation = _impl,
+  attrs = {},
+  toolchains = ["@my_ws//toolchains:my_toolchain_type"],
+)
+EOF
+    cat > toolchains/BUILD <<'EOF'
+load(":toolchain.bzl", "mytoolchain")
+load(":rule.bzl", "testrule")
+
+toolchain_type(name = "my_toolchain_type")
+mytoolchain(name = "thetoolchain")
+
+toolchain(
+  name = "sample_toolchain",
+  toolchain = ":thetoolchain",
+  toolchain_type = "@my_ws//toolchains:my_toolchain_type",
+)
+
+testrule(
+  name = "emptytoolchainconsumer",
+)
+EOF
+
+    bazel build //toolchains/... || fail "expected success"
+}
+
+test_remap_toolchains_from_qualified_load() {
+    cat > WORKSPACE <<'EOF'
+workspace(name = "my_ws")
+
+register_toolchains("@my_ws//toolchains:sample_toolchain")
+EOF
+    mkdir toolchains
+    cat > toolchains/toolchain.bzl <<'EOF'
+def _impl(ctx):
+  return [platform_common.ToolchainInfo()]
+
+mytoolchain = rule(
+  implementation = _impl,
+  attrs = {},
+)
+EOF
+    cat > toolchains/rule.bzl <<'EOF'
+def _impl(ctx):
+  # Ensure the toolchain is available under the requested (non-canonical)
+  # name
+  print("toolchain is %s" %
+        (ctx.toolchains["@my_ws//toolchains:my_toolchain_type"],))
+  pass
+
+testrule = rule(
+  implementation = _impl,
+  attrs = {},
+  toolchains = ["@my_ws//toolchains:my_toolchain_type"],
+)
+EOF
+    cat > toolchains/BUILD <<'EOF'
+load("@my_ws//toolchains:toolchain.bzl", "mytoolchain")
+load("@my_ws//toolchains:rule.bzl", "testrule")
+
+toolchain_type(name = "my_toolchain_type")
+mytoolchain(name = "thetoolchain")
+
+toolchain(
+  name = "sample_toolchain",
+  toolchain = "@my_ws//toolchains:thetoolchain",
+  toolchain_type = "@my_ws//toolchains:my_toolchain_type",
+)
+
+testrule(
+  name = "emptytoolchainconsumer",
+)
+EOF
+
+    bazel build @my_ws//toolchains/... || fail "expected success"
+}
+
+
+function test_rename_visibility() {
+    mkdir local_a
+    touch local_a/WORKSPACE
+    cat > local_a/BUILD <<'EOF'
+genrule(
+  name = "x",
+  outs = ["x.txt"],
+  cmd = "echo Hello World > $@",
+  visibility = ["@foo//:__pkg__"],
+)
+EOF
+    mkdir local_b
+    touch local_b/WORKSPACE
+    cat > local_b/BUILD <<'EOF'
+genrule(
+  name = "y",
+  srcs = ["@source//:x"],
+  cmd = "cp $< $@",
+  outs = ["y.txt"],
+)
+EOF
+    mkdir mainrepo
+    cd mainrepo
+    cat > WORKSPACE <<'EOF'
+local_repository(
+  name = "source",
+  path = "../local_a",
+)
+
+local_repository(
+  name = "foo",
+  path = "../local_b",
+)
+EOF
+   echo; echo Without renaming; echo
+   bazel build @foo//:y || fail "Expected success"
+
+   # Now, verify the same with for renamed to bar.
+   cat > WORKSPACE <<'EOF'
+local_repository(
+  name = "source",
+  path = "../local_a",
+  repo_mapping = {"@foo" : "@bar"}
+)
+
+local_repository(
+  name = "bar",
+  path = "../local_b",
+)
+EOF
+   echo; echo WITH renaming; echo
+   bazel build @bar//:y || fail "Expected success"
+
+   # Finally, verify the same with a renaming in the other repository
+   cat > WORKSPACE <<'EOF'
+local_repository(
+  name = "origin",
+  path = "../local_a",
+)
+
+local_repository(
+  name = "foo",
+  path = "../local_b",
+  repo_mapping = {"@source" : "@origin"}
+)
+EOF
+   echo; echo with renaming of the SOURCE; echo
+   bazel build @foo//:y || fail "Expected success"
+}
+
+function test_renaming_visibility_main() {
+    mkdir local_a
+    touch local_a/WORKSPACE
+    cat > local_a/BUILD <<'EOF'
+genrule(
+  name = "x",
+  outs = ["x.txt"],
+  cmd = "echo Hello World > $@",
+  visibility = ["@foo//:__pkg__"],
+)
+EOF
+    mkdir mainrepo
+    cd mainrepo
+   cat > WORKSPACE <<'EOF'
+workspace(name="foo")
+local_repository(
+  name = "source",
+  path = "../local_a",
+)
+EOF
+    cat > BUILD <<'EOF'
+genrule(
+  name = "y",
+  srcs = ["@source//:x"],
+  cmd = "cp $< $@",
+  outs = ["y.txt"],
+)
+EOF
+    echo; echo remapping main repo; echo
+    bazel build @foo//:y || fail "Expected success"
+
+}
+
+function test_renaming_visibility_via_default() {
+    mkdir local_a
+    touch local_a/WORKSPACE
+    cat > local_a/BUILD <<'EOF'
+genrule(
+  name = "x",
+  outs = ["x.txt"],
+  cmd = "echo Hello World > $@",
+  visibility = ["@foo//data:__pkg__"],
+)
+EOF
+    mkdir mainrepo
+    cd mainrepo
+   cat > WORKSPACE <<'EOF'
+workspace(name="foo")
+local_repository(
+  name = "source",
+  path = "../local_a",
+)
+EOF
+    mkdir data
+    cat > data/BUILD <<'EOF'
+genrule(
+  name = "y",
+  srcs = ["@source//:x"],
+  cmd = "cp $< $@",
+  outs = ["y.txt"],
+  visibility = ["@foo//:__pkg__"],
+)
+EOF
+    cat > datarule.bzl <<'EOF'
+def _data_impl(ctx):
+  output = ctx.actions.declare_file(ctx.label.name + ".txt")
+  ctx.actions.run_shell(
+    inputs = ctx.files._data,
+    outputs = [output],
+    command = "cp $1 $2",
+    arguments = [ctx.files._data[0].path, output.path],
+  )
+
+data = rule(
+         implementation = _data_impl,
+         attrs = {
+          "_data": attr.label(default="@foo//data:y"),
+         },
+         outputs = { "txt" : "%{name}.txt"},
+)
+EOF
+    cat >BUILD <<'EOF'
+load("//:datarule.bzl", "data")
+data(name="it")
+EOF
+    echo; echo remapping main repo; echo
+    bazel build @foo//:it || fail "Expected success"
+
+}
 run_suite "workspace tests"

@@ -35,11 +35,16 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainSuiteRule;
 import com.google.devtools.build.lib.rules.cpp.CppBuildInfo;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcIncludeScanningRule;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcLinkingRule;
 import com.google.devtools.build.lib.rules.cpp.CpuTransformer;
+import com.google.devtools.build.lib.rules.cpp.DebugPackageProvider;
 import com.google.devtools.build.lib.rules.cpp.FdoPrefetchHintsRule;
 import com.google.devtools.build.lib.rules.cpp.FdoProfileRule;
+import com.google.devtools.build.lib.rules.cpp.GoogleLegacyStubs;
+import com.google.devtools.build.lib.rules.cpp.GraphNodeAspect;
+import com.google.devtools.build.lib.rules.cpp.PropellerOptimizeRule;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcBootstrap;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import java.io.IOException;
 
@@ -55,9 +60,11 @@ public class CcRules implements RuleSet {
 
   @Override
   public void init(ConfiguredRuleClassProvider.Builder builder) {
+    GraphNodeAspect graphNodeAspect = new GraphNodeAspect();
     builder.addConfigurationFragment(new CppConfigurationLoader(CpuTransformer.IDENTITY));
     builder.addBuildInfoFactory(new CppBuildInfo());
 
+    builder.addNativeAspectClass(graphNodeAspect);
     builder.addRuleDefinition(new CcToolchainRule());
     builder.addRuleDefinition(new CcToolchainSuiteRule());
     builder.addRuleDefinition(new CcToolchainAliasRule());
@@ -68,7 +75,7 @@ public class CcRules implements RuleSet {
     builder.addRuleDefinition(new BazelCppRuleClasses.CcDeclRule());
     builder.addRuleDefinition(new BazelCppRuleClasses.CcBaseRule());
     builder.addRuleDefinition(new BazelCppRuleClasses.CcRule());
-    builder.addRuleDefinition(new BazelCppRuleClasses.CcBinaryBaseRule());
+    builder.addRuleDefinition(new BazelCppRuleClasses.CcBinaryBaseRule(graphNodeAspect));
     builder.addRuleDefinition(new BazelCcBinaryRule());
     builder.addRuleDefinition(new BazelCcTestRule());
     builder.addRuleDefinition(new BazelCppRuleClasses.CcLibraryBaseRule());
@@ -77,10 +84,19 @@ public class CcRules implements RuleSet {
     builder.addRuleDefinition(new CcIncludeScanningRule());
     builder.addRuleDefinition(new FdoProfileRule());
     builder.addRuleDefinition(new FdoPrefetchHintsRule());
+    builder.addRuleDefinition(new CcLinkingRule());
+    builder.addRuleDefinition(new PropellerOptimizeRule());
+    builder.addStarlarkBootstrap(
+        new CcBootstrap(
+            new BazelCcModule(),
+            CcInfo.PROVIDER,
+            DebugPackageProvider.PROVIDER,
+            CcToolchainConfigInfo.PROVIDER,
+            new GoogleLegacyStubs.PyWrapCcHelper(),
+            new GoogleLegacyStubs.GoWrapCcHelper(),
+            new GoogleLegacyStubs.PyWrapCcInfoProvider(),
+            new GoogleLegacyStubs.PyCcLinkParamsProvider()));
 
-    builder.addSkylarkBootstrap(new CcBootstrap(new BazelCcModule()));
-    builder.addSkylarkAccessibleTopLevels("CcInfo", CcInfo.PROVIDER);
-    builder.addSkylarkAccessibleTopLevels("CcToolchainConfigInfo", CcToolchainConfigInfo.PROVIDER);
     try {
       builder.addWorkspaceFileSuffix(
           ResourceFileLoader.loadResource(JavaRules.class, "coverage.WORKSPACE"));

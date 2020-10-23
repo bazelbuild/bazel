@@ -70,7 +70,7 @@ public interface AspectResolver {
       DependencyFilter dependencyFilter) throws InterruptedException;
 
   /**
-   * Compute the labels of the BUILD Skylark files on which the results of the other two methods
+   * Compute the labels of the BUILD Starlark files on which the results of the other two methods
    * depend for a target in the given package.
    */
   Set<Label> computeBuildFileDependencies(Package pkg) throws InterruptedException;

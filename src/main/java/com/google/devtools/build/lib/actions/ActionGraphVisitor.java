@@ -77,7 +77,7 @@ public abstract class ActionGraphVisitor extends
 
   @Override protected void black(ActionAnalysisMetadata action) {
     visitAction(action);
-    for (Artifact input : action.getInputs()) {
+    for (Artifact input : action.getInputs().toList()) {
       if (shouldVisit(input)) {
         visitWhiteNode(input);
       }

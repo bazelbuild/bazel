@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransi
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
@@ -32,8 +31,8 @@ import javax.annotation.Nullable;
  *
  * <p>This is the "generic engine" for configuration selection. It doesn't know anything about
  * specific rules or their requirements. Rule writers decide those with appropriately placed {@link
- * PatchTransition} declarations. This class then processes those declarations to determine final
- * transitions.
+ * com.google.devtools.build.lib.analysis.config.transitions.PatchTransition} declarations. This
+ * class then processes those declarations to determine final transitions.
  */
 public final class TransitionResolver {
   /**

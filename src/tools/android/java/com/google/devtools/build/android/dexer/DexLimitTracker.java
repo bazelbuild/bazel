@@ -21,7 +21,7 @@ import com.android.dex.TypeList;
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.collect.ImmutableList;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 
 /**
  * Helper to track how many unique field and method references we've seen in a given set of .dex
@@ -29,8 +29,8 @@ import java.util.HashSet;
  */
 class DexLimitTracker {
 
-  private final HashSet<FieldDescriptor> fieldsSeen = new HashSet<>();
-  private final HashSet<MethodDescriptor> methodsSeen = new HashSet<>();
+  private final LinkedHashSet<FieldDescriptor> fieldsSeen = new LinkedHashSet<>();
+  private final LinkedHashSet<MethodDescriptor> methodsSeen = new LinkedHashSet<>();
   private final int maxNumberOfIdxPerDex;
 
   public DexLimitTracker(int maxNumberOfIdxPerDex) {

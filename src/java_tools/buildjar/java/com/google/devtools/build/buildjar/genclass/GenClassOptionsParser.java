@@ -36,9 +36,6 @@ public class GenClassOptionsParser {
         case "--output_jar":
           builder.setOutputJar(readPath(it));
           break;
-        case "--temp_dir":
-          builder.setTempDir(readPath(it));
-          break;
         default:
           throw new IllegalArgumentException(
               String.format("Unexpected argument: '%s' in %s", arg, args));

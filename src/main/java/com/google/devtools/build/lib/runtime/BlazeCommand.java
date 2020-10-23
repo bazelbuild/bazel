@@ -45,5 +45,5 @@ public interface BlazeCommand {
    *
    * @param optionsParser the options parser for the current command
    */
-  void editOptions(OptionsParser optionsParser);
+  default void editOptions(OptionsParser optionsParser) {}
 }

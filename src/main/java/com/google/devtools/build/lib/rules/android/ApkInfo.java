@@ -13,21 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skylarkbuildapi.android.ApkInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.starlarkbuildapi.android.ApkInfoApi;
+import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
 
 /** A provider for targets that produce an apk file. */
 @Immutable
 public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
 
-  private static final String SKYLARK_NAME = "ApkInfo";
+  private static final String STARLARK_NAME = "ApkInfo";
 
   /**
    * Provider instance for {@link ApkInfo}.
@@ -39,20 +40,23 @@ public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
   @Nullable
   private final Artifact coverageMetadata;
   private final Artifact mergedManifest;
-  private final Artifact keystore;
+  private final ImmutableList<Artifact> signingKeys;
+  @Nullable private final Artifact signingLineage;
 
   ApkInfo(
       Artifact apk,
       Artifact unsignedApk,
       @Nullable Artifact coverageMetadata,
       Artifact mergedManifest,
-      Artifact keystore) {
+      List<Artifact> signingKeys,
+      @Nullable Artifact signingLineage) {
     super(PROVIDER);
     this.apk = apk;
     this.unsignedApk = unsignedApk;
     this.coverageMetadata = coverageMetadata;
     this.mergedManifest = mergedManifest;
-    this.keystore = keystore;
+    this.signingKeys = ImmutableList.copyOf(signingKeys);
+    this.signingLineage = signingLineage;
   }
 
   @Override
@@ -66,8 +70,9 @@ public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
     return unsignedApk;
   }
 
-  /** Returns the coverage metadata artifacts generated in the transitive closure. */
+  /** Returns the coverage metadata artifact generated in the transitive closure. */
   @Nullable
+  @Override
   public Artifact getCoverageMetadata() {
     return coverageMetadata;
   }
@@ -80,7 +85,18 @@ public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
   /* The keystore that was used to sign the apk returned from {@see getApk() */
   @Override
   public Artifact getKeystore() {
-    return keystore;
+    return signingKeys.get(0);
+  }
+
+  @Override
+  public ImmutableList<Artifact> getSigningKeys() {
+    return signingKeys;
+  }
+
+  @Nullable
+  @Override
+  public Artifact getSigningLineage() {
+    return signingLineage;
   }
 
   /** Provider for {@link ApkInfo}. */
@@ -88,13 +104,12 @@ public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
       implements ApkInfoApiProvider {
 
     private ApkInfoProvider() {
-      super(SKYLARK_NAME, ApkInfo.class);
+      super(STARLARK_NAME, ApkInfo.class);
     }
 
     @Override
-    public ApkInfoApi<?> createInfo(SkylarkDict<?, ?> kwargs, Location loc)
-        throws EvalException {
-      return throwUnsupportedConstructorException(loc);
+    public ApkInfoApi<?> createInfo(Dict<String, Object> kwargs) throws EvalException {
+      return throwUnsupportedConstructorException();
     }
   }
 }

@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
+
 package(default_visibility = ["//visibility:private"])
 
 filegroup(
@@ -18,7 +20,6 @@ java_test(
     test_class = "com.google.devtools.build.runfiles.RunfilesTest",
     deps = [
         ":test_deps",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
     ],
 )
 
@@ -28,7 +29,6 @@ java_test(
     test_class = "com.google.devtools.build.runfiles.UtilTest",
     deps = [
         ":test_deps",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
     ],
 )
 

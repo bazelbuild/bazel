@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -33,11 +34,14 @@ public class ExecutionTransitionFactoryTest {
   private static final Label EXECUTION_PLATFORM = Label.parseAbsoluteUnchecked("//platform:exec");
 
   @Test
-  public void executionTransition() throws OptionsParsingException {
-    ExecutionTransitionFactory execTransitionFactory = new ExecutionTransitionFactory();
+  public void executionTransition() throws OptionsParsingException, InterruptedException {
+    ExecutionTransitionFactory execTransitionFactory = ExecutionTransitionFactory.create();
     PatchTransition transition =
         execTransitionFactory.create(
-            AttributeTransitionData.create(FakeAttributeMapper.empty(), EXECUTION_PLATFORM));
+            AttributeTransitionData.builder()
+                .attributes(FakeAttributeMapper.empty())
+                .executionPlatform(EXECUTION_PLATFORM)
+                .build());
 
     assertThat(transition).isNotNull();
 
@@ -47,23 +51,31 @@ public class ExecutionTransitionFactoryTest {
             ImmutableList.of(CoreOptions.class, PlatformOptions.class),
             "--platforms=//platform:target");
 
-    BuildOptions result = transition.patch(options);
+    BuildOptions result =
+        transition.patch(
+            new BuildOptionsView(options, transition.requiresOptionFragments()),
+            new StoredEventHandler());
     assertThat(result).isNotNull();
     assertThat(result).isNotSameInstanceAs(options);
 
     assertThat(result.contains(CoreOptions.class)).isNotNull();
     assertThat(result.get(CoreOptions.class).isHost).isFalse();
+    assertThat(result.get(CoreOptions.class).isExec).isTrue();
     assertThat(result.contains(PlatformOptions.class)).isNotNull();
     assertThat(result.get(PlatformOptions.class).platforms).containsExactly(EXECUTION_PLATFORM);
   }
 
   @Test
-  public void executionTransition_noExecPlatform() throws OptionsParsingException {
-    ExecutionTransitionFactory execTransitionFactory = new ExecutionTransitionFactory();
+  public void executionTransition_noExecPlatform()
+      throws OptionsParsingException, InterruptedException {
+    ExecutionTransitionFactory execTransitionFactory = ExecutionTransitionFactory.create();
     // No execution platform available.
     PatchTransition transition =
         execTransitionFactory.create(
-            AttributeTransitionData.create(FakeAttributeMapper.empty(), null));
+            AttributeTransitionData.builder()
+                .attributes(FakeAttributeMapper.empty())
+                .executionPlatform(null)
+                .build());
 
     assertThat(transition).isNotNull();
 
@@ -73,7 +85,10 @@ public class ExecutionTransitionFactoryTest {
             ImmutableList.of(CoreOptions.class, PlatformOptions.class),
             "--platforms=//platform:target");
 
-    BuildOptions result = transition.patch(options);
+    BuildOptions result =
+        transition.patch(
+            new BuildOptionsView(options, transition.requiresOptionFragments()),
+            new StoredEventHandler());
     assertThat(result).isNotNull();
     assertThat(result).isEqualTo(options);
   }

@@ -15,6 +15,10 @@
 #ifndef BAZEL_SRC_MAIN_NATIVE_WINDOWS_UTIL_H__
 #define BAZEL_SRC_MAIN_NATIVE_WINDOWS_UTIL_H__
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
 #include <windows.h>
 
 #include <memory>
@@ -77,6 +81,8 @@ class AutoAttributeList {
 
   void InitStartupInfoExW(STARTUPINFOEXW* startup_info) const;
 
+  bool HasConsoleHandle() const { return handles_.HasConsoleHandle(); }
+
  private:
   class StdHandles {
    public:
@@ -87,6 +93,15 @@ class AutoAttributeList {
     HANDLE StdIn() const { return stdin_h_; }
     HANDLE StdOut() const { return stdout_h_; }
     HANDLE StdErr() const { return stderr_h_; }
+
+    bool HasConsoleHandle() const {
+      for (size_t i = 0; i < valid_handles_; ++i) {
+        if (GetFileType(valid_handle_array_[i]) == FILE_TYPE_CHAR) {
+          return true;
+        }
+      }
+      return false;
+    }
 
    private:
     size_t valid_handles_;
@@ -144,7 +159,7 @@ wstring AsShortPath(wstring path, wstring* result);
 // `path`, and if that succeeds and the result is at most MAX_PATH - 1 long (not
 // including null terminator), then that will be the result (plus quotes).
 // Otherwise this function fails and returns an error message.
-wstring AsExecutablePathForCreateProcess(const wstring& path, wstring* result);
+wstring AsExecutablePathForCreateProcess(wstring path, wstring* result);
 
 }  // namespace windows
 }  // namespace bazel

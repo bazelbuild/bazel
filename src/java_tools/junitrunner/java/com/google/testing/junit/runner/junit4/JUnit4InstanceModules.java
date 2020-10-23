@@ -68,7 +68,10 @@ public final class JUnit4InstanceModules {
 
     @Singleton
     static JUnit4Config config(JUnit4Options options) {
-      return new JUnit4Config(options.getTestIncludeFilter(), options.getTestExcludeFilter());
+      return new JUnit4Config(
+          options.getTestRunnerFailFast(),
+          options.getTestIncludeFilter(),
+          options.getTestExcludeFilter());
     }
   }
 

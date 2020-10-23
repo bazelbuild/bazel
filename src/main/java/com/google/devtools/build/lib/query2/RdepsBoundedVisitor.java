@@ -15,27 +15,19 @@ package com.google.devtools.build.lib.query2;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.ParallelSkyQueryUtils.DepAndRdep;
 import com.google.devtools.build.lib.query2.ParallelSkyQueryUtils.DepAndRdepAtDepth;
+import com.google.devtools.build.lib.query2.ParallelVisitorUtils.ParallelQueryVisitor;
+import com.google.devtools.build.lib.query2.ParallelVisitorUtils.QueryVisitorFactory;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.MinDepthUniquifier;
-import com.google.devtools.build.lib.query2.engine.QueryException;
-import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
-import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * A helper class that computes bounded 'allrdeps(<expr>, <depth>)' or
@@ -45,63 +37,42 @@ import java.util.Set;
  * but there are additional subtle concerns about the correctness of the bounded traversal: just
  * like for the sequential implementation of bounded allrdeps, we use {@link MinDepthUniquifier}.
  */
-class RdepsBoundedVisitor extends AbstractEdgeVisitor<DepAndRdepAtDepth> {
+class RdepsBoundedVisitor extends AbstractTargetOuputtingVisitor<DepAndRdepAtDepth> {
   private final int depth;
-  private final Uniquifier<DepAndRdepAtDepth> depAndRdepAtDepthUniquifier;
   private final MinDepthUniquifier<SkyKey> validRdepMinDepthUniquifier;
   private final Predicate<SkyKey> universe;
 
   private RdepsBoundedVisitor(
       SkyQueryEnvironment env,
       int depth,
-      Uniquifier<DepAndRdepAtDepth> depAndRdepAtDepthUniquifier,
       MinDepthUniquifier<SkyKey> validRdepMinDepthUniquifier,
       Predicate<SkyKey> universe,
-      Callback<Target> callback,
-      MultisetSemaphore<PackageIdentifier> packageSemaphore) {
-    super(env, callback, packageSemaphore);
+      Callback<Target> callback) {
+    super(env, callback);
     this.depth = depth;
-    this.depAndRdepAtDepthUniquifier = depAndRdepAtDepthUniquifier;
     this.validRdepMinDepthUniquifier = validRdepMinDepthUniquifier;
     this.universe = universe;
   }
 
-  static class Factory implements ParallelVisitor.Factory {
+  static class Factory implements QueryVisitorFactory<DepAndRdepAtDepth, SkyKey, Target> {
     private final SkyQueryEnvironment env;
     private final int depth;
-    private final Uniquifier<DepAndRdepAtDepth> depAndRdepAtDepthUniquifier;
     private final MinDepthUniquifier<SkyKey> validRdepMinDepthUniquifier;
     private final Predicate<SkyKey> universe;
     private final Callback<Target> callback;
-    private final MultisetSemaphore<PackageIdentifier> packageSemaphore;
 
     Factory(
-        SkyQueryEnvironment env,
-        int depth,
-        Predicate<SkyKey> universe,
-        Callback<Target> callback,
-        MultisetSemaphore<PackageIdentifier> packageSemaphore) {
+        SkyQueryEnvironment env, int depth, Predicate<SkyKey> universe, Callback<Target> callback) {
       this.env = env;
       this.depth = depth;
       this.universe = universe;
-      this.depAndRdepAtDepthUniquifier =
-          new UniquifierImpl<>(
-              depAndRdepAtDepth -> depAndRdepAtDepth, env.getQueryEvaluationParallelismLevel());
       this.validRdepMinDepthUniquifier = env.createMinDepthSkyKeyUniquifier();
       this.callback = callback;
-      this.packageSemaphore = packageSemaphore;
     }
 
     @Override
-    public ParallelVisitor<DepAndRdepAtDepth, Target> create() {
-      return new RdepsBoundedVisitor(
-          env,
-          depth,
-          depAndRdepAtDepthUniquifier,
-          validRdepMinDepthUniquifier,
-          universe,
-          callback,
-          packageSemaphore);
+    public ParallelQueryVisitor<DepAndRdepAtDepth, SkyKey, Target> create() {
+      return new RdepsBoundedVisitor(env, depth, validRdepMinDepthUniquifier, universe, callback);
     }
   }
 
@@ -114,46 +85,12 @@ class RdepsBoundedVisitor extends AbstractEdgeVisitor<DepAndRdepAtDepth> {
             shallowestRdepDepthMap.merge(
                 depAndRdepAtDepth.depAndRdep.rdep, depAndRdepAtDepth.rdepDepth, Integer::min));
 
-    Collection<SkyKey> validRdeps = new ArrayList<>();
-
-    // Multimap of dep to all the reverse deps in this visitation. Used to filter out the
-    // disallowed deps.
-    Multimap<SkyKey, SkyKey> reverseDepMultimap = ArrayListMultimap.create();
-    for (DepAndRdepAtDepth depAndRdepAtDepth : depAndRdepAtDepths) {
-      // The "roots" of our visitation (see #preprocessInitialVisit) have a null 'dep' field.
-      if (depAndRdepAtDepth.depAndRdep.dep == null) {
-        validRdeps.add(depAndRdepAtDepth.depAndRdep.rdep);
-      } else {
-        reverseDepMultimap.put(depAndRdepAtDepth.depAndRdep.dep, depAndRdepAtDepth.depAndRdep.rdep);
-      }
-    }
-
-    Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap =
-        SkyQueryEnvironment.makePackageKeyToTargetKeyMap(
-            Iterables.concat(reverseDepMultimap.values()));
-    Set<PackageIdentifier> pkgIdsNeededForTargetification =
-        SkyQueryEnvironment.getPkgIdsNeededForTargetification(packageKeyToTargetKeyMap);
-    packageSemaphore.acquireAll(pkgIdsNeededForTargetification);
-
-    try {
-      // Filter out disallowed deps. We cannot defer the targetification any further as we do not
-      // want to retrieve the rdeps of unwanted nodes (targets).
-      if (!reverseDepMultimap.isEmpty()) {
-        Collection<Target> filteredTargets =
-            env.filterRawReverseDepsOfTransitiveTraversalKeys(
-                reverseDepMultimap.asMap(), packageKeyToTargetKeyMap);
-        filteredTargets
-            .stream()
-            .map(SkyQueryEnvironment.TARGET_TO_SKY_KEY)
-            .forEachOrdered(validRdeps::add);
-      }
-    } finally {
-      packageSemaphore.releaseAll(pkgIdsNeededForTargetification);
-    }
-
     ImmutableList<SkyKey> uniqueValidRdeps =
-        validRdeps
-            .stream()
+        Streams.stream(
+                RdepsVisitorUtils.getMaybeFilteredRdeps(
+                    Iterables.transform(
+                        depAndRdepAtDepths, depAndRdepAtDepth -> depAndRdepAtDepth.depAndRdep),
+                    env))
             .filter(
                 validRdep ->
                     validRdepMinDepthUniquifier.uniqueAtDepthLessThanOrEqualTo(
@@ -169,7 +106,7 @@ class RdepsBoundedVisitor extends AbstractEdgeVisitor<DepAndRdepAtDepth> {
     // Retrieve the reverse deps as SkyKeys and defer the targetification and filtering to next
     // recursive visitation.
     Map<SkyKey, Iterable<SkyKey>> unfilteredRdepsOfRdeps =
-        env.graph.getReverseDeps(uniqueValidRdepsBelowDepthBound);
+        env.getReverseDepLabelsOfLabels(uniqueValidRdepsBelowDepthBound);
 
     ImmutableList.Builder<DepAndRdepAtDepth> depAndRdepAtDepthsToVisitBuilder =
         ImmutableList.builder();
@@ -180,7 +117,7 @@ class RdepsBoundedVisitor extends AbstractEdgeVisitor<DepAndRdepAtDepth> {
               SkyKey rdep = entry.getKey();
               int depthOfRdepOfRdep = shallowestRdepDepthMap.get(rdep) + 1;
               Streams.stream(entry.getValue())
-                  .filter(Predicates.and(SkyQueryEnvironment.IS_TTV, universe))
+                  .filter(Predicates.and(SkyQueryEnvironment.IS_LABEL, universe))
                   .forEachOrdered(
                       rdepOfRdep -> {
                         depAndRdepAtDepthsToVisitBuilder.add(
@@ -195,26 +132,24 @@ class RdepsBoundedVisitor extends AbstractEdgeVisitor<DepAndRdepAtDepth> {
   }
 
   @Override
-  protected Iterable<DepAndRdepAtDepth> preprocessInitialVisit(Iterable<SkyKey> keys) {
+  protected SkyKey visitationKeyToOutputKey(DepAndRdepAtDepth visitationKey) {
+    return visitationKey.depAndRdep.rdep;
+  }
+
+  @Override
+  protected Iterable<DepAndRdepAtDepth> noteAndReturnUniqueVisitationKeys(
+      Iterable<DepAndRdepAtDepth> prospectiveVisitationKeys) {
+    // See the comment in RdepsUnboundedVisitor#noteAndReturnUniqueVisitationKeys.
+    return Iterables.filter(
+        prospectiveVisitationKeys,
+        depAndRdepAtDepth ->
+            validRdepMinDepthUniquifier.uniqueAtDepthLessThanOrEqualToPure(
+                depAndRdepAtDepth.depAndRdep.rdep, depAndRdepAtDepth.rdepDepth));
+  }
+
+  @Override
+  protected Iterable<DepAndRdepAtDepth> preprocessInitialVisit(Iterable<SkyKey> skyKeys) {
     return Iterables.transform(
-        Iterables.filter(keys, k -> universe.apply(k)),
-        key -> new DepAndRdepAtDepth(new DepAndRdep(null, key), 0));
-  }
-
-  @Override
-  protected SkyKey getNewNodeFromEdge(DepAndRdepAtDepth visit) {
-    return visit.depAndRdep.rdep;
-  }
-
-  @Override
-  protected ImmutableList<DepAndRdepAtDepth> getUniqueValues(
-      Iterable<DepAndRdepAtDepth> depAndRdepAtDepths) throws QueryException {
-    // See the comment in RdepsUnboundedVisitor#getUniqueValues.
-    return depAndRdepAtDepthUniquifier.unique(
-        Iterables.filter(
-            depAndRdepAtDepths,
-            depAndRdepAtDepth ->
-                validRdepMinDepthUniquifier.uniqueAtDepthLessThanOrEqualToPure(
-                    depAndRdepAtDepth.depAndRdep.rdep, depAndRdepAtDepth.rdepDepth)));
+        skyKeys, key -> new DepAndRdepAtDepth(new DepAndRdep(/*dep=*/ null, key), 0));
   }
 }

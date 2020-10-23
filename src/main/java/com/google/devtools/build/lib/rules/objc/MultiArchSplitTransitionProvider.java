@@ -14,18 +14,25 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.syntax.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.rules.apple.AppleConfiguration.IOS_CPU_PREFIX;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
@@ -34,13 +41,15 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration.Configuratio
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
+import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PlatformRule;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * {@link TransitionFactory} implementation for multi-architecture apple rules which can accept
@@ -50,7 +59,7 @@ import java.util.stream.Collectors;
 public class MultiArchSplitTransitionProvider
     implements TransitionFactory<AttributeTransitionData>,
         SplitTransitionProviderApi,
-        SkylarkValue {
+        StarlarkValue {
 
   @VisibleForTesting
   static final String UNSUPPORTED_PLATFORM_TYPE_ERROR_FORMAT =
@@ -63,7 +72,11 @@ public class MultiArchSplitTransitionProvider
 
   private static final ImmutableSet<PlatformType> SUPPORTED_PLATFORM_TYPES =
       ImmutableSet.of(
-          PlatformType.IOS, PlatformType.WATCHOS, PlatformType.TVOS, PlatformType.MACOS);
+          PlatformType.IOS,
+          PlatformType.WATCHOS,
+          PlatformType.TVOS,
+          PlatformType.MACOS,
+          PlatformType.CATALYST);
 
   /**
    * Returns the apple platform type in the current rule context.
@@ -76,7 +89,9 @@ public class MultiArchSplitTransitionProvider
         ruleContext.attributes().get(PlatformRule.PLATFORM_TYPE_ATTR_NAME, STRING);
     try {
       return getPlatformType(attributeValue);
-    } catch (IllegalArgumentException exception) {
+    } catch (
+        @SuppressWarnings("UnusedException")
+        ApplePlatform.UnsupportedPlatformTypeException exception) {
       throw ruleContext.throwWithAttributeError(
           PlatformRule.PLATFORM_TYPE_ATTR_NAME,
           String.format(UNSUPPORTED_PLATFORM_TYPE_ERROR_FORMAT, attributeValue));
@@ -87,13 +102,14 @@ public class MultiArchSplitTransitionProvider
    * Returns the apple platform type for the given platform type string (corresponding directly with
    * platform type attribute value).
    *
-   * @throws IllegalArgumentException if the given platform type string is not a valid type
+   * @throws UnsupportedPlatformTypeException if the given platform type string is not a valid type
    */
-  public static PlatformType getPlatformType(String platformTypeString) {
+  private static PlatformType getPlatformType(String platformTypeString)
+      throws ApplePlatform.UnsupportedPlatformTypeException {
     PlatformType platformType = PlatformType.fromString(platformTypeString);
 
     if (!SUPPORTED_PLATFORM_TYPES.contains(platformType)) {
-      throw new IllegalArgumentException(
+      throw new ApplePlatform.UnsupportedPlatformTypeException(
           String.format(UNSUPPORTED_PLATFORM_TYPE_ERROR_FORMAT, platformTypeString));
     } else {
       return platformType;
@@ -122,7 +138,7 @@ public class MultiArchSplitTransitionProvider
               PlatformRule.MINIMUM_OS_VERSION,
               String.format(INVALID_VERSION_STRING_ERROR_FORMAT, attributeValue));
         }
-      } catch (IllegalArgumentException exception) {
+      } catch (DottedVersion.InvalidDottedVersionException exception) {
         ruleContext.throwWithAttributeError(
             PlatformRule.MINIMUM_OS_VERSION,
             String.format(INVALID_VERSION_STRING_ERROR_FORMAT, attributeValue));
@@ -144,7 +160,8 @@ public class MultiArchSplitTransitionProvider
       } else {
         minimumOsVersion = Optional.of(DottedVersion.fromString(minimumOsVersionString));
       }
-    } catch (IllegalArgumentException exception) {
+    } catch (ApplePlatform.UnsupportedPlatformTypeException
+        | DottedVersion.InvalidDottedVersionException exception) {
       // There's no opportunity to propagate exception information up cleanly at the transition
       // provider level. This should later be registered as a rule error during the initialization
       // of the rule.
@@ -166,7 +183,7 @@ public class MultiArchSplitTransitionProvider
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("apple_common.multi_arch_split");
   }
 
@@ -189,7 +206,18 @@ public class MultiArchSplitTransitionProvider
     }
 
     @Override
-    public final List<BuildOptions> split(BuildOptions buildOptions) {
+    public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+      return ImmutableSet.of(
+          AppleCommandLineOptions.class,
+          CoreOptions.class,
+          CppOptions.class,
+          ObjcCommandLineOptions.class,
+          PlatformOptions.class);
+    }
+
+    @Override
+    public final Map<String, BuildOptions> split(
+        BuildOptionsView buildOptions, EventHandler eventHandler) {
       List<String> cpus;
       DottedVersion actualMinimumOsVersion;
       ConfigurationDistinguisher configurationDistinguisher;
@@ -208,7 +236,7 @@ public class MultiArchSplitTransitionProvider
                     AppleConfiguration.iosCpuFromCpu(buildOptions.get(CoreOptions.class).cpu));
           }
           if (actualMinimumOsVersion != null
-              && actualMinimumOsVersion.compareTo(DottedVersion.fromString("11.0")) >= 0) {
+              && actualMinimumOsVersion.compareTo(DottedVersion.fromStringUnchecked("11.0")) >= 0) {
             List<String> non32BitCpus =
                 cpus.stream()
                     .filter(cpu -> !ApplePlatform.is32Bit(PlatformType.IOS, cpu))
@@ -251,13 +279,27 @@ public class MultiArchSplitTransitionProvider
               : DottedVersion.maybeUnwrap(
                   buildOptions.get(AppleCommandLineOptions.class).macosMinimumOs);
           break;
+        case CATALYST:
+          cpus = buildOptions.get(AppleCommandLineOptions.class).catalystCpus;
+          if (cpus.isEmpty()) {
+            cpus = ImmutableList.of(AppleCommandLineOptions.DEFAULT_CATALYST_CPU);
+          }
+          configurationDistinguisher = ConfigurationDistinguisher.APPLEBIN_CATALYST;
+          actualMinimumOsVersion =
+              minimumOsVersion.isPresent()
+                  ? minimumOsVersion.get()
+                  : DottedVersion.maybeUnwrap(
+                      buildOptions.get(AppleCommandLineOptions.class).iosMinimumOs);
+          break;
         default:
           throw new IllegalArgumentException("Unsupported platform type " + platformType);
       }
 
-      ImmutableList.Builder<BuildOptions> splitBuildOptions = ImmutableList.builder();
+      // There may be some duplicate flag values.
+      cpus = ImmutableSortedSet.copyOf(cpus).asList();
+      ImmutableMap.Builder<String, BuildOptions> splitBuildOptions = ImmutableMap.builder();
       for (String cpu : cpus) {
-        BuildOptions splitOptions = buildOptions.clone();
+        BuildOptionsView splitOptions = buildOptions.clone();
 
         AppleCommandLineOptions appleCommandLineOptions =
             splitOptions.get(AppleCommandLineOptions.class);
@@ -280,6 +322,7 @@ public class MultiArchSplitTransitionProvider
         }
         switch (platformType) {
           case IOS:
+          case CATALYST:
             appleCommandLineOptions.iosMinimumOs = DottedVersion.option(actualMinimumOsVersion);
             break;
           case WATCHOS:
@@ -294,7 +337,7 @@ public class MultiArchSplitTransitionProvider
         }
 
         appleCommandLineOptions.configurationDistinguisher = configurationDistinguisher;
-        splitBuildOptions.add(splitOptions);
+        splitBuildOptions.put(IOS_CPU_PREFIX + cpu, splitOptions.underlying());
       }
       return splitBuildOptions.build();
     }

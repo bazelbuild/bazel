@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
-/** Marker interface for a native or Skylark rule function. */
+/** Interface for a native or Starlark rule function. */
 public interface RuleFunction {
   RuleClass getRuleClass();
 }

@@ -30,13 +30,11 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -47,48 +45,43 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTestCase {
 
-  private SkyframeExecutor skyframeExecutor;
-
-  @Before
-  public final void setSkyframeExecutor() throws Exception {
-    skyframeExecutor = getSkyframeExecutor();
-  }
-
-  private SkyKey createCollectPackagesKey(
+  private static SkyKey createCollectPackagesKey(
       Path root, PathFragment rootRelativePath, ImmutableSet<PathFragment> excludedPaths) {
     RootedPath rootedPath = RootedPath.toRootedPath(Root.fromPath(root), rootRelativePath);
     return CollectPackagesUnderDirectoryValue.key(
         RepositoryName.MAIN, rootedPath, excludedPaths);
   }
 
-  private SkyKey createPrepDepsKey(Path root, PathFragment rootRelativePath) {
+  private static SkyKey createPrepDepsKey(Path root, PathFragment rootRelativePath) {
     return createPrepDepsKey(root, rootRelativePath, ImmutableSet.<PathFragment>of());
   }
 
-  private SkyKey createPrepDepsKey(Path root, PathFragment rootRelativePath,
-      ImmutableSet<PathFragment> excludedPaths) {
+  private static SkyKey createPrepDepsKey(
+      Path root, PathFragment rootRelativePath, ImmutableSet<PathFragment> excludedPaths) {
     RootedPath rootedPath = RootedPath.toRootedPath(Root.fromPath(root), rootRelativePath);
     return PrepareDepsOfTargetsUnderDirectoryValue.key(
         RepositoryName.MAIN, rootedPath, excludedPaths);
   }
 
-  private SkyKey createPrepDepsKey(Path root, PathFragment rootRelativePath,
-      ImmutableSet<PathFragment> excludedPaths, FilteringPolicy filteringPolicy) {
+  private static SkyKey createPrepDepsKey(
+      Path root,
+      PathFragment rootRelativePath,
+      ImmutableSet<PathFragment> excludedPaths,
+      FilteringPolicy filteringPolicy) {
     RootedPath rootedPath = RootedPath.toRootedPath(Root.fromPath(root), rootRelativePath);
     return PrepareDepsOfTargetsUnderDirectoryValue.key(
         RepositoryName.MAIN, rootedPath, excludedPaths, filteringPolicy);
   }
 
   private EvaluationResult<?> getEvaluationResult(SkyKey... keys) throws InterruptedException {
-    BuildDriver driver = skyframeExecutor.getDriverForTesting();
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
             .setNumThreads(SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT)
-            .setEventHander(reporter)
+            .setEventHandler(reporter)
             .build();
     EvaluationResult<PrepareDepsOfTargetsUnderDirectoryValue> evaluationResult =
-        driver.evaluate(ImmutableList.copyOf(keys), evaluationContext);
+        skyframeExecutor.getDriver().evaluate(ImmutableList.copyOf(keys), evaluationContext);
     Preconditions.checkState(!evaluationResult.hasError());
     return evaluationResult;
   }

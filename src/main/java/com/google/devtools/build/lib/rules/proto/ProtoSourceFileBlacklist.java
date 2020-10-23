@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -52,11 +53,12 @@ public class ProtoSourceFileBlacklist {
    * @param blacklistProtoFiles a list of blacklisted .proto files. The list will be iterated.
    *     protos.
    */
-  public ProtoSourceFileBlacklist(RuleContext ruleContext, Iterable<Artifact> blacklistProtoFiles) {
+  public ProtoSourceFileBlacklist(
+      RuleContext ruleContext, NestedSet<Artifact> blacklistProtoFiles) {
     this.ruleContext = ruleContext;
     ImmutableSet.Builder<PathFragment> blacklistProtoFilePathsBuilder =
         new ImmutableSet.Builder<>();
-    for (Artifact blacklistProtoFile : blacklistProtoFiles) {
+    for (Artifact blacklistProtoFile : blacklistProtoFiles.toList()) {
       PathFragment execPath = blacklistProtoFile.getExecPath();
       // For blacklisted protos bundled with the Bazel tools repository, their exec paths start
       // with external/bazel_tools/. This prefix needs to be removed first, because the protos in

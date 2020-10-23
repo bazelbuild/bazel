@@ -52,7 +52,7 @@ class PrefixReferenceScanner extends ClassVisitor {
   private final String prefix;
 
   public PrefixReferenceScanner(String prefix) {
-    super(Opcodes.ASM7);
+    super(Opcodes.ASM8);
     this.prefix = prefix;
   }
 
@@ -228,7 +228,7 @@ class PrefixReferenceScanner extends ClassVisitor {
   private class PrefixReferenceMethodVisitor extends MethodVisitor {
 
     public PrefixReferenceMethodVisitor() {
-      super(Opcodes.ASM7);
+      super(Opcodes.ASM8);
     }
 
     @Override
@@ -245,7 +245,12 @@ class PrefixReferenceScanner extends ClassVisitor {
     @Override
     public AnnotationVisitor visitTypeAnnotation(
         int typeRef, TypePath typePath, String desc, boolean visible) {
-      typeReference(desc);
+      // Adjust the type annotation descriptor for proguarded byte code. b/166658450
+      if (desc.contains("/") && !desc.startsWith("L")) {
+        desc = "L" + desc + ";";
+      }
+      Type type = Type.getType(desc);
+      typeReference(type);
       return av;
     }
 
@@ -303,7 +308,8 @@ class PrefixReferenceScanner extends ClassVisitor {
                 || cst instanceof Long
                 || cst instanceof Float
                 || cst instanceof Double,
-            "Unexpected constant: ", cst);
+            "Unexpected constant: ",
+            cst);
       }
     }
 
@@ -356,7 +362,7 @@ class PrefixReferenceScanner extends ClassVisitor {
   private class PrefixReferenceFieldVisitor extends FieldVisitor {
 
     public PrefixReferenceFieldVisitor() {
-      super(Opcodes.ASM7);
+      super(Opcodes.ASM8);
     }
 
     @Override
@@ -376,7 +382,7 @@ class PrefixReferenceScanner extends ClassVisitor {
   private class PrefixReferenceAnnotationVisitor extends AnnotationVisitor {
 
     public PrefixReferenceAnnotationVisitor() {
-      super(Opcodes.ASM7);
+      super(Opcodes.ASM8);
     }
 
     @Override

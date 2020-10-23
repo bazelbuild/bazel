@@ -14,23 +14,35 @@
 
 package com.google.devtools.build.remote.worker;
 
+import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+
 import build.bazel.remote.execution.v2.BatchUpdateBlobsRequest;
 import build.bazel.remote.execution.v2.BatchUpdateBlobsResponse;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.Directory;
+import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FindMissingBlobsRequest;
 import build.bazel.remote.execution.v2.FindMissingBlobsResponse;
-import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
+import build.bazel.remote.execution.v2.GetTreeRequest;
+import build.bazel.remote.execution.v2.GetTreeResponse;
+import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.rpc.Code;
 import io.grpc.stub.StreamObserver;
-import java.io.IOException;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.HashSet;
+import java.util.Set;
 
 /** A basic implementation of a {@link ContentAddressableStorageImplBase} service. */
 final class CasServer extends ContentAddressableStorageImplBase {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   static final long MAX_BATCH_SIZE_BYTES = 1024 * 1024 * 4;
-  private final SimpleBlobStoreActionCache cache;
+  private final OnDiskBlobStoreCache cache;
 
-  public CasServer(SimpleBlobStoreActionCache cache) {
+  public CasServer(OnDiskBlobStoreCache cache) {
     this.cache = cache;
   }
 
@@ -39,23 +51,13 @@ final class CasServer extends ContentAddressableStorageImplBase {
       FindMissingBlobsRequest request, StreamObserver<FindMissingBlobsResponse> responseObserver) {
     FindMissingBlobsResponse.Builder response = FindMissingBlobsResponse.newBuilder();
 
-    try {
-      for (Digest digest : request.getBlobDigestsList()) {
-        try {
-          if (!cache.containsKey(digest)) {
-            response.addMissingBlobDigests(digest);
-          }
-         } catch (InterruptedException e) {
-          responseObserver.onError(StatusUtils.interruptedError(digest));
-          Thread.currentThread().interrupt();
-          return;
-         }
+    for (Digest digest : request.getBlobDigestsList()) {
+      if (!cache.containsKey(digest)) {
+        response.addMissingBlobDigests(digest);
       }
-      responseObserver.onNext(response.build());
-      responseObserver.onCompleted();
-    } catch (IOException e) {
-      responseObserver.onError(StatusUtils.internalError(e));
     }
+    responseObserver.onNext(response.build());
+    responseObserver.onCompleted();
   }
 
   @Override
@@ -65,7 +67,8 @@ final class CasServer extends ContentAddressableStorageImplBase {
     for (BatchUpdateBlobsRequest.Request r : request.getRequestsList()) {
       BatchUpdateBlobsResponse.Response.Builder resp = batchResponse.addResponsesBuilder();
       try {
-        Digest digest = cache.uploadBlob(r.getData().toByteArray());
+        Digest digest = cache.getDigestUtil().compute(r.getData().toByteArray());
+        getFromFuture(cache.uploadBlob(digest, r.getData()));
         if (!r.getDigest().equals(digest)) {
           String err =
               "Upload digest " + r.getDigest() + " did not match data digest: " + digest;
@@ -78,6 +81,50 @@ final class CasServer extends ContentAddressableStorageImplBase {
       }
     }
     responseObserver.onNext(batchResponse.build());
+    responseObserver.onCompleted();
+  }
+
+  @Override
+  public void getTree(GetTreeRequest request, StreamObserver<GetTreeResponse> responseObserver) {
+    // Directories are returned in depth-first order.  We store all previously-traversed digests so
+    // identical subtrees having the same digest will only be traversed and returned once.
+    Set<Digest> seenDigests = new HashSet<>();
+    Deque<Digest> pendingDigests = new ArrayDeque<>();
+    seenDigests.add(request.getRootDigest());
+    pendingDigests.push(request.getRootDigest());
+    GetTreeResponse.Builder responseBuilder = GetTreeResponse.newBuilder();
+    while (!pendingDigests.isEmpty()) {
+      Digest digest = pendingDigests.pop();
+      byte[] directoryBytes;
+      try {
+        directoryBytes = getFromFuture(cache.downloadBlob(digest));
+      } catch (CacheNotFoundException e) {
+        responseObserver.onError(StatusUtils.notFoundError(digest));
+        return;
+      } catch (InterruptedException e) {
+        responseObserver.onError(StatusUtils.interruptedError(digest));
+        return;
+      } catch (Exception e) {
+        logger.atWarning().withCause(e).log("Read request failed");
+        responseObserver.onError(StatusUtils.internalError(e));
+        return;
+      }
+      Directory directory;
+      try {
+        directory = Directory.parseFrom(directoryBytes);
+      } catch (InvalidProtocolBufferException e) {
+        logger.atWarning().withCause(e).log("Failed to parse directory in tree");
+        responseObserver.onError(StatusUtils.internalError(e));
+        return;
+      }
+      responseBuilder.addDirectories(directory);
+      for (DirectoryNode directoryNode : directory.getDirectoriesList()) {
+        if (seenDigests.add(directoryNode.getDigest())) {
+          pendingDigests.push(directoryNode.getDigest());
+        }
+      }
+    }
+    responseObserver.onNext(responseBuilder.build());
     responseObserver.onCompleted();
   }
 }

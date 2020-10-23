@@ -16,32 +16,14 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
-import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
-import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.RootedPath;
-import org.junit.Before;
+import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Unit tests for PackageGroup.
- */
+/** Unit tests for PackageGroup. */
 @RunWith(JUnit4.class)
-public class PackageGroupTest {
-  private Scratch scratch = new Scratch("/workspace");
-  private EventCollectionApparatus events = new EventCollectionApparatus();
-  private PackageFactoryApparatus packages = new PackageFactoryApparatus(events.reporter());
-  private Root root;
-
-  @Before
-  public void setUp() throws Exception {
-    root = Root.fromPath(scratch.dir(""));
-  }
+public class PackageGroupTest extends PackageLoadingTestCase {
 
   @Test
   public void testDoesNotFailHorribly() throws Exception {
@@ -55,9 +37,9 @@ public class PackageGroupTest {
   public void testEmptyPackageGroupNameDoesNotThrow() throws Exception {
     scratch.file("strawberry/BUILD", "package_group(name = '', packages=[])");
 
-    events.setFailFast(false);
+    reporter.removeHandler(failFastHandler);
     getPackage("strawberry");
-    events.assertContainsError("package group has invalid name");
+    assertContainsEvent("package group has invalid name");
   }
 
   @Test
@@ -85,33 +67,28 @@ public class PackageGroupTest {
     scratch.file("vegetables/BUILD");
     scratch.file("fruits/vegetables/BUILD");
 
-    events.setFailFast(false);
+    reporter.removeHandler(failFastHandler);
     getPackageGroup("fruits", "apple");
-    events.assertContainsError("invalid package name 'vegetables'");
+    assertContainsEvent("invalid package name 'vegetables'");
   }
 
   @Test
   public void testPackagesWithRepositoryDoNotWork() throws Exception {
     scratch.file(
-        "fruits/BUILD",
-        "package_group(name = 'banana',",
-        "              packages = ['@veggies//:cucumber'])");
+        "fruits/BUILD", "package_group(name = 'banana', packages = ['@veggies//:cucumber'])");
 
-    events.setFailFast(false);
+    reporter.removeHandler(failFastHandler);
     getPackageGroup("fruits", "banana");
-    events.assertContainsError("invalid package name '@veggies//:cucumber'");
+    assertContainsEvent("invalid package name '@veggies//:cucumber'");
   }
 
   @Test
   public void testAllPackagesInMainRepositoryDoesNotWork() throws Exception {
-    scratch.file(
-        "fruits/BUILD",
-        "package_group(name = 'apple',",
-        "              packages = ['@//...'])");
+    scratch.file("fruits/BUILD", "package_group(name = 'apple', packages = ['@//...'])");
 
-    events.setFailFast(false);
+    reporter.removeHandler(failFastHandler);
     getPackageGroup("fruits", "apple");
-    events.assertContainsError("invalid package name '@//...'");
+    assertContainsEvent("invalid package name '@//...'");
   }
 
   @Test
@@ -124,30 +101,25 @@ public class PackageGroupTest {
     scratch.file("vegetables/BUILD");
     scratch.file("fruits/vegetables/BUILD");
 
-    events.setFailFast(false);
+    reporter.removeHandler(failFastHandler);
     getPackageGroup("fruits", "apple");
-    events.assertContainsError("invalid package name '//vegetables:carrot'");
+    assertContainsEvent("invalid package name '//vegetables:carrot'");
   }
 
   @Test
   public void testTargetNameAsPackageDoesNotWork2() throws Exception {
-    scratch.file(
-        "fruits/BUILD", "package_group(name = 'apple',", "              packages = [':carrot'])");
-
+    scratch.file("fruits/BUILD", "package_group(name = 'apple', packages = [':carrot'])");
     scratch.file("vegetables/BUILD");
     scratch.file("fruits/vegetables/BUILD");
 
-    events.setFailFast(false);
+    reporter.removeHandler(failFastHandler);
     getPackageGroup("fruits", "apple");
-    events.assertContainsError("invalid package name ':carrot'");
+    assertContainsEvent("invalid package name ':carrot'");
   }
 
   @Test
   public void testAllBeneathSpecificationWorks() throws Exception {
-    scratch.file(
-        "fruits/BUILD",
-        "package_group(name = 'maracuja',",
-        "              packages = ['//tropics/...'])");
+    scratch.file("fruits/BUILD", "package_group(name = 'maracuja', packages = ['//tropics/...'])");
 
     getPackageGroup("fruits", "maracuja");
   }
@@ -268,13 +240,10 @@ public class PackageGroupTest {
   }
 
   private Package getPackage(String packageName) throws Exception {
-    PathFragment buildFileFragment = PathFragment.create(packageName).getRelative("BUILD");
-
-    Path buildFile = scratch.resolve(buildFileFragment.getPathString());
-    return packages.createPackage(packageName, RootedPath.toRootedPath(root, buildFile));
+    return getTarget("//" + packageName + ":BUILD").getPackage();
   }
 
   private PackageGroup getPackageGroup(String pkg, String name) throws Exception {
-    return (PackageGroup) getPackage(pkg).getTarget(name);
+    return (PackageGroup) getTarget("//" + pkg + ":" + name);
   }
 }

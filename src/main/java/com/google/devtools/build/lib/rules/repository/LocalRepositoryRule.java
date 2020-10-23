@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.repository;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -68,7 +68,7 @@ with git repositories or archives hosted on the web.
 
 <!-- #END_FAMILY_SUMMARY -->*/
 
-/*<!-- #BLAZE_RULE (NAME = local_repository, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = local_repository, FAMILY = Workspace)[GENERIC_RULE] -->
 
 <p>Allows targets from a local directory to be bound. This means that the current repository can
   use targets defined in this other directory. See the <a href="${link bind_examples}">bind

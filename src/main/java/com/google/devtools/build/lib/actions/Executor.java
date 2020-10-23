@@ -23,8 +23,8 @@ import com.google.devtools.common.options.OptionsProvider;
  * The Executor provides the context for the execution of actions. It is only valid during the
  * execution phase, and references should not be cached.
  *
- * <p>This class provides the actual logic to execute actions. The platonic ideal of this system
- * is that {@link Action}s are immutable objects that tell Blaze <b>what</b> to do and
+ * <p>This class provides the actual logic to execute actions. The platonic ideal of this system is
+ * that {@link Action}s are immutable objects that tell Blaze <b>what</b> to do and
  * <link>ActionContext</link>s tell Blaze <b>how</b> to do it (however, we do have an "execute"
  * method on actions now).
  *
@@ -35,7 +35,7 @@ import com.google.devtools.common.options.OptionsProvider;
  * <p>In theory, we could also merge {@link Executor} with {@link ActionExecutionContext}, since
  * they both provide services to actions being executed and are passed to almost the same places.
  */
-public interface Executor {
+public interface Executor extends ActionContext.ActionContextRegistry {
 
   /** Returns the file system of blaze. */
   FileSystem getFileSystem();
@@ -54,11 +54,6 @@ public interface Executor {
   Clock getClock();
 
   /**
-   * Returns whether failures should have verbose error messages.
-   */
-  boolean getVerboseFailures();
-
-  /**
    * Returns the command line options of the Blaze command being executed.
    */
   OptionsProvider getOptions();
@@ -69,9 +64,4 @@ public interface Executor {
    * subcommand string.
    */
   ShowSubcommands reportsSubcommands();
-
-  /**
-   * Looks up and returns an action context implementation of the given interface type.
-   */
-  <T extends ActionContext> T getContext(Class<? extends T> type);
 }

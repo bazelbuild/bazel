@@ -18,7 +18,8 @@ import build.bazel.remote.execution.v2.ToolDetails;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
-import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import io.grpc.ClientInterceptor;
 import io.grpc.Context;
 import io.grpc.Contexts;
@@ -29,6 +30,8 @@ import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.protobuf.ProtoUtils;
 import io.grpc.stub.MetadataUtils;
+import java.util.List;
+import java.util.Map.Entry;
 import javax.annotation.Nullable;
 
 /** Utility functions to handle Metadata for remote Grpc calls. */
@@ -67,18 +70,21 @@ public class TracingMetadataUtils {
     Preconditions.checkNotNull(buildRequestId);
     Preconditions.checkNotNull(commandId);
     Preconditions.checkNotNull(actionId);
-    RequestMetadata.Builder metadata =
+    RequestMetadata metadata =
         RequestMetadata.newBuilder()
             .setCorrelatedInvocationsId(buildRequestId)
-            .setToolInvocationId(commandId);
-    metadata.setActionId(actionId);
-    metadata
-        .setToolDetails(
-            ToolDetails.newBuilder()
-                .setToolName("bazel")
-                .setToolVersion(BlazeVersionInfo.instance().getVersion()))
-        .build();
-    return Context.current().withValue(CONTEXT_KEY, metadata.build());
+            .setToolInvocationId(commandId)
+            .setActionId(actionId)
+            .setToolDetails(
+                ToolDetails.newBuilder()
+                    .setToolName("bazel")
+                    .setToolVersion(BlazeVersionInfo.instance().getVersion()))
+            .build();
+    return contextWithMetadata(metadata);
+  }
+
+  public static Context contextWithMetadata(RequestMetadata metadata) {
+    return Context.current().withValue(CONTEXT_KEY, metadata);
   }
 
   /**
@@ -116,6 +122,34 @@ public class TracingMetadataUtils {
 
   public static ClientInterceptor attachMetadataFromContextInterceptor() {
     return MetadataUtils.newAttachHeadersInterceptor(headersFromCurrentContext());
+  }
+
+  private static Metadata newMetadataForHeaders(List<Entry<String, String>> headers) {
+    Metadata metadata = new Metadata();
+    headers.forEach(
+        header ->
+            metadata.put(
+                Metadata.Key.of(header.getKey(), Metadata.ASCII_STRING_MARSHALLER),
+                header.getValue()));
+    return metadata;
+  }
+
+  public static ClientInterceptor newCacheHeadersInterceptor(RemoteOptions options) {
+    Metadata metadata = newMetadataForHeaders(options.remoteHeaders);
+    metadata.merge(newMetadataForHeaders(options.remoteCacheHeaders));
+    return MetadataUtils.newAttachHeadersInterceptor(metadata);
+  }
+
+  public static ClientInterceptor newDownloaderHeadersInterceptor(RemoteOptions options) {
+    Metadata metadata = newMetadataForHeaders(options.remoteHeaders);
+    metadata.merge(newMetadataForHeaders(options.remoteDownloaderHeaders));
+    return MetadataUtils.newAttachHeadersInterceptor(metadata);
+  }
+
+  public static ClientInterceptor newExecHeadersInterceptor(RemoteOptions options) {
+    Metadata metadata = newMetadataForHeaders(options.remoteHeaders);
+    metadata.merge(newMetadataForHeaders(options.remoteExecHeaders));
+    return MetadataUtils.newAttachHeadersInterceptor(metadata);
   }
 
   /** GRPC interceptor to add logging metadata to the GRPC context. */

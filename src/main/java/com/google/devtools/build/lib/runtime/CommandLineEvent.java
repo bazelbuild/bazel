@@ -17,9 +17,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.ChunkList;
@@ -55,7 +56,7 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
 
   @Override
   public Collection<BuildEventId> postedAfter() {
-    return ImmutableList.of(BuildEventId.buildStartedId());
+    return ImmutableList.of(BuildEventIdUtil.buildStartedId());
   }
 
   /** A CommandLineEvent that stores functions and values common to both Bazel command lines. */
@@ -145,6 +146,17 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
       return option.build();
     }
 
+    Option createStarlarkOption(String starlarkFlag, @Nullable Object value) {
+      String combinedForm = String.format("--%s=%s", starlarkFlag, value);
+      Option.Builder option = Option.newBuilder();
+      option.setCombinedForm(combinedForm);
+      option.setOptionName(starlarkFlag);
+      if (value != null) {
+        option.setOptionValue(String.valueOf(value));
+      }
+      return option.build();
+    }
+
     /**
      * Returns the startup option section of the command line for the startup options as the server
      * received them at its startup. Since not all client options get passed to the server as
@@ -210,7 +222,7 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
 
     @Override
     public BuildEventId getEventId() {
-      return BuildEventId.structuredCommandlineId(LABEL);
+      return BuildEventIdUtil.structuredCommandlineId(LABEL);
     }
 
     /**
@@ -251,11 +263,16 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
                       parsedOptionDescription.getPriority().getPriorityCategory()
                           == OptionPriority.PriorityCategory.COMMAND_LINE)
               .collect(Collectors.toList());
+      List<Option> starlarkOptions =
+          commandOptions.getStarlarkOptions().entrySet().stream()
+              .map(e -> createStarlarkOption(e.getKey(), e.getValue()))
+              .collect(Collectors.toList());
       return CommandLineSection.newBuilder()
           .setSectionLabel("command options")
           .setOptionList(
               OptionList.newBuilder()
-                  .addAllOption(getOptionListFromParsedOptionDescriptions(explicitOptions)))
+                  .addAllOption(getOptionListFromParsedOptionDescriptions(explicitOptions))
+                  .addAllOption(starlarkOptions))
           .build();
     }
 
@@ -299,7 +316,7 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
 
     @Override
     public BuildEventId getEventId() {
-      return BuildEventId.structuredCommandlineId(LABEL);
+      return BuildEventIdUtil.structuredCommandlineId(LABEL);
     }
 
     /**
@@ -317,7 +334,8 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
     private CommandLineSection getCanonicalStartupOptions() {
       List<Option> unfilteredOptions = getActiveStartupOptions().getOptionList().getOptionList();
       // Create the fake ones to prevent reapplication of the original rc file contents.
-      OptionsParser fakeOptions = OptionsParser.newOptionsParser(BlazeServerStartupOptions.class);
+      OptionsParser fakeOptions =
+          OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
       try {
         fakeOptions.parse("--ignore_all_rc_files");
       } catch (OptionsParsingException e) {
@@ -352,13 +370,18 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
 
     /** Returns the canonical command options, overridden and default values are not listed. */
     private CommandLineSection getCanonicalCommandOptions() {
+      List<Option> starlarkOptions =
+          commandOptions.getStarlarkOptions().entrySet().stream()
+              .map(e -> createStarlarkOption(e.getKey(), e.getValue()))
+              .collect(Collectors.toList());
       return CommandLineSection.newBuilder()
           .setSectionLabel("command options")
           .setOptionList(
               OptionList.newBuilder()
                   .addAllOption(
                       getOptionListFromParsedOptionDescriptions(
-                          commandOptions.asListOfCanonicalOptions())))
+                          commandOptions.asListOfCanonicalOptions()))
+                  .addAllOption(starlarkOptions))
           .build();
     }
 
@@ -403,7 +426,7 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
      */
     @Override
     public BuildEventId getEventId() {
-      return BuildEventId.structuredCommandlineId(LABEL);
+      return BuildEventIdUtil.structuredCommandlineId(LABEL);
     }
 
     /**

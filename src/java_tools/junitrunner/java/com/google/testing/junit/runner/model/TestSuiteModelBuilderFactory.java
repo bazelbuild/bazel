@@ -17,14 +17,14 @@ package com.google.testing.junit.runner.model;
 import com.google.testing.junit.runner.sharding.ShardingEnvironment;
 import com.google.testing.junit.runner.sharding.ShardingFilters;
 import com.google.testing.junit.runner.util.Factory;
-import com.google.testing.junit.runner.util.Supplier;
-import com.google.testing.junit.runner.util.Ticker;
+import com.google.testing.junit.runner.util.TestClock;
+import java.util.function.Supplier;
 
 /**
  * A factory that supplies a top level suite {@link TestSuiteModel.Builder}.
  */
 public final class TestSuiteModelBuilderFactory implements Factory<TestSuiteModel.Builder> {
-  private final Supplier<Ticker> tickerSupplier;
+  private final Supplier<TestClock> tickerSupplier;
 
   private final Supplier<ShardingFilters> shardingFiltersSupplier;
 
@@ -33,7 +33,7 @@ public final class TestSuiteModelBuilderFactory implements Factory<TestSuiteMode
   private final Supplier<XmlResultWriter> xmlResultWriterSupplier;
 
   public TestSuiteModelBuilderFactory(
-      Supplier<Ticker> tickerSupplier,
+      Supplier<TestClock> tickerSupplier,
       Supplier<ShardingFilters> shardingFiltersSupplier,
       Supplier<ShardingEnvironment> shardingEnvironmentSupplier,
       Supplier<XmlResultWriter> xmlResultWriterSupplier) {
@@ -57,7 +57,7 @@ public final class TestSuiteModelBuilderFactory implements Factory<TestSuiteMode
   }
 
   public static Factory<TestSuiteModel.Builder> create(
-      Supplier<Ticker> tickerSupplier,
+      Supplier<TestClock> tickerSupplier,
       Supplier<ShardingFilters> shardingFiltersSupplier,
       Supplier<ShardingEnvironment> shardingEnvironmentSupplier,
       Supplier<XmlResultWriter> xmlResultWriterSupplier) {

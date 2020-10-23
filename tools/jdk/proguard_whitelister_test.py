@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,8 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import os
 import unittest
+
+# Do not edit this line. Copybara replaces it with PY2 migration helper.
+import six
 
 from tools.jdk import proguard_whitelister
 
@@ -25,9 +33,9 @@ class ProguardConfigValidatorTest(unittest.TestCase):
 
   def testValidConfig(self):
     input_path = os.path.join(
-        os.path.dirname(__file__), "proguard_whitelister_test_input.cfg")
+        os.path.dirname(__file__), "proguard_whitelister_test_input.pgcfg")
     tmpdir = os.environ["TEST_TMPDIR"]
-    output_path = os.path.join(tmpdir, "proguard_whitelister_test_output.cfg")
+    output_path = os.path.join(tmpdir, "proguard_whitelister_test_output.pgcfg")
     # This will raise an exception if the config is invalid.
     self._CreateValidator(input_path, output_path).ValidateAndWriteOutput()
     with open(output_path) as output:
@@ -35,17 +43,17 @@ class ProguardConfigValidatorTest(unittest.TestCase):
 
   def _TestInvalidConfig(self, invalid_args, config):
     tmpdir = os.environ["TEST_TMPDIR"]
-    input_path = os.path.join(tmpdir, "proguard_whitelister_test_input.cfg")
+    input_path = os.path.join(tmpdir, "proguard_whitelister_test_input.pgcfg")
     with open(input_path, "w") as f:
-      f.write(config)
-    output_path = os.path.join(tmpdir, "proguard_whitelister_test_output.cfg")
+      f.write(six.ensure_str(config))
+    output_path = os.path.join(tmpdir, "proguard_whitelister_test_output.pgcfg")
     validator = self._CreateValidator(input_path, output_path)
     try:
       validator.ValidateAndWriteOutput()
       self.fail()
     except RuntimeError as e:
       for invalid_arg in invalid_args:
-        self.assertTrue(invalid_arg in str(e))
+        self.assertTrue(six.ensure_str(invalid_arg) in str(e))
 
   def testInvalidNoteConfig(self):
     self._TestInvalidConfig(["-dontnote"], """\

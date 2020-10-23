@@ -45,7 +45,7 @@ public class AndroidDataConverterTest {
   }
 
   @Test
-  public void testWithLabel_EscapingNotNeeded() throws LabelSyntaxException {
+  public void testWithLabel_escapingNotNeeded() throws LabelSyntaxException {
     assertMap(
             AndroidDataConverter.<String>builder(JoinerType.SEMICOLON_AMPERSAND)
                 .withLabel(getFunction(Label.create("foo/bar", "baz")))
@@ -99,13 +99,13 @@ public class AndroidDataConverterTest {
             .build();
 
     assertThat(
-        CustomCommandLine.builder()
-            .addAll(
-                "somekey",
-                converter.getVectorArg(
-                    NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, "a", "b")))
-            .build()
-            .toString())
+            CustomCommandLine.builder()
+                .addAll(
+                    "somekey",
+                    converter.getVectorArg(
+                        NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, "a", "b")))
+                .build()
+                .toString())
         .isEqualTo("somekey a1;a2&b1;b2");
   }
 

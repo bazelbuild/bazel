@@ -14,9 +14,8 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.skylarkbuildapi.StarlarkConfigApi.BuildSettingApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkConfigApi.BuildSettingApi;
+import net.starlark.java.eval.Printer;
 
 /**
  * Metadata of a build setting rule's properties. This describes the build setting's type (for
@@ -41,7 +40,7 @@ public class BuildSetting implements BuildSettingApi {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<build_setting." + type + ">");
   }
 }

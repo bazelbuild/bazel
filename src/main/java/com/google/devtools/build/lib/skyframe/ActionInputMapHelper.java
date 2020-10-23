@@ -14,32 +14,41 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionInputMapSink;
+import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
-import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Collection;
 import java.util.Map;
 
-class ActionInputMapHelper {
+/** Static utilities for working with action inputs. */
+final class ActionInputMapHelper {
 
-  // Adds a value obtained by an Artifact skyvalue lookup to the action input map. May do Skyframe
-  // lookups.
+  private ActionInputMapHelper() {}
+
+  /**
+   * Adds a value obtained by an Artifact skyvalue lookup to the action input map. May do Skyframe
+   * lookups.
+   */
   static void addToMap(
       ActionInputMapSink inputMap,
-      Map<Artifact, Collection<Artifact>> expandedArtifacts,
-      Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets,
+      Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts,
+      Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
+      Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles,
+      Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
       Artifact key,
       SkyValue value,
       Environment env)
@@ -50,9 +59,10 @@ class ActionInputMapHelper {
         Artifact artifact = entry.first;
         inputMap.put(artifact, entry.second, /*depOwner=*/ key);
         if (artifact.isFileset()) {
-          ImmutableList<FilesetOutputSymlink> expandedFileset = getFilesets(env, artifact);
+          ImmutableList<FilesetOutputSymlink> expandedFileset =
+              getFilesets(env, (SpecialArtifact) artifact);
           if (expandedFileset != null) {
-            expandedFilesets.put(artifact, expandedFileset);
+            filesetsInsideRunfiles.put(artifact, expandedFileset);
           }
         }
       }
@@ -61,12 +71,13 @@ class ActionInputMapHelper {
             entry.getFirst(),
             Preconditions.checkNotNull(entry.getSecond()),
             expandedArtifacts,
+            archivedTreeArtifacts,
             inputMap,
             /*depOwner=*/ key);
       }
-      // We have to cache the "digest" of the aggregating value itself,
-      // because the action cache checker may want it.
-      inputMap.put(key, aggregatingValue.getSelfData(), /*depOwner=*/ key);
+      // We have to cache the "digest" of the aggregating value itself, because the action cache
+      // checker may want it.
+      inputMap.put(key, aggregatingValue.getMetadata(), /*depOwner=*/ key);
       // While not obvious at all this code exists to ensure that we don't expand the
       // .runfiles/MANIFEST file into the inputs. The reason for that being that the MANIFEST
       // file contains absolute paths that don't work with remote execution.
@@ -82,37 +93,64 @@ class ActionInputMapHelper {
       }
     } else if (value instanceof TreeArtifactValue) {
       expandTreeArtifactAndPopulateArtifactData(
-          key, (TreeArtifactValue) value, expandedArtifacts, inputMap, /*depOwner=*/ key);
+          key,
+          (TreeArtifactValue) value,
+          expandedArtifacts,
+          archivedTreeArtifacts,
+          inputMap,
+          /*depOwner=*/ key);
+    } else if (value instanceof ActionExecutionValue) {
+      inputMap.put(key, ((ActionExecutionValue) value).getExistingFileArtifactValue(key), key);
+      if (key.isFileset()) {
+        topLevelFilesets.put(key, getFilesets(env, (SpecialArtifact) key));
+      }
     } else {
-      Preconditions.checkState(value instanceof FileArtifactValue);
+      Preconditions.checkArgument(value instanceof FileArtifactValue, "Unexpected value %s", value);
       inputMap.put(key, (FileArtifactValue) value, /*depOwner=*/ key);
     }
   }
 
-  static ImmutableList<FilesetOutputSymlink> getFilesets(Environment env,
-      Artifact actionInput) throws InterruptedException {
+  static ImmutableList<FilesetOutputSymlink> getFilesets(
+      Environment env, SpecialArtifact actionInput) throws InterruptedException {
     Preconditions.checkState(actionInput.isFileset(), actionInput);
-    ActionLookupKey filesetActionLookupKey = (ActionLookupKey) actionInput.getArtifactOwner();
+    ActionLookupData generatingActionKey = actionInput.getGeneratingActionKey();
+    ActionLookupKey filesetActionLookupKey = generatingActionKey.getActionLookupKey();
 
     ActionLookupValue filesetActionLookupValue =
         (ActionLookupValue) env.getValue(filesetActionLookupKey);
 
     ActionAnalysisMetadata generatingAction =
-        filesetActionLookupValue.getGeneratingActionDangerousReadJavadoc(actionInput);
-    int filesetManifestActionIndex;
+        filesetActionLookupValue.getAction(generatingActionKey.getActionIndex());
+    ActionLookupData filesetActionKey;
 
     if (generatingAction instanceof SymlinkAction) {
-      Artifact outputManifest = Iterables.getOnlyElement(generatingAction.getInputs());
+      DerivedArtifact outputManifest =
+          (DerivedArtifact) generatingAction.getInputs().getSingleton();
+      ActionLookupData manifestGeneratingKey = outputManifest.getGeneratingActionKey();
+      Preconditions.checkState(
+          manifestGeneratingKey.getActionLookupKey().equals(filesetActionLookupKey),
+          "Mismatched actions and artifacts: %s %s %s %s",
+          actionInput,
+          outputManifest,
+          filesetActionLookupKey,
+          manifestGeneratingKey);
       ActionAnalysisMetadata symlinkTreeAction =
-          filesetActionLookupValue.getGeneratingActionDangerousReadJavadoc(outputManifest);
-      Artifact inputManifest = Iterables.getOnlyElement(symlinkTreeAction.getInputs());
-      filesetManifestActionIndex = filesetActionLookupValue.getGeneratingActionIndex(inputManifest);
+          filesetActionLookupValue.getAction(manifestGeneratingKey.getActionIndex());
+      DerivedArtifact inputManifest =
+          (DerivedArtifact) symlinkTreeAction.getInputs().getSingleton();
+      ActionLookupData inputManifestGeneratingKey = inputManifest.getGeneratingActionKey();
+      Preconditions.checkState(
+          inputManifestGeneratingKey.getActionLookupKey().equals(filesetActionLookupKey),
+          "Mismatched actions and artifacts: %s %s %s %s",
+          actionInput,
+          inputManifest,
+          filesetActionLookupKey,
+          inputManifestGeneratingKey);
+      filesetActionKey = inputManifestGeneratingKey;
     } else {
-      filesetManifestActionIndex = filesetActionLookupValue.getGeneratingActionIndex(actionInput);
+      filesetActionKey = generatingActionKey;
     }
 
-    SkyKey filesetActionKey =
-        ActionExecutionValue.key(filesetActionLookupKey, filesetManifestActionIndex);
     ActionExecutionValue filesetValue = (ActionExecutionValue) env.getValue(filesetActionKey);
     if (filesetValue == null) {
       // At this point skyframe does not guarantee that the filesetValue will be ready, since
@@ -126,9 +164,14 @@ class ActionInputMapHelper {
   private static void expandTreeArtifactAndPopulateArtifactData(
       Artifact treeArtifact,
       TreeArtifactValue value,
-      Map<Artifact, Collection<Artifact>> expandedArtifacts,
+      Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts,
+      Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
       ActionInputMapSink inputMap,
       Artifact depOwner) {
+    if (TreeArtifactValue.OMITTED_TREE_MARKER.equals(value)) {
+      inputMap.put(treeArtifact, FileArtifactValue.OMITTED_FILE_MARKER, depOwner);
+      return;
+    }
     ImmutableSet.Builder<Artifact> children = ImmutableSet.builder();
     for (Map.Entry<Artifact.TreeFileArtifact, FileArtifactValue> child :
         value.getChildValues().entrySet()) {
@@ -137,6 +180,19 @@ class ActionInputMapHelper {
     }
     expandedArtifacts.put(treeArtifact, children.build());
     // Again, we cache the "digest" of the value for cache checking.
-    inputMap.put(treeArtifact, value.getSelfData(), depOwner);
+    inputMap.put(treeArtifact, value.getMetadata(), depOwner);
+
+    value
+        .getArchivedRepresentation()
+        .ifPresent(
+            archivedRepresentation -> {
+              inputMap.put(
+                  archivedRepresentation.archivedTreeFileArtifact(),
+                  archivedRepresentation.archivedFileValue(),
+                  depOwner);
+              archivedTreeArtifacts.put(
+                  (SpecialArtifact) treeArtifact,
+                  archivedRepresentation.archivedTreeFileArtifact());
+            });
   }
 }

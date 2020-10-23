@@ -14,15 +14,48 @@
 package com.google.devtools.build.android;
 
 import com.android.resources.ResourceType;
-import com.google.common.base.Optional;
+import com.google.devtools.build.android.resources.Visibility;
+import java.io.Flushable;
 import java.util.Map;
 
 /** Defines a sink for collecting data about resource symbols. */
-public interface AndroidResourceSymbolSink {
+public abstract class AndroidResourceSymbolSink implements Flushable {
 
-  void acceptSimpleResource(ResourceType type, String name);
+  public final void acceptSimpleResource(
+      DependencyInfo dependencyInfo, Visibility visibility, ResourceType type, String name) {
+    if (isPrivateResourceFromDependency(dependencyInfo, visibility)) {
+      return;
+    }
+    acceptSimpleResourceImpl(dependencyInfo, visibility, type, name);
+  }
 
-  void acceptPublicResource(ResourceType type, String name, Optional<Integer> value);
+  abstract void acceptSimpleResourceImpl(
+      DependencyInfo dependencyInfo, Visibility visibility, ResourceType type, String name);
 
-  void acceptStyleableResource(FullyQualifiedName key, Map<FullyQualifiedName, Boolean> attrs);
+  // "inlineable" below affects how resource IDs are assigned by
+  // PlaceholderIdFieldInitializerBuilder to attempt to match the final IDs assigned by aapt1.  This
+  // shouldn't matter, but legacy tests with ODR violations might be relying on this.
+  public final void acceptStyleableResource(
+      DependencyInfo dependencyInfo,
+      Visibility visibility,
+      FullyQualifiedName key,
+      Map<FullyQualifiedName, /*inlineable=*/ Boolean> attrs) {
+    if (isPrivateResourceFromDependency(dependencyInfo, visibility)) {
+      return;
+    }
+    acceptStyleableResourceImpl(dependencyInfo, visibility, key, attrs);
+  }
+
+  abstract void acceptStyleableResourceImpl(
+      DependencyInfo dependencyInfo,
+      Visibility visibility,
+      FullyQualifiedName key,
+      Map<FullyQualifiedName, /*inlineable=*/ Boolean> attrs);
+
+  private static boolean isPrivateResourceFromDependency(
+      DependencyInfo dependencyInfo, Visibility visibility) {
+    return visibility == Visibility.PRIVATE
+        && dependencyInfo.dependencyType() != DependencyInfo.DependencyType.PRIMARY
+        && dependencyInfo.dependencyType() != DependencyInfo.DependencyType.UNKNOWN;
+  }
 }

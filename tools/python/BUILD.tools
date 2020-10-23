@@ -1,3 +1,15 @@
+################################################################################
+# DEPRECATION WARNING                                                          #
+#                                                                              #
+# Direct access to @bazel_tools//tools/python, and to the native Python rules  #
+# and providers, is deprecated. All of these symbols are now accessible from   #
+# bazelbuild/rules_python.                                                     #
+#                                                                              #
+# For native rules in particular, --incompatible_load_python_rules_from_bzl    #
+# (#9006) prohibits direct access to the native rules, and will be flipped on  #
+# in Bazel 1.0.                                                                #
+################################################################################
+
 load(":python_version.bzl", "define_python_version_flag")
 load(":toolchain.bzl", "define_autodetecting_toolchain")
 
@@ -31,6 +43,32 @@ write_file(
     is_executable = True,
 )
 
+# These exports are needed for Starlark tooling to work on files that
+# transitive load these ones. Ideally they would be bzl_library targets, but we
+# don't have access to Skylib here. See
+# https://github.com/bazelbuild/skydoc/issues/166.
+exports_files([
+    "python_version.bzl",
+    "srcs_version.bzl",
+    "toolchain.bzl",
+    "utils.bzl",
+    "private/defs.bzl",
+    "private/py_test_alias.bzl",
+    "private/version.bzl",
+    # write_file.bzl fortunately doesn't need to be exposed because it's only
+    # used in this BUILD file.
+])
+
+filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]) + [
+        "private/defs.bzl",
+        "private/py_test_alias.bzl",
+        "private/version.bzl",
+    ],
+    visibility = ["//tools:__pkg__"],
+)
+
 # This target can be used to inspect the current Python major version. To use,
 # put it in the `flag_values` attribute of a `config_setting` and test it
 # against the values "PY2" or "PY3". It will always match one or the other.
@@ -56,10 +94,11 @@ write_file(
 #         ...
 #     )
 #
-# Caution: Do not `select()` on the built-in command-line flags `--force_python`
-# or `--python_version`, as they do not always reflect the true Python version
-# of the current target. `select()`-ing on them can lead to action conflicts and
-# will be disallowed.
+# Note that it is not allowed to `select()` on the built-in command-line flag
+# `--python_version`. This is because historically, the flag's value has not
+# always corresponded to the effective Python version, due to some indirections
+# around legacy APIs, legacy semantics, and changing the default version from
+# PY2 to PY3.
 define_python_version_flag(
     name = "python_version",
 )

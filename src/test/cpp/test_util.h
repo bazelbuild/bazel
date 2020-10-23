@@ -19,8 +19,8 @@
 
 namespace blaze {
 
-void ExpectIsNullaryOption(const StartupOptions* options,
-                           const std::string& flag_name);
+void ExpectValidNullaryOption(const StartupOptions* options,
+                              const std::string& flag_name);
 void ExpectIsUnaryOption(const StartupOptions* options,
                          const std::string& flag_name);
 void ParseStartupOptionsAndExpectWarning(

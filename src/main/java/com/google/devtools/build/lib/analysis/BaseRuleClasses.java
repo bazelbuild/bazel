@@ -20,18 +20,20 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
-import static com.google.devtools.build.lib.syntax.Type.INTEGER;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+import static com.google.devtools.build.lib.packages.Type.INTEGER;
+import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_DICT;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
-import com.google.devtools.build.lib.analysis.constraints.EnvironmentRule;
+import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -39,18 +41,24 @@ import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault.Resolver;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleClass.ExecutionPlatformConstraintsAllowed;
 import com.google.devtools.build.lib.packages.TestSize;
+import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import net.starlark.java.eval.StarlarkInt;
 
 /**
  * Rule class definitions used by (almost) every rule.
  */
 public class BaseRuleClasses {
+
+  private BaseRuleClasses() {}
+
   @AutoCodec @AutoCodec.VisibleForSerialization
   static final Attribute.ComputedDefault testonlyDefault =
       new Attribute.ComputedDefault() {
@@ -99,6 +107,9 @@ public class BaseRuleClasses {
   public static final String DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE =
       "//tools/test:coverage_report_generator";
 
+  private static final String DEFAULT_COVERAGE_OUTPUT_GENERATOR_VALUE =
+      "@bazel_tools//tools/test:lcov_merger";
+
   @AutoCodec
   static final Resolver<TestConfiguration, Label> COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER =
       (rule, attributes, configuration) -> configuration.getCoverageReportGenerator();
@@ -108,6 +119,21 @@ public class BaseRuleClasses {
     return LabelLateBoundDefault.fromTargetConfiguration(
         TestConfiguration.class, defaultValue, COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER);
   }
+
+  public static LabelLateBoundDefault<BuildConfiguration> getCoverageOutputGeneratorLabel() {
+    return LabelLateBoundDefault.fromTargetConfiguration(
+        BuildConfiguration.class, null, COVERAGE_OUTPUT_GENERATOR_RESOLVER);
+  }
+
+  @AutoCodec
+  static final Resolver<BuildConfiguration, Label> COVERAGE_OUTPUT_GENERATOR_RESOLVER =
+      (rule, attributes, configuration) -> {
+        if (configuration.isCodeCoverageEnabled()) {
+          return Label.parseAbsoluteUnchecked(DEFAULT_COVERAGE_OUTPUT_GENERATOR_VALUE);
+        } else {
+          return null;
+        }
+      };
 
   // TODO(b/65746853): provide a way to do this without passing the entire configuration
   /** Implementation for the :run_under attribute. */
@@ -129,6 +155,9 @@ public class BaseRuleClasses {
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .requiresConfigurationFragments(TestConfiguration.class)
+          // TestConfiguration only needed to create TestAction and TestProvider
+          // Only necessary at top-level and can be skipped if trimmed.
+          .setMissingFragmentPolicy(TestConfiguration.class, MissingFragmentPolicy.IGNORE)
           .add(
               attr("size", STRING)
                   .value("medium")
@@ -157,7 +186,7 @@ public class BaseRuleClasses {
                   .value(false)
                   .taggable()
                   .nonconfigurable("policy decision: should be consistent across configurations"))
-          .add(attr("shard_count", INTEGER).value(-1))
+          .add(attr("shard_count", INTEGER).value(StarlarkInt.of(-1)))
           .add(
               attr("local", BOOLEAN)
                   .value(false)
@@ -178,7 +207,7 @@ public class BaseRuleClasses {
           .add(
               attr("$test_runtime", LABEL_LIST)
                   .cfg(HostTransition.createFactory())
-                  .value(ImmutableList.of(env.getToolsLabel("//tools/test:runtime"))))
+                  .value(getTestRuntimeLabelList(env)))
           .add(
               attr("$test_setup_script", LABEL)
                   .cfg(HostTransition.createFactory())
@@ -221,16 +250,29 @@ public class BaseRuleClasses {
     }
   }
 
+  private static final String TOOLS_TEST_RUNTIME_TARGET_PATTERN = "//tools/test:runtime";
+  private static ImmutableList<Label> testRuntimeLabelList = null;
+
+  // Always return the same ImmutableList<Label> for every $test_runtime attribute's default value.
+  public static synchronized ImmutableList<Label> getTestRuntimeLabelList(
+      RuleDefinitionContext env) {
+    if (testRuntimeLabelList == null) {
+      testRuntimeLabelList =
+          ImmutableList.of(
+              Label.parseAbsoluteUnchecked(
+                  env.getToolsRepository() + TOOLS_TEST_RUNTIME_TARGET_PATTERN));
+    }
+    return testRuntimeLabelList;
+  }
+
   /**
    * The attribute used to list the configuration properties used by a target and its transitive
    * dependencies. Currently only supports config_feature_flag.
    */
   public static final String TAGGED_TRIMMING_ATTR = "transitive_configs";
 
-  /**
-   * Share common attributes across both base and Skylark base rules.
-   */
-  public static RuleClass.Builder commonCoreAndSkylarkAttributes(RuleClass.Builder builder) {
+  /** Share common attributes across both base and Starlark base rules. */
+  public static RuleClass.Builder commonCoreAndStarlarkAttributes(RuleClass.Builder builder) {
     return builder
         // The visibility attribute is special: it is a nodep label, and loading the
         // necessary package groups is handled by {@link LabelVisitor#visitTargetVisibility}.
@@ -278,7 +320,7 @@ public class BaseRuleClasses {
                 .value(ACTION_LISTENER))
         .add(
             attr(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST)
-                .allowedRuleClasses(EnvironmentRule.RULE_NAME)
+                .allowedRuleClasses(ConstraintConstants.ENVIRONMENT_RULE)
                 .cfg(HostTransition.createFactory())
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .dontCheckConstraints()
@@ -286,7 +328,7 @@ public class BaseRuleClasses {
                     "special logic for constraints and select: see ConstraintSemantics"))
         .add(
             attr(RuleClass.RESTRICTED_ENVIRONMENT_ATTR, LABEL_LIST)
-                .allowedRuleClasses(EnvironmentRule.RULE_NAME)
+                .allowedRuleClasses(ConstraintConstants.ENVIRONMENT_RULE)
                 .cfg(HostTransition.createFactory())
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .dontCheckConstraints()
@@ -294,11 +336,24 @@ public class BaseRuleClasses {
                     "special logic for constraints and select: see ConstraintSemantics"))
         .add(
             attr(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, LABEL_LIST)
-                .nonconfigurable("stores configurability keys"));
+                .nonconfigurable("stores configurability keys"))
+        .add(
+            attr(RuleClass.APPLICABLE_LICENSES_ATTR, LABEL_LIST)
+                .cfg(HostTransition.createFactory())
+                .allowedFileTypes(FileTypeSet.NO_FILE)
+                // TODO(b/148601291): Require provider to be "LicenseInfo".
+                .dontCheckConstraints()
+                .nonconfigurable("applicable_licenses is not configurable"));
   }
 
   public static RuleClass.Builder nameAttribute(RuleClass.Builder builder) {
     return builder.add(attr("name", STRING).nonconfigurable("Rule name"));
+  }
+
+  public static RuleClass.Builder execPropertiesAttribute(RuleClass.Builder builder)
+      throws ConversionException {
+    return builder.add(
+        attr(RuleClass.EXEC_PROPERTIES, STRING_DICT).defaultValue(ImmutableMap.of()));
   }
 
   /**
@@ -328,7 +383,7 @@ public class BaseRuleClasses {
   public static final class BaseRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return commonCoreAndSkylarkAttributes(builder)
+      return commonCoreAndStarlarkAttributes(builder)
           .add(
               attr("licenses", LICENSE)
                   .nonconfigurable("Used in core loading phase logic with no access to configs"))
@@ -355,15 +410,13 @@ public class BaseRuleClasses {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          /* <!-- #BLAZE_RULE($make_variable_expanding_rule).ATTRIBUTE(toolchains) -->
-          The set of toolchains that supply <a href="${link make-variables}">"Make variables"</a>
-          that this target can use in some of its attributes. Some rules have toolchains whose Make
-          variables they can use by default.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("toolchains", LABEL_LIST)
-              .allowedFileTypes(FileTypeSet.NO_FILE)
-              .mandatoryProviders(ImmutableList.of(TemplateVariableInfo.PROVIDER.id()))
-              .dontCheckConstraints())
+          // Documented in
+          // com/google/devtools/build/docgen/templates/attributes/common/toolchains.html.
+          .add(
+              attr("toolchains", LABEL_LIST)
+                  .allowedFileTypes(FileTypeSet.NO_FILE)
+                  .mandatoryProviders(ImmutableList.of(TemplateVariableInfo.PROVIDER.id()))
+                  .dontCheckConstraints())
           .build();
     }
 
@@ -388,7 +441,12 @@ public class BaseRuleClasses {
               attr("data", LABEL_LIST)
                   .allowedFileTypes(FileTypeSet.ANY_FILE)
                   .dontCheckConstraints())
-          .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET)
+          .add(attr(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT).value(ImmutableMap.of()))
+          .add(
+              attr(RuleClass.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)
+                  .allowedFileTypes()
+                  .nonconfigurable("Used in toolchain resolution")
+                  .value(ImmutableList.of()))
           .build();
     }
 
@@ -425,23 +483,6 @@ public class BaseRuleClasses {
           .name("$binary_base_rule")
           .type(RuleClassType.ABSTRACT)
           .ancestors(RootRule.class, MakeVariableExpandingRule.class)
-          .build();
-    }
-  }
-
-  /** Rule class for rules in error. */
-  public static final class ErrorRule implements RuleDefinition {
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder.publicByDefault().build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$error_rule")
-          .type(RuleClassType.ABSTRACT)
-          .ancestors(BaseRuleClasses.BaseRule.class)
           .build();
     }
   }

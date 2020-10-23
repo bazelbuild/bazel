@@ -25,7 +25,6 @@ import java.util.Objects;
  * Utility class for predefined filtering policies.
  */
 public final class FilteringPolicies {
-
   public static final FilteringPolicy NO_FILTER = new NoFilter();
   public static final FilteringPolicy FILTER_MANUAL = new FilterManual();
   public static final FilteringPolicy FILTER_TESTS = new FilterTests();

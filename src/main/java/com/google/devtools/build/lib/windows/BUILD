@@ -1,19 +1,29 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
 package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(
     name = "srcs",
+    testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
+    visibility = ["//src:__subpackages__"],
+)
+
+java_library(
+    name = "file",
+    srcs = ["WindowsFileOperations.java"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/jni"],
+)
+
+java_library(
+    name = "processes",
+    srcs = ["WindowsProcesses.java"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/jni"],
 )
 
 java_library(
     name = "windows_short_path",
     srcs = ["WindowsShortPath.java"],
-    visibility = [
-        "//src/main/java/com/google/devtools/build/lib/vfs:__pkg__",
-        "//src/test/java/com/google/devtools/build/lib:__pkg__",
-    ],
-    deps = ["//src/main/java/com/google/devtools/build/lib/windows/jni"],
 )
 
 java_library(
@@ -23,14 +33,14 @@ java_library(
         "WindowsSubprocess.java",
         "WindowsSubprocessFactory.java",
     ],
-    visibility = ["//visibility:public"],
     deps = [
+        ":file",
+        ":processes",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/windows/jni",
-        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
     ],
 )

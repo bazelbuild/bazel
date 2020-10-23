@@ -22,6 +22,9 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.collect.CollectionUtils;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -48,7 +51,7 @@ public final class LinkCommandLine extends CommandLine {
   // The feature config can be null for tests.
   @Nullable private final FeatureConfiguration featureConfiguration;
   private final ImmutableList<Artifact> buildInfoHeaderArtifacts;
-  private final Iterable<Artifact> linkerInputArtifacts;
+  private final NestedSet<Artifact> linkerInputArtifacts;
   private final LinkTargetType linkTargetType;
   private final Link.LinkingMode linkingMode;
   @Nullable private final PathFragment toolchainLibrariesSolibDir;
@@ -63,7 +66,7 @@ public final class LinkCommandLine extends CommandLine {
       String actionName,
       String forcedToolPath,
       ImmutableList<Artifact> buildInfoHeaderArtifacts,
-      Iterable<Artifact> linkerInputArtifacts,
+      NestedSet<Artifact> linkerInputArtifacts,
       LinkTargetType linkTargetType,
       Link.LinkingMode linkingMode,
       @Nullable PathFragment toolchainLibrariesSolibDir,
@@ -100,7 +103,7 @@ public final class LinkCommandLine extends CommandLine {
   }
 
   /** Returns the (ordered, immutable) list of paths to the linker's input files. */
-  public Iterable<Artifact> getLinkerInputArtifacts() {
+  public NestedSet<Artifact> getLinkerInputArtifacts() {
     return linkerInputArtifacts;
   }
 
@@ -108,6 +111,10 @@ public final class LinkCommandLine extends CommandLine {
   @VisibleForTesting
   public FeatureConfiguration getFeatureConfiguration() {
     return featureConfiguration;
+  }
+
+  public String getActionName() {
+    return actionName;
   }
 
   /** Returns the current type of link target set. */
@@ -195,6 +202,28 @@ public final class LinkCommandLine extends CommandLine {
           args, commandlineArgs, paramFileArgs, doNotSplitLinkingCmdline);
       return Pair.of(commandlineArgs, paramFileArgs);
     }
+  }
+
+  public CommandLine getCommandLineForStarlark() {
+    return new CommandLine() {
+      @Override
+      public Iterable<String> arguments() throws CommandLineExpansionException {
+        return arguments(/* artifactExpander= */ null);
+      }
+
+      @Override
+      public Iterable<String> arguments(ArtifactExpander artifactExpander)
+          throws CommandLineExpansionException {
+        if (paramFile == null) {
+          return ImmutableList.copyOf(getRawLinkArgv(artifactExpander));
+        } else {
+          return ImmutableList.<String>builder()
+              .add(getLinkerPathString())
+              .addAll(splitCommandline(artifactExpander).getSecond())
+              .build();
+        }
+      }
+    };
   }
 
   /**
@@ -424,7 +453,8 @@ public final class LinkCommandLine extends CommandLine {
 
     private String forcedToolPath;
     private ImmutableList<Artifact> buildInfoHeaderArtifacts = ImmutableList.of();
-    private Iterable<Artifact> linkerInputArtifacts = ImmutableList.of();
+    private NestedSet<Artifact> linkerInputArtifacts =
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     @Nullable private LinkTargetType linkTargetType;
     private Link.LinkingMode linkingMode = Link.LinkingMode.STATIC;
     @Nullable private PathFragment toolchainLibrariesSolibDir;
@@ -492,8 +522,8 @@ public final class LinkCommandLine extends CommandLine {
      * staticness and the target type. This call makes an immutable copy of the inputs, if the
      * provided Iterable isn't already immutable (see {@link CollectionUtils#makeImmutable}).
      */
-    public Builder setLinkerInputArtifacts(Iterable<Artifact> linkerInputArtifacts) {
-      this.linkerInputArtifacts = CollectionUtils.makeImmutable(linkerInputArtifacts);
+    public Builder setLinkerInputArtifacts(NestedSet<Artifact> linkerInputArtifacts) {
+      this.linkerInputArtifacts = linkerInputArtifacts;
       return this;
     }
 

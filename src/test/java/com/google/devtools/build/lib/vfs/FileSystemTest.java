@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,11 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
@@ -30,8 +31,13 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.Collection;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.After;
@@ -194,6 +200,19 @@ public abstract class FileSystemTest {
     }
     if (!directoryToRemove.delete()) {
       throw new IOException("Failed to delete '" + directoryToRemove + "'");
+    }
+  }
+
+  /** Recursively make directories readable/executable and files readable. */
+  protected void makeTreeReadable(Path path) throws IOException {
+    if (path.isDirectory(Symlinks.NOFOLLOW)) {
+      path.setReadable(true);
+      path.setExecutable(true);
+      for (Path entry : path.getDirectoryEntries()) {
+        makeTreeReadable(entry);
+      }
+    } else {
+      path.setReadable(true);
     }
   }
 
@@ -775,57 +794,206 @@ public abstract class FileSystemTest {
     assertThat(file3.exists()).isFalse();
   }
 
-  @Test
-  public void testDeleteTreeDeletesUnreadableDirectories() throws IOException {
+  private static enum DeleteFunc {
+    DELETE_TREE,
+    DELETE_TREES_BELOW
+  };
+
+  private void doTestDeleteUnreadableDirectories(DeleteFunc deleteFunc) throws IOException {
     Path topDir = absolutize("top-dir");
     Path aDir = absolutize("top-dir/a-dir");
     Path file1 = absolutize("top-dir/a-dir/file1");
     Path file2 = absolutize("top-dir/a-dir/file2");
+    Path bDir = absolutize("top-dir/b-dir");
+    Path file3 = absolutize("top-dir/b-dir/file3");
 
     topDir.createDirectory();
     aDir.createDirectory();
     FileSystemUtils.createEmptyFile(file1);
     FileSystemUtils.createEmptyFile(file2);
+    bDir.createDirectory();
+    FileSystemUtils.createEmptyFile(file3);
 
     try {
       aDir.setReadable(false);
-      aDir.setExecutable(false);
+      bDir.setReadable(false);
+      topDir.setReadable(false);
     } catch (UnsupportedOperationException e) {
       // Skip testing if the file system does not support clearing the needed attibutes.
       return;
     }
 
-    topDir.deleteTree();
-    assertThat(topDir.exists()).isFalse();
-    assertThat(aDir.exists()).isFalse();
-    assertThat(file1.exists()).isFalse();
-    assertThat(file2.exists()).isFalse();
+    switch (deleteFunc) {
+      case DELETE_TREE:
+        topDir.deleteTree();
+        assertThat(topDir.exists()).isFalse();
+        break;
+      case DELETE_TREES_BELOW:
+        topDir.deleteTreesBelow();
+        makeTreeReadable(topDir);
+        assertThat(topDir.exists()).isTrue();
+        assertThat(FileSystemUtils.traverseTree(topDir, unused -> true)).isEmpty();
+        break;
+    }
+  }
+
+  @Test
+  public void testDeleteTreeDeletesUnreadableDirectories() throws IOException {
+    doTestDeleteUnreadableDirectories(DeleteFunc.DELETE_TREE);
+  }
+
+  @Test
+  public void testDeleteTreesBelowDeletesUnreadableDirectories() throws IOException {
+    doTestDeleteUnreadableDirectories(DeleteFunc.DELETE_TREES_BELOW);
+  }
+
+  private void doTestDeleteUnwritableDirectories(DeleteFunc deleteFunc) throws IOException {
+    Path topDir = absolutize("top-dir");
+    Path aDir = absolutize("top-dir/a-dir");
+    Path file1 = absolutize("top-dir/a-dir/file1");
+    Path file2 = absolutize("top-dir/a-dir/file2");
+    Path bDir = absolutize("top-dir/b-dir");
+    Path file3 = absolutize("top-dir/b-dir/file3");
+
+    topDir.createDirectory();
+    aDir.createDirectory();
+    FileSystemUtils.createEmptyFile(file1);
+    FileSystemUtils.createEmptyFile(file2);
+    bDir.createDirectory();
+    FileSystemUtils.createEmptyFile(file3);
+
+    try {
+      aDir.setWritable(false);
+      bDir.setWritable(false);
+      topDir.setWritable(false);
+    } catch (UnsupportedOperationException e) {
+      // Skip testing if the file system does not support clearing the needed attibutes.
+      return;
+    }
+
+    switch (deleteFunc) {
+      case DELETE_TREE:
+        topDir.deleteTree();
+        assertThat(topDir.exists()).isFalse();
+        break;
+      case DELETE_TREES_BELOW:
+        topDir.deleteTreesBelow();
+        makeTreeReadable(topDir);
+        assertThat(topDir.exists()).isTrue();
+        assertThat(FileSystemUtils.traverseTree(topDir, unused -> true)).isEmpty();
+        break;
+    }
   }
 
   @Test
   public void testDeleteTreeDeletesUnwritableDirectories() throws IOException {
+    doTestDeleteUnwritableDirectories(DeleteFunc.DELETE_TREE);
+  }
+
+  @Test
+  public void testDeleteTreesBelowDeletesUnwritableDirectories() throws IOException {
+    doTestDeleteUnwritableDirectories(DeleteFunc.DELETE_TREES_BELOW);
+  }
+
+  private void doTestDeleteReadableUnexecutableDirectories(DeleteFunc deleteFunc)
+      throws IOException {
     Path topDir = absolutize("top-dir");
     Path aDir = absolutize("top-dir/a-dir");
     Path file1 = absolutize("top-dir/a-dir/file1");
     Path file2 = absolutize("top-dir/a-dir/file2");
+    Path bDir = absolutize("top-dir/b-dir");
+    Path file3 = absolutize("top-dir/b-dir/file3");
 
     topDir.createDirectory();
     aDir.createDirectory();
     FileSystemUtils.createEmptyFile(file1);
     FileSystemUtils.createEmptyFile(file2);
+    bDir.createDirectory();
+    FileSystemUtils.createEmptyFile(file3);
 
     try {
-      aDir.setWritable(false);
+      aDir.setExecutable(false);
+      bDir.setExecutable(false);
+      topDir.setExecutable(false);
     } catch (UnsupportedOperationException e) {
       // Skip testing if the file system does not support clearing the needed attibutes.
       return;
     }
 
-    topDir.deleteTree();
-    assertThat(topDir.exists()).isFalse();
-    assertThat(aDir.exists()).isFalse();
-    assertThat(file1.exists()).isFalse();
-    assertThat(file2.exists()).isFalse();
+    switch (deleteFunc) {
+      case DELETE_TREE:
+        topDir.deleteTree();
+        assertThat(topDir.exists()).isFalse();
+        break;
+      case DELETE_TREES_BELOW:
+        topDir.deleteTreesBelow();
+        makeTreeReadable(topDir);
+        assertThat(topDir.exists()).isTrue();
+        assertThat(FileSystemUtils.traverseTree(topDir, unused -> true)).isEmpty();
+        break;
+    }
+  }
+
+  @Test
+  public void testDeleteTreeDeletesReadableUnexecutableDirectories() throws IOException {
+    doTestDeleteReadableUnexecutableDirectories(DeleteFunc.DELETE_TREE);
+  }
+
+  @Test
+  public void testDeleteTreesBelowDeletesReadableUnexecutableDirectories() throws IOException {
+    doTestDeleteReadableUnexecutableDirectories(DeleteFunc.DELETE_TREES_BELOW);
+  }
+
+  private void doTestDeleteUnreadableUnexecutableDirectories(DeleteFunc deleteFunc)
+      throws IOException {
+    Path topDir = absolutize("top-dir");
+    Path aDir = absolutize("top-dir/a-dir");
+    Path file1 = absolutize("top-dir/a-dir/file1");
+    Path file2 = absolutize("top-dir/a-dir/file2");
+    Path bDir = absolutize("top-dir/b-dir");
+    Path file3 = absolutize("top-dir/b-dir/file3");
+
+    topDir.createDirectory();
+    aDir.createDirectory();
+    FileSystemUtils.createEmptyFile(file1);
+    FileSystemUtils.createEmptyFile(file2);
+    bDir.createDirectory();
+    FileSystemUtils.createEmptyFile(file3);
+
+    try {
+      aDir.setReadable(false);
+      aDir.setExecutable(false);
+      bDir.setReadable(false);
+      bDir.setExecutable(false);
+      topDir.setReadable(false);
+      topDir.setExecutable(false);
+    } catch (UnsupportedOperationException e) {
+      // Skip testing if the file system does not support clearing the needed attibutes.
+      return;
+    }
+
+    switch (deleteFunc) {
+      case DELETE_TREE:
+        topDir.deleteTree();
+        assertThat(topDir.exists()).isFalse();
+        break;
+      case DELETE_TREES_BELOW:
+        topDir.deleteTreesBelow();
+        makeTreeReadable(topDir);
+        assertThat(topDir.exists()).isTrue();
+        assertThat(FileSystemUtils.traverseTree(topDir, unused -> true)).isEmpty();
+        break;
+    }
+  }
+
+  @Test
+  public void testDeleteTreeDeletesUnreadableUnexecutableDirectories() throws IOException {
+    doTestDeleteUnreadableUnexecutableDirectories(DeleteFunc.DELETE_TREE);
+  }
+
+  @Test
+  public void testDeleteTreesBelowDeletesUnreadableUnexecutableDirectories() throws IOException {
+    doTestDeleteUnreadableUnexecutableDirectories(DeleteFunc.DELETE_TREES_BELOW);
   }
 
   @Test
@@ -857,7 +1025,7 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testTreesDeletesBelowDeletesContentsOnly() throws IOException {
+  public void testDeleteTreesBelowDeletesContentsOnly() throws IOException {
     Path topDir = absolutize("top-dir");
     Path file = absolutize("top-dir/file");
     Path subdir = absolutize("top-dir/subdir");
@@ -873,7 +1041,7 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testTreesDeletesBelowIgnoresMissingTopDir() throws IOException {
+  public void testDeleteTreesBelowIgnoresMissingTopDir() throws IOException {
     Path topDir = absolutize("top-dir");
 
     assertThat(topDir.exists()).isFalse();
@@ -882,7 +1050,7 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testTreesDeletesBelowIgnoresNonDirectories() throws IOException {
+  public void testDeleteTreesBelowIgnoresNonDirectories() throws IOException {
     Path topFile = absolutize("top-file");
 
     FileSystemUtils.createEmptyFile(topFile);
@@ -890,6 +1058,66 @@ public abstract class FileSystemTest {
     assertThat(topFile.exists()).isTrue();
     topFile.deleteTreesBelow(); // Expect no exception.
     assertThat(topFile.exists()).isTrue();
+  }
+
+  /**
+   * Executes {@link FileSystem#deleteTreesBelow} on {@code topDir} and tries to race its execution
+   * by deleting {@code fileToDelete} concurrently.
+   */
+  private static void deleteTreesBelowRaceTest(Path topDir, Path fileToDelete) throws Exception {
+    CountDownLatch latch = new CountDownLatch(2);
+    AtomicBoolean wonRace = new AtomicBoolean(false);
+    Thread t =
+        new Thread(
+            () -> {
+              try {
+                latch.countDown();
+                latch.await();
+                wonRace.compareAndSet(false, fileToDelete.delete());
+              } catch (IOException | InterruptedException e) {
+                // Don't care.
+              }
+            });
+    t.start();
+    try {
+      try {
+        latch.countDown();
+        latch.await();
+        topDir.deleteTreesBelow();
+      } finally {
+        t.join();
+      }
+      if (!wonRace.get()) {
+        assertThat(topDir.exists()).isTrue();
+      }
+    } catch (IOException e) {
+      if (wonRace.get()) {
+        assertThat(e).hasMessageThat().contains(fileToDelete.toString());
+        assertThat(e).hasMessageThat().contains("No such file");
+      } else {
+        throw e;
+      }
+    }
+  }
+
+  @Test
+  public void testDeleteTreesBelowFailsGracefullyIfTreeGoesMissing() throws Exception {
+    Path topDir = absolutize("maybe-missing-dir");
+    for (int i = 0; i < 1000; i++) {
+      topDir.createDirectory();
+      deleteTreesBelowRaceTest(topDir, topDir);
+    }
+  }
+
+  @Test
+  public void testDeleteTreesBelowFailsGracefullyIfContentsGoMissing() throws Exception {
+    Path topDir = absolutize("top-dir");
+    Path file = absolutize("top-dir/maybe-missing-file");
+    for (int i = 0; i < 1000; i++) {
+      topDir.createDirectory();
+      FileSystemUtils.createEmptyFile(file);
+      deleteTreesBelowRaceTest(topDir, file);
+    }
   }
 
   // Test the date functions
@@ -992,6 +1220,20 @@ public abstract class FileSystemTest {
   }
 
   @Test
+  public void testFileChannelEOF() throws Exception {
+    try (OutputStream outStream = xFile.getOutputStream()) {
+      outStream.write(new byte[] {1});
+    }
+
+    try (ReadableByteChannel channel = xFile.createReadableByteChannel()) {
+      ByteBuffer buffer = ByteBuffer.allocate(2);
+      int numRead = readFromChannel(channel, buffer, 1);
+      assertThat(numRead).isEqualTo(1);
+      assertThat(readFromChannel(channel, buffer, 1)).isEqualTo(-1);
+    }
+  }
+
+  @Test
   public void testInputAndOutputStream() throws Exception {
     try (OutputStream outStream = xFile.getOutputStream()) {
       for (int i = 33; i < 126; i++) {
@@ -1005,6 +1247,38 @@ public abstract class FileSystemTest {
         assertThat(readValue).isEqualTo(i);
       }
     }
+  }
+
+  @Test
+  public void testFileChannel() throws Exception {
+    byte[] bytes = "abcdefghijklmnoprstuvwxyz".getBytes(StandardCharsets.ISO_8859_1);
+    try (OutputStream outStream = xFile.getOutputStream()) {
+      outStream.write(bytes);
+    }
+
+    try (ReadableByteChannel channel = xFile.createReadableByteChannel()) {
+      ByteBuffer buffer = ByteBuffer.allocate(bytes.length);
+      int numRead = readFromChannel(channel, buffer, bytes.length);
+      assertThat(numRead).isEqualTo(bytes.length);
+      assertThat(buffer.hasArray()).isTrue();
+      assertThat(buffer.array()).isEqualTo(bytes);
+    }
+  }
+
+  private static int readFromChannel(ReadableByteChannel channel, ByteBuffer buffer, int expected)
+      throws IOException {
+    int numRead = 0;
+    for (int i = 0; i < 100; i++) {
+      int stepRead = channel.read(buffer);
+      if (stepRead < 0) {
+        return stepRead;
+      }
+      numRead += stepRead;
+      if (numRead >= expected) {
+        return numRead;
+      }
+    }
+    throw new IOException("Can not read the specified number of bytes.");
   }
 
   @Test
@@ -1383,7 +1657,7 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testCreateHardLink_Success() throws Exception {
+  public void testCreateHardLink_success() throws Exception {
     if (!testFS.supportsHardLinksNatively(xFile)) {
       return;
     }
@@ -1396,7 +1670,7 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testCreateHardLink_NeitherOriginalNorLinkExists() throws Exception {
+  public void testCreateHardLink_neitherOriginalNorLinkExists() throws Exception {
     if (!testFS.supportsHardLinksNatively(xFile)) {
       return;
     }
@@ -1413,7 +1687,7 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testCreateHardLink_OriginalDoesNotExistAndLinkExists() throws Exception {
+  public void testCreateHardLink_originalDoesNotExistAndLinkExists() throws Exception {
 
     if (!testFS.supportsHardLinksNatively(xFile)) {
       return;
@@ -1433,7 +1707,7 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testCreateHardLink_BothOriginalAndLinkExist() throws Exception {
+  public void testCreateHardLink_bothOriginalAndLinkExist() throws Exception {
 
     if (!testFS.supportsHardLinksNatively(xFile)) {
       return;

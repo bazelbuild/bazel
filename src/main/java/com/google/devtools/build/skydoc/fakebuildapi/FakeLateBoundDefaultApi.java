@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
-import com.google.devtools.build.lib.skylarkbuildapi.LateBoundDefaultApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.starlarkbuildapi.LateBoundDefaultApi;
+import net.starlark.java.eval.Printer;
 
 /**
  * Fake implementation of {@link LateBoundDefaultApi}.
@@ -23,5 +23,5 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 public class FakeLateBoundDefaultApi implements LateBoundDefaultApi {
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 }

@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+
 package(
     default_visibility = [
         "//tools/test/CoverageOutputGenerator/javatests/com/google/devtools/coverageoutputgenerator:__pkg__",
@@ -47,8 +49,10 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//third_party:auto_value",
+        "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
+        "//third_party/java/jcommander",
     ],
 )
 
@@ -57,6 +61,7 @@ java_library(
     srcs = ["BranchCoverage.java"],
     deps = [
         "//third_party:auto_value",
+        "//third_party:guava",
     ],
 )
 
@@ -111,6 +116,22 @@ java_library(
         ":Constants",
         ":LineCoverage",
         ":SourceFileCoverage",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "GcovJsonParser",
+    srcs = [
+        "GcovJsonParser.java",
+        "Parser.java",
+    ],
+    deps = [
+        ":BranchCoverage",
+        ":Constants",
+        ":LineCoverage",
+        ":SourceFileCoverage",
+        "//third_party:gson",
     ],
 )
 
@@ -145,6 +166,7 @@ java_library(
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
+        "//third_party/java/jcommander",
     ],
 )
 
@@ -154,6 +176,7 @@ java_library(
     deps = [
         ":Constants",
         ":Coverage",
+        ":GcovJsonParser",
         ":GcovParser",
         ":LcovMergerFlags",
         ":LcovParser",
@@ -175,4 +198,28 @@ filegroup(
         "BUILD.tools",
     ],
     visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "coverage_lcov_merge_tools",
+    srcs = [":all_lcov_merger_tools_deploy.jar"],
+    outs = ["coverage/all_lcov_merger_tools_deploy.jar"],
+    cmd = "cp $< $@",
+)
+
+genrule(
+    name = "coverage_empty_workspace",
+    outs = ["coverage/WORKSPACE"],
+    cmd = "touch $@",
+)
+
+# Used to act as an override for @remote_coverage_tools in integration tests
+filegroup(
+    name = "coverage_output_generator_repo",
+    data = [
+        ":coverage_empty_workspace",
+        ":coverage_lcov_merge_tools",
+        ":rename_build_tools",
+    ],
+    visibility = ["//src/test/shell/bazel:__pkg__"],
 )

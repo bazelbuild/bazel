@@ -31,6 +31,12 @@ __declspec(noreturn) void die(const wchar_t* format, ...)
 // Prints the specified error message.
 void PrintError(const wchar_t* format, ...) PRINTF_ATTRIBUTE(1, 2);
 
+// Converts the specified path (Windows 8dot3 style short path) to its long form
+//
+// eg. C:\FO~1\BAR\B~1 -> C:\Foooo\Bar\bin.exe
+// Note that: the given path must be an existing path.
+std::wstring GetWindowsLongPath(const std::wstring& path);
+
 // Strip the .exe extension from binary path.
 //
 // On Windows, if the binary path is foo/bar/bin.exe then return foo/bar/bin
@@ -47,18 +53,6 @@ std::wstring GetBinaryPathWithExtension(const std::wstring& binary);
 // (from " to \") and escape a single backslash with another backslash (from \
 // to \\).
 std::wstring BashEscapeArg(const std::wstring& arg);
-
-// Escape a command line argument using Windows escaping syntax.
-//
-// This escaping lets us safely pass arguments to subprocesses created with
-// CreateProcessW. (The escaping rules are a bit complex, look at the function
-// implementation.)
-std::wstring WindowsEscapeArg(const std::wstring& arg);
-
-// TODO(laszlocsomor): Delete WindowsEscapeArg and use WindowsEscapeArg2.
-// WindowsEscapeArg escapes incorrectly while WindowsEscapeArg2 escapes
-// correctly.
-std::wstring WindowsEscapeArg2(const std::wstring& arg);
 
 // Convert a path to an absolute Windows path with \\?\ prefix.
 // This method will print an error and exit if it cannot convert the path.

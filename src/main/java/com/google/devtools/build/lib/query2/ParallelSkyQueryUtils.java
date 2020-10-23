@@ -19,8 +19,6 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.Callback;
@@ -61,17 +59,13 @@ public class ParallelSkyQueryUtils {
       SkyQueryEnvironment env,
       QueryExpression expression,
       QueryExpressionContext<Target> context,
-      Callback<Target> callback,
-      MultisetSemaphore<PackageIdentifier> packageSemaphore) {
+      Callback<Target> callback) {
     return env.eval(
         expression,
         context,
-        ParallelVisitor.createParallelVisitorCallback(
+        ParallelVisitorUtils.createParallelVisitorCallback(
             new RdepsUnboundedVisitor.Factory(
-                env,
-                /*unfilteredUniverse=*/ Predicates.alwaysTrue(),
-                callback,
-                packageSemaphore)));
+                env, /*unfilteredUniverse=*/ Predicates.alwaysTrue(), callback)));
   }
 
   static QueryTaskFuture<Void> getAllRdepsBoundedParallel(
@@ -79,18 +73,13 @@ public class ParallelSkyQueryUtils {
       QueryExpression expression,
       int depth,
       QueryExpressionContext<Target> context,
-      Callback<Target> callback,
-      MultisetSemaphore<PackageIdentifier> packageSemaphore) {
+      Callback<Target> callback) {
     return env.eval(
         expression,
         context,
-        ParallelVisitor.createParallelVisitorCallback(
+        ParallelVisitorUtils.createParallelVisitorCallback(
             new RdepsBoundedVisitor.Factory(
-                env,
-                depth,
-                /*universe=*/ Predicates.alwaysTrue(),
-                callback,
-                packageSemaphore)));
+                env, depth, /*universe=*/ Predicates.alwaysTrue(), callback)));
   }
 
   static QueryTaskFuture<Void> getRdepsInUniverseUnboundedParallel(
@@ -98,14 +87,12 @@ public class ParallelSkyQueryUtils {
       QueryExpression expression,
       Predicate<SkyKey> unfilteredUniverse,
       QueryExpressionContext<Target> context,
-      Callback<Target> callback,
-      MultisetSemaphore<PackageIdentifier> packageSemaphore) {
+      Callback<Target> callback) {
     return env.eval(
         expression,
         context,
-        ParallelVisitor.createParallelVisitorCallback(
-            new RdepsUnboundedVisitor.Factory(
-                env, unfilteredUniverse, callback, packageSemaphore)));
+        ParallelVisitorUtils.createParallelVisitorCallback(
+            new RdepsUnboundedVisitor.Factory(env, unfilteredUniverse, callback)));
   }
 
   static QueryTaskFuture<Predicate<SkyKey>> getDTCSkyKeyPredicateFuture(
@@ -124,14 +111,15 @@ public class ParallelSkyQueryUtils {
                   new ThreadSafeAggregateAllSkyKeysCallback(concurrencyLevel);
               return env.execute(
                   () -> {
-                    Callback<Target> visitorCallback =
-                        ParallelVisitor.createParallelVisitorCallback(
-                            new UnfilteredSkyKeyTTVDTCVisitor.Factory(
+                    UnfilteredSkyKeyLabelDTCVisitor visitor =
+                        new UnfilteredSkyKeyLabelDTCVisitor.Factory(
                                 env,
                                 env.createSkyKeyUniquifier(),
                                 processResultsBatchSize,
-                                aggregateAllCallback));
-                    visitorCallback.process(universeValue);
+                                aggregateAllCallback)
+                            .create();
+                    visitor.visitAndWaitForCompletion(
+                        SkyQueryEnvironment.makeLabelsStrict(universeValue));
                     return Predicates.in(aggregateAllCallback.getResult());
                   });
             };
@@ -145,18 +133,12 @@ public class ParallelSkyQueryUtils {
       int depth,
       Predicate<SkyKey> universe,
       QueryExpressionContext<Target> context,
-      Callback<Target> callback,
-      MultisetSemaphore<PackageIdentifier> packageSemaphore) {
+      Callback<Target> callback) {
     return env.eval(
         expression,
         context,
-        ParallelVisitor.createParallelVisitorCallback(
-            new RdepsBoundedVisitor.Factory(
-                env,
-                depth,
-                universe,
-                callback,
-                packageSemaphore)));
+        ParallelVisitorUtils.createParallelVisitorCallback(
+            new RdepsBoundedVisitor.Factory(env, depth, universe, callback)));
   }
 
   /** Specialized parallel variant of {@link SkyQueryEnvironment#getRBuildFiles}. */
@@ -172,7 +154,7 @@ public class ParallelSkyQueryUtils {
             /*resultUniquifier=*/ env.createSkyKeyUniquifier(),
             context,
             callback);
-    visitor.visitAndWaitForCompletion(env.getFileStateKeysForFileFragments(fileIdentifiers));
+    visitor.visitFileIdentifiersAndWaitForCompletion(env.graph, fileIdentifiers);
   }
 
   static QueryTaskFuture<Void> getDepsUnboundedParallel(
@@ -180,14 +162,13 @@ public class ParallelSkyQueryUtils {
       QueryExpression expression,
       QueryExpressionContext<Target> context,
       Callback<Target> callback,
-      MultisetSemaphore<PackageIdentifier> packageSemaphore,
-      boolean depsNeedFiltering) {
+      boolean depsNeedFiltering,
+      QueryExpression caller) {
     return env.eval(
         expression,
         context,
-        ParallelVisitor.createParallelVisitorCallback(
-            new DepsUnboundedVisitor.Factory(
-                env, callback, packageSemaphore, depsNeedFiltering, context)));
+        ParallelVisitorUtils.createParallelVisitorCallback(
+            new DepsUnboundedVisitor.Factory(env, callback, depsNeedFiltering, context, caller)));
   }
 
   static class DepAndRdep {
@@ -253,4 +234,3 @@ public class ParallelSkyQueryUtils {
     }
   }
 }
-

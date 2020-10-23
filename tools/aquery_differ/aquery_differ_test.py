@@ -1,3 +1,5 @@
+# Lint as: python2, python3
+# pylint: disable=g-direct-third-party-import
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,15 +15,17 @@
 # limitations under the License.
 
 import unittest
+
+# Do not edit this line. Copybara replaces it with PY2 migration helper.
+from third_party.py import mock
+import six
+if six.PY2:
+  from cStringIO import StringIO
+else:
+  from io import StringIO
+
 from src.main.protobuf import analysis_pb2
 from tools.aquery_differ import aquery_differ
-from third_party.py import mock
-try:
-  # Python 2
-  from cStringIO import StringIO
-except ImportError:
-  # Python 3
-  from io import StringIO
 
 
 def make_aquery_output(actions, artifact_paths):

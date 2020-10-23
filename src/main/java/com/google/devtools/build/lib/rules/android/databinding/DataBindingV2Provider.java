@@ -13,16 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android.databinding;
 
+import static com.google.devtools.build.lib.rules.android.AndroidStarlarkData.fromNoneable;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skylarkbuildapi.android.DataBindingV2ProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.starlarkbuildapi.android.DataBindingV2ProviderApi;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 
 /**
  * A provider that exposes this enables <a
@@ -73,6 +76,10 @@ public final class DataBindingV2Provider extends NativeInfo
   }
 
   @Override
+  public Depset /*<Artifact>*/ getTransitiveBRFilesForStarlark() {
+    return Depset.of(Artifact.TYPE, transitiveBRFiles);
+  }
+
   public NestedSet<Artifact> getTransitiveBRFiles() {
     return transitiveBRFiles;
   }
@@ -84,6 +91,10 @@ public final class DataBindingV2Provider extends NativeInfo
   }
 
   @Override
+  public Depset /*<LabelJavaPackagePair>*/ getTransitiveLabelAndJavaPackagesForStarlark() {
+    return Depset.of(LabelJavaPackagePair.TYPE, transitiveLabelAndJavaPackages);
+  }
+
   public NestedSet<LabelJavaPackagePair> getTransitiveLabelAndJavaPackages() {
     return transitiveLabelAndJavaPackages;
   }
@@ -94,6 +105,7 @@ public final class DataBindingV2Provider extends NativeInfo
       Artifact brFile,
       String label,
       String javaPackage,
+      // ugh these *Api types do not help one bit
       Iterable<? extends DataBindingV2ProviderApi<Artifact>> databindingV2ProvidersInDeps,
       Iterable<? extends DataBindingV2ProviderApi<Artifact>> databindingV2ProvidersInExports) {
 
@@ -115,13 +127,17 @@ public final class DataBindingV2Provider extends NativeInfo
     NestedSetBuilder<LabelJavaPackagePair> transitiveLabelAndJavaPackages =
         NestedSetBuilder.stableOrder();
     ImmutableList.Builder<LabelJavaPackagePair> labelAndJavaPackages = ImmutableList.builder();
-    LabelJavaPackagePair labelAndJavaPackage = LabelJavaPackagePair.create(label, javaPackage);
-    labelAndJavaPackages.add(labelAndJavaPackage);
-    transitiveLabelAndJavaPackages.add(labelAndJavaPackage);
+
+    if (label != null && javaPackage != null) {
+      LabelJavaPackagePair labelAndJavaPackage = new LabelJavaPackagePair(label, javaPackage);
+      labelAndJavaPackages.add(labelAndJavaPackage);
+      transitiveLabelAndJavaPackages.add(labelAndJavaPackage);
+    }
 
     if (databindingV2ProvidersInDeps != null) {
 
-      for (DataBindingV2ProviderApi<Artifact> provider : databindingV2ProvidersInDeps) {
+      for (DataBindingV2ProviderApi<Artifact> p : databindingV2ProvidersInDeps) {
+        DataBindingV2Provider provider = (DataBindingV2Provider) p;
         brFiles.addTransitive(provider.getTransitiveBRFiles());
         transitiveLabelAndJavaPackages.addTransitive(provider.getTransitiveLabelAndJavaPackages());
       }
@@ -131,7 +147,8 @@ public final class DataBindingV2Provider extends NativeInfo
 
       // Add all of the information from providers from exported targets, so that targets which
       // depend on this target appear to depend on the exported targets.
-      for (DataBindingV2ProviderApi<Artifact> provider : databindingV2ProvidersInExports) {
+      for (DataBindingV2ProviderApi<Artifact> p : databindingV2ProvidersInExports) {
+        DataBindingV2Provider provider = (DataBindingV2Provider) p;
         setterStoreFiles.addAll(provider.getSetterStores());
         classInfoFiles.addAll(provider.getClassInfos());
         brFiles.addTransitive(provider.getTransitiveBRFiles());
@@ -158,27 +175,35 @@ public final class DataBindingV2Provider extends NativeInfo
 
     @Override
     public DataBindingV2ProviderApi<Artifact> createInfo(
-        Artifact setterStoreFile,
-        Artifact classInfoFile,
-        Artifact brFile,
-        String label,
-        String javaPackage,
-        SkylarkList<DataBindingV2ProviderApi<Artifact>> databindingV2ProvidersInDeps,
-        SkylarkList<DataBindingV2ProviderApi<Artifact>> databindingV2ProvidersInExports)
+        Object setterStoreFile,
+        Object classInfoFile,
+        Object brFile,
+        Object label,
+        Object javaPackage,
+        Sequence<?> databindingV2ProvidersInDeps, // <DataBindingV2Provider>
+        Sequence<?> databindingV2ProvidersInExports) // <DataBindingV2Provider>
         throws EvalException {
 
       return createProvider(
-          setterStoreFile,
-          classInfoFile,
-          brFile,
-          label,
-          javaPackage,
+          fromNoneable(setterStoreFile, Artifact.class),
+          fromNoneable(classInfoFile, Artifact.class),
+          fromNoneable(brFile, Artifact.class),
+          fromNoneable(label, String.class),
+          fromNoneable(javaPackage, String.class),
           databindingV2ProvidersInDeps == null
               ? null
-              : databindingV2ProvidersInDeps.getImmutableList(),
+              : ImmutableList.copyOf(
+                  Sequence.cast(
+                      databindingV2ProvidersInDeps,
+                      DataBindingV2Provider.class,
+                      "databinding_v2_providers_in_deps")),
           databindingV2ProvidersInExports == null
               ? null
-              : databindingV2ProvidersInExports.getImmutableList());
+              : ImmutableList.copyOf(
+                  Sequence.cast(
+                      databindingV2ProvidersInExports,
+                      DataBindingV2Provider.class,
+                      "databinding_v2_providers_in_exports")));
     }
   }
 }

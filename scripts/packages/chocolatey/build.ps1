@@ -33,7 +33,7 @@ if ($fixPackage -eq $true) {
   if ($mode -eq "release") {
     $prefix = "."
   }
-  $tvPackageFixVersion = "$($prefix)$((get-date).tostring("yyyyMMdd_hhmmss"))"
+  $tvPackageFixVersion = "$($prefix)$((get-date).tostring("yyyyMMdd"))"
 }
 remove-item -force -ErrorAction SilentlyContinue "./*.nupkg"
 remove-item -force -ErrorAction SilentlyContinue "./bazel.nuspec"

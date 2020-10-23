@@ -14,8 +14,9 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -86,10 +88,15 @@ public class GlobCacheTest {
     scratch.file("isolated/sub/sub.js",
         "# this is sub/sub.js");
 
+    createCache();
+  }
+
+  private void createCache(PathFragment... ignoredDirectories) {
     cache =
         new GlobCache(
             packageDirectory,
             PackageIdentifier.createInMainRepo("isolated"),
+            ImmutableSet.copyOf(ignoredDirectories),
             new CachingPackageLocator() {
               @Override
               public Path getBuildFileForPackage(PackageIdentifier packageId) {
@@ -111,6 +118,18 @@ public class GlobCacheTest {
   @After
   public final void deleteFiles() throws Exception  {
     scratch.getFileSystem().getPath("/").deleteTreesBelow();
+  }
+
+  @Test
+  public void testIgnoredDirectory() throws Exception {
+    createCache(PathFragment.create("isolated/foo"));
+    List<Path> paths = cache.safeGlobUnsorted("**/*.js", true).get();
+    assertPathsAre(
+        paths,
+        "/workspace/isolated/first.js",
+        "/workspace/isolated/second.js",
+        "/workspace/isolated/bar/first.js",
+        "/workspace/isolated/bar/second.js");
   }
 
   @Test
@@ -186,13 +205,13 @@ public class GlobCacheTest {
   }
 
   @Test
-  public void testSingleFileExclude_Star() throws Exception {
+  public void testSingleFileExclude_star() throws Exception {
     assertThat(cache.globUnsorted(list("*"), list("first.txt"), false, true))
         .containsExactly("BUILD", "bar", "first.js", "foo", "second.js", "second.txt");
   }
 
   @Test
-  public void testSingleFileExclude_StarStar() throws Exception {
+  public void testSingleFileExclude_starStar() throws Exception {
     assertThat(cache.globUnsorted(list("**"), list("first.txt"), false, true))
         .containsExactly(
             "BUILD",
@@ -208,22 +227,22 @@ public class GlobCacheTest {
   }
 
   @Test
-  public void testExcludeAll_Star() throws Exception {
+  public void testExcludeAll_star() throws Exception {
     assertThat(cache.globUnsorted(list("*"), list("*"), false, true)).isEmpty();
   }
 
   @Test
-  public void testExcludeAll_Star_NoMatchesAnyway() throws Exception {
+  public void testExcludeAll_star_noMatchesAnyway() throws Exception {
     assertThat(cache.globUnsorted(list("nope"), list("*"), false, true)).isEmpty();
   }
 
   @Test
-  public void testExcludeAll_StarStar() throws Exception {
+  public void testExcludeAll_starStar() throws Exception {
     assertThat(cache.globUnsorted(list("**"), list("**"), false, true)).isEmpty();
   }
 
   @Test
-  public void testExcludeAll_Manual() throws Exception {
+  public void testExcludeAll_manual() throws Exception {
     assertThat(cache.globUnsorted(list("**"), list("*", "*/*", "*/*/*"), false, true)).isEmpty();
   }
 
@@ -239,33 +258,6 @@ public class GlobCacheTest {
         .containsExactly("foo/first.js", "foo/second.js");
     assertThat(cache.globUnsorted(list("foo/*"), list("foo"), false, true))
         .containsExactly("foo/first.js", "foo/second.js");
-  }
-
-  @Test
-  public void testGlobAllowEmpty() throws Exception {
-    assertEmpty(cache.globUnsorted(list("*.java"), NONE, false, true));
-
-    BadGlobException expected =
-        assertThrows(
-            BadGlobException.class, () -> cache.globUnsorted(list("*.java"), NONE, false, false));
-    assertThat(expected).hasMessageThat().contains("allow_empty");
-
-    assertThat(cache.globUnsorted(list("*.txt", "*.java"), NONE, false, true))
-        .containsExactly("first.txt", "second.txt");
-
-    expected =
-        assertThrows(
-            BadGlobException.class,
-            () -> cache.globUnsorted(list("*.txt", "*.java"), NONE, false, false));
-    assertThat(expected).hasMessageThat().contains("allow_empty");
-
-    assertEmpty(cache.globUnsorted(list("*.txt"), list("*.*"), false, true));
-
-    expected =
-        assertThrows(
-            BadGlobException.class,
-            () -> cache.globUnsorted(list("*.txt"), list("*.*"), false, false));
-    assertThat(expected).hasMessageThat().contains("allow_empty");
   }
 
   @Test

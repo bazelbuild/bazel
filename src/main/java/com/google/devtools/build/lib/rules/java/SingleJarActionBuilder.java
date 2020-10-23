@@ -49,8 +49,7 @@ public final class SingleJarActionBuilder {
           "--compression", "--normalize", "--exclude_build_data", "--warn_duplicate_resources");
 
   /** Constructs the base spawn for a singlejar action. */
-  private static SpawnAction.Builder singleJarActionBuilder(
-      JavaToolchainProvider provider, JavaRuntimeInfo hostJavabase) {
+  private static SpawnAction.Builder singleJarActionBuilder(JavaToolchainProvider provider) {
     Artifact singleJar = provider.getSingleJar();
     SpawnAction.Builder builder = new SpawnAction.Builder();
     // If singlejar's name ends with .jar, it is Java application, otherwise it is native.
@@ -58,8 +57,11 @@ public final class SingleJarActionBuilder {
     // the native singlejar is used on windows) remove support for the Java implementation
     if (singleJar.getFilename().endsWith(".jar")) {
       builder
-          .addTransitiveInputs(hostJavabase.javaBaseInputsMiddleman())
-          .setJarExecutable(hostJavabase.javaBinaryExecPath(), singleJar, provider.getJvmOptions())
+          .addTransitiveInputs(provider.getJavaRuntime().javaBaseInputsMiddleman())
+          .setJarExecutable(
+              provider.getJavaRuntime().javaBinaryExecPathFragment(),
+              singleJar,
+              provider.getJvmOptions())
           .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED);
     } else {
       builder.setExecutable(singleJar);
@@ -87,8 +89,7 @@ public final class SingleJarActionBuilder {
         resources,
         resourceJars,
         outputJar,
-        JavaToolchainProvider.from(ruleContext),
-        JavaRuntimeInfo.forHost(ruleContext));
+        JavaToolchainProvider.from(ruleContext));
   }
 
   /**
@@ -100,7 +101,6 @@ public final class SingleJarActionBuilder {
    * @param resourceJars the resource jars to merge into the jar
    * @param outputJar the Jar to create
    * @param toolchainProvider is used to retrieve jvm options
-   * @param hostJavabase the Java runtime to run the tools under
    */
   public static void createSourceJarAction(
       ActionRegistry actionRegistry,
@@ -109,17 +109,16 @@ public final class SingleJarActionBuilder {
       NestedSet<Artifact> resources,
       NestedSet<Artifact> resourceJars,
       Artifact outputJar,
-      JavaToolchainProvider toolchainProvider,
-      JavaRuntimeInfo hostJavabase) {
+      JavaToolchainProvider toolchainProvider) {
     requireNonNull(resourceJars);
     requireNonNull(outputJar);
     if (!resources.isEmpty()) {
       requireNonNull(semantics);
     }
     SpawnAction.Builder builder =
-        singleJarActionBuilder(toolchainProvider, hostJavabase)
+        singleJarActionBuilder(toolchainProvider)
             .addOutput(outputJar)
-            .addInputs(resources)
+            .addTransitiveInputs(resources)
             .addTransitiveInputs(resourceJars)
             .addCommandLine(
                 sourceJarCommandLine(outputJar, semantics, resources, resourceJars),
@@ -142,10 +141,9 @@ public final class SingleJarActionBuilder {
     requireNonNull(jars);
     requireNonNull(output);
     SpawnAction.Builder builder =
-        singleJarActionBuilder(
-                JavaToolchainProvider.from(ruleContext), JavaRuntimeInfo.forHost(ruleContext))
+        singleJarActionBuilder(JavaToolchainProvider.from(ruleContext))
             .addOutput(output)
-            .addInputs(jars)
+            .addTransitiveInputs(jars)
             .addCommandLine(
                 sourceJarCommandLine(
                     output,

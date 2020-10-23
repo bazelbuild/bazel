@@ -93,6 +93,11 @@ freebsd)
   JAVA_HOME="${JAVA_HOME:-/usr/local/openjdk8}"
   ;;
 
+openbsd)
+  # JAVA_HOME must point to a Java installation.
+  JAVA_HOME="${JAVA_HOME:-/usr/local/jdk-1.8.0}"
+  ;;
+
 darwin)
   if [[ -z "$JAVA_HOME" ]]; then
     JAVA_HOME="$(/usr/libexec/java_home -v ${JAVA_VERSION}+ 2> /dev/null)" \
@@ -318,7 +323,9 @@ function link_dir() {
   local dest=$2
 
   if [[ "${PLATFORM}" == "windows" ]]; then
-    cmd.exe /C "mklink /J \"$(cygpath -w "$dest")\" \"$(cygpath -w "$source")\"" >&/dev/null
+    local -r s="$(cygpath -w "$source")"
+    local -r d="$(cygpath -w "$dest")"
+    powershell -command "New-Item -ItemType Junction -Path '$d' -Value '$s'"
   else
     ln -s "${source}" "${dest}"
   fi
@@ -332,7 +339,9 @@ function link_file() {
     # Attempt creating a symlink to the file. This is supported without
     # elevation (Administrator privileges) on Windows 10 version 1709 when
     # Developer Mode is enabled.
-    if ! cmd.exe /C "mklink \"$(cygpath -w "$dest")\" \"$(cygpath -w "$source")\"" >&/dev/null; then
+    local -r s="$(cygpath -w "$source")"
+    local -r d="$(cygpath -w "$dest")"
+    if ! powershell -command "New-Item -ItemType SymbolicLink -Path '$d' -Value '$s'"; then
       # If the previous call failed to create a symlink, just copy the file.
       cp "$source" "$dest"
     fi

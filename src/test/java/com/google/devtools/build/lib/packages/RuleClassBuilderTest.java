@@ -15,19 +15,22 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
-import static com.google.devtools.build.lib.syntax.Type.INTEGER;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+import static com.google.devtools.build.lib.packages.Type.INTEGER;
+import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
+import net.starlark.java.eval.StarlarkInt;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -54,7 +57,7 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .add(attr("srcs", BuildType.LABEL_LIST).legacyAllowAnyFileType())
             .add(attr("tags", STRING_LIST))
-            .add(attr("X", com.google.devtools.build.lib.syntax.Type.INTEGER).mandatory())
+            .add(attr("X", com.google.devtools.build.lib.packages.Type.INTEGER).mandatory())
             .build();
 
     assertThat(ruleClassA.getName()).isEqualTo("ruleA");
@@ -80,7 +83,7 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
             .add(attr("size", STRING).value("medium"))
             .add(attr("timeout", STRING))
             .add(attr("flaky", BOOLEAN).value(false))
-            .add(attr("shard_count", INTEGER).value(-1))
+            .add(attr("shard_count", INTEGER).value(StarlarkInt.of(-1)))
             .add(attr("local", BOOLEAN))
             .build();
     assertThat(ruleClassA.hasBinaryOutput()).isTrue();
@@ -188,6 +191,82 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
             .add(attr("attr", STRING))
             .build();
     assertThat(child.getRequiredToolchains()).contains(mockToolchainType);
+  }
+
+  @Test
+  public void testExecGroupsAreInherited() throws Exception {
+    Label mockToolchainType = Label.parseAbsoluteUnchecked("//mock_toolchain_type");
+    Label mockConstraint = Label.parseAbsoluteUnchecked("//mock_constraint");
+    ExecGroup parentGroup =
+        ExecGroup.create(ImmutableSet.of(mockToolchainType), ImmutableSet.of(mockConstraint));
+    ExecGroup childGroup = ExecGroup.create(ImmutableSet.of(), ImmutableSet.of());
+    RuleClass parent =
+        new RuleClass.Builder("$parent", RuleClassType.ABSTRACT, false)
+            .add(attr("tags", STRING_LIST))
+            .addExecGroups(ImmutableMap.of("group", parentGroup))
+            .build();
+    RuleClass child =
+        new RuleClass.Builder("child", RuleClassType.NORMAL, false, parent)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .add(attr("attr", STRING))
+            .addExecGroups(ImmutableMap.of("child-group", childGroup))
+            .build();
+    assertThat(child.getExecGroups().get("group")).isEqualTo(parentGroup);
+    assertThat(child.getExecGroups().get("child-group")).isEqualTo(childGroup);
+  }
+
+  @Test
+  public void testDuplicateExecGroupsThatAreEqualIsOk() throws Exception {
+    ExecGroup execGroup =
+        ExecGroup.create(
+            ImmutableSet.of(Label.parseAbsoluteUnchecked("//some/toolchain")),
+            ImmutableSet.of(Label.parseAbsoluteUnchecked("//some/constraint")));
+    RuleClass a =
+        new RuleClass.Builder("ruleA", RuleClassType.NORMAL, false)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .addExecGroups(ImmutableMap.of("blueberry", execGroup))
+            .add(attr("tags", STRING_LIST))
+            .build();
+    RuleClass b =
+        new RuleClass.Builder("ruleB", RuleClassType.NORMAL, false)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .addExecGroups(ImmutableMap.of("blueberry", execGroup))
+            .add(attr("tags", STRING_LIST))
+            .build();
+    RuleClass c = new RuleClass.Builder("$ruleC", RuleClassType.ABSTRACT, false, a, b).build();
+    assertThat(c.getExecGroups()).containsExactly("blueberry", execGroup);
+  }
+
+  @Test
+  public void testDuplicateExecGroupsThrowsError() throws Exception {
+    RuleClass a =
+        new RuleClass.Builder("ruleA", RuleClassType.NORMAL, false)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .addExecGroups(
+                ImmutableMap.of(
+                    "blueberry",
+                    ExecGroup.create(
+                        ImmutableSet.of(Label.parseAbsoluteUnchecked("//some/toolchain")),
+                        ImmutableSet.of())))
+            .add(attr("tags", STRING_LIST))
+            .build();
+    RuleClass b =
+        new RuleClass.Builder("ruleB", RuleClassType.NORMAL, false)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .addExecGroups(
+                ImmutableMap.of(
+                    "blueberry", ExecGroup.create(ImmutableSet.of(), ImmutableSet.of())))
+            .add(attr("tags", STRING_LIST))
+            .build();
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> new RuleClass.Builder("ruleC", RuleClassType.NORMAL, false, a, b).build());
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "An execution group named 'blueberry' is inherited multiple times with different"
+                + " requirements in ruleC ruleclass");
   }
 
   @Test

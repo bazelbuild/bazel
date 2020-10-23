@@ -17,10 +17,12 @@ import static com.android.resources.ResourceType.DECLARE_STYLEABLE;
 import static com.android.resources.ResourceType.ID;
 import static com.android.resources.ResourceType.PUBLIC;
 
+import com.android.aapt.Resources.Reference;
 import com.android.aapt.Resources.Value;
 import com.android.resources.ResourceType;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.AndroidCompiledDataDeserializer.ReferenceResolver;
 import com.google.devtools.build.android.FullyQualifiedName.Factory;
@@ -28,6 +30,7 @@ import com.google.devtools.build.android.FullyQualifiedName.VirtualType;
 import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml;
+import com.google.devtools.build.android.resources.Visibility;
 import com.google.devtools.build.android.xml.ArrayXmlResourceValue;
 import com.google.devtools.build.android.xml.AttrXmlResourceValue;
 import com.google.devtools.build.android.xml.IdXmlResourceValue;
@@ -100,6 +103,8 @@ public class DataResourceXml implements DataResource {
           String attributeName =
               attribute.getName().getNamespaceURI().isEmpty()
                   ? attribute.getName().getLocalPart()
+                  // This is intentionally putting the "package" in the wrong place!
+                  // TODO: FullyQualifiedName.Factory#create has a overload which accepts "package".
                   : attribute.getName().getPrefix() + ":" + attribute.getName().getLocalPart();
           FullyQualifiedName fqn =
               fqnFactory.create(VirtualType.RESOURCES_ATTRIBUTE, attribute.getName().toString());
@@ -166,18 +171,21 @@ public class DataResourceXml implements DataResource {
       throws InvalidProtocolBufferException {
     DataValueXml xmlValue = protoValue.getXmlValue();
     return createWithNamespaces(
-        source, valueFromProto(xmlValue), Namespaces.from(xmlValue.getNamespace()));
+        source, valueFromProto(xmlValue), Namespaces.from(xmlValue.getNamespaceMap()));
   }
 
   public static DataResourceXml from(
       Value protoValue,
+      Visibility visibility,
       DataSource source,
       ResourceType resourceType,
       ReferenceResolver packageResolver)
       throws InvalidProtocolBufferException {
     DataResourceXml dataResourceXml =
         createWithNamespaces(
-            source, valueFromProto(protoValue, resourceType, packageResolver), Namespaces.empty());
+            source,
+            valueFromProto(protoValue, visibility, resourceType, packageResolver),
+            Namespaces.empty());
     return dataResourceXml;
   }
 
@@ -209,21 +217,24 @@ public class DataResourceXml implements DataResource {
   }
 
   private static XmlResourceValue valueFromProto(
-      Value proto, ResourceType resourceType, ReferenceResolver packageResolver)
+      Value proto,
+      Visibility visibility,
+      ResourceType resourceType,
+      ReferenceResolver packageResolver)
       throws InvalidProtocolBufferException {
     switch (resourceType) {
       case STYLE:
-        return StyleXmlResourceValue.from(proto);
+        return StyleXmlResourceValue.from(proto, visibility);
       case ARRAY:
-        return ArrayXmlResourceValue.from(proto);
+        return ArrayXmlResourceValue.from(proto, visibility);
       case PLURALS:
-        return PluralXmlResourceValue.from(proto);
+        return PluralXmlResourceValue.from(proto, visibility);
       case ATTR:
-        return AttrXmlResourceValue.from(proto);
+        return AttrXmlResourceValue.from(proto, visibility);
       case STYLEABLE:
-        return StyleableXmlResourceValue.from(proto, packageResolver);
+        return StyleableXmlResourceValue.from(proto, visibility, packageResolver);
       case ID:
-        return IdXmlResourceValue.of();
+        return IdXmlResourceValue.from(proto, visibility);
       case DIMEN:
       case LAYOUT:
       case STRING:
@@ -243,7 +254,7 @@ public class DataResourceXml implements DataResource {
       case TRANSITION:
       case FONT:
       case XML:
-        return SimpleXmlResourceValue.from(proto, resourceType);
+        return SimpleXmlResourceValue.from(proto, visibility, resourceType);
       default:
         throw new IllegalArgumentException("Unhandled type " + resourceType + " from " + proto);
     }
@@ -343,7 +354,7 @@ public class DataResourceXml implements DataResource {
 
   public static DataResourceXml createWithNamespaces(
       Path sourcePath, XmlResourceValue xml, Namespaces namespaces) {
-    return createWithNamespaces(DataSource.of(sourcePath), xml, namespaces);
+    return createWithNamespaces(DataSource.of(DependencyInfo.UNKNOWN, sourcePath), xml, namespaces);
   }
 
   @Override
@@ -384,7 +395,7 @@ public class DataResourceXml implements DataResource {
 
   @Override
   public void writeResourceToClass(FullyQualifiedName key, AndroidResourceSymbolSink sink) {
-    xml.writeResourceToClass(key, sink);
+    xml.writeResourceToClass(source().getDependencyInfo(), key, sink);
   }
 
   @Override
@@ -442,5 +453,15 @@ public class DataResourceXml implements DataResource {
     }
     DataResourceXml other = (DataResourceXml) value;
     return xml.compareMergePriorityTo(other.xml);
+  }
+
+  @Override
+  public Visibility getVisibility() {
+    return xml.getVisibility();
+  }
+
+  @Override
+  public ImmutableList<Reference> getReferencedResources() {
+    return xml.getReferencedResources();
   }
 }

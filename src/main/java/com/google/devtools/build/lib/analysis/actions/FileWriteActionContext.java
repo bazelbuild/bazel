@@ -16,9 +16,7 @@ package com.google.devtools.build.lib.analysis.actions;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
-import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction.DeterministicWriter;
 
 /**
  * The action context for {@link AbstractFileWriteAction} instances (technically instances of
@@ -36,5 +34,5 @@ public interface FileWriteActionContext extends ActionContext {
       DeterministicWriter deterministicWriter,
       boolean makeExecutable,
       boolean isRemotable)
-      throws ExecException, InterruptedException;
+      throws InterruptedException;
 }

@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -28,6 +29,7 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public final class ResourceApk {
+
   // TODO(bazel-team): The only fields that are legitimately nullable are javaSrcJar and
   // mainDexProguardConfig. The rest are marked as such due to .fromTransitiveResources().
   // It seems like there should be a better way to do this.
@@ -51,6 +53,9 @@ public final class ResourceApk {
   @Nullable private final Artifact resourceProguardConfig;
   @Nullable private final Artifact mainDexProguardConfig;
   private final DataBindingContext dataBindingContext;
+  @Nullable private final Artifact resourcesZip;
+
+  private final boolean isFromAndroidApplicationResourceInfo;
 
   public static ResourceApk of(
       ValidatedAndroidResources resources,
@@ -68,9 +73,11 @@ public final class ResourceApk {
         assets,
         resources.getProcessedManifest(),
         resources.getRTxt(),
+        resources.getMergedResources(),
         resourceProguardConfig,
         mainDexProguardConfig,
-        resources.asDataBindingContext());
+        resources.asDataBindingContext(),
+        /* isFromAndroidApplicationResourceInfo= */ false);
   }
 
   private ResourceApk(
@@ -84,9 +91,11 @@ public final class ResourceApk {
       AndroidAssets primaryAssets,
       ProcessedAndroidManifest manifest,
       Artifact rTxt,
+      @Nullable Artifact resourcesZip,
       @Nullable Artifact resourceProguardConfig,
       @Nullable Artifact mainDexProguardConfig,
-      DataBindingContext dataBindingContext) {
+      DataBindingContext dataBindingContext,
+      boolean isFromAndroidApplicationResourceInfo) {
     this.resourceApk = resourceApk;
     this.resourceJavaSrcJar = resourceJavaSrcJar;
     this.resourceJavaClassJar = resourceJavaClassJar;
@@ -97,9 +106,32 @@ public final class ResourceApk {
     this.primaryAssets = primaryAssets;
     this.manifest = manifest;
     this.rTxt = rTxt;
+    this.resourcesZip = resourcesZip;
     this.resourceProguardConfig = resourceProguardConfig;
     this.mainDexProguardConfig = mainDexProguardConfig;
     this.dataBindingContext = dataBindingContext;
+    this.isFromAndroidApplicationResourceInfo = isFromAndroidApplicationResourceInfo;
+  }
+
+  public static ResourceApk fromAndroidApplicationResourceInfo(
+      AndroidDataContext ctx, AndroidApplicationResourceInfo androidApplicationResourceInfo) {
+    return new ResourceApk(
+        androidApplicationResourceInfo.getResourceApk(),
+        androidApplicationResourceInfo.getResourceJavaSrcJar(),
+        androidApplicationResourceInfo.getResourceJavaClassJar(),
+        /* resourceDeps= */ null,
+        /* assetDeps= */ null,
+        /* validatedResources= */ null,
+        /* primaryResources= */ null,
+        /* primaryAssets= */ null,
+        new ProcessedAndroidManifest(
+            androidApplicationResourceInfo.getManifest(), /* pkg= */ null, /* exported= */ false),
+        androidApplicationResourceInfo.getRTxt(),
+        androidApplicationResourceInfo.getResourcesZip(),
+        androidApplicationResourceInfo.getResourceProguardConfig(),
+        androidApplicationResourceInfo.getMainDexProguardConfig(),
+        DataBinding.getDisabledDataBindingContext(ctx),
+        /* isFromAndroidApplicationResourceInfo= */ true);
   }
 
   ResourceApk withApk(Artifact apk) {
@@ -114,9 +146,11 @@ public final class ResourceApk {
         primaryAssets,
         manifest,
         rTxt,
+        resourcesZip,
         resourceProguardConfig,
         mainDexProguardConfig,
-        asDataBindingContext());
+        asDataBindingContext(),
+        isFromAndroidApplicationResourceInfo);
   }
 
   public Artifact getArtifact() {
@@ -175,7 +209,13 @@ public final class ResourceApk {
         rTxt,
         null,
         null,
-        dataBindingContext);
+        null,
+        dataBindingContext,
+        /* isFromAndroidApplicationResourceInfo= */ false);
+  }
+
+  public Artifact getResourcesZip() {
+    return resourcesZip;
   }
 
   public Artifact getResourceProguardConfig() {
@@ -196,6 +236,10 @@ public final class ResourceApk {
 
   public DataBindingContext asDataBindingContext() {
     return dataBindingContext;
+  }
+
+  public boolean isFromAndroidApplicationResourceInfo() {
+    return isFromAndroidApplicationResourceInfo;
   }
 
   /**
@@ -238,7 +282,7 @@ public final class ResourceApk {
   public void addToConfiguredTargetBuilder(
       RuleConfiguredTargetBuilder builder,
       Label label,
-      boolean includeSkylarkApiProvider,
+      boolean includeStarlarkApiProvider,
       boolean isLibrary) {
     AndroidResourcesInfo resourceInfo = toResourceInfo(label);
     builder.addNativeDeclaredProvider(resourceInfo);
@@ -261,9 +305,9 @@ public final class ResourceApk {
               resourceApk, resourceProguardConfig, resourceInfo, assetsInfo, manifestInfo.get()));
     }
 
-    if (includeSkylarkApiProvider) {
-      builder.addSkylarkTransitiveInfo(
-          AndroidSkylarkApiProvider.NAME, new AndroidSkylarkApiProvider(resourceInfo));
+    if (includeStarlarkApiProvider) {
+      builder.addStarlarkTransitiveInfo(
+          AndroidStarlarkApiProvider.NAME, new AndroidStarlarkApiProvider(resourceInfo));
     }
   }
 

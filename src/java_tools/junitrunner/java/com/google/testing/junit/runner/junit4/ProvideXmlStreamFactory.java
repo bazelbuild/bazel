@@ -15,9 +15,9 @@
 package com.google.testing.junit.runner.junit4;
 
 import com.google.testing.junit.runner.util.Factory;
-import com.google.testing.junit.runner.util.Supplier;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.function.Supplier;
 
 /**
  * A factory that supplies {@link OutputStream}.
@@ -35,16 +35,7 @@ public final class ProvideXmlStreamFactory implements Factory<OutputStream> {
 
   @Override
   public OutputStream get() {
-    OutputStream outputStream =
-        new LazyOutputStream(
-            new Supplier<OutputStream>() {
-              @Override
-              public OutputStream get() {
-                return JUnit4RunnerModule.provideXmlStream(configSupplier.get());
-              }
-            });
-
-    return outputStream;
+    return new LazyOutputStream(() -> JUnit4RunnerModule.provideXmlStream(configSupplier.get()));
   }
 
   public static Factory<OutputStream> create(Supplier<JUnit4Config> configSupplier) {

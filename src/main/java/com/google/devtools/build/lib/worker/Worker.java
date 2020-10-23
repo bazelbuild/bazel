@@ -13,21 +13,25 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+
+import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
+import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
+import javax.annotation.Nullable;
 
 /**
  * Interface to a worker process running as a child process.
@@ -41,13 +45,26 @@ import java.util.SortedMap;
  * class.
  */
 class Worker {
-  private final WorkerKey workerKey;
-  private final int workerId;
-  private final Path workDir;
+  /** An unique identifier of the work process. */
+  protected final WorkerKey workerKey;
+  /** An unique ID of the worker. It will be used in WorkRequest and WorkResponse as well. */
+  protected final int workerId;
+  /** The execution root of the worker. */
+  protected final Path workDir;
+  /** The path of the log file for this worker. */
   private final Path logFile;
+  /**
+   * Stream for recording the WorkResponse as it's read, so that it can be printed in the case of
+   * parsing failures.
+   */
+  @Nullable private RecordingInputStream recordingInputStream;
+  /** The implementation of the worker protocol (JSON or Proto). */
+  @Nullable private WorkerProtocolImpl workerProtocol;
 
   private Subprocess process;
   private Thread shutdownHook;
+  /** True if we deliberately destroyed this process. */
+  private boolean wasDestroyed;
 
   Worker(WorkerKey workerKey, int workerId, final Path workDir, Path logFile) {
     this.workerKey = workerKey;
@@ -69,53 +86,33 @@ class Worker {
     Runtime.getRuntime().addShutdownHook(shutdownHook);
   }
 
-  void createProcess() throws IOException {
-    List<String> args = workerKey.getArgs();
+  Subprocess createProcess() throws IOException {
+    ImmutableList<String> args = workerKey.getArgs();
     File executable = new File(args.get(0));
     if (!executable.isAbsolute() && executable.getParent() != null) {
-      args = new ArrayList<>(args);
-      args.set(0, new File(workDir.getPathFile(), args.get(0)).getAbsolutePath());
+      List<String> newArgs = new ArrayList<>(args);
+      newArgs.set(0, new File(workDir.getPathFile(), newArgs.get(0)).getAbsolutePath());
+      args = ImmutableList.copyOf(newArgs);
     }
     SubprocessBuilder processBuilder = new SubprocessBuilder();
     processBuilder.setArgv(args);
     processBuilder.setWorkingDirectory(workDir.getPathFile());
     processBuilder.setStderr(logFile.getPathFile());
     processBuilder.setEnv(workerKey.getEnv());
-    this.process = processBuilder.start();
+    return processBuilder.start();
   }
 
   void destroy() throws IOException {
     if (shutdownHook != null) {
       Runtime.getRuntime().removeShutdownHook(shutdownHook);
     }
-    if (process != null) {
-      destroyProcess(process);
+    if (workerProtocol != null) {
+      workerProtocol.close();
+      workerProtocol = null;
     }
-  }
-
-  /**
-   * Destroys a process and waits for it to exit. This is necessary for the child to not become a
-   * zombie.
-   *
-   * @param process the process to destroy.
-   */
-  private static void destroyProcess(Subprocess process) {
-    boolean wasInterrupted = false;
-    try {
-      process.destroy();
-      while (true) {
-        try {
-          process.waitFor();
-          return;
-        } catch (InterruptedException ie) {
-          wasInterrupted = true;
-        }
-      }
-    } finally {
-      // Read this for detailed explanation: http://www.ibm.com/developerworks/library/j-jtp05236/
-      if (wasInterrupted) {
-        Thread.currentThread().interrupt(); // preserve interrupted status
-      }
+    if (process != null) {
+      wasDestroyed = true;
+      process.destroyAndWait();
     }
   }
 
@@ -125,6 +122,11 @@ class Worker {
    */
   int getWorkerId() {
     return this.workerId;
+  }
+
+  /** Returns the path of the log file for this worker. */
+  public Path getLogFile() {
+    return logFile;
   }
 
   HashCode getWorkerFilesCombinedHash() {
@@ -141,25 +143,50 @@ class Worker {
     return !process.finished();
   }
 
-  InputStream getInputStream() {
-    return process.getInputStream();
+  /** Returns true if this process is dead but we didn't deliberately kill it. */
+  boolean diedUnexpectedly() {
+    return process != null && !wasDestroyed && !process.isAlive();
   }
 
-  OutputStream getOutputStream() {
-    return process.getOutputStream();
+  /** Returns the exit value of this worker's process, if it has exited. */
+  public Optional<Integer> getExitValue() {
+    return process != null && !process.isAlive()
+        ? Optional.of(process.exitValue())
+        : Optional.empty();
+  }
+
+  void putRequest(WorkRequest request) throws IOException {
+    workerProtocol.putRequest(request);
+  }
+
+  WorkResponse getResponse() throws IOException {
+    recordingInputStream.startRecording(4096);
+    return workerProtocol.getResponse();
+  }
+
+  String getRecordingStreamMessage() {
+    recordingInputStream.readRemaining();
+    return recordingInputStream.getRecordedDataAsString();
   }
 
   public void prepareExecution(
-      Map<PathFragment, Path> inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
+      SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
       throws IOException {
     if (process == null) {
-      createProcess();
+      process = createProcess();
+      recordingInputStream = new RecordingInputStream(process.getInputStream());
+    }
+    if (workerProtocol == null) {
+      switch (workerKey.getProtocolFormat()) {
+        case JSON:
+          workerProtocol = new JsonWorkerProtocol(process.getOutputStream(), recordingInputStream);
+          break;
+        case PROTO:
+          workerProtocol = new ProtoWorkerProtocol(process.getOutputStream(), recordingInputStream);
+          break;
+      }
     }
   }
 
   public void finishExecution(Path execRoot) throws IOException {}
-
-  public Path getLogFile() {
-    return logFile;
-  }
 }

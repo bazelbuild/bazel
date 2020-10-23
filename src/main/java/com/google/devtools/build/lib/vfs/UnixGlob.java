@@ -62,6 +62,13 @@ import java.util.regex.Pattern;
 public final class UnixGlob {
   private UnixGlob() {}
 
+  /** Indicates an invalid glob pattern. */
+  public static final class BadPattern extends Exception {
+    private BadPattern(String message) {
+      super(message);
+    }
+  }
+
   private static List<Path> globInternal(
       Path base,
       Collection<String> patterns,
@@ -69,7 +76,7 @@ public final class UnixGlob {
       Predicate<Path> dirPred,
       FilesystemCalls syscalls,
       Executor executor)
-      throws IOException, InterruptedException {
+      throws IOException, InterruptedException, BadPattern {
     GlobVisitor visitor = new GlobVisitor(executor);
     return visitor.glob(base, patterns, excludeDirectories, dirPred, syscalls);
   }
@@ -81,7 +88,7 @@ public final class UnixGlob {
       Predicate<Path> dirPred,
       FilesystemCalls syscalls,
       Executor executor)
-      throws IOException {
+      throws IOException, BadPattern {
     GlobVisitor visitor = new GlobVisitor(executor);
     return visitor.globUninterruptible(base, patterns, excludeDirectories, dirPred, syscalls);
   }
@@ -93,7 +100,7 @@ public final class UnixGlob {
       Predicate<Path> dirPred,
       FilesystemCalls syscalls,
       Executor executor)
-      throws IOException, InterruptedException {
+      throws IOException, InterruptedException, BadPattern {
     GlobVisitor visitor = new GlobVisitor(executor);
     visitor.glob(base, patterns, excludeDirectories, dirPred, syscalls);
     return visitor.getNumGlobTasksForTesting();
@@ -105,24 +112,27 @@ public final class UnixGlob {
       boolean excludeDirectories,
       Predicate<Path> dirPred,
       FilesystemCalls syscalls,
-      Executor executor) {
+      Executor executor)
+      throws BadPattern {
     Preconditions.checkNotNull(executor, "%s %s", base, patterns);
     return new GlobVisitor(executor)
         .globAsync(base, patterns, excludeDirectories, dirPred, syscalls);
   }
 
   /**
-   * Checks that each pattern is valid, splits it into segments and checks
-   * that each segment contains only valid wildcards.
+   * Checks that each pattern is valid, splits it into segments and checks that each segment
+   * contains only valid wildcards.
    *
+   * @throws BadPattern on encountering a malformed pattern.
    * @return list of segment arrays
    */
-  private static List<String[]> checkAndSplitPatterns(Collection<String> patterns) {
+  private static List<String[]> checkAndSplitPatterns(Collection<String> patterns)
+      throws BadPattern {
     List<String[]> list = Lists.newArrayListWithCapacity(patterns.size());
     for (String pattern : patterns) {
       String error = checkPatternForError(pattern);
       if (error != null) {
-        throw new IllegalArgumentException(error + " (in glob pattern '" + pattern + "')");
+        throw new BadPattern(error + " (in glob pattern '" + pattern + "')");
       }
       Iterable<String> segments = Splitter.on('/').split(pattern);
       list.add(Iterables.toArray(segments, String.class));
@@ -216,7 +226,7 @@ public final class UnixGlob {
    */
   private static Pattern makePatternFromWildcard(String pattern) {
     StringBuilder regexp = new StringBuilder();
-    for(int i = 0, len = pattern.length(); i < len; i++) {
+    for (int i = 0, len = pattern.length(); i < len; i++) {
       char c = pattern.charAt(i);
       switch(c) {
         case '*':
@@ -239,12 +249,30 @@ public final class UnixGlob {
         case '?':
           regexp.append('.');
           break;
-        //escape the regexp special characters that are allowed in wildcards
-        case '^': case '$': case '|': case '+':
-        case '{': case '}': case '[': case ']':
-        case '\\': case '.':
+        case '^':
+        case '$':
+        case '|':
+        case '+':
+        case '{':
+        case '}':
+        case '[':
+        case ']':
+        case '\\':
+        case '.':
+          // escape the regexp special characters that are allowed in wildcards
           regexp.append('\\');
           regexp.append(c);
+          break;
+        case '(':
+        case ')':
+          // The historical undocumented behavior of this function was to add '(' and ')' to the
+          // regexp pattern string unescaped. That could have 2 effects: a no-op (if the parentheses
+          // were properly paired) or a PatternSyntaxException leading to a Bazel crash (if the
+          // parentheses were unpaired). The behavior was silly, but changing it will break existing
+          // BUILD files which e.g. call `glob(["(*.foo)"])`. To keep such BUILD files working while
+          // avoiding crashes, treat '(' and ')' as a safe no-op when compiling to regexp.
+          // TODO(b/154003471): change this behavior and start treating '(' and ')' as literal
+          // characters to match in a glob pattern. This change will require an incompatible flag.
           break;
         default:
           regexp.append(c);
@@ -258,8 +286,8 @@ public final class UnixGlob {
    * Filesystem calls required for glob().
    */
   public interface FilesystemCalls {
-    /** Get directory entries and their types. */
-    Collection<Dirent> readdir(Path path, Symlinks symlinks) throws IOException;
+    /** Get directory entries and their types. Does not follow symlinks. */
+    Collection<Dirent> readdir(Path path) throws IOException;
 
     /** Return the stat() for the given path, or null. */
     FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException;
@@ -274,8 +302,8 @@ public final class UnixGlob {
   public static final FilesystemCalls DEFAULT_SYSCALLS =
       new FilesystemCalls() {
         @Override
-        public Collection<Dirent> readdir(Path path, Symlinks symlinks) throws IOException {
-          return path.readdir(symlinks);
+        public Collection<Dirent> readdir(Path path) throws IOException {
+          return path.readdir(Symlinks.NOFOLLOW);
         }
 
         @Override
@@ -401,10 +429,8 @@ public final class UnixGlob {
       return this;
     }
 
-    /**
-     * Executes the glob.
-     */
-    public List<Path> glob() throws IOException {
+    /** Executes the glob. */
+    public List<Path> glob() throws IOException, BadPattern {
       return globInternalUninterruptible(
           base, patterns, excludeDirectories, pathFilter, syscalls.get(), executor);
     }
@@ -414,13 +440,13 @@ public final class UnixGlob {
      *
      * @throws InterruptedException if the thread is interrupted.
      */
-    public List<Path> globInterruptible() throws IOException, InterruptedException {
+    public List<Path> globInterruptible() throws IOException, InterruptedException, BadPattern {
       return globInternal(base, patterns, excludeDirectories, pathFilter, syscalls.get(), executor);
     }
 
     @VisibleForTesting
     public long globInterruptibleAndReturnNumGlobTasksForTesting()
-        throws IOException, InterruptedException {
+        throws IOException, InterruptedException, BadPattern {
       return globInternalAndReturnNumGlobTasksForTesting(
           base, patterns, excludeDirectories, pathFilter, syscalls.get(), executor);
     }
@@ -429,7 +455,7 @@ public final class UnixGlob {
      * Executes the glob asynchronously. {@link #setExecutor} must have been called already with a
      * non-null argument.
      */
-    public Future<List<Path>> globAsync() {
+    public Future<List<Path>> globAsync() throws BadPattern {
       return globAsyncInternal(
           base, patterns, excludeDirectories, pathFilter, syscalls.get(), executor);
     }
@@ -509,9 +535,13 @@ public final class UnixGlob {
      *     #checkPatternForError(String) contains errors} or if any include pattern segment contains
      *     <code>**</code> but not equal to it.
      */
-    List<Path> glob(Path base, Collection<String> patterns, boolean excludeDirectories,
-        Predicate<Path> dirPred, FilesystemCalls syscalls)
-        throws IOException, InterruptedException {
+    List<Path> glob(
+        Path base,
+        Collection<String> patterns,
+        boolean excludeDirectories,
+        Predicate<Path> dirPred,
+        FilesystemCalls syscalls)
+        throws IOException, InterruptedException, BadPattern {
       try {
         return globAsync(base, patterns, excludeDirectories, dirPred, syscalls).get();
       } catch (ExecutionException e) {
@@ -521,15 +551,20 @@ public final class UnixGlob {
       }
     }
 
-    List<Path> globUninterruptible(Path base, Collection<String> patterns,
-        boolean excludeDirectories, Predicate<Path> dirPred, FilesystemCalls syscalls)
-        throws IOException {
+    List<Path> globUninterruptible(
+        Path base,
+        Collection<String> patterns,
+        boolean excludeDirectories,
+        Predicate<Path> dirPred,
+        FilesystemCalls syscalls)
+        throws IOException, BadPattern {
       try {
         return Uninterruptibles.getUninterruptibly(
             globAsync(base, patterns, excludeDirectories, dirPred, syscalls));
       } catch (ExecutionException e) {
         Throwable cause = e.getCause();
         Throwables.propagateIfPossible(cause, IOException.class);
+        Throwables.propagateIfPossible(cause, BadPattern.class);
         throw new RuntimeException(e);
       }
     }
@@ -547,8 +582,8 @@ public final class UnixGlob {
         Collection<String> patterns,
         boolean excludeDirectories,
         Predicate<Path> dirPred,
-        FilesystemCalls syscalls) {
-
+        FilesystemCalls syscalls)
+        throws BadPattern {
       FileStatus baseStat;
       try {
         baseStat = syscalls.statIfFound(base, Symlinks.FOLLOW);
@@ -559,6 +594,7 @@ public final class UnixGlob {
         return Futures.immediateFuture(Collections.<Path>emptyList());
       }
 
+      // TODO(adonovan): validate pattern unconditionally, before I/O (potentially breaking change).
       List<String[]> splitPatterns = checkAndSplitPatterns(patterns);
 
       // We do a dumb loop, even though it will likely duplicate logical work (note that the
@@ -599,9 +635,9 @@ public final class UnixGlob {
       return null;
     }
 
-    /** Should only be called by link {@GlobTaskContext}. */
-    private void queueGlob(final Path base, final boolean baseIsDir, final int idx,
-        final GlobTaskContext context) {
+    /** Should only be called by link {@link GlobTaskContext}. */
+    private void queueGlob(
+        final Path base, final boolean baseIsDir, final int idx, final GlobTaskContext context) {
       enqueue(
           new Runnable() {
             @Override
@@ -629,12 +665,12 @@ public final class UnixGlob {
           });
     }
 
-    /** Should only be called by link {@GlobTaskContext}. */
+    /** Should only be called by link {@link GlobTaskContext}. */
     private void queueTask(Runnable runnable) {
       enqueue(runnable);
     }
 
-    protected void enqueue(final Runnable r) {
+    void enqueue(final Runnable r) {
       totalOps.incrementAndGet();
       pendingOps.incrementAndGet();
 
@@ -660,7 +696,7 @@ public final class UnixGlob {
       return totalOps.get();
     }
 
-    protected void cancel() {
+    void cancel() {
       this.canceled = true;
     }
 
@@ -813,7 +849,7 @@ public final class UnixGlob {
         return;
       }
 
-      Collection<Dirent> dents = context.syscalls.readdir(base, Symlinks.NOFOLLOW);
+      Collection<Dirent> dents = context.syscalls.readdir(base);
       for (Dirent dent : dents) {
         Dirent.Type childType = dent.getType();
         if (childType == Dirent.Type.UNKNOWN) {
@@ -868,7 +904,8 @@ public final class UnixGlob {
    * Filters out exclude patterns from a Set of paths. Common cases such as wildcard-free patterns
    * or suffix patterns are special-cased to make this function efficient.
    */
-  public static void removeExcludes(Set<String> paths, Collection<String> excludes) {
+  public static void removeExcludes(Set<String> paths, Collection<String> excludes)
+      throws BadPattern {
     ArrayList<String> complexPatterns = new ArrayList<>(excludes.size());
     Map<String, List<String>> starstarSlashStarHeadTailPairs = new HashMap<>();
     for (String exclude : excludes) {
@@ -903,6 +940,7 @@ public final class UnixGlob {
     if (complexPatterns.isEmpty()) {
       return;
     }
+    // TODO(adonovan): validate pattern unconditionally (potentially breaking change).
     List<String[]> splitPatterns = checkAndSplitPatterns(complexPatterns);
     HashMap<String, Pattern> patternCache = new HashMap<>();
     paths.removeIf(

@@ -28,13 +28,12 @@ BazelStartupOptions::BazelStartupOptions(
       use_system_rc(true),
       use_workspace_rc(true),
       use_home_rc(true),
-      use_master_bazelrc_(true),
-      incompatible_windows_style_arg_escaping(true) {
-  RegisterNullaryStartupFlag("home_rc");
-  RegisterNullaryStartupFlag("incompatible_windows_style_arg_escaping");
-  RegisterNullaryStartupFlag("master_bazelrc");
-  RegisterNullaryStartupFlag("system_rc");
-  RegisterNullaryStartupFlag("workspace_rc");
+      use_master_bazelrc_(true) {
+  RegisterNullaryStartupFlagNoRc("home_rc", &use_home_rc);
+  RegisterNullaryStartupFlagNoRc("master_bazelrc", &use_master_bazelrc_);
+  OverrideOptionSourcesKey("master_bazelrc", "blazerc");
+  RegisterNullaryStartupFlagNoRc("system_rc", &use_system_rc);
+  RegisterNullaryStartupFlagNoRc("workspace_rc", &use_workspace_rc);
   RegisterUnaryStartupFlag("bazelrc");
 }
 
@@ -46,74 +45,10 @@ blaze_exit_code::ExitCode BazelStartupOptions::ProcessArgExtra(
 
   if ((*value = GetUnaryOption(arg, next_arg, "--bazelrc")) != nullptr) {
     if (!rcfile.empty()) {
-      *error = "Can't specify --bazelrc in the .bazelrc file.";
+      *error = "Can't specify --bazelrc in the RC file.";
       return blaze_exit_code::BAD_ARGV;
     }
     user_bazelrc_ = *value;
-  } else if (GetNullaryOption(arg, "--system_rc")) {
-    if (!rcfile.empty()) {
-      *error = "Can't specify --system_rc in .bazelrc file.";
-      return blaze_exit_code::BAD_ARGV;
-    }
-    use_system_rc = true;
-    option_sources["system_rc"] = rcfile;
-  } else if (GetNullaryOption(arg, "--nosystem_rc")) {
-    if (!rcfile.empty()) {
-      *error = "Can't specify --nosystem_rc in .bazelrc file.";
-      return blaze_exit_code::BAD_ARGV;
-    }
-    use_system_rc = false;
-    option_sources["system_rc"] = rcfile;
-  } else if (GetNullaryOption(arg, "--workspace_rc")) {
-    if (!rcfile.empty()) {
-      *error = "Can't specify --workspace_rc in .bazelrc file.";
-      return blaze_exit_code::BAD_ARGV;
-    }
-    use_workspace_rc = true;
-    option_sources["workspace_rc"] = rcfile;
-  } else if (GetNullaryOption(arg, "--noworkspace_rc")) {
-    if (!rcfile.empty()) {
-      *error = "Can't specify --noworkspace_rc in .bazelrc file.";
-      return blaze_exit_code::BAD_ARGV;
-    }
-    use_workspace_rc = false;
-    option_sources["workspace_rc"] = rcfile;
-  } else if (GetNullaryOption(arg, "--home_rc")) {
-    if (!rcfile.empty()) {
-      *error = "Can't specify --home_rc in .bazelrc file.";
-      return blaze_exit_code::BAD_ARGV;
-    }
-    use_home_rc = true;
-    option_sources["home_rc"] = rcfile;
-  } else if (GetNullaryOption(arg, "--nohome_rc")) {
-    if (!rcfile.empty()) {
-      *error = "Can't specify --nohome_rc in .bazelrc file.";
-      return blaze_exit_code::BAD_ARGV;
-    }
-    use_home_rc = false;
-    option_sources["home_rc"] = rcfile;
-  } else if (GetNullaryOption(arg, "--master_bazelrc")) {
-    if (!rcfile.empty()) {
-      *error = "Can't specify --master_bazelrc in .bazelrc file.";
-      return blaze_exit_code::BAD_ARGV;
-    }
-    use_master_bazelrc_ = true;
-    option_sources["blazerc"] = rcfile;
-  } else if (GetNullaryOption(arg, "--nomaster_bazelrc")) {
-    if (!rcfile.empty()) {
-      *error = "Can't specify --nomaster_bazelrc in .bazelrc file.";
-      return blaze_exit_code::BAD_ARGV;
-    }
-    use_master_bazelrc_ = false;
-    option_sources["blazerc"] = rcfile;
-  } else if (GetNullaryOption(arg,
-                              "--incompatible_windows_style_arg_escaping")) {
-    incompatible_windows_style_arg_escaping = true;
-    option_sources["incompatible_windows_style_arg_escaping"] = rcfile;
-  } else if (GetNullaryOption(arg,
-                              "--noincompatible_windows_style_arg_escaping")) {
-    incompatible_windows_style_arg_escaping = false;
-    option_sources["incompatible_windows_style_arg_escaping"] = rcfile;
   } else {
     *is_processed = false;
     return blaze_exit_code::SUCCESS;
@@ -145,15 +80,29 @@ void BazelStartupOptions::MaybeLogStartupOptionWarnings() const {
                             "ignored, since --ignore_all_rc_files is on.";
     }
   }
+  bool output_user_root_has_space =
+      output_user_root.find_first_of(' ') != std::string::npos;
+  if (output_user_root_has_space) {
+    BAZEL_LOG(WARNING)
+        << "Output user root \"" << output_user_root
+        << "\" contains a space. This will probably break the build. "
+           "You should set a different --output_user_root.";
+  } else if (output_base.Contains(' ')) {
+    // output_base is computed from output_user_root by default.
+    // If output_user_root was bad, don't check output_base: while output_base
+    // may also be bad, we already warned about output_user_root so there's no
+    // point in another warning.
+    BAZEL_LOG(WARNING)
+        << "Output base \"" << output_base.AsPrintablePath()
+        << "\" contains a space. This will probably break the build. "
+           "You should not set --output_base and let Bazel use the default, or "
+           "set --output_base to a path without space.";
+  }
 }
 
 void BazelStartupOptions::AddExtraOptions(
     std::vector<std::string> *result) const {
-  if (incompatible_windows_style_arg_escaping) {
-    result->push_back("--incompatible_windows_style_arg_escaping");
-  } else {
-    result->push_back("--noincompatible_windows_style_arg_escaping");
-  }
+  StartupOptions::AddExtraOptions(result);
 }
 
 }  // namespace blaze

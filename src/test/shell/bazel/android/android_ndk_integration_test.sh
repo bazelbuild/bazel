@@ -400,6 +400,45 @@ EOF
     --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
 }
 
+function test_platforms_and_toolchains() {
+  create_new_workspace
+  setup_android_ndk_support
+  cat > BUILD <<EOF
+cc_binary(
+    name = "foo",
+    srcs = ["foo.cc"],
+    linkopts = ["-ldl", "-lm"],
+)
+
+platform(
+    name = 'android_arm',
+    constraint_values = ['@bazel_tools//platforms:arm', '@bazel_tools//platforms:android'],
+    visibility = ['//visibility:public']
+)
+EOF
+  cat > foo.cc <<EOF
+#include <string>
+#include <jni.h>
+#include <android/log.h>
+#include <cstdio>
+#include <iostream>
+
+using namespace std;
+int main(){
+  string foo = "foo";
+  string bar = "bar";
+  string foobar = foo + bar;
+  return 0;
+}
+EOF
+  assert_build //:foo \
+    --cpu=armeabi-v7a \
+    --crosstool_top=@androidndk//:toolchain-libcpp \
+    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
+    --platforms=//:android_arm \
+    --extra_toolchains=@androidndk//:all
+}
+
 function test_crosstool_libcpp_with_multiarch() {
   create_new_workspace
   setup_android_sdk_support

@@ -64,10 +64,11 @@ function write_hello_world_files() {
   cat >hello/BUILD <<EOF
 java_binary(name = 'hello',
   srcs = ['Hello.java'],
-  main_class = 'Hello')
+  main_class = 'hello.Hello')
 EOF
 
   cat >hello/Hello.java <<EOF
+package hello;
 public class Hello {
   public static void main(String[] args) {
     System.out.println("hello!");
@@ -111,7 +112,7 @@ function test_aspect_and_configured_target_cleared() {
   cat > foo/simpleaspect.bzl <<'EOF' || fail "Couldn't write bzl file"
 def _simple_aspect_impl(target, ctx):
   result=[]
-  for orig_out in target.files:
+  for orig_out in target.files.to_list():
     aspect_out = ctx.actions.declare_file(orig_out.basename + ".aspect")
     ctx.actions.write(
         output=aspect_out,

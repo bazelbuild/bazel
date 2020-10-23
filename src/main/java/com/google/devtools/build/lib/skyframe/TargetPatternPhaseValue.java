@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -51,18 +53,21 @@ public final class TargetPatternPhaseValue implements SkyValue {
   private final boolean hasError;
   private final boolean hasPostExpansionError;
   private final String workspaceName;
+  private final ImmutableSortedSet<String> notSymlinkedInExecrootDirectories;
 
   TargetPatternPhaseValue(
       ImmutableSet<Label> targetLabels,
       ImmutableSet<Label> testsToRunLabels,
       boolean hasError,
       boolean hasPostExpansionError,
-      String workspaceName) {
+      String workspaceName,
+      ImmutableSortedSet<String> notSymlinkedInExecrootDirectories) {
     this.targetLabels = targetLabels;
     this.testsToRunLabels = testsToRunLabels;
     this.hasError = hasError;
     this.hasPostExpansionError = hasPostExpansionError;
     this.workspaceName = workspaceName;
+    this.notSymlinkedInExecrootDirectories = notSymlinkedInExecrootDirectories;
   }
 
   private static ImmutableSet<Target> getTargetsFromLabels(
@@ -116,6 +121,10 @@ public final class TargetPatternPhaseValue implements SkyValue {
     return workspaceName;
   }
 
+  public ImmutableSortedSet<String> getNotSymlinkedInExecrootDirectories() {
+    return notSymlinkedInExecrootDirectories;
+  }
+
   @Override
   public boolean equals(Object obj) {
     if (this == obj) {
@@ -128,6 +137,8 @@ public final class TargetPatternPhaseValue implements SkyValue {
     return Objects.equals(this.targetLabels, that.targetLabels)
         && Objects.equals(this.testsToRunLabels, that.testsToRunLabels)
         && Objects.equals(this.workspaceName, that.workspaceName)
+        && Objects.equals(
+            this.notSymlinkedInExecrootDirectories, that.notSymlinkedInExecrootDirectories)
         && this.hasError == that.hasError
         && this.hasPostExpansionError == that.hasPostExpansionError;
   }
@@ -139,14 +150,15 @@ public final class TargetPatternPhaseValue implements SkyValue {
         this.testsToRunLabels,
         this.workspaceName,
         this.hasError,
-        this.hasPostExpansionError);
+        this.hasPostExpansionError,
+        this.notSymlinkedInExecrootDirectories);
   }
 
   /** Create a target pattern phase value key. */
   @ThreadSafe
   public static SkyKey key(
       ImmutableList<String> targetPatterns,
-      String offset,
+      PathFragment offset,
       boolean compileOneDependency,
       boolean buildTestsOnly,
       boolean determineTests,
@@ -166,13 +178,27 @@ public final class TargetPatternPhaseValue implements SkyValue {
         testFilter);
   }
 
+  /**
+   * Creates a new target pattern sky key which represents the given target patterns without
+   * attempting to filter them in any way (for example, ignores options such as only loading tests).
+   *
+   * @param targetPatterns list of targets to evaluate
+   * @param offset relative path to the working directory
+   */
+  @ThreadSafe
+  public static SkyKey keyWithoutFilters(
+      ImmutableList<String> targetPatterns, PathFragment offset) {
+    return new TargetPatternPhaseKey(
+        targetPatterns, offset, false, false, false, ImmutableList.of(), false, false, null);
+  }
+
   /** The configuration needed to run the target pattern evaluation phase. */
   @ThreadSafe
   @VisibleForSerialization
   @AutoCodec
   public static final class TargetPatternPhaseKey implements SkyKey, Serializable {
     private final ImmutableList<String> targetPatterns;
-    private final String offset;
+    private final PathFragment offset;
     private final boolean compileOneDependency;
     private final boolean buildTestsOnly;
     private final boolean determineTests;
@@ -183,7 +209,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
 
     TargetPatternPhaseKey(
         ImmutableList<String> targetPatterns,
-        String offset,
+        PathFragment offset,
         boolean compileOneDependency,
         boolean buildTestsOnly,
         boolean determineTests,
@@ -214,7 +240,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
       return targetPatterns;
     }
 
-    public String getOffset() {
+    public PathFragment getOffset() {
       return offset;
     }
 

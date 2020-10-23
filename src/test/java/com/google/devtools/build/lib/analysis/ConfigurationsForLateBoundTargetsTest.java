@@ -19,17 +19,20 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestOnlyInNormalExecutionMode;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import org.junit.Before;
@@ -45,15 +48,23 @@ import org.junit.runners.JUnit4;
  * (ConfiguredTargetFunction is a Skyframe function). And the Skyframe library doesn't know anything
  * about latebound attributes. So we need to place these properly under the analysis package.
  */
-@TestOnlyInNormalExecutionMode // TODO(b/67651960): fix or justify disabling.
 @TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
 public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
-  private static final PatchTransition CHANGE_FOO_FLAG_TRANSITION = options -> {
-    BuildOptions toOptions = options.clone();
-    toOptions.get(LateBoundSplitUtil.TestOptions.class).fooFlag = "PATCHED!";
-    return toOptions;
-  };
+  private static final PatchTransition CHANGE_FOO_FLAG_TRANSITION =
+      new PatchTransition() {
+        @Override
+        public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+          return ImmutableSet.of(LateBoundSplitUtil.TestOptions.class);
+        }
+
+        @Override
+        public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
+          BuildOptionsView toOptions = options.clone();
+          toOptions.get(LateBoundSplitUtil.TestOptions.class).fooFlag = "PATCHED!";
+          return toOptions.underlying();
+        }
+      };
 
   /** Rule definition with a latebound dependency. */
   private static final RuleDefinition LATE_BOUND_DEP_RULE =
@@ -120,8 +131,8 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
             SkyframeExecutorTestUtils.getExistingConfiguredTargets(
                 skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep", ImmutableMap.of())));
     assertThat(getConfiguration(dep)).isEqualTo(getHostConfiguration());
-    // This is technically redundant, but slightly stronger in sanity checking that the host
-    // configuration doesn't happen to match what the patch would have done.
+    // This is technically redundant, but slightly stronger in checking that the host configuration
+    // doesn't happen to match what the patch would have done.
     assertThat(LateBoundSplitUtil.getOptions(getConfiguration(dep)).fooFlag).isEmpty();
   }
 }

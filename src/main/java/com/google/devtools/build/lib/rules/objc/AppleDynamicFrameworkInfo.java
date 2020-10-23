@@ -15,12 +15,12 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleDynamicFrameworkInfoApi;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleDynamicFrameworkInfoApi;
 import javax.annotation.Nullable;
 
 /**
@@ -39,15 +39,15 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public final class AppleDynamicFrameworkInfo extends NativeInfo
-    implements AppleDynamicFrameworkInfoApi<PathFragment, Artifact> {
+    implements AppleDynamicFrameworkInfoApi<Artifact> {
 
-  /** Skylark name for the AppleDynamicFrameworkInfo. */
-  public static final String SKYLARK_NAME = "AppleDynamicFramework";
+  /** Starlark name for the AppleDynamicFrameworkInfo. */
+  public static final String STARLARK_NAME = "AppleDynamicFramework";
 
-  /** Skylark constructor and identifier for AppleDynamicFrameworkInfo. */
-  public static final NativeProvider<AppleDynamicFrameworkInfo> SKYLARK_CONSTRUCTOR =
+  /** Starlark constructor and identifier for AppleDynamicFrameworkInfo. */
+  public static final NativeProvider<AppleDynamicFrameworkInfo> STARLARK_CONSTRUCTOR =
       new NativeProvider<AppleDynamicFrameworkInfo>(
-          AppleDynamicFrameworkInfo.class, SKYLARK_NAME) {};
+          AppleDynamicFrameworkInfo.class, STARLARK_NAME) {};
 
   /** Field name for the dylib binary artifact of the dynamic framework. */
   public static final String DYLIB_BINARY_FIELD_NAME = "binary";
@@ -58,16 +58,17 @@ public final class AppleDynamicFrameworkInfo extends NativeInfo
   /** Field name for the {@link ObjcProvider} containing dependency information. */
   public static final String OBJC_PROVIDER_FIELD_NAME = "objc";
 
-  private final NestedSet<PathFragment> dynamicFrameworkDirs;
+  private final NestedSet<String> dynamicFrameworkDirs;
   private final NestedSet<Artifact> dynamicFrameworkFiles;
   private final @Nullable Artifact dylibBinary;
   private final ObjcProvider depsObjcProvider;
 
-  public AppleDynamicFrameworkInfo(@Nullable Artifact dylibBinary,
+  public AppleDynamicFrameworkInfo(
+      @Nullable Artifact dylibBinary,
       ObjcProvider depsObjcProvider,
-      NestedSet<PathFragment> dynamicFrameworkDirs,
+      NestedSet<String> dynamicFrameworkDirs,
       NestedSet<Artifact> dynamicFrameworkFiles) {
-    super(SKYLARK_CONSTRUCTOR);
+    super(STARLARK_CONSTRUCTOR);
     this.dylibBinary = dylibBinary;
     this.depsObjcProvider = depsObjcProvider;
     this.dynamicFrameworkDirs = dynamicFrameworkDirs;
@@ -75,13 +76,13 @@ public final class AppleDynamicFrameworkInfo extends NativeInfo
   }
 
   @Override
-  public NestedSet<PathFragment> getDynamicFrameworkDirs() {
-    return dynamicFrameworkDirs;
+  public Depset /*<String>*/ getDynamicFrameworkDirs() {
+    return Depset.of(Depset.ElementType.STRING, dynamicFrameworkDirs);
   }
 
   @Override
-  public NestedSet<Artifact> getDynamicFrameworkFiles() {
-    return dynamicFrameworkFiles;
+  public Depset /*<Artifact>*/ getDynamicFrameworkFiles() {
+    return Depset.of(Artifact.TYPE, dynamicFrameworkFiles);
   }
 
   @Override

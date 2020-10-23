@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
@@ -42,12 +42,12 @@ public class BlazeCommandUtils {
   /** The set of option-classes that are common to all Blaze commands. */
   private static final ImmutableList<Class<? extends OptionsBase>> COMMON_COMMAND_OPTIONS =
       ImmutableList.of(
-          BlazeCommandEventHandler.Options.class,
+          UiOptions.class,
           CommonCommandOptions.class,
           ClientOptions.class,
-          // Skylark options aren't applicable to all commands, but making them a common option
+          // Starlark options aren't applicable to all commands, but making them a common option
           // allows users to put them in the common section of the bazelrc. See issue #3538.
-          StarlarkSemanticsOptions.class);
+          BuildLanguageOptions.class);
 
   private BlazeCommandUtils() {}
 
@@ -123,7 +123,7 @@ public class BlazeCommandUtils {
       Collection<Class<? extends OptionsBase>> options,
       OptionsParser.HelpVerbosity helpVerbosity,
       String productName) {
-    OptionsParser parser = OptionsParser.newOptionsParser(options);
+    OptionsParser parser = OptionsParser.builder().optionsClasses(options).build();
 
     String template;
     if (help.startsWith("resource:")) {

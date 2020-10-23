@@ -75,19 +75,20 @@ public interface CommandLineItem {
    * CommandLineItem#expandToCommandLine} method, else we call {@link Object#toString()}.
    */
   static String expandToCommandLine(Object object) {
-    // TODO(bazel-team): The fallback on toString() isn't great. Particularly so for
-    // SkylarkCustomCommandLine, since toString() does not necessarily give the same results as
-    // Skylark's str() or repr().
+    // TODO(b/150322434): The fallback on toString() isn't great. Particularly so for
+    // StarlarkCustomCommandLine, since toString() does not necessarily give the same results as
+    // Starlark's str() or repr().
     //
-    // The ideal refactoring is to make SkylarkValue implement CommandLineItem (or a slimmer version
-    // thereof). Then the default behavior can be that SkylarkValue#expandToCommandLine calls
-    // SkylarkPrintable#str. This default behavior is inefficient but rare; Artifacts and the like
+    // The ideal refactoring is to make StarlarkValue implement CommandLineItem (or a slimmer
+    // version
+    // thereof). Then the default behavior can be that StarlarkValue#expandToCommandLine calls
+    // StarlarkValue#str. This default behavior is inefficient but rare; Artifacts and the like
     // would continue to override expandToCommandLine to take the fast code path that doesn't
     // involve a Printer.
     //
-    // Since SkylarkValue should be moved out of Bazel, this refactoring would be blocked on making
-    // a BuildSkylarkValue subinterface for Bazel-specific Skylark types. It would then be
-    // BuildSkylarkValue, rather than SkylarkValue, that extends CommandLineItem.
+    // Since StarlarkValue should be moved out of Bazel, this refactoring would be blocked on making
+    // a BuildStarlarkValue subinterface for Bazel-specific Starlark types. It would then be
+    // BuildStarlarkValue, rather than StarlarkValue, that extends CommandLineItem.
     if (object instanceof CommandLineItem) {
       return ((CommandLineItem) object).expandToCommandLine();
     } else {

@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.vfs.WindowsOsPathPolicy.ShortPathResolver;
@@ -137,7 +137,7 @@ public class WindowsPathTest extends PathAbstractTest {
     assertThat(osPathPolicy.needsToNormalize("will~1.exi"))
         .isEqualTo(WindowsOsPathPolicy.NEEDS_SHORT_PATH_NORMALIZATION);
     assertThat(osPathPolicy.needsToNormalize("d:/no-normalization"))
-        .isEqualTo(WindowsOsPathPolicy.NORMALIZED); // Sanity check
+        .isEqualTo(WindowsOsPathPolicy.NORMALIZED);
   }
 
   private static String normalize(OsPathPolicy osPathPolicy, String str) {

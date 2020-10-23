@@ -74,7 +74,7 @@ public class RelativeAssetPath implements DataKey {
     if (this == other) {
       return true;
     }
-    if (other == null || getClass() != other.getClass()) {
+    if (!(other instanceof RelativeAssetPath)) {
       return false;
     }
     RelativeAssetPath that = (RelativeAssetPath) other;
@@ -107,6 +107,11 @@ public class RelativeAssetPath implements DataKey {
   @Override
   public KeyType getKeyType() {
     return KeyType.ASSET_PATH;
+  }
+
+  @Override
+  public boolean shouldDetectConflicts() {
+    return true;
   }
 
   @Override

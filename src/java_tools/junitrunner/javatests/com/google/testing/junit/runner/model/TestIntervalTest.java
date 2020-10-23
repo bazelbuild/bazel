@@ -15,9 +15,11 @@
 package com.google.testing.junit.runner.model;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.testing.junit.runner.model.TestInstantUtil.testInstant;
 
-import java.util.Date;
-import java.util.TimeZone;
+import com.google.testing.junit.runner.util.TestClock.TestInstant;
+import java.time.Duration;
+import java.time.Instant;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -30,11 +32,13 @@ public class TestIntervalTest {
 
   @Test
   public void testCreation() {
-    TestInterval interval = new TestInterval(123456, 234567);
+    Instant start = Instant.ofEpochMilli(123456);
+    Instant end = Instant.ofEpochMilli(234567);
+    TestInterval interval = new TestInterval(testInstant(start), testInstant(end));
     assertThat(interval.getStartMillis()).isEqualTo(123456);
     assertThat(interval.getEndMillis()).isEqualTo(234567);
 
-    interval = new TestInterval(123456, 123456);
+    interval = new TestInterval(testInstant(start), testInstant(start));
     assertThat(interval.getStartMillis()).isEqualTo(123456);
     assertThat(interval.getEndMillis()).isEqualTo(123456);
   }
@@ -43,22 +47,42 @@ public class TestIntervalTest {
   public void testCreationFailure() {
     thrown.expect(IllegalArgumentException.class);
     thrown.expectMessage("Start must be before end");
-    new TestInterval(35, 23);
+    new TestInterval(testInstant(Instant.ofEpochMilli(35)), testInstant(Instant.ofEpochMilli(23)));
   }
 
   @Test
   public void testToDuration() {
-    assertThat(new TestInterval(50, 150).toDurationMillis()).isEqualTo(100);
-    assertThat(new TestInterval(100, 100).toDurationMillis()).isEqualTo(0);
+    assertThat(
+            new TestInterval(
+                    testInstant(Instant.ofEpochMilli(50)), testInstant(Instant.ofEpochMilli(150)))
+                .toDurationMillis())
+        .isEqualTo(100);
+    assertThat(
+            new TestInterval(
+                    testInstant(Instant.ofEpochMilli(100)), testInstant(Instant.ofEpochMilli(100)))
+                .toDurationMillis())
+        .isEqualTo(0);
+  }
+
+  @Test
+  public void testToDurationOnNonMonotonicWallTime() {
+    Instant start = Instant.ofEpochMilli(123456);
+    Instant end = Instant.ofEpochMilli(123456);
+    Duration monotonicStart = Duration.ofMillis(50);
+    Duration monotonicEnd = Duration.ofMillis(150);
+    TestInterval interval =
+        new TestInterval(
+            new TestInstant(start, monotonicStart), new TestInstant(end, monotonicEnd));
+    assertThat(interval.getStartMillis()).isEqualTo(123456);
+    assertThat(interval.getEndMillis()).isEqualTo(123456);
+    assertThat(interval.toDurationMillis()).isEqualTo(100);
   }
 
   @Test
   public void testDateFormat() {
-    Date date = new Date(1471709734000L);
-    TestInterval interval = new TestInterval(date.getTime(), date.getTime() + 100);
-    assertThat(interval.startInstantToString(TimeZone.getTimeZone("America/New_York")))
-        .isEqualTo("2016-08-20T12:15:34.000-04:00");
-    assertThat(interval.startInstantToString(TimeZone.getTimeZone("GMT")))
-        .isEqualTo("2016-08-20T16:15:34.000Z");
+    Instant start = Instant.ofEpochMilli(1471709734000L);
+    Instant end = start.plusMillis(100);
+    TestInterval interval = new TestInterval(testInstant(start), testInstant(end));
+    assertThat(interval.startInstantToString()).isEqualTo("2016-08-20T16:15:34.000Z");
   }
 }

@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
@@ -64,21 +66,24 @@ public abstract class FileWriteActionTestCase extends BuildViewTestCase {
     context =
         new ActionExecutionContext(
             executor,
-            null,
+            /*actionInputFileCache=*/ null,
             ActionInputPrefetcher.NONE,
             actionKeyContext,
-            null,
+            /*metadataHandler=*/ null,
+            /*rewindingEnabled=*/ false,
+            LostInputsCheck.NONE,
             new FileOutErr(),
             new StoredEventHandler(),
-            ImmutableMap.<String, String>of(),
-            ImmutableMap.of(),
-            null,
-            null,
-            null);
+            /*clientEnv=*/ ImmutableMap.of(),
+            /*topLevelFilesets=*/ ImmutableMap.of(),
+            /*artifactExpander=*/ null,
+            /*actionFileSystem=*/ null,
+            /*skyframeDepsResult=*/ null,
+            NestedSetExpander.DEFAULT);
   }
 
   protected void checkNoInputsByDefault() {
-    assertThat(action.getInputs()).isEmpty();
+    assertThat(action.getInputs().toList()).isEmpty();
     assertThat(action.getPrimaryInput()).isNull();
   }
 

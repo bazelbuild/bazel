@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
+
 # Description:
 #   Tests for SingleJar
 package(default_visibility = ["//src/java_tools/singlejar:singlejar_package_group"])
@@ -10,7 +12,7 @@ java_library(
         "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:libSingleJar",
         "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:libSingleJarMain",
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
@@ -27,4 +29,5 @@ java_test(
 filegroup(
     name = "srcs",
     srcs = glob(["*.java"]) + ["BUILD"],
+    visibility = ["//src:__subpackages__"],
 )

@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import com.google.common.hash.HashCode;
-import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import java.io.IOException;
@@ -41,11 +40,10 @@ final class HashInputStream extends InputStream {
   private final HashCode code;
   @Nullable private volatile HashCode actual;
 
-  HashInputStream(
-      @WillCloseWhenClosed InputStream delegate, HashFunction function, HashCode code) {
+  HashInputStream(@WillCloseWhenClosed InputStream delegate, Checksum checksum) {
     this.delegate = delegate;
-    this.hasher = function.newHasher();
-    this.code = code;
+    this.hasher = checksum.getKeyType().newHasher();
+    this.code = checksum.getHashCode();
   }
 
   @Override

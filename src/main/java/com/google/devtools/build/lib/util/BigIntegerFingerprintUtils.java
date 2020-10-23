@@ -30,11 +30,7 @@ public final class BigIntegerFingerprintUtils {
   private BigIntegerFingerprintUtils() {}
 
   public static BigInteger compose(BigInteger v1, BigInteger v2) {
-    BigInteger temp = v1.add(v2);
-    if (temp.compareTo(UINT128_LIMIT) >= 0) {
-      return temp.subtract(UINT128_LIMIT);
-    }
-    return temp;
+    return v1.add(v2).mod(UINT128_LIMIT);
   }
 
   /**

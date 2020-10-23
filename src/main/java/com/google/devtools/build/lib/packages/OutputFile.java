@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Location;
+import net.starlark.java.syntax.Location;
 
 /**
  * A generated file that is the output of a rule.
@@ -34,14 +34,6 @@ public final class OutputFile extends FileTarget {
 
   private final Rule generatingRule;
   private final Kind kind;
-
-  /**
-   * Constructs an output file with the given label, which must be in the given
-   * package.
-   */
-  OutputFile(Package pkg, Label label, Rule generatingRule) {
-    this(pkg, label, Kind.FILE, generatingRule);
-  }
 
   /**
    * Constructs an output file with the given label, which must be in the given

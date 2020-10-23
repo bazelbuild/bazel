@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android.desugar.io;
 
+import com.google.devtools.build.android.desugar.langmodel.ClassName;
+import com.google.devtools.build.android.desugar.langmodel.TypeMapper;
 import java.io.IOException;
 import java.io.InputStream;
 import javax.annotation.Nullable;
@@ -26,10 +28,13 @@ import org.objectweb.asm.commons.Remapper;
 
 /** Utility class to prefix or unprefix class names of core library classes */
 public class CoreLibraryRewriter {
+
   private final String prefix;
+  private final TypeMapper prefixer;
 
   public CoreLibraryRewriter(String prefix) {
     this.prefix = prefix;
+    this.prefixer = new TypeMapper(this::prefix);
   }
 
   /**
@@ -40,7 +45,7 @@ public class CoreLibraryRewriter {
     if (prefix.isEmpty()) {
       return new ClassReader(content);
     } else {
-      return new PrefixingClassReader(content, prefix);
+      return new PrefixingClassReader(content, prefixer);
     }
   }
 
@@ -53,7 +58,11 @@ public class CoreLibraryRewriter {
   }
 
   static boolean shouldPrefix(String typeName) {
-    return (typeName.startsWith("java/") || typeName.startsWith("sun/")) && !except(typeName);
+    return (typeName.startsWith("java/")
+            || typeName.startsWith("sun/")
+            || typeName.startsWith("javadesugar/") // Testing-only fake package prefix.
+        )
+        && !except(typeName);
   }
 
   private static boolean except(String typeName) {
@@ -90,6 +99,17 @@ public class CoreLibraryRewriter {
     return prefix;
   }
 
+  public TypeMapper getPrefixer() {
+    return prefixer;
+  }
+
+  private ClassName prefix(ClassName className) {
+    if (shouldPrefix(className.binaryName())) {
+      return className.withPackagePrefix(prefix);
+    }
+    return className;
+  }
+
   /** Removes prefix from class names */
   public String unprefix(String typeName) {
     if (prefix.isEmpty() || !typeName.startsWith(prefix)) {
@@ -100,53 +120,38 @@ public class CoreLibraryRewriter {
 
   /** ClassReader that prefixes core library class names as they are read */
   private static class PrefixingClassReader extends ClassReader {
-    private final String prefix;
 
-    PrefixingClassReader(InputStream content, String prefix) throws IOException {
+    private final TypeMapper prefixer;
+
+    PrefixingClassReader(InputStream content, TypeMapper prefixer) throws IOException {
       super(content);
-      this.prefix = prefix;
+      this.prefixer = prefixer;
     }
 
     @Override
     public void accept(ClassVisitor cv, Attribute[] attrs, int flags) {
-      cv =
-          new ClassRemapper(
-              cv,
-              new Remapper() {
-                @Override
-                public String map(String typeName) {
-                  return prefix(typeName);
-                }
-              });
+      cv = new ClassRemapper(cv, prefixer);
       super.accept(cv, attrs, flags);
     }
 
     @Override
     public String getClassName() {
-      return prefix(super.getClassName());
+      return prefixer.map(super.getClassName());
     }
 
     @Override
     public String getSuperName() {
       String result = super.getSuperName();
-      return result != null ? prefix(result) : null;
+      return result != null ? prefixer.map(result) : null;
     }
 
     @Override
     public String[] getInterfaces() {
       String[] result = super.getInterfaces();
       for (int i = 0, len = result.length; i < len; ++i) {
-        result[i] = prefix(result[i]);
+        result[i] = prefixer.map(result[i]);
       }
       return result;
-    }
-
-    /** Prefixes core library class names with prefix. */
-    private String prefix(String typeName) {
-      if (shouldPrefix(typeName)) {
-        return prefix + typeName;
-      }
-      return typeName;
     }
   }
 
@@ -160,7 +165,7 @@ public class CoreLibraryRewriter {
     private String finalClassName;
 
     UnprefixingClassWriter(int flags) {
-      super(Opcodes.ASM7);
+      super(Opcodes.ASM8);
       this.writer = new ClassWriter(flags);
       this.cv = this.writer;
       if (!prefix.isEmpty()) {
@@ -183,7 +188,14 @@ public class CoreLibraryRewriter {
     }
 
     public byte[] toByteArray() {
-      return writer.toByteArray();
+      // Wires the desugared byte output to a semantically no-op ASM class visitor before output
+      // delivery to ensure byte-level class file idempotency, including the constant pool ordering.
+      // b/162369442.
+      byte[] bytes = writer.toByteArray();
+      ClassReader cr = new ClassReader(bytes);
+      ClassWriter cw = new ClassWriter(0);
+      cr.accept(cw, 0);
+      return cw.toByteArray();
     }
 
     @Override

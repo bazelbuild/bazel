@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.android;
 
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSplitTransititionApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidSplitTransititionApi;
+import net.starlark.java.eval.Printer;
 
 /**
  * Fake implementation of {@link AndroidSplitTransititionApi}.
@@ -23,5 +23,5 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 public class FakeAndroidSplitTransitition implements AndroidSplitTransititionApi {
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 }

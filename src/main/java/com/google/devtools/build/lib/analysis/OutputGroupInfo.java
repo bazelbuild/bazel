@@ -14,36 +14,35 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.devtools.build.lib.syntax.EvalUtils.SKYLARK_COMPARATOR;
-
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.DuplicateException;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleConfiguredTargetUtil;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleConfiguredTargetUtil;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.OutputGroupInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkIndexable;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.starlarkbuildapi.OutputGroupInfoApi;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkIndexable;
+import net.starlark.java.eval.StarlarkIterable;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.syntax.Location;
 
 /**
  * {@code ConfiguredTarget}s implementing this interface can provide artifacts that <b>can</b> be
@@ -60,11 +59,11 @@ import javax.annotation.Nullable;
  */
 @Immutable
 @AutoCodec
-public final class OutputGroupInfo extends NativeInfo
-    implements SkylarkIndexable, Iterable<String>, OutputGroupInfoApi {
-  public static final String SKYLARK_NAME = "output_groups";
+public final class OutputGroupInfo extends StructImpl
+    implements StarlarkIndexable, StarlarkIterable<String>, OutputGroupInfoApi {
+  public static final String STARLARK_NAME = "output_groups";
 
-  public static final OutputGroupInfoProvider SKYLARK_CONSTRUCTOR = new OutputGroupInfoProvider();
+  public static final OutputGroupInfoProvider STARLARK_CONSTRUCTOR = new OutputGroupInfoProvider();
 
   /**
    * Prefix for output groups that are not reported to the user on the terminal output of Blaze when
@@ -100,6 +99,20 @@ public final class OutputGroupInfo extends NativeInfo
       HIDDEN_OUTPUT_GROUP_PREFIX + "hidden_top_level" + INTERNAL_SUFFIX;
 
   /**
+   * This output group contains artifacts that are the outputs of validation actions. These actions
+   * should be run even if no other action depends on their outputs, therefore this output group is:
+   *
+   * <ul>
+   *   <li>built even if <code>--output_groups</code> overrides the default output groups
+   *   <li>not affected by the subtraction operation of <code>--output_groups</code> (i.e. <code>
+   *       "--output_groups=-_validation"</code>)
+   * </ul>
+   *
+   * The only way to disable this output group is with <code>--run_validations=false</code>.
+   */
+  public static final String VALIDATION = HIDDEN_OUTPUT_GROUP_PREFIX + "validation";
+
+  /**
    * Temporary files created during building a rule, for example, .i, .d and .s files for C++
    * compilation.
    *
@@ -124,20 +137,19 @@ public final class OutputGroupInfo extends NativeInfo
   private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
 
   public OutputGroupInfo(ImmutableMap<String, NestedSet<Artifact>> outputGroups) {
-    super(SKYLARK_CONSTRUCTOR);
+    super(STARLARK_CONSTRUCTOR, Location.BUILTIN);
     this.outputGroups = outputGroups;
   }
 
-  @Nullable
-  public static OutputGroupInfo get(TransitiveInfoCollection collection) {
-    return collection.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
   }
 
   @Nullable
-  public static OutputGroupInfo get(ConfiguredAspect aspect) {
-    return (OutputGroupInfo) aspect.get(SKYLARK_CONSTRUCTOR.getKey());
+  public static OutputGroupInfo get(ProviderCollection collection) {
+    return collection.get(STARLARK_CONSTRUCTOR);
   }
-
 
   /** Return the artifacts in a particular output group.
    *
@@ -180,19 +192,22 @@ public final class OutputGroupInfo extends NativeInfo
     return new OutputGroupInfo(resultBuilder.build());
   }
 
-  public static ImmutableSortedSet<String> determineOutputGroups(List<String> outputGroups) {
-    return determineOutputGroups(DEFAULT_GROUPS, outputGroups);
+  public static ImmutableSortedSet<String> determineOutputGroups(
+      List<String> outputGroups, boolean includeValidationOutputGroup) {
+    return determineOutputGroups(DEFAULT_GROUPS, outputGroups, includeValidationOutputGroup);
   }
 
   public static ImmutableSortedSet<String> determineOutputGroups(
-      Set<String> defaultOutputGroups, List<String> outputGroups) {
+      Set<String> defaultOutputGroups,
+      List<String> outputGroups,
+      boolean includeValidationOutputGroup) {
 
     Set<String> current = Sets.newHashSet();
 
     // If all of the requested output groups start with "+" or "-", then these are added or
     // subtracted to the set of default output groups.
     // If any of them don't start with "+" or "-", then the list of requested output groups
-    // overrides the default set of output groups.
+    // overrides the default set of output groups, except for the validation output group.
     boolean addDefaultOutputGroups = true;
     for (String outputGroup : outputGroups) {
       if (!(outputGroup.startsWith("+") || outputGroup.startsWith("-"))) {
@@ -214,36 +229,37 @@ public final class OutputGroupInfo extends NativeInfo
       }
     }
 
+    // Add the validation output group regardless of the additions and subtractions above.
+    if (includeValidationOutputGroup) {
+      current.add(VALIDATION);
+    }
+
     return ImmutableSortedSet.copyOf(current);
   }
 
   @Override
-  public Object getIndex(Object key, Location loc, StarlarkContext context) throws EvalException {
+  public Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
     if (!(key instanceof String)) {
-      throw new EvalException(loc, String.format(
-          "Output grout names must be strings, got %s instead",
-          EvalUtils.getDataTypeName(key)));
+      throw Starlark.errorf(
+          "Output group names must be strings, got %s instead", Starlark.type(key));
     }
 
     NestedSet<Artifact> result = outputGroups.get(key);
     if (result != null) {
-      return SkylarkNestedSet.of(Artifact.class, result);
+      return Depset.of(Artifact.TYPE, result);
     } else {
-      throw new EvalException(loc, String.format(
-          "Output group %s not present", key
-      ));
+      throw Starlark.errorf("Output group %s not present", key);
     }
   }
 
   @Override
-  public boolean containsKey(Object key, Location loc, StarlarkContext context)
-      throws EvalException {
+  public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
     return outputGroups.containsKey(key);
   }
 
   @Override
   public Iterator<String> iterator() {
-    return SKYLARK_COMPARATOR.sortedCopy(outputGroups.keySet()).iterator();
+    return ImmutableList.sortedCopyOf(outputGroups.keySet()).iterator();
   }
 
   @Override
@@ -252,7 +268,7 @@ public final class OutputGroupInfo extends NativeInfo
     if (result == null) {
       return null;
     }
-    return SkylarkNestedSet.of(Artifact.class, result);
+    return Depset.of(Artifact.TYPE, result);
   }
 
   @Override
@@ -270,16 +286,13 @@ public final class OutputGroupInfo extends NativeInfo
     }
 
     @Override
-    public OutputGroupInfoApi constructor(SkylarkDict<?, ?> kwargs, Location loc)
-        throws EvalException {
-      Map<String, Object> kwargsMap = kwargs.getContents(String.class, Object.class, "kwargs");
-
+    public OutputGroupInfoApi constructor(Dict<String, Object> kwargs) throws EvalException {
       ImmutableMap.Builder<String, NestedSet<Artifact>> builder = ImmutableMap.builder();
-      for (Map.Entry<String, Object> entry : kwargsMap.entrySet()) {
+      for (Map.Entry<String, Object> entry : kwargs.entrySet()) {
         builder.put(
             entry.getKey(),
-            SkylarkRuleConfiguredTargetUtil.convertToOutputGroupValue(
-                loc, entry.getKey(), entry.getValue()));
+            StarlarkRuleConfiguredTargetUtil.convertToOutputGroupValue(
+                entry.getKey(), entry.getValue()));
       }
       return new OutputGroupInfo(builder.build());
     }

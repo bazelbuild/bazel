@@ -51,9 +51,7 @@ public class AqueryActionFilter {
       return false;
     }
 
-    return filterMap.get(function).stream()
-        .map(pattern -> pattern.matcher(input).matches())
-        .reduce(true, Boolean::logicalAnd);
+    return filterMap.get(function).stream().allMatch(pattern -> pattern.matcher(input).matches());
   }
 
   /** Builder class for {@code AqueryActionFilter} */

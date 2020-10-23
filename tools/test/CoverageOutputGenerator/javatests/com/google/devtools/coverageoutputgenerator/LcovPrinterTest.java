@@ -22,7 +22,6 @@ import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.cr
 
 import com.google.common.base.Splitter;
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Before;
@@ -50,7 +49,7 @@ public class LcovPrinterTest {
   }
 
   @Test
-  public void testPrintTwoFiles() throws IOException {
+  public void testPrintTwoFiles() throws Exception {
     coverage.add(sourceFileCoverage1);
     coverage.add(sourceFileCoverage2);
 
@@ -75,7 +74,7 @@ public class LcovPrinterTest {
   }
 
   @Test
-  public void testPrintOneFile() throws IOException {
+  public void testPrintOneFile() throws Exception {
     coverage.add(sourceFileCoverage1);
     assertThat(LcovPrinter.print(byteOutputStream, coverage)).isTrue();
     byteOutputStream.close();
@@ -89,5 +88,33 @@ public class LcovPrinterTest {
       }
       assertThat(line).isEqualTo(TRACEFILE1.get(lineIndex++));
     }
+  }
+
+  @Test
+  public void testPrintBrdaLines() throws Exception {
+    SourceFileCoverage sourceFile = new SourceFileCoverage("foo");
+    sourceFile.addBranch(3, BranchCoverage.createWithBlockAndBranch(3, "0", "0", true, 1));
+    sourceFile.addBranch(3, BranchCoverage.createWithBlockAndBranch(3, "0", "1", true, 0));
+    sourceFile.addBranch(7, BranchCoverage.createWithBlockAndBranch(7, "0", "0", false, 0));
+    sourceFile.addBranch(7, BranchCoverage.createWithBlockAndBranch(7, "0", "1", false, 0));
+    coverage.add(sourceFile);
+
+    assertThat(LcovPrinter.print(byteOutputStream, coverage)).isTrue();
+    Iterable<String> fileLines = Splitter.on('\n').split(byteOutputStream.toString());
+    assertThat(fileLines)
+        .containsExactly(
+            "SF:foo",
+            "FNF:0",
+            "FNH:0",
+            "BRDA:3,0,0,1",
+            "BRDA:3,0,1,0",
+            "BRDA:7,0,0,-",
+            "BRDA:7,0,1,-",
+            "BRF:4",
+            "BRH:1",
+            "LH:0",
+            "LF:0",
+            "end_of_record",
+            "");
   }
 }

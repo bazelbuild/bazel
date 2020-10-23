@@ -14,50 +14,45 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.TemplateVariableInfoApi;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.starlarkbuildapi.TemplateVariableInfoApi;
 import java.util.Map;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 
 /** Provides access to make variables from the current fragments. */
 @Immutable
 @AutoCodec
 public final class TemplateVariableInfo extends NativeInfo implements TemplateVariableInfoApi {
-  public static final String SKYLARK_NAME = "TemplateVariableInfo";
+  /** Provider singleton constant. */
+  public static final BuiltinProvider<TemplateVariableInfo> PROVIDER = new Provider();
 
-  private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
-      FunctionSignature.WithValues.create(
-          FunctionSignature.of(/*numMandatory=*/ 1, "vars"),
-          /*defaultValues=*/ null,
-          /*types=*/ ImmutableList.<SkylarkType>of(SkylarkType.DICT));
+  /** Provider for {@link TemplateVariableInfo} objects. */
+  private static class Provider extends BuiltinProvider<TemplateVariableInfo>
+      implements TemplateVariableInfoApi.Provider {
+    private Provider() {
+      super(NAME, TemplateVariableInfo.class);
+    }
 
-  public static final NativeProvider<TemplateVariableInfo> PROVIDER =
-      new NativeProvider<TemplateVariableInfo>(
-          TemplateVariableInfo.class, SKYLARK_NAME, SIGNATURE) {
-        @Override
-        protected TemplateVariableInfo createInstanceFromSkylark(
-            Object[] args, Environment env, Location loc) throws EvalException {
-          Map<String, String> vars =
-              SkylarkDict.castSkylarkDictOrNoneToDict(args[0], String.class, String.class, "vars");
-          return new TemplateVariableInfo(ImmutableMap.copyOf(vars), location);
-        }
-      };
+    @Override
+    public TemplateVariableInfo templateVariableInfo(Dict<?, ?> vars, StarlarkThread thread)
+        throws EvalException {
+      Map<String, String> varsMap = Dict.noneableCast(vars, String.class, String.class, "vars");
+      return new TemplateVariableInfo(ImmutableMap.copyOf(varsMap), thread.getCallerLocation());
+    }
+  }
 
   private final ImmutableMap<String, String> variables;
 
   @AutoCodec.Instantiator
   public TemplateVariableInfo(ImmutableMap<String, String> variables, Location location) {
-    super(PROVIDER, ImmutableMap.of(), location);
+    super(PROVIDER, location);
     this.variables = variables;
   }
 

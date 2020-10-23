@@ -15,7 +15,6 @@ package com.google.devtools.build.skyframe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -160,8 +159,8 @@ public abstract class ValueWithMetadata implements SkyValue {
     public String toString() {
       return MoreObjects.toStringHelper(this)
           .add("value", value)
-          .add("transitiveEvents size", Iterables.size(transitiveEvents))
-          .add("transitivePostables size", Iterables.size(transitivePostables))
+          .add("transitiveEvents size", transitiveEvents.toList().size())
+          .add("transitivePostables size", transitivePostables.toList().size())
           .toString();
     }
   }

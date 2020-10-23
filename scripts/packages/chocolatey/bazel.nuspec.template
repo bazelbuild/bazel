@@ -76,8 +76,7 @@ Supply like `--params="/option:'value' ..."` ([see docs for --params](https://gi
     </dependencies>-->
     <dependencies>
       <dependency id="chocolatey-core.extension" version="1.0.7"/>
-      <dependency id="msys2" version="[20160719.1.0,20160719.1.1]"/>
-      <dependency id="python2" version="[2.7.11,3.0)"/>
+      <dependency id="vcredist140" version="14.20.27508.1"/>
     </dependencies>
     <!-- chocolatey-uninstall.extension - If supporting 0.9.9.x (or below) and including a chocolateyUninstall.ps1 file to uninstall an EXE/MSI, you probably want to include chocolatey-uninstall.extension as a dependency. Please verify whether you are using a helper function from that package. -->
 

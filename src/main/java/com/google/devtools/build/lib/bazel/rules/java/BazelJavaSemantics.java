@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.bazel.rules.java;
 import static com.google.common.base.Strings.isNullOrEmpty;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -37,13 +37,12 @@ import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubstitution;
 import com.google.devtools.build.lib.analysis.actions.Template;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
@@ -69,7 +68,6 @@ import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistry
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ShellEscaper;
@@ -90,9 +88,6 @@ public class BazelJavaSemantics implements JavaSemantics {
   private static final Template STUB_SCRIPT =
       Template.forResource(BazelJavaSemantics.class, "java_stub_template.txt");
   private static final String CLASSPATH_PLACEHOLDER = "%classpath%";
-  private static final String RELATIVE_CLASSPATHS_PLACEHOLDER = "%relative_classpath%";
-  private static final Template CLASSPATH_FILE_TEMPLATE =
-      Template.forString(RELATIVE_CLASSPATHS_PLACEHOLDER);
 
   private static final String JAVABUILDER_CLASS_NAME =
       "com.google.devtools.build.buildjar.BazelJavaBuilder";
@@ -101,15 +96,8 @@ public class BazelJavaSemantics implements JavaSemantics {
       "com.google.testing.coverage.JacocoCoverageRunner";
   private static final String BAZEL_TEST_RUNNER_MAIN_CLASS =
       "com.google.testing.junit.runner.BazelTestRunner";
-  private static final String EXPERIMENTAL_TEST_RUNNER_MAIN_CLASS =
-      "com.google.testing.junit.runner.ExperimentalTestRunner";
 
   private BazelJavaSemantics() {
-  }
-
-  private boolean isJavaBinaryOrJavaTest(RuleContext ruleContext) {
-    String ruleClass = ruleContext.getRule().getRuleClass();
-    return ruleClass.equals("java_binary") || ruleClass.equals("java_test");
   }
 
   @Override
@@ -146,7 +134,7 @@ public class BazelJavaSemantics implements JavaSemantics {
       return mainClass;
     }
 
-    if (useLegacyJavaTest(ruleContext)) {
+    if (JavaSemantics.useLegacyJavaTest(ruleContext)) {
       // Legacy behavior for java_test rules: main_class defaulted to JUnit4 runner.
       // TODO(dmarting): remove once we drop the legacy bazel java_test behavior.
       if ("java_test".equals(ruleContext.getRule().getRuleClass())) {
@@ -154,18 +142,10 @@ public class BazelJavaSemantics implements JavaSemantics {
       }
     } else {
       if (ruleContext.attributes().get("use_testrunner", Type.BOOLEAN)) {
-        return ruleContext.getFragment(JavaConfiguration.class).useExperimentalTestRunner()
-            ? EXPERIMENTAL_TEST_RUNNER_MAIN_CLASS
-            : BAZEL_TEST_RUNNER_MAIN_CLASS;
+        return BAZEL_TEST_RUNNER_MAIN_CLASS;
       }
     }
     return mainClass;
-  }
-
-  private boolean isExperimentalJavaTest(RuleContext ruleContext) {
-    return ruleContext.attributes().has("$experimental_testsupport")
-        && TargetUtils.isTestRule(ruleContext.getRule())
-        && getMainClassFromRule(ruleContext).equals(EXPERIMENTAL_TEST_RUNNER_MAIN_CLASS);
   }
 
   private void checkMainClass(RuleContext ruleContext, ImmutableList<Artifact> sources) {
@@ -203,7 +183,7 @@ public class BazelJavaSemantics implements JavaSemantics {
       return ImmutableList.of();
     }
 
-    return ruleContext.getPrerequisiteArtifacts("resources", Mode.TARGET).list();
+    return ruleContext.getPrerequisiteArtifacts("resources").list();
   }
 
   /**
@@ -231,7 +211,7 @@ public class BazelJavaSemantics implements JavaSemantics {
     public String getValue() {
       StringBuilder buffer = new StringBuilder();
       buffer.append("\"");
-      for (Artifact artifact : jars) {
+      for (Artifact artifact : jars.toList()) {
         if (buffer.length() > 1) {
           buffer.append(File.pathSeparatorChar);
         }
@@ -311,7 +291,7 @@ public class BazelJavaSemantics implements JavaSemantics {
     arguments.add(Substitution.of("%needs_runfiles%",
         JavaCommon.getJavaExecutable(ruleContext).isAbsolute() ? "0" : "1"));
 
-    TransitiveInfoCollection testSupport = getTestSupport(ruleContext);
+    TransitiveInfoCollection testSupport = JavaSemantics.getTestSupport(ruleContext);
     NestedSet<Artifact> testSupportJars =
         testSupport == null
             ? NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)
@@ -326,22 +306,43 @@ public class BazelJavaSemantics implements JavaSemantics {
     }
     NestedSet<Artifact> classpath = classpathBuilder.build();
 
-    if (isExperimentalJavaTest(ruleContext)) {
-      if (!isRunfilesEnabled) {
-        ruleContext.ruleError(
-            "ExperimentalTestRunner can't work on Windows since Windows doesn't support runfiles.");
-      }
-      if (testSupport == null) {
-        // This may happen when the user sets use_testrunner=0 and manually chooses
-        // main_class=ExperimentalTestRunner.
-        ruleContext.ruleError("Unexpected usage of ExperimentalTestRunner.");
-      }
-      // Keep only the locations containing the classes to start the test runner itself within,
-      // classpath variable, and place all the paths required for the test run in a classpaths file,
-      // so that the classes for the test target may be loaded by a separate ClassLoader.
-      classpath = testSupportJars;
+    if (JavaSemantics.isTestTargetAndPersistentTestRunner(ruleContext)) {
+      // Create an artifact that stores the test's runtime classpath (excluding the test support
+      // classpath). The file is read by the test runner. The jars inside the file are loaded
+      // dynamically for every test run into a custom classloader.
+      arguments.add(
+          new ComputedClasspathSubstitution(
+              JavaSemantics.getTestSupportRuntimeClasspath(ruleContext),
+              workspacePrefix,
+              isRunfilesEnabled));
+
+      // Create an artifact that stores the test's runtime classpath.
+      Artifact testRuntimeClasspathArtifact =
+          ruleContext.getBinArtifact(
+              ruleContext.getLabel().getName() + "_test_runtime_classpath.txt");
+      ruleContext.registerAction(
+          new LazyWritePathsFileAction(
+              ruleContext.getActionOwner(),
+              testRuntimeClasspathArtifact,
+              javaCommon.getRuntimeClasspath(),
+              /* filesToIgnore= */ ImmutableSet.of(),
+              true));
+      filesBuilder.add(testRuntimeClasspathArtifact);
+
+      arguments.add(
+          Substitution.of(
+              TEST_RUNTIME_CLASSPATH_FILE_PLACEHOLDER,
+              "export WORKSPACE_PREFIX="
+                  + workspacePrefix
+                  + "\nexport TEST_RUNTIME_CLASSPATH_FILE=${JAVA_RUNFILES}"
+                  + File.separator
+                  + workspacePrefix
+                  + testRuntimeClasspathArtifact.getRepositoryRelativePathString()));
+    } else {
+      arguments.add(
+          new ComputedClasspathSubstitution(classpath, workspacePrefix, isRunfilesEnabled));
+      arguments.add(Substitution.of(TEST_RUNTIME_CLASSPATH_FILE_PLACEHOLDER, ""));
     }
-    arguments.add(new ComputedClasspathSubstitution(classpath, workspacePrefix, isRunfilesEnabled));
 
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
       if (createCoverageMetadataJar) {
@@ -355,6 +356,7 @@ public class BazelJavaSemantics implements JavaSemantics {
                 ruleContext.getActionOwner(),
                 runtimeClassPathArtifact,
                 javaCommon.getRuntimeClasspath(),
+                /* filesToIgnore= */ ImmutableSet.of(),
                 true));
         filesBuilder.add(runtimeClassPathArtifact);
         arguments.add(
@@ -363,7 +365,7 @@ public class BazelJavaSemantics implements JavaSemantics {
                 "export JACOCO_METADATA_JAR=${JAVA_RUNFILES}/"
                     + workspacePrefix
                     + "/"
-                    + runtimeClassPathArtifact.getRootRelativePathString()));
+                    + runtimeClassPathArtifact.getRepositoryRelativePathString()));
       } else {
         // Remove the placeholder in the stub otherwise bazel coverage fails.
         arguments.add(Substitution.of(JavaSemantics.JACOCO_METADATA_PLACEHOLDER, ""));
@@ -376,17 +378,11 @@ public class BazelJavaSemantics implements JavaSemantics {
           "export JACOCO_JAVA_RUNFILES_ROOT=${JAVA_RUNFILES}/" + workspacePrefix)
       );
       arguments.add(
-          Substitution.of(
-              JavaSemantics.JAVA_COVERAGE_NEW_IMPLEMENTATION_PLACEHOLDER,
-              "export JAVA_COVERAGE_NEW_IMPLEMENTATION=YES"));
-      arguments.add(
           Substitution.of("%java_start_class%", ShellEscaper.escapeString(javaStartClass)));
     } else {
       arguments.add(Substitution.of(JavaSemantics.JACOCO_METADATA_PLACEHOLDER, ""));
       arguments.add(Substitution.of(JavaSemantics.JACOCO_MAIN_CLASS_PLACEHOLDER, ""));
       arguments.add(Substitution.of(JavaSemantics.JACOCO_JAVA_RUNFILES_ROOT_PLACEHOLDER, ""));
-      arguments.add(
-          Substitution.of(JavaSemantics.JAVA_COVERAGE_NEW_IMPLEMENTATION_PLACEHOLDER, ""));
     }
 
     arguments.add(Substitution.of("%java_start_class%",
@@ -440,7 +436,7 @@ public class BazelJavaSemantics implements JavaSemantics {
             .addJoinedValues(
                 "classpath",
                 ";",
-                Iterables.transform(classpath, Artifact.ROOT_RELATIVE_PATH_STRING))
+                Iterables.transform(classpath.toList(), Artifact.OUTPUT_DIR_RELATIVE_PATH_STRING))
             // TODO(laszlocsomor): Change the Launcher to accept multiple jvm_flags entries. As of
             // 2019-02-13 the Launcher accepts just one jvm_flags entry, which contains all the
             // flags, joined by TAB characters. The Launcher splits up the string to get the
@@ -457,66 +453,6 @@ public class BazelJavaSemantics implements JavaSemantics {
     return ruleContext.getFragment(JavaConfiguration.class).explicitJavaTestDeps();
   }
 
-  /**
-   * Substitutes the placeholder with {@link File#pathSeparatorChar} separated relative classpaths.
-   */
-  private static class ComputedRelativeClasspathsSubstitution extends ComputedSubstitution {
-    private final JavaCommon javaCommon;
-    public ComputedRelativeClasspathsSubstitution(JavaCommon javaCommon) {
-      super(RELATIVE_CLASSPATHS_PLACEHOLDER);
-      this.javaCommon = javaCommon;
-    }
-
-    @Override
-    public String getValue() {
-      // TODO(kush): Get this to work when runfilesEnabled=false, like in windows.
-      Iterable<String> paths =
-          Iterables.transform(
-              javaCommon.getRuntimeClasspath(),
-              artifact -> artifact == null ? null : artifact.getRunfilesPathString());
-      return Joiner.on(File.pathSeparatorChar).skipNulls().join(paths);
-    }
-  }
-
-  @Override
-  public Optional<Artifact> createClasspathsFile(RuleContext ruleContext, JavaCommon javaCommon)
-      throws InterruptedException {
-    if (!isExperimentalJavaTest(ruleContext)) {
-      return Optional.absent();
-    }
-    Artifact classpathFile = ruleContext.getImplicitOutputArtifact(JAVA_TEST_CLASSPATHS_FILE);
-    List<Substitution> substitutions =
-        ImmutableList.<Substitution>of(new ComputedRelativeClasspathsSubstitution(javaCommon));
-
-    ruleContext.registerAction(
-        new TemplateExpansionAction(
-            ruleContext.getActionOwner(),
-            classpathFile,
-            CLASSPATH_FILE_TEMPLATE,
-            substitutions,
-            /*makeExecutable=*/ false));
-    return Optional.of(classpathFile);
-  }
-
-  @Nullable
-  private TransitiveInfoCollection getTestSupport(RuleContext ruleContext) {
-    if (!isJavaBinaryOrJavaTest(ruleContext)) {
-      return null;
-    }
-    if (useLegacyJavaTest(ruleContext)) {
-      return null;
-    }
-
-    boolean createExecutable = ruleContext.attributes().get("create_executable", Type.BOOLEAN);
-    if (createExecutable && ruleContext.attributes().get("use_testrunner", Type.BOOLEAN)) {
-      String testSupport =
-          isExperimentalJavaTest(ruleContext) ? "$experimental_testsupport" : "$testsupport";
-      return Iterables.getOnlyElement(ruleContext.getPrerequisites(testSupport, Mode.TARGET));
-    } else {
-      return null;
-    }
-  }
-
   private static NestedSet<Artifact> getRuntimeJarsForTargets(TransitiveInfoCollection... deps) {
     // The dep may be a simple JAR and not a java rule, hence we can't simply do
     // dep.getProvider(JavaCompilationArgsProvider.class).getRecursiveJavaCompilationArgs(),
@@ -528,7 +464,7 @@ public class BazelJavaSemantics implements JavaSemantics {
   @Override
   public void addRunfilesForBinary(RuleContext ruleContext, Artifact launcher,
       Runfiles.Builder runfilesBuilder) {
-    TransitiveInfoCollection testSupport = getTestSupport(ruleContext);
+    TransitiveInfoCollection testSupport = JavaSemantics.getTestSupport(ruleContext);
     if (testSupport != null) {
       // We assume that the runtime jars will not have conflicting artifacts
       // with the same root relative path
@@ -554,9 +490,14 @@ public class BazelJavaSemantics implements JavaSemantics {
       // targets may break, we are keeping it behind this flag.
       return;
     }
-    TransitiveInfoCollection testSupport = getTestSupport(ruleContext);
-    if (testSupport != null) {
-      builder.add(testSupport);
+    if (!JavaSemantics.isTestTargetAndPersistentTestRunner(ruleContext)) {
+      // Only add the test support to the dependencies when running in regular mode.
+      // In persistent test runner mode don't pollute the classpath of the test with
+      // the test support classes.
+      TransitiveInfoCollection testSupport = JavaSemantics.getTestSupport(ruleContext);
+      if (testSupport != null) {
+        builder.add(testSupport);
+      }
     }
   }
 
@@ -633,7 +574,7 @@ public class BazelJavaSemantics implements JavaSemantics {
 
   @Override
   public String getPrimaryClass(RuleContext ruleContext, ImmutableList<Artifact> sources) {
-    return useLegacyJavaTest(ruleContext)
+    return JavaSemantics.useLegacyJavaTest(ruleContext)
         ? getPrimaryClassLegacy(ruleContext, sources)
         : getPrimaryClassNew(ruleContext, sources);
   }
@@ -644,7 +585,7 @@ public class BazelJavaSemantics implements JavaSemantics {
     ImmutableList.Builder<String> jvmFlags = ImmutableList.builder();
     jvmFlags.addAll(userJvmFlags);
 
-    if (!useLegacyJavaTest(ruleContext)) {
+    if (!JavaSemantics.useLegacyJavaTest(ruleContext)) {
       if (ruleContext.attributes().get("use_testrunner", Type.BOOLEAN)) {
         String testClass = ruleContext.getRule().isAttrDefined("test_class", Type.STRING)
             ? ruleContext.attributes().get("test_class", Type.STRING) : "";
@@ -670,19 +611,22 @@ public class BazelJavaSemantics implements JavaSemantics {
   public String addCoverageSupport(JavaCompilationHelper helper, Artifact executable) {
     // This method can be called only for *_binary/*_test targets.
     Preconditions.checkNotNull(executable);
+    if (!helper.addCoverageSupport()) {
+      // Fallback to $jacocorunner attribute if no jacocorunner was found in the toolchain.
 
-    // Add the coverage runner to the list of dependencies when compiling in coverage mode.
-    TransitiveInfoCollection runnerTarget =
-        helper.getRuleContext().getPrerequisite("$jacocorunner", Mode.TARGET);
-    if (JavaInfo.getProvider(JavaCompilationArgsProvider.class, runnerTarget) != null) {
-      helper.addLibrariesToAttributes(ImmutableList.of(runnerTarget));
-    } else {
-      helper
-          .getRuleContext()
-          .ruleError(
-              "this rule depends on "
-                  + helper.getRuleContext().attributes().get("$jacocorunner", BuildType.LABEL)
-                  + " which is not a java_library rule, or contains errors");
+      // Add the coverage runner to the list of dependencies when compiling in coverage mode.
+      TransitiveInfoCollection runnerTarget =
+          helper.getRuleContext().getPrerequisite("$jacocorunner");
+      if (JavaInfo.getProvider(JavaCompilationArgsProvider.class, runnerTarget) != null) {
+        helper.addLibrariesToAttributes(ImmutableList.of(runnerTarget));
+      } else {
+        helper
+            .getRuleContext()
+            .ruleError(
+                "this rule depends on "
+                    + helper.getRuleContext().attributes().get("$jacocorunner", BuildType.LABEL)
+                    + " which is not a java_library rule, or contains errors");
+      }
     }
 
     // We do not add the instrumented jar to the runtime classpath, but provide it in the shell
@@ -705,7 +649,8 @@ public class BazelJavaSemantics implements JavaSemantics {
       boolean usingNativeSinglejar,
       // Explicitly ignoring params since Bazel doesn't yet support one version
       OneVersionEnforcementLevel oneVersionEnforcementLevel,
-      Artifact oneVersionWhitelistArtifact) {
+      Artifact oneVersionAllowlistArtifact,
+      Artifact sharedArchive) {
     return DeployArchiveBuilder.defaultSingleJarCommandLineWithoutOneVersion(
             output,
             mainClass,
@@ -763,14 +708,14 @@ public class BazelJavaSemantics implements JavaSemantics {
   @Override
   public List<String> getExtraArguments(RuleContext ruleContext, ImmutableList<Artifact> sources) {
     if (ruleContext.getRule().getRuleClass().equals("java_test")) {
-      if (useLegacyJavaTest(ruleContext)) {
+      if (JavaSemantics.useLegacyJavaTest(ruleContext)) {
         TestConfiguration testConfiguration =
             ruleContext.getConfiguration().getFragment(TestConfiguration.class);
-        if (testConfiguration.getTestArguments().isEmpty()
+        if ((testConfiguration == null || testConfiguration.getTestArguments().isEmpty())
             && !ruleContext.attributes().isAttributeValueExplicitlySpecified("args")) {
           ImmutableList.Builder<String> builder = ImmutableList.builder();
           for (Artifact artifact : sources) {
-            PathFragment path = artifact.getRootRelativePath();
+            PathFragment path = artifact.getRepositoryRelativePath();
             String className = JavaUtil.getJavaFullClassname(FileSystemUtils.removeExtension(path));
             if (className != null) {
               builder.add(className);
@@ -781,11 +726,6 @@ public class BazelJavaSemantics implements JavaSemantics {
       }
     }
     return ImmutableList.<String>of();
-  }
-
-  private boolean useLegacyJavaTest(RuleContext ruleContext) {
-    return !ruleContext.attributes().isAttributeValueExplicitlySpecified("test_class")
-        && ruleContext.getFragment(JavaConfiguration.class).useLegacyBazelJavaTest();
   }
 
   @Override
@@ -818,7 +758,6 @@ public class BazelJavaSemantics implements JavaSemantics {
   }
 
   @Override
-  public boolean isJavaProtoLibraryStrictDeps(RuleContext ruleContext) {
-    return false;
-  }
+  public void checkDependencyRuleKinds(RuleContext ruleContext) {}
 }
+

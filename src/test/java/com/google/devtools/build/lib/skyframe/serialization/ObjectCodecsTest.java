@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.eq;
+import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
@@ -138,7 +138,7 @@ public class ObjectCodecsTest {
         .serialize(any(SerializationContext.class), eq(original), any(CodedOutputStream.class));
     SerializationException e =
         assertThrows(SerializationException.class, () -> underTest.serialize(original));
-    assertThat(e).isSameAs(staged);
+    assertThat(e).isSameInstanceAs(staged);
   }
 
   @Test
@@ -152,7 +152,7 @@ public class ObjectCodecsTest {
         .serialize(any(SerializationContext.class), eq(original), any(CodedOutputStream.class));
     SerializationException e =
         assertThrows(SerializationException.class, () -> underTest.serialize(original));
-    assertThat(e).hasCauseThat().isSameAs(staged);
+    assertThat(e).hasCauseThat().isSameInstanceAs(staged);
   }
 
   @Test
@@ -164,7 +164,7 @@ public class ObjectCodecsTest {
     SerializationException thrown =
         assertThrows(
             SerializationException.class, () -> underTest.deserialize(underTest.serialize(1)));
-    assertThat(thrown).isSameAs(staged);
+    assertThat(thrown).isSameInstanceAs(staged);
   }
 
   @Test
@@ -177,7 +177,7 @@ public class ObjectCodecsTest {
     SerializationException e =
         assertThrows(
             SerializationException.class, () -> underTest.deserialize(underTest.serialize(1)));
-    assertThat(e).hasCauseThat().isSameAs(staged);
+    assertThat(e).hasCauseThat().isSameInstanceAs(staged);
   }
 
   @Test

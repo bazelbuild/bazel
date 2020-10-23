@@ -16,26 +16,25 @@ package com.google.devtools.build.lib.analysis.platform;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainTypeInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainTypeInfoApi;
 import java.util.Objects;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.syntax.Location;
 
 /** A provider that supplies information about a specific toolchain type. */
 @Immutable
 @AutoCodec
 public class ToolchainTypeInfo extends NativeInfo implements ToolchainTypeInfoApi {
-  /** Name used in Skylark for accessing this provider. */
-  public static final String SKYLARK_NAME = "ToolchainTypeInfo";
+  /** Name used in Starlark for accessing this provider. */
+  public static final String STARLARK_NAME = "ToolchainTypeInfo";
 
-  /** Skylark constructor and identifier for this provider. */
-  @AutoCodec
-  public static final NativeProvider<ToolchainTypeInfo> PROVIDER =
-      new NativeProvider<ToolchainTypeInfo>(ToolchainTypeInfo.class, SKYLARK_NAME) {};
+  /** Provider singleton constant. */
+  public static final BuiltinProvider<ToolchainTypeInfo> PROVIDER =
+      new BuiltinProvider<ToolchainTypeInfo>(STARLARK_NAME, ToolchainTypeInfo.class) {};
 
   private final Label typeLabel;
 
@@ -59,8 +58,8 @@ public class ToolchainTypeInfo extends NativeInfo implements ToolchainTypeInfoAp
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
-    printer.format("ToolchainTypeInfo(%s)", typeLabel);
+  public void repr(Printer printer) {
+    Printer.format(printer, "ToolchainTypeInfo(%s)", typeLabel);
   }
 
   @Override

@@ -16,10 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -27,21 +25,18 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import java.math.BigInteger;
 import javax.annotation.Nullable;
 
 /** A configured target in the context of a Skyframe graph. */
 @Immutable
 @ThreadSafe
 @AutoCodec(explicitlyAllowClass = RuleConfiguredTarget.class)
-public final class RuleConfiguredTargetValue extends ActionLookupValue
-    implements ConfiguredTargetValue {
+public final class RuleConfiguredTargetValue implements ActionLookupValue, ConfiguredTargetValue {
 
   // This variable is non-final because it may be clear()ed to save memory. It is null only after
   // clear(true) is called.
   @Nullable private RuleConfiguredTarget configuredTarget;
   private final ImmutableList<ActionAnalysisMetadata> actions;
-  private final ImmutableMap<Artifact, Integer> generatingActionIndex;
 
   // May be null either after clearing or because transitive packages are not tracked.
   @Nullable private NestedSet<Package> transitivePackagesForPackageRootResolution;
@@ -49,22 +44,16 @@ public final class RuleConfiguredTargetValue extends ActionLookupValue
   // Transitive packages are not serialized.
   @AutoCodec.Instantiator
   RuleConfiguredTargetValue(RuleConfiguredTarget configuredTarget) {
-    this(
-        configuredTarget,
-        /*transitivePackagesForPackageRootResolution=*/ null,
-        /*nonceVersion=*/ null);
+    this(configuredTarget, /*transitivePackagesForPackageRootResolution=*/ null);
   }
 
   RuleConfiguredTargetValue(
       RuleConfiguredTarget configuredTarget,
-      @Nullable NestedSet<Package> transitivePackagesForPackageRootResolution,
-      @Nullable BigInteger nonceVersion) {
-    super(nonceVersion);
+      @Nullable NestedSet<Package> transitivePackagesForPackageRootResolution) {
     this.configuredTarget = Preconditions.checkNotNull(configuredTarget);
     this.transitivePackagesForPackageRootResolution = transitivePackagesForPackageRootResolution;
     // These are specifically *not* copied to save memory.
     this.actions = configuredTarget.getActions();
-    this.generatingActionIndex = configuredTarget.getGeneratingActionIndex();
   }
 
   @Override
@@ -76,11 +65,6 @@ public final class RuleConfiguredTargetValue extends ActionLookupValue
   @Override
   public ImmutableList<ActionAnalysisMetadata> getActions() {
     return actions;
-  }
-
-  @Override
-  protected ImmutableMap<Artifact, Integer> getGeneratingActionIndex() {
-    return generatingActionIndex;
   }
 
   @Override
@@ -100,7 +84,6 @@ public final class RuleConfiguredTargetValue extends ActionLookupValue
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
-        .add("generatingActionIndex", generatingActionIndex)
         .add("actions", actions)
         .add("configuredTarget", configuredTarget)
         .toString();

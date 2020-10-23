@@ -14,14 +14,15 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
@@ -56,6 +57,10 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     return new CompactPersistentActionCache(cacheRoot, clock);
   }
 
+  private static NestedSet<Artifact> asNestedSet(Artifact... artifacts) {
+    return NestedSetBuilder.create(Order.STABLE_ORDER, artifacts);
+  }
+
   /**
    * Creates and returns a new caching builder based on a given {@code cache}.
    */
@@ -70,10 +75,11 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
   @Test
   public void testUnneededInputs() throws Exception {
     Artifact hello = createSourceArtifact("hello");
-    BlazeTestUtils.makeEmptyFile(hello.getPath());
+    FileSystemUtils.createDirectoryAndParents(hello.getPath().getParentDirectory());
+    FileSystemUtils.writeContentAsLatin1(hello.getPath(), "content1");
     Artifact optional = createSourceArtifact("hello.optional");
     Artifact goodbye = createDerivedArtifact("goodbye");
-    Button button = createActionButton(Sets.newHashSet(hello, optional), Sets.newHashSet(goodbye));
+    Button button = createActionButton(asNestedSet(hello, optional), ImmutableSet.of(goodbye));
 
     button.pressed = false;
     buildArtifacts(persistentBuilder(cache), goodbye);
@@ -91,6 +97,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     assertThat(button.pressed).isFalse(); // not rebuilt
 
     BlazeTestUtils.makeEmptyFile(optional.getPath());
+    FileSystemUtils.writeContentAsLatin1(hello.getPath(), "content2");
 
     button.pressed = false;
     buildArtifacts(persistentBuilder(cache), goodbye);
@@ -101,6 +108,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     assertThat(button.pressed).isFalse(); // not rebuilt
 
     optional.getPath().delete();
+    FileSystemUtils.writeContentAsLatin1(hello.getPath(), "content3");
 
     button.pressed = false;
     buildArtifacts(persistentBuilder(cache), goodbye);
@@ -115,12 +123,12 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
   }
 
   @Test
-  public void testPersistentCache_ModifyingInputCausesActionReexecution() throws Exception {
+  public void testPersistentCache_modifyingInputCausesActionReexecution() throws Exception {
     // /hello -> [action] -> /goodbye
     Artifact hello = createSourceArtifact("hello");
     BlazeTestUtils.makeEmptyFile(hello.getPath());
     Artifact goodbye = createDerivedArtifact("goodbye");
-    Button button = createActionButton(Sets.newHashSet(hello), Sets.newHashSet(goodbye));
+    Button button = createActionButton(asNestedSet(hello), ImmutableSet.of(goodbye));
 
     button.pressed = false;
     buildArtifacts(persistentBuilder(cache), goodbye);
@@ -154,7 +162,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     FileSystemUtils.createDirectoryAndParents(hello.getPath().getParentDirectory());
     FileSystemUtils.writeContentAsLatin1(hello.getPath(), "content1");
     Artifact goodbye = createDerivedArtifact("goodbye");
-    Button button = createActionButton(Sets.newHashSet(hello), Sets.newHashSet(goodbye));
+    Button button = createActionButton(asNestedSet(hello), ImmutableSet.of(goodbye));
 
     button.pressed = false;
     buildArtifacts(persistentBuilder(cache), goodbye);
@@ -194,9 +202,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     FileSystemUtils.writeContentAsLatin1(hello.getPath(), "hello");
     FileSystemUtils.writeContentAsLatin1(there.getPath(), "there");
     Artifact goodbye = createDerivedArtifact("goodbye");
-    Button button =
-        createActionButton(
-            Sets.newLinkedHashSet(ImmutableList.of(hello, there)), Sets.newHashSet(goodbye));
+    Button button = createActionButton(asNestedSet(hello, there), ImmutableSet.of(goodbye));
 
     button.pressed = false;
     buildArtifacts(persistentBuilder(cache), goodbye);
@@ -209,9 +215,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     // Now create duplicate graph, with swapped order.
     clearActions();
     Artifact goodbye2 = createDerivedArtifact("goodbye");
-    Button button2 =
-        createActionButton(
-            Sets.newLinkedHashSet(ImmutableList.of(there, hello)), Sets.newHashSet(goodbye2));
+    Button button2 = createActionButton(asNestedSet(there, hello), ImmutableSet.of(goodbye2));
 
     button2.pressed = false;
     buildArtifacts(persistentBuilder(cache), goodbye);
@@ -224,7 +228,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     Artifact goodbye = createDerivedArtifact("goodbye");
     FileSystemUtils.createDirectoryAndParents(goodbye.getPath().getParentDirectory());
     FileSystemUtils.writeContentAsLatin1(goodbye.getPath(), "test");
-    Button button = createActionButton(emptySet, Sets.newLinkedHashSet(ImmutableList.of(goodbye)));
+    Button button = createActionButton(emptyNestedSet, ImmutableSet.of(goodbye));
 
     button.pressed = false;
     buildArtifacts(persistentBuilder(cache), goodbye);
@@ -237,8 +241,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     clearActions();
     Artifact hello = createDerivedArtifact("hello");
     Artifact goodbye2 = createDerivedArtifact("goodbye");
-    Button button2 =
-        createActionButton(emptySet, Sets.newLinkedHashSet(ImmutableList.of(hello, goodbye2)));
+    Button button2 = createActionButton(emptyNestedSet, ImmutableSet.of(hello, goodbye2));
 
     button2.pressed = false;
     buildArtifacts(persistentBuilder(cache), hello, goodbye2);
@@ -259,7 +262,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     FileSystemUtils.createDirectoryAndParents(hello.getPath().getParentDirectory());
     FileSystemUtils.writeContentAsLatin1(hello.getPath(), "hello");
     Artifact goodbye = createDerivedArtifact("goodbye");
-    Button button = createActionButton(Sets.newHashSet(hello), Sets.newHashSet(goodbye));
+    Button button = createActionButton(asNestedSet(hello), ImmutableSet.of(goodbye));
 
     button.pressed = false;
     buildArtifacts(persistentBuilder(cache), goodbye);
@@ -275,46 +278,11 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     FileSystemUtils.createDirectoryAndParents(hi.getPath().getParentDirectory());
     FileSystemUtils.writeContentAsLatin1(hi.getPath(), "hello");
     Artifact goodbye2 = createDerivedArtifact("goodbye");
-    Button button2 = createActionButton(Sets.newHashSet(hi), Sets.newHashSet(goodbye2));
+    Button button2 = createActionButton(asNestedSet(hi), ImmutableSet.of(goodbye2));
 
     button2.pressed = false;
     buildArtifacts(persistentBuilder(cache), goodbye2);
     assertThat(button2.pressed).isTrue(); // name changed. must rebuild.
-  }
-
-  @Test
-  public void testDuplicateInputs() throws Exception {
-    // (/hello,/hello) -> [action] -> /goodbye
-
-    Artifact hello = createSourceArtifact("hello");
-    FileSystemUtils.createDirectoryAndParents(hello.getPath().getParentDirectory());
-    FileSystemUtils.writeContentAsLatin1(hello.getPath(), "hello");
-    Artifact goodbye = createDerivedArtifact("goodbye");
-    Button button =
-        createActionButton(Lists.<Artifact>newArrayList(hello, hello), Sets.newHashSet(goodbye));
-
-    button.pressed = false;
-    buildArtifacts(persistentBuilder(cache), goodbye);
-    assertThat(button.pressed).isTrue(); // built
-
-    button.pressed = false;
-    buildArtifacts(persistentBuilder(cache), goodbye);
-    assertThat(button.pressed).isFalse(); // not rebuilt
-
-    FileSystemUtils.writeContentAsLatin1(hello.getPath(), "hello2");
-
-    button.pressed = false;
-    buildArtifacts(persistentBuilder(cache), goodbye);
-    assertThat(button.pressed).isTrue(); // rebuilt
-
-    button.pressed = false;
-    buildArtifacts(persistentBuilder(cache), goodbye);
-    assertThat(button.pressed).isFalse(); // not rebuilt
-
-    // Creating a new persistent cache does not cause a rebuild
-    cache.save();
-    buildArtifacts(persistentBuilder(createCache()), goodbye);
-    assertThat(button.pressed).isFalse(); // not rebuilt
   }
 
   /**
@@ -329,7 +297,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     FileSystemUtils.createDirectoryAndParents(hello.getPath().getParentDirectory());
     FileSystemUtils.writeContentAsLatin1(hello.getPath(), "content1");
     Artifact goodbye = createDerivedArtifact("goodbye");
-    Button button = createActionButton(Sets.newHashSet(hello), Sets.newHashSet(goodbye));
+    Button button = createActionButton(asNestedSet(hello), ImmutableSet.of(goodbye));
 
     button.pressed = false;
     buildArtifacts(persistentBuilder(cache), goodbye);
@@ -348,10 +316,10 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
   }
 
   @Test
-  public void testPersistentCache_ModifyingOutputCausesActionReexecution() throws Exception {
+  public void testPersistentCache_modifyingOutputCausesActionReexecution() throws Exception {
     // [action] -> /hello
     Artifact hello = createDerivedArtifact("hello");
-    Button button = createActionButton(emptySet, Sets.newHashSet(hello));
+    Button button = createActionButton(emptyNestedSet, ImmutableSet.of(hello));
 
     button.pressed = false;
     buildArtifacts(persistentBuilder(cache), hello);
@@ -382,7 +350,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
   public void testPersistentCache_missingFilenameIndexCausesActionReexecution() throws Exception {
     // [action] -> /hello
     Artifact hello = createDerivedArtifact("hello");
-    Button button = createActionButton(emptySet, Sets.newHashSet(hello));
+    Button button = createActionButton(emptyNestedSet, ImmutableSet.of(hello));
 
     button.pressed = false;
     buildArtifacts(persistentBuilder(cache), hello);
@@ -428,7 +396,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
   public void testPersistentCache_failedIntegrityCheckCausesActionReexecution() throws Exception {
     // [action] -> /hello
     Artifact hello = createDerivedArtifact("hello");
-    Button button = createActionButton(emptySet, Sets.newHashSet(hello));
+    Button button = createActionButton(emptyNestedSet, ImmutableSet.of(hello));
 
     button.pressed = false;
     buildArtifacts(persistentBuilder(cache), hello);
@@ -460,7 +428,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
 
     // Add extra records to the action cache and indexer.
     Artifact helloExtra = createDerivedArtifact("hello_extra");
-    Button buttonExtra = createActionButton(emptySet, Sets.newHashSet(helloExtra));
+    Button buttonExtra = createActionButton(emptyNestedSet, ImmutableSet.of(helloExtra));
     buildArtifacts(persistentBuilder(cache), helloExtra);
     assertThat(buttonExtra.pressed).isTrue(); // built
 

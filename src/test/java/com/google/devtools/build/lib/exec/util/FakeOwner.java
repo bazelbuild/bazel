@@ -13,7 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec.util;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -21,41 +24,63 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
+import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
-/**
- * Fake implementation of {@link ActionExecutionMetadata} for testing.
- */
-public final class FakeOwner implements ActionExecutionMetadata {
+/** Fake implementation of {@link ActionExecutionMetadata} for testing. */
+public class FakeOwner implements ActionExecutionMetadata {
   private final String mnemonic;
   private final String progressMessage;
   @Nullable private final String ownerLabel;
+  @Nullable private final PlatformInfo platform;
+  private final ImmutableMap<String, String> execProperties;
 
-  public FakeOwner(String mnemonic, String progressMessage, @Nullable String ownerLabel) {
+  FakeOwner(
+      String mnemonic,
+      String progressMessage,
+      String ownerLabel,
+      @Nullable PlatformInfo platform,
+      ImmutableMap<String, String> execProperties) {
     this.mnemonic = mnemonic;
     this.progressMessage = progressMessage;
-    this.ownerLabel = ownerLabel;
+    this.ownerLabel = checkNotNull(ownerLabel);
+    this.platform = platform;
+    this.execProperties = execProperties;
   }
 
-  public FakeOwner(String mnemonic, String progressMessage) {
-    this(mnemonic, progressMessage, null);
+  private FakeOwner(
+      String mnemonic, String progressMessage, String ownerLabel, @Nullable PlatformInfo platform) {
+    this(mnemonic, progressMessage, ownerLabel, platform, ImmutableMap.of());
+  }
+
+  public FakeOwner(String mnemonic, String progressMessage, String ownerLabel) {
+    this(mnemonic, progressMessage, checkNotNull(ownerLabel), null);
   }
 
   @Override
   public ActionOwner getOwner() {
     return ActionOwner.create(
-        ownerLabel == null ? null : Label.parseAbsoluteUnchecked(ownerLabel),
-        /*aspectDescriptors=*/ ImmutableList.<AspectDescriptor>of(),
-        /*location=*/ null,
+        Label.parseAbsoluteUnchecked(ownerLabel),
+        /*aspectDescriptors=*/ ImmutableList.of(),
+        new Location("dummy-file", 0, 0),
         mnemonic,
-        /*targetKind=*/ null,
+        "dummy-target-kind",
         "configurationChecksum",
-        /* configuration=*/ null,
+        new BuildConfigurationEvent(
+            BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
+            BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
         "additionalProgressInfo",
+        /* execProperties=*/ ImmutableMap.of(),
         null);
   }
 
@@ -85,12 +110,12 @@ public final class FakeOwner implements ActionExecutionMetadata {
   }
 
   @Override
-  public Iterable<Artifact> getTools() {
+  public NestedSet<Artifact> getTools() {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public Iterable<Artifact> getInputs() {
+  public NestedSet<Artifact> getInputs() {
     throw new UnsupportedOperationException();
   }
 
@@ -120,12 +145,13 @@ public final class FakeOwner implements ActionExecutionMetadata {
   }
 
   @Override
-  public Iterable<Artifact> getMandatoryInputs() {
+  public NestedSet<Artifact> getMandatoryInputs() {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public String getKey(ActionKeyContext actionKeyContext) {
+  public String getKey(
+      ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander) {
     return "MockOwner.getKey";
   }
 
@@ -145,9 +171,9 @@ public final class FakeOwner implements ActionExecutionMetadata {
   }
 
   @Override
-  public Iterable<Artifact> getInputFilesForExtraAction(
+  public NestedSet<Artifact> getInputFilesForExtraAction(
       ActionExecutionContext actionExecutionContext) {
-    return ImmutableList.of();
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
   @Override
@@ -165,9 +191,14 @@ public final class FakeOwner implements ActionExecutionMetadata {
     throw new UnsupportedOperationException();
   }
 
+  @Override
+  public ImmutableMap<String, String> getExecProperties() {
+    return execProperties;
+  }
+
   @Nullable
   @Override
   public PlatformInfo getExecutionPlatform() {
-    return null;
+    return platform;
   }
 }

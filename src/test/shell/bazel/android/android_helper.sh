@@ -14,8 +14,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# --- begin runfiles.bash initialization v2 ---
+# Copy-pasted from the Bazel Bash runfiles library v2.
+set -uo pipefail; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v2 ---
+
 function fail_if_no_android_sdk() {
-  if [[ ! -d "${TEST_SRCDIR}/androidsdk" ]]; then
+  # Required for runfiles library on Windows, since $(rlocation) lookups
+  # can't do directories. We use android-28's android.jar as the anchor
+  # for the androidsdk location.
+  android_sdk_anchor=$(rlocation androidsdk/platforms/android-28/android.jar)
+  if [[ ! -r "$android_sdk_anchor" ]]; then
     echo "Not running Android tests due to lack of an Android SDK."
     exit 1
   fi
@@ -53,7 +68,7 @@ android_binary(
 )
 EOF
 
-  cp "${TEST_SRCDIR}/io_bazel/src/test/shell/bazel/android/sample.aar" \
+  cp "$(rlocation io_bazel/src/test/shell/bazel/android/sample.aar)" \
     java/bazel/sample.aar
   cat > java/bazel/AndroidManifest.xml <<EOF
   <manifest package="bazel.android" />
@@ -83,3 +98,15 @@ public class MainActivity extends Activity {
 }
 EOF
 }
+
+function setup_head_android_tools_if_exists() {
+  local head_android_tools=$(rlocation io_bazel/tools/android/runtime_deps/android_tools.tar.gz)
+  if [[ -f $head_android_tools ]]; then
+    HEAD_ANDROID_TOOLS_WS="$TEST_TMPDIR/head_android_tools"
+    mkdir "$HEAD_ANDROID_TOOLS_WS"
+    tar xvf $head_android_tools -C "$HEAD_ANDROID_TOOLS_WS"
+    echo "common --override_repository=android_tools=$HEAD_ANDROID_TOOLS_WS" >> $TEST_TMPDIR/bazelrc
+  fi
+}
+
+setup_head_android_tools_if_exists

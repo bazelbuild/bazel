@@ -14,24 +14,71 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+import static com.google.devtools.build.lib.packages.Type.INTEGER;
+import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
+
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Converters.BooleanConverter;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
+import com.google.devtools.common.options.Converters.StringConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.eval.StarlarkInt;
 
 /**
  * {@link Converter}s for {@link com.google.devtools.common.options.Option}s that aren't
  * domain-specific (i.e. aren't consumed within a single {@link FragmentOptions}).
  */
 public class CoreOptionConverters {
+
+  /**
+   * The set of converters used for {@link com.google.devtools.build.lib.packages.BuildSetting}
+   * value parsing.
+   */
+  public static final ImmutableMap<Type<?>, Converter<?>> BUILD_SETTING_CONVERTERS =
+      new ImmutableMap.Builder<Type<?>, Converter<?>>()
+          .put(INTEGER, new StarlarkIntConverter())
+          .put(BOOLEAN, new BooleanConverter())
+          .put(STRING, new StringConverter())
+          .put(STRING_LIST, new CommaSeparatedOptionListConverter())
+          .put(LABEL, new LabelConverter())
+          .put(LABEL_LIST, new LabelListConverter())
+          .build();
+
+  /** A converter from strings to Starlark int values. */
+  private static class StarlarkIntConverter implements Converter<StarlarkInt> {
+    @Override
+    public StarlarkInt convert(String input) throws OptionsParsingException {
+      // Note that Starlark rule attribute values are currently restricted
+      // to the signed 32-bit range, but Starlark-based flags may take on
+      // any integer value.
+      try {
+        return StarlarkInt.parse(input, 0);
+      } catch (NumberFormatException ex) {
+        throw new OptionsParsingException("invalid int: " + ex.getMessage());
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "an int";
+    }
+  }
+
   /** A converter from strings to Labels. */
   public static class LabelConverter implements Converter<Label> {
     @Override

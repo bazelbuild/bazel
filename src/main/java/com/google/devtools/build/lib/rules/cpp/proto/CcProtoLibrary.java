@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp.proto;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode.TARGET;
 
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -24,15 +23,16 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.rules.cpp.CcSkylarkApiProvider;
+import com.google.devtools.build.lib.rules.cpp.CcCommon;
+import com.google.devtools.build.lib.rules.cpp.CcStarlarkApiProvider;
 
 /** Part of the implementation of cc_proto_library. */
 public class CcProtoLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-
-    if (ruleContext.getPrerequisites("deps", TARGET).size() != 1) {
+    CcCommon.checkRuleLoadedThroughMacro(ruleContext);
+    if (ruleContext.getPrerequisites("deps").size() != 1) {
       ruleContext.throwWithAttributeError(
           "deps",
           "'deps' attribute must contain exactly one label "
@@ -43,7 +43,7 @@ public class CcProtoLibrary implements RuleConfiguredTargetFactory {
     }
 
     CcProtoLibraryProviders depProviders =
-        checkNotNull(ruleContext.getPrerequisite("deps", TARGET))
+        checkNotNull(ruleContext.getPrerequisite("deps"))
             .getProvider(CcProtoLibraryProviders.class);
 
     RuleConfiguredTargetBuilder ruleConfiguredTargetBuilder = new RuleConfiguredTargetBuilder(
@@ -58,7 +58,7 @@ public class CcProtoLibrary implements RuleConfiguredTargetFactory {
           depProviders.outputGroupInfo.getOutputGroup(groupName));
     }
 
-    CcSkylarkApiProvider.maybeAdd(ruleContext, ruleConfiguredTargetBuilder);
+    CcStarlarkApiProvider.maybeAdd(ruleContext, ruleConfiguredTargetBuilder);
     return ruleConfiguredTargetBuilder.build();
   }
 }

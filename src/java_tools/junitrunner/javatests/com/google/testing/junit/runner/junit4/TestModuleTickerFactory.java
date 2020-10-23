@@ -15,12 +15,10 @@
 package com.google.testing.junit.runner.junit4;
 
 import com.google.testing.junit.runner.util.Factory;
-import com.google.testing.junit.runner.util.Ticker;
+import com.google.testing.junit.runner.util.TestClock;
 
-/**
- * A factory that supplies a {@link Ticker} for testing purposes.
- */
-public final class TestModuleTickerFactory implements Factory<Ticker> {
+/** A factory that supplies a {@link TestClock} for testing purposes. */
+public final class TestModuleTickerFactory implements Factory<TestClock> {
   private final JUnit4RunnerTest.TestModule module;
 
   public TestModuleTickerFactory(JUnit4RunnerTest.TestModule module) {
@@ -29,15 +27,15 @@ public final class TestModuleTickerFactory implements Factory<Ticker> {
   }
 
   @Override
-  public Ticker get() {
-    Ticker ticker = module.ticker();
-    if (ticker == null) {
+  public TestClock get() {
+    TestClock testClock = module.clock();
+    if (testClock == null) {
       throw new NullPointerException();
     }
-    return ticker;
+    return testClock;
   }
 
-  public static Factory<Ticker> create(JUnit4RunnerTest.TestModule module) {
+  public static Factory<TestClock> create(JUnit4RunnerTest.TestModule module) {
     return new TestModuleTickerFactory(module);
   }
 }

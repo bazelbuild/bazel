@@ -49,16 +49,19 @@ final class LocationTemplateContext implements TemplateContext {
   private final TemplateContext delegate;
   private final ImmutableMap<String, LocationFunction> functions;
   private final ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
+  private final boolean windowsPath;
 
   private LocationTemplateContext(
       TemplateContext delegate,
       Label root,
       Supplier<Map<Label, Collection<Artifact>>> locationMap,
       boolean execPaths,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
+      boolean windowsPath) {
     this.delegate = delegate;
     this.functions = LocationExpander.allLocationFunctions(root, locationMap, execPaths);
     this.repositoryMapping = repositoryMapping;
+    this.windowsPath = windowsPath;
   }
 
   public LocationTemplateContext(
@@ -66,7 +69,8 @@ final class LocationTemplateContext implements TemplateContext {
       RuleContext ruleContext,
       @Nullable ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap,
       boolean execPaths,
-      boolean allowData) {
+      boolean allowData,
+      boolean windowsPath) {
     this(
         delegate,
         ruleContext.getLabel(),
@@ -74,16 +78,29 @@ final class LocationTemplateContext implements TemplateContext {
         Suppliers.memoize(
             () -> LocationExpander.buildLocationMap(ruleContext, labelMap, allowData)),
         execPaths,
-        ruleContext.getRule().getPackage().getRepositoryMapping());
+        ruleContext.getRule().getPackage().getRepositoryMapping(),
+        windowsPath);
   }
 
   @Override
   public String lookupVariable(String name) throws ExpansionException {
-    return delegate.lookupVariable(name);
+    String val = delegate.lookupVariable(name);
+    if (windowsPath) {
+      val = val.replace('/', '\\');
+    }
+    return val;
   }
 
   @Override
   public String lookupFunction(String name, String param) throws ExpansionException {
+    String val = lookupFunctionImpl(name, param);
+    if (windowsPath) {
+      val = val.replace('/', '\\');
+    }
+    return val;
+  }
+
+  private String lookupFunctionImpl(String name, String param) throws ExpansionException {
     try {
       LocationFunction f = functions.get(name);
       if (f != null) {

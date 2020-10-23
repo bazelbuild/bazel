@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
 #include "src/main/native/windows/util.h"
 
 #include <stdio.h>
@@ -22,6 +26,8 @@
 #include <memory>
 #include <sstream>
 #include <string>
+
+#include "src/main/native/windows/file.h"
 
 namespace bazel {
 namespace windows {
@@ -210,8 +216,7 @@ wstring AsShortPath(wstring path, wstring* result) {
     return MakeErrorMessage(WSTR(__FILE__), __LINE__, L"AsShortPath", path,
                             L"path is just a file name but too long");
   }
-  if (HasSeparator(path) &&
-      !(isalpha(path[0]) && path[1] == L':' && IsSeparator(path[2]))) {
+  if (HasSeparator(path) && !HasDriveSpecifierPrefix(path.c_str())) {
     return MakeErrorMessage(WSTR(__FILE__), __LINE__, L"AsShortPath", path,
                             L"path is not absolute");
   }
@@ -257,11 +262,25 @@ wstring AsShortPath(wstring path, wstring* result) {
   return L"";
 }
 
-wstring AsExecutablePathForCreateProcess(const wstring& path, wstring* result) {
+wstring AsExecutablePathForCreateProcess(wstring path, wstring* result) {
   if (path.empty()) {
     return MakeErrorMessage(WSTR(__FILE__), __LINE__,
                             L"AsExecutablePathForCreateProcess", path,
                             L"path should not be empty");
+  }
+  if (IsSeparator(path[0])) {
+    return MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                            L"AsExecutablePathForCreateProcess", path,
+                            L"path is absolute without a drive letter");
+  }
+  if (HasSeparator(path) && !HasDriveSpecifierPrefix(path.c_str())) {
+    wstring cwd;
+    DWORD err;
+    if (!GetCwd(&cwd, &err)) {
+      return MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                              L"AsExecutablePathForCreateProcess", path, err);
+    }
+    path = cwd + L"\\" + path;
   }
   wstring error = AsShortPath(path, result);
   if (!error.empty()) {

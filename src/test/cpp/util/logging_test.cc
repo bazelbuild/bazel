@@ -29,7 +29,7 @@ using ::testing::HasSubstr;
 using ::testing::Not;
 // Note: gmock uses different regex syntax on different platforms. MatchesRegex
 // is still useful since the '.' wildcard can help match formatted log lines
-// like `[bazel INFO filename:134] message`
+// like `[INFO 11:22:33.444 filename:134] message`
 // but should not be used for more fine grained testing.
 using ::testing::MatchesRegex;
 using ::testing::ContainsRegex;
@@ -309,7 +309,7 @@ TEST(LoggingTest, BazelLogHandler_BufferedLogsSentToSpecifiedStream) {
   // Check that the buffered logs were sent.
   std::string output(stringbuf_ptr->str());
   EXPECT_THAT(output,
-              MatchesRegex(".bazel INFO.* test sending logs to the buffer "
+              MatchesRegex(".INFO.* test sending logs to the buffer "
                            "before setting the output stream\n"));
 
   // Check that the output did not go to stderr.
@@ -335,7 +335,7 @@ TEST(LoggingTest, BazelLogHandler_WarningsSentToBufferStream) {
 
   // Check that output went to the buffer.
   std::string output(stringbuf_ptr->str());
-  EXPECT_THAT(output, MatchesRegex(".bazel WARNING.* test warning\n"));
+  EXPECT_THAT(output, MatchesRegex(".WARNING.* test warning\n"));
 
   // Check that the output never went to stderr.
   std::string stderr_output = testing::internal::GetCapturedStderr();
@@ -360,7 +360,7 @@ TEST(LoggingTest, BazelLogHandler_ErrorsSentToBufferStream) {
 
   // Check that output went to the buffer.
   std::string output(stringbuf_ptr->str());
-  EXPECT_THAT(output, MatchesRegex(".bazel ERROR.* test error\n"));
+  EXPECT_THAT(output, MatchesRegex(".ERROR.* test error\n"));
 
   // Check that the output never went to stderr.
   std::string stderr_output = testing::internal::GetCapturedStderr();
@@ -384,7 +384,7 @@ TEST(LoggingTest, BazelLogHandler_ImpossibleFile) {
   blaze_util::SetLogHandler(nullptr);
   std::string stderr_output = testing::internal::GetCapturedStderr();
   EXPECT_THAT(stderr_output,
-              MatchesRegex(".bazel ERROR.* Provided stream failed.\n"));
+              MatchesRegex(".ERROR.* Provided stream failed.\n"));
 }
 
 // Tests for the BazelLogHandler & SetLoggingOutputStreamToStderr
@@ -453,7 +453,7 @@ TEST(LoggingDeathTest,
         blaze_util::SetLogHandler(std::move(handler));
         BAZEL_LOG(FATAL) << "something's wrong!";
       },
-      ::testing::ExitedWithCode(37), "\\[bazel FATAL .*\\] something's wrong!");
+      ::testing::ExitedWithCode(37), "\\[FATAL .*\\] something's wrong!");
 }
 
 TEST(LoggingDeathTest,
@@ -480,7 +480,7 @@ TEST(LoggingDeathTest,
         blaze_util::SetLoggingOutputStreamToStderr();
         BAZEL_LOG(FATAL) << "something's wrong!";
       },
-      ::testing::ExitedWithCode(37), "\\[bazel FATAL .*\\] something's wrong!");
+      ::testing::ExitedWithCode(37), "\\[FATAL .*\\] something's wrong!");
 }
 
 TEST(LoggingDeathTest, NoHandler_BazelDieDiesWithCustomExitCode) {
@@ -498,7 +498,7 @@ TEST(LoggingDeathTest,
         BAZEL_DIE(42) << "dying with exit code 42.";
       },
       ::testing::ExitedWithCode(42),
-      "\\[bazel FATAL .*\\] dying with exit code 42.");
+      "\\[FATAL .*\\] dying with exit code 42.");
 }
 
 TEST(LoggingDeathTest,
@@ -524,7 +524,7 @@ TEST(LoggingDeathTest, BazelLogHandler_Stderr_BazelDieDiesWithCustomExitCode) {
         BAZEL_DIE(42) << "dying with exit code 42.";
       },
       ::testing::ExitedWithCode(42),
-      "\\[bazel FATAL .*\\] dying with exit code 42.");
+      "\\[FATAL .*\\] dying with exit code 42.");
 }
 
 TEST(LoggingDeathTest,
@@ -554,7 +554,7 @@ TEST(LoggingDeathTest,
   // uses the newline '\r\n', compared to the linux \n, we prefer to keep the
   // test simple and not test the end of the line explicitly.
   EXPECT_THAT(output,
-              ContainsRegex("\\[bazel FATAL .*\\] dying with exit code 42."));
+              ContainsRegex("\\[FATAL .*\\] dying with exit code 42."));
 }
 
 #endif  // GTEST_HAS_DEATH_TEST

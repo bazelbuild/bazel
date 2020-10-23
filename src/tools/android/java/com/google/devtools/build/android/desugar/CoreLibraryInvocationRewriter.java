@@ -33,7 +33,7 @@ public class CoreLibraryInvocationRewriter extends ClassVisitor {
   private final CoreLibrarySupport support;
 
   public CoreLibraryInvocationRewriter(ClassVisitor cv, CoreLibrarySupport support) {
-    super(Opcodes.ASM7, cv);
+    super(Opcodes.ASM8, cv);
     this.support = support;
   }
 
@@ -45,15 +45,15 @@ public class CoreLibraryInvocationRewriter extends ClassVisitor {
   }
 
   private class CoreLibraryMethodInvocationRewriter extends MethodVisitor {
+
     public CoreLibraryMethodInvocationRewriter(MethodVisitor mv) {
-      super(Opcodes.ASM7, mv);
+      super(Opcodes.ASM8, mv);
     }
 
     @Override
     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
       Class<?> coreInterface =
           support.getCoreInterfaceRewritingTarget(opcode, owner, name, desc, itf);
-
       if (coreInterface != null) {
         String coreInterfaceName = coreInterface.getName().replace('.', '/');
         if (opcode == Opcodes.INVOKESTATIC) {
@@ -63,8 +63,12 @@ public class CoreLibraryInvocationRewriter extends ClassVisitor {
         }
 
         if (opcode == Opcodes.INVOKESTATIC || opcode == Opcodes.INVOKESPECIAL) {
-          checkArgument(itf || opcode == Opcodes.INVOKESPECIAL,
-              "Expected interface to rewrite %s.%s : %s", owner, name, desc);
+          checkArgument(
+              itf || opcode == Opcodes.INVOKESPECIAL,
+              "Expected interface to rewrite %s.%s : %s",
+              owner,
+              name,
+              desc);
           if (coreInterface.isInterface()) {
             owner = InterfaceDesugaring.getCompanionClassName(coreInterfaceName);
             name =

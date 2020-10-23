@@ -81,7 +81,7 @@ public class AndroidRuntimeJarProvider implements TransitiveInfoProvider {
    */
   public Function<Artifact, Artifact> collapseToFunction() {
     final HashMap<Artifact, Artifact> collapsed = new HashMap<>();
-    for (ImmutableMap<Artifact, Artifact> partialMapping : runtimeJars) {
+    for (ImmutableMap<Artifact, Artifact> partialMapping : runtimeJars.toList()) {
       collapsed.putAll(partialMapping);
     }
     return jar -> {

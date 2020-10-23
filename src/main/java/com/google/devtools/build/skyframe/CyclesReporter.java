@@ -15,6 +15,8 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 
 /**
@@ -83,8 +85,15 @@ public class CyclesReporter {
         return;
       }
     }
-    throw new IllegalStateException(
-        printArbitraryCycle(topLevelKey, cycleInfo, alreadyReported) + "\n" + cycleReporters);
+
+    // No proper cycle reporter could be found. Blaze bug! Not fatal, though.
+    String rawCycle = printArbitraryCycle(topLevelKey, cycleInfo, alreadyReported);
+    eventHandler.handle(
+        Event.error(
+            "Cycle detected but could not be properly displayed due to an internal problem. Please"
+                + " file an issue. Raw display: "
+                + rawCycle));
+    BugReport.sendBugReport(new IllegalStateException(rawCycle + "\n" + cycleReporters));
   }
 
   private static String printArbitraryCycle(

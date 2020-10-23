@@ -127,7 +127,7 @@ message AspectDescriptor {
   string id = 1;
 
   // The name of the corresponding aspect. For native aspects, it's the Java
-  // class name, for Skylark aspects it's the bzl file followed by a % sign
+  // class name, for Starlark aspects it's the bzl file followed by a % sign
   // followed by the name of the aspect.
   string name = 2;
 

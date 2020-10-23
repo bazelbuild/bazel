@@ -29,14 +29,13 @@ import java.util.List;
  */
 public class J2ObjcCommandLineOptions extends FragmentOptions {
   @Option(
-    name = "j2objc_translation_flags",
-    converter = Converters.CommaSeparatedOptionListConverter.class,
-    allowMultiple = true,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Additional options to pass to the J2ObjC tool."
-  )
+      name = "j2objc_translation_flags",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      allowMultiple = true,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Additional options to pass to the J2ObjC tool.")
   public List<String> translationFlags;
 
   @Option(
@@ -70,4 +69,13 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
     help = "Whether to generate J2ObjC header map in parallel of J2ObjC transpilation."
   )
   public boolean experimentalJ2ObjcHeaderMap;
+
+  @Option(
+    name = "experimental_j2objc_shorter_header_path",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+    help = "Whether to generate with shorter header path (uses \"_ios\" instead of \"_j2objc\")."
+  )
+  public boolean experimentalShorterHeaderPath;
 }

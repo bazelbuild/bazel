@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.packages.Type;
 
 /**
  * Describes the common settings for all platform-related rules.
@@ -41,7 +41,7 @@ public class PlatformBaseRule implements RuleDefinition{
                 .value(ImmutableList.of("manual"))
                 .nonconfigurable("low-level attribute, used in platform configuration"))
         .exemptFromConstraintChecking("this rule helps *define* a constraint")
-        .supportsPlatforms(false)
+        .useToolchainResolution(false)
         .removeAttribute("deps")
         .removeAttribute("data")
         .build();

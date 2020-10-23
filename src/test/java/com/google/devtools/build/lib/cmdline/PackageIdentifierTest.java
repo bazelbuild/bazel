@@ -17,10 +17,6 @@ package com.google.devtools.build.lib.cmdline;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -35,8 +31,9 @@ public class PackageIdentifierTest {
     PackageIdentifier fooA = PackageIdentifier.parse("@foo//a");
     assertThat(fooA.getRepository().strippedName()).isEqualTo("foo");
     assertThat(fooA.getPackageFragment().getPathString()).isEqualTo("a");
-    assertThat(fooA.getRepository().getSourceRoot()).isEqualTo(
-        PathFragment.create("external/foo"));
+    assertThat(fooA.getRepository().getSourceRoot()).isEqualTo(PathFragment.create("foo"));
+    assertThat(fooA.getRepository().getPackagePath())
+        .isEqualTo(PathFragment.create("external/foo"));
 
     PackageIdentifier absoluteA = PackageIdentifier.parse("//a");
     assertThat(absoluteA.getRepository().strippedName()).isEmpty();
@@ -75,17 +72,6 @@ public class PackageIdentifierTest {
   public void testInvalidPackageName() throws Exception {
     // This shouldn't throw an exception, package names aren't validated.
     PackageIdentifier.create("@foo", PathFragment.create("bar.baz"));
-  }
-
-  @Test
-  public void testSerialization() throws Exception {
-    PackageIdentifier inId = PackageIdentifier.create("@foo", PathFragment.create("bar/baz"));
-    ByteArrayOutputStream data = new ByteArrayOutputStream();
-    ObjectOutputStream out = new ObjectOutputStream(data);
-    out.writeObject(inId);
-    ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(data.toByteArray()));
-    PackageIdentifier outId = (PackageIdentifier) in.readObject();
-    assertThat(outId).isEqualTo(inId);
   }
 
   @Test

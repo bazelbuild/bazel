@@ -75,7 +75,7 @@ class InterfaceDesugaring extends ClassVisitor {
       ClassLoader targetLoader,
       GeneratedClassStore store,
       boolean legacyJaCoCo) {
-    super(Opcodes.ASM7, dest);
+    super(Opcodes.ASM8, dest);
     this.generateBaseClasses = generateBaseClasses;
     this.interfaceCache = interfaceCache;
     this.depsCollector = depsCollector;
@@ -195,8 +195,7 @@ class InterfaceDesugaring extends ClassVisitor {
         && BitFlags.noneSet(access, Opcodes.ACC_ABSTRACT | Opcodes.ACC_BRIDGE)) {
       checkArgument(BitFlags.noneSet(access, Opcodes.ACC_NATIVE), "Forbidden per JLS ch 9.4");
 
-      boolean isLambdaBody =
-          name.startsWith("lambda$") && BitFlags.isSynthetic(access);
+      boolean isLambdaBody = name.startsWith("lambda$") && BitFlags.isSynthetic(access);
       if (isLambdaBody) {
         access &= ~Opcodes.ACC_PUBLIC; // undo visibility change from LambdaDesugaring
       }
@@ -252,6 +251,8 @@ class InterfaceDesugaring extends ClassVisitor {
         }
 
         // TODO(b/37110951): adjust signature with explicit receiver type, which may be generic
+        // Method visitor that passes through all code but sends annotations into a second given
+        // MethodVisitor instead.
         MethodVisitor codeDest =
             companion()
                 .visitMethod(
@@ -423,7 +424,7 @@ class InterfaceDesugaring extends ClassVisitor {
   private class InterfaceFieldWriteCollector extends MethodVisitor {
 
     public InterfaceFieldWriteCollector(MethodVisitor mv) {
-      super(Opcodes.ASM7, mv);
+      super(Opcodes.ASM8, mv);
     }
 
     @Override
@@ -469,7 +470,7 @@ class InterfaceDesugaring extends ClassVisitor {
         ClassLoader targetLoader,
         DependencyCollector depsCollector,
         String declaringClass) {
-      super(Opcodes.ASM7, dest);
+      super(Opcodes.ASM8, dest);
       this.interfaceName = knownInterfaceName;
       this.bootclasspath = bootclasspath;
       this.targetLoader = targetLoader;
@@ -483,8 +484,10 @@ class InterfaceDesugaring extends ClassVisitor {
       if ((itf || owner.equals(interfaceName)) && !bootclasspath.isKnown(owner)) {
         if (name.startsWith("lambda$")) {
           // Redirect lambda invocations to completely remove all lambda methods from interfaces.
-          checkArgument(!owner.endsWith(DependencyCollector.INTERFACE_COMPANION_SUFFIX),
-              "shouldn't consider %s an interface", owner);
+          checkArgument(
+              !owner.endsWith(DependencyCollector.INTERFACE_COMPANION_SUFFIX),
+              "shouldn't consider %s an interface",
+              owner);
           if (opcode == Opcodes.INVOKEINTERFACE) {
             opcode = Opcodes.INVOKESTATIC;
             desc = companionDefaultMethodDescriptor(owner, desc);
@@ -511,8 +514,10 @@ class InterfaceDesugaring extends ClassVisitor {
               name,
               expectedLambdaMethodName);
         } else if ((opcode == Opcodes.INVOKESTATIC || opcode == Opcodes.INVOKESPECIAL)) {
-          checkArgument(!owner.endsWith(DependencyCollector.INTERFACE_COMPANION_SUFFIX),
-              "shouldn't consider %s an interface", owner);
+          checkArgument(
+              !owner.endsWith(DependencyCollector.INTERFACE_COMPANION_SUFFIX),
+              "shouldn't consider %s an interface",
+              owner);
           if (opcode == Opcodes.INVOKESPECIAL) {
             // Turn Interface.super.m() into DefiningInterface$$CC.m(receiver). Note that owner
             // always refers to the current type's immediate super-interface, but the default method
@@ -523,7 +528,9 @@ class InterfaceDesugaring extends ClassVisitor {
             // can only be a default method invocation, no abstract method invocation.
             owner =
                 findDefaultMethod(owner, name, desc)
-                    .getDeclaringClass().getName().replace('.', '/');
+                    .getDeclaringClass()
+                    .getName()
+                    .replace('.', '/');
             desc = companionDefaultMethodDescriptor(owner, desc);
           }
           name = normalizeInterfaceMethodName(name, /*isLambda=*/ false, opcode);
@@ -563,14 +570,16 @@ class InterfaceDesugaring extends ClassVisitor {
   private static class MoveJacocoFieldAccess extends MethodVisitor {
 
     public MoveJacocoFieldAccess(MethodVisitor mv) {
-      super(Opcodes.ASM7, mv);
+      super(Opcodes.ASM8, mv);
     }
 
     @Override
     public void visitFieldInsn(int opcode, String owner, String name, String desc) {
       if ("$jacocoData".equals(name)) {
-        checkState(!owner.endsWith(DependencyCollector.INTERFACE_COMPANION_SUFFIX),
-            "Expected interface: %s", owner);
+        checkState(
+            !owner.endsWith(DependencyCollector.INTERFACE_COMPANION_SUFFIX),
+            "Expected interface: %s",
+            owner);
         owner = getCompanionClassName(owner);
       }
       super.visitFieldInsn(opcode, owner, name, desc);
@@ -583,17 +592,18 @@ class InterfaceDesugaring extends ClassVisitor {
    */
   private static class MultiplexAnnotations extends MethodVisitor {
 
+    /** Method visitor for creating desugared interfaces (with static/default methods). */
     private final MethodVisitor annotationOnlyDest;
 
     public MultiplexAnnotations(@Nullable MethodVisitor dest, MethodVisitor annotationOnlyDest) {
-      super(Opcodes.ASM7, dest);
+      super(Opcodes.ASM8, dest);
       this.annotationOnlyDest = annotationOnlyDest;
     }
 
     @Override
     public void visitParameter(String name, int access) {
-      super.visitParameter(name, access);
       annotationOnlyDest.visitParameter(name, access);
+      // Intentionally without super call: Method parameter attributes are not supported in Java 7.
     }
 
     @Override
@@ -606,18 +616,18 @@ class InterfaceDesugaring extends ClassVisitor {
     @Override
     public AnnotationVisitor visitTypeAnnotation(
         int typeRef, TypePath typePath, String desc, boolean visible) {
-      AnnotationVisitor dest = super.visitTypeAnnotation(typeRef, typePath, desc, visible);
-      AnnotationVisitor annoDest =
-          annotationOnlyDest.visitTypeAnnotation(typeRef, typePath, desc, visible);
-      return new MultiplexAnnotationVisitor(dest, annoDest);
+      // Intentionally without super call: Type annotations are not supported in Java 7.
+      return annotationOnlyDest.visitTypeAnnotation(typeRef, typePath, desc, visible);
     }
 
     @Override
     public AnnotationVisitor visitParameterAnnotation(int parameter, String desc, boolean visible) {
-      AnnotationVisitor dest = super.visitParameterAnnotation(parameter, desc, visible);
-      AnnotationVisitor annoDest =
-          annotationOnlyDest.visitParameterAnnotation(parameter, desc, visible);
-      return new MultiplexAnnotationVisitor(dest, annoDest);
+      // Intentionally without super call: Production code should depend on the parameter annotation
+      // attributes of the desugared class instead of the companion class instead, and therefore
+      // dropping the parameter annotations. Note in the companion class, the corresponding method
+      // contains one more parameter than the method in the desugared class, a direct propagation
+      // would cause position mismatch. see b/129719629.
+      return annotationOnlyDest.visitParameterAnnotation(parameter, desc, visible);
     }
   }
 
@@ -631,7 +641,7 @@ class InterfaceDesugaring extends ClassVisitor {
 
     public MultiplexAnnotationVisitor(
         @Nullable AnnotationVisitor dest, AnnotationVisitor... moreDestinations) {
-      super(Opcodes.ASM7, dest);
+      super(Opcodes.ASM8, dest);
       this.moreDestinations = moreDestinations;
     }
 

@@ -77,7 +77,6 @@ public final class DependencyModule {
   private final Set<Path> depsArtifacts;
   private final String targetLabel;
   private final Path outputDepsProtoFile;
-  private final Set<Path> usedClasspath;
   private boolean hasMissingTargets;
   private final Map<Path, Dependency> explicitDependenciesMap;
   private final Map<Path, Dependency> implicitDependenciesMap;
@@ -108,7 +107,6 @@ public final class DependencyModule {
     this.explicitDependenciesMap = new HashMap<>();
     this.implicitDependenciesMap = new HashMap<>();
     this.platformJars = platformJars;
-    this.usedClasspath = new HashSet<>();
     this.fixMessage = fixMessage;
     this.exemptGenerators = exemptGenerators;
     this.packages = new HashSet<>();
@@ -215,11 +213,6 @@ public final class DependencyModule {
     return outputDepsProtoFile;
   }
 
-  /** Returns the classpath that was actually used during the compilation. */
-  public Set<Path> getUsedClasspath() {
-    return usedClasspath;
-  }
-
   /** Returns a message to suggest fix when a missing indirect dependency is found. */
   public FixMessage getFixMessage() {
     return fixMessage;
@@ -280,7 +273,7 @@ public final class DependencyModule {
   private void collectDependenciesFromArtifact(Path path) throws IOException {
     try (BufferedInputStream bis = new BufferedInputStream(Files.newInputStream(path))) {
       Dependencies deps = Dependencies.parseFrom(bis);
-      // Sanity check to make sure we have a valid proto.
+      // Quick check to make sure we have a valid proto.
       if (!deps.hasRuleLabel()) {
         throw new IOException("Could not parse Deps.Dependencies message from proto.");
       }

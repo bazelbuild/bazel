@@ -24,6 +24,9 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import java.util.ArrayList;
@@ -56,6 +59,7 @@ public final class JavaLibraryHelper {
   private JavaPluginInfoProvider plugins = JavaPluginInfoProvider.empty();
   private ImmutableList<String> javacOpts = ImmutableList.of();
   private ImmutableList<Artifact> sourcePathEntries = ImmutableList.of();
+  private final List<Artifact> additionalOutputs = new ArrayList<>();
 
   /** @see {@link #setCompilationStrictDepsMode}. */
   private StrictDepsMode strictDepsMode = StrictDepsMode.ERROR;
@@ -118,6 +122,11 @@ public final class JavaLibraryHelper {
     return this;
   }
 
+  public JavaLibraryHelper addAdditionalOutputs(Iterable<Artifact> outputs) {
+    Iterables.addAll(additionalOutputs, outputs);
+    return this;
+  }
+
   public JavaLibraryHelper setPlugins(JavaPluginInfoProvider plugins) {
     checkNotNull(plugins, "plugins must not be null");
     checkState(this.plugins.isEmpty());
@@ -126,13 +135,13 @@ public final class JavaLibraryHelper {
   }
 
   /** Sets the compiler options. */
-  public JavaLibraryHelper setJavacOpts(Iterable<String> javacOpts) {
-    this.javacOpts = ImmutableList.copyOf(javacOpts);
+  public JavaLibraryHelper setJavacOpts(ImmutableList<String> javacOpts) {
+    this.javacOpts = Preconditions.checkNotNull(javacOpts);
     return this;
   }
 
-  public JavaLibraryHelper setSourcePathEntries(List<Artifact> sourcepathEntries) {
-    this.sourcePathEntries = ImmutableList.copyOf(sourcepathEntries);
+  public JavaLibraryHelper setSourcePathEntries(ImmutableList<Artifact> sourcePathEntries) {
+    this.sourcePathEntries = Preconditions.checkNotNull(sourcePathEntries);
     return this;
   }
 
@@ -165,42 +174,45 @@ public final class JavaLibraryHelper {
    *
    * @param semantics implementation specific java rules semantics
    * @param javaToolchainProvider used for retrieving misc java tools
-   * @param hostJavabase the target of the host javabase used to retrieve the java executable and
-   *     its necessary inputs
    * @param outputJarsBuilder populated with the outputs of the created actions
    * @param outputSourceJar if not-null, the output of an source jar action that will be created
    */
   public JavaCompilationArtifacts build(
       JavaSemantics semantics,
       JavaToolchainProvider javaToolchainProvider,
-      JavaRuntimeInfo hostJavabase,
       JavaRuleOutputJarsProvider.Builder outputJarsBuilder,
       boolean createOutputSourceJar,
-      @Nullable Artifact outputSourceJar) {
+      @Nullable Artifact outputSourceJar)
+      throws InterruptedException {
     return build(
         semantics,
         javaToolchainProvider,
-        hostJavabase,
         outputJarsBuilder,
         createOutputSourceJar,
         outputSourceJar,
         /* javaInfoBuilder= */ null,
-        ImmutableList.of()); // ignored when javaInfoBuilder is null
+        ImmutableList.of(), // ignored when javaInfoBuilder is null
+        ImmutableList.of(),
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
   public JavaCompilationArtifacts build(
       JavaSemantics semantics,
       JavaToolchainProvider javaToolchainProvider,
-      JavaRuntimeInfo hostJavabase,
       JavaRuleOutputJarsProvider.Builder outputJarsBuilder,
       boolean createOutputSourceJar,
       @Nullable Artifact outputSourceJar,
       @Nullable JavaInfo.Builder javaInfoBuilder,
-      Iterable<JavaGenJarsProvider> transitiveJavaGenJars) {
+      List<JavaGenJarsProvider> transitiveJavaGenJars,
+      ImmutableList<Artifact> additionalJavaBaseInputs,
+      NestedSet<Artifact> localClassPathEntries)
+      throws InterruptedException {
+
     Preconditions.checkState(output != null, "must have an output file; use setOutput()");
     Preconditions.checkState(
         !createOutputSourceJar || outputSourceJar != null,
         "outputSourceJar cannot be null when createOutputSourceJar is true");
+
     JavaTargetAttributes.Builder attributes = new JavaTargetAttributes.Builder(semantics);
     attributes.addSourceJars(sourceJars);
     attributes.addSourceFiles(sourceFiles);
@@ -210,6 +222,7 @@ public final class JavaLibraryHelper {
     attributes.setInjectingRuleKind(injectingRuleKind);
     attributes.setSourcePath(sourcePathEntries);
     JavaCommon.addPlugins(attributes, plugins);
+    attributes.addAdditionalOutputs(additionalOutputs);
 
     for (Artifact resource : resources) {
       attributes.addResource(
@@ -223,25 +236,16 @@ public final class JavaLibraryHelper {
     JavaCompilationArtifacts.Builder artifactsBuilder = new JavaCompilationArtifacts.Builder();
     JavaCompilationHelper helper =
         new JavaCompilationHelper(
-            ruleContext, semantics, javacOpts, attributes, javaToolchainProvider, hostJavabase);
-    Artifact manifestProtoOutput = helper.createManifestProtoOutput(output);
-
-    Artifact genSourceJar = null;
-    Artifact genClassJar = null;
-    if (helper.usesAnnotationProcessing()) {
-      genClassJar = helper.createGenJar(output);
-      genSourceJar = helper.createGensrcJar(output);
-      helper.createGenJarAction(output, manifestProtoOutput, genClassJar, hostJavabase);
-    }
-
-    Artifact nativeHeaderOutput = helper.createNativeHeaderJar(output);
-
-    JavaCompileAction javaCompileAction =
-        helper.createCompileAction(
-            output,
-            manifestProtoOutput,
-            genSourceJar,
-            nativeHeaderOutput);
+            ruleContext,
+            semantics,
+            javacOpts,
+            attributes,
+            javaToolchainProvider,
+            additionalJavaBaseInputs);
+    helper.addLocalClassPathEntries(localClassPathEntries);
+    JavaCompileOutputs<Artifact> outputs = helper.createOutputs(output);
+    artifactsBuilder.setCompileTimeDependencies(outputs.depsProto());
+    helper.createCompileAction(outputs);
 
     Artifact iJar = null;
     if (!sourceJars.isEmpty() || !sourceFiles.isEmpty()) {
@@ -250,15 +254,14 @@ public final class JavaLibraryHelper {
     }
 
     if (createOutputSourceJar) {
-      helper.createSourceJarAction(
-          outputSourceJar, genSourceJar, javaToolchainProvider, hostJavabase);
+      helper.createSourceJarAction(outputSourceJar, outputs.genSource(), javaToolchainProvider);
     }
     ImmutableList<Artifact> outputSourceJars =
         outputSourceJar == null ? ImmutableList.of() : ImmutableList.of(outputSourceJar);
     outputJarsBuilder
-        .addOutputJar(new OutputJar(output, iJar, manifestProtoOutput, outputSourceJars))
-        .setJdeps(javaCompileAction.getOutputDepsProto())
-        .setNativeHeaders(nativeHeaderOutput);
+        .addOutputJar(new OutputJar(output, iJar, outputs.manifestProto(), outputSourceJars))
+        .setJdeps(outputs.depsProto())
+        .setNativeHeaders(outputs.nativeHeader());
 
     JavaCompilationArtifacts javaArtifacts = artifactsBuilder.build();
     if (javaInfoBuilder != null) {
@@ -267,7 +270,7 @@ public final class JavaLibraryHelper {
               javaArtifacts,
               attributes.build(),
               neverlink,
-              JavaCompilationHelper.getBootClasspath(javaToolchainProvider));
+              javaToolchainProvider.getBootclasspath());
 
       javaInfoBuilder.addProvider(
           JavaCompilationInfoProvider.class,
@@ -280,7 +283,8 @@ public final class JavaLibraryHelper {
 
       javaInfoBuilder.addProvider(
           JavaGenJarsProvider.class,
-          createJavaGenJarsProvider(helper, genClassJar, genSourceJar, transitiveJavaGenJars));
+          createJavaGenJarsProvider(
+              helper, outputs.genClass(), outputs.genSource(), transitiveJavaGenJars));
     }
 
     return javaArtifacts;
@@ -290,7 +294,7 @@ public final class JavaLibraryHelper {
       JavaCompilationHelper helper,
       @Nullable Artifact genClassJar,
       @Nullable Artifact genSourceJar,
-      Iterable<JavaGenJarsProvider> transitiveJavaGenJars) {
+      List<JavaGenJarsProvider> transitiveJavaGenJars) {
     return JavaGenJarsProvider.create(
         helper.usesAnnotationProcessing(),
         genClassJar,

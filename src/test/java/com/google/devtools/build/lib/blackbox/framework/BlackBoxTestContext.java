@@ -1,16 +1,17 @@
-// Copyright 2018 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// http://www.apache.org/licenses/LICENSE-2.0
+//    http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 
 package com.google.devtools.build.lib.blackbox.framework;
 
@@ -98,6 +99,21 @@ public final class BlackBoxTestContext {
    *     writing
    */
   public Path write(String subPath, String... lines) throws IOException {
+    return PathUtils.writeFileInDir(workDir, subPath, lines);
+  }
+
+  /**
+   * Writes <code>lines</code> using ISO_8859_1 into the file, specified by the <code>subPath</code>
+   * relative to the working directory. Overrides the file if it exists, creates the file if it does
+   * not exist.
+   *
+   * @param subPath path to file relative to working directory
+   * @param lines lines of text to write. Newlines are added by the method.
+   * @return Path to the file
+   * @throws IOException in case if the file can not be created/overridden, or can not be open for
+   *     writing
+   */
+  public Path write(String subPath, List<String> lines) throws IOException {
     return PathUtils.writeFileInDir(workDir, subPath, lines);
   }
 
@@ -222,6 +238,30 @@ public final class BlackBoxTestContext {
   public BuilderRunner bazel() {
     return new BuilderRunner(
         workDir, binaryPath, getProcessTimeoutMillis(-1), commonEnv, executorService);
+  }
+
+  /**
+   * Runs external binary in the specified working directory. See {@link BuilderRunner}
+   *
+   * @param workingDirectory working directory for running the binary
+   * @param processToRun path to the binary to run
+   * @param expectEmptyError if <code>true</code>, no text is expected in the error stream,
+   *     otherwise, ProcessRunnerException is thrown.
+   * @param arguments arguments to pass to the binary
+   * @return ProcessResult execution result
+   */
+  public ProcessResult runBinary(
+      Path workingDirectory, String processToRun, boolean expectEmptyError, String... arguments)
+      throws Exception {
+    ProcessParameters parameters =
+        ProcessParameters.builder()
+            .setWorkingDirectory(workingDirectory.toFile())
+            .setName(processToRun)
+            .setTimeoutMillis(getProcessTimeoutMillis(-1))
+            .setArguments(arguments)
+            .setExpectedEmptyError(expectEmptyError)
+            .build();
+    return new ProcessRunner(parameters, executorService).runSynchronously();
   }
 
   /**

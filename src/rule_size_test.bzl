@@ -66,7 +66,7 @@ def _impl(ctx):
         fail("ERROR: rule_size_test.margin must be 0 when " +
              "rule_size_test.expect is 0")
 
-    amount = len(ctx.attr.src[DefaultInfo].files)
+    amount = len(ctx.attr.src[DefaultInfo].files.to_list())
 
     if ctx.attr.margin > 0:
         if amount >= ctx.attr.expect:

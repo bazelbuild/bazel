@@ -30,8 +30,14 @@ import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Servi
 public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
 
   @Override
-  public ConfiguredTarget create(RuleContext ruleContext) throws ActionConflictException {
-    ProtoInfo protoInfo = ProtoCommon.createProtoInfo(ruleContext);
+  public ConfiguredTarget create(RuleContext ruleContext)
+      throws ActionConflictException, RuleErrorException, InterruptedException {
+    ProtoCommon.checkRuleHasValidMigrationTag(ruleContext);
+    ProtoCommon.checkSourceFilesAreInSamePackage(ruleContext);
+    ProtoInfo protoInfo =
+        ProtoCommon.createProtoInfo(
+            ruleContext,
+            ruleContext.getFragment(ProtoConfiguration.class).generatedProtosInVirtualImports());
     if (ruleContext.hasErrors()) {
       return null;
     }
@@ -49,10 +55,6 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
                 NestedSetBuilder.create(STABLE_ORDER, protoInfo.getDirectDescriptorSet()))
             .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, dataRunfiles))
             .addNativeDeclaredProvider(protoInfo);
-
-    if (ruleContext.getFragment(ProtoConfiguration.class).enableLegacyProvider()) {
-      builder.addSkylarkTransitiveInfo(ProtoInfo.LEGACY_SKYLARK_NAME, protoInfo);
-    }
 
     return builder.build();
   }

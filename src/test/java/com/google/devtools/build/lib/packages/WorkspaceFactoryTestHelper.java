@@ -17,27 +17,26 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.ParserInputSource;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.common.options.OptionsParser;
-import java.io.IOException;
 import java.util.List;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.syntax.ParserInput;
+import net.starlark.java.syntax.StarlarkFile;
 
 /** Parses a WORKSPACE file with the given content. */
-class WorkspaceFactoryTestHelper {
+// TODO(adonovan): delete this junk class.
+final class WorkspaceFactoryTestHelper {
   private final Root root;
   private Package.Builder builder;
-  private Exception exception;
-  private ImmutableList<Event> events;
   private StarlarkSemantics starlarkSemantics;
 
   private final boolean allowOverride;
@@ -48,25 +47,27 @@ class WorkspaceFactoryTestHelper {
 
   WorkspaceFactoryTestHelper(boolean allowOverride, Root root) {
     this.root = root;
-    this.exception = null;
-    this.events = null;
     this.allowOverride = allowOverride;
-    this.starlarkSemantics = StarlarkSemantics.DEFAULT_SEMANTICS;
+    this.starlarkSemantics = StarlarkSemantics.DEFAULT;
   }
 
   void parse(String... args) {
+    // parse
     Path workspaceFilePath = root.getRelative("WORKSPACE");
-    try {
-      FileSystemUtils.writeIsoLatin1(workspaceFilePath, args);
-    } catch (IOException e) {
-      fail("Shouldn't happen: " + e.getMessage());
+    StarlarkFile file =
+        StarlarkFile.parse(ParserInput.fromString(Joiner.on("\n").join(args), "WORKSPACE"));
+    if (!file.ok()) {
+      fail("parse failed: " + file.errors());
+      return;
     }
-    StoredEventHandler eventHandler = new StoredEventHandler();
+
+    // execute
     builder =
         Package.newExternalPackageBuilder(
-            Package.Builder.DefaultHelper.INSTANCE,
+            DefaultPackageSettings.INSTANCE,
             RootedPath.toRootedPath(root, workspaceFilePath),
-            "");
+            "",
+            StarlarkSemantics.DEFAULT);
     WorkspaceFactory factory =
         new WorkspaceFactory(
             builder,
@@ -76,53 +77,25 @@ class WorkspaceFactoryTestHelper {
             allowOverride,
             root.asPath(),
             root.asPath(),
-            /* defaultSystemJavabaseDir= */ null);
-    Exception exception = null;
+            /* defaultSystemJavabaseDir= */ null,
+            starlarkSemantics);
     try {
-      byte[] bytes =
-          FileSystemUtils.readWithKnownFileSize(workspaceFilePath, workspaceFilePath.getFileSize());
-      factory.parseForTesting(
-          ParserInputSource.create(bytes, workspaceFilePath.asFragment()),
-          starlarkSemantics,
-          eventHandler);
-    } catch (BuildFileContainsErrorsException e) {
-      exception = e;
-    } catch (IOException | InterruptedException e) {
+      factory.execute(
+          file,
+          /* additionalLoadedModules= */ ImmutableMap.of(),
+          WorkspaceFileValue.key(RootedPath.toRootedPath(root, workspaceFilePath)));
+    } catch (InterruptedException e) {
       fail("Shouldn't happen: " + e.getMessage());
     }
-    this.events = eventHandler.getEvents();
-    this.exception = exception;
   }
 
-  public Package getPackage() throws InterruptedException, NoSuchPackageException {
+  Package getPackage() throws InterruptedException, NoSuchPackageException {
     return builder.build();
   }
 
-  public void assertLexingExceptionThrown() {
-    assertThat(exception).isNotNull();
-    assertThat(exception).hasMessageThat().contains("Failed to parse /WORKSPACE");
-  }
-
-  public String getLexerError() {
-    assertThat(events).hasSize(1);
-    return events.get(0).getMessage();
-  }
-
-  public String getParserError() {
+  String getParserError() {
     List<Event> events = builder.getEvents();
     assertThat(events.size()).isGreaterThan(0);
     return events.get(0).getMessage();
   }
-
-  protected void setSkylarkSemantics(String... options) throws Exception {
-    starlarkSemantics = parseSkylarkSemanticsOptions(options);
-  }
-
-  private static StarlarkSemantics parseSkylarkSemanticsOptions(String... options)
-      throws Exception {
-    OptionsParser parser = OptionsParser.newOptionsParser(StarlarkSemanticsOptions.class);
-    parser.parse(options);
-    return parser.getOptions(StarlarkSemanticsOptions.class).toSkylarkSemantics();
-  }
-
 }

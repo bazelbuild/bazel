@@ -32,6 +32,14 @@ import javax.annotation.Nullable;
  */
 public class CompiledResources implements ManifestContainer {
 
+  /**
+   * File extension for persisting {@code <resources tool:* />} attributes. These files are bundled
+   * with *.flat files in the {@link resources} ZIP file and ignored by aapt2. The format is
+   * internal to ResourceProcessorBusyBox and can be changed at any time.
+   */
+  // TODO(b/143382754): aapt2 should be serializing these directly.
+  public static final String ATTRIBUTES_FILE_EXTENSION = ".attributes";
+
   private final Path resources;
   @Nullable private final Path manifest;
   private final List<Path> assetsDirs;

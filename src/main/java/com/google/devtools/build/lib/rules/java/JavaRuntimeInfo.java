@@ -14,32 +14,28 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.HOST_JAVA_RUNTIME_ATTRIBUTE_NAME;
 import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.JAVA_RUNTIME_ATTRIBUTE_NAME;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaRuntimeInfoApi;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaRuntimeInfoApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /** Information about the Java runtime used by the <code>java_*</code> rules. */
 @Immutable
 @AutoCodec
-public class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeInfoApi {
+public final class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeInfoApi {
 
   public static JavaRuntimeInfo create(
       NestedSet<Artifact> javaBaseInputs,
@@ -57,35 +53,32 @@ public class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeInfoApi
         javaBinaryRunfilesPath);
   }
 
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
   // Helper methods to access an instance of JavaRuntimeInfo.
 
   public static JavaRuntimeInfo forHost(RuleContext ruleContext) {
-    return from(ruleContext, HOST_JAVA_RUNTIME_ATTRIBUTE_NAME, RuleConfiguredTarget.Mode.HOST);
+    return JavaToolchainProvider.from(ruleContext).getJavaRuntime();
   }
 
   public static JavaRuntimeInfo from(RuleContext ruleContext) {
-    return from(ruleContext, JAVA_RUNTIME_ATTRIBUTE_NAME, RuleConfiguredTarget.Mode.TARGET);
+    return from(ruleContext, JAVA_RUNTIME_ATTRIBUTE_NAME);
   }
 
   @Nullable
-  private static JavaRuntimeInfo from(RuleContext ruleContext, String attributeName, Mode mode) {
+  private static JavaRuntimeInfo from(RuleContext ruleContext, String attributeName) {
     if (!ruleContext.attributes().has(attributeName, BuildType.LABEL)) {
       return null;
     }
-    TransitiveInfoCollection prerequisite = ruleContext.getPrerequisite(attributeName, mode);
+    TransitiveInfoCollection prerequisite = ruleContext.getPrerequisite(attributeName);
     if (prerequisite == null) {
       return null;
     }
 
-    return from(prerequisite, ruleContext);
-  }
-
-  // TODO(katre): When all external callers are converted to use toolchain resolution, make this
-  // method private.
-  @Nullable
-  protected static JavaRuntimeInfo from(
-      TransitiveInfoCollection collection, RuleErrorConsumer errorConsumer) {
-    return (JavaRuntimeInfo) collection.get(ToolchainInfo.PROVIDER);
+    return (JavaRuntimeInfo) prerequisite.get(ToolchainInfo.PROVIDER);
   }
 
   private final NestedSet<Artifact> javaBaseInputs;
@@ -125,35 +118,47 @@ public class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeInfoApi
 
   /** The root directory of the Java installation. */
   @Override
-  public PathFragment javaHome() {
+  public String javaHome() {
+    return javaHome.toString();
+  }
+
+  public PathFragment javaHomePathFragment() {
     return javaHome;
   }
 
-  @Override
   /** The execpath of the Java binary. */
-  public PathFragment javaBinaryExecPath() {
+  @Override
+  public String javaBinaryExecPath() {
+    return javaBinaryExecPath.toString();
+  }
+
+  public PathFragment javaBinaryExecPathFragment() {
     return javaBinaryExecPath;
   }
 
   /** The runfiles path of the root directory of the Java installation. */
   @Override
-  public PathFragment javaHomeRunfilesPath() {
-    return javaHomeRunfilesPath;
+  public String javaHomeRunfilesPath() {
+    return javaHomeRunfilesPath.toString();
   }
 
-  @Override
   /** The runfiles path of the Java binary. */
-  public PathFragment javaBinaryRunfilesPath() {
+  @Override
+  public String javaBinaryRunfilesPath() {
+    return javaBinaryRunfilesPath.toString();
+  }
+
+  public PathFragment javaBinaryRunfilesPathFragment() {
     return javaBinaryRunfilesPath;
   }
 
   @Override
-  public SkylarkNestedSet skylarkJavaBaseInputs() {
-    return SkylarkNestedSet.of(Artifact.class, javaBaseInputs());
+  public Depset starlarkJavaBaseInputs() {
+    return Depset.of(Artifact.TYPE, javaBaseInputs());
   }
 
-  // Not all of JavaRuntimeInfo is exposed to Skylark, which makes implementing deep equality
-  // impossible: if Java-only parts are considered, the behavior is surprising in Skylark, if they
+  // Not all of JavaRuntimeInfo is exposed to Starlark, which makes implementing deep equality
+  // impossible: if Java-only parts are considered, the behavior is surprising in Starlark, if they
   // are not, the behavior is surprising in Java. Thus, object identity it is.
   @Override
   public boolean equals(Object other) {

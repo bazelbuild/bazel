@@ -14,13 +14,13 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidNativeLibsInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidNativeLibsInfoApi;
+import net.starlark.java.eval.EvalException;
 
 /**
  * Provider of transitively available ZIPs of native libs that should be directly copied into the
@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 public final class AndroidNativeLibsInfo extends NativeInfo
     implements AndroidNativeLibsInfoApi<Artifact> {
 
-  private static final String SKYLARK_NAME = "AndroidNativeLibsInfo";
+  private static final String STARLARK_NAME = "AndroidNativeLibsInfo";
 
   public static final AndroidNativeLibsInfoProvider PROVIDER =
       new AndroidNativeLibsInfoProvider();
@@ -43,7 +43,11 @@ public final class AndroidNativeLibsInfo extends NativeInfo
   }
 
   @Override
-  public NestedSet<Artifact> getNativeLibs() {
+  public Depset /*<Artifact>*/ getNativeLibsForStarlark() {
+    return Depset.of(Artifact.TYPE, nativeLibs);
+  }
+
+  NestedSet<Artifact> getNativeLibs() {
     return nativeLibs;
   }
 
@@ -52,13 +56,12 @@ public final class AndroidNativeLibsInfo extends NativeInfo
       implements AndroidNativeLibsInfoApiProvider {
 
     private AndroidNativeLibsInfoProvider() {
-      super(SKYLARK_NAME, AndroidNativeLibsInfo.class);
+      super(STARLARK_NAME, AndroidNativeLibsInfo.class);
     }
 
     @Override
-    public AndroidNativeLibsInfo createInfo(SkylarkNestedSet nativeLibs)
-        throws EvalException {
-      return new AndroidNativeLibsInfo(nativeLibs.getSet(Artifact.class));
+    public AndroidNativeLibsInfo createInfo(Depset nativeLibs) throws EvalException {
+      return new AndroidNativeLibsInfo(Depset.cast(nativeLibs, Artifact.class, "native_libs"));
     }
   }
 }

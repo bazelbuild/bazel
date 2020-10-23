@@ -24,14 +24,13 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -199,7 +198,10 @@ public class AndroidIdlHelper {
   /** Generates an artifact by replacing the extension of the input with the suffix. */
   private Artifact createIdlJar(Artifact baseArtifact, String suffix) {
     return ruleContext.getDerivedArtifact(
-        FileSystemUtils.replaceExtension(baseArtifact.getRootRelativePath(), suffix),
+        FileSystemUtils.replaceExtension(
+            baseArtifact.getOutputDirRelativePath(
+                ruleContext.getConfiguration().isSiblingRepositoryLayout()),
+            suffix),
         baseArtifact.getRoot());
   }
 
@@ -208,7 +210,7 @@ public class AndroidIdlHelper {
     return ruleContext.getRule().isAttrDefined("idl_parcelables", BuildType.LABEL_LIST)
         ? ImmutableList.copyOf(
             ruleContext
-                .getPrerequisiteArtifacts("idl_parcelables", Mode.TARGET)
+                .getPrerequisiteArtifacts("idl_parcelables")
                 .filter(AndroidRuleClasses.ANDROID_IDL)
                 .list())
         : ImmutableList.<Artifact>of();
@@ -221,7 +223,7 @@ public class AndroidIdlHelper {
     }
     checkIdlSrcsSamePackage(ruleContext);
     return ruleContext
-        .getPrerequisiteArtifacts("idl_srcs", Mode.TARGET)
+        .getPrerequisiteArtifacts("idl_srcs")
         .filter(AndroidRuleClasses.ANDROID_IDL)
         .list();
   }
@@ -233,7 +235,7 @@ public class AndroidIdlHelper {
     PathFragment packageName = ruleContext.getLabel().getPackageFragment();
     Collection<Artifact> idls =
         ruleContext
-            .getPrerequisiteArtifacts("idl_srcs", Mode.TARGET)
+            .getPrerequisiteArtifacts("idl_srcs")
             .filter(AndroidRuleClasses.ANDROID_IDL)
             .list();
     for (Artifact idl : idls) {
@@ -289,12 +291,13 @@ public class AndroidIdlHelper {
     List<String> preprocessedArgs = new ArrayList<>();
 
     // add import roots so the aidl compiler will know where to look for the imports
-    for (String idlImport : transitiveIdlImportData.getTransitiveIdlImportRoots()) {
+    for (String idlImport : transitiveIdlImportData.getTransitiveIdlImportRoots().toList()) {
       preprocessedArgs.add("-I" + idlImport);
     }
     // add preprocessed aidl files
     preprocessedArgs.add("-p" + sdk.getFrameworkAidl().getExecPathString());
-    for (Artifact idlPreprocessed : transitiveIdlImportData.getTransitiveIdlPreprocessed()) {
+    for (Artifact idlPreprocessed :
+        transitiveIdlImportData.getTransitiveIdlPreprocessed().toList()) {
       preprocessedArgs.add("-p" + idlPreprocessed.getExecPathString());
     }
 
@@ -341,7 +344,7 @@ public class AndroidIdlHelper {
             .addInputs(generatedIdlJavaFiles)
             .addOutput(idlClassJar)
             .addOutput(idlSourceJar)
-            .setExecutable(ruleContext.getExecutablePrerequisite("$idlclass", Mode.HOST))
+            .setExecutable(ruleContext.getExecutablePrerequisite("$idlclass"))
             .addCommandLine(
                 CustomCommandLine.builder()
                     .addExecPath("--manifest_proto", manifestProtoOutput)
@@ -431,8 +434,7 @@ public class AndroidIdlHelper {
     }
 
     for (AndroidIdlProvider dep :
-        AndroidCommon.getTransitivePrerequisites(
-            ruleContext, Mode.TARGET, AndroidIdlProvider.PROVIDER)) {
+        AndroidCommon.getTransitivePrerequisites(ruleContext, AndroidIdlProvider.PROVIDER)) {
       rootsBuilder.addTransitive(dep.getTransitiveIdlImportRoots());
       importsBuilder.addTransitive(dep.getTransitiveIdlImports());
       preprocessedBuilder.addTransitive(dep.getTransitiveIdlPreprocessed());
@@ -505,7 +507,7 @@ public class AndroidIdlHelper {
   private static Collection<Artifact> getIdlPreprocessed(RuleContext ruleContext) {
     return ruleContext.isAttrDefined("idl_preprocessed", BuildType.LABEL_LIST)
         ? ruleContext
-            .getPrerequisiteArtifacts("idl_preprocessed", Mode.TARGET)
+            .getPrerequisiteArtifacts("idl_preprocessed")
             .filter(AndroidRuleClasses.ANDROID_IDL)
             .list()
         : ImmutableList.<Artifact>of();

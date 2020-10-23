@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -30,11 +29,6 @@ import org.junit.runners.JUnit4;
 /** Tests for {@code <tools repo>//tools/python:srcs_version.bzl%find_requirements}. */
 @RunWith(JUnit4.class)
 public class PythonSrcsVersionAspectTest extends BuildViewTestCase {
-
-  @Before
-  public void setUp() throws Exception {
-    useConfiguration("--incompatible_allow_python_version_transitions=true");
-  }
 
   private static String join(String... args) {
     return String.join("\n", args);

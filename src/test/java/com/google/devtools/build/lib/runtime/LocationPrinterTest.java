@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.events.Location.LineAndColumn;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,14 +29,13 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link LocationPrinter} static methods. */
 @RunWith(JUnit4.class)
 public class LocationPrinterTest {
-  private final FileSystem fileSystem = new InMemoryFileSystem();
+  private final FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
 
   @Test
   public void getRelativeLocationString_PathIsAlreadyRelative() {
     assertThat(
             LocationPrinter.getRelativeLocationString(
-                Location.fromPathAndStartColumn(
-                    PathFragment.create("relative/path"), 0, 0, new LineAndColumn(4, 2)),
+                Location.fromFileLineColumn("relative/path", 4, 2),
                 PathFragment.create("/this/is/the/workspace"),
                 ImmutableList.of(
                     Root.fromPath(fileSystem.getPath("/this/is/a/package/path/root")))))
@@ -46,9 +45,8 @@ public class LocationPrinterTest {
   @Test
   public void getRelativeLocationString_PathIsAbsoluteAndWorkspaceIsNull() {
     assertThat(
-        LocationPrinter.getRelativeLocationString(
-                Location.fromPathAndStartColumn(
-                    PathFragment.create("/absolute/path"), 0, 0, new LineAndColumn(4, 2)),
+            LocationPrinter.getRelativeLocationString(
+                Location.fromFileLineColumn("/absolute/path", 4, 2),
                 null,
                 ImmutableList.of(
                     Root.fromPath(fileSystem.getPath("/this/is/a/package/path/root")))))
@@ -58,9 +56,8 @@ public class LocationPrinterTest {
   @Test
   public void getRelativeLocationString_PathIsAbsoluteButNotUnderWorkspaceOrPackagePathRoots() {
     assertThat(
-        LocationPrinter.getRelativeLocationString(
-                Location.fromPathAndStartColumn(
-                    PathFragment.create("/absolute/path"), 0, 0, new LineAndColumn(4, 2)),
+            LocationPrinter.getRelativeLocationString(
+                Location.fromFileLineColumn("/absolute/path", 4, 2),
                 PathFragment.create("/this/is/the/workspace"),
                 ImmutableList.of(
                     Root.fromPath(fileSystem.getPath("/this/is/a/package/path/root")))))
@@ -70,12 +67,8 @@ public class LocationPrinterTest {
   @Test
   public void getRelativeLocationString_PathIsAbsoluteAndUnderWorkspace() {
     assertThat(
-        LocationPrinter.getRelativeLocationString(
-                Location.fromPathAndStartColumn(
-                    PathFragment.create("/this/is/the/workspace/blah.txt"),
-                    0,
-                    0,
-                    new LineAndColumn(4, 2)),
+            LocationPrinter.getRelativeLocationString(
+                Location.fromFileLineColumn("/this/is/the/workspace/blah.txt", 4, 2),
                 PathFragment.create("/this/is/the/workspace"),
                 ImmutableList.of(
                     Root.fromPath(fileSystem.getPath("/this/is/a/package/path/root")))))
@@ -85,17 +78,13 @@ public class LocationPrinterTest {
   @Test
   public void getRelativeLocationString_PathIsAbsoluteAndUnderPackagePathRoot() {
     assertThat(
-        LocationPrinter.getRelativeLocationString(
-            Location.fromPathAndStartColumn(
-                PathFragment.create("/this/is/a/package/path/root3/blah.txt"),
-                0,
-                0,
-                new LineAndColumn(4, 2)),
-            PathFragment.create("/this/is/the/workspace"),
-            ImmutableList.of(
-                Root.fromPath(fileSystem.getPath("/this/is/a/package/path/root1")),
-                Root.fromPath(fileSystem.getPath("/this/is/a/package/path/root2")),
-                Root.fromPath(fileSystem.getPath("/this/is/a/package/path/root3")))))
+            LocationPrinter.getRelativeLocationString(
+                Location.fromFileLineColumn("/this/is/a/package/path/root3/blah.txt", 4, 2),
+                PathFragment.create("/this/is/the/workspace"),
+                ImmutableList.of(
+                    Root.fromPath(fileSystem.getPath("/this/is/a/package/path/root1")),
+                    Root.fromPath(fileSystem.getPath("/this/is/a/package/path/root2")),
+                    Root.fromPath(fileSystem.getPath("/this/is/a/package/path/root3")))))
         .isEqualTo("blah.txt:4:2");
   }
 }

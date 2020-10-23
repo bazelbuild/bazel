@@ -14,14 +14,18 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.devtools.build.lib.skyframe.RecursivePackageProviderBackedTargetPatternResolver.MAX_PACKAGES_BULK_GET;
 
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.concurrent.BatchCallback;
+import com.google.devtools.build.lib.concurrent.ParallelVisitor;
+import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -30,14 +34,26 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /** Looks up values under {@link TraversalInfo}s of given roots in a {@link WalkableGraph}. */
 public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
 
-  public Iterable<PathFragment> getPackagesFromRoots(
+  private static final Comparator<TraversalInfo> TRAVERSAL_INFO_COMPARATOR =
+      Comparator.comparing(ti -> ti.rootedDir.getRootRelativePath());
+
+  private static final int PACKAGE_ID_OUTPUT_BATCH_SIZE = 100;
+  private static final int DEFAULT_THREAD_COUNT = Runtime.getRuntime().availableProcessors();
+
+  @Override
+  public void streamPackagesFromRoots(
+      BatchCallback<PackageIdentifier, UnusedException> results,
       WalkableGraph graph,
       List<Root> roots,
       ExtendedEventHandler eventHandler,
@@ -46,98 +62,166 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
       ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException {
-    // If we found a TargetsBelowDirectory pattern in the universe that contains this directory,
-    // then we can look for packages in and under it in the graph. If we didn't find one, then the
-    // directory wasn't in the universe, so return an empty list.
-    ImmutableList.Builder<PathFragment> builder = ImmutableList.builder();
+    TreeSet<TraversalInfo> dirsToCheckForPackages = new TreeSet<>(TRAVERSAL_INFO_COMPARATOR);
     for (Root root : roots) {
       RootedPath rootedDir = RootedPath.toRootedPath(root, directory);
-      TraversalInfo info =
-          new TraversalInfo(rootedDir, blacklistedSubdirectories, excludedSubdirectories);
-      collectPackagesUnder(graph, eventHandler, repository, ImmutableSet.of(info), builder);
+      dirsToCheckForPackages.add(
+          new TraversalInfo(rootedDir, blacklistedSubdirectories, excludedSubdirectories));
     }
-    return builder.build();
+    PackageCollectingParallelVisitor visitor =
+        new PackageCollectingParallelVisitor(
+            results,
+            /*visitBatchSize=*/ MAX_PACKAGES_BULK_GET,
+            /*processResultsBatchSize=*/ PACKAGE_ID_OUTPUT_BATCH_SIZE,
+            /*minPendingTasks=*/ 3 * DEFAULT_THREAD_COUNT,
+            /*resultBatchSize=*/ PACKAGE_ID_OUTPUT_BATCH_SIZE,
+            eventHandler,
+            repository,
+            graph);
+    visitor.visitAndWaitForCompletion(dirsToCheckForPackages);
   }
 
-  private void collectPackagesUnder(
-      WalkableGraph graph,
-      ExtendedEventHandler eventHandler,
-      final RepositoryName repository,
-      Set<TraversalInfo> traversals,
-      ImmutableList.Builder<PathFragment> builder)
-      throws InterruptedException {
-    Map<TraversalInfo, SkyKey> traversalToKeyMap =
-        Maps.asMap(
-            traversals,
-            new Function<TraversalInfo, SkyKey>() {
-              @Override
-              public SkyKey apply(TraversalInfo traversalInfo) {
-                return CollectPackagesUnderDirectoryValue.key(
-                    repository, traversalInfo.rootedDir, traversalInfo.blacklistedSubdirectories);
+  private static final ExecutorService PACKAGE_ID_COLLECTING_EXECUTOR =
+      Executors.newFixedThreadPool(
+          /*numThreads=*/ DEFAULT_THREAD_COUNT,
+          new ThreadFactoryBuilder().setNameFormat("package-id-traversal-%d").build());
+
+  /**
+   * A ParallelVisitor that reports every {@link PackageIdentifier} by querying the WalkableGraph
+   * for a {@link CollectPackagesUnderDirectoryValue} for each {@link TraversalInfo} it visits.
+   */
+  static class PackageCollectingParallelVisitor
+      extends ParallelVisitor<
+          TraversalInfo,
+          TraversalInfo,
+          TraversalInfo,
+          PackageIdentifier,
+          UnusedException,
+          BatchCallback<PackageIdentifier, UnusedException>> {
+
+    private final ExtendedEventHandler eventHandler;
+    private final RepositoryName repository;
+    private final WalkableGraph graph;
+
+    PackageCollectingParallelVisitor(
+        BatchCallback<PackageIdentifier, UnusedException> callback,
+        int visitBatchSize,
+        int processResultsBatchSize,
+        int minPendingTasks,
+        int resultBatchSize,
+        ExtendedEventHandler eventHandler,
+        RepositoryName repository,
+        WalkableGraph graph) {
+      super(
+          callback,
+          UnusedException.class,
+          visitBatchSize,
+          processResultsBatchSize,
+          minPendingTasks,
+          resultBatchSize,
+          PACKAGE_ID_COLLECTING_EXECUTOR,
+          VisitTaskStatusCallback.NULL_INSTANCE);
+      this.eventHandler = eventHandler;
+      this.repository = repository;
+      this.graph = graph;
+    }
+
+    @Override
+    protected Iterable<PackageIdentifier> outputKeysToOutputValues(
+        Iterable<TraversalInfo> targetKeys) {
+      ImmutableList.Builder<PackageIdentifier> results =
+          ImmutableList.builderWithExpectedSize(resultBatchSize);
+      for (TraversalInfo resultInfo : targetKeys) {
+        results.add(
+            PackageIdentifier.create(repository, resultInfo.rootedDir.getRootRelativePath()));
+      }
+      return results.build();
+    }
+
+    @Override
+    protected Visit getVisitResult(Iterable<TraversalInfo> dirsToCheckForPackages)
+        throws InterruptedException {
+      ImmutableMap.Builder<TraversalInfo, SkyKey> traversalToKeyMapBuilder = ImmutableMap.builder();
+      for (TraversalInfo traversalInfo : dirsToCheckForPackages) {
+        traversalToKeyMapBuilder.put(
+            traversalInfo,
+            CollectPackagesUnderDirectoryValue.key(
+                repository, traversalInfo.rootedDir, traversalInfo.blacklistedSubdirectories));
+      }
+      ImmutableMap<TraversalInfo, SkyKey> traversalToKeyMap = traversalToKeyMapBuilder.build();
+      Map<SkyKey, SkyValue> values = graph.getSuccessfulValues(traversalToKeyMap.values());
+
+      // NOTE: Use a TreeSet to ensure a deterministic (sorted) iteration order when we recurse.
+      List<TraversalInfo> resultPackageIds = new ArrayList<>();
+      TreeSet<TraversalInfo> subdirsToCheckForPackages = new TreeSet<>(TRAVERSAL_INFO_COMPARATOR);
+      for (Map.Entry<TraversalInfo, SkyKey> entry : traversalToKeyMap.entrySet()) {
+        TraversalInfo info = entry.getKey();
+        SkyKey key = entry.getValue();
+        SkyValue val = values.get(key);
+        CollectPackagesUnderDirectoryValue collectPackagesValue =
+            (CollectPackagesUnderDirectoryValue) val;
+        if (collectPackagesValue != null) {
+          if (collectPackagesValue.isDirectoryPackage()) {
+            resultPackageIds.add(info);
+          }
+
+          if (collectPackagesValue.getErrorMessage() != null) {
+            eventHandler.handle(Event.error(collectPackagesValue.getErrorMessage()));
+          }
+
+          ImmutableMap<RootedPath, Boolean> subdirectoryTransitivelyContainsPackages =
+              collectPackagesValue.getSubdirectoryTransitivelyContainsPackagesOrErrors();
+          for (RootedPath subdirectory : subdirectoryTransitivelyContainsPackages.keySet()) {
+            if (subdirectoryTransitivelyContainsPackages.get(subdirectory)) {
+              PathFragment subdirectoryRelativePath = subdirectory.getRootRelativePath();
+              ImmutableSet<PathFragment> blacklistedSubdirectoriesBeneathThisSubdirectory =
+                  info.blacklistedSubdirectories.stream()
+                      .filter(pathFragment -> pathFragment.startsWith(subdirectoryRelativePath))
+                      .collect(toImmutableSet());
+              ImmutableSet<PathFragment> excludedSubdirectoriesBeneathThisSubdirectory =
+                  info.excludedSubdirectories.stream()
+                      .filter(pathFragment -> pathFragment.startsWith(subdirectoryRelativePath))
+                      .collect(toImmutableSet());
+              if (!excludedSubdirectoriesBeneathThisSubdirectory.contains(
+                  subdirectoryRelativePath)) {
+                subdirsToCheckForPackages.add(
+                    new TraversalInfo(
+                        subdirectory,
+                        blacklistedSubdirectoriesBeneathThisSubdirectory,
+                        excludedSubdirectoriesBeneathThisSubdirectory));
               }
-            });
-    Map<SkyKey, SkyValue> values = graph.getSuccessfulValues(traversalToKeyMap.values());
-
-    ImmutableSet.Builder<TraversalInfo> subdirTraversalBuilder = ImmutableSet.builder();
-    for (Map.Entry<TraversalInfo, SkyKey> entry : traversalToKeyMap.entrySet()) {
-      TraversalInfo info = entry.getKey();
-      SkyKey key = entry.getValue();
-      SkyValue val = values.get(key);
-      CollectPackagesUnderDirectoryValue collectPackagesValue =
-          (CollectPackagesUnderDirectoryValue) val;
-      if (collectPackagesValue != null) {
-        if (collectPackagesValue.isDirectoryPackage()) {
-          builder.add(info.rootedDir.getRootRelativePath());
-        }
-
-        if (collectPackagesValue.getErrorMessage() != null) {
-          eventHandler.handle(Event.error(collectPackagesValue.getErrorMessage()));
-        }
-
-        ImmutableMap<RootedPath, Boolean> subdirectoryTransitivelyContainsPackages =
-            collectPackagesValue.getSubdirectoryTransitivelyContainsPackagesOrErrors();
-        for (RootedPath subdirectory : subdirectoryTransitivelyContainsPackages.keySet()) {
-          if (subdirectoryTransitivelyContainsPackages.get(subdirectory)) {
-            PathFragment subdirectoryRelativePath = subdirectory.getRootRelativePath();
-            ImmutableSet<PathFragment> blacklistedSubdirectoriesBeneathThisSubdirectory =
-                info.blacklistedSubdirectories
-                    .stream()
-                    .filter(pathFragment -> pathFragment.startsWith(subdirectoryRelativePath))
-                    .collect(toImmutableSet());
-            ImmutableSet<PathFragment> excludedSubdirectoriesBeneathThisSubdirectory =
-                info.excludedSubdirectories
-                    .stream()
-                    .filter(pathFragment -> pathFragment.startsWith(subdirectoryRelativePath))
-                    .collect(toImmutableSet());
-            if (!excludedSubdirectoriesBeneathThisSubdirectory.contains(subdirectoryRelativePath)) {
-              subdirTraversalBuilder.add(
-                  new TraversalInfo(
-                      subdirectory,
-                      blacklistedSubdirectoriesBeneathThisSubdirectory,
-                      excludedSubdirectoriesBeneathThisSubdirectory));
             }
           }
         }
       }
+      return new Visit(
+          /*keysToUseForResult=*/ resultPackageIds, /*keysToVisit=*/ subdirsToCheckForPackages);
     }
 
-    ImmutableSet<TraversalInfo> subdirTraversals = subdirTraversalBuilder.build();
-    if (!subdirTraversals.isEmpty()) {
-      collectPackagesUnder(graph, eventHandler, repository, subdirTraversals, builder);
+    @Override
+    protected Iterable<TraversalInfo> preprocessInitialVisit(Iterable<TraversalInfo> infos) {
+      return infos;
+    }
+
+    @Override
+    protected Iterable<TraversalInfo> noteAndReturnUniqueVisitationKeys(
+        Iterable<TraversalInfo> prospectiveVisitationKeys) {
+      return prospectiveVisitationKeys;
     }
   }
 
+  /** Value type used as visitation and output key for {@link PackageCollectingParallelVisitor}. */
   private static final class TraversalInfo {
-    private final RootedPath rootedDir;
+    final RootedPath rootedDir;
     // Set of blacklisted directories. The graph is assumed to be prepopulated with
     // CollectPackagesUnderDirectoryValue nodes whose keys have blacklisted packages embedded in
     // them. Therefore, we need to be careful to request and use the same sort of keys here in our
     // traversal.
-    private final ImmutableSet<PathFragment> blacklistedSubdirectories;
+    final ImmutableSet<PathFragment> blacklistedSubdirectories;
     // Set of directories, targets under which should be excluded from the traversal results.
     // Excluded directory information isn't part of the graph keys in the prepopulated graph, so we
     // need to perform the filtering ourselves.
-    private final ImmutableSet<PathFragment> excludedSubdirectories;
+    final ImmutableSet<PathFragment> excludedSubdirectories;
 
     private TraversalInfo(
         RootedPath rootedDir,

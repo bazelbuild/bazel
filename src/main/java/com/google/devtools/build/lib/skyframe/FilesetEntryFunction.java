@@ -23,9 +23,12 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversal;
+import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.DanglingSymlinkException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.RecursiveFilesystemTraversalException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
+import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.TraversalRequest;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -47,15 +50,21 @@ public final class FilesetEntryFunction implements SkyFunction {
     }
   }
 
-  private final PathFragment execRoot;
+  private final Function<String, Path> getExecRoot;
 
-  public FilesetEntryFunction(PathFragment execRoot) {
-    this.execRoot = execRoot;
+  public FilesetEntryFunction(Function<String, Path> getExecRoot) {
+    this.getExecRoot = getExecRoot;
   }
 
   @Override
   public SkyValue compute(SkyKey key, Environment env)
       throws FilesetEntryFunctionException, InterruptedException {
+    WorkspaceNameValue workspaceNameValue =
+        (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
+    if (workspaceNameValue == null) {
+      return null;
+    }
+
     FilesetTraversalParams t = (FilesetTraversalParams) key.argument();
     Preconditions.checkState(
         t.getDirectTraversal().isPresent() && t.getNestedArtifact() == null,
@@ -127,7 +136,7 @@ public final class FilesetEntryFunction implements SkyFunction {
       // the parent. Finding and discarding the children is easy if we traverse the tree from
       // root to leaf.
       DirectoryTree root = new DirectoryTree();
-      for (ResolvedFile f : rftv.getTransitiveFiles()) {
+      for (ResolvedFile f : rftv.getTransitiveFiles().toList()) {
         PathFragment path = f.getNameInSymlinkTree().relativeTo(prefixToRemove);
         if (!path.isEmpty()) {
           path = t.getDestPath().getRelative(path);
@@ -179,7 +188,8 @@ public final class FilesetEntryFunction implements SkyFunction {
           f.getMetadata(),
           t.getDestPath(),
           direct.isGenerated(),
-          outputSymlinks);
+          outputSymlinks,
+          getExecRoot.apply(workspaceNameValue.getName()));
     }
 
     return FilesetEntryValue.of(ImmutableSet.copyOf(outputSymlinks.values()));
@@ -189,15 +199,17 @@ public final class FilesetEntryFunction implements SkyFunction {
   private void maybeStoreSymlink(
       PathFragment linkName,
       PathFragment linkTarget,
-      Object metadata,
+      HasDigest metadata,
       PathFragment destPath,
       boolean isGenerated,
-      Map<PathFragment, FilesetOutputSymlink> result) {
+      Map<PathFragment, FilesetOutputSymlink> result,
+      Path execRoot) {
     linkName = destPath.getRelative(linkName);
     if (!result.containsKey(linkName)) {
       result.put(
           linkName,
-          FilesetOutputSymlink.create(linkName, linkTarget, metadata, isGenerated, execRoot));
+          FilesetOutputSymlink.create(
+              linkName, linkTarget, metadata, isGenerated, execRoot.asFragment()));
     }
   }
 
@@ -207,12 +219,11 @@ public final class FilesetEntryFunction implements SkyFunction {
   }
 
   /**
-   * Returns the {@link RecursiveFilesystemTraversalValue.TraversalRequest} node used to compute the
-   * Skyframe value for {@code filesetEntryKey}. Should only be called to determine which nodes need
-   * to be rewound, and only when {@code filesetEntryKey.isGenerated()}.
+   * Returns the {@link TraversalRequest} node used to compute the Skyframe value for {@code
+   * filesetEntryKey}. Should only be called to determine which nodes need to be rewound, and only
+   * when {@code filesetEntryKey.isGenerated()}.
    */
-  public static RecursiveFilesystemTraversalValue.TraversalRequest getDependencyForRewinding(
-      FilesetEntryKey filesetEntryKey) {
+  public static TraversalRequest getDependencyForRewinding(FilesetEntryKey filesetEntryKey) {
     FilesetTraversalParams t = filesetEntryKey.argument();
     Preconditions.checkState(
         t.getDirectTraversal().isPresent() && t.getNestedArtifact() == null,
@@ -227,9 +238,9 @@ public final class FilesetEntryFunction implements SkyFunction {
     return createTraversalRequestKey(createErrorInfo(t), t.getDirectTraversal().get());
   }
 
-  private static RecursiveFilesystemTraversalValue.TraversalRequest createTraversalRequestKey(
+  private static TraversalRequest createTraversalRequestKey(
       String errorInfo, DirectTraversal traversal) {
-    return RecursiveFilesystemTraversalValue.TraversalRequest.create(
+    return TraversalRequest.create(
         traversal.getRoot(),
         traversal.isGenerated(),
         traversal.getPackageBoundaryMode(),

@@ -69,28 +69,40 @@ else
   declare -r EMBEDDED_JDK=""
 fi
 
-function test_bootstrap()  {
-    execute_bootstrap "--host_javabase=@local_jdk//:jdk"
-}
-
-# TODO(#7260): Remove this test once this flag is flipped
-function test_bootstrap_with_cc_rules_using_platforms()  {
-    execute_bootstrap "--host_javabase=@local_jdk//:jdk "\
-      "--incompatible_enable_cc_toolchain_resolution"
-}
-
-function execute_bootstrap() {
+function test_bootstrap() {
     cd "$(mktemp -d ${TEST_TMPDIR}/bazelbootstrap.XXXXXXXX)"
     export SOURCE_DATE_EPOCH=1501234567
-    unzip -q "${DISTFILE}"
-    if [[ $EMBEDDED_JDK == *.tar.gz ]]; then
-      tar xf $EMBEDDED_JDK
-    elif [[ $EMBEDDED_JDK == *.zip ]]; then
-      unzip -q $EMBEDDED_JDK
-    fi
+
+    case "${DISTFILE}" in
+      *.zip)
+        unzip -q "${DISTFILE}"
+        ;;
+      *.tar)
+        tar xf "${DISTFILE}"
+        ;;
+      *)
+        fail "Unknown distfile format: ${DISTFILE}"
+        ;;
+    esac
+
+    case "${EMBEDDED_JDK}" in
+      *.zip)
+        unzip -q "$EMBEDDED_JDK"
+        ;;
+      *.tar.gz)
+        tar zxf "$EMBEDDED_JDK"
+        ;;
+      *.tar)
+        tar xf "$EMBEDDED_JDK"
+        ;;
+      *)
+        fail "Unknown embedded JDK format: ${EMBEDDED_JDK}"
+        ;;
+    esac
+
     JAVABASE=$(echo reduced*)
 
-    env EXTRA_BAZEL_ARGS="${1}" ./compile.sh \
+    env EXTRA_BAZEL_ARGS="--host_javabase=@local_jdk//:jdk" ./compile.sh \
         || fail "Expected to be able to bootstrap bazel"
     ./output/bazel \
       --server_javabase=$JAVABASE --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED \

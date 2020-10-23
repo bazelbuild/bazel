@@ -23,10 +23,11 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.AndroidBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
+import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.util.FileType;
 
 /** Rule definition for the aar_import rule. */
@@ -53,6 +54,13 @@ public class AarImportBaseRule implements RuleDefinition {
                 .allowedRuleClasses("aar_import", "java_import")
                 .allowedFileTypes()
                 .validityPredicate(ANY_EDGE))
+        /* <!-- #BLAZE_RULE(aar_import).ATTRIBUTE(srcjar) -->
+        A JAR file that contains source code for the compiled JAR files in the AAR.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("srcjar", LABEL)
+                .allowedFileTypes(JavaSemantics.SOURCE_JAR, JavaSemantics.JAR)
+                .direct_compile_time_input())
         .add(
             attr(AAR_EMBEDDED_JARS_EXTACTOR, LABEL)
                 .cfg(HostTransition.createFactory())
@@ -78,7 +86,7 @@ public class AarImportBaseRule implements RuleDefinition {
                 .cfg(HostTransition.createFactory())
                 .exec()
                 .value(env.getToolsLabel("//tools/zip:zipper")))
-        .advertiseSkylarkProvider(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
+        .advertiseStarlarkProvider(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
         .requiresConfigurationFragments(AndroidConfiguration.class, JavaConfiguration.class)
         .build();
   }

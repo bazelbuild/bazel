@@ -16,9 +16,11 @@
 
 import locale
 import os
+import shutil
 import socket
 import stat
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -49,6 +51,29 @@ class TestBase(unittest.TestCase):
   _worker_stdout = None
   _worker_stderr = None
   _worker_proc = None
+  _cas_path = None
+
+  _SHARED_REPOS = (
+      'rules_cc',
+      'rules_java',
+      'rules_proto',
+      'remotejdk11_linux_for_testing',
+      'remotejdk11_linux_aarch64_for_testing',
+      'remotejdk11_linux_ppc64le_for_testing',
+      'remotejdk11_linux_s390x_for_testing',
+      'remotejdk11_macos_for_testing',
+      'remotejdk11_win_for_testing',
+      'remotejdk14_linux_for_testing',
+      'remotejdk14_macos_for_testing',
+      'remotejdk14_win_for_testing',
+      'remotejdk15_linux_for_testing',
+      'remotejdk15_macos_for_testing',
+      'remotejdk15_win_for_testing',
+      'remote_java_tools_darwin_for_testing',
+      'remote_java_tools_linux_for_testing',
+      'remote_java_tools_windows_for_testing',
+      'remote_coverage_tools_for_testing',
+  )
 
   def setUp(self):
     unittest.TestCase.setUp(self)
@@ -61,7 +86,19 @@ class TestBase(unittest.TestCase):
     self._test_cwd = tempfile.mkdtemp(dir=self._tests_root)
     self._test_bazelrc = os.path.join(self._temp, 'test_bazelrc')
     with open(self._test_bazelrc, 'wt') as f:
-      f.write('build --jobs=8\n')
+      shared_repo_home = os.environ.get('TEST_REPOSITORY_HOME')
+      if shared_repo_home and os.path.exists(shared_repo_home):
+        for repo in self._SHARED_REPOS:
+          f.write('common --override_repository={}={}\n'.format(
+              repo.replace('_for_testing', ''),
+              os.path.join(shared_repo_home, repo).replace('\\', '/')))
+      shared_install_base = os.environ.get('TEST_INSTALL_BASE')
+      if shared_install_base:
+        f.write('startup --install_base={}\n'.format(shared_install_base))
+      shared_repo_cache = os.environ.get('REPOSITORY_CACHE')
+      if shared_repo_cache:
+        f.write('common --repository_cache={}\n'.format(shared_repo_cache))
+        f.write('common --experimental_repository_cache_hardlinks\n')
     os.chdir(self._test_cwd)
 
   def tearDown(self):
@@ -115,6 +152,42 @@ class TestBase(unittest.TestCase):
         actual_exit_code, lambda x: x != not_expected_exit_code,
         '(against expectations)', stderr_lines, stdout_lines)
 
+  def AssertFileContentContains(self, file_path, entry):
+    with open(file_path, 'r') as f:
+      if entry not in f.read():
+        self.fail('File "%s" does not contain "%s"' % (file_path, entry))
+
+  def AssertFileContentNotContains(self, file_path, entry):
+    with open(file_path, 'r') as f:
+      if entry in f.read():
+        self.fail('File "%s" does contain "%s"' % (file_path, entry))
+
+  def CreateWorkspaceWithDefaultRepos(self, path, lines=None):
+    rule_definition = [
+        'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")'
+    ]
+    rule_definition.extend(self.GetDefaultRepoRules())
+    self.ScratchFile(path, rule_definition + (lines if lines else []))
+
+  def GetDefaultRepoRules(self):
+    return self.GetCcRulesRepoRule()
+
+  def GetCcRulesRepoRule(self):
+    sha256 = '1d4dbbd1e1e9b57d40bb0ade51c9e882da7658d5bfbf22bbd15b68e7879d761f'
+    strip_pfx = 'rules_cc-8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0'
+    url1 = ('https://mirror.bazel.build/github.com/bazelbuild/rules_cc/'
+            'archive/8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip')
+    url2 = ('https://github.com/bazelbuild/rules_cc/'
+            'archive/8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip')
+    return [
+        'http_archive(',
+        '    name = "rules_cc",',
+        '    sha256 = "%s",' % sha256,
+        '    strip_prefix = "%s",' % strip_pfx,
+        '    urls = ["%s", "%s"],' % (url1, url2),
+        ')',
+    ]
+
   @staticmethod
   def GetEnv(name, default=None):
     """Returns environment variable `name`.
@@ -143,8 +216,13 @@ class TestBase(unittest.TestCase):
 
   @staticmethod
   def IsUnix():
-    """Returns true if the current platform is Unix platform."""
+    """Returns true if the current platform is Unix (Linux and Mac included)."""
     return os.name == 'posix'
+
+  @staticmethod
+  def IsLinux():
+    """Returns true if the current platform is Linux."""
+    return sys.platform.startswith('linux')
 
   def Path(self, path):
     """Returns the absolute path of `path` relative to self._test_cwd.
@@ -249,7 +327,7 @@ class TestBase(unittest.TestCase):
       os.chmod(abspath, stat.S_IRWXU)
     return abspath
 
-  def RunBazel(self, args, env_remove=None, env_add=None):
+  def RunBazel(self, args, env_remove=None, env_add=None, cwd=None):
     """Runs "bazel <args>", waits for it to exit.
 
     Args:
@@ -258,6 +336,8 @@ class TestBase(unittest.TestCase):
         to Bazel
       env_add: {string: string}; optional; environment variables to pass to
         Bazel, won't be removed by env_remove.
+      cwd: [string]; the working directory of Bazel, will be self._test_cwd if
+        not specified.
     Returns:
       (int, [string], [string]) tuple: exit code, stdout lines, stderr lines
     """
@@ -265,7 +345,7 @@ class TestBase(unittest.TestCase):
         self.Rlocation('io_bazel/src/bazel'),
         '--bazelrc=' + self._test_bazelrc,
         '--nomaster_bazelrc',
-    ] + args, env_remove, env_add)
+    ] + args, env_remove, env_add, False, cwd)
 
   def StartRemoteWorker(self):
     """Runs a "local remote worker" to run remote builds and tests on.
@@ -275,11 +355,18 @@ class TestBase(unittest.TestCase):
     """
     self._worker_stdout = tempfile.TemporaryFile(dir=self._test_cwd)
     self._worker_stderr = tempfile.TemporaryFile(dir=self._test_cwd)
-    # Ideally we would use something under TEST_TMPDIR here, but the
-    # worker path must be as short as possible so we don't exceed Windows
-    # path length limits, so we run straight in TEMP. This should ideally
-    # be set to something like C:\temp. On CI this is set to D:\temp.
-    worker_path = TestBase.GetEnv('TEMP')
+    if TestBase.IsWindows():
+      # Ideally we would use something under TEST_TMPDIR here, but the
+      # worker path must be as short as possible so we don't exceed Windows
+      # path length limits, so we run straight in TEMP. This should ideally
+      # be set to something like C:\temp. On CI this is set to D:\temp.
+      worker_path = TestBase.GetEnv('TEMP')
+      worker_exe = self.Rlocation('io_bazel/src/tools/remote/worker.exe')
+    else:
+      worker_path = tempfile.mkdtemp(dir=self._tests_root)
+      worker_exe = self.Rlocation('io_bazel/src/tools/remote/worker')
+    self._cas_path = os.path.join(worker_path, 'cas')
+    os.mkdir(self._cas_path)
 
     # Get an open port. Unfortunately this seems to be the best option in
     # Python.
@@ -288,21 +375,28 @@ class TestBase(unittest.TestCase):
     port = s.getsockname()[1]
     s.close()
 
+    env_add = {}
+    try:
+      env_add['RUNFILES_MANIFEST_FILE'] = TestBase.GetEnv(
+          'RUNFILES_MANIFEST_FILE')
+    except EnvVarUndefinedError:
+      pass
+
     # Tip: To help debug remote build problems, add the --debug flag below.
     self._worker_proc = subprocess.Popen(
         [
-            self.Rlocation('io_bazel/src/tools/remote/worker.exe'),
+            worker_exe,
+            '--singlejar',
             '--listen_port=' + str(port),
             # This path has to be extremely short to avoid Windows path
             # length restrictions.
             '--work_path=' + worker_path,
+            '--cas_path=' + self._cas_path,
         ],
         stdout=self._worker_stdout,
         stderr=self._worker_stderr,
         cwd=self._test_cwd,
-        env=self._EnvMap(env_add={
-            'RUNFILES_MANIFEST_FILE': TestBase.GetEnv('RUNFILES_MANIFEST_FILE'),
-        }))
+        env=self._EnvMap(env_add=env_add))
 
     return port
 
@@ -334,7 +428,14 @@ class TestBase(unittest.TestCase):
       print('--------------------------')
       print('\n'.join(stderr_lines))
 
-  def RunProgram(self, args, env_remove=None, env_add=None, shell=False):
+    shutil.rmtree(self._cas_path)
+
+  def RunProgram(self,
+                 args,
+                 env_remove=None,
+                 env_add=None,
+                 shell=False,
+                 cwd=None):
     """Runs a program (args[0]), waits for it to exit.
 
     Args:
@@ -345,6 +446,8 @@ class TestBase(unittest.TestCase):
         the program, won't be removed by env_remove.
       shell: {bool: bool}; optional; whether to use the shell as the program
         to execute
+      cwd: [string]; the current working dirctory, will be self._test_cwd if not
+        specified.
     Returns:
       (int, [string], [string]) tuple: exit code, stdout lines, stderr lines
     """
@@ -354,7 +457,7 @@ class TestBase(unittest.TestCase):
             args,
             stdout=stdout,
             stderr=stderr,
-            cwd=self._test_cwd,
+            cwd=(cwd if cwd else self._test_cwd),
             env=self._EnvMap(env_remove, env_add),
             shell=shell)
         exit_code = proc.wait()
@@ -388,9 +491,13 @@ class TestBase(unittest.TestCase):
               TestBase.GetEnv('BAZEL_SH',
                               'c:\\tools\\msys64\\usr\\bin\\bash.exe'),
       }
-      java_home = TestBase.GetEnv('JAVA_HOME', '')
-      if java_home:
-        env['JAVA_HOME'] = java_home
+      for k in [
+          'JAVA_HOME', 'BAZEL_VC', 'BAZEL_VS', 'BAZEL_VC_FULL_VERSION',
+          'BAZEL_WINSDK_FULL_VERSION'
+      ]:
+        v = TestBase.GetEnv(k, '')
+        if v:
+          env[k] = v
     else:
       env = {'HOME': os.path.join(self._temp, 'home')}
 

@@ -28,23 +28,26 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
+import com.google.devtools.build.lib.rules.android.databinding.DataBindingV2Provider;
 import com.google.devtools.build.lib.rules.java.ImportDepsCheckActionBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsCheckingLevel;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
+import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
+import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
+import com.google.devtools.build.lib.starlarkbuildapi.android.DataBindingV2ProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import javax.annotation.Nullable;
 
 /**
  * An implementation for the aar_import rule.
@@ -74,7 +77,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
     AndroidSdkProvider.verifyPresence(ruleContext);
 
     RuleConfiguredTargetBuilder ruleBuilder = new RuleConfiguredTargetBuilder(ruleContext);
-    Artifact aar = ruleContext.getPrerequisiteArtifact("aar", Mode.TARGET);
+    Artifact aar = ruleContext.getPrerequisiteArtifact("aar");
 
     Artifact allAarJars = createAarTreeArtifact(ruleContext, "jars");
     Artifact jarMergingParams = createAarArtifact(ruleContext, "jar_merging_params");
@@ -89,8 +92,12 @@ public class AarImport implements RuleConfiguredTargetFactory {
 
     SpecialArtifact resources = createAarTreeArtifact(ruleContext, "resources");
     SpecialArtifact assets = createAarTreeArtifact(ruleContext, "assets");
+    SpecialArtifact databindingBrFiles = createAarTreeArtifact(ruleContext, "data-binding-br");
+    SpecialArtifact databindingSetterStoreFiles =
+        createAarTreeArtifact(ruleContext, "data-binding-setter_store");
     ruleContext.registerAction(
-        createAarResourcesExtractorActions(ruleContext, aar, resources, assets));
+        createAarResourcesExtractorActions(
+            ruleContext, aar, resources, assets, databindingBrFiles, databindingSetterStoreFiles));
 
     AndroidDataContext dataContext = androidSemantics.makeContextForNative(ruleContext);
     StampedAndroidManifest manifest = AndroidManifest.forAarImport(androidManifestArtifact);
@@ -108,20 +115,17 @@ public class AarImport implements RuleConfiguredTargetFactory {
 
     MergedAndroidAssets mergedAssets =
         AndroidAssets.forAarImport(assets)
-            .process(
-                dataContext,
-                AssetDependencies.fromRuleDeps(ruleContext, neverlink),
-                AndroidAaptVersion.chooseTargetAaptVersion(ruleContext));
+            .process(dataContext, AssetDependencies.fromRuleDeps(ruleContext, neverlink));
 
     ResourceApk resourceApk = ResourceApk.of(validatedResources, mergedAssets, null, null);
 
     // There isn't really any use case for building an aar_import target on its own, so the files to
-    // build could be empty. The resources zip and merged jars are added here as a sanity check for
-    // Bazel developers so that `bazel build java/com/my_aar_import` will fail if the resource
-    // processing or jar merging steps fail.
+    // build could be empty. The R class JAR and merged JARs are added here as a check for Bazel
+    // developers so that `bazel build java/com/my_aar_import` will fail if the resource processing
+    // or JAR merging steps fail.
     NestedSet<Artifact> filesToBuild =
         NestedSetBuilder.<Artifact>stableOrder()
-            .add(resourceApk.getValidatedResources().getMergedResources())
+            .add(resourceApk.getValidatedResources().getJavaClassJar())
             .add(mergedJar)
             .build();
 
@@ -134,8 +138,8 @@ public class AarImport implements RuleConfiguredTargetFactory {
 
     ImmutableList<TransitiveInfoCollection> targets =
         ImmutableList.<TransitiveInfoCollection>builder()
-            .addAll(ruleContext.getPrerequisites("exports", Mode.TARGET))
-            .addAll(ruleContext.getPrerequisites("deps", Mode.TARGET))
+            .addAll(ruleContext.getPrerequisites("exports"))
+            .addAll(ruleContext.getPrerequisites("deps"))
             .build();
     JavaCommon common =
         new JavaCommon(
@@ -147,29 +151,35 @@ public class AarImport implements RuleConfiguredTargetFactory {
             /* bothDeps = */ targets);
     javaSemantics.checkRule(ruleContext, common);
 
-    Artifact jdepsArtifact = createAarArtifact(ruleContext, "jdeps.proto");
-
-    common.setJavaCompilationArtifacts(
-        new JavaCompilationArtifacts.Builder()
-            .addRuntimeJar(mergedJar)
-            .addCompileTimeJarAsFullJar(mergedJar)
-            // Allow direct dependents to compile against un-merged R classes
-            .addCompileTimeJarAsFullJar(
-                ruleContext.getImplicitOutputArtifact(
-                    AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR))
-            .setCompileTimeDependencies(jdepsArtifact)
-            .build());
-
     JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
-    ImportDepsCheckActionBuilder.newBuilder()
-        .bootclasspath(getBootclasspath(ruleContext))
-        .declareDeps(getCompileTimeJarsFromCollection(targets, /*isDirect=*/ true))
-        .transitiveDeps(getCompileTimeJarsFromCollection(targets, /*isDirect=*/ false))
-        .checkJars(NestedSetBuilder.<Artifact>stableOrder().add(mergedJar).build())
-        .importDepsCheckingLevel(javaConfig.getImportDepsCheckingLevel())
-        .jdepsOutputArtifact(jdepsArtifact)
-        .ruleLabel(ruleContext.getLabel())
-        .buildAndRegister(ruleContext);
+    JavaCompilationArtifacts.Builder javaCompilationArtifactsBuilder =
+        new JavaCompilationArtifacts.Builder();
+
+    javaCompilationArtifactsBuilder
+        .addRuntimeJar(mergedJar)
+        .addCompileTimeJarAsFullJar(mergedJar)
+        // Allow direct dependents to compile against un-merged R classes
+        .addCompileTimeJarAsFullJar(
+            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR));
+
+    Artifact jdepsArtifact = null;
+    // Don't register import deps checking actions if the level is off. Since it's off, the
+    // check isn't useful anyway, so don't waste resources running it.
+    if (javaConfig.getImportDepsCheckingLevel() != ImportDepsCheckingLevel.OFF) {
+      jdepsArtifact = createAarArtifact(ruleContext, "jdeps.proto");
+      javaCompilationArtifactsBuilder.setCompileTimeDependencies(jdepsArtifact);
+      ImportDepsCheckActionBuilder.newBuilder()
+          .bootclasspath(getBootclasspath(ruleContext))
+          .declareDeps(getCompileTimeJarsFromCollection(targets, /*isDirect=*/ true))
+          .transitiveDeps(getCompileTimeJarsFromCollection(targets, /*isDirect=*/ false))
+          .checkJars(NestedSetBuilder.<Artifact>stableOrder().add(mergedJar).build())
+          .importDepsCheckingLevel(javaConfig.getImportDepsCheckingLevel())
+          .jdepsOutputArtifact(jdepsArtifact)
+          .ruleLabel(ruleContext.getLabel())
+          .buildAndRegister(ruleContext);
+    }
+
+    common.setJavaCompilationArtifacts(javaCompilationArtifactsBuilder.build());
 
     // We pass jdepsArtifact to create the action of extracting ANDROID_MANIFEST. Note that
     // this action does not need jdepsArtifact. The only reason is that we need to check the
@@ -184,28 +194,54 @@ public class AarImport implements RuleConfiguredTargetFactory {
             /* isNeverLink = */ JavaCommon.isNeverLink(ruleContext),
             /* srcLessDepsExport = */ false);
 
+    // Wire up the source jar for the current target and transitive source jars from dependencies.
+    ImmutableList<Artifact> srcJars = ImmutableList.of();
+    Artifact srcJar = ruleContext.getPrerequisiteArtifact("srcjar");
+    NestedSetBuilder<Artifact> transitiveJavaSourceJarBuilder = NestedSetBuilder.stableOrder();
+    if (srcJar != null) {
+      srcJars = ImmutableList.of(srcJar);
+      transitiveJavaSourceJarBuilder.add(srcJar);
+    }
+    for (JavaSourceJarsProvider other :
+        JavaInfo.getProvidersFromListOfTargets(
+            JavaSourceJarsProvider.class, ruleContext.getPrerequisites("exports"))) {
+      transitiveJavaSourceJarBuilder.addTransitive(other.getTransitiveSourceJars());
+    }
+    NestedSet<Artifact> transitiveJavaSourceJars = transitiveJavaSourceJarBuilder.build();
+    JavaSourceJarsProvider javaSourceJarsProvider =
+        JavaSourceJarsProvider.create(transitiveJavaSourceJars, srcJars);
+    JavaSourceInfoProvider javaSourceInfoProvider =
+        new JavaSourceInfoProvider.Builder()
+            .setJarFiles(ImmutableList.of(mergedJar))
+            .setSourceJarsForJarFiles(srcJars)
+            .build();
+
     JavaInfo.Builder javaInfoBuilder =
         JavaInfo.Builder.create()
             .setRuntimeJars(ImmutableList.of(mergedJar))
             .setJavaConstraints(ImmutableList.of("android"))
             .setNeverlink(JavaCommon.isNeverLink(ruleContext))
             .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsProvider)
+            .addProvider(JavaSourceJarsProvider.class, javaSourceJarsProvider)
+            .addProvider(JavaSourceInfoProvider.class, javaSourceInfoProvider)
             .addProvider(JavaRuleOutputJarsProvider.class, jarProviderBuilder.build());
 
     common.addTransitiveInfoProviders(
         ruleBuilder, javaInfoBuilder, filesToBuild, /*classJar=*/ null);
 
+    DataBindingV2Provider dataBindingV2Provider =
+        createDatabindingProvider(ruleContext, databindingBrFiles, databindingSetterStoreFiles);
+
     resourceApk.addToConfiguredTargetBuilder(
         ruleBuilder,
         ruleContext.getLabel(),
-        /* includeSkylarkApiProvider = */ false,
+        /* includeStarlarkApiProvider = */ false,
         /* isLibrary = */ true);
 
     ruleBuilder
         .setFilesToBuild(filesToBuild)
-        .addSkylarkTransitiveInfo(
-            JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
+        .addNativeDeclaredProvider(dataBindingV2Provider)
         .addNativeDeclaredProvider(
             new AndroidNativeLibsInfo(
                 AndroidCommon.collectTransitiveNativeLibs(ruleContext).add(nativeLibs).build()))
@@ -228,7 +264,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
       return NestedSetBuilder.<Artifact>stableOrder()
           .addTransitive(
               ruleContext
-                  .getPrerequisite("$desugar_java8_extra_bootclasspath", Mode.HOST)
+                  .getPrerequisite("$desugar_java8_extra_bootclasspath")
                   .getProvider(FileProvider.class)
                   .getFilesToBuild())
           .add(AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar())
@@ -251,13 +287,12 @@ public class AarImport implements RuleConfiguredTargetFactory {
       RuleContext ruleContext,
       Artifact aar,
       String filename,
-      Artifact jdepsOutputArtifact,
+      @Nullable Artifact jdepsOutputArtifact,
       Artifact outputArtifact) {
     SpawnAction.Builder builder =
         new SpawnAction.Builder()
             .useDefaultShellEnvironment()
-            .setExecutable(
-                ruleContext.getExecutablePrerequisite(AarImportBaseRule.ZIPPER, Mode.HOST))
+            .setExecutable(ruleContext.getExecutablePrerequisite(AarImportBaseRule.ZIPPER))
             .setMnemonic("AarFileExtractor")
             .setProgressMessage("Extracting %s from %s", filename, aar.getFilename())
             .addInput(aar)
@@ -275,21 +310,30 @@ public class AarImport implements RuleConfiguredTargetFactory {
   }
 
   private static Action[] createAarResourcesExtractorActions(
-      RuleContext ruleContext, Artifact aar, Artifact resourcesDir, Artifact assetsDir) {
+      RuleContext ruleContext,
+      Artifact aar,
+      Artifact resourcesDir,
+      Artifact assetsDir,
+      Artifact databindingBrFiles,
+      Artifact databindingSetterStoreFiles) {
+
     return new SpawnAction.Builder()
         .useDefaultShellEnvironment()
         .setExecutable(
-            ruleContext.getExecutablePrerequisite(
-                AarImportBaseRule.AAR_RESOURCES_EXTRACTOR, Mode.HOST))
+            ruleContext.getExecutablePrerequisite(AarImportBaseRule.AAR_RESOURCES_EXTRACTOR))
         .setMnemonic("AarResourcesExtractor")
         .addInput(aar)
         .addOutput(resourcesDir)
         .addOutput(assetsDir)
+        .addOutput(databindingBrFiles)
+        .addOutput(databindingSetterStoreFiles)
         .addCommandLine(
             CustomCommandLine.builder()
                 .addExecPath("--input_aar", aar)
                 .addExecPath("--output_res_dir", resourcesDir)
                 .addExecPath("--output_assets_dir", assetsDir)
+                .addExecPath("--output_databinding_br_dir", databindingBrFiles)
+                .addExecPath("--output_databinding_setter_store_dir", databindingSetterStoreFiles)
                 .build())
         .build(ruleContext);
   }
@@ -302,8 +346,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
     return new SpawnAction.Builder()
         .useDefaultShellEnvironment()
         .setExecutable(
-            ruleContext.getExecutablePrerequisite(
-                AarImportBaseRule.AAR_EMBEDDED_JARS_EXTACTOR, Mode.HOST))
+            ruleContext.getExecutablePrerequisite(AarImportBaseRule.AAR_EMBEDDED_JARS_EXTACTOR))
         .setMnemonic("AarEmbeddedJarsExtractor")
         .setProgressMessage("Extracting classes.jar and libs/*.jar from %s", aar.getFilename())
         .addInput(aar)
@@ -343,7 +386,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
             .useDefaultShellEnvironment()
             .setExecutable(
                 ruleContext.getExecutablePrerequisite(
-                    AarImportBaseRule.AAR_NATIVE_LIBS_ZIP_CREATOR, Mode.HOST))
+                    AarImportBaseRule.AAR_NATIVE_LIBS_ZIP_CREATOR))
             .setMnemonic("AarNativeLibsFilter")
             .setProgressMessage("Filtering AAR native libs by architecture")
             .addInput(aar)
@@ -355,6 +398,35 @@ public class AarImport implements RuleConfiguredTargetFactory {
                     .addExecPath("--output_zip", outputZip)
                     .build());
     return actionBuilder.build(ruleContext);
+  }
+
+  private static DataBindingV2Provider createDatabindingProvider(
+      RuleContext ruleContext,
+      SpecialArtifact databindingBrFiles,
+      SpecialArtifact databindingSetterStoreFiles) {
+
+    Iterable<? extends DataBindingV2ProviderApi<Artifact>> databindingProvidersFromDeps =
+        ruleContext.getPrerequisites("deps", DataBindingV2Provider.PROVIDER);
+
+    Iterable<? extends DataBindingV2ProviderApi<Artifact>> databindingProvidersFromExports =
+        ruleContext.getPrerequisites("exports", DataBindingV2Provider.PROVIDER);
+
+    DataBindingV2Provider dataBindingV2Provider =
+        DataBindingV2Provider.createProvider(
+            databindingSetterStoreFiles,
+            /* classInfoFile= */ null,
+            databindingBrFiles,
+            ruleContext.getRule().getLabel().toString(),
+            // TODO: The aar's Java package isn't available during analysis (it's in the manifest
+            // inside the aar, or can maybe be inferred elsewhere). This is mostly used for
+            // constructing  a nice error message if multiple android_library rules try to generate
+            // databinding conflicting classes into the same Java package, so it's not as important
+            // for aars.
+            /* javaPackage= */ null,
+            databindingProvidersFromDeps,
+            databindingProvidersFromExports);
+
+    return dataBindingV2Provider;
   }
 
   private static Artifact createAarArtifact(RuleContext ruleContext, String name) {

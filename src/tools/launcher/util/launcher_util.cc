@@ -12,6 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+
 // For rand_s function, https://msdn.microsoft.com/en-us/library/sxtz2fa8.aspx
 #define _CRT_RAND_S
 #include <fcntl.h>
@@ -20,12 +25,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <windows.h>
+
 #include <algorithm>
 #include <sstream>
 #include <string>
 
 #include "src/main/cpp/util/path_platform.h"
+#include "src/main/native/windows/file.h"
 #include "src/tools/launcher/util/launcher_util.h"
 
 namespace bazel {
@@ -117,19 +123,30 @@ bool DeleteDirectoryByPath(const wchar_t* path) {
   return RemoveDirectoryW(AsAbsoluteWindowsPath(path).c_str());
 }
 
-wstring GetBinaryPathWithoutExtension(const wstring& binary) {
-  if (binary.find(L".exe", binary.size() - 4) != wstring::npos) {
-    return binary.substr(0, binary.length() - 4);
+static bool EndsWithExe(const wstring& s) {
+  return s.size() >= 4 && _wcsnicmp(s.c_str() + s.size() - 4, L".exe", 4) == 0;
+}
+
+wstring GetWindowsLongPath(const wstring& path) {
+  std::unique_ptr<WCHAR[]> result;
+  wstring abs_path = AsAbsoluteWindowsPath(path.c_str());
+  wstring error = bazel::windows::GetLongPath(abs_path.c_str(), &result);
+  if (!error.empty()) {
+    PrintError(L"Failed to get long path for %s: %s", path.c_str(),
+               error.c_str());
   }
-  return binary;
+  return wstring(blaze_util::RemoveUncPrefixMaybe(result.get()));
+}
+
+wstring GetBinaryPathWithoutExtension(const wstring& binary) {
+  return EndsWithExe(binary) ? binary.substr(0, binary.size() - 4) : binary;
 }
 
 wstring GetBinaryPathWithExtension(const wstring& binary) {
-  return GetBinaryPathWithoutExtension(binary) + L".exe";
+  return EndsWithExe(binary) ? binary : (binary + L".exe");
 }
 
-static wstring GetEscapedArgument(const wstring& argument,
-                                  bool escape_backslash) {
+std::wstring BashEscapeArg(const std::wstring& argument) {
   wstring escaped_arg;
   // escaped_arg will be at least this long
   escaped_arg.reserve(argument.size());
@@ -151,8 +168,8 @@ static wstring GetEscapedArgument(const wstring& argument,
         break;
 
       case L'\\':
-        // Escape back slashes if escape_backslash is true
-        escaped_arg += (escape_backslash ? L"\\\\" : L"\\");
+        // Escape back slashes.
+        escaped_arg += L"\\\\";
         break;
 
       default:
@@ -164,105 +181,6 @@ static wstring GetEscapedArgument(const wstring& argument,
     escaped_arg += L'\"';
   }
   return escaped_arg;
-}
-
-std::wstring BashEscapeArg(const std::wstring& arg) {
-  return GetEscapedArgument(arg, /* escape_backslash */ true);
-}
-
-// Escape arguments for CreateProcessW.
-//
-// This algorithm is based on information found in
-// http://daviddeley.com/autohotkey/parameters/parameters.htm
-//
-// The following source specifies a similar algorithm:
-// https://blogs.msdn.microsoft.com/twistylittlepassagesallalike/2011/04/23/everyone-quotes-command-line-arguments-the-wrong-way/
-// unfortunately I found this algorithm only after creating the one below, but
-// fortunately they seem to do the same.
-std::wstring WindowsEscapeArg2(const std::wstring& s) {
-  if (s.empty()) {
-    return L"\"\"";
-  } else {
-    bool needs_escaping = false;
-    for (const auto& c : s) {
-      if (c == ' ' || c == '"') {
-        needs_escaping = true;
-        break;
-      }
-    }
-    if (!needs_escaping) {
-      return s;
-    }
-  }
-
-  std::wostringstream result;
-  result << L'"';
-  int start = 0;
-  for (int i = 0; i < s.size(); ++i) {
-    char c = s[i];
-    if (c == '"' || c == '\\') {
-      // Copy the segment since the last special character.
-      if (start >= 0) {
-        result << s.substr(start, i - start);
-        start = -1;
-      }
-
-      // Handle the current special character.
-      if (c == '"') {
-        // This is a quote character. Escape it with a single backslash.
-        result << L"\\\"";
-      } else {
-        // This is a backslash (or the first one in a run of backslashes).
-        // Whether we escape it depends on whether the run ends with a quote.
-        int run_len = 1;
-        int j = i + 1;
-        while (j < s.size() && s[j] == '\\') {
-          run_len++;
-          j++;
-        }
-        if (j == s.size()) {
-          // The run of backslashes goes to the end.
-          // We have to escape every backslash with another backslash.
-          for (int k = 0; k < run_len * 2; ++k) {
-            result << L'\\';
-          }
-          break;
-        } else if (j < s.size() && s[j] == '"') {
-          // The run of backslashes is terminated by a quote.
-          // We have to escape every backslash with another backslash, and
-          // escape the quote with one backslash.
-          for (int k = 0; k < run_len * 2; ++k) {
-            result << L'\\';
-          }
-          result << L"\\\"";
-          i += run_len;  // 'i' is also increased in the loop iteration step
-        } else {
-          // No quote found. Each backslash counts for itself, they must not be
-          // escaped.
-          for (int k = 0; k < run_len; ++k) {
-            result << L'\\';
-          }
-          i += run_len - 1;  // 'i' is also increased in the loop iteration step
-        }
-      }
-    } else {
-      // This is not a special character. Start the segment if necessary.
-      if (start < 0) {
-        start = i;
-      }
-    }
-  }
-  // Save final segment after the last special character.
-  if (start != -1) {
-    result << s.substr(start);
-  }
-  result << L'"';
-  return result.str();
-}
-
-std::wstring WindowsEscapeArg(const std::wstring& arg) {
-  // TODO(laszlocsomor): use WindowsEscapeArg2 instead.
-  return GetEscapedArgument(arg, /* escape_backslash */ false);
 }
 
 // An environment variable has a maximum size limit of 32,767 characters

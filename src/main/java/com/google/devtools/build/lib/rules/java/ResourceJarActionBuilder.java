@@ -18,8 +18,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
@@ -37,13 +35,15 @@ import java.util.Map;
 public class ResourceJarActionBuilder {
   public static final String MNEMONIC = "JavaResourceJar";
 
+  private static final ParamFileInfo PARAM_FILE_INFO =
+      ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).build();
+
   private Artifact outputJar;
   private Map<PathFragment, Artifact> resources = ImmutableMap.of();
   private NestedSet<Artifact> resourceJars = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private ImmutableList<Artifact> classpathResources = ImmutableList.of();
   private List<Artifact> messages = ImmutableList.of();
   private JavaToolchainProvider javaToolchain;
-  private JavaRuntimeInfo javabase;
   private NestedSet<Artifact> additionalInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
 
   public ResourceJarActionBuilder setOutputJar(Artifact outputJar) {
@@ -82,22 +82,20 @@ public class ResourceJarActionBuilder {
     return this;
   }
 
-  public ResourceJarActionBuilder setHostJavaRuntime(JavaRuntimeInfo javaRuntimeInfo) {
-    this.javabase = javaRuntimeInfo;
-    return this;
-  }
-
   public void build(JavaSemantics semantics, RuleContext ruleContext) {
     checkNotNull(outputJar, "outputJar must not be null");
-    checkNotNull(javabase, "javabase must not be null");
     checkNotNull(javaToolchain, "javaToolchain must not be null");
+    checkNotNull(javaToolchain.getJavaRuntime(), "javabase must not be null");
 
     Artifact singleJar = javaToolchain.getSingleJar();
     SpawnAction.Builder builder = new SpawnAction.Builder();
     if (singleJar.getFilename().endsWith(".jar")) {
       builder
-          .setJarExecutable(javabase.javaBinaryExecPath(), singleJar, javaToolchain.getJvmOptions())
-          .addTransitiveInputs(javabase.javaBaseInputsMiddleman());
+          .setJarExecutable(
+              javaToolchain.getJavaRuntime().javaBinaryExecPathFragment(),
+              singleJar,
+              javaToolchain.getJvmOptions())
+          .addTransitiveInputs(javaToolchain.getJavaRuntime().javaBaseInputsMiddleman());
     } else {
       builder.setExecutable(singleJar);
     }
@@ -123,34 +121,19 @@ public class ResourceJarActionBuilder {
     if (!classpathResources.isEmpty()) {
       command.addExecPaths("--classpath_resources", classpathResources);
     }
-    ParamFileInfo paramFileInfo = null;
-    // TODO(b/37444705): remove this logic and always call useParameterFile once the bug is fixed
-    // Most resource jar actions are very small and expanding the argument list for
-    // ParamFileHelper#getParamsFileMaybe is expensive, so avoid doing that work if
-    // we definitely don't need a params file.
-    // This heuristic could be much more aggressive, but we don't ever want to skip
-    // the params file in situations where it is required for --min_param_file_size.
-    if (sizeGreaterThanOrEqual(
-            Iterables.concat(messages, resources.values(), resourceJars, classpathResources), 10)
-        || ruleContext.getConfiguration().getCommandLineLimits().maxLength < 10000) {
-      paramFileInfo = ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).build();
-    }
     ruleContext.registerAction(
         builder
+            .useDefaultShellEnvironment()
             .addOutput(outputJar)
             .addInputs(messages)
             .addInputs(resources.values())
             .addTransitiveInputs(resourceJars)
             .addTransitiveInputs(additionalInputs)
             .addInputs(classpathResources)
-            .addCommandLine(command.build(), paramFileInfo)
+            .addCommandLine(command.build(), PARAM_FILE_INFO)
             .setProgressMessage("Building Java resource jar")
             .setMnemonic(MNEMONIC)
             .build(ruleContext));
-  }
-
-  boolean sizeGreaterThanOrEqual(Iterable<?> elements, int size) {
-    return Streams.stream(elements).limit(size).count() == size;
   }
 
   private static void addAsResourcePrefixedExecPath(

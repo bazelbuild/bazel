@@ -81,6 +81,12 @@ public interface BuildEventTransport {
     return Duration.ZERO;
   }
 
+  /**
+   * Return true if the transport upload may be "slow". Examples of slowness include writes to
+   * remote services or use of a "slow" {@link BuildEventArtifactUploader}.
+   */
+  boolean mayBeSlow();
+
   @VisibleForTesting
   @Nullable
   BuildEventArtifactUploader getUploader();

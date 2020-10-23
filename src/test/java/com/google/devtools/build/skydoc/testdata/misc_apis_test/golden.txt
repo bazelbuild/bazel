@@ -33,8 +33,9 @@ This rule exercises some of the build API.
         <a href="https://bazel.build/docs/build-ref.html#labels">List of labels</a>; optional
         <p>
           A list of dependencies.
-These dependencies better provide MyInfo!
-...or else.
+        </p>
+        <p>
+          The dependencies of this attribute must provide: MyInfo
         </p>
       </td>
     </tr>

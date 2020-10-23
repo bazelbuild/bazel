@@ -15,11 +15,13 @@
 package com.google.testing.junit.runner.model;
 
 import com.google.testing.junit.runner.model.TestResult.Status;
+import com.google.testing.junit.runner.util.TestClock.TestInstant;
 import com.google.testing.junit.runner.util.TestIntegration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import org.junit.runner.Description;
 
 /**
@@ -27,9 +29,15 @@ import org.junit.runner.Description;
  */
 class TestSuiteNode extends TestNode {
   private final List<TestNode> children = new ArrayList<>();
+  private final Map<String, String> properties;
 
   TestSuiteNode(Description description) {
+    this(description, Collections.emptyMap());
+  }
+
+  TestSuiteNode(Description description, Map<String, String> properties) {
     super(description);
+    this.properties = properties;
   }
 
   // VisibleForTesting
@@ -44,35 +52,35 @@ class TestSuiteNode extends TestNode {
   }
 
   @Override
-  public void testFailure(Throwable throwable, long now) {
+  public void testFailure(Throwable throwable, TestInstant now) {
     for (TestNode child : getChildren()) {
       child.testFailure(throwable, now);
     }
   }
 
   @Override
-  public void dynamicTestFailure(Description test, Throwable throwable, long now) {
+  public void dynamicTestFailure(Description test, Throwable throwable, TestInstant now) {
     for (TestNode child : getChildren()) {
       child.dynamicTestFailure(test, throwable, now);
     }
   }
 
   @Override
-  public void testInterrupted(long now) {
+  public void testInterrupted(TestInstant now) {
     for (TestNode child : getChildren()) {
       child.testInterrupted(now);
     }
   }
 
   @Override
-  public void testSkipped(long now) {
+  public void testSkipped(TestInstant now) {
     for (TestNode child : getChildren()) {
       child.testSkipped(now);
     }
   }
 
   @Override
-  public void testSuppressed(long now) {
+  public void testSuppressed(TestInstant now) {
     for (TestNode child : getChildren()) {
       child.testSuppressed(now);
     }
@@ -101,19 +109,14 @@ class TestSuiteNode extends TestNode {
 
       TestInterval childRunTime = childResult.getRunTimeInterval();
       if (childRunTime != null) {
-        runTime =
-            runTime == null
-                ? childRunTime
-                : new TestInterval(
-                    Math.min(runTime.getStartMillis(), childRunTime.getStartMillis()),
-                    Math.max(runTime.getEndMillis(), childRunTime.getEndMillis()));
+        runTime = runTime == null ? childRunTime : TestInterval.around(runTime, childRunTime);
       }
     }
 
     return new TestResult.Builder()
         .name(getDescription().getDisplayName())
         .className("")
-        .properties(Collections.<String, String>emptyMap())
+        .properties(properties)
         .failures(Collections.<Throwable>emptyList())
         .runTimeInterval(runTime)
         .status(Status.SKIPPED)

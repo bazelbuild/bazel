@@ -16,18 +16,22 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.OptionsUtils;
+import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.List;
+import java.util.Map;
 
 /** Command-line options for platform-related configuration. */
 public class PlatformOptions extends FragmentOptions {
@@ -63,7 +67,7 @@ public class PlatformOptions extends FragmentOptions {
   @Option(
       name = "extra_execution_platforms",
       converter = CommaSeparatedOptionListConverter.class,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       allowMultiple = true,
       effectTags = {OptionEffectTag.EXECUTION},
@@ -107,7 +111,7 @@ public class PlatformOptions extends FragmentOptions {
 
   @Option(
       name = "extra_toolchains",
-      defaultValue = "",
+      defaultValue = "null",
       converter = CommaSeparatedOptionListConverter.class,
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       allowMultiple = true,
@@ -126,7 +130,7 @@ public class PlatformOptions extends FragmentOptions {
   @Option(
       name = "toolchain_resolution_override",
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
         OptionEffectTag.AFFECTS_OUTPUTS,
@@ -153,23 +157,8 @@ public class PlatformOptions extends FragmentOptions {
   public boolean toolchainResolutionDebug;
 
   @Option(
-      name = "enabled_toolchain_types",
-      defaultValue = "",
-      converter = LabelListConverter.class,
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      deprecationWarning =
-          "Use --incompatible_enable_cc_toolchain_resolution to enable toolchain for cc rules. "
-              + "Other rules will define separate flags as needed.",
-      help =
-          "Enable toolchain resolution for the given toolchain type, if the rules used support "
-              + "that. This does not directly change the core Blaze machinery, but is a signal to "
-              + "participating rule implementations that toolchain resolution should be used.")
-  public List<Label> enabledToolchainTypes;
-
-  @Option(
       name = "incompatible_auto_configure_host_platform",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
@@ -212,19 +201,51 @@ public class PlatformOptions extends FragmentOptions {
               + "workspace root).")
   public PathFragment platformMappings;
 
+  @Option(
+      name = "experimental_add_exec_constraints_to_targets",
+      converter = RegexFilterToLabelListConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
+      allowMultiple = true,
+      help =
+          "List of comma-separated regular expressions, each optionally prefixed by - (negative"
+              + " expression), assigned (=) to a list of comma-separated constraint value targets."
+              + " If a target matches no negative expression and at least one positive expression"
+              + " its toolchain resolution will be performed as if it had declared the constraint"
+              + " values as execution constraints. Example: //demo,-test=@platforms//cpus:x86_64"
+              + " will add 'x86_64' to any target under //demo except for those whose name contains"
+              + " 'test'.")
+  public List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints;
+
+  @Option(
+      name = "incompatible_override_toolchain_transition",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, all rules will use the toolchain transition for toolchain dependencies.")
+  public boolean overrideToolchainTransition;
+
   @Override
   public PlatformOptions getHost() {
     PlatformOptions host = (PlatformOptions) getDefault();
     host.platforms =
         this.hostPlatform == null ? ImmutableList.of() : ImmutableList.of(this.hostPlatform);
     host.hostPlatform = this.hostPlatform;
+    host.platformMappings = this.platformMappings;
     host.extraExecutionPlatforms = this.extraExecutionPlatforms;
     host.extraToolchains = this.extraToolchains;
-    host.enabledToolchainTypes = this.enabledToolchainTypes;
     host.toolchainResolutionDebug = this.toolchainResolutionDebug;
     host.toolchainResolutionOverrides = this.toolchainResolutionOverrides;
     host.autoConfigureHostPlatform = this.autoConfigureHostPlatform;
     host.useToolchainResolutionForJavaRules = this.useToolchainResolutionForJavaRules;
+    host.targetPlatformFallback = this.targetPlatformFallback;
+    host.overrideToolchainTransition = this.overrideToolchainTransition;
     return host;
   }
 
@@ -259,6 +280,23 @@ public class PlatformOptions extends FragmentOptions {
     } else {
       // Use the legacy host platform.
       return LEGACY_DEFAULT_HOST_PLATFORM;
+    }
+  }
+
+  /** Converter of filter to label list valued flags. */
+  public static final class RegexFilterToLabelListConverter
+      extends Converters.AssignmentToListOfValuesConverter<RegexFilter, Label> {
+
+    public RegexFilterToLabelListConverter() {
+      super(
+          new RegexFilter.RegexFilterConverter(),
+          new CoreOptionConverters.LabelConverter(),
+          AllowEmptyKeys.NO);
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a '<RegexFilter>=<label1>[,<label2>,...]' assignment";
     }
   }
 }

@@ -14,22 +14,22 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skylarkbuildapi.DefaultInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.FilesToRunProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.starlarkbuildapi.DefaultInfoApi;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 
 /** DefaultInfo is provided by all targets implicitly and contains all standard fields. */
 @Immutable
 public final class DefaultInfo extends NativeInfo implements DefaultInfoApi {
 
-  private final SkylarkNestedSet files;
+  private final Depset files;
   private final Runfiles runfiles;
   private final Runfiles dataRunfiles;
   private final Runfiles defaultRunfiles;
@@ -47,19 +47,21 @@ public final class DefaultInfo extends NativeInfo implements DefaultInfoApi {
       FilesToRunProvider filesToRunProvider) {
     this(
         Location.BUILTIN,
-        SkylarkNestedSet.of(Artifact.class, fileProvider.getFilesToBuild()),
+        Depset.of(Artifact.TYPE, fileProvider.getFilesToBuild()),
         Runfiles.EMPTY,
         (runfilesProvider == null) ? Runfiles.EMPTY : runfilesProvider.getDataRunfiles(),
         (runfilesProvider == null) ? Runfiles.EMPTY : runfilesProvider.getDefaultRunfiles(),
         filesToRunProvider.getExecutable(),
-        filesToRunProvider
-    );
+        filesToRunProvider);
   }
 
   private DefaultInfo(
       Location loc,
-      SkylarkNestedSet files, Runfiles runfiles,
-      Runfiles dataRunfiles, Runfiles defaultRunfiles, Artifact executable,
+      Depset files,
+      Runfiles runfiles,
+      Runfiles dataRunfiles,
+      Runfiles defaultRunfiles,
+      Artifact executable,
       @Nullable FilesToRunProvider filesToRunProvider) {
     super(PROVIDER, loc);
     this.files = files;
@@ -78,12 +80,12 @@ public final class DefaultInfo extends NativeInfo implements DefaultInfoApi {
   }
 
   @Override
-  public SkylarkNestedSet getFiles() {
+  public Depset getFiles() {
     return files;
   }
 
   @Override
-  public FilesToRunProviderApi getFilesToRun() {
+  public FilesToRunProvider getFilesToRun() {
     return filesToRunProvider;
   }
 
@@ -104,7 +106,7 @@ public final class DefaultInfo extends NativeInfo implements DefaultInfoApi {
   @Override
   public Runfiles getDefaultRunfiles() {
     if (dataRunfiles == null && defaultRunfiles == null) {
-      // This supports the legacy skylark runfiles constructor -- if the 'runfiles' attribute
+      // This supports the legacy Starlark runfiles constructor -- if the 'runfiles' attribute
       // is used, then default_runfiles will return all runfiles.
       return runfiles;
     } else {
@@ -130,8 +132,13 @@ public final class DefaultInfo extends NativeInfo implements DefaultInfoApi {
     }
 
     @Override
-    public DefaultInfo constructor(Object files, Object runfilesObj,
-        Object dataRunfilesObj, Object defaultRunfilesObj, Object executable, Location loc)
+    public DefaultInfo constructor(
+        Object files,
+        Object runfilesObj,
+        Object dataRunfilesObj,
+        Object defaultRunfilesObj,
+        Object executable,
+        StarlarkThread thread)
         throws EvalException {
 
       Runfiles statelessRunfiles = castNoneToNull(Runfiles.class, runfilesObj);
@@ -139,22 +146,24 @@ public final class DefaultInfo extends NativeInfo implements DefaultInfoApi {
       Runfiles defaultRunfiles = castNoneToNull(Runfiles.class, defaultRunfilesObj);
 
       if ((statelessRunfiles != null) && (dataRunfiles != null || defaultRunfiles != null)) {
-        throw new EvalException(loc, "Cannot specify the provider 'runfiles' "
-            + "together with 'data_runfiles' or 'default_runfiles'");
+        throw Starlark.errorf(
+            "Cannot specify the provider 'runfiles' together with 'data_runfiles' or"
+                + " 'default_runfiles'");
       }
 
       return new DefaultInfo(
-          loc,
-          castNoneToNull(SkylarkNestedSet.class, files),
+          thread.getCallerLocation(),
+          castNoneToNull(Depset.class, files),
           statelessRunfiles,
           dataRunfiles,
           defaultRunfiles,
-          castNoneToNull(Artifact.class, executable), null);
+          castNoneToNull(Artifact.class, executable),
+          null);
     }
   }
 
   private static <T> T castNoneToNull(Class<T> clazz, Object value) {
-    if (value == Runtime.NONE) {
+    if (value == Starlark.NONE) {
       return null;
     } else {
       return clazz.cast(value);

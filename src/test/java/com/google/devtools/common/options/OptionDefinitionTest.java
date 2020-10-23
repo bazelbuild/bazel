@@ -15,7 +15,7 @@
 package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -24,6 +24,7 @@ import com.google.devtools.common.options.Converters.IntegerConverter;
 import com.google.devtools.common.options.Converters.StringConverter;
 import com.google.devtools.common.options.OptionDefinition.NotAnOptionException;
 import com.google.devtools.common.options.OptionsParser.ConstructionException;
+import java.util.List;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -173,5 +174,98 @@ public class OptionDefinitionTest {
     // getUnparsedValueDefault as well, but expect no more calls to it after the initial call.
     verify(mockOptionDef, times(1)).isSpecialNullDefault();
     verify(mockOptionDef, times(2)).getUnparsedDefaultValue();
+  }
+
+  /** Dummy options class, to test defaultValue handling. */
+  private static class DefaultValueTestOptions extends OptionsBase {
+    @Option(
+        name = "null_non_multiple_option",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = OptionEffectTag.NO_OP)
+    public String nullNonMultipleOption;
+
+    @Option(
+        name = "null_multiple_option",
+        allowMultiple = true,
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = OptionEffectTag.NO_OP)
+    public List<String> nullMultipleOption;
+
+    @Option(
+        name = "empty_string_multiple_option",
+        allowMultiple = true,
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = OptionEffectTag.NO_OP)
+    public List<String> emptyStringMultipleOption;
+
+    @Option(
+        name = "non_empty_string_multiple_option",
+        allowMultiple = true,
+        defaultValue = "text",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = OptionEffectTag.NO_OP)
+    public List<String> nonEmptyStringMultipleOption;
+  }
+
+  @Test
+  public void specialDefaultValueForNonMultipleOptionShouldResultInNull() throws Exception {
+    // arrange
+    OptionDefinition optionDef =
+        OptionDefinition.extractOptionDefinition(
+            DefaultValueTestOptions.class.getField("nullNonMultipleOption"));
+
+    // act
+    Object result = optionDef.getDefaultValue();
+
+    // assert
+    assertThat(result).isNull();
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void specialDefaultValueForMultipleOptionShouldResultInEmptyList() throws Exception {
+    // arrange
+    OptionDefinition optionDef =
+        OptionDefinition.extractOptionDefinition(
+            DefaultValueTestOptions.class.getField("nullMultipleOption"));
+
+    // act
+    List<String> result = (List<String>) optionDef.getDefaultValue();
+
+    // assert
+    assertThat(result).isEmpty();
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void emptyStringForMultipleOptionShouldBeConverted() throws Exception {
+    // arrange
+    OptionDefinition optionDef =
+        OptionDefinition.extractOptionDefinition(
+            DefaultValueTestOptions.class.getField("emptyStringMultipleOption"));
+
+    // act
+    List<String> result = (List<String>) optionDef.getDefaultValue();
+
+    // assert
+    assertThat(result).containsExactly("");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void nonEmptyStringForMultipleOptionShouldBeConverted() throws Exception {
+    // arrange
+    OptionDefinition optionDef =
+        OptionDefinition.extractOptionDefinition(
+            DefaultValueTestOptions.class.getField("nonEmptyStringMultipleOption"));
+
+    // act
+    List<String> result = (List<String>) optionDef.getDefaultValue();
+
+    // assert
+    assertThat(result).containsExactly("text");
   }
 }

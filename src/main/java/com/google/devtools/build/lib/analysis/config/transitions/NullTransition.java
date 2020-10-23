@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.analysis.config.transitions;
 
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /** A {@link PatchTransition} to a null configuration. */
@@ -26,7 +28,7 @@ public class NullTransition implements PatchTransition {
   }
 
   @Override
-  public BuildOptions patch(BuildOptions options) {
+  public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
     throw new UnsupportedOperationException(
         "This is only referenced in a few places, so it's easier and more efficient to optimize "
             + "Blaze's transition logic in the presence of null transitions vs. actually call this "

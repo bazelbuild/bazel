@@ -82,10 +82,10 @@ root. Paths are represented as depsets with `preorder` order.
 )
 
 def _join_lines(nodes):
-    return "\n".join(nodes) if nodes else "<None>"
+    return "\n".join([str(n) for n in nodes]) if nodes else "<None>"
 
 def _str_path(path):
-    return " -> ".join(path.to_list())
+    return " -> ".join([str(p) for p in path.to_list()])
 
 def _str_tv_info(tv_info):
     """Returns a string representation of a `_TransitiveVersionInfo`."""
@@ -281,7 +281,7 @@ find_requirements = aspect(
 The aspect definition. Can be invoked on the command line as
 
     bazel build //pkg:my_py_binary_target \
-        --aspects=@bazel_tools//tools/python:srcs_version.bzl%find_requirements \
+        --aspects=@rules_python//python:defs.bzl%find_requirements \
         --output_groups=pyversioninfo
 """,
 )

@@ -5,25 +5,124 @@ title: Windows
 
 # Using Bazel on Windows
 
-## <a name="install"></a>Installation
+<a name="install"></a>
+## Installation
 
 See [Install Bazel on Windows](install-windows.html) for installation
 instructions.
 
 ## Known issues
 
-We mark Windows-related Bazel issues on GitHub with the "platform:windows"
-label. [You can see the open issues here.](https://github.com/bazelbuild/bazel/issues?q=is%3Aopen+is%3Aissue+label%3A%22platform%3A+windows%22)
+We mark Windows-related Bazel issues on GitHub with the "team-Windows"
+label. [You can see the open issues here.](https://github.com/bazelbuild/bazel/issues?q=is%3Aopen+is%3Aissue+label%3Ateam-Windows)
 
-## Running Bazel: MSYS2 shell vs. Command Prompt vs. PowerShell
+## Best practices
 
-It's best to run Bazel from the Command Prompt (`cmd.exe`) or from PowerShell.
+### Avoid long path issues
 
-You can also run Bazel from the MSYS2 shell, but you need to disable MSYS2's
-automatic path conversion. See [this StackOverflow
-answer](https://stackoverflow.com/a/49004265/7778502) for details.
+Some tools have the [Maximum Path Length Limitation](https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#maximum-path-length-limitation) on Windows, including the MSVC compiler.
+To avoid hitting this issue, you can specify a short output directory for Bazel by the [\-\-output_user_root](command-line-reference.html#flag--output_user_root) flag.
+For example, add the following line to your bazelrc file:
+```
+startup --output_user_root=C:/tmp
+```
 
-## Setting environment variables
+### Enable 8.3 Filename Support
+Bazel attempts to create a short name version for long file paths. But to do so the [8.3 filename support](https://docs.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-8dot3name) needs to be enabled for the volume in which the file with the long path resides. You can enable 8.3 name creation in all volumes by running the following command:
+```
+fsutil 8dot3name set 0
+```
+
+### Enable symlink support
+
+Some features require Bazel to create file symlink on Windows, you can allow Bazel to do that by enabling [Developer Mode](https://docs.microsoft.com/en-us/windows/uwp/get-started/enable-your-device-for-development) on Windows (Only works for Windows 10, version 1703 or newer).
+After enabling the Developer Mode, you should be able to use the following features:
+
+* [\-\-windows_enable_symlinks](command-line-reference.html#flag--windows_enable_symlinks)
+* [\-\-enable_runfiles](command-line-reference.html#flag--enable_runfiles)
+
+To make it easier, add the following lines to your bazelrc file:
+```
+startup --windows_enable_symlinks
+build --enable_runfiles
+```
+
+**Note**: Creating symlinks on Windows is an expensive operation. The `--enable_runfiles` flag can potentially create a large amount of file symlinks. Only enable this feature when you need it.
+
+<!-- TODO(pcloudy): https://github.com/bazelbuild/bazel/issues/6402
+                    Write a doc about runfiles library and add a link to it here -->
+
+<a name="running-bazel-shells"></a>
+### Running Bazel: MSYS2 shell vs. command prompt vs. PowerShell
+
+We recommend running Bazel from the command prompt (`cmd.exe`) or from
+PowerShell.
+
+As of 2020-01-15, we **do not recommend** running Bazel from `bash` -- either
+from MSYS2 shell, or Git Bash, or Cygwin, or any other Bash variant. While Bazel
+may work for most use cases, some things are broken, like
+[interrupting the build with Ctrl+C from MSYS2](https://github.com/bazelbuild/bazel/issues/10573)).
+Also, if you choose to run under MSYS2, you need to disable MSYS2's
+automatic path conversion, otherwise MSYS will convert command line arguments
+that _look like_ Unix paths (e.g. `//foo:bar`) into Windows paths. See
+[this StackOverflow answer](https://stackoverflow.com/a/49004265/7778502) for
+details.
+
+<a name="using-bazel-without-bash"></a>
+### Using Bazel without Bash (MSYS2)
+
+<a name="bazel-build-without-bash"></a>
+#### `bazel build` without Bash
+
+Bazel versions before 1.0 used to require Bash to build some rules.
+
+Starting with Bazel 1.0, you can build any rule without Bash unless it is a:
+
+- `genrule`, because genrules execute Bash commands
+- `sh_binary` or `sh_test` rule, because these inherently need Bash
+- Starlark rule that uses `ctx.actions.run_shell()` or `ctx.resolve_command()`
+
+However, `genrule` is often used for simple tasks like
+[copying a file](https://github.com/bazelbuild/bazel-skylib/blob/master/rules/copy_file.bzl)
+or [writing a text file](https://github.com/bazelbuild/bazel-skylib/blob/master/rules/write_file.bzl).
+Instead of using `genrule` (and depending on Bash) you may find a suitable rule
+in the
+[bazel-skylib repository](https://github.com/bazelbuild/bazel-skylib/tree/master/rules).
+When built on Windows, **these rules do not require Bash**.
+
+<a name="bazel-test-without-bash"></a>
+#### `bazel test` without Bash
+
+Bazel versions before 1.0 used to require Bash to `bazel test` anything.
+
+Starting with Bazel 1.0, you can test any rule without Bash, except when:
+
+- you use `--run_under`
+- the test rule itself requires Bash (because its executable is a shell script)
+
+<a name="bazel-run-without-bash"></a>
+#### `bazel run` without Bash
+
+Bazel versions before 1.0 used to require Bash to `bazel run` anything.
+
+Starting with Bazel 1.0, you can run any rule without Bash, except when:
+
+- you use `--run_under` or `--script_path`
+- the test rule itself requires Bash (because its executable is a shell script)
+
+<a name="sh-rules-without-bash"></a>
+#### `sh_binary` and `sh_*` rules, and `ctx.actions.run_shell()` without Bash
+
+You need Bash to build and test `sh_*` rules, and to build and test Starlark
+rules that use `ctx.actions.run_shell()` and `ctx.resolve_command()`. This
+applies not only to rules in your project, but to rules in any of the external
+repositories your project depends on (even transitively).
+
+We may explore the option to use Windows Subsystem for Linux (WSL) to build
+these rules, but as of 2020-01-15 it is not a priority for the Bazel-on-Windows
+subteam.
+
+### Setting environment variables
 
 Environment variables you set in the Windows Command Prompt (`cmd.exe`) are only
 set in that command prompt session. If you start a new `cmd.exe`, you need to
@@ -31,82 +130,61 @@ set the variables again. To always set the variables when `cmd.exe` starts, you
 can add them to the User variables or System variables in the `Control Panel >
 System Properties > Advanced > Environment Variables...` dialog box.
 
-## <a name="using"></a>Using Bazel on Windows
+<a name="using"></a>
+## Build on Windows
 
-The first time you build any target, Bazel auto-configures the location of
-Python and the Visual C++ compiler. If you need to auto-configure again, run
-`bazel clean` then build a target.
+<a name="build_cpp"></a>
+### Build C++ with MSVC
 
-You can also tell Bazel where to find the Python binary and the C++ compiler:
-- use the [`--python_path=c:\path\to\python.exe`](command-line-reference.html#flag--python_path) flag for Python
-- use the `BAZEL_VC` or the `BAZEL_VS` environment variable (they are *not* the same!).
-  See the [Build C++ section](#build_cpp) below.
+To build C++ targets with MSVC, you need:
 
-### <a name="build_cpp"></a>Build C++
+*   [The Visual C++ compiler](install-windows.html#install-vc).
 
-To build C++ targets, you need:
+*   (Optional) The `BAZEL_VC` and `BAZEL_VC_FULL_VERSION` environment variable.
 
-*   The Visual C++ compiler.
-
-    You can install it in one of the following ways:
-
-    *   Install [Visual Studio 2015 or later](https://www.visualstudio.com/)
-        (Community Edition is enough) with Visual C++.
-
-        Make sure to also install the `Visual C++ > Common Tools for Visual C++`
-        and `Visual C++ > Microsoft Foundation Classes for C++` features. These
-        features are not installed by default.
-
-    *   Install the [Visual C++ Build
-        Tools 2015 or later](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2017).
-
-        If [alwayslink](be/c-cpp.html#cc_library.alwayslink) doesn't work with
-        VS 2017, that is due to a
-        [known issue](https://github.com/bazelbuild/bazel/issues/3949),
-        please upgrade your VS 2017 to the latest version.
-
-*   The `BAZEL_VS` or `BAZEL_VC` environment variable. (They are *not* the same!)
-
-    Bazel tries to locate the C++ compiler the first time you build any
-    target. To tell Bazel where the compiler is, you can set one of the
+    Bazel automatically detects the Visual C++ compiler on your system.
+    To tell Bazel to use a specific VC installation, you can set the
     following environment variables:
 
-    *   `BAZEL_VS` storing the Visual Studio installation directory
+    For Visual Studio 2017 and 2019, set one of `BAZEL_VC`. Additionally you may also set `BAZEL_VC_FULL_VERSION`.
 
-    *   `BAZEL_VC` storing the Visual C++ Build Tools installation directory
+    *   `BAZEL_VC` the Visual C++ Build Tools installation directory
+        ```
+        set BAZEL_VC=C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC
+        ```
 
-    Setting one of these variables is enough. For example:
+    *   `BAZEL_VC_FULL_VERSION` (Optional) Only for Visual Studio 2017 and 2019, the full version
+        number of your Visual C++ Build Tools. You can choose the exact Visual C++ Build Tools
+        version via `BAZEL_VC_FULL_VERSION` if more than one version are installed, otherwise Bazel
+        will choose the latest version.
+        ```
+        set BAZEL_VC_FULL_VERSION=14.16.27023
+        ```
 
-    ```
-    set BAZEL_VS=C:\Program Files (x86)\Microsoft Visual Studio 14.0
-    ```
+    For Visual Studio 2015 or older, set `BAZEL_VC`. (`BAZEL_VC_FULL_VERSION` is not supported.)
 
-    or
-
-    ```
-    set BAZEL_VC=C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC
-    ```
-
-    The first command sets the path to Visual Studio (BAZEL\_V<b>S</b>), the other
-    sets the path to Visual C++ (BAZEL\_V<b>C</b>).
-
-    For Visual Studio 2017, with a default install, instead you might want
-
-    ```
-    set BAZEL_VS=C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools
-    ```
-
-    or
-
-     ```
-    set BAZEL_VC=C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC
-    ```
+    *   `BAZEL_VC` the Visual C++ Build Tools installation directory
+        ```
+        set BAZEL_VC=C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC
+        ```
 
 *   The [Windows
     SDK](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk).
 
     The Windows SDK contains header files and libraries you need when building
-    Windows applications, including Bazel itself.
+    Windows applications, including Bazel itself. By default, the latest Windows SDK installed will
+    be used. You also can specify Windows SDK version by setting `BAZEL_WINSDK_FULL_VERSION`. You
+    can use a full Windows 10 SDK number such as 10.0.10240.0, or specify 8.1 to use the Windows 8.1
+    SDK (only one version of Windows 8.1 SDK is available). Please make sure you have the specified
+    Windows SDK installed.
+
+    **Requirement**: This is supported with VC 2017 and 2019. The standalone VC 2015 Build Tools doesn't
+    support selecting Windows SDK, you'll need the full Visual Studio 2015 installation, otherwise
+    `BAZEL_WINSDK_FULL_VERSION` will be ignored.
+
+    ```
+    set BAZEL_WINSDK_FULL_VERSION=10.0.10240.0
+    ```
 
 If everything is set up, you can build a C++ target now!
 
@@ -119,12 +197,86 @@ C:\projects\bazel> bazel build //examples/cpp:hello-world
 C:\projects\bazel> bazel-bin\examples\cpp\hello-world.exe
 ```
 
+By default, the built binaries target x64 architecture. To specify a different
+target architecture, set the `--cpu` build option for your target architecture:
+*  x64 (default):  `--cpu=x64_windows` or no option
+*  x86: `--cpu=x64_x86_windows`
+*  ARM: `--cpu=x64_arm_windows`
+*  ARM64: `--cpu=x64_arm64_windows`
+
+For example, to build targets for ARM architecture, run:
+
+```
+C:\projects\bazel> bazel build //examples/cpp:hello-world --cpu=x64_arm_windows
+```
+
 To build and use Dynamically Linked Libraries (DLL files), see [this
 example](https://github.com/bazelbuild/bazel/tree/master/examples/windows/dll).
 
+### Build C++ with Clang
+
+From 0.29.0, Bazel supports building with LLVM's MSVC-compatible compiler driver (`clang-cl.exe`).
+
+**Requirement**: To build with Clang, you have to install **both**
+[LLVM](http://releases.llvm.org/download.html) and Visual C++ Build tools, because although we use
+`clang-cl.exe` as compiler, we still need to link to Visual C++ libraries.
+
+Bazel can automatically detect LLVM installation on your system, or you can explicitly tell
+Bazel where LLVM is installed by `BAZEL_LLVM`.
+
+*   `BAZEL_LLVM` the LLVM installation directory
+
+    ```
+    set BAZEL_LLVM=C:\Program Files\LLVM
+    ```
+
+To enable the Clang toolchain for building C++, there are several situations.
+
+* In bazel 0.28 and older: Clang is not supported.
+
+* Without `--incompatible_enable_cc_toolchain_resolution`:
+  You can enable the Clang toolchain by a build flag `--compiler=clang-cl`.
+
+* With `--incompatible_enable_cc_toolchain_resolution`:
+  You have to add a platform target to your BUILD file (eg. the top level BUILD file):
+    ```
+    platform(
+        name = "x64_windows-clang-cl",
+        constraint_values = [
+            "@platforms//cpu:x86_64",
+            "@platforms//os:windows",
+            "@bazel_tools//tools/cpp:clang-cl",
+        ],
+    )
+    ```
+    Then you can enable the Clang toolchain by either of the following two ways:
+    * Specify the following build flags:
+
+    ```
+    --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows-clang-cl --extra_execution_platforms=//:x64_windows-clang-cl
+    ```
+
+    * Register the platform and toolchain in your WORKSPACE file:
+
+    ```
+    register_execution_platforms(
+        ":x64_windows-clang-cl"
+    )
+
+    register_toolchains(
+        "@local_config_cc//:cc-toolchain-x64_windows-clang-cl",
+    )
+    ```
+
+    The [\-\-incompatible_enable_cc_toolchain_resolution](https://github.com/bazelbuild/bazel/issues/7260)
+    flag is planned to be enabled by default in future Bazel release. Therefore,
+    it is recommended to enable Clang support with the second approach.
+
 ### Build Java
 
-There's no setup necessary.
+To build Java targets, you need:
+
+*   [The Java SE Development Kit](install-windows.html#install-jdk)
 
 On Windows, Bazel builds two output files for `java_binary` rules:
 
@@ -144,22 +296,7 @@ C:\projects\bazel> bazel-bin\examples\java-native\src\main\java\com\example\mypr
 
 To build Python targets, you need:
 
-*   The [Python interpreter](https://www.python.org/downloads/)
-
-    Both Python 2 and Python 3 are supported.
-
-    To tell Bazel where Python is, you can use `--python_path=<path/to/python>`.
-    For example:
-
-    ```
-    bazel build --python_path=C:/Python27/python.exe ...
-    ```
-
-    If `--python_path` is not specified, Bazel uses `python.exe` as
-    the interpreter and the binary looks for it in `$PATH` during runtime.
-    If it is not in `$PATH`(for example, when you use `py_binary` as an action's
-    executable, Bazel will sanitize `$PATH`), then the execution will fail.
-
+*   The [Python interpreter](install-windows.html#install-python)
 
 On Windows, Bazel builds two output files for `py_binary` rules:
 

@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass;
 
@@ -71,19 +70,17 @@ public final class FeatureFlagSetterRule implements RuleDefinition, RuleConfigur
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    TransitiveInfoCollection exportedFlag =
-        ruleContext.getPrerequisite("exports_flag", Mode.TARGET);
+    TransitiveInfoCollection exportedFlag = ruleContext.getPrerequisite("exports_flag");
     ConfigFeatureFlagProvider exportedFlagProvider =
         exportedFlag != null ? ConfigFeatureFlagProvider.fromTarget(exportedFlag) : null;
 
-    TransitiveInfoCollection exportedSetting =
-        ruleContext.getPrerequisite("exports_setting", Mode.TARGET);
+    TransitiveInfoCollection exportedSetting = ruleContext.getPrerequisite("exports_setting");
     ConfigMatchingProvider exportedSettingProvider =
         exportedSetting != null ? exportedSetting.getProvider(ConfigMatchingProvider.class) : null;
 
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
-            .setFilesToBuild(PrerequisiteArtifacts.nestedSet(ruleContext, "deps", Mode.TARGET))
+            .setFilesToBuild(PrerequisiteArtifacts.nestedSet(ruleContext, "deps"))
             .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY);
     if (exportedFlagProvider != null) {
       builder.addNativeDeclaredProvider(exportedFlagProvider);

@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -32,39 +31,11 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class AndroidAssetsTest extends ResourceTestBase {
   @Test
-  public void testParse() throws Exception {
-    RuleContext ruleContext = getRuleContext();
-    AndroidAssets assets = getLocalAssets();
-    ParsedAndroidAssets parsed =
-        assets.parse(AndroidDataContext.forNative(ruleContext), AndroidAaptVersion.AAPT);
-
-    // Assets should be unchanged
-    assertThat(parsed.getAssets()).isEqualTo(assets.getAssets());
-    assertThat(parsed.getAssetRoots()).isEqualTo(assets.getAssetRoots());
-
-    // Label should be correct
-    assertThat(parsed.getLabel()).isEqualTo(ruleContext.getLabel());
-
-    // Symbols file should be created from raw assets
-    assertActionArtifacts(
-        ruleContext,
-        /* inputs = */ assets.getAssets(),
-        /* outputs = */ ImmutableList.of(parsed.getSymbols()));
-
-    // There should be no compiled symbols
-    assertThat(parsed.getCompiledSymbols()).isNull();
-  }
-
-  @Test
   public void testParseAapt2() throws Exception {
-    mockAndroidSdkWithAapt2();
-    useConfiguration("--android_sdk=//sdk:sdk");
-
     RuleContext ruleContext = getRuleContext();
     AndroidAssets assets = getLocalAssets();
 
-    ParsedAndroidAssets parsed =
-        assets.parse(AndroidDataContext.forNative(ruleContext), AndroidAaptVersion.AAPT2);
+    ParsedAndroidAssets parsed = assets.parse(AndroidDataContext.forNative(ruleContext));
 
     // Assets should be unchanged
     assertThat(parsed.getAssets()).isEqualTo(assets.getAssets());
@@ -90,8 +61,7 @@ public class AndroidAssetsTest extends ResourceTestBase {
   @Test
   public void testMergeNoDeps() throws Exception {
     RuleContext ruleContext = getRuleContext();
-    ParsedAndroidAssets parsed =
-        getLocalAssets().parse(AndroidDataContext.forNative(ruleContext), AndroidAaptVersion.AAPT);
+    ParsedAndroidAssets parsed = getLocalAssets().parse(AndroidDataContext.forNative(ruleContext));
     MergedAndroidAssets merged = assertMerge(ruleContext, parsed, AssetDependencies.empty());
 
     // The assets can be correctly built into a provider
@@ -99,18 +69,17 @@ public class AndroidAssetsTest extends ResourceTestBase {
     assertThat(info.getLabel()).isEqualTo(merged.getLabel());
 
     // The provider just has the local values
-    assertThat(info.getAssets()).containsExactlyElementsIn(merged.getAssets()).inOrder();
-    assertThat(info.getSymbols()).containsExactly(merged.getSymbols());
-    assertThat(info.getDirectParsedAssets()).containsExactly(parsed);
-    assertThat(info.getTransitiveParsedAssets()).isEmpty();
+    assertThat(info.getAssets().toList()).containsExactlyElementsIn(merged.getAssets()).inOrder();
+    assertThat(info.getSymbols().toList()).containsExactly(merged.getSymbols());
+    assertThat(info.getDirectParsedAssets().toList()).containsExactly(parsed);
+    assertThat(info.getTransitiveParsedAssets().toList()).isEmpty();
   }
 
   @Test
   public void testMergeNeverlink() throws Exception {
     RuleContext ruleContext = getRuleContext();
-    ParsedAndroidAssets parsed =
-        getLocalAssets().parse(AndroidDataContext.forNative(ruleContext), AndroidAaptVersion.AAPT);
-    AssetDependencies deps = makeDeps(ruleContext, /* neverlink = */ true, AndroidAaptVersion.AAPT);
+    ParsedAndroidAssets parsed = getLocalAssets().parse(AndroidDataContext.forNative(ruleContext));
+    AssetDependencies deps = makeDeps(ruleContext, /* neverlink = */ true);
 
     MergedAndroidAssets merged = assertMerge(ruleContext, parsed, deps);
 
@@ -118,54 +87,18 @@ public class AndroidAssetsTest extends ResourceTestBase {
     assertThat(info.getLabel()).isEqualTo(merged.getLabel());
 
     // The provider should be empty because of neverlinking
-    assertThat(info.getAssets()).isEmpty();
-    assertThat(info.getSymbols()).isEmpty();
-    assertThat(info.getDirectParsedAssets()).isEmpty();
-    assertThat(info.getTransitiveParsedAssets()).isEmpty();
-    assertThat(info.getCompiledSymbols()).isEmpty();
-  }
-
-  @Test
-  public void testMerge() throws Exception {
-    RuleContext ruleContext = getRuleContext();
-    ParsedAndroidAssets parsed =
-        getLocalAssets().parse(AndroidDataContext.forNative(ruleContext), AndroidAaptVersion.AAPT);
-    AssetDependencies deps =
-        makeDeps(ruleContext, /* neverlink = */ false, AndroidAaptVersion.AAPT);
-
-    MergedAndroidAssets merged = assertMerge(ruleContext, parsed, deps);
-
-    AndroidAssetsInfo info = merged.toProvider();
-    assertThat(info.getLabel()).isEqualTo(merged.getLabel());
-
-    // The provider should have transitive and direct deps
-    assertThat(info.getAssets())
-        .containsExactlyElementsIn(Iterables.concat(parsed.getAssets(), deps.getTransitiveAssets()))
-        .inOrder();
-    assertThat(info.getSymbols())
-        .containsExactlyElementsIn(
-            Iterables.concat(ImmutableList.of(parsed.getSymbols()), deps.getTransitiveSymbols()))
-        .inOrder();
-    assertThat(info.getDirectParsedAssets()).containsExactly(parsed).inOrder();
-    assertThat(info.getTransitiveParsedAssets())
-        .containsExactlyElementsIn(
-            Iterables.concat(deps.getTransitiveParsedAssets(), deps.getDirectParsedAssets()))
-        .inOrder();
-
-    // There should be no compiled symbols
-    assertThat(info.getCompiledSymbols()).isEmpty();
+    assertThat(info.getAssets().toList()).isEmpty();
+    assertThat(info.getSymbols().toList()).isEmpty();
+    assertThat(info.getDirectParsedAssets().toList()).isEmpty();
+    assertThat(info.getTransitiveParsedAssets().toList()).isEmpty();
+    assertThat(info.getCompiledSymbols().toList()).isEmpty();
   }
 
   @Test
   public void testMergeAapt2() throws Exception {
-    mockAndroidSdkWithAapt2();
-    useConfiguration("--android_sdk=//sdk:sdk");
-
     RuleContext ruleContext = getRuleContext();
-    ParsedAndroidAssets parsed =
-        getLocalAssets().parse(AndroidDataContext.forNative(ruleContext), AndroidAaptVersion.AAPT2);
-    AssetDependencies deps =
-        makeDeps(ruleContext, /* neverlink = */ false, AndroidAaptVersion.AAPT2);
+    ParsedAndroidAssets parsed = getLocalAssets().parse(AndroidDataContext.forNative(ruleContext));
+    AssetDependencies deps = makeDeps(ruleContext, /* neverlink = */ false);
 
     MergedAndroidAssets merged = assertMerge(ruleContext, parsed, deps);
 
@@ -173,34 +106,33 @@ public class AndroidAssetsTest extends ResourceTestBase {
     assertThat(info.getLabel()).isEqualTo(merged.getLabel());
 
     // The provider should have transitive and direct deps
-    assertThat(info.getAssets())
-        .containsExactlyElementsIn(Iterables.concat(parsed.getAssets(), deps.getTransitiveAssets()))
-        .inOrder();
-    assertThat(info.getSymbols())
+    assertThat(info.getAssets().toList())
         .containsExactlyElementsIn(
-            Iterables.concat(ImmutableList.of(parsed.getSymbols()), deps.getTransitiveSymbols()))
+            Iterables.concat(parsed.getAssets(), deps.getTransitiveAssets().toList()))
         .inOrder();
-    assertThat(info.getCompiledSymbols())
+    assertThat(info.getSymbols().toList())
+        .containsExactlyElementsIn(
+            Iterables.concat(
+                ImmutableList.of(parsed.getSymbols()), deps.getTransitiveSymbols().toList()))
+        .inOrder();
+    assertThat(info.getCompiledSymbols().toList())
         .containsExactlyElementsIn(
             Iterables.concat(
                 ImmutableList.of(parsed.getCompiledSymbols()),
-                deps.getTransitiveCompiledSymbols()));
-    assertThat(info.getDirectParsedAssets()).containsExactly(parsed).inOrder();
-    assertThat(info.getTransitiveParsedAssets())
+                deps.getTransitiveCompiledSymbols().toList()));
+    assertThat(info.getDirectParsedAssets().toList()).containsExactly(parsed).inOrder();
+    assertThat(info.getTransitiveParsedAssets().toList())
         .containsExactlyElementsIn(
-            Iterables.concat(deps.getTransitiveParsedAssets(), deps.getDirectParsedAssets()))
+            Iterables.concat(
+                deps.getTransitiveParsedAssets().toList(), deps.getDirectParsedAssets().toList()))
         .inOrder();
   }
 
-  private AssetDependencies makeDeps(
-      RuleContext ruleContext, boolean neverlink, AndroidAaptVersion aaptVersion) {
-    ParsedAndroidAssets firstDirect = getDependencyAssets(ruleContext, "first_direct", aaptVersion);
-    ParsedAndroidAssets secondDirect =
-        getDependencyAssets(ruleContext, "second_direct", aaptVersion);
-    ParsedAndroidAssets firstTransitive =
-        getDependencyAssets(ruleContext, "first_transitive", aaptVersion);
-    ParsedAndroidAssets secondTransitive =
-        getDependencyAssets(ruleContext, "second_transitive", aaptVersion);
+  private AssetDependencies makeDeps(RuleContext ruleContext, boolean neverlink) {
+    ParsedAndroidAssets firstDirect = getDependencyAssets(ruleContext, "first_direct");
+    ParsedAndroidAssets secondDirect = getDependencyAssets(ruleContext, "second_direct");
+    ParsedAndroidAssets firstTransitive = getDependencyAssets(ruleContext, "first_transitive");
+    ParsedAndroidAssets secondTransitive = getDependencyAssets(ruleContext, "second_transitive");
 
     return AssetDependencies.of(
         neverlink,
@@ -220,15 +152,13 @@ public class AndroidAssetsTest extends ResourceTestBase {
                 secondDirect.getSymbols(),
                 firstTransitive.getSymbols(),
                 secondTransitive.getSymbols())),
-        aaptVersion == AndroidAaptVersion.AAPT2
-            ? NestedSetBuilder.wrap(
-                Order.NAIVE_LINK_ORDER,
-                ImmutableList.of(
-                    firstDirect.getCompiledSymbols(),
-                    secondDirect.getCompiledSymbols(),
-                    firstTransitive.getCompiledSymbols(),
-                    secondTransitive.getCompiledSymbols()))
-            : NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER));
+        NestedSetBuilder.wrap(
+            Order.NAIVE_LINK_ORDER,
+            ImmutableList.of(
+                firstDirect.getCompiledSymbols(),
+                secondDirect.getCompiledSymbols(),
+                firstTransitive.getCompiledSymbols(),
+                secondTransitive.getCompiledSymbols())));
   }
 
   private MergedAndroidAssets assertMerge(
@@ -246,8 +176,8 @@ public class AndroidAssetsTest extends ResourceTestBase {
         /* inputs = */ ImmutableList.<Artifact>builder()
             .addAll(merged.getAssets())
             .add(merged.getSymbols())
-            .addAll(deps.getTransitiveAssets())
-            .addAll(deps.getTransitiveSymbols())
+            .addAll(deps.getTransitiveAssets().toList())
+            .addAll(deps.getTransitiveSymbols().toList())
             .build(),
         /* outputs = */ ImmutableList.of(merged.getMergedAssets()));
 
@@ -261,17 +191,14 @@ public class AndroidAssetsTest extends ResourceTestBase {
         "asset_dir");
   }
 
-  private ParsedAndroidAssets getDependencyAssets(
-      RuleContext ruleContext, String depName, AndroidAaptVersion aaptVersion) {
+  private ParsedAndroidAssets getDependencyAssets(RuleContext ruleContext, String depName) {
     return ParsedAndroidAssets.of(
         new AndroidAssets(
             ImmutableList.of(getResource(depName + "_asset_1"), getResource(depName + "_asset_2")),
             ImmutableList.of(PathFragment.create(depName)),
             depName),
         getResource("symbols_for_" + depName),
-        aaptVersion == AndroidAaptVersion.AAPT2
-            ? getResource("compiled_symbols_for_" + depName)
-            : null,
+        getResource("compiled_symbols_for_" + depName),
         ruleContext.getLabel());
   }
 

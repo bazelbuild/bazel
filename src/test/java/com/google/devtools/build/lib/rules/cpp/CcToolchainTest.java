@@ -15,10 +15,16 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static com.google.common.truth.Truth.assertWithMessage;
+import static org.junit.Assert.assertThrows;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.MoreCollectors;
+import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -34,6 +40,7 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
+import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -203,7 +210,6 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    module_map = 'map',",
         "    ar_files = 'ar-a',",
         "    as_files = 'as-a',",
-        "    cpu = 'cherry',",
         "    compiler_files = 'compile-a',",
         "    dwp_files = 'dwp-a',",
         "    coverage_files = 'gcov-a',",
@@ -223,7 +229,7 @@ public class CcToolchainTest extends BuildViewTestCase {
 
     useConfiguration();
 
-    getConfiguredTarget("//a:b");
+    getConfiguredTarget("//a:a");
   }
 
   @Test
@@ -449,6 +455,24 @@ public class CcToolchainTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCSFdoRejectRelativePath() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
+    scratch.file("a/profile.profdata", "");
+    scratch.file("a/csprofile.profdata", "");
+    Exception e =
+        assertThrows(
+            Exception.class,
+            () ->
+                useConfiguration(
+                    "-c",
+                    "opt",
+                    "--fdo_optimize=a/profile.profdata",
+                    "--cs_fdo_absolute_path=a/csprofile.profdata"));
+    assertThat(e).hasMessageThat().contains("in --cs_fdo_absolute_path is not an absolute path");
+  }
+
+  @Test
   public void testXFdoOptimizeNotProvider() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(
@@ -515,7 +539,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     scratch.overwriteFile(
         "tools/cpp/cc_toolchain_config_lib.bzl",
         ResourceLoader.readFromResources(
-            TestConstants.BAZEL_REPO_PATH + "tools/cpp/cc_toolchain_config_lib.bzl"));
+            TestConstants.RULES_CC_REPOSITORY_EXECROOT + "cc/cc_toolchain_config_lib.bzl"));
   }
 
   @Test
@@ -642,5 +666,169 @@ public class CcToolchainTest extends BuildViewTestCase {
         (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
 
     assertThat(toolchainProvider.getSysroot()).isEqualTo("/usr/grte/v1");
+  }
+
+  @Test
+  public void correctToolFilesUsed() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "cc_toolchain_alias(name = 'a')",
+        "cc_library(name = 'l', srcs = ['l.c'])",
+        "cc_library(name = 'asm', srcs = ['a.s'])",
+        "cc_library(name = 'preprocessed-asm', srcs = ['a.S'])");
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
+    useConfiguration("--incompatible_use_specific_tool_files");
+    ConfiguredTarget target = getConfiguredTarget("//a:a");
+    CcToolchainProvider toolchainProvider =
+        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    // Check that the mock toolchain tool file sets are an antichain, so that our subset assertions
+    // below are meaningful.
+    ImmutableList<Set<Artifact>> fileGroups =
+        ImmutableList.of(
+            toolchainProvider.getArFiles().toSet(),
+            toolchainProvider.getLinkerFiles().toSet(),
+            toolchainProvider.getCompilerFiles().toSet(),
+            toolchainProvider.getAsFiles().toSet(),
+            toolchainProvider.getAllFiles().toSet());
+    for (int i = 0; i < fileGroups.size(); i++) {
+      assertThat(fileGroups.get(i)).isNotEmpty();
+      for (int j = 0; j < fileGroups.size(); j++) {
+        if (i == j) {
+          continue;
+        }
+        Set<Artifact> one = fileGroups.get(i);
+        Set<Artifact> two = fileGroups.get(j);
+        assertWithMessage(String.format("%s should not contain %s", one, two))
+            .that(one.containsAll(two))
+            .isFalse();
+      }
+    }
+    assertThat(
+            Sets.difference(
+                toolchainProvider.getArFiles().toSet(), toolchainProvider.getLinkerFiles().toSet()))
+        .isNotEmpty();
+    assertThat(
+            Sets.difference(
+                toolchainProvider.getLinkerFiles().toSet(), toolchainProvider.getArFiles().toSet()))
+        .isNotEmpty();
+
+    RuleConfiguredTarget libTarget = (RuleConfiguredTarget) getConfiguredTarget("//a:l");
+    Artifact staticLib =
+        getOutputGroup(libTarget, "archive").toList().stream()
+            .collect(MoreCollectors.onlyElement());
+    ActionAnalysisMetadata staticAction = getGeneratingAction(staticLib);
+    assertThat(staticAction.getInputs().toList())
+        .containsAtLeastElementsIn(toolchainProvider.getArFiles().toList());
+    Artifact dynamicLib =
+        getOutputGroup(libTarget, "dynamic_library").toList().stream()
+            .collect(MoreCollectors.onlyElement());
+    ActionAnalysisMetadata dynamicAction = getGeneratingAction(dynamicLib);
+    assertThat(dynamicAction.getInputs().toList())
+        .containsAtLeastElementsIn(toolchainProvider.getLinkerFiles().toList());
+    ActionAnalysisMetadata cCompileAction =
+        libTarget.getActions().stream()
+            .filter((a) -> a.getMnemonic().equals("CppCompile"))
+            .collect(MoreCollectors.onlyElement());
+    assertThat(cCompileAction.getInputs().toList())
+        .containsAtLeastElementsIn(toolchainProvider.getCompilerFiles().toList());
+    ActionAnalysisMetadata asmAction =
+        ((RuleConfiguredTarget) getConfiguredTarget("//a:asm"))
+            .getActions().stream()
+                .filter((a) -> a.getMnemonic().equals("CppCompile"))
+                .collect(MoreCollectors.onlyElement());
+    assertThat(asmAction.getInputs().toList())
+        .containsAtLeastElementsIn(toolchainProvider.getAsFiles().toList());
+    ActionAnalysisMetadata preprocessedAsmAction =
+        ((RuleConfiguredTarget) getConfiguredTarget("//a:preprocessed-asm"))
+            .getActions().stream()
+                .filter((a) -> a.getMnemonic().equals("CppCompile"))
+                .collect(MoreCollectors.onlyElement());
+    assertThat(preprocessedAsmAction.getInputs().toList())
+        .containsAtLeastElementsIn(toolchainProvider.getCompilerFiles().toList());
+  }
+
+  @Test
+  public void testCcToolchainLoadedThroughMacro() throws Exception {
+    setupTestCcToolchainLoadedThroughMacro(/* loadMacro= */ true);
+    assertThat(getConfiguredTarget("//a:a")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void testCcToolchainNotLoadedThroughMacro() throws Exception {
+    setupTestCcToolchainLoadedThroughMacro(/* loadMacro= */ false);
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:a");
+    assertContainsEvent("rules are deprecated");
+  }
+
+  private void setupTestCcToolchainLoadedThroughMacro(boolean loadMacro) throws Exception {
+    useConfiguration("--incompatible_load_cc_rules_from_bzl");
+    scratch.file("a/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
+    scratch.file(
+        "a/BUILD",
+        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
+        getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "cc_toolchain"),
+        getToolchainRule("a"));
+  }
+
+  @Test
+  public void setupTestCcToolchainSuiteLoadedThroughMacro() throws Exception {
+    setupTestCcToolchainSuiteLoadedThroughMacro(/* loadMacro= */ true);
+    assertThat(getConfiguredTarget("//a:a")).isNotNull();
+    assertNoEvents();
+  }
+
+  private void setupTestCcToolchainSuiteLoadedThroughMacro(boolean loadMacro) throws Exception {
+    useConfiguration("--incompatible_load_cc_rules_from_bzl");
+    scratch.file("a/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
+    scratch.file(
+        "a/BUILD",
+        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
+        getAnalysisMock()
+            .ccSupport()
+            .getMacroLoadStatement(loadMacro, "cc_toolchain", "cc_toolchain_suite"),
+        "cc_toolchain_suite(",
+        "    name = 'a',",
+        "    toolchains = { 'k8': ':b' },",
+        ")",
+        getToolchainRule("b"));
+  }
+
+  @Test
+  public void testCcToolchainSuiteNotLoadedThroughMacro() throws Exception {
+    setupTestCcToolchainSuiteLoadedThroughMacro(/* loadMacro= */ false);
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:a");
+    assertContainsEvent("rules are deprecated");
+  }
+
+  private static String getToolchainRule(String targetName) {
+    return Joiner.on("\n")
+        .join(
+            "cc_toolchain(",
+            "    name = '" + targetName + "',",
+            "    toolchain_identifier = 'toolchain-identifier-k8',",
+            "    toolchain_config = ':toolchain_config',",
+            "    all_files = ':banana',",
+            "    ar_files = ':empty',",
+            "    as_files = ':empty',",
+            "    compiler_files = ':empty',",
+            "    dwp_files = ':empty',",
+            "    linker_files = ':empty',",
+            "    strip_files = ':empty',",
+            "    objcopy_files = ':empty',",
+            "    dynamic_runtime_lib = ':empty',",
+            "    static_runtime_lib = ':empty')",
+            "filegroup(",
+            "   name='empty')",
+            "filegroup(",
+            "    name = 'banana',",
+            "    srcs = ['banana1', 'banana2'])",
+            "cc_toolchain_config(name='toolchain_config')");
   }
 }

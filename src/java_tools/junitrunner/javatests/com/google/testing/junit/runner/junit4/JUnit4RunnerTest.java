@@ -16,11 +16,11 @@ package com.google.testing.junit.runner.junit4;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyListOf;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -40,10 +40,10 @@ import com.google.testing.junit.runner.sharding.ShardingFilters;
 import com.google.testing.junit.runner.sharding.api.ShardingFilterFactory;
 import com.google.testing.junit.runner.sharding.testing.FakeShardingFilters;
 import com.google.testing.junit.runner.util.CurrentRunningTest;
-import com.google.testing.junit.runner.util.FakeTicker;
+import com.google.testing.junit.runner.util.FakeTestClock;
 import com.google.testing.junit.runner.util.GoogleTestSecurityManager;
+import com.google.testing.junit.runner.util.TestClock;
 import com.google.testing.junit.runner.util.TestNameProvider;
-import com.google.testing.junit.runner.util.Ticker;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -374,8 +374,7 @@ public class JUnit4RunnerTest {
     shardingFilters = mock(ShardingFilters.class);
 
     when(shardingEnvironment.isShardingEnabled()).thenReturn(true);
-    when(shardingFilters.createShardingFilter(anyListOf(Description.class)))
-        .thenReturn(new NoneShallPassFilter());
+    when(shardingFilters.createShardingFilter(anyList())).thenReturn(new NoneShallPassFilter());
 
     JUnit4Runner runner = createRunner(SampleSuite.class);
     Result result = runner.run();
@@ -386,7 +385,7 @@ public class JUnit4RunnerTest {
     assertThat(result.getFailures().get(0).getMessage()).contains("No tests found");
 
     verify(shardingEnvironment).touchShardFile();
-    verify(shardingFilters).createShardingFilter(anyListOf(Description.class));
+    verify(shardingFilters).createShardingFilter(anyList());
   }
 
   @Test
@@ -572,8 +571,8 @@ public class JUnit4RunnerTest {
       return shardingEnvironment;
     }
 
-    Ticker ticker() {
-      return new FakeTicker();
+    TestClock clock() {
+      return new FakeTestClock();
     }
 
     JUnit4Config config() {

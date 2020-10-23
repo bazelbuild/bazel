@@ -14,28 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# --- begin runfiles.bash initialization ---
-# Copy-pasted from Bazel's Bash runfiles library (tools/bash/runfiles/runfiles.bash).
-set -euo pipefail
-if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
-  if [[ -f "$0.runfiles_manifest" ]]; then
-    export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
-  elif [[ -f "$0.runfiles/MANIFEST" ]]; then
-    export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
-  elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
-    export RUNFILES_DIR="$0.runfiles"
-  fi
-fi
-if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
-  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
-elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
-  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
-            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
-else
-  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
-  exit 1
-fi
-# --- end runfiles.bash initialization ---
+# --- begin runfiles.bash initialization v2 ---
+# Copy-pasted from the Bazel Bash runfiles library v2.
+set -uo pipefail; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v2 ---
 
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
@@ -144,7 +132,6 @@ EOF
   assert_not_contains "echo unused" output
 }
 
-
 function test_aquery_include_artifacts() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
@@ -199,7 +186,33 @@ EOF
   assert_not_contains "echo unused" output
 }
 
-function test_aquery_skylark_env() {
+function test_aquery_jsonproto() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "bar",
+    srcs = ["dummy.txt"],
+    outs = ["bar_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  echo "hello aquery" > "$pkg/in.txt"
+
+  bazel aquery --output=jsonproto "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains "\"execPath\": \"$pkg/dummy.txt\"" output
+  assert_contains "\"mnemonic\": \"Genrule\"" output
+  assert_contains "\"mnemonic\": \".*-fastbuild\"" output
+  assert_contains "echo unused" output
+
+  bazel aquery --output=jsonproto --noinclude_commandline "//$pkg:bar" > output \
+    2> "$TEST_log" || fail "Expected success"
+  assert_not_contains "echo unused" output
+}
+
+function test_aquery_starlark_env() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/rule.bzl" <<'EOF'
@@ -235,7 +248,7 @@ EOF
   bazel aquery --output=text "//$pkg:goo" > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
-  assert_contains "Mnemonic: SkylarkAction" output
+  assert_contains "Mnemonic: Action" output
   assert_contains "Target: //$pkg:goo" output
   assert_contains "Environment: \[.*foo=bar" output
 }
@@ -263,7 +276,7 @@ bar_aspect = aspect(implementation = _aspect_impl,
 )
 
 def _bar_impl(ctx):
-    ctx.file_action(content = "hello world", output = ctx.outputs.out)
+    ctx.actions.write(content = "hello world", output = ctx.outputs.out)
     return struct(files = depset(transitive = [dep[DummyProvider].dummies for dep in ctx.attr.deps]))
 
 bar_rule = rule(
@@ -741,7 +754,7 @@ def _impl(ctx):
     outputs = [ctx.outputs.outfile],
     executable = 'dummy',
     arguments = ['--non-param-file-flag', args],
-    mnemonic = 'SkylarkAction'
+    mnemonic = 'Action'
   )
 
 test_rule = rule(
@@ -810,7 +823,7 @@ function test_aquery_cpp_action_template_treeartifact_output() {
   cat > "$pkg/a.bzl" <<'EOF'
 def _impl(ctx):
   directory = ctx.actions.declare_directory(ctx.attr.name + "_artifact.cc")
-  ctx.action(
+  ctx.actions.run_shell(
     inputs = ctx.files.srcs,
     outputs = [directory],
     mnemonic = 'MoveTreeArtifact',
@@ -891,7 +904,7 @@ def _intermediate_aspect_imp(target, ctx):
   if hasattr(ctx.rule.attr, 'srcs'):
     out = ctx.actions.declare_file('out_jpl_{}'.format(target))
     ctx.actions.run(
-      inputs = [f for src in ctx.rule.attr.srcs for f in src.files],
+      inputs = [f for src in ctx.rule.attr.srcs for f in src.files.to_list()],
       outputs = [out],
       executable = 'dummy',
       mnemonic = 'MyIntermediateAspect'
@@ -921,7 +934,7 @@ def _aspect_impl(target, ctx):
   if hasattr(ctx.rule.attr, 'srcs'):
     out = ctx.actions.declare_file('out{}'.format(target))
     ctx.actions.run(
-      inputs = [f for src in ctx.rule.attr.srcs for f in src.files],
+      inputs = [f for src in ctx.rule.attr.srcs for f in src.files.to_list()],
       outputs = [out],
       executable = 'dummy',
       mnemonic = 'MyAspect'
@@ -1070,6 +1083,232 @@ EOF
   cat output >> "$TEST_log"
 
   assert_only_action_foo_textproto output
+}
+
+function test_basic_aquery_proto_v2() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "bar",
+    srcs = ["dummy.txt"],
+    outs = ["bar_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  bazel aquery --output=proto "//$pkg:bar" > output_v1 || fail "Expected success"
+  bazel clean
+
+  bazel aquery --incompatible_proto_output_v2 --output=proto "//$pkg:bar" > output_v2 2> "$TEST_log" \
+    || fail "Expected success"
+  [[ output_v1 != output_v2 ]] || fail "proto content should be different."
+}
+
+function test_basic_aquery_textproto_v2() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "bar",
+    srcs = ["dummy.txt"],
+    outs = ["bar_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  bazel aquery --incompatible_proto_output_v2 --output=proto "//$pkg:bar" \
+    || fail "Expected success"
+
+  bazel aquery --incompatible_proto_output_v2 --output=textproto "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  # Verify than ids come in integers instead of strings.
+  assert_contains "id: 1" output
+  assert_not_contains "id: \"1\"" output
+
+  # Verify that paths are broken down to path fragments.
+  assert_contains "path_fragments {" output
+  assert_contains "primary_output_id" output
+  # Verify that the appropriate action was included.
+  assert_contains "label: \"dummy.txt\"" output
+  assert_contains "mnemonic: \"Genrule\"" output
+  assert_contains "mnemonic: \".*-fastbuild\"" output
+  assert_contains "echo unused" output
+}
+
+function test_basic_aquery_jsonproto_v2() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "bar",
+    srcs = ["dummy.txt"],
+    outs = ["bar_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  bazel aquery --incompatible_proto_output_v2 --output=jsonproto "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  # Verify than ids come in integers instead of strings.
+  assert_contains "\"id\": 1," output
+  assert_not_contains "\"id\": \"1\"" output
+
+  # Verify that paths are broken down to path fragments.
+  assert_contains "\"pathFragments\": \[{" output
+
+  # Verify that the appropriate action was included.
+  assert_contains "\"label\": \"dummy.txt\"" output
+  assert_contains "\"mnemonic\": \"Genrule\"" output
+  assert_contains "\"mnemonic\": \".*-fastbuild\"" output
+  assert_contains "echo unused" output
+}
+
+function test_aquery_textproto_v2_skyframe_state() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+
+  bazel clean
+
+  bazel aquery --incompatible_proto_output_v2 --output=textproto --skyframe_state > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_not_contains "actions" output
+
+  bazel build --nobuild "//$pkg:foo"
+
+  bazel aquery --incompatible_proto_output_v2 --output=textproto --skyframe_state > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  expect_log_once "actions {"
+  assert_contains "input_dep_set_ids: 1" output
+  assert_contains "output_ids: 3" output
+  assert_contains "mnemonic: \"Genrule\"" output
+}
+
+function test_aquery_json_v2_skyframe_state() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+
+  bazel clean
+
+  bazel aquery --incompatible_proto_output_v2 --output=jsonproto --skyframe_state > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_not_contains "actions" output
+
+  bazel build --nobuild "//$pkg:foo"
+
+  bazel aquery --incompatible_proto_output_v2 --output=jsonproto --skyframe_state > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  expect_log_once "\"actionKey\":"
+}
+
+function test_aquery_json_v2_skyframe_state_invalid_format() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+
+  bazel clean
+
+  bazel aquery --incompatible_proto_output_v2 --output=text --skyframe_state &> "$TEST_log" \
+    && fail "Expected failure"
+  expect_log "--skyframe_state must be used with --output=proto\|textproto\|jsonproto. Invalid aquery output format: text"
+}
+
+function test_dump_skyframe_state_after_build_default_output() {
+    local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  touch $pkg/foo_matching_in.java
+
+  bazel clean
+  OUTPUT_BASE=$(bazel info output_base)
+  bazel build --experimental_aquery_dump_after_build_format=textproto "//$pkg:foo" &> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_contains "actions {" "$OUTPUT_BASE/aquery_dump.textproto"
+  assert_contains "input_dep_set_ids: 1" "$OUTPUT_BASE/aquery_dump.textproto"
+  assert_contains "output_ids: 3" "$OUTPUT_BASE/aquery_dump.textproto"
+  assert_contains "mnemonic: \"Genrule\"" "$OUTPUT_BASE/aquery_dump.textproto"
+}
+
+function test_dump_skyframe_state_after_build_to_specified_file() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  touch $pkg/foo_matching_in.java
+
+  bazel clean
+
+  bazel build --experimental_aquery_dump_after_build_format=textproto --experimental_aquery_dump_after_build_output_file="$TEST_TMPDIR/foo.out" "//$pkg:foo" \
+    &> "$TEST_log" || fail "Expected success"
+
+  assert_contains "actions {" "$TEST_TMPDIR/foo.out"
+  assert_contains "input_dep_set_ids: 1" "$TEST_TMPDIR/foo.out"
+  assert_contains "output_ids: 3" "$TEST_TMPDIR/foo.out"
+  assert_contains "mnemonic: \"Genrule\"" "$TEST_TMPDIR/foo.out"
+}
+
+function test_dump_skyframe_state_after_build_invalid_format() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  touch $pkg/foo_matching_in.java
+
+  bazel clean
+
+  bazel build --experimental_aquery_dump_after_build_format=text --experimental_aquery_dump_after_build_output_file="$TEST_TMPDIR/foo.out" "//$pkg:foo" \
+    &> "$TEST_log" && fail "Expected success"
+  expect_log "--skyframe_state must be used with --output=proto\|textproto\|jsonproto. Invalid aquery output format: text"
 }
 
 run_suite "${PRODUCT_NAME} action graph query tests"

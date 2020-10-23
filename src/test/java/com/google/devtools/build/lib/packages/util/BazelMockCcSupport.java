@@ -25,42 +25,23 @@ public final class BazelMockCcSupport extends MockCcSupport {
   public static final BazelMockCcSupport INSTANCE = new BazelMockCcSupport();
 
   /** Filter to remove implicit dependencies of C/C++ rules. */
-  private static final Predicate<String> CC_LABEL_NAME_FILTER =
-      new Predicate<String>() {
-        @Override
-        public boolean apply(String label) {
-          return !label.startsWith("//tools/cpp");
-        }
-      };
+  private static final boolean isNotCcLabel(String label) {
+    return !label.startsWith("//tools/cpp");
+  }
 
   private BazelMockCcSupport() {}
 
   private static final ImmutableList<String> CROSSTOOL_ARCHS =
       ImmutableList.of("piii", "k8", "armeabi-v7a", "ppc");
 
-  protected static void createBasePackage(MockToolsConfig config) throws IOException {
-    config.create(
-        "base/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "cc_library(name = 'system_malloc', linkstatic = 1)",
-        "cc_library(name = 'base', srcs=['timestamp.h'])");
-    if (config.isRealFileSystem()) {
-      config.linkTool("base/timestamp.h");
-    } else {
-      config.create("base/timestamp.h", "");
-    }
-  }
-
   @Override
   protected String getRealFilesystemCrosstoolTopPath() {
-    assert false;
-    return null;
+    throw new UnsupportedOperationException("TODO");
   }
 
   @Override
   protected String[] getRealFilesystemTools(String crosstoolTop) {
-    assert false;
-    return null;
+    throw new UnsupportedOperationException("TODO");
   }
 
   @Override
@@ -70,9 +51,11 @@ public final class BazelMockCcSupport extends MockCcSupport {
 
   @Override
   public void setup(MockToolsConfig config) throws IOException {
+    writeMacroFile(config);
+    setupRulesCc(config);
     setupCcToolchainConfig(config);
-    MockPlatformSupport.setup(
-        config, "/bazel_tools_workspace/platforms", "/local_config_platform_workspace");
+    createParseHeadersAndLayeringCheckWhitelist(config);
+    createStarlarkLooseHeadersWhitelist(config, "//...");
   }
 
   @Override
@@ -82,11 +65,11 @@ public final class BazelMockCcSupport extends MockCcSupport {
 
   @Override
   public String getMockCrosstoolPath() {
-    return "/bazel_tools_workspace/tools/cpp/";
+    return "bazel_tools_workspace/tools/cpp/";
   }
 
   @Override
   public Predicate<String> labelNameFilter() {
-    return CC_LABEL_NAME_FILTER;
+    return BazelMockCcSupport::isNotCcLabel;
   }
 }

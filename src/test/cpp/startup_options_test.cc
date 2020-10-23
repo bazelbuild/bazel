@@ -16,6 +16,8 @@
 
 #include <stdlib.h>
 
+#include <memory>
+
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/workspace_layout.h"
 #include "src/test/cpp/test_util.h"
@@ -35,6 +37,9 @@ class FakeStartupOptions : public StartupOptions {
     return blaze_exit_code::SUCCESS;
   }
   void MaybeLogStartupOptionWarnings() const override {}
+
+ protected:
+  std::string GetRcFileBaseName() const override { return ".bazelrc"; }
 };
 
 class StartupOptionsTest : public ::testing::Test {
@@ -79,7 +84,7 @@ TEST_F(StartupOptionsTest, ProductName) {
 
 TEST_F(StartupOptionsTest, JavaLoggingOptions) {
   ASSERT_EQ("com.google.devtools.build.lib.util.SingleLineFormatter",
-      startup_options_->java_logging_formatter);
+            startup_options_->java_logging_formatter);
 }
 
 // TODO(bazel-team): remove the ifdef guard once the implementation of
@@ -102,9 +107,63 @@ TEST_F(StartupOptionsTest, OutputRootUseHomeDirectory) {
 }
 #endif  // __linux
 
+TEST_F(StartupOptionsTest, OutputUserRootTildeExpansion) {
+#if defined(_WIN32)
+  std::string home = "C:/nonexistent/home/";
+#else
+  std::string home = "/nonexistent/home/";
+#endif
+
+  SetEnv("HOME", home);
+
+  std::string error;
+
+  {
+    const std::vector<RcStartupFlag> flags{
+        RcStartupFlag("somewhere", "--output_user_root=~/test"),
+    };
+
+    const blaze_exit_code::ExitCode ec =
+        startup_options_->ProcessArgs(flags, &error);
+
+    ASSERT_EQ(blaze_exit_code::SUCCESS, ec)
+        << "ProcessArgs failed with error " << error;
+
+    EXPECT_EQ(blaze_util::JoinPath(home, "test"),
+              startup_options_->output_user_root);
+  }
+
+  {
+    const std::vector<RcStartupFlag> flags{
+        RcStartupFlag("somewhere", "--output_user_root=~"),
+    };
+
+    const blaze_exit_code::ExitCode ec =
+        startup_options_->ProcessArgs(flags, &error);
+
+    ASSERT_EQ(blaze_exit_code::SUCCESS, ec)
+        << "ProcessArgs failed with error " << error;
+
+    EXPECT_EQ(home, startup_options_->output_user_root);
+  }
+}
+
 TEST_F(StartupOptionsTest, EmptyFlagsAreInvalidTest) {
-  EXPECT_FALSE(startup_options_->IsNullary(""));
-  EXPECT_FALSE(startup_options_->IsNullary("--"));
+  {
+    bool result;
+    std::string error;
+    EXPECT_TRUE(startup_options_->MaybeCheckValidNullary("", &result, &error));
+    EXPECT_FALSE(result);
+  }
+
+  {
+    bool result;
+    std::string error;
+    EXPECT_TRUE(
+        startup_options_->MaybeCheckValidNullary("--", &result, &error));
+    EXPECT_FALSE(result);
+  }
+
   EXPECT_FALSE(startup_options_->IsUnary(""));
   EXPECT_FALSE(startup_options_->IsUnary("--"));
 }

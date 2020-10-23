@@ -79,7 +79,7 @@ To use `ibazel`, simply replace `bazel` with `ibazel` in your Bazel commands.
 ### Step 3: Configuring the `bazel.rc` file
 
 Any Bazel build flag or option that can be placed on the command line can also
-be set in the project's [`bazel.rc` file](https://docs.bazel.build/guide.html#bazelrc)
+be set in the project's [`bazel.rc` file](guide.html#bazelrc)
 so that it is applied every time Bazel builds or tests the project.
 
 Based on how you want to share Bazel settings across your project and team(s),
@@ -122,12 +122,6 @@ query --output=label_kind
 # By default, failing tests don't print any output, it's logged to a
 # file instead.
 test --test_output=errors
-
-# Show which actions are running under which workers and print all
-# the actions running in parallel. This shows that Bazel runs on all
-# cores of a CPU.
-build --experimental_ui
-test --experimental_ui
 
 ###############################
 # Typescript / Angular / Sass #

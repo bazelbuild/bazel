@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -29,26 +31,24 @@ import javax.annotation.Nullable;
  */
 @AutoCodec
 public class FragmentClassSet {
-  private final ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> fragments;
+  private final ImmutableSortedSet<Class<? extends Fragment>> fragments;
 
   // Lazily initialized.
   @Nullable private volatile byte[] fingerprint;
   private volatile int hashCode;
 
-  private FragmentClassSet(
-      ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> fragments) {
+  private FragmentClassSet(ImmutableSortedSet<Class<? extends Fragment>> fragments) {
     this.fragments = fragments;
   }
 
   private static final Interner<FragmentClassSet> interner = BlazeInterners.newWeakInterner();
 
   @AutoCodec.Instantiator
-  public static FragmentClassSet of(
-      ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> fragments) {
+  public static FragmentClassSet of(ImmutableSortedSet<Class<? extends Fragment>> fragments) {
     return interner.intern(new FragmentClassSet(fragments));
   }
 
-  public ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> fragmentClasses() {
+  public ImmutableSortedSet<Class<? extends Fragment>> fragmentClasses() {
     return fragments;
   }
 
@@ -70,7 +70,7 @@ public class FragmentClassSet {
         return;
       }
       Fingerprint fingerprint = new Fingerprint();
-      for (Class<? extends BuildConfiguration.Fragment> fragment : fragments) {
+      for (Class<? extends Fragment> fragment : fragments) {
         fingerprint.addString(fragment.getName());
       }
       byte[] computedFingerprint = fingerprint.digestAndReset();
@@ -97,5 +97,11 @@ public class FragmentClassSet {
   public int hashCode() {
     maybeInitializeFingerprintAndHashCode();
     return hashCode;
+  }
+
+  @Override
+  public String toString() {
+    return String.format(
+        "FragmentClassSet[%s]", fragments.stream().map(Class::getName).collect(joining(",")));
   }
 }

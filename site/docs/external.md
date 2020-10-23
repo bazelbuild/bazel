@@ -1,6 +1,6 @@
 ---
 layout: documentation
-title: External Dependencies
+title: External dependencies
 ---
 
 # Working with external dependencies
@@ -8,7 +8,7 @@ title: External Dependencies
 Bazel can depend on targets from other projects.  Dependencies from these other
 projects are called _external dependencies_.
 
-The `WORKSPACE` file in the [workspace directory](build-ref.html#workspace)
+The `WORKSPACE` file (or `WORKSPACE.bazel` file) in the [workspace directory](build-ref.html#workspace)
 tells Bazel how to get other projects' sources.  These other projects can
 contain one or more `BUILD` files with their own targets.  `BUILD` files within
 the main project can depend on these external targets by using their name from
@@ -37,13 +37,12 @@ If `project1` wanted to depend on a target, `:foo`, defined in
 `/home/user/project1/BUILD` could depend on `@project2//:foo`.
 
 The `WORKSPACE` file allows users to depend on targets from other parts of the
-filesystem or downloaded from the internet. Users can also write custom
-[repository rules](skylark/repository_rules.html) to get more complex behavior.
-
-This `WORKSPACE` file uses the same syntax as BUILD files, but allows a
-different set of rules. The full list of built-in rules are in the Build
-Encyclopedia's [Workspace Rules](be/workspace.html) and the documentation
-for [Embedded Starklark Repository Rules](repo/index.html).
+filesystem or downloaded from the internet. It uses the same syntax as BUILD
+files, but allows a different set of rules called _repository rules_ (sometimes
+also known as _workspace rules_). Bazel comes with a few [built-in repository
+rules](be/workspace.html) and a set of [embedded Starlark repository
+rules](repo/index.html). Users can also write [custom repository
+rules](skylark/repository_rules.html) to get more complex behavior.
 
 <a name="types"></a>
 ## Supported types of external dependencies
@@ -80,7 +79,7 @@ local_repository(
 
 If your coworker has a target `//foo:bar`, your project can refer to it as
 `@coworkers_project//foo:bar`. External project names must be
-[valid workspace names](be/functions.html#workspace), so `_` (valid) is used to
+[valid workspace names](skylark/lib/globals.html#workspace), so `_` (valid) is used to
 replace `-` (invalid) in the name `coworkers_project`.
 
 <a name="non-bazel-projects"></a>
@@ -135,6 +134,8 @@ you would like to prefetch the dependencies needed for a specific set of targets
 [`bazel fetch`](https://docs.bazel.build/versions/master/command-line-reference.html#commands).
 To unconditionally fetch all external dependencies, use
 [`bazel sync`](https://docs.bazel.build/versions/master/command-line-reference.html#commands).
+As fetched repositories are [stored in the output base](#layout), fetching
+happens per workspace.
 
 <a name="shadowing-dependencies"></a>
 ## Shadowing dependencies
@@ -221,34 +222,91 @@ This mechanism can also be used to join diamonds. For example if `A` and `B`
 had the same dependency but call it by different names, those dependencies can
 be joined in myproject/WORKSPACE.
 
+## Overriding repositories from the command line
+
+To override a declared repository with a local repository from the command line,
+use the
+[`--override_repository`](command-line-reference.html#flag--override_repository)
+flag. Using this flag changes the contents of external repositories without
+changing your source code.
+
+For example, to override `@foo` to the local directory `/path/to/local/foo`,
+pass the `--override_repository=foo=/path/to/local/foo` flag.
+
+Some of the use cases include:
+
+* Debugging issues. For example, you can override a `http_archive` repository
+  to a local directory where you can make changes more easily.
+* Vendoring. If you are in an environment where you cannot make network calls,
+  override the network-based repository rules to point to local directories
+  instead.
 
 <a name="using-proxies"></a>
-## Using Proxies
+## Using proxies
 
 Bazel will pick up proxy addresses from the `HTTPS_PROXY` and `HTTP_PROXY`
 environment variables and use these to download HTTP/HTTPS files (if specified).
+
+<a name="support-for-ipv6"></a>
+## Support for IPv6
+On IPv6-only machines, Bazel will be able to download dependencies with
+no changes. On dual-stack IPv4/IPv6 machines, however, Bazel follows the same
+convention as Java: if IPv4 is enabled, IPv4 is preferred. In some situations,
+for example when IPv4 network is unable to resolve/reach external addresses,
+this can cause `Network unreachable` exceptions and build failures.
+In these cases, you can override Bazel's behavior to prefer IPv6
+by using [`java.net.preferIPv6Addresses=true` system property](https://docs.oracle.com/javase/8/docs/api/java/net/doc-files/net-properties.html).
+Specifically:
+
+* Use `--host_jvm_args=-Djava.net.preferIPv6Addresses=true`
+  [startup option](user-manual.html#startup_options),
+  for example by adding the following line in your
+  [`.bazelrc` file](guide.html#bazelrc):
+
+  `startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true`
+
+* If you are running Java build targets that need to connect to the internet
+  as well (integration tests sometimes needs that), also use
+  `--jvmopt=-Djava.net.preferIPv6Addresses=true`
+  [tool flag](user-manual.html#flags-options), for example by having the
+  following line in your [`.bazelrc` file](guide.html#bazelrc):
+
+  `build --jvmopt=-Djava.net.preferIPv6Addresses`
+
+* If you are using
+  [rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external),
+  for example, for dependency version resolution, also add
+  `-Djava.net.preferIPv6Addresses=true` to the `COURSIER_OPTS`
+  environment variable to [provide JVM options for Coursier](https://github.com/bazelbuild/rules_jvm_external#provide-jvm-options-for-coursier-with-coursier_opts)
 
 <a name="transitive-dependencies"></a>
 ## Transitive dependencies
 
 Bazel only reads dependencies listed in your `WORKSPACE` file. If your project
-(`A`) depends on another project (`B`) which list a dependency on a third
+(`A`) depends on another project (`B`) which lists a dependency on a third
 project (`C`) in its `WORKSPACE` file, you'll have to add both `B`
 and `C` to your project's `WORKSPACE` file. This requirement can balloon the
-`WORKSPACE` file size, but hopefully limits the chances of having one library
+`WORKSPACE` file size, but limits the chances of having one library
 include `C` at version 1.0 and another include `C` at 2.0.
 
 <a name="caching"></a>
 ## Caching of external dependencies
 
-Bazel caches external dependencies and re-downloads or updates them when
-the `WORKSPACE` file changes.
+By default, Bazel will only re-download external dependencies if their
+definition changes. Changes to files referenced in the definition (e.g., patches
+or `BUILD` files) are also taken into account by bazel.
+
+To force a re-download, use `bazel sync`.
+
 
 <a name="layout"></a>
 ## Layout
 
-External dependencies are all downloaded and symlinked under a directory named
-`external`. You can see this directory by running:
+External dependencies are all downloaded to a directory under the subdirectory
+`external` in the [output base](output_directories.html). In case of a
+[local repository](be/workspace.html#local_repository), a symlink is created
+there instead of creating a new directory.
+You can see the `external` directory by running:
 
 ```
 ls $(bazel info output_base)/external
@@ -257,21 +315,57 @@ ls $(bazel info output_base)/external
 Note that running `bazel clean` will not actually delete the external
 directory. To remove all external artifacts, use `bazel clean --expunge`.
 
+## Offline builds
+
+It is sometimes desirable or necessary to run a build in an offline fashion. For
+simple use cases, e.g., traveling on an airplane,
+[prefetching](#fetching-dependencies) the needed
+repositories with `bazel fetch` or `bazel sync` can be enough; moreover, the
+using the option `--nofetch`, fetching of further repositories can be disabled
+during the build.
+
+For true offline builds, where the providing of the needed files is to be done
+by an entity different from bazel, bazel supports the option
+`--distdir`. Whenever a repository rule asks bazel to fetch a file via
+[`ctx.download`](skylark/lib/repository_ctx.html#download) or
+[`ctx.download_and_extract`](skylark/lib/repository_ctx.html#download_and_extract)
+and provides a hash sum of the file
+needed, bazel will first look into the directories specified by that option for
+a file matching the basename of the first URL provided, and use that local copy
+if the hash matches.
+
+Bazel itself uses this technique to bootstrap offline from the [distribution
+artifact](https://bazel.build/designs/2016/10/11/distribution-artifact.html).
+It does so by [collecting all the needed external
+dependencies](https://github.com/bazelbuild/bazel/blob/5cfa0303d6ac3b5bd031ff60272ce80a704af8c2/WORKSPACE#L116)
+in an internal
+[`distdir_tar`](https://github.com/bazelbuild/bazel/blob/5cfa0303d6ac3b5bd031ff60272ce80a704af8c2/distdir.bzl#L44).
+
+However, bazel allows the execution of arbitrary commands in repository rules,
+without knowing if they call out to the network. Therefore, bazel has no option
+to enforce builds being fully offline. So testing if a build works correctly
+offline requires external blocking of the network, as bazel does in its
+bootstrap test.
 
 ## Best practices
 
 ### Repository rules
 
 Prefer [`http_archive`](repo/http.html#http_archive) to `git_repository` and
-`new_git_repository`.
+`new_git_repository`. The reasons are:
+
+* Git repository rules depend on system `git(1)` whereas the HTTP downloader is built
+  into Bazel and has no system dependencies.
+* `http_archive` supports a list of `urls` as mirrors, and `git_repository` supports only
+  a single `remote`.
+* `http_archive` works with the [repository cache](guide.html#repository-cache), but not
+  `git_repository`. See
+   [#5116](https://github.com/bazelbuild/bazel/issues/5116) for more information.
+
 
 Do not use `bind()`.  See "[Consider removing
 bind](https://github.com/bazelbuild/bazel/issues/1952)" for a long discussion of its issues and
 alternatives.
-
-### Custom BUILD files
-
-When using a `new_` repository rule, prefer to specify `build_file_content`, not `build_file`.
 
 ### Repository rules
 

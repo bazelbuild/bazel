@@ -16,16 +16,16 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheStats;
-import com.google.devtools.build.lib.actions.cache.DigestUtils;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
-import java.util.logging.Logger;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 
 /** Enables the caching of file digests in {@link DigestUtils}. */
 public class CacheFileDigestsModule extends BlazeModule {
 
-  private static final Logger logger = Logger.getLogger(CacheFileDigestsModule.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** Stats gathered at the beginning of a command, to compute deltas on completion. */
   private CacheStats stats;
@@ -45,16 +45,9 @@ public class CacheFileDigestsModule extends BlazeModule {
    * @param stats the cache statistics to be logged
    */
   private static void logStats(String message, CacheStats stats) {
-    logger.info(
-        message
-            + ": hit count="
-            + stats.hitCount()
-            + ", miss count="
-            + stats.missCount()
-            + ", hit rate="
-            + stats.hitRate()
-            + ", eviction count="
-            + stats.evictionCount());
+    logger.atInfo().log(
+        "%s: hit count=%d, miss count=%d, hit rate=%g, eviction count=%d",
+        message, stats.hitCount(), stats.missCount(), stats.hitRate(), stats.evictionCount());
   }
 
   @Override
@@ -62,14 +55,15 @@ public class CacheFileDigestsModule extends BlazeModule {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     if (lastKnownCacheSize == null
         || options.cacheSizeForComputedFileDigests != lastKnownCacheSize) {
-      logger.info("Reconfiguring cache with size=" + options.cacheSizeForComputedFileDigests);
+      logger.atInfo().log(
+          "Reconfiguring cache with size=%d", options.cacheSizeForComputedFileDigests);
       DigestUtils.configureCache(options.cacheSizeForComputedFileDigests);
       lastKnownCacheSize = options.cacheSizeForComputedFileDigests;
     }
 
     if (options.cacheSizeForComputedFileDigests == 0) {
       stats = null;
-      logger.info("Disabled cache");
+      logger.atInfo().log("Disabled cache");
     } else {
       stats = DigestUtils.getCacheStats();
       logStats("Accumulated cache stats before command", stats);

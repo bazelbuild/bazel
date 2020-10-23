@@ -15,12 +15,12 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 class LocationPrinter {
   private final boolean attemptToPrintRelativePaths;
@@ -51,7 +51,7 @@ class LocationPrinter {
       @Nullable PathFragment workspacePathFragment,
       ImmutableList<Root> packagePathRoots) {
     PathFragment relativePathToUse = null;
-    PathFragment locationPathFragment = location.getPath();
+    PathFragment locationPathFragment = PathFragment.create(location.file());
     if (locationPathFragment.isAbsolute()) {
       if (workspacePathFragment != null && locationPathFragment.startsWith(workspacePathFragment)) {
         relativePathToUse = locationPathFragment.relativeTo(workspacePathFragment);
@@ -64,6 +64,17 @@ class LocationPrinter {
         }
       }
     }
-    return relativePathToUse == null ? location.print() : location.printWithPath(relativePathToUse);
+
+    StringBuilder b = new StringBuilder();
+    b.append(relativePathToUse != null ? relativePathToUse : locationPathFragment);
+    int line = location.line();
+    if (line != 0) {
+      b.append(':').append(line);
+      int column = location.column();
+      if (column != 0) {
+        b.append(':').append(column);
+      }
+    }
+    return b.toString();
   }
 }

@@ -18,7 +18,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.skyframe.SkyFunction;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -56,6 +56,9 @@ final class ActionExecutionState {
    *
    * <p>The reason for this roundabout approach is to avoid memory allocation if this is not a
    * shared action, and to release the memory once the action is done.
+   *
+   * <p>Skyframe will attempt to cancel this future if the evaluation is interrupted, which violates
+   * the concurrency assumptions this class makes. Beware!
    */
   @GuardedBy("this")
   @Nullable
@@ -66,11 +69,11 @@ final class ActionExecutionState {
     this.state = Preconditions.checkNotNull(state);
   }
 
-  public ActionExecutionValue getResultOrDependOnFuture(
+  ActionExecutionValue getResultOrDependOnFuture(
       SkyFunction.Environment env,
       ActionLookupData actionLookupData,
       Action action,
-      ActionCompletedReceiver actionCompletedReceiver)
+      SharedActionCallback sharedActionCallback)
       throws ActionExecutionException, InterruptedException {
     if (this.actionLookupData.equals(actionLookupData)) {
       // This continuation is owned by the Skyframe node executed by the current thread, so we use
@@ -87,15 +90,27 @@ final class ActionExecutionState {
         if (completionFuture == null) {
           completionFuture = SettableFuture.create();
         }
+        // We expect to only call this once per shared action; this method should only be called
+        // again after the future is completed.
+        sharedActionCallback.actionStarted();
         env.dependOnFuture(completionFuture);
-        // No other thread can access completionFuture until we exit the synchronized block.
-        Preconditions.checkState(!completionFuture.isDone(), state);
-        Preconditions.checkState(env.valuesMissing(), state);
+        if (!env.valuesMissing()) {
+          Preconditions.checkState(
+              completionFuture.isCancelled(), "%s %s", this.actionLookupData, actionLookupData);
+          // The future is unexpectedly done. This must be because it was registered by another
+          // thread earlier and was canceled by Skyframe. We are about to be interrupted ourselves,
+          // but have to do something in the meantime. We can just register a dep with a new future,
+          // then complete it and return. If for some reason this argument is incorrect, we will be
+          // restarted immediately and hopefully have a more consistent result.
+          SettableFuture<Void> dummyFuture = SettableFuture.create();
+          env.dependOnFuture(dummyFuture);
+          dummyFuture.set(null);
+        }
         return null;
       }
       result = state.get();
     }
-    actionCompletedReceiver.actionCompleted(actionLookupData);
+    sharedActionCallback.actionCompleted();
     return result.transformForSharedAction(action.getOutputs());
   }
 
@@ -117,6 +132,15 @@ final class ActionExecutionState {
         // a non-null value, or it registers a dependency with Skyframe and returns null; it must
         // not return null without registering a dependency, i.e., if {@code !env.valuesMissing()}.
         if (env.valuesMissing()) {
+          if (current.isDone()) {
+            // This can happen if there was an error in a dep, but another dep was missing. The
+            // Skyframe contract is that this SkyFunction should eagerly process that exception, so
+            // that errors can be transformed in --nokeep_going mode.
+            ActionExecutionValue value = current.get();
+            BugReport.sendBugReport(
+                new IllegalStateException(
+                    actionLookupData + " returned " + value + " with values missing"));
+          }
           return null;
         }
       }
@@ -132,6 +156,18 @@ final class ActionExecutionState {
     }
     // We're done, return the value to the caller (or throw an exception).
     return current.get();
+  }
+
+  /** A callback to receive events for shared actions that are not executed. */
+  public interface SharedActionCallback {
+    /** Called if the action is shared and the primary action is already executing. */
+    void actionStarted();
+
+    /**
+     * Called when the primary action is done (on the next call to {@link
+     * #getResultOrDependOnFuture}.
+     */
+    void actionCompleted();
   }
 
   /**
@@ -171,7 +207,7 @@ final class ActionExecutionState {
      * of executing the action. This must only be called if {@link #isDone} returns false, and must
      * only be called by one thread at a time for the same instance.
      */
-    ActionStepOrResult run(SkyFunction.Environment env);
+    ActionStepOrResult run(SkyFunction.Environment env) throws InterruptedException;
 
     /**
      * Returns the final value of the action or an exception to indicate that the action failed (or

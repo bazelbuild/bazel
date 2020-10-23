@@ -1,0 +1,40 @@
+diff --git a/BUILD b/BUILD
+index 224c8fce1..cde9d9d5e 100644
+--- a/BUILD
++++ b/BUILD
+@@ -50,7 +50,7 @@ GTEST_MAIN = select({
+ # ZLIB configuration
+ ################################################################################
+
+-ZLIB_DEPS = ["@zlib//:zlib"]
++ZLIB_DEPS = ["@io_bazel//third_party/zlib"]
+
+ ################################################################################
+ # Protobuf Runtime Library
+@@ -845,7 +845,7 @@ py_proto_library(
+     py_extra_srcs = glob(["python/**/__init__.py"]),
+     py_libs = [
+         ":python_srcs",
+-        "@six//:six",
++        "@io_bazel//third_party/py/six",
+     ],
+     srcs_version = "PY2AND3",
+     visibility = ["//visibility:public"],
+diff --git a/java/util/BUILD b/java/util/BUILD
+index cfdb28e2e..3705fdbe3 100644
+--- a/java/util/BUILD
++++ b/java/util/BUILD
+@@ -11,10 +11,10 @@ java_library(
+     ],
+     visibility = ["//visibility:public"],
+     deps = [
+-        "//external:error_prone_annotations",
+-        "//external:gson",
+-        "//external:guava",
+         "//java/core",
+         "//java/lite",
++        "@io_bazel//third_party:error_prone_annotations",
++        "@io_bazel//third_party:guava",
++        "@io_bazel//third_party:gson",
+     ],
+ )

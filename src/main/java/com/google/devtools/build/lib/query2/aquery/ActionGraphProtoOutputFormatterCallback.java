@@ -17,14 +17,15 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AnalysisProtos;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
+import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
-import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.actiongraph.ActionGraphDump;
 import com.google.protobuf.TextFormat;
+import com.google.protobuf.util.JsonFormat;
 import java.io.IOException;
 import java.io.OutputStream;
 
@@ -34,7 +35,8 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
   /** Defines the types of proto output this class can handle. */
   public enum OutputType {
     BINARY("proto"),
-    TEXT("textproto");
+    TEXT("textproto"),
+    JSON("jsonproto");
 
     private final String formatName;
 
@@ -50,6 +52,7 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
   private final OutputType outputType;
   private final ActionGraphDump actionGraphDump;
   private final AqueryActionFilter actionFilters;
+  private final JsonFormat.Printer jsonPrinter = JsonFormat.printer();
 
   ActionGraphProtoOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
@@ -109,6 +112,10 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
           break;
         case TEXT:
           TextFormat.print(actionGraphContainer, printStream);
+          break;
+        case JSON:
+          jsonPrinter.appendTo(actionGraphContainer, printStream);
+          printStream.println();
           break;
         default:
           throw new IllegalStateException("Unknown outputType " + outputType.formatName());

@@ -23,9 +23,6 @@ import java.util.Set;
 /**
  * A tokenizer for the Blaze query language, revision 2.
  *
- * Note, we can avoid a lot of quoting by noting that the characters [() ,] do
- * not appear in any label, filename, function name, or regular expression we care about.
- *
  * No string escapes are allowed ("\").  Given the domain, that's not currently
  * a problem.
  */
@@ -116,10 +113,10 @@ public final class Lexer {
   }
 
   /**
-   * Entry point to the lexer.  Returns the list of tokens for the specified
-   * input, or throws QueryException.
+   * Entry point to the lexer. Returns the list of tokens for the specified input, or throws
+   * QueryException.
    */
-  public static List<Token> scan(String input) throws QueryException {
+  static List<Token> scan(String input) throws QuerySyntaxException {
     Lexer lexer = new Lexer(input);
     lexer.tokenize();
     return lexer.tokens;
@@ -143,12 +140,12 @@ public final class Lexer {
   /**
    * Scans a quoted word delimited by 'quot'.
    *
-   * ON ENTRY: 'pos' is 1 + the index of the first delimiter
-   * ON EXIT: 'pos' is 1 + the index of the last delimiter.
+   * <p>ON ENTRY: 'pos' is 1 + the index of the first delimiter ON EXIT: 'pos' is 1 + the index of
+   * the last delimiter.
    *
    * @return the word token.
    */
-  private Token quotedWord(char quot) throws QueryException {
+  private Token quotedWord(char quot) throws QuerySyntaxException {
     int oldPos = pos - 1;
     while (pos < input.length()) {
       char c = input.charAt(pos++);
@@ -161,7 +158,7 @@ public final class Lexer {
           }
       }
     }
-    throw new QueryException("unclosed quotation");
+    throw new QuerySyntaxException("unclosed quotation");
   }
 
   private TokenKind getTokenKindForWord(String word) {
@@ -169,9 +166,6 @@ public final class Lexer {
     return kind == null ? TokenKind.WORD : kind;
   }
 
-  // Unquoted words may contain [-*$], but not start with them.  For user convenience, unquoted
-  // words must include UNIX filenames, labels and target label patterns, and simple regexps
-  // (e.g. cc_.*). Keep consistent with TargetLiteral.toString()!
   private String scanWord() {
     int oldPos = pos - 1;
     while (pos < input.length()) {
@@ -189,7 +183,9 @@ public final class Lexer {
         case '0': case '1': case '2': case '3': case '4': case '5':
         case '6': case '7': case '8': case '9':
         case '*': case '/': case '@': case '.': case '-': case '_':
-        case ':': case '$':
+        case ':':
+        case '$':
+        case '~':
           pos++;
           break;
        default:
@@ -213,11 +209,8 @@ public final class Lexer {
     return kind == TokenKind.WORD ? new Token(word) : new Token(kind);
   }
 
-  /**
-   * Performs tokenization of the character buffer of file contents provided to
-   * the constructor.
-   */
-  private void tokenize() throws QueryException {
+  /** Performs tokenization of the character buffer of file contents provided to the constructor. */
+  private void tokenize() throws QuerySyntaxException {
     while (pos < input.length()) {
       char c = input.charAt(pos);
       pos++;

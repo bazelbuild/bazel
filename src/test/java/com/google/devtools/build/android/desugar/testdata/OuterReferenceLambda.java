@@ -25,9 +25,6 @@ public class OuterReferenceLambda {
   }
 
   public List<String> filter(List<String> names) {
-    return names
-        .stream()
-        .filter(n -> reference.contains(n))
-        .collect(Collectors.toList());
+    return names.stream().filter(n -> reference.contains(n)).collect(Collectors.toList());
   }
 }

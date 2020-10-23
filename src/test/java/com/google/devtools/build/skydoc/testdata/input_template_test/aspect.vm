@@ -1,0 +1,32 @@
+<a name="#${aspectName}"></a>
+
+#[[##]]# ${aspectName}
+
+<pre>
+${util.aspectSummary($aspectName, $aspectInfo)}
+</pre>
+
+$aspectInfo.getDocString()
+
+#[[###]]# Aspect Attributes
+
+#if (!$aspectInfo.getAspectAttributeList().isEmpty())
+#foreach ($aspectAttribute in $aspectInfo.getAspectAttributeList())
+        $aspectAttribute
+        String; required.
+#end
+#end
+
+#[[###]]# Attributes
+
+#foreach ($attribute in $aspectInfo.getAttributeList())
+<b>
+      <code>${attribute.name}</code>
+        ${util.attributeTypeString($attribute)}; ${util.mandatoryString($attribute)}
+</b>
+#if (!$attribute.docString.isEmpty())
+        <p>
+          ${attribute.docString.trim()}
+        </p>
+#end
+#end

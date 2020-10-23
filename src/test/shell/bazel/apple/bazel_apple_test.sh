@@ -125,9 +125,11 @@ EOF
 function test_host_xcodes() {
   XCODE_VERSION=$(env -i xcodebuild -version | grep "Xcode" \
       | sed -E "s/Xcode (([0-9]|.)+).*/\1/")
+  XCODE_BUILD_VERSION=$(env -i xcodebuild -version | grep "Build version" \
+      | sed -E "s/Build version (([0-9]|.)+).*/\1/")
   IOS_SDK=$(env -i xcodebuild -version -sdk | grep iphoneos \
       | sed -E "s/.*\(iphoneos(([0-9]|.)+)\).*/\1/")
-  MACOSX_SDK=$(env -i xcodebuild -version -sdk | grep macosx \
+  MACOSX_SDK=$(env -i xcodebuild -version -sdk | grep "(macosx" \
       | sed -E "s/.*\(macosx(([0-9]|.)+)\).*/\1/" | head -n 1)
 
   # Unfortunately xcodebuild -version doesn't always pad with trailing .0, so,
@@ -137,10 +139,12 @@ function test_host_xcodes() {
     XCODE_VERSION="${XCODE_VERSION}.0"
   fi
 
+  XCODE_VERSION_FULL="${XCODE_VERSION}.${XCODE_BUILD_VERSION}"
+
   bazel build @local_config_xcode//:host_xcodes >"${TEST_log}" 2>&1 \
      || fail "Expected host_xcodes to build"
 
-  bazel query "attr(version, $XCODE_VERSION, \
+  bazel query "attr(version, $XCODE_VERSION_FULL, \
       attr(default_ios_sdk_version, $IOS_SDK, \
       attr(default_macos_sdk_version, $MACOSX_SDK, \
       labels('versions', '@local_config_xcode//:host_xcodes'))))" \
@@ -152,6 +156,39 @@ function test_host_xcodes() {
       "labels('default', '@local_config_xcode//:host_xcodes')")
 
   assert_equals $DEFAULT_LABEL $(cat xcode_version_target)
+}
+
+function test_host_available_xcodes() {
+
+  XCODE_VERSION=$(env -i xcodebuild -version | grep "Xcode" \
+      | sed -E "s/Xcode (([0-9]|.)+).*/\1/")
+  IOS_SDK=$(env -i xcodebuild -version -sdk | grep iphoneos \
+      | sed -E "s/.*\(iphoneos(([0-9]|.)+)\).*/\1/")
+  MACOSX_SDK=$(env -i xcodebuild -version -sdk | grep "(macosx" \
+      | sed -E "s/.*\(macosx(([0-9]|.)+)\).*/\1/" | head -n 1)
+
+  # Unfortunately xcodebuild -version doesn't always pad with trailing .0, so,
+  # for example, may produce "6.4", which is bad for this test.
+  if [[ ! $XCODE_VERSION =~ [0-9].[0-9].[0-9] ]]
+  then
+    XCODE_VERSION="${XCODE_VERSION}.0"
+  fi
+
+  bazel build @local_config_xcode//:host_available_xcodes >"${TEST_log}" 2>&1 \
+     || fail "Expected host_available_xcodes to build"
+
+  bazel query "attr(version, $XCODE_VERSION, \
+      attr(default_ios_sdk_version, $IOS_SDK, \
+      attr(default_macos_sdk_version, $MACOSX_SDK, \
+      labels('versions', '@local_config_xcode//:host_available_xcodes'))))" \
+      > xcode_version_target
+
+  assert_contains "local_config_xcode" xcode_version_target
+
+  DEFAULT_LABEL=$(bazel query \
+      "labels('default', '@local_config_xcode//:host_available_xcodes')")
+
+  assert_equals "$DEFAULT_LABEL" "$(cat xcode_version_target)"
 }
 
 function test_apple_binary_crosstool_ios() {

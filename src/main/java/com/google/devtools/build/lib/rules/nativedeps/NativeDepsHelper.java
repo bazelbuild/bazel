@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.STATIC_LINK
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -29,10 +30,14 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
@@ -44,8 +49,6 @@ import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.FdoContext;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.Link;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
@@ -141,8 +144,8 @@ public abstract class NativeDepsHelper {
   }
 
   /** Determines if there is any code to be linked in the input iterable. */
-  private static boolean containsCodeToLink(Iterable<LibraryToLink> libraries) {
-    for (LibraryToLink library : libraries) {
+  private static boolean containsCodeToLink(NestedSet<LibraryToLink> libraries) {
+    for (LibraryToLink library : libraries.toList()) {
       if (containsCodeToLink(library)) {
         return true;
       }
@@ -193,8 +196,8 @@ public abstract class NativeDepsHelper {
     List<String> linkopts = new ArrayList<>(extraLinkOpts);
     linkopts.addAll(ccLinkingContext.getFlattenedUserLinkFlags());
 
-    CppHelper.checkLinkstampsUnique(ruleContext, ccLinkingContext.getLinkstamps());
-    ImmutableSet<Linkstamp> linkstamps = ImmutableSet.copyOf(ccLinkingContext.getLinkstamps());
+    CppHelper.checkLinkstampsUnique(ruleContext, ccLinkingContext.getLinkstamps().toList());
+    ImmutableSet<Linkstamp> linkstamps = ccLinkingContext.getLinkstamps().toSet();
     List<Artifact> buildInfoArtifacts =
         linkstamps.isEmpty()
             ? ImmutableList.<Artifact>of()
@@ -205,7 +208,34 @@ public abstract class NativeDepsHelper {
                     CppBuildInfo.KEY,
                     configuration);
 
+    ImmutableSortedSet.Builder<String> requestedFeaturesBuilder =
+        ImmutableSortedSet.<String>naturalOrder()
+            .addAll(ruleContext.getFeatures())
+            .add(STATIC_LINKING_MODE);
+    if (!ruleContext.getDisabledFeatures().contains(CppRuleClasses.LEGACY_WHOLE_ARCHIVE)) {
+      requestedFeaturesBuilder.add(CppRuleClasses.LEGACY_WHOLE_ARCHIVE);
+    }
+    final String sanitizerFeature = configuration.getFatApkSplitSanitizer().feature;
+    if (sanitizerFeature != null && !ruleContext.getDisabledFeatures().contains(sanitizerFeature)) {
+      requestedFeaturesBuilder.add(sanitizerFeature);
+    }
+    ImmutableSortedSet<String> requestedFeatures = requestedFeaturesBuilder.build();
+
+    FeatureConfiguration featureConfiguration =
+        CcCommon.configureFeaturesOrReportRuleError(
+            ruleContext,
+            requestedFeatures,
+            /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
+            toolchain,
+            cppSemantics);
+
     boolean shareNativeDeps = configuration.getFragment(CppConfiguration.class).shareNativeDeps();
+    boolean isThinLtoDisabledOnlyForLinkStaticTestAndTestOnlyTargets =
+        !featureConfiguration.isEnabled(
+                CppRuleClasses.THIN_LTO_ALL_LINKSTATIC_USE_SHARED_NONLTO_BACKENDS)
+            && featureConfiguration.isEnabled(
+                CppRuleClasses.THIN_LTO_LINKSTATIC_TESTS_USE_SHARED_NONLTO_BACKENDS);
+    boolean isTestOrTestOnlyTarget = ruleContext.isTestOnlyTarget() || ruleContext.isTestTarget();
     Artifact sharedLibrary;
     if (shareNativeDeps) {
       PathFragment sharedPath =
@@ -216,7 +246,9 @@ public abstract class NativeDepsHelper {
                   .map(CcLinkingContext.Linkstamp::getArtifact)
                   .collect(ImmutableList.toImmutableList()),
               buildInfoArtifacts,
-              ruleContext.getFeatures());
+              requestedFeatures,
+              isTestOrTestOnlyTarget && isThinLtoDisabledOnlyForLinkStaticTestAndTestOnlyTargets);
+
       sharedLibrary = ruleContext.getShareableArtifact(
           sharedPath.replaceName(sharedPath.getBaseName() + ".so"),
           configuration.getBinDirectory(ruleContext.getRule().getRepository()));
@@ -224,17 +256,6 @@ public abstract class NativeDepsHelper {
       sharedLibrary = nativeDeps;
     }
     FdoContext fdoContext = toolchain.getFdoContext();
-    ImmutableSet.Builder<String> requestedFeatures =
-        ImmutableSet.<String>builder().addAll(ruleContext.getFeatures()).add(STATIC_LINKING_MODE);
-    if (!ruleContext.getDisabledFeatures().contains(CppRuleClasses.LEGACY_WHOLE_ARCHIVE)) {
-      requestedFeatures.add(CppRuleClasses.LEGACY_WHOLE_ARCHIVE);
-    }
-    FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(
-            ruleContext,
-            /* requestedFeatures= */ requestedFeatures.build(),
-            /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
-            toolchain);
 
     new CcLinkingHelper(
             ruleContext,
@@ -247,7 +268,9 @@ public abstract class NativeDepsHelper {
             fdoContext,
             configuration,
             ruleContext.getFragment(CppConfiguration.class),
-            ruleContext.getSymbolGenerator())
+            ruleContext.getSymbolGenerator(),
+            TargetUtils.getExecutionInfo(
+                ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
         .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
         .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
         .setTestOrTestOnlyTarget(ruleContext.isTestTarget() || ruleContext.isTestOnlyTarget())
@@ -293,7 +316,8 @@ public abstract class NativeDepsHelper {
       Collection<String> linkopts,
       Iterable<Artifact> linkstamps,
       Iterable<Artifact> buildInfoArtifacts,
-      Collection<String> features) {
+      Collection<String> features,
+      boolean isTestTargetInPartiallyDisabledThinLtoCase) {
     Fingerprint fp = new Fingerprint();
     int linkerInputsSize = 0;
     for (Artifact input : linkerInputs) {
@@ -327,6 +351,14 @@ public abstract class NativeDepsHelper {
     for (String feature : features) {
       fp.addString(feature);
     }
+    // Sharing of native dependencies may cause an {@link ActionConflictException} when ThinLTO is
+    // disabled for test and test-only targets that are statically linked, but enabled for other
+    // statically linked targets. This happens in case the artifacts for the shared native
+    // dependency are output by {@link Action}s owned by the non-test and test targets both. To fix
+    // this, we allow creation of multiple artifacts for the shared native library - one shared
+    // among the test and test-only targets where ThinLTO is disabled, and the other shared among
+    // other targets where ThinLTO is enabled.
+    fp.addBoolean(isTestTargetInPartiallyDisabledThinLtoCase);
     return PathFragment.create(
         "_nativedeps/"
             + linkerInputsSize

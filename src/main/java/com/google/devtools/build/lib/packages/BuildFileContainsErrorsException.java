@@ -15,32 +15,47 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.io.IOException;
 
 /**
- * Exception indicating a failed attempt to access a package that could not
- * be read or had syntax errors.
+ * Exception indicating a failed attempt to access a package that could not be read or had syntax
+ * errors.
  */
 public class BuildFileContainsErrorsException extends NoSuchPackageException {
 
   public BuildFileContainsErrorsException(PackageIdentifier packageIdentifier) {
     super(
         packageIdentifier,
-        "Package '" + packageIdentifier.getPackageFragment().getPathString() + "' contains errors");
+        String.format(
+            "Package '%s' contains errors",
+            packageIdentifier.getPackageFragment().getPathString()));
   }
 
   public BuildFileContainsErrorsException(PackageIdentifier packageIdentifier, String message) {
     super(packageIdentifier, message);
   }
 
-  public BuildFileContainsErrorsException(PackageIdentifier packageIdentifier, String message,
-      IOException cause) {
+  public BuildFileContainsErrorsException(
+      PackageIdentifier packageIdentifier, String message, IOException cause) {
     super(packageIdentifier, message, cause);
+  }
+
+  public BuildFileContainsErrorsException(
+      PackageIdentifier packageIdentifier, String message, DetailedExitCode detailedExitCode) {
+    super(packageIdentifier, message, detailedExitCode);
+  }
+
+  public BuildFileContainsErrorsException(
+      PackageIdentifier packageIdentifier,
+      String message,
+      IOException cause,
+      DetailedExitCode detailedExitCode) {
+    super(packageIdentifier, message, cause, detailedExitCode);
   }
 
   @Override
   public String getMessage() {
-    return String.format("%s '%s': %s", "error loading package", getPackageId(), getRawMessage());
+    return String.format("error loading package '%s': %s", getPackageId(), getRawMessage());
   }
 }

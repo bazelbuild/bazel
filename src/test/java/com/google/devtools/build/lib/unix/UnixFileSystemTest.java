@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.unix;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -30,7 +30,7 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
 
   @Override
   protected FileSystem getFreshFileSystem(DigestHashFunction digestHashFunction) {
-    return new UnixFileSystem(digestHashFunction);
+    return new UnixFileSystem(digestHashFunction, /*hashAttributeName=*/ "");
   }
 
   @Override

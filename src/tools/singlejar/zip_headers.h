@@ -27,7 +27,7 @@
 
 #if defined(__linux__)
 #include <endian.h>
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__) || defined(__OpenBSD__)
 #include <sys/endian.h>
 #elif defined(__APPLE__) || defined(_WIN32)
 // Hopefully OSX and Windows will keep running solely on little endian CPUs, so:
@@ -265,7 +265,7 @@ class LH {
   void file_name(const char *filename, uint16_t len) {
     file_name_length_ = htole16(len);
     if (len) {
-      memcpy(file_name_, filename, file_name_length_);
+      memcpy(file_name_, filename, len);
     }
   }
   bool file_name_is(const char *name) const {

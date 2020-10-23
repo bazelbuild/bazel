@@ -38,8 +38,8 @@ import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -66,7 +66,7 @@ public class SplitZip implements EntryHandler {
   private Set<String> filter;
   private ZipOut[] zipOuts;
   private ZipOut resourceOut;
-  private final Map<String, ZipOut> assignments = new HashMap<>();
+  private final Map<String, ZipOut> assignments = new LinkedHashMap<>();
   private final Map<String, CentralDirectory> centralDirectories;
   private final Set<String> classes = new TreeSet<>();
   private Predicate<String> inputFilter = Predicates.alwaysTrue();
@@ -77,7 +77,7 @@ public class SplitZip implements EntryHandler {
   public SplitZip() {
     inputs = new ArrayList<>();
     outputs = new ArrayList<>();
-    centralDirectories = new HashMap<>();
+    centralDirectories = new LinkedHashMap<>();
   }
 
   /**
@@ -174,12 +174,13 @@ public class SplitZip implements EntryHandler {
   }
 
   /**
-   * Sets date to {@link DosTime#DOS_EPOCH}.
+   * Sets date to {@link DosTime#DOS_EPOCHISH}.
+   *
    * @return this object.
    */
   public SplitZip useDefaultEntryDate() {
-    this.date = DosTime.DOS_EPOCH;
-    this.dosTime = DosTime.EPOCH;
+    this.date = DosTime.DOS_EPOCHISH;
+    this.dosTime = DosTime.EPOCHISH;
     return this;
   }
 
@@ -445,7 +446,7 @@ public class SplitZip implements EntryHandler {
    * on the file system configured for the {@code Zip} library class.
    */
   private Set<String> readPaths(String fileName) throws IOException {
-    Set<String> paths = new HashSet<>();
+    Set<String> paths = new LinkedHashSet<>();
     if (filterInputStream == null) {
       filterInputStream = new FileInputStream(fileName);
     }

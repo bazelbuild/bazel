@@ -23,10 +23,10 @@ import com.google.testing.junit.runner.sharding.ShardingEnvironment;
 import com.google.testing.junit.runner.sharding.ShardingFilters;
 import com.google.testing.junit.runner.util.MemoizingSupplier;
 import com.google.testing.junit.runner.util.SetFactory;
-import com.google.testing.junit.runner.util.Supplier;
-import com.google.testing.junit.runner.util.Ticker;
+import com.google.testing.junit.runner.util.TestClock;
 import java.io.PrintStream;
 import java.util.Set;
+import java.util.function.Supplier;
 import org.junit.internal.TextListener;
 import org.junit.runner.Request;
 import org.junit.runner.notification.RunListener;
@@ -44,7 +44,7 @@ public final class JUnit4BazelMock {
 
   private Supplier<String> topLevelSuiteNameSupplier;
 
-  private Supplier<Ticker> tickerSupplier;
+  private Supplier<TestClock> tickerSupplier;
 
   private Supplier<ShardingEnvironment> shardingEnvironmentSupplier;
 

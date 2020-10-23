@@ -14,9 +14,10 @@
 package com.google.devtools.build.lib.analysis.stringtemplate;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
@@ -63,7 +64,7 @@ public class TemplateExpanderTest {
     context = new TemplateContextImpl();
   }
 
-  private String expand(String value) throws ExpansionException {
+  private Expansion expand(String value) throws ExpansionException {
     return TemplateExpander.expand(value, context);
   }
 
@@ -86,20 +87,27 @@ public class TemplateExpanderTest {
     context.vars.put("^", "src1 src2 dep1 dep2");
     context.vars.put("@D", "outdir");
     context.vars.put("BINDIR", "bindir");
+    context.vars.put("CUSTOMVAR", "custom val");
 
-    assertThat(expand("$(SRCS)")).isEqualTo("src1 src2");
-    assertThat(expand("$<")).isEqualTo("src1");
-    assertThat(expand("$(OUTS)")).isEqualTo("out1 out2");
-    assertThat(expand("$(@)")).isEqualTo("out1");
-    assertThat(expand("$@")).isEqualTo("out1");
-    assertThat(expand("$@,")).isEqualTo("out1,");
+    assertThat(expand("$(SRCS)")).isEqualTo(Expansion.create("src1 src2", ImmutableSet.of("SRCS")));
+    assertThat(expand("$<")).isEqualTo(Expansion.create("src1", ImmutableSet.of("<")));
+    assertThat(expand("$(OUTS)")).isEqualTo(Expansion.create("out1 out2", ImmutableSet.of("OUTS")));
+    assertThat(expand("$(@)")).isEqualTo(Expansion.create("out1", ImmutableSet.of("@")));
+    assertThat(expand("$@")).isEqualTo(Expansion.create("out1", ImmutableSet.of("@")));
+    assertThat(expand("$@,")).isEqualTo(Expansion.create("out1,", ImmutableSet.of("@")));
+    assertThat(expand("$(CUSTOMVAR)"))
+        .isEqualTo(Expansion.create("custom val", ImmutableSet.of("CUSTOMVAR")));
 
-    assertThat(expand("$(SRCS) $(OUTS)")).isEqualTo("src1 src2 out1 out2");
+    assertThat(expand("$(SRCS) $(OUTS)"))
+        .isEqualTo(Expansion.create("src1 src2 out1 out2", ImmutableSet.of("SRCS", "OUTS")));
 
-    assertThat(expand("cmd")).isEqualTo("cmd");
-    assertThat(expand("cmd $(SRCS),")).isEqualTo("cmd src1 src2,");
-    assertThat(expand("label1 $(SRCS),")).isEqualTo("label1 src1 src2,");
-    assertThat(expand(":label1 $(SRCS),")).isEqualTo(":label1 src1 src2,");
+    assertThat(expand("cmd")).isEqualTo(Expansion.create("cmd", ImmutableSet.of()));
+    assertThat(expand("cmd $(SRCS),"))
+        .isEqualTo(Expansion.create("cmd src1 src2,", ImmutableSet.of("SRCS")));
+    assertThat(expand("label1 $(SRCS),"))
+        .isEqualTo(Expansion.create("label1 src1 src2,", ImmutableSet.of("SRCS")));
+    assertThat(expand(":label1 $(SRCS),"))
+        .isEqualTo(Expansion.create(":label1 src1 src2,", ImmutableSet.of("SRCS")));
   }
 
   @Test
@@ -113,9 +121,12 @@ public class TemplateExpanderTest {
     context.functions.put("foo", (String p) -> "FOO(" + p + ")");
     context.vars.put("bar", "bar");
 
-    assertThat(expand("$(foo baz)")).isEqualTo("FOO(baz)");
-    assertThat(expand("$(bar) $(foo baz)")).isEqualTo("bar FOO(baz)");
-    assertThat(expand("xyz$(foo baz)zyx")).isEqualTo("xyzFOO(baz)zyx");
+    assertThat(expand("$(foo baz)"))
+        .isEqualTo(Expansion.create("FOO(baz)", ImmutableSet.of("foo")));
+    assertThat(expand("$(bar) $(foo baz)"))
+        .isEqualTo(Expansion.create("bar FOO(baz)", ImmutableSet.of("bar", "foo")));
+    assertThat(expand("xyz$(foo baz)zyx"))
+        .isEqualTo(Expansion.create("xyzFOO(baz)zyx", ImmutableSet.of("foo")));
   }
 
   @Test
@@ -155,7 +166,8 @@ public class TemplateExpanderTest {
     // Expansion is recursive: $(recursive) -> $(SRCS) -> "src1 src2"
     context.vars.put("SRCS", "src1 src2");
     context.vars.put("recursive", "$(SRCS)");
-    assertThat(expand("$(recursive)")).isEqualTo("src1 src2");
+    assertThat(expand("$(recursive)"))
+        .isEqualTo(Expansion.create("src1 src2", ImmutableSet.of("recursive", "SRCS")));
   }
 
   @Test
@@ -165,7 +177,8 @@ public class TemplateExpanderTest {
     context.vars.put("SRCS", "src1 src2");
     context.vars.put("recur2a", "$$");
     context.vars.put("recur2b", "(SRCS)");
-    assertThat(expand("$(recur2a)$(recur2b)")).isEqualTo("$(SRCS)");
+    assertThat(expand("$(recur2a)$(recur2b)"))
+        .isEqualTo(Expansion.create("$(SRCS)", ImmutableSet.of("recur2a", "recur2b")));
   }
 
   @Test
@@ -200,15 +213,18 @@ public class TemplateExpanderTest {
   @Test
   public void testDollarDollar() throws Exception {
     assertThat(expand("for file in a b c;do echo $$file;done"))
-        .isEqualTo("for file in a b c;do echo $file;done");
-    assertThat(expand("$${file%:.*8}")).isEqualTo("${file%:.*8}");
-    assertThat(expand("$$(basename file)")).isEqualTo("$(basename file)");
+        .isEqualTo(Expansion.create("for file in a b c;do echo $file;done", ImmutableSet.of()));
+    assertThat(expand("$${file%:.*8}"))
+        .isEqualTo(Expansion.create("${file%:.*8}", ImmutableSet.of()));
+    assertThat(expand("$$(basename file)"))
+        .isEqualTo(Expansion.create("$(basename file)", ImmutableSet.of()));
   }
 
   // Regression test: check that the parameter is trimmed before expanding.
   @Test
   public void testFunctionExpansionIsTrimmed() throws Exception {
     context.functions.put("foo", (String p) -> "FOO(" + p + ")");
-    assertThat(expand("$(foo  baz )")).isEqualTo("FOO(baz)");
+    assertThat(expand("$(foo  baz )"))
+        .isEqualTo(Expansion.create("FOO(baz)", ImmutableSet.of("foo")));
   }
 }

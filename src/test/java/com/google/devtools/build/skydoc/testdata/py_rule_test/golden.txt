@@ -1,0 +1,81 @@
+<!-- Generated with Stardoc: http://skydoc.bazel.build -->
+
+<a name="#py_related_rule"></a>
+
+## py_related_rule
+
+<pre>
+py_related_rule(<a href="#py_related_rule-name">name</a>, <a href="#py_related_rule-fifth">fifth</a>, <a href="#py_related_rule-first">first</a>, <a href="#py_related_rule-fourth">fourth</a>, <a href="#py_related_rule-second">second</a>, <a href="#py_related_rule-sixth">sixth</a>, <a href="#py_related_rule-third">third</a>)
+</pre>
+
+This rule does python-related things.
+
+### Attributes
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="py_related_rule-name">
+      <td><code>name</code></td>
+      <td>
+        <a href="https://bazel.build/docs/build-ref.html#name">Name</a>; required
+        <p>
+          A unique name for this target.
+        </p>
+      </td>
+    </tr>
+    <tr id="py_related_rule-fifth">
+      <td><code>fifth</code></td>
+      <td>
+        Boolean; optional
+        <p>
+          Hey look, its the fifth thing!
+        </p>
+      </td>
+    </tr>
+    <tr id="py_related_rule-first">
+      <td><code>first</code></td>
+      <td>
+        <a href="https://bazel.build/docs/build-ref.html#labels">Label</a>; required
+        <p>
+          this is the first doc string!
+        </p>
+      </td>
+    </tr>
+    <tr id="py_related_rule-fourth">
+      <td><code>fourth</code></td>
+      <td>
+        Boolean; optional
+        <p>
+          the fourth doc string.
+        </p>
+      </td>
+    </tr>
+    <tr id="py_related_rule-second">
+      <td><code>second</code></td>
+      <td>
+        <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: String -> String</a>; required
+      </td>
+    </tr>
+    <tr id="py_related_rule-sixth">
+      <td><code>sixth</code></td>
+      <td>
+        List of integers; optional
+        <p>
+          it's the sixth thing.
+        </p>
+      </td>
+    </tr>
+    <tr id="py_related_rule-third">
+      <td><code>third</code></td>
+      <td>
+        <a href="https://bazel.build/docs/build-ref.html#labels">Label</a>; required
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+

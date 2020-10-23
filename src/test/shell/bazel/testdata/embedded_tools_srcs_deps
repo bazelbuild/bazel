@@ -1,7 +1,3 @@
-@com_google_protobuf//:protoc
-@com_google_protobuf//:protoc_lib
-@com_google_protobuf//:protobuf
-@com_google_protobuf//:protobuf_lite
 //tools/test:tw
 //tools/test:tw_lib
 //tools/test:xml
@@ -11,7 +7,7 @@
 //third_party/ijar:platform_utils
 //third_party/def_parser:def_parser
 //third_party/def_parser:def_parser_lib
-//third_party/zlib:zlib
+//third_party/zlib:zlib_checked_in
 //src/tools/launcher:launcher
 //src/tools/launcher:python_launcher
 //src/tools/launcher:java_launcher
@@ -22,7 +18,6 @@
 //src/main/cpp/util:filesystem
 //src/main/native/windows:lib-file
 //src/main/native/windows:lib-process
-//src/main/native/windows:lib-util
 //src/main/cpp/util:strings
 //src/main/cpp/util:errors
 //src/main/cpp/util:port

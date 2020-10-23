@@ -18,9 +18,9 @@ package com.google.devtools.build.lib.network;
 public final class ConnectivityStatus {
   /** Enumerates common connectivity statuses and their generic short warnings. */
   public enum Status {
-    NO_CREDENTIALS("No credentials."),
-    NO_NETWORK("No internet connection."),
-    NOT_REACHABLE("Service not reachable."),
+    NO_CREDENTIALS("No credentials"),
+    NO_NETWORK("No internet connection"),
+    NOT_REACHABLE("Service not reachable"),
     OK("");
 
     /** Generic warning associated with this status. */
@@ -31,15 +31,23 @@ public final class ConnectivityStatus {
     }
   }
 
+  /**
+   * A string containing the names of the failing statuses, so that places that refer to them in a
+   * static context (ie. help for options that take these values as inputs) can stay in sync if
+   * {@link Status} is changed.
+   */
+  public static final String FAILING_STATUSES =
+      "'NO_CREDENTIALS', 'NO_NETWORK', and 'NOT_REACHABLE'";
+
   /** Service-specific information for this status. */
   public String serviceInfo;
 
   /** Generic category type for this status, which contains a generic warning. */
   public final Status status;
 
-  /** Returns the complete formatted warning for this status. */
-  public String fullWarning() {
-    return status.shortWarning + " " + serviceInfo;
+  @Override
+  public String toString() {
+    return serviceInfo.isEmpty() ? status.shortWarning : status.shortWarning + ": " + serviceInfo;
   }
 
   /**

@@ -21,7 +21,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.windows.jni.WindowsFileOperations;
+import com.google.devtools.build.lib.windows.WindowsFileOperations;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -60,6 +60,22 @@ public final class WindowsTestUtil {
               String.format("Could not create junction '%s' -> '%s'", e.getKey(), e.getValue()))
           .that(new File(scratchRoot, e.getKey()).exists())
           .isTrue();
+    }
+  }
+
+  /**
+   * Create symbolic links.
+   *
+   * <p>Each key in the map is a symlink path relative to {@link #scratchRoot}. These are the link
+   * names.
+   *
+   * <p>Each value in the map is a file path relative to {@link #scratchRoot}. These are the link
+   * targets.
+   */
+  public void createSymlinks(Map<String, String> links) throws Exception {
+    for (Map.Entry<String, String> entry : links.entrySet()) {
+      WindowsFileOperations.createSymlink(
+          scratchRoot + "/" + entry.getKey(), scratchRoot + "/" + entry.getValue());
     }
   }
 

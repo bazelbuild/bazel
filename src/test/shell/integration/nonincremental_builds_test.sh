@@ -156,7 +156,12 @@ function test_inmemory_state_absent_after_build_with_nokeep_state() {
     local server_pid="$(bazel info server_pid 2>> "$TEST_log")"
     "$jmaptool" -histo:live "$server_pid" > histo.txt
 
-    cat histo.txt >> "$TEST_log"
+    if grep -sq -- 'GenRuleAction$' histo.txt; then
+      # Tolerate the incremental state lingering for ever so slightly more time
+      # to account for temporary async work wrapping up.
+      "$jmaptool" -histo:live "$server_pid" > histo.txt
+    fi
+
     assert_not_contains "GenRuleAction$" histo.txt
     assert_not_contains "InMemoryNodeEntry" histo.txt
 }

@@ -20,15 +20,14 @@ import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier.MapBackedMakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier.TemplateVariableInfoBackedMakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import net.starlark.java.eval.Dict;
 
 /**
  * Implements make variable expansion for make variables that depend on the configuration and the
@@ -51,8 +50,7 @@ public class ConfigurationMakeVariableContext implements TemplateContext {
             .flatMap(
                 attrName ->
                     Streams.stream(
-                        ruleContext.getPrerequisites(
-                            attrName, Mode.DONT_CHECK, TemplateVariableInfo.PROVIDER)))
+                        ruleContext.getPrerequisites(attrName, TemplateVariableInfo.PROVIDER)))
             .collect(Collectors.toList());
     providers.addAll(fromAttributes);
 
@@ -66,7 +64,7 @@ public class ConfigurationMakeVariableContext implements TemplateContext {
 
   private final ImmutableList<? extends MakeVariableSupplier> allMakeVariableSuppliers;
 
-  // TODO(b/37567440): Remove when Skylark callers can be updated to get this from
+  // TODO(b/37567440): Remove when Starlark callers can be updated to get this from
   // CcToolchainProvider. We should use CcCommon.CC_TOOLCHAIN_ATTRIBUTE_NAME, but we didn't want to
   // pollute core with C++ specific constant.
   protected static final ImmutableList<String> DEFAULT_MAKE_VARIABLE_ATTRIBUTES =
@@ -121,14 +119,14 @@ public class ConfigurationMakeVariableContext implements TemplateContext {
     throw new ExpansionException(String.format("$(%s) not defined", name));
   }
 
-  public SkylarkDict<String, String> collectMakeVariables() throws ExpansionException {
+  public Dict<String, String> collectMakeVariables() throws ExpansionException {
     Map<String, String> map = new LinkedHashMap<>();
     // Collect variables in the reverse order as in lookupMakeVariable
     // because each update is overwriting.
     for (MakeVariableSupplier supplier : allMakeVariableSuppliers.reverse()) {
       map.putAll(supplier.getAllMakeVariables());
     }
-    return SkylarkDict.<String, String>copyOf(null, map);
+    return Dict.<String, String>copyOf(null, map);
   }
 
   @Override

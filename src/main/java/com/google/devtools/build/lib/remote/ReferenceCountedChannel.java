@@ -21,29 +21,38 @@ import io.netty.util.AbstractReferenceCounted;
 import io.netty.util.ReferenceCounted;
 import java.util.concurrent.TimeUnit;
 
-/** A wrapper around a {@link io.grpc.ManagedChannel} exposing a reference count.
- * When instantiated the reference count is 1. {@link ManagedChannel#shutdown()} will be called
- * on the wrapped channel when the reference count reaches 0.
+/**
+ * A wrapper around a {@link io.grpc.ManagedChannel} exposing a reference count. When instantiated
+ * the reference count is 1. {@link ManagedChannel#shutdown()} will be called on the wrapped channel
+ * when the reference count reaches 0.
  *
- * See {@link ReferenceCounted} for more information about reference counting.
+ * <p>See {@link ReferenceCounted} for more information about reference counting.
  */
-class ReferenceCountedChannel extends ManagedChannel implements ReferenceCounted {
+public class ReferenceCountedChannel extends ManagedChannel implements ReferenceCounted {
 
   private final ManagedChannel channel;
-  private final AbstractReferenceCounted referenceCounted = new AbstractReferenceCounted() {
-    @Override
-    protected void deallocate() {
-      channel.shutdown();
-    }
-
-    @Override
-    public ReferenceCounted touch(Object o) {
-      return this;
-    }
-  };
+  private final AbstractReferenceCounted referenceCounted;
 
   public ReferenceCountedChannel(ManagedChannel channel) {
+    this(
+        channel,
+        new AbstractReferenceCounted() {
+          @Override
+          protected void deallocate() {
+            channel.shutdown();
+          }
+
+          @Override
+          public ReferenceCounted touch(Object o) {
+            return this;
+          }
+        });
+  }
+
+  protected ReferenceCountedChannel(
+      ManagedChannel channel, AbstractReferenceCounted referenceCounted) {
     this.channel = channel;
+    this.referenceCounted = referenceCounted;
   }
 
   @Override
@@ -69,8 +78,8 @@ class ReferenceCountedChannel extends ManagedChannel implements ReferenceCounted
   }
 
   @Override
-  public boolean awaitTermination(long l, TimeUnit timeUnit) throws InterruptedException {
-    return channel.awaitTermination(l, timeUnit);
+  public boolean awaitTermination(long timeout, TimeUnit timeUnit) throws InterruptedException {
+    return channel.awaitTermination(timeout, timeUnit);
   }
 
   @Override

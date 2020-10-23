@@ -13,30 +13,25 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
-import com.google.devtools.build.lib.events.Location.LineAndColumn;
-import com.google.devtools.build.lib.vfs.PathFragment;
-
+import net.starlark.java.syntax.Location;
 import org.junit.Before;
 
+// Without 'public', tests fail in the guts of junit reflection.
+// TODO(adonovan): copy this code into all subclasses.
+// This is yet another terrible use of 'extends'.
 public abstract class EventTestTemplate {
 
   protected Event event;
-  protected PathFragment path;
+  protected String file;
   protected Location location;
-  protected Location locationNoPath;
-  protected Location locationNoLineInfo;
 
   @Before
   public final void createLocations() throws Exception  {
     String message = "This is not an error message.";
-    path = PathFragment.create("/path/to/workspace/my/sample/path.txt");
+    file = "/path/to/workspace/my/sample/path.txt";
 
-    location = Location.fromPathAndStartColumn(path, 21, 31, new LineAndColumn(3, 4));
+    location = Location.fromFileLineColumn(file, 3, 4);
 
     event = Event.of(EventKind.WARNING, location, message);
-
-    locationNoPath = Location.fromPathAndStartColumn(null, 21, 31, new LineAndColumn(3, 4));
-
-    locationNoLineInfo = Location.fromFileAndOffsets(path, 21, 31);
   }
 }

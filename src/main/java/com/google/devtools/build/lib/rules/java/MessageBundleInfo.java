@@ -14,46 +14,59 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
+import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.syntax.Location;
 
 /** Marks configured targets that are able to supply message bundles to their dependents. */
 @AutoCodec
 @Immutable
-public final class MessageBundleInfo extends NativeInfo {
+public final class MessageBundleInfo extends NativeInfo implements StarlarkValue {
 
-  public static final String SKYLARK_NAME = "MessageBundleInfo";
+  public static final String STARLARK_NAME = "MessageBundleInfo";
 
-  private static final SkylarkType LIST_OF_ARTIFACTS =
-      SkylarkType.Combination.of(SkylarkType.SEQUENCE, SkylarkType.of(Artifact.class));
+  /** Provider singleton constant. */
+  public static final BuiltinProvider<MessageBundleInfo> PROVIDER = new Provider();
 
-  private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
-      FunctionSignature.WithValues.create(
-          FunctionSignature.namedOnly("messages"),
-          /*defaultValues=*/ null,
-          /*types=*/ ImmutableList.of(LIST_OF_ARTIFACTS));
+  /** Provider class for {@link MessageBundleInfo} objects. */
+  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
+  public static class Provider extends BuiltinProvider<MessageBundleInfo> implements ProviderApi {
+    private Provider() {
+      super(STARLARK_NAME, MessageBundleInfo.class);
+    }
 
-  public static final NativeProvider<MessageBundleInfo> PROVIDER =
-      new NativeProvider<MessageBundleInfo>(MessageBundleInfo.class, SKYLARK_NAME, SIGNATURE) {
-        @Override
-        @SuppressWarnings("unchecked")
-        protected MessageBundleInfo createInstanceFromSkylark(
-            Object[] args, Environment env, Location loc) {
-          return new MessageBundleInfo(ImmutableList.copyOf((SkylarkList<Artifact>) args[0]), loc);
-        }
-      };
+    @StarlarkMethod(
+        name = "MessageBundleInfo",
+        doc = "The <code>MessageBundleInfo</code> constructor.",
+        documented = false,
+        parameters = {
+          @Param(name = "messages", positional = false, named = true),
+        },
+        selfCall = true,
+        useStarlarkThread = true)
+    public MessageBundleInfo messageBundleInfo(Sequence<?> messages, StarlarkThread thread)
+        throws EvalException {
+      List<Artifact> messagesList = Sequence.cast(messages, Artifact.class, "messages");
+      return new MessageBundleInfo(ImmutableList.copyOf(messagesList), thread.getCallerLocation());
+    }
+  }
 
   private final ImmutableList<Artifact> messages;
 
@@ -65,11 +78,7 @@ public final class MessageBundleInfo extends NativeInfo {
   @AutoCodec.Instantiator
   MessageBundleInfo(ImmutableList<Artifact> messages, Location location) {
     super(PROVIDER, location);
-    this.messages = ImmutableList.copyOf(messages);
-  }
-
-  public Location getLocation() {
-    return location;
+    this.messages = Preconditions.checkNotNull(messages);
   }
 
   public ImmutableList<Artifact> getMessages() {

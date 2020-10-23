@@ -17,6 +17,7 @@ import java.util.function.Function;
 
 public interface SpecializedFunction<S, T extends Number> extends Function<S, T> {
   Integer DO_NOT_COPY_INTO_LAMBDA_CLASSES = Integer.valueOf(42);
+
   @Override
   public T apply(S in);
 }

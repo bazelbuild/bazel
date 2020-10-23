@@ -28,9 +28,9 @@ public class InnerClassLambda {
 
   /**
    * Uses a lambda that refers to a method parameter across 2 nested anonymous inner classes as well
-   * as a field in the outer scope, the former being relatively unusual as it causes javac to emit
-   * 2 getfields to pass the captured parameter directly to the generated lambda class, covering
-   * an unusual branch in how we rewrite invokedynamics.
+   * as a field in the outer scope, the former being relatively unusual as it causes javac to emit 2
+   * getfields to pass the captured parameter directly to the generated lambda class, covering an
+   * unusual branch in how we rewrite invokedynamics.
    */
   public Function<List<String>, Callable<List<String>>> prefixFilter(String prefix) {
     return new Function<List<String>, Callable<List<String>>>() {
@@ -39,8 +39,7 @@ public class InnerClassLambda {
         return new Callable<List<String>>() {
           @Override
           public List<String> call() throws Exception {
-            return input
-                .stream()
+            return input.stream()
                 .filter(n -> n.startsWith(prefix) && reference.contains(n))
                 .collect(Collectors.toList());
           }

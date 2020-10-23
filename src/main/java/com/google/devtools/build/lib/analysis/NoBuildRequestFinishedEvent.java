@@ -20,6 +20,6 @@ import com.google.devtools.build.lib.util.ExitCode;
 /** {@link BuildEvent} indicating that a request that does not involve building as finished. */
 public final class NoBuildRequestFinishedEvent extends BuildCompletingEvent {
   public NoBuildRequestFinishedEvent(ExitCode exitCode, long finishTimeMillis) {
-    super(exitCode, finishTimeMillis);
+    super(exitCode, finishTimeMillis, false);
   }
 }

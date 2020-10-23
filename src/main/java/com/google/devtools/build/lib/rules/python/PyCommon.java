@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.python;
 
-import static com.google.devtools.build.lib.syntax.Runtime.NONE;
+import static net.starlark.java.eval.Starlark.NONE;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.Util;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
@@ -47,12 +46,11 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
+import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -63,40 +61,44 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /** A helper class for analyzing a Python configured target. */
 public final class PyCommon {
 
-  public static final String DEFAULT_PYTHON_VERSION_ATTRIBUTE = "default_python_version";
+  /** Name of the version attribute. */
   public static final String PYTHON_VERSION_ATTRIBUTE = "python_version";
 
   /**
-   * Returns the Python version based on the {@code python_version} and {@code
-   * default_python_version} attributes of the given {@code AttributeMap}.
+   * Name of the tag used by bazelbuild/rules_python to signal that a rule was instantiated through
+   * that repo.
+   */
+  private static final String MAGIC_TAG = "__PYTHON_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__";
+  /**
+   * Names of native rules that must be instantiated through bazelbuild/rules_python when {@code
+   * --incompatible_load_python_rules_from_bzl} is enabled.
+   */
+  private static final ImmutableList<String> RULES_REQUIRING_MAGIC_TAG =
+      ImmutableList.of("py_library", "py_binary", "py_test", "py_runtime");
+
+  /**
+   * Returns the Python version based on the {@code python_version} attribute of the given {@code
+   * AttributeMap}.
    *
-   * <p>It is expected that both attributes are defined, string-typed, and default to {@link
+   * <p>It is expected that the attribute is defined, string-typed, and defaults to {@link
    * PythonVersion#_INTERNAL_SENTINEL}. The returned version is the value of {@code python_version}
-   * if it is not the sentinel, then {@code default_python_version} if it is not the sentinel,
-   * otherwise null (when both attributes are sentinels). In all cases the return value is either a
-   * target version value ({@code PY2} or {@code PY3}) or null.
+   * if it is not the sentinel (in which case it is either {@code PY2} or {@code PY3}), or null if
+   * it is the sentinel.
    *
-   * @throws IllegalArgumentException if the attributes are not present, not string-typed, or not
-   *     parsable as target {@link PythonVersion} values or as the sentinel value
+   * @throws IllegalArgumentException if the attribute is not present, not string-typed, or not
+   *     parsable as a target {@link PythonVersion} value or the sentinel value
    */
   @Nullable
-  public static PythonVersion readPythonVersionFromAttributes(AttributeMap attrs) {
+  public static PythonVersion readPythonVersionFromAttribute(AttributeMap attrs) {
     PythonVersion pythonVersionAttr =
         PythonVersion.parseTargetOrSentinelValue(attrs.get(PYTHON_VERSION_ATTRIBUTE, Type.STRING));
-    PythonVersion defaultPythonVersionAttr =
-        PythonVersion.parseTargetOrSentinelValue(
-            attrs.get(DEFAULT_PYTHON_VERSION_ATTRIBUTE, Type.STRING));
-    if (pythonVersionAttr != PythonVersion._INTERNAL_SENTINEL) {
-      return pythonVersionAttr;
-    } else if (defaultPythonVersionAttr != PythonVersion._INTERNAL_SENTINEL) {
-      return defaultPythonVersionAttr;
-    } else {
-      return null;
-    }
+    return pythonVersionAttr != PythonVersion._INTERNAL_SENTINEL ? pythonVersionAttr : null;
   }
 
   private static final LocalMetadataCollector METADATA_COLLECTOR = new LocalMetadataCollector() {
@@ -186,14 +188,14 @@ public final class PyCommon {
   private static String getOrderErrorMessage(String fieldName, Order expected, Order actual) {
     return String.format(
         "Incompatible order for %s: expected 'default' or '%s', got '%s'",
-        fieldName, expected.getSkylarkName(), actual.getSkylarkName());
+        fieldName, expected.getStarlarkName(), actual.getStarlarkName());
   }
 
   public PyCommon(RuleContext ruleContext, PythonSemantics semantics) {
     this.ruleContext = ruleContext;
     this.semantics = semantics;
-    this.sourcesVersion = initSrcsVersionAttr(ruleContext);
     this.version = ruleContext.getFragment(PythonConfiguration.class).getPythonVersion();
+    this.sourcesVersion = initSrcsVersionAttr(ruleContext);
     this.dependencyTransitivePythonSources = initDependencyTransitivePythonSources(ruleContext);
     this.transitivePythonSources = initTransitivePythonSources(ruleContext);
     this.usesSharedLibraries = initUsesSharedLibraries(ruleContext);
@@ -202,11 +204,9 @@ public final class PyCommon {
     this.hasPy3OnlySources = initHasPy3OnlySources(ruleContext, this.sourcesVersion);
     this.runtimeFromToolchain = initRuntimeFromToolchain(ruleContext, this.version);
     this.convertedFiles = makeAndInitConvertedFiles(ruleContext, version, this.sourcesVersion);
-    maybeValidateVersionCompatibleWithOwnSourcesAttr();
-    validateTargetPythonVersionAttr(DEFAULT_PYTHON_VERSION_ATTRIBUTE);
-    validateTargetPythonVersionAttr(PYTHON_VERSION_ATTRIBUTE);
-    validateOldVersionAttrNotUsedIfDisabled();
+    validatePythonVersionAttr();
     validateLegacyProviderNotUsedIfDisabled();
+    maybeValidateLoadedFromBzl();
   }
 
   /** Returns the parsed value of the "srcs_version" attribute. */
@@ -236,10 +236,7 @@ public final class PyCommon {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.compileOrder();
     collectTransitivePythonSourcesFromDeps(ruleContext, builder);
     builder.addAll(
-        ruleContext
-            .getPrerequisiteArtifacts("srcs", Mode.TARGET)
-            .filter(PyRuleClasses.PYTHON_SOURCE)
-            .list());
+        ruleContext.getPrerequisiteArtifacts("srcs").filter(PyRuleClasses.PYTHON_SOURCE).list());
     return builder.build();
   }
 
@@ -249,7 +246,7 @@ public final class PyCommon {
    */
   private static void collectTransitivePythonSourcesFromDeps(
       RuleContext ruleContext, NestedSetBuilder<Artifact> builder) {
-    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps")) {
       try {
         builder.addTransitive(PyProviderUtils.getTransitiveSources(dep));
       } catch (EvalException e) {
@@ -275,10 +272,9 @@ public final class PyCommon {
     if (ruleContext.attributes().has("data")) {
       targets =
           Iterables.concat(
-              ruleContext.getPrerequisites("deps", Mode.TARGET),
-              ruleContext.getPrerequisites("data", Mode.DONT_CHECK));
+              ruleContext.getPrerequisites("deps"), ruleContext.getPrerequisites("data"));
     } else {
-      targets = ruleContext.getPrerequisites("deps", Mode.TARGET);
+      targets = ruleContext.getPrerequisites("deps");
     }
     for (TransitiveInfoCollection target : targets) {
       try {
@@ -295,7 +291,7 @@ public final class PyCommon {
   private static NestedSet<String> initImports(RuleContext ruleContext, PythonSemantics semantics) {
     NestedSetBuilder<String> builder = NestedSetBuilder.compileOrder();
     builder.addAll(semantics.getImports(ruleContext));
-    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps")) {
       try {
         NestedSet<String> imports = PyProviderUtils.getImports(dep);
         if (!builder.getOrder().isCompatible(imports.getOrder())) {
@@ -324,7 +320,7 @@ public final class PyCommon {
     if (sourcesVersion == PythonVersion.PY2ONLY) {
       return true;
     }
-    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps")) {
       try {
         if (PyProviderUtils.getHasPy2OnlySources(dep)) {
           return true;
@@ -346,7 +342,7 @@ public final class PyCommon {
     if (sourcesVersion == PythonVersion.PY3 || sourcesVersion == PythonVersion.PY3ONLY) {
       return true;
     }
-    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps")) {
       try {
         if (PyProviderUtils.getHasPy3OnlySources(dep)) {
           return true;
@@ -403,7 +399,7 @@ public final class PyCommon {
           String.format(
               "Error parsing the Python toolchain's ToolchainInfo: Expected a PyRuntimeInfo in "
                   + "field '%s', but got '%s'",
-              field, EvalUtils.getDataTypeName(fieldValue)));
+              field, Starlark.type(fieldValue)));
       return null;
     }
     PyRuntimeInfo pyRuntimeInfo = (PyRuntimeInfo) fieldValue;
@@ -478,6 +474,9 @@ public final class PyCommon {
   /**
    * If 2to3 conversion is to be done, creates the 2to3 actions and returns the map of converted
    * files; otherwise returns null.
+   *
+   * <p>May also return null and report a rule error if there is a problem creating an output file
+   * for 2to3 conversion.
    */
   // TODO(#1393): 2to3 conversion doesn't work in Bazel and the attempt to invoke it for Bazel
   // should be removed / factored away into PythonSemantics.
@@ -486,10 +485,7 @@ public final class PyCommon {
       RuleContext ruleContext, PythonVersion version, PythonVersion sourcesVersion) {
     if (sourcesVersion == PythonVersion.PY2 && version == PythonVersion.PY3) {
       Iterable<Artifact> artifacts =
-          ruleContext
-              .getPrerequisiteArtifacts("srcs", Mode.TARGET)
-              .filter(PyRuleClasses.PYTHON_SOURCE)
-              .list();
+          ruleContext.getPrerequisiteArtifacts("srcs").filter(PyRuleClasses.PYTHON_SOURCE).list();
       return PythonUtils.generate2to3Actions(ruleContext, artifacts);
     } else {
       return null;
@@ -497,85 +493,24 @@ public final class PyCommon {
   }
 
   /**
-   * Under the old version semantics ({@code
-   * --incompatible_allow_python_version_transitions=false}), checks that the {@code srcs_version}
-   * attribute is compatible with the Python version as determined by the configuration.
-   *
-   * <p>A failure is reported as a rule error.
-   *
-   * <p>This check is local to the current target and intended to be enforced by each {@code
-   * py_library} up the dependency chain.
-   *
-   * <p>No-op under the new version semantics.
-   */
-  private void maybeValidateVersionCompatibleWithOwnSourcesAttr() {
-    if (ruleContext.getFragment(PythonConfiguration.class).useNewPyVersionSemantics()) {
-      return;
-    }
-    // Treat PY3 as PY3ONLY: we'll never implement 3to2.
-    if ((version == PythonVersion.PY2 || version == PythonVersion.PY2AND3)
-        && (sourcesVersion == PythonVersion.PY3 || sourcesVersion == PythonVersion.PY3ONLY)) {
-      ruleContext.ruleError(
-          "Rule '"
-              + ruleContext.getLabel()
-              + "' can only be used with Python 3, and cannot be converted to Python 2");
-    }
-    if ((version == PythonVersion.PY3 || version == PythonVersion.PY2AND3)
-        && sourcesVersion == PythonVersion.PY2ONLY) {
-      ruleContext.ruleError(
-          "Rule '"
-              + ruleContext.getLabel()
-              + "' can only be used with Python 2, and cannot be converted to Python 3");
-    }
-  }
-
-  /**
-   * Reports an attribute error if the given target Python version attribute ({@code
-   * default_python_version} or {@code python_version}) cannot be parsed as {@code PY2}, {@code
+   * Reports an attribute error if {@code python_version} cannot be parsed as {@code PY2}, {@code
    * PY3}, or the sentinel value.
    *
    * <p>This *should* be enforced by rule attribute validation ({@link
    * Attribute.Builder.allowedValues}), but this check is here to fail-fast just in case.
    */
-  private void validateTargetPythonVersionAttr(String attr) {
+  private void validatePythonVersionAttr() {
     AttributeMap attrs = ruleContext.attributes();
-    if (!attrs.has(attr, Type.STRING)) {
+    if (!attrs.has(PYTHON_VERSION_ATTRIBUTE, Type.STRING)) {
       return;
     }
-    String attrValue = attrs.get(attr, Type.STRING);
+    String attrValue = attrs.get(PYTHON_VERSION_ATTRIBUTE, Type.STRING);
     try {
       PythonVersion.parseTargetOrSentinelValue(attrValue);
     } catch (IllegalArgumentException ex) {
       ruleContext.attributeError(
-          attr,
+          PYTHON_VERSION_ATTRIBUTE,
           String.format("'%s' is not a valid value. Expected either 'PY2' or 'PY3'", attrValue));
-    }
-  }
-
-  /**
-   * Reports an attribute error if the {@code default_python_version} attribute is set but
-   * disallowed by the configuration.
-   */
-  private void validateOldVersionAttrNotUsedIfDisabled() {
-    AttributeMap attrs = ruleContext.attributes();
-    if (!attrs.has(DEFAULT_PYTHON_VERSION_ATTRIBUTE, Type.STRING)) {
-      return;
-    }
-    PythonVersion value;
-    try {
-      value =
-          PythonVersion.parseTargetOrSentinelValue(
-              attrs.get(DEFAULT_PYTHON_VERSION_ATTRIBUTE, Type.STRING));
-    } catch (IllegalArgumentException e) {
-      // Should be reported by validateTargetPythonVersionAttr(); no action required here.
-      return;
-    }
-    PythonConfiguration config = ruleContext.getFragment(PythonConfiguration.class);
-    if (value != PythonVersion._INTERNAL_SENTINEL && !config.oldPyVersionApiAllowed()) {
-      ruleContext.attributeError(
-          DEFAULT_PYTHON_VERSION_ATTRIBUTE,
-          "the 'default_python_version' attribute is disabled by the "
-              + "'--incompatible_remove_old_python_version_api' flag");
     }
   }
 
@@ -587,7 +522,7 @@ public final class PyCommon {
     if (!ruleContext.getFragment(PythonConfiguration.class).disallowLegacyPyProvider()) {
       return;
     }
-    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps")) {
       if (PyProviderUtils.hasLegacyProvider(dep)) {
         ruleContext.attributeError(
             "deps",
@@ -601,30 +536,57 @@ public final class PyCommon {
   }
 
   /**
-   * Under the new version semantics ({@code --incompatible_allow_python_version_transitions=true}),
-   * if the Python version (as determined by the configuration) is inconsistent with {@link
+   * If {@code --incompatible_load_python_rules_from_bzl} is enabled, reports a rule error if the
+   * rule is one of the ones that has a redirect in bazelbuild/rules_python, and either 1) the magic
+   * tag {@code __PYTHON_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__} is not present, or 2) the target
+   * was not created in a macro.
+   *
+   * <p>No-op otherwise.
+   */
+  private void maybeValidateLoadedFromBzl() {
+    if (!ruleContext.getFragment(PythonConfiguration.class).loadPythonRulesFromBzl()) {
+      return;
+    }
+    String ruleName = ruleContext.getRule().getRuleClass();
+    if (!RULES_REQUIRING_MAGIC_TAG.contains(ruleName)) {
+      return;
+    }
+
+    boolean hasMagicTag =
+        ruleContext.attributes().get("tags", Type.STRING_LIST).contains(MAGIC_TAG);
+    if (!hasMagicTag || !ruleContext.getRule().wasCreatedByMacro()) {
+      ruleContext.ruleError(
+          "Direct access to the native Python rules is deprecated. Please load "
+              + ruleName
+              + " from the rules_python repository. See http://github.com/bazelbuild/rules_python "
+              + "and https://github.com/bazelbuild/bazel/issues/9006. You can temporarily bypass "
+              + "this error by setting --incompatible_load_python_rules_from_bzl=false.");
+    }
+  }
+
+  /**
+   * If the Python version (as determined by the configuration) is inconsistent with {@link
    * #hasPy2OnlySources} or {@link #hasPy3OnlySources}, emits a {@link FailAction} that "generates"
    * the executable.
-   *
-   * <p>If the version is consistent, or if we are using the old semantics, no such action is
-   * emitted.
    *
    * <p>We use a {@code FailAction} rather than a rule error because we want to defer the error
    * until the execution phase. This way, we still get a configured target that the user can query
    * over with an aspect to find the exact transitive dependency that introduced the offending
-   * version constraint.
+   * version constraint. (See {@code <tools repo>//tools/python/srcs_version.bzl%find_requirements})
    *
    * @return true if a {@link FailAction} was created
    */
   private boolean maybeCreateFailActionDueToTransitiveSourcesVersion() {
-    if (!ruleContext.getFragment(PythonConfiguration.class).useNewPyVersionSemantics()) {
-      return false;
-    }
     String errorTemplate =
-        "This target is being built for Python %s but (transitively) includes Python %s-only "
+        ruleContext.getLabel()
+            + ": "
+            + "This target is being built for Python %s but (transitively) includes Python %s-only "
             + "sources. You can get diagnostic information about which dependencies introduce this "
-            + "version requirement by running the `find_requirements` aspect. For more info see "
-            + "the documentation for the `srcs_version` attribute.";
+            + "version requirement by running the `find_requirements` aspect. If this is used in a "
+            + "genrule, you may need to migrate from tools to exec_tools. For more info see "
+            + "the documentation for the `srcs_version` attribute: "
+            + semantics.getSrcsVersionDocURL();
+
     String error = null;
     if (version == PythonVersion.PY2 && hasPy3OnlySources) {
       error = String.format(errorTemplate, "2", "3");
@@ -635,7 +597,11 @@ public final class PyCommon {
       return false;
     } else {
       ruleContext.registerAction(
-          new FailAction(ruleContext.getActionOwner(), ImmutableList.of(executable), error));
+          new FailAction(
+              ruleContext.getActionOwner(),
+              ImmutableList.of(executable),
+              error,
+              Code.INCORRECT_PYTHON_VERSION));
       return true;
     }
   }
@@ -646,6 +612,68 @@ public final class PyCommon {
 
   public PythonVersion getSourcesVersion() {
     return sourcesVersion;
+  }
+
+  /**
+   * Returns whether, in the case that a user Python program fails, the stub script should emit a
+   * warning that the failure may have been caused by the host configuration using the wrong Python
+   * version.
+   *
+   * <p>This method should only be called for executable Python rules.
+   *
+   * <p>Background: Historically, Bazel did not necessarily launch a Python interpreter whose
+   * version corresponded to the one determined by the analysis phase (#4815). Enabling Python
+   * toolchains fixed this bug. However, this caused some builds to break due to targets that
+   * contained Python-2-only code yet got analyzed for (and now run with) Python 3. This is
+   * particularly problematic for the host configuration, where the value of {@code
+   * --host_force_python} overrides the declared or implicit Python version of the target.
+   *
+   * <p>Our mitigation for this is to warn users when a Python target has a non-zero exit code and
+   * the failure could be due to a bad Python version in the host configuration. In this case,
+   * instead of just giving the user a confusing traceback of a PY2 vs PY3 error, we append a
+   * diagnostic message to stderr. See #7899 and especially #8549 for context.
+   *
+   * <p>This method returns true when all of the following hold:
+   *
+   * <ol>
+   *   <li>Python toolchains are enabled. (The warning is needed the most when toolchains are
+   *       enabled, since that's an incompatible change likely to cause breakages. At the same time,
+   *       warning when toolchains are disabled could be misleading, since we don't actually know
+   *       whether the interpreter invoked at runtime is correct.)
+   *   <li>The target is built in the host configuration. This avoids polluting stderr with spurious
+   *       warnings for non-host-configured targets, while covering the most problematic case.
+   *   <li>Either the value of {@code --host_force_python} overrode the target's normal Python
+   *       version to a different value (in which case we know a mismatch occurred), or else {@code
+   *       --host_force_python} is in agreement with the target's version but the target's version
+   *       was set by default instead of explicitly (in which case we suspect the target may have
+   *       been defined incorrectly).
+   * </ol>
+   *
+   * @throws IllegalArgumentException if there is a problem parsing the Python version from the
+   *     attributes; see {@link #readPythonVersionFromAttribute}.
+   */
+  // TODO(#6443): Remove this logic and the corresponding stub script logic once we no longer have
+  // the possibility of Python binaries appearing in the host configuration.
+  public boolean shouldWarnAboutHostVersionUponFailure() {
+    // Only warn when toolchains are used.
+    PythonConfiguration config = ruleContext.getFragment(PythonConfiguration.class);
+    if (!config.useToolchains()) {
+      return false;
+    }
+    // Only warn in the host config.
+    if (!ruleContext.getConfiguration().isHostConfiguration()) {
+      return false;
+    }
+
+    PythonVersion configVersion = config.getPythonVersion();
+    PythonVersion attrVersion = readPythonVersionFromAttribute(ruleContext.attributes());
+    if (attrVersion == null) {
+      // Warn if the version wasn't set explicitly.
+      return true;
+    } else {
+      // Warn if the explicit version is different from the host config's version.
+      return configVersion != attrVersion;
+    }
   }
 
   /**
@@ -738,7 +766,7 @@ public final class PyCommon {
     } else if (OS.getCurrent() == OS.WINDOWS) {
       // TODO(bazel-team): Here we should check target platform instead of using OS.getCurrent().
       // On Windows, add the python stub launcher in the set of files to build.
-      filesToBuildBuilder.add(getPythonLauncherArtifact(executable));
+      filesToBuildBuilder.add(getPythonStubArtifactForWindows(executable));
     }
 
     filesToBuild = filesToBuildBuilder.build();
@@ -750,19 +778,53 @@ public final class PyCommon {
     addPyExtraActionPseudoAction();
   }
 
-  /** @return An artifact next to the executable file with ".zip" suffix */
+  /** @return an artifact next to the executable file with a given suffix. */
+  private Artifact getArtifactWithExtension(Artifact executable, String extension) {
+    // On Windows, the Python executable has .exe extension on Windows,
+    // On Linux, the Python executable has no extension.
+    // We can't use ruleContext#getRelatedArtifact because it would mangle files with dots in the
+    // name on non-Windows platforms.
+    PathFragment pathFragment =
+        executable.getOutputDirRelativePath(
+            ruleContext.getConfiguration().isSiblingRepositoryLayout());
+    String fileName = executable.getFilename();
+    if (OS.getCurrent() == OS.WINDOWS) {
+      Preconditions.checkArgument(fileName.endsWith(".exe"));
+      fileName = fileName.substring(0, fileName.length() - 4) + extension;
+    } else {
+      fileName = fileName + extension;
+    }
+    return ruleContext.getDerivedArtifact(pathFragment.replaceName(fileName), executable.getRoot());
+  }
+
+  /** Returns an artifact next to the executable file with ".zip" suffix. */
   public Artifact getPythonZipArtifact(Artifact executable) {
-    return ruleContext.getRelatedArtifact(executable.getRootRelativePath(), ".zip");
+    return getArtifactWithExtension(executable, ".zip");
   }
 
-  /** @return An artifact next to the executable file with no suffix, only used on Windows */
-  public Artifact getPythonLauncherArtifact(Artifact executable) {
-    return ruleContext.getRelatedArtifact(executable.getRootRelativePath(), "");
+  /**
+   * Returns an artifact next to the executable file with ".temp" suffix. Used only if we're
+   * building a zip.
+   */
+  public Artifact getPythonIntermediateStubArtifact(Artifact executable) {
+    return getArtifactWithExtension(executable, ".temp");
   }
 
-  public void addCommonTransitiveInfoProviders(
-      RuleConfiguredTargetBuilder builder, NestedSet<Artifact> filesToBuild) {
+  /** Returns an artifact next to the executable file with no suffix. Only called for Windows. */
+  public Artifact getPythonStubArtifactForWindows(Artifact executable) {
+    return ruleContext.getRelatedArtifact(
+        executable.getOutputDirRelativePath(
+            ruleContext.getConfiguration().isSiblingRepositoryLayout()),
+        "");
+  }
 
+  /**
+   * Adds a PyInfo or legacy "py" provider.
+   *
+   * <p>This is a public method because some rules just want a PyInfo provider without the other
+   * things py_library needs.
+   */
+  public void addPyInfoProvider(RuleConfiguredTargetBuilder builder) {
     boolean createLegacyPyProvider =
         !ruleContext.getFragment(PythonConfiguration.class).disallowLegacyPyProvider();
     PyProviderUtils.builder(createLegacyPyProvider)
@@ -772,6 +834,16 @@ public final class PyCommon {
         .setHasPy2OnlySources(hasPy2OnlySources)
         .setHasPy3OnlySources(hasPy3OnlySources)
         .buildAndAddToTarget(builder);
+  }
+
+  public void addCommonTransitiveInfoProviders(
+      RuleConfiguredTargetBuilder builder, NestedSet<Artifact> filesToBuild) {
+    addPyInfoProvider(builder);
+
+    // Add PyRuntimeInfo if this is an executable rule.
+    if (runtimeFromToolchain != null) {
+      builder.addNativeDeclaredProvider(runtimeFromToolchain);
+    }
 
     builder
         .addNativeDeclaredProvider(
@@ -779,7 +851,7 @@ public final class PyCommon {
                 ruleContext,
                 semantics.getCoverageInstrumentationSpec(),
                 METADATA_COLLECTOR,
-                filesToBuild,
+                filesToBuild.toList(),
                 /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER)))
         // Python targets are not really compilable. The best we can do is make sure that all
         // generated source files are ready.
@@ -794,7 +866,7 @@ public final class PyCommon {
     List<Artifact> sourceFiles = new ArrayList<>();
     // TODO(bazel-team): Need to get the transitive deps closure, not just the sources of the rule.
     for (TransitiveInfoCollection src :
-        ruleContext.getPrerequisitesIf("srcs", Mode.TARGET, FileProvider.class)) {
+        ruleContext.getPrerequisitesIf("srcs", FileProvider.class)) {
       // Make sure that none of the sources contain hyphens.
       if (Util.containsHyphen(src.getLabel().getPackageFragment())) {
         ruleContext.attributeError("srcs",
@@ -802,7 +874,8 @@ public final class PyCommon {
       }
       Iterable<Artifact> pySrcs =
           FileType.filter(
-              src.getProvider(FileProvider.class).getFilesToBuild(), PyRuleClasses.PYTHON_SOURCE);
+              src.getProvider(FileProvider.class).getFilesToBuild().toList(),
+              PyRuleClasses.PYTHON_SOURCE);
       Iterables.addAll(sourceFiles, pySrcs);
       if (Iterables.isEmpty(pySrcs)) {
         ruleContext.attributeWarning("srcs",
@@ -837,31 +910,34 @@ public final class PyCommon {
             ruleContext.getActionOwner(),
             // Has to be unfiltered sources as filtered will give an error for
             // unsupported file types where as certain tests only expect a warning.
-            ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list(),
+            ruleContext.getPrerequisiteArtifacts("srcs").list(),
             // We must not add the files declared in the srcs of this rule.;
             dependencyTransitivePythonSources,
             PseudoAction.getDummyOutput(ruleContext)));
   }
 
   /**
-   * Creates a {@link PseudoAction} that is only used for providing
-   * information to the blaze extra_action feature.
+   * Creates a {@link PseudoAction} that is only used for providing information to the blaze
+   * extra_action feature.
    */
   public static Action makePyExtraActionPseudoAction(
       ActionOwner owner,
-      Iterable<Artifact> sources,
-      Iterable<Artifact> dependencies,
+      List<Artifact> sources,
+      NestedSet<Artifact> dependencies,
       Artifact output) {
 
     PythonInfo info =
         PythonInfo.newBuilder()
             .addAllSourceFile(Artifact.toExecPaths(sources))
-            .addAllDepFile(Artifact.toExecPaths(dependencies))
+            .addAllDepFile(Artifact.toExecPaths(dependencies.toList()))
             .build();
 
     return new PyPseudoAction(
         owner,
-        NestedSetBuilder.wrap(Order.STABLE_ORDER, Iterables.concat(sources, dependencies)),
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addAll(sources)
+            .addTransitive(dependencies)
+            .build(),
         ImmutableList.of(output),
         "Python",
         PYTHON_INFO,
@@ -891,7 +967,7 @@ public final class PyCommon {
     PathFragment mainSourcePath = PathFragment.create(mainSourceName);
 
     Artifact mainArtifact = null;
-    for (Artifact outItem : ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list()) {
+    for (Artifact outItem : ruleContext.getPrerequisiteArtifacts("srcs").list()) {
       if (outItem.getRootRelativePath().endsWith(mainSourcePath)) {
         if (mainArtifact == null) {
           mainArtifact = outItem;
@@ -936,13 +1012,11 @@ public final class PyCommon {
    * trigger an execution-time failure. See {@link
    * #maybeCreateFailActionDueToTransitiveSourcesVersion}.
    */
-  public Artifact createExecutable(CcInfo ccInfo, Runfiles.Builder defaultRunfilesBuilder)
+  public void createExecutable(CcInfo ccInfo, Runfiles.Builder defaultRunfilesBuilder)
       throws InterruptedException, RuleErrorException {
     boolean failed = maybeCreateFailActionDueToTransitiveSourcesVersion();
-    if (failed) {
-      return executable;
-    } else {
-      return semantics.createExecutable(ruleContext, this, ccInfo, defaultRunfilesBuilder);
+    if (!failed) {
+      semantics.createExecutable(ruleContext, this, ccInfo, defaultRunfilesBuilder);
     }
   }
 

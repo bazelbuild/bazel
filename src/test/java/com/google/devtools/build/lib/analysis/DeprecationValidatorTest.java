@@ -58,16 +58,6 @@ public final class DeprecationValidatorTest extends BuildViewTestCase {
   }
 
   @Test
-  public void noDeprecationWarningForJavatestsCompanionOfJavaPackage() throws Exception {
-    scratchConfiguredTarget(
-        "java/a",
-        "b",
-        "filegroup(name='b', deprecation='ignored because depending target is javatests match')");
-    scratchConfiguredTarget("javatests/a", "a", "filegroup(name='a', srcs=['//java/a:b'])");
-    assertNoEvents();
-  }
-
-  @Test
   public void deprecationWarningForJavaCompanionOfJavatestsPackage() throws Exception {
     scratchConfiguredTarget(
         "javatests/a",

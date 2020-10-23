@@ -23,6 +23,10 @@ source "${CURRENT_DIR}/../shell_utils.sh" \
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+# Load the helper utils.
+source "${CURRENT_DIR}/java_integration_test_utils.sh" \
+  || { echo "java_integration_test_utils.sh not found!" >&2; exit 1; }
+
 set -eu
 
 declare -r runfiles_relative_javabase="$1"
@@ -260,50 +264,7 @@ java_runtime(
 )
 EOF
 
-  if [ ! -f buildenv/platforms/BUILD ]; then
-  cat >> "$pkg/jvm/BUILD" <<EOF
-constraint_setting(
-    name = 'constraint_setting',
-)
-constraint_value(
-    name = 'constraint',
-    constraint_setting = ':constraint_setting',
-)
-toolchain(
-    name = 'java_runtime_toolchain',
-    toolchain = ':runtime',
-    toolchain_type = '//tools/jdk:runtime_toolchain_type',
-    target_compatible_with = [':constraint'],
-)
-platform(
-    name = 'platform',
-    constraint_values = [":constraint"],
-)
-EOF
-  else
-  cat >> "$pkg/jvm/BUILD" <<EOF
-constraint_value(
-    name = 'constraint',
-    constraint_setting = '//buildenv/platforms/java/constraints:runtime',
-)
-toolchain(
-    name = 'java_runtime_toolchain',
-    toolchain = ':runtime',
-    toolchain_type = '//tools/jdk:runtime_toolchain_type',
-    target_compatible_with = [':constraint'],
-)
-platform(
-    name = 'platform',
-    constraint_values = [
-        ":constraint",
-        "//buildenv/platforms/java/constraints:java8",
-        "//buildenv/platforms:linux",
-        "//buildenv/platforms:x86_64",
-    ],
-)
-EOF
-  fi
-
+  create_java_test_platforms
 
   # Set javabase to an absolute path.
   bazel build //$pkg/java/hello:hello //$pkg/java/hello:hello_deploy.jar \
@@ -887,6 +848,42 @@ EOF
       || fail "Expected success"
   bazel run //$pkg/java/hello:hello -- --singlejar >& "$TEST_log"
   expect_log "Hello World!"
+}
+
+
+function test_arg_compile_action() {
+  local package="${FUNCNAME[0]}"
+  mkdir -p "${package}"
+
+  cat > "${package}/lib.bzl" <<EOF
+def _actions_test_impl(target, ctx):
+    action = target.actions[0] # digest action
+    if action.mnemonic != "Javac":
+      fail("Expected the first action to be Javac.")
+    aspect_out = ctx.actions.declare_file('aspect_out')
+    ctx.actions.run_shell(inputs = action.inputs,
+                          outputs = [aspect_out],
+                          command = "echo \$@ > " + aspect_out.path,
+                          arguments = action.args)
+    return [OutputGroupInfo(out=[aspect_out])]
+
+actions_test_aspect = aspect(implementation = _actions_test_impl)
+EOF
+
+  touch "${package}/x.java"
+  cat > "${package}/BUILD" <<EOF
+java_library(
+  name = "x",
+  srcs = ["x.java"],
+)
+EOF
+
+  bazel build "${package}:x" \
+      --aspects="//${package}:lib.bzl%actions_test_aspect" \
+      --output_groups=out
+
+  cat "${PRODUCT_NAME}-bin/${package}/aspect_out" | grep "0.params .*1.params" \
+      || fail "aspect Args do not contain both params files"
 }
 
 run_suite "Java integration tests"

@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.worker;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -85,7 +85,7 @@ public class ErrorMessageTest {
 
   @Test
   public void testErrorMessageWithLogFile() throws Exception {
-    InMemoryFileSystem fs = new InMemoryFileSystem();
+    InMemoryFileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     Path logFile = fs.getPath("/log.txt");
     FileSystemUtils.writeContent(logFile, UTF_8, logText);
     ErrorMessage errorMessage =
@@ -100,11 +100,7 @@ public class ErrorMessageTest {
 
   @Test
   public void testErrorMessageWithUnreadableLogFile() {
-    if (OS.getCurrent() == OS.WINDOWS) {
-      // TODO(#3536): This test is failing on Windows, probably due to line breaks. Fix it!
-      return;
-    }
-    InMemoryFileSystem fs = new InMemoryFileSystem();
+    InMemoryFileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     // This file does not exist.
     Path logFile = fs.getPath("/nope.txt");
     ErrorMessage errorMessage =
@@ -114,7 +110,7 @@ public class ErrorMessageTest {
             "Error with log file\n\n"
                 + "---8<---8<--- Start of log, file at /nope.txt ---8<---8<---\n"
                 + "ERROR: IOException while trying to read log file:\n"
-                + "java.io.FileNotFoundException: /nope.txt (No such file or directory)\n");
+                + "java.io.FileNotFoundException: /nope.txt (No such file or directory)");
     assertThat(errorMessage.toString()).endsWith("---8<---8<--- End of log ---8<---8<---");
   }
 

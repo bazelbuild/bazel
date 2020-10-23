@@ -23,12 +23,21 @@ import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLeve
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryUtil;
+import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.QueryRuntimeHelper;
-import com.google.devtools.build.lib.runtime.QueryRuntimeHelper.Factory.CommandLineException;
+import com.google.devtools.build.lib.runtime.QueryRuntimeHelper.QueryRuntimeHelperException;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Query;
+import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
+import java.util.Collection;
+import java.util.Set;
 
 /**
  * Version of {@link BuildTool} that handles all work for queries based on results from the analysis
@@ -44,11 +53,8 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
   }
 
   @Override
-  protected void postProcessAnalysisResult(
-      BuildRequest request,
-      AnalysisResult analysisResult)
-      throws InterruptedException, ViewCreationFailedException,
-          PostAnalysisQueryCommandLineException {
+  protected void postProcessAnalysisResult(BuildRequest request, AnalysisResult analysisResult)
+      throws InterruptedException, ViewCreationFailedException, ExitException {
     // TODO: b/71905538 - this query will operate over the graph as constructed by analysis, but
     // will also pick up any nodes that are in the graph from prior builds. This makes the results
     // not reproducible at the level of a single command. Either tolerate, or wipe the analysis
@@ -56,9 +62,14 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
     // (SkyframeExecutor#handleAnalysisInvalidatingChange should be sufficient).
     if (queryExpression != null) {
       if (!env.getSkyframeExecutor().tracksStateForIncrementality()) {
-        throw new PostAnalysisQueryCommandLineException(
-            "Queries based on analysis results are not allowed "
-                + "if incrementality state is not being kept");
+        throw new ExitException(
+            DetailedExitCode.of(
+                FailureDetail.newBuilder()
+                    .setMessage(
+                        "Queries based on analysis results are not allowed if incrementality state"
+                            + " is not being kept")
+                    .setQuery(Query.newBuilder().setCode(Code.ANALYSIS_QUERY_PREREQ_UNMET))
+                    .build()));
       }
       try (QueryRuntimeHelper queryRuntimeHelper =
           env.getRuntime().getQueryRuntimeHelperFactory().create(env)) {
@@ -66,15 +77,28 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
             request,
             analysisResult.getConfigurationCollection().getHostConfiguration(),
             new TopLevelConfigurations(analysisResult.getTopLevelTargetsWithConfigs()),
+            env.getSkyframeExecutor().getTransitiveConfigurationKeys(),
             queryRuntimeHelper,
             queryExpression);
-      } catch (QueryException | IOException e) {
+      } catch (QueryException e) {
+        String errorMessage = "Error doing post analysis query";
         if (!request.getKeepGoing()) {
-          throw new ViewCreationFailedException("Error doing post analysis query", e);
+          throw new ViewCreationFailedException(errorMessage, e.getFailureDetail(), e);
         }
-        env.getReporter().error(null, "Error doing post analysis query", e);
-      } catch (CommandLineException e) {
-        throw new PostAnalysisQueryCommandLineException(e.getMessage());
+        env.getReporter().error(null, errorMessage, e);
+      } catch (IOException e) {
+        String errorMessage = "I/O error doing post analysis query";
+        if (!request.getKeepGoing()) {
+          FailureDetail failureDetail =
+              FailureDetail.newBuilder()
+                  .setMessage(errorMessage + ": " + e.getMessage())
+                  .setQuery(Query.newBuilder().setCode(Code.OUTPUT_FORMATTER_IO_EXCEPTION))
+                  .build();
+          throw new ViewCreationFailedException(errorMessage, failureDetail, e);
+        }
+        env.getReporter().error(null, errorMessage, e);
+      } catch (QueryRuntimeHelperException e) {
+        throw new ExitException(DetailedExitCode.of(e.getFailureDetail()));
       }
     }
   }
@@ -83,20 +107,28 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
       BuildRequest request,
       BuildConfiguration hostConfiguration,
       TopLevelConfigurations topLevelConfigurations,
-      WalkableGraph walkableGraph);
+      Collection<SkyKey> transitiveConfigurationKeys,
+      WalkableGraph walkableGraph)
+      throws InterruptedException;
 
   private void doPostAnalysisQuery(
       BuildRequest request,
       BuildConfiguration hostConfiguration,
       TopLevelConfigurations topLevelConfigurations,
+      Collection<SkyKey> transitiveConfigurationKeys,
       QueryRuntimeHelper queryRuntimeHelper,
       QueryExpression queryExpression)
-      throws InterruptedException, QueryException, IOException {
+      throws InterruptedException, QueryException, IOException, QueryRuntimeHelperException {
     WalkableGraph walkableGraph =
         SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
 
     PostAnalysisQueryEnvironment<T> postAnalysisQueryEnvironment =
-        getQueryEnvironment(request, hostConfiguration, topLevelConfigurations, walkableGraph);
+        getQueryEnvironment(
+            request,
+            hostConfiguration,
+            topLevelConfigurations,
+            transitiveConfigurationKeys,
+            walkableGraph);
 
     Iterable<NamedThreadSafeOutputFormatterCallback<T>> callbacks =
         postAnalysisQueryEnvironment.getDefaultOutputFormatters(
@@ -120,18 +152,33 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
                       NamedThreadSafeOutputFormatterCallback.callbackNames(callbacks))));
       return;
     }
+
+    // A certain subset of output formatters support "streaming" results - the formatter is called
+    // multiple times where each call has only a some of the full query results (see
+    // StreamedOutputFormatter for details). cquery and aquery don't do this. But the reason is
+    // subtle and hard to follow. Post-analysis output formatters inherit from Callback, which
+    // declares "void process(Iterable<T> partialResult)". Its javadoc says that the subinterface
+    // BatchCallback may stream partial results. But post-analysis callbacks don't inherit
+    // BatchCallback!
+    //
+    // To protect against accidental feature regression (like implementing a callback that
+    // accidentally inherits BatchCallback), we explicitly disable streaming here. The aggregating
+    // callback collects the entire query's results, even if the query was evaluated in a streaming
+    // manner. Note that streaming query evaluation is a distinct concept from streaming output
+    // formatting. Once the complete query finishes, we replay the full results back to the original
+    // callback. That way callback implementations can safely assume they're only called once and
+    // the results for that call are indeed complete.
+    AggregateAllOutputFormatterCallback<T, Set<T>> aggregateResultsCallback =
+        QueryUtil.newOrderedAggregateAllOutputFormatterCallback(postAnalysisQueryEnvironment);
     QueryEvalResult result =
-        postAnalysisQueryEnvironment.evaluateQuery(queryExpression, callback);
+        postAnalysisQueryEnvironment.evaluateQuery(queryExpression, aggregateResultsCallback);
     if (result.isEmpty()) {
       env.getReporter().handle(Event.info("Empty query results"));
     }
-    queryRuntimeHelper.afterQueryOutputIsWritten();
-  }
+    callback.start();
+    callback.process(aggregateResultsCallback.getResult());
+    callback.close(/*failFast=*/ !result.getSuccess());
 
-  /** Post analysis query specific command line exception. */
-  protected static class PostAnalysisQueryCommandLineException extends Exception {
-    PostAnalysisQueryCommandLineException(String message) {
-      super(message);
-    }
+    queryRuntimeHelper.afterQueryOutputIsWritten();
   }
 }

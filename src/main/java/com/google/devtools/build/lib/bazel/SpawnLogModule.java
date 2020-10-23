@@ -18,11 +18,16 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnLogContext;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.server.FailureDetails.Execution;
+import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
 import com.google.devtools.build.lib.util.io.MessageOutputStreamWrapper.BinaryOutputStreamWrapper;
 import com.google.devtools.build.lib.util.io.MessageOutputStreamWrapper.JsonOutputStreamWrapper;
@@ -73,7 +78,8 @@ public final class SpawnLogModule extends BlazeModule {
     FileSystem fileSystem = env.getRuntime().getFileSystem();
     Path workingDirectory = env.getWorkingDirectory();
 
-    if (executionOptions.executionLogBinaryFile != null) {
+    if (executionOptions.executionLogBinaryFile != null
+        && !executionOptions.executionLogBinaryFile.isEmpty()) {
       outputStreams.addStream(
           new BinaryOutputStreamWrapper(
               workingDirectory
@@ -81,7 +87,8 @@ public final class SpawnLogModule extends BlazeModule {
                   .getOutputStream()));
     }
 
-    if (executionOptions.executionLogJsonFile != null) {
+    if (executionOptions.executionLogJsonFile != null
+        && !executionOptions.executionLogJsonFile.isEmpty()) {
       outputStreams.addStream(
           new JsonOutputStreamWrapper(
               workingDirectory
@@ -90,8 +97,8 @@ public final class SpawnLogModule extends BlazeModule {
     }
 
     AsynchronousFileOutputStream outStream = null;
-    if (executionOptions.executionLogFile != null) {
-      rawOutput = env.getRuntime().getFileSystem().getPath(executionOptions.executionLogFile);
+    if (executionOptions.executionLogFile != null && !executionOptions.executionLogFile.isEmpty()) {
+      rawOutput = workingDirectory.getRelative(executionOptions.executionLogFile);
       outStream =
           new AsynchronousFileOutputStream(
               workingDirectory.getRelative(executionOptions.executionLogFile));
@@ -108,7 +115,22 @@ public final class SpawnLogModule extends BlazeModule {
       return;
     }
 
-    spawnLogContext = new SpawnLogContext(env.getExecRoot(), outStream);
+    spawnLogContext =
+        new SpawnLogContext(
+            env.getExecRoot(), outStream, env.getOptions().getOptions(RemoteOptions.class));
+  }
+
+  @Override
+  public void registerActionContexts(
+      ModuleActionContextRegistry.Builder registryBuilder,
+      CommandEnvironment env,
+      BuildRequest buildRequest) {
+    if (spawnLogContext != null) {
+      // TODO(b/63987502): Pretty sure the "spawn-log" commandline identifier is never used as there
+      // is no other SpawnLogContext to distinguish from.
+      registryBuilder.register(SpawnLogContext.class, spawnLogContext, "spawn-log");
+      registryBuilder.restrictTo(SpawnLogContext.class, "");
+    }
   }
 
   @Override
@@ -122,12 +144,9 @@ public final class SpawnLogModule extends BlazeModule {
       env.getBlazeModuleEnvironment()
           .exit(
               new AbruptExitException(
-                  "Error initializing execution log", ExitCode.COMMAND_LINE_ERROR, e));
-    }
-
-    if (spawnLogContext != null) {
-      builder.addActionContext(spawnLogContext);
-      builder.addStrategyByContext(SpawnLogContext.class, "");
+                  createDetailedExitCode(
+                      "Error initializing execution log",
+                      Code.EXECUTION_LOG_INITIALIZATION_FAILURE)));
     }
   }
 
@@ -144,7 +163,9 @@ public final class SpawnLogModule extends BlazeModule {
         }
         done = true;
       } catch (IOException e) {
-        throw new AbruptExitException(ExitCode.LOCAL_ENVIRONMENTAL_ERROR, e);
+        String message = e.getMessage() == null ? "Error writing execution log" : e.getMessage();
+        throw new AbruptExitException(
+            createDetailedExitCode(message, Code.EXECUTION_LOG_WRITE_FAILURE), e);
       } finally {
         if (!done && !outputStreams.isEmpty()) {
           env.getReporter()
@@ -156,5 +177,13 @@ public final class SpawnLogModule extends BlazeModule {
         clear();
       }
     }
+  }
+
+  private static DetailedExitCode createDetailedExitCode(String message, Code detailedCode) {
+    return DetailedExitCode.of(
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setExecution(Execution.newBuilder().setCode(detailedCode))
+            .build());
   }
 }

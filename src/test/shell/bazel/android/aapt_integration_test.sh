@@ -23,40 +23,35 @@
 # Note that if the environment is not set up as above android_integration_test
 # will silently be ignored and will be shown as passing.
 
-# Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# --- begin runfiles.bash initialization v2 ---
+# Copy-pasted from the Bazel Bash runfiles library v2.
+set -uo pipefail; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v2 ---
 
-source "${CURRENT_DIR}/android_helper.sh" \
+source "$(rlocation io_bazel/src/test/shell/bazel/android/android_helper.sh)" \
   || { echo "android_helper.sh not found!" >&2; exit 1; }
 fail_if_no_android_sdk
 
-source "${CURRENT_DIR}/../../integration_test_setup.sh" \
+source "$(rlocation io_bazel/src/test/shell/integration_test_setup.sh)" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-function test_build_with_aapt() {
-  create_new_workspace
-  setup_android_sdk_support
-  create_android_binary
-
-  assert_build //java/bazel:bin --android_aapt=aapt
-}
+# TODO(#8169): Make this test compatible with Python toolchains. Blocked on the
+# fact that there's no PY3 environment on our Mac workers
+# (bazelbuild/continuous-integration#578).
+add_to_bazelrc "build --incompatible_use_python_toolchains=false"
 
 function test_build_with_aapt2() {
   create_new_workspace
   setup_android_sdk_support
   create_android_binary
 
-  assert_build //java/bazel:bin --android_aapt=aapt2
+  assert_build //java/bazel:bin
 }
 
-function test_build_with_aapt2_skip_parsing_action() {
-  create_new_workspace
-  setup_android_sdk_support
-  create_android_binary
-
-  assert_build //java/bazel:bin \
-    --android_aapt=aapt2 \
-    --experimental_skip_parsing_action
-}
-
-run_suite "aapt/aapt2 integration tests"
+run_suite "aapt2 integration test"

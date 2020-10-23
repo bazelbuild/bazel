@@ -1,4 +1,4 @@
-#! /usr/bin/env bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -27,7 +27,7 @@
 # infrastructure.
 # https://mike-bland.com/2012/10/01/tools.html#tools-tap-sponge
 #
-# "Every single change submitted to Google’s Perforce depot is built and
+# "Every single change submitted to Google's Perforce depot is built and
 # tested, and only those targets affected by a particular change are
 # built and tested"
 #
@@ -50,8 +50,8 @@ cd "$(git rev-parse --show-toplevel)"
 # Get a list of the current files in package form by querying Bazel.
 files=()
 for file in $(git diff --name-only ${COMMIT_RANGE} ); do
-  IFS=$'\n' read -r -a files <<< "$(bazel query $file)"
-  bazel query $file
+  files+=($(bazel query $file))
+  echo $(bazel query $file)
 done
 
 # Query for the associated buildables

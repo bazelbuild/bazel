@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPatternResolver;
+import com.google.devtools.build.lib.concurrent.BatchCallback;
+import com.google.devtools.build.lib.concurrent.BatchCallback.NullCallback;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -35,8 +37,6 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetPatternResolverUtil;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
-import com.google.devtools.build.lib.util.BatchCallback;
-import com.google.devtools.build.lib.util.BatchCallback.NullCallback;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -45,6 +45,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
@@ -54,7 +55,6 @@ import javax.annotation.Nullable;
  * transitive dependencies.
  */
 public class PrepareDepsOfPatternFunction implements SkyFunction {
-
   private final AtomicReference<PathPackageLocator> pkgPath;
   private final boolean traverseTestSuites;
 
@@ -82,18 +82,23 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
 
     TargetPattern parsedPattern = patternKey.getParsedPattern();
 
-    BlacklistedPackagePrefixesValue blacklist =
-        (BlacklistedPackagePrefixesValue) env.getValue(BlacklistedPackagePrefixesValue.key());
-    if (blacklist == null) {
+    IgnoredPackagePrefixesValue repositoryIgnoredPrefixes =
+        (IgnoredPackagePrefixesValue)
+            env.getValue(IgnoredPackagePrefixesValue.key(parsedPattern.getRepository()));
+    if (repositoryIgnoredPrefixes == null) {
       return null;
     }
-    // This SkyFunction is used to load the universe, so we want both the blacklisted directories
-    // from the global blacklist and the excluded directories from the TargetPatternKey itself to be
-    // embedded in the SkyKeys created and used by the DepsOfPatternPreparer. The
-    // DepsOfPatternPreparer ignores excludedSubdirectories and embeds blacklistedSubdirectories in
-    // the SkyKeys it creates and uses.
-    ImmutableSet<PathFragment> blacklistedSubdirectories =
-        patternKey.getAllSubdirectoriesToExclude(blacklist.getPatterns());
+    ImmutableSet<PathFragment> repositoryIgnoredPatterns = repositoryIgnoredPrefixes.getPatterns();
+
+    // This SkyFunction is used to load the universe, so we want both the
+    // ignored directories from the global list of exclusions (set with
+    // .bazelignore in Bazel and set staticly in other binaries) and the
+    // excluded directories from the TargetPatternKey itself to be embedded in
+    // the SkyKeys created and used by the DepsOfPatternPreparer. The
+    // DepsOfPatternPreparer ignores excludedSubdirectories and embeds
+    // repositoryIgnoredSubdirectories in the SkyKeys it creates and uses.
+    ImmutableSet<PathFragment> repositoryIgnoredSubdirectories =
+        patternKey.getAllSubdirectoriesToExclude(repositoryIgnoredPatterns);
     ImmutableSet<PathFragment> excludedSubdirectories = ImmutableSet.of();
 
     DepsOfPatternPreparer preparer =
@@ -102,7 +107,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     try {
       parsedPattern.eval(
           preparer,
-          blacklistedSubdirectories,
+          repositoryIgnoredSubdirectories,
           excludedSubdirectories,
           NullCallback.<Void>instance(),
           RuntimeException.class);
@@ -186,12 +191,12 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
         }
         return ResolvedTargets.empty();
       } catch (NoSuchThingException e) {
-        throw new TargetParsingException(e.getMessage(), e);
+        throw new TargetParsingException(e.getMessage(), e, e.getDetailedExitCode());
       }
     }
 
     @Override
-    public ResolvedTargets<Void> getTargetsInPackage(
+    public Collection<Void> getTargetsInPackage(
         String originalPattern, PackageIdentifier packageIdentifier, boolean rulesOnly)
         throws TargetParsingException, InterruptedException {
       FilteringPolicy policy =
@@ -199,15 +204,15 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
       return getTargetsInPackage(originalPattern, packageIdentifier, policy);
     }
 
-    private ResolvedTargets<Void> getTargetsInPackage(
+    private Collection<Void> getTargetsInPackage(
         String originalPattern, PackageIdentifier packageIdentifier, FilteringPolicy policy)
         throws TargetParsingException, InterruptedException {
       try {
         Package pkg = packageProvider.getPackage(env.getListener(), packageIdentifier);
-        ResolvedTargets<Target> packageTargets =
+        Collection<Target> packageTargets =
             TargetPatternResolverUtil.resolvePackageTargets(pkg, policy);
         ImmutableList.Builder<SkyKey> builder = ImmutableList.builder();
-        for (Target target : packageTargets.getTargets()) {
+        for (Target target : packageTargets) {
           builder.add(TransitiveTraversalValue.key(target.getLabel()));
         }
         ImmutableList<SkyKey> skyKeys = builder.build();
@@ -215,11 +220,11 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
         if (env.valuesMissing()) {
           throw new MissingDepException();
         }
-        return ResolvedTargets.empty();
+        return ImmutableSet.of();
       } catch (NoSuchThingException e) {
         String message = TargetPatternResolverUtil.getParsingErrorMessage(
             "package contains errors", originalPattern);
-        throw new TargetParsingException(message, e);
+        throw new TargetParsingException(message, e, e.getDetailedExitCode());
       }
     }
 
@@ -243,13 +248,13 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
         String originalPattern,
         String directory,
         boolean rulesOnly,
-        ImmutableSet<PathFragment> blacklistedSubdirectories,
+        ImmutableSet<PathFragment> repositoryIgnoredSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
         BatchCallback<Void, E> callback,
         Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException {
       PathFragment directoryPathFragment = TargetPatternResolverUtil.getPathFragment(directory);
-      if (blacklistedSubdirectories.contains(directoryPathFragment)) {
+      if (repositoryIgnoredSubdirectories.contains(directoryPathFragment)) {
         return;
       }
       Preconditions.checkArgument(excludedSubdirectories.isEmpty(), excludedSubdirectories);
@@ -275,7 +280,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
 
       for (Root root : roots) {
         RootedPath rootedPath = RootedPath.toRootedPath(root, directoryPathFragment);
-        env.getValues(getDeps(repository, blacklistedSubdirectories, policy, rootedPath));
+        env.getValues(getDeps(repository, repositoryIgnoredSubdirectories, policy, rootedPath));
         if (env.valuesMissing()) {
           throw new MissingDepException();
         }
@@ -284,20 +289,20 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
 
     private ImmutableList<SkyKey> getDeps(
         RepositoryName repository,
-        ImmutableSet<PathFragment> blacklistedSubdirectories,
+        ImmutableSet<PathFragment> repositoryIgnoredSubdirectories,
         FilteringPolicy policy,
         RootedPath rootedPath) {
       List<SkyKey> keys = new ArrayList<>();
       keys.add(
           PrepareDepsOfTargetsUnderDirectoryValue.key(
-              repository, rootedPath, blacklistedSubdirectories, policy));
+              repository, rootedPath, repositoryIgnoredSubdirectories, policy));
       keys.add(
           CollectPackagesUnderDirectoryValue.key(
-              repository, rootedPath, blacklistedSubdirectories));
+              repository, rootedPath, repositoryIgnoredSubdirectories));
       if (traverseTestSuites) {
         keys.add(
             PrepareTestSuitesUnderDirectoryValue.key(
-                repository, rootedPath, blacklistedSubdirectories));
+                repository, rootedPath, repositoryIgnoredSubdirectories));
       }
       return ImmutableList.copyOf(keys);
     }

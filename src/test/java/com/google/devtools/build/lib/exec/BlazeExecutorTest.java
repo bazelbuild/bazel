@@ -15,10 +15,14 @@ package com.google.devtools.build.lib.exec;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.ActionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.events.Event;
@@ -27,15 +31,14 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.OptionsParser;
-import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.Mockito;
 
 /** Tests for {@link BlazeExecutor}. */
 @RunWith(JUnit4.class)
@@ -47,7 +50,7 @@ public class BlazeExecutorTest {
 
   @Before
   public final void setUpDirectoriesAndTools() throws Exception {
-    fileSystem = new InMemoryFileSystem();
+    fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
     directories =
         new BlazeDirectories(
             new ServerDirectories(
@@ -62,30 +65,41 @@ public class BlazeExecutorTest {
 
   @Test
   public void testDebugPrintActionContexts() throws Exception {
-    TestExecutorBuilder builder = new TestExecutorBuilder(fileSystem, directories, binTools);
-    OptionsParser parser = OptionsParser.newOptionsParser(TestExecutorBuilder.DEFAULT_OPTIONS);
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(TestExecutorBuilder.DEFAULT_OPTIONS).build();
     parser.parse("--debug_print_action_contexts");
 
     Reporter reporter = new Reporter(new EventBus());
     StoredEventHandler storedEventHandler = new StoredEventHandler();
     reporter.addHandler(storedEventHandler);
 
-    SpawnActionContext mockStrategy = Mockito.mock(SpawnActionContext.class);
+    FakeSpawnStrategy strategy = new FakeSpawnStrategy();
 
-    builder.setReporter(reporter).setOptionsParser(parser).setExecution("mock", mockStrategy);
-    builder.build();
+    new TestExecutorBuilder(fileSystem, directories, binTools)
+        .setReporter(reporter)
+        .setOptionsParser(parser)
+        .setExecution("fake", "fake")
+        .addStrategy(new FakeSpawnStrategy(), "fake")
+        .build();
 
     Event event =
-        Iterables.find(
-            storedEventHandler.getEvents(),
-            new Predicate<Event>() {
-              @Override
-              public boolean apply(@Nullable Event event) {
-                return event.getMessage().contains("SpawnActionContextMap: \"mock\" = ");
-              }
-            });
+        Iterables.find(storedEventHandler.getEvents(), e -> e.getMessage().contains("\"fake\" = "));
     assertThat(event).isNotNull();
     assertThat(event.getMessage())
-        .contains("\"mock\" = [" + mockStrategy.getClass().getSimpleName() + "]");
+        .contains("\"fake\" = [" + strategy.getClass().getSimpleName() + "]");
+  }
+
+  private static class FakeSpawnStrategy implements SpawnStrategy {
+
+    @Override
+    public ImmutableList<SpawnResult> exec(
+        Spawn spawn, ActionExecutionContext actionExecutionContext) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean canExec(Spawn spawn, ActionContext.ActionContextRegistry actionContextRegistry) {
+      return false;
+    }
   }
 }

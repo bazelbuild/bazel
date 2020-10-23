@@ -4,25 +4,26 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// http://www.apache.org/licenses/LICENSE-2.0
+//    http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 
 package com.google.devtools.build.lib.blackbox.tests.manageddirs;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.blackbox.framework.BuilderRunner;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
 import com.google.devtools.build.lib.blackbox.framework.ProcessResult;
 import com.google.devtools.build.lib.blackbox.junit.AbstractBlackBoxTest;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
@@ -32,14 +33,6 @@ import org.junit.Test;
 
 /** Tests for managed directories. */
 public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
-  private static final List<String> FILES =
-      Lists.newArrayList(
-          "BUILD.test",
-          "WORKSPACE.test",
-          ".bazelignore",
-          "package.json",
-          "test_rule.bzl",
-          "use_node_modules.bzl");
   private Random random;
   private Integer currentDebugId;
 
@@ -58,6 +51,39 @@ public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
   }
 
   @Test
+  public void testNodeModulesDeleted() throws Exception {
+    generateProject();
+    buildExpectRepositoryRuleCalled();
+    checkProjectFiles();
+
+    Path nodeModules = context().getWorkDir().resolve("node_modules");
+    assertThat(nodeModules.toFile().isDirectory()).isTrue();
+    PathUtils.deleteTree(nodeModules);
+
+    buildExpectRepositoryRuleCalled();
+    checkProjectFiles();
+  }
+
+  @Test
+  public void testNodeModulesDeletedAndRecreated() throws Exception {
+    generateProject();
+    buildExpectRepositoryRuleCalled();
+    checkProjectFiles();
+
+    Path nodeModules = context().getWorkDir().resolve("node_modules");
+    assertThat(nodeModules.toFile().isDirectory()).isTrue();
+
+    Path nodeModulesBackup = context().getWorkDir().resolve("node_modules_backup");
+    PathUtils.copyTree(nodeModules, nodeModulesBackup);
+    PathUtils.deleteTree(nodeModules);
+
+    PathUtils.copyTree(nodeModulesBackup, nodeModules);
+
+    buildExpectRepositoryRuleNotCalled();
+    checkProjectFiles();
+  }
+
+  @Test
   public void testBuildProjectFetchNotRecalled() throws Exception {
     generateProject();
     buildExpectRepositoryRuleCalled();
@@ -66,27 +92,17 @@ public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
     checkProjectFiles();
   }
 
-  @Test
-  public void testWithoutFlag() throws Exception {
-    generateProject();
-    ProcessResult result = context().bazel().shouldFail().build("//...");
-    assertThat(result.errString())
-        .contains(
-            "parameter 'managed_directories' is experimental and thus unavailable"
-                + " with the current flags.");
-  }
-
   private BuilderRunner bazel() {
     return bazel(false);
   }
 
   private BuilderRunner bazel(boolean watchFs) {
     currentDebugId = random.nextInt();
-    String[] flags =
-        watchFs
-            ? new String[] {"--experimental_allow_incremental_repository_updates", "--watchfs=true"}
-            : new String[] {"--experimental_allow_incremental_repository_updates"};
-    return context().bazel().withFlags(flags).withEnv("DEBUG_ID", String.valueOf(currentDebugId));
+    BuilderRunner bazel = context().bazel().withEnv("DEBUG_ID", String.valueOf(currentDebugId));
+    if (watchFs) {
+      bazel.withFlags("--watchfs=true");
+    }
+    return bazel;
   }
 
   @Test
@@ -340,15 +356,56 @@ public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
                 + " have managed directories: @generated_node_modules");
   }
 
+  /**
+   * The test to verify that WORKSPACE file can not be a symlink when managed directories are used.
+   *
+   * <p>The test of the case, when WORKSPACE file is a symlink, but not managed directories are
+   * used, is in {@link WorkspaceBlackBoxTest#testWorkspaceFileIsSymlink()}
+   */
+  @Test
+  public void testWorkspaceSymlinkThrowsWithManagedDirectories() throws Exception {
+    generateProject();
+
+    Path workspaceFile = context().getWorkDir().resolve(WORKSPACE);
+    assertThat(workspaceFile.toFile().delete()).isTrue();
+
+    Path tempWorkspace = Files.createTempFile(context().getTmpDir(), WORKSPACE, "");
+    PathUtils.writeFile(
+        tempWorkspace,
+        "workspace(name = \"fine_grained_user_modules\",",
+        "managed_directories = {'@generated_node_modules': ['node_modules']})",
+        "",
+        "load(\":use_node_modules.bzl\", \"generate_fine_grained_node_modules\")",
+        "",
+        "generate_fine_grained_node_modules(",
+        "    name = \"generated_node_modules\",",
+        "    package_json = \"//:package.json\",",
+        ")");
+    Files.createSymbolicLink(workspaceFile, tempWorkspace);
+
+    ProcessResult result = bazel().shouldFail().build("//...");
+    assertThat(
+            findPattern(
+                result,
+                "WORKSPACE file can not be a symlink if incrementally updated directories are"
+                    + " used."))
+        .isTrue();
+  }
+
   private void generateProject() throws IOException {
-    for (String fileName : FILES) {
-      String text = ResourceFileLoader.loadResource(ManagedDirectoriesBlackBoxTest.class, fileName);
-      assertThat(text).isNotNull();
-      assertThat(text).isNotEmpty();
-      fileName =
-          fileName.endsWith(".test") ? fileName.substring(0, fileName.length() - 5) : fileName;
-      context().write(fileName, text);
-    }
+    writeProjectFile("BUILD.test", "BUILD");
+    writeProjectFile("WORKSPACE.test", "WORKSPACE");
+    writeProjectFile("bazelignore.test", ".bazelignore");
+    writeProjectFile("package.json", "package.json");
+    writeProjectFile("test_rule.bzl", "test_rule.bzl");
+    writeProjectFile("use_node_modules.bzl", "use_node_modules.bzl");
+  }
+
+  private void writeProjectFile(String oldName, String newName) throws IOException {
+    String text = ResourceFileLoader.loadResource(ManagedDirectoriesBlackBoxTest.class, oldName);
+    assertThat(text).isNotNull();
+    assertThat(text).isNotEmpty();
+    context().write(newName, text);
   }
 
   private void checkProjectFiles() throws IOException {

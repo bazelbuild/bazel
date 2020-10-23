@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -54,7 +53,7 @@ public final class LibraryLinkingTest extends BuildViewTestCase {
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
 
-    useConfiguration("--cpu=k8");
+    useConfiguration("--cpu=k8", "--noincompatible_remove_legacy_whole_archive");
     ConfiguredTarget genlib =
         scratchConfiguredTarget(
             "genrule",
@@ -107,13 +106,8 @@ public final class LibraryLinkingTest extends BuildViewTestCase {
     Artifact archiveLib =
         Iterables.getOnlyElement(
             Iterables.filter(
-                ccLib.getProvider(FileProvider.class).getFilesToBuild(),
-                new Predicate<Artifact>() {
-                  @Override
-                  public boolean apply(Artifact artifact) {
-                    return artifact.getFilename().equals("libcustom_malloc.a");
-                  }
-                }));
+                ccLib.getProvider(FileProvider.class).getFilesToBuild().toList(),
+                (artifact) -> artifact.getFilename().equals("libcustom_malloc.a")));
     CppLinkAction archiveLink = (CppLinkAction) getGeneratingAction(archiveLib);
     List<String> args = archiveLink.getArguments();
     assertThat(args).doesNotContain(linkOpt1);

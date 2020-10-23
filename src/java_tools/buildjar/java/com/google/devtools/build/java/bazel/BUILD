@@ -3,6 +3,8 @@
 #
 # This is not the source code for javac itself.
 
+load("@rules_java//java:defs.bzl", "java_library")
+
 package(
     default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"],
 )
@@ -36,4 +38,5 @@ filegroup(
     ]) + [
         "BUILD",
     ],
+    visibility = ["//src:__subpackages__"],
 )

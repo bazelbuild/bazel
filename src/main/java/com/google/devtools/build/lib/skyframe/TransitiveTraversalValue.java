@@ -48,7 +48,7 @@ public abstract class TransitiveTraversalValue implements SkyValue {
       new ConcurrentHashMap<>();
   /**
    * A strong interner of TransitiveTargetValue objects. Because we only wish to intern values for
-   * built-in non-skylark targets, we need an interner with an additional method to return the
+   * built-in non-Starlark targets, we need an interner with an additional method to return the
    * canonical representative if it is present without interning our sample. This is only mutated in
    * {@link #forTarget}, and read in {@link #forTarget} and {@link #create}.
    */
@@ -69,9 +69,9 @@ public abstract class TransitiveTraversalValue implements SkyValue {
 
   static TransitiveTraversalValue forTarget(Target target, @Nullable String errorMessage) {
     if (errorMessage == null) {
-      if (target instanceof Rule && ((Rule) target).getRuleClassObject().isSkylark()) {
+      if (target instanceof Rule && ((Rule) target).getRuleClassObject().isStarlark()) {
         Rule rule = (Rule) target;
-        // Do not intern values for skylark rules.
+        // Do not intern values for Starlark rules.
         return TransitiveTraversalValue.create(
             rule.getRuleClassObject().getAdvertisedProviders(), rule.getTargetKind(), errorMessage);
       } else {
@@ -153,7 +153,7 @@ public abstract class TransitiveTraversalValue implements SkyValue {
 
   @ThreadSafe
   public static SkyKey key(Label label) {
-    Preconditions.checkArgument(!label.getPackageIdentifier().getRepository().isDefault());
+    Preconditions.checkArgument(!label.getRepository().isDefault());
     return label;
   }
 

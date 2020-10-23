@@ -21,10 +21,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -33,11 +31,12 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkApiProvider;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkApiProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
-import com.google.devtools.build.lib.packages.InfoInterface;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
@@ -46,39 +45,24 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.starlarkbuildapi.ActionApi;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Starlark;
 
 /**
- * A {@link ConfiguredTarget} that is produced by a rule.
+ * A {@link com.google.devtools.build.lib.analysis.ConfiguredTarget} that is produced by a rule.
  *
- * <p>Created by {@link RuleConfiguredTargetBuilder}. There is an instance of this class for every
- * analyzed rule. For more information about how analysis works, see {@link
- * com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory}.
+ * <p>Created by {@link com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder}. There
+ * is an instance of this class for every analyzed rule. For more information about how analysis
+ * works, see {@link com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory}.
  */
 @AutoCodec(checkClassExplicitlyAllowed = true)
+@Immutable
 public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
-  /**
-   * The name of the key for the 'actions' synthesized provider.
-   *
-   * <p>If you respond to this key you are expected to return a list of actions belonging to this
-   * configured target.
-   */
-  public static final String ACTIONS_FIELD_NAME = "actions";
 
-  /**
-   * The configuration transition for an attribute through which a prerequisite
-   * is requested.
-   */
-  public enum Mode {
-    TARGET,
-    HOST,
-    DATA,
-    SPLIT,
-    DONT_CHECK
-  }
   /** A set of this target's implicitDeps. */
   private final ImmutableSet<ConfiguredTargetKey> implicitDeps;
 
@@ -94,7 +78,8 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
   private final String ruleClassString;
   private final ImmutableList<ActionAnalysisMetadata> actions;
-  private final ImmutableMap<Artifact, Integer> generatingActionIndex;
+  // TODO(b/133160730): can we only populate this map for outputs that have labels?
+  private final ImmutableMap<Label, Artifact> artifactsByOutputLabel;
 
   @Instantiator
   @VisibleForSerialization
@@ -107,8 +92,9 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
       ImmutableSet<ConfiguredTargetKey> implicitDeps,
       String ruleClassString,
       ImmutableList<ActionAnalysisMetadata> actions,
-      ImmutableMap<Artifact, Integer> generatingActionIndex) {
+      ImmutableMap<Label, Artifact> artifactsByOutputLabel) {
     super(label, configurationKey, visibility);
+    this.artifactsByOutputLabel = artifactsByOutputLabel;
 
     // We don't use ImmutableMap.Builder here to allow augmenting the initial list of 'default'
     // providers by passing them in.
@@ -118,11 +104,11 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     Preconditions.checkState(providerBuilder.contains(FileProvider.class), label);
     Preconditions.checkState(providerBuilder.contains(FilesToRunProvider.class), label);
 
-    // Initialize every SkylarkApiProvider
+    // Initialize every StarlarkApiProvider
     for (int i = 0; i < providers.getProviderCount(); i++) {
       Object obj = providers.getProviderInstanceAt(i);
-      if (obj instanceof SkylarkApiProvider) {
-        ((SkylarkApiProvider) obj).init(this);
+      if (obj instanceof StarlarkApiProvider) {
+        ((StarlarkApiProvider) obj).init(this);
       }
     }
 
@@ -131,14 +117,13 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     this.implicitDeps = IMPLICIT_DEPS_INTERNER.intern(implicitDeps);
     this.ruleClassString = ruleClassString;
     this.actions = actions;
-    this.generatingActionIndex = generatingActionIndex;
   }
 
   public RuleConfiguredTarget(
       RuleContext ruleContext,
       TransitiveInfoProviderMap providers,
       ImmutableList<ActionAnalysisMetadata> actions,
-      ImmutableMap<Artifact, Integer> generatingActionIndex) {
+      ImmutableMap<Label, Artifact> artifactsByOutputLabel) {
     this(
         ruleContext.getLabel(),
         ruleContext.getConfigurationKey(),
@@ -148,7 +133,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
         Util.findImplicitDeps(ruleContext),
         ruleContext.getRule().getRuleClass(),
         actions,
-        generatingActionIndex);
+        artifactsByOutputLabel);
 
     // If this rule is the run_under target, then check that we have an executable; note that
     // run_under is only set in the target configuration, and the target must also be analyzed for
@@ -195,12 +180,12 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
 
   @Override
   public String getErrorMessageForUnknownField(String name) {
-    return Printer.format(
+    return Starlark.format(
         "%r (rule '%s') doesn't have provider '%s'", this, getRuleClassString(), name);
   }
 
   @Override
-  protected void addExtraSkylarkKeys(Consumer<String> result) {
+  protected void addExtraStarlarkKeys(Consumer<String> result) {
     for (int i = 0; i < providers.getProviderCount(); i++) {
       Object classAt = providers.getProviderKeyAt(i);
       if (classAt instanceof String) {
@@ -211,37 +196,42 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  protected InfoInterface rawGetSkylarkProvider(Provider.Key providerKey) {
+  protected Info rawGetStarlarkProvider(Provider.Key providerKey) {
     return providers.get(providerKey);
   }
 
   @Override
-  protected Object rawGetSkylarkProvider(String providerKey) {
+  protected Object rawGetStarlarkProvider(String providerKey) {
     if (providerKey.equals(ACTIONS_FIELD_NAME)) {
-      return actions;
+      // Only expose actions which are legitimate Starlark values, otherwise they will later
+      // cause a Bazel crash.
+      // TODO(cparsons): Expose all actions to Starlark.
+      return actions.stream()
+          .filter(action -> action instanceof ActionApi)
+          .collect(ImmutableList.toImmutableList());
     }
     return providers.get(providerKey);
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<target " + getLabel() + ">");
   }
 
   @Override
-  public void debugPrint(SkylarkPrinter printer) {
+  public void debugPrint(Printer printer) {
     // Show the names of the provider keys that this target propagates.
     // Provider key names might potentially be *private* information, and thus a comprehensive
     // list of provider keys should not be exposed in any way other than for debug information.
     printer.append("<target " + getLabel() + ", keys:[");
-    ImmutableList.Builder<String> skylarkProviderKeyStrings = ImmutableList.builder();
+    ImmutableList.Builder<String> starlarkProviderKeyStrings = ImmutableList.builder();
     for (int providerIndex = 0; providerIndex < providers.getProviderCount(); providerIndex++) {
       Object providerKey = providers.getProviderKeyAt(providerIndex);
       if (providerKey instanceof Provider.Key) {
-        skylarkProviderKeyStrings.add(providerKey.toString());
+        starlarkProviderKeyStrings.add(providerKey.toString());
       }
     }
-    printer.append(Joiner.on(", ").join(skylarkProviderKeyStrings.build()));
+    printer.append(Joiner.on(", ").join(starlarkProviderKeyStrings.build()));
     printer.append("]>");
   }
 
@@ -251,10 +241,20 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   /**
-   * Returns a map where keys are artifacts that are action outputs of this rule, and values are the
-   * index of the action that generates that artifact.
+   * Provide an artifact by its corresponding output label, for use by output file configured
+   * targets.
    */
-  public ImmutableMap<Artifact, Integer> getGeneratingActionIndex() {
-    return generatingActionIndex;
+  public Artifact getArtifactByOutputLabel(Label outputLabel) {
+    return Preconditions.checkNotNull(
+        artifactsByOutputLabel.get(outputLabel),
+        "%s %s %s",
+        outputLabel,
+        this,
+        this.artifactsByOutputLabel);
+  }
+
+  @Override
+  public Dict<String, Object> getProvidersDict() {
+    return ConfiguredTargetsUtil.getProvidersDict(this, providers);
   }
 }

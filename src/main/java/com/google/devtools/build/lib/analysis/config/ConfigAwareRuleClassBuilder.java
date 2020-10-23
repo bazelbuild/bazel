@@ -63,7 +63,7 @@ public class ConfigAwareRuleClassBuilder {
    * <p>The value is inherited by subclasses.
    */
   public ConfigAwareRuleClassBuilder requiresHostConfigurationFragments(
-      Class<? extends BuildConfiguration.Fragment>... configurationFragments) {
+      Class<? extends Fragment>... configurationFragments) {
     ruleClassBuilder.requiresConfigurationFragments(HostTransition.INSTANCE,
         configurationFragments);
     return this;
@@ -79,12 +79,12 @@ public class ConfigAwareRuleClassBuilder {
    * to.
    *
    * <p>In contrast to {@link #requiresHostConfigurationFragments(Class...)}, this method takes
-   * Skylark module names of fragments instead of their classes.
+   * Starlark module names of fragments instead of their classes.
    */
-  public ConfigAwareRuleClassBuilder requiresHostConfigurationFragmentsBySkylarkModuleName(
+  public ConfigAwareRuleClassBuilder requiresHostConfigurationFragmentsByStarlarkBuiltinName(
       Collection<String> configurationFragmentNames) {
-    ruleClassBuilder.requiresConfigurationFragmentsBySkylarkModuleName(HostTransition.INSTANCE,
-        configurationFragmentNames);
+    ruleClassBuilder.requiresConfigurationFragmentsByStarlarkModuleName(
+        HostTransition.INSTANCE, configurationFragmentNames);
     return this;
   }
 }

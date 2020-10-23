@@ -1074,6 +1074,7 @@ public class DataResourceXmlTest {
     final Map<DataKey, DataResource> toOverwrite = new HashMap<>();
     final Map<DataKey, DataResource> toCombine = new HashMap<>();
     deserializer.read(
+        DependencyInfo.UNKNOWN,
         serialized,
         KeyValueConsumers.of(new FakeConsumer(toOverwrite), new FakeConsumer(toCombine), null));
     assertThat(toOverwrite)
@@ -1135,6 +1136,7 @@ public class DataResourceXmlTest {
     final Map<DataKey, DataResource> toOverwrite = new HashMap<>();
     final Map<DataKey, DataResource> toCombine = new HashMap<>();
     deserializer.read(
+        DependencyInfo.UNKNOWN,
         serialized,
         KeyValueConsumers.of(new FakeConsumer(toOverwrite), new FakeConsumer(toCombine), null));
     assertThat(toOverwrite).containsEntry(attrKey, attrValue);
@@ -1261,6 +1263,7 @@ public class DataResourceXmlTest {
     final Map<DataKey, DataResource> toOverwrite = new HashMap<>();
     final Map<DataKey, DataResource> toCombine = new HashMap<>();
     deserializer.read(
+        DependencyInfo.UNKNOWN,
         serialized,
         KeyValueConsumers.of(new FakeConsumer(toOverwrite), new FakeConsumer(toCombine), null));
     if (key.isOverwritable()) {

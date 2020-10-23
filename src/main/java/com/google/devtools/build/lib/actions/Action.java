@@ -15,7 +15,9 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadCompatible;
+import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import javax.annotation.Nullable;
@@ -81,8 +83,10 @@ public interface Action extends ActionExecutionMetadata {
    * or the permissions should be changed, so that they can be safely overwritten by the action.
    *
    * @throws IOException if there is an error deleting the outputs.
+   * @throws InterruptedException if the execution is interrupted
    */
-  void prepare(Path execRoot) throws IOException;
+  void prepare(Path execRoot, @Nullable BulkDeleter bulkDeleter)
+      throws IOException, InterruptedException;
 
   /**
    * Executes this action. This method <i>unconditionally does the work of the Action</i>, although
@@ -190,7 +194,7 @@ public interface Action extends ActionExecutionMetadata {
    * computed before it can make a decision.
    */
   @Nullable
-  Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
+  NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException;
 
   /**
@@ -204,14 +208,14 @@ public interface Action extends ActionExecutionMetadata {
    * <p>The method is allowed to return source artifacts. They are useless, though, since exec paths
    * in the action cache referring to source artifacts are always resolved.
    */
-  Iterable<Artifact> getAllowedDerivedInputs();
+  NestedSet<Artifact> getAllowedDerivedInputs();
 
   /**
    * Informs the action that its inputs are {@code inputs}, and that its inputs are now known. Can
-   * only be called for actions that discover inputs. After this method is called,
-   * {@link ActionExecutionMetadata#inputsDiscovered} should return true.
+   * only be called for actions that discover inputs. After this method is called, {@link
+   * ActionExecutionMetadata#inputsDiscovered} should return true.
    */
-  void updateInputs(Iterable<Artifact> inputs);
+  void updateInputs(NestedSet<Artifact> inputs);
 
   /**
    * Returns true if the output should bypass output filtering. This is used for test actions.

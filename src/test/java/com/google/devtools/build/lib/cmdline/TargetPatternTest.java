@@ -15,9 +15,11 @@
 package com.google.devtools.build.lib.cmdline;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.TargetPattern.ContainsTBDForTBDResult;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -243,6 +245,33 @@ public class TargetPatternTest {
         .isEqualTo(ContainsTBDForTBDResult.OTHER);
     assertThat(targetsInPackagePattern.containsTBDForTBD(tbdDepot))
         .isEqualTo(ContainsTBDForTBDResult.OTHER);
+  }
+
+  @Test
+  public void testRenameRepository() throws Exception {
+    Map<RepositoryName, RepositoryName> renaming =
+        ImmutableMap.of(
+            RepositoryName.create("@foo"), RepositoryName.create("@bar"),
+            RepositoryName.create("@myworkspace"), RepositoryName.create("@"));
+
+    // Expecting renaming
+    assertThat(TargetPattern.renameRepository("@foo//package:target", renaming))
+        .isEqualTo("@bar//package:target");
+    assertThat(TargetPattern.renameRepository("@myworkspace//package:target", renaming))
+        .isEqualTo("@//package:target");
+    assertThat(TargetPattern.renameRepository("@foo//foo/...", renaming))
+        .isEqualTo("@bar//foo/...");
+    assertThat(TargetPattern.renameRepository("@myworkspace//foo/...", renaming))
+        .isEqualTo("@//foo/...");
+
+    // No renaming should occur
+    assertThat(TargetPattern.renameRepository("@//package:target", renaming))
+        .isEqualTo("@//package:target");
+    assertThat(TargetPattern.renameRepository("@unrelated//package:target", renaming))
+        .isEqualTo("@unrelated//package:target");
+    assertThat(TargetPattern.renameRepository("foo/package:target", renaming))
+        .isEqualTo("foo/package:target");
+    assertThat(TargetPattern.renameRepository("foo/...", renaming)).isEqualTo("foo/...");
   }
 
   private static TargetPattern parse(String pattern) throws TargetParsingException {

@@ -20,12 +20,13 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScannerSupplier;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /** Used as an interface to thin header inputs to compile actions for C++-like compiles. */
 public interface IncludeProcessing {
   /** Performs include processing actions and returns the processed set of resulting headers. */
-  ListenableFuture<Iterable<Artifact>> determineAdditionalInputs(
+  ListenableFuture<List<Artifact>> determineAdditionalInputs(
       @Nullable IncludeScannerSupplier includeScannerSupplier,
       CppCompileAction action,
       ActionExecutionContext actionExecutionContext,

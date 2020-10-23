@@ -20,8 +20,7 @@ import java.util.stream.Collectors;
 public interface InterfaceWithLambda {
   String ZERO = String.valueOf(0);
   List<String> DIGITS =
-      ImmutableList.of(0, 1)
-          .stream()
+      ImmutableList.of(0, 1).stream()
           .map(i -> i == 0 ? ZERO : String.valueOf(i))
           .collect(Collectors.toList());
 }

@@ -1,280 +1,276 @@
 ---
-platforms:
-  ubuntu1404:
+tasks:
+  centos7:
     shell_commands:
-    - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-      android_ndk_repository/android_ndk_repository/' WORKSPACE
-    - rm -f WORKSPACE.bak
+      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
+        android_ndk_repository/android_ndk_repository/' WORKSPACE
+      - rm -f WORKSPACE.bak
+      - rm -rf $HOME/bazeltest
+      - mkdir $HOME/bazeltest
+    build_flags:
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     build_targets:
-    - "//src:bazel"
-    - "//src:bazel_jdk_minimal"
+      - "//src:bazel"
+      - "//src:bazel_jdk_minimal"
+      - "//src:test_repos"
     test_flags:
-    - "--test_timeout=1200"
+      - "--sandbox_default_allow_network=false"
+      - "--sandbox_writable_path=$HOME/bazeltest"
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     test_targets:
-    - "--"
-    - "//scripts/..."
-    - "//src/java_tools/..."
-    - "//src/test/..."
-    - "//src/tools/singlejar/..."
-    - "//third_party/ijar/..."
-    - "//tools/android/..."
-    - "//tools/aquery_differ/..."
-    - "//tools/python/..."
-    # TODO(iirina): Re-enable after #7952 was released.
-    - "-//src/test/shell/bazel:embedded_tools_deps_test"
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
-    - "-//src/java_tools/buildjar/..."
-    - "-//src/java_tools/import_deps_checker/..."
+      - "//scripts/..."
+      - "//src/java_tools/..."
+      - "//src/test/..."
+      - "//src/tools/execlog/..."
+      - "//src/tools/singlejar/..."
+      - "//src/tools/workspacelog/..."
+      - "//third_party/ijar/..."
+      - "//tools/android/..."
+      - "//tools/aquery_differ/..."
+      - "//tools/python/..."
+      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
+      - "-//src/java_tools/buildjar/..."
+      - "-//src/java_tools/import_deps_checker/..."
+      # These tests are not compatible with the gcov version of CentOS 7.
+      - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
+      - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
+      - "-//src/test/shell/bazel:bazel_coverage_cc_head_test_gcc"
+      - "-//src/test/shell/bazel:bazel_coverage_sh_test"
+    include_json_profile:
+      - build
+      - test
   ubuntu1604:
     shell_commands:
-    - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-      android_ndk_repository/android_ndk_repository/' WORKSPACE
-    - rm -f WORKSPACE.bak
+      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
+        android_ndk_repository/android_ndk_repository/' WORKSPACE
+      - rm -f WORKSPACE.bak
+      - rm -rf $HOME/bazeltest
+      - mkdir $HOME/bazeltest
+    build_flags:
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     build_targets:
-    - "//src:bazel"
-    - "//src:bazel_jdk_minimal"
+      - "//src:bazel"
+      - "//src:bazel_jdk_minimal"
+      - "//src:test_repos"
     test_flags:
-    - "--test_timeout=1200"
+      - "--sandbox_default_allow_network=false"
+      - "--sandbox_writable_path=$HOME/bazeltest"
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     test_targets:
-    - "--"
-    - "//scripts/..."
-    - "//src/java_tools/..."
-    - "//src/test/..."
-    - "//src/tools/singlejar/..."
-    - "//third_party/ijar/..."
-    - "//tools/android/..."
-    - "//tools/aquery_differ/..."
-    - "//tools/python/..."
-    # TODO(iirina): Re-enable after #7952 was released.
-    - "-//src/test/shell/bazel:embedded_tools_deps_test"
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
-    - "-//src/java_tools/buildjar/..."
-    - "-//src/java_tools/import_deps_checker/..."
+      - "//scripts/..."
+      - "//src/java_tools/..."
+      - "//src/test/..."
+      - "//src/tools/execlog/..."
+      - "//src/tools/singlejar/..."
+      - "//src/tools/workspacelog/..."
+      - "//third_party/ijar/..."
+      - "//tools/android/..."
+      - "//tools/aquery_differ/..."
+      - "//tools/python/..."
+      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
+      - "-//src/java_tools/buildjar/..."
+      - "-//src/java_tools/import_deps_checker/..."
+    include_json_profile:
+      - build
+      - test
   ubuntu1804:
     shell_commands:
-    - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-      android_ndk_repository/android_ndk_repository/' WORKSPACE
-    - rm -f WORKSPACE.bak
-    build_targets:
-    - "//src:bazel"
-    - "//src:bazel_jdk_minimal"
-    test_flags:
-    - "--test_timeout=1200"
-    test_targets:
-    - "--"
-    - "//scripts/..."
-    - "//src/java_tools/..."
-    - "//src/test/..."
-    - "//src/tools/singlejar/..."
-    - "//third_party/ijar/..."
-    - "//tools/android/..."
-    - "//tools/aquery_differ/..."
-    - "//tools/python/..."
-    # Some prebuilt jars don't run with Java 11
-    - "-//src/test/shell/bazel:external_integration_test"
-    - "-//src/test/shell/bazel:maven_test"
-    # Re-enable once bootstrap works with Java 11
-    - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
-    # TODO(iirina): Re-enable after #7952 was released.
-    - "-//src/test/shell/bazel:embedded_tools_deps_test"
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
-    - "-//src/java_tools/import_deps_checker/..."
-  ubuntu1804_javabase9:
-    platform: ubuntu1804_nojava
-    name: ":java: OpenJDK 9 Javabase"
-    shell_commands:
-    - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-      android_ndk_repository/android_ndk_repository/' WORKSPACE
-    - rm -f WORKSPACE.bak
+      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
+        android_ndk_repository/android_ndk_repository/' WORKSPACE
+      - rm -f WORKSPACE.bak
+      - rm -rf $HOME/bazeltest
+      - mkdir $HOME/bazeltest
     build_flags:
-    - "--javabase=@openjdk9_linux_archive//:runtime"
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
     build_targets:
-    - "//src:bazel"
-    - "//src:bazel_jdk_minimal"
+      - "//src:bazel"
+      - "//src:bazel_jdk_minimal"
+      - "//src:test_repos"
     test_flags:
-    - "--javabase=@openjdk9_linux_archive//:runtime"
-    - "--test_timeout=1200"
+      - "--sandbox_default_allow_network=false"
+      - "--sandbox_writable_path=$HOME/bazeltest"
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      # Configure and enable tests that require access to the network.
+      - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
     test_targets:
-    - "--"
-    - "//scripts/..."
-    - "//src/java_tools/..."
-    - "//src/test/..."
-    - "//src/tools/singlejar/..."
-    - "//third_party/ijar/..."
-    - "//tools/aquery_differ/..."
-    - "//tools/android/..."
-    - "//tools/python/..."
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
-    - "-//src/java_tools/import_deps_checker/..."
-    # Currently broken tests on this platform.
-    # These tests do not work without an installed system JDK:
-    # (see https://github.com/bazelbuild/bazel/issues/6214#issuecomment-424813868)
-    # TODO(philwo): Use tags instead of an explicit blacklist.
-    - "-//src/test/java/com/google/devtools/build/android/..."
-    - "-//src/test/py/bazel:launcher_test"
-    - "-//src/test/py/bazel:runfiles_test"
-    - "-//src/test/shell/bazel/android/..."
-    - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
-    - "-//src/test/shell/bazel:bazel_coverage_cc_test_gcc"
-    - "-//src/test/shell/bazel:bazel_coverage_cc_test_llvm"
-    - "-//src/test/shell/bazel:bazel_coverage_java_test"
-    - "-//src/test/shell/bazel:bazel_coverage_sh_test"
-    - "-//src/test/shell/bazel:bazel_determinism_test"
-    - "-//src/test/shell/bazel:bazel_example_test"
-    - "-//src/test/shell/bazel:bazel_java_test"
-    - "-//src/test/shell/bazel:bazel_random_characters_test"
-    - "-//src/test/shell/bazel:bazel_repository_cache_test"
-    - "-//src/test/shell/bazel:bazel_rules_test"
-    - "-//src/test/shell/bazel:bazel_sandboxing_test"
-    - "-//src/test/shell/bazel:bazel_test_test"
-    - "-//src/test/shell/bazel:empty_package_test"
-    - "-//src/test/shell/bazel:external_integration_test"
-    - "-//src/test/shell/bazel:java_launcher_test"
-    - "-//src/test/shell/bazel:local_repository_test"
-    - "-//src/test/shell/bazel:maven_test"
-    - "-//src/test/shell/bazel:runfiles_test"
-    - "-//src/test/shell/integration:bazel_java_test"
-    - "-//src/test/shell/integration:bazel_sandboxed_worker_test"
-    - "-//src/test/shell/integration:bazel_worker_test"
-    - "-//src/test/shell/integration:discard_analysis_cache_test"
-    - "-//src/test/shell/integration:java_integration_test"
-    - "-//src/test/shell/integration:jvm_flags_escaping_test"
-    - "-//src/test/shell/integration:minimal_jdk_test"
-    - "-//src/test/shell/integration:output_filter_test"
-    - "-//src/test/shell/integration:stub_finds_runfiles_test"
-    - "-//src/test/shell/integration:test_test"
-    # TODO(iirina): Re-enable after #7952 was released.
-    - "-//src/test/shell/bazel:embedded_tools_deps_test"
-  ubuntu1804_javabase10:
-    platform: ubuntu1804_nojava
-    name: ":java: OpenJDK 10 Javabase"
+      - "//scripts/..."
+      - "//src/java_tools/..."
+      - "//src/test/..."
+      - "//src/tools/execlog/..."
+      - "//src/tools/singlejar/..."
+      - "//src/tools/workspacelog/..."
+      - "//third_party/ijar/..."
+      - "//tools/android/..."
+      - "//tools/aquery_differ/..."
+      - "//tools/python/..."
+      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
+      - "-//src/java_tools/import_deps_checker/..."
+    include_json_profile:
+      - build
+      - test
+  ubuntu1804_clang:
+    platform: ubuntu1804
+    environment:
+      CC: clang
+      CC_CONFIGURE_DEBUG: 1
+    name: "Clang"
     shell_commands:
-    - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-      android_ndk_repository/android_ndk_repository/' WORKSPACE
-    - rm -f WORKSPACE.bak
+      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
+        android_ndk_repository/android_ndk_repository/' WORKSPACE
+      - rm -f WORKSPACE.bak
+      - rm -rf $HOME/bazeltest
+      - mkdir $HOME/bazeltest
     build_flags:
-    - "--javabase=@openjdk10_linux_archive//:runtime"
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     build_targets:
-    - "//src:bazel"
-    - "//src:bazel_jdk_minimal"
+      - "//src:bazel"
+      - "//src:bazel_jdk_minimal"
+      - "//src:test_repos"
     test_flags:
-    - "--javabase=@openjdk10_linux_archive//:runtime"
-    - "--test_timeout=1200"
+      - "--sandbox_default_allow_network=false"
+      - "--sandbox_writable_path=$HOME/bazeltest"
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     test_targets:
-    - "--"
-    - "//scripts/..."
-    - "//src/java_tools/..."
-    - "//src/test/..."
-    - "//src/tools/singlejar/..."
-    - "//third_party/ijar/..."
-    - "//tools/aquery_differ/..."
-    - "//tools/android/..."
-    - "//tools/python/..."
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
-    - "-//src/java_tools/import_deps_checker/..."
-    # Currently broken tests on this platform.
-    # These tests do not work without an installed system JDK:
-    # (see https://github.com/bazelbuild/bazel/issues/6214#issuecomment-424813868)
-    # TODO(philwo): Use tags instead of an explicit blacklist.
-    - "-//src/test/java/com/google/devtools/build/android/..."
-    - "-//src/test/py/bazel:launcher_test"
-    - "-//src/test/py/bazel:runfiles_test"
-    - "-//src/test/shell/bazel/android/..."
-    - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
-    - "-//src/test/shell/bazel:bazel_coverage_cc_test_gcc"
-    - "-//src/test/shell/bazel:bazel_coverage_cc_test_llvm"
-    - "-//src/test/shell/bazel:bazel_coverage_java_test"
-    - "-//src/test/shell/bazel:bazel_coverage_sh_test"
-    - "-//src/test/shell/bazel:bazel_determinism_test"
-    - "-//src/test/shell/bazel:bazel_example_test"
-    - "-//src/test/shell/bazel:bazel_java_test"
-    - "-//src/test/shell/bazel:bazel_random_characters_test"
-    - "-//src/test/shell/bazel:bazel_repository_cache_test"
-    - "-//src/test/shell/bazel:bazel_rules_test"
-    - "-//src/test/shell/bazel:bazel_sandboxing_test"
-    - "-//src/test/shell/bazel:bazel_test_test"
-    - "-//src/test/shell/bazel:empty_package_test"
-    - "-//src/test/shell/bazel:external_integration_test"
-    - "-//src/test/shell/bazel:java_launcher_test"
-    - "-//src/test/shell/bazel:local_repository_test"
-    - "-//src/test/shell/bazel:maven_test"
-    - "-//src/test/shell/bazel:runfiles_test"
-    - "-//src/test/shell/integration:bazel_java_test"
-    - "-//src/test/shell/integration:bazel_sandboxed_worker_test"
-    - "-//src/test/shell/integration:bazel_worker_test"
-    - "-//src/test/shell/integration:discard_analysis_cache_test"
-    - "-//src/test/shell/integration:java_integration_test"
-    - "-//src/test/shell/integration:jvm_flags_escaping_test"
-    - "-//src/test/shell/integration:minimal_jdk_test"
-    - "-//src/test/shell/integration:output_filter_test"
-    - "-//src/test/shell/integration:stub_finds_runfiles_test"
-    - "-//src/test/shell/integration:test_test"
-    # TODO(iirina): Re-enable after #7952 was released.
-    - "-//src/test/shell/bazel:embedded_tools_deps_test"
+      - "//src/test/shell/bazel:cc_integration_test"
+    include_json_profile:
+      - build
+      - test
+  ubuntu2004:
+    shell_commands:
+      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
+        android_ndk_repository/android_ndk_repository/' WORKSPACE
+      - rm -f WORKSPACE.bak
+      - rm -rf $HOME/bazeltest
+      - mkdir $HOME/bazeltest
+    build_flags:
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
+    build_targets:
+      - "//src:bazel"
+      - "//src:bazel_jdk_minimal"
+      - "//src:test_repos"
+    test_flags:
+      - "--sandbox_default_allow_network=false"
+      - "--sandbox_writable_path=$HOME/bazeltest"
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      # Configure and enable tests that require access to the network.
+      - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
+    test_targets:
+      - "//scripts/..."
+      - "//src/java_tools/..."
+      - "//src/test/..."
+      - "//src/tools/execlog/..."
+      - "//src/tools/singlejar/..."
+      - "//src/tools/workspacelog/..."
+      - "//third_party/ijar/..."
+      - "//tools/android/..."
+      - "//tools/aquery_differ/..."
+      - "//tools/python/..."
+      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
+      - "-//src/java_tools/import_deps_checker/..."
+      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/12164
+      - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
+      - "-//src/test/shell/bazel:bazel_coverage_sh_test"
+      - "-//src/test/shell/bazel:python_version_test"
+      - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
+      - "-//src/test/shell/bazel/android:android_ndk_integration_test"
+      - "-//src/test/shell/bazel:bazel_coverage_cc_head_test_gcc"
+      - "-//src/test/shell/bazel/android:android_ndk_integration_test_with_head_android_tools"
+    include_json_profile:
+      - build
+      - test
   macos:
     shell_commands:
-    - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-      android_ndk_repository/android_ndk_repository/' WORKSPACE
-    - rm -f WORKSPACE.bak
+      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
+        android_ndk_repository/android_ndk_repository/' WORKSPACE
+      - rm -f WORKSPACE.bak
+      - rm -rf $HOME/bazeltest
+      - mkdir $HOME/bazeltest
     build_flags:
-    - "--apple_platform_type=macos"
-    # Remove when https://github.com/bazelbuild/bazel/issues/7026 is fixed.
-    - "--noincompatible_strict_action_env"
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
     build_targets:
-    - "//src:bazel"
-    - "//src:bazel_jdk_minimal"
+      - "//src:bazel"
+      - "//src:bazel_jdk_minimal"
+      - "//src:test_repos"
     test_flags:
-    - "--test_timeout=1200"
-    # Remove when https://github.com/bazelbuild/bazel/issues/7026 is fixed.
-    - "--noincompatible_strict_action_env"
+      - "--sandbox_default_allow_network=false"
+      - "--sandbox_writable_path=$HOME/bazeltest"
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      # Configure and enable tests that require access to the network.
+      - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
     test_targets:
-    - "--"
-    - "//scripts/..."
-    - "//src/test/..."
-    - "//src/tools/singlejar/..."
-    - "//third_party/ijar/..."
-    - "//tools/android/..."
-    - "//tools/aquery_differ/..."
-    - "//tools/osx/crosstool/..."
-    - "//tools/python/..."
-    - "-//src/test/shell/integration:minimal_jdk_test"
+      - "//scripts/..."
+      - "//src/test/..."
+      - "//src/tools/execlog/..."
+      - "//src/tools/singlejar/..."
+      - "//src/tools/workspacelog/..."
+      - "//third_party/ijar/..."
+      - "//tools/android/..."
+      - "//tools/aquery_differ/..."
+      - "//tools/osx/crosstool/..."
+      - "//tools/python/..."
       # C++ coverage is not supported on macOS yet.
-    - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
-    # TODO(iirina): Re-enable after #7952 was released.
-    - "-//src/test/shell/bazel:embedded_tools_deps_test"
-    - "-//src/test/shell/bazel:bazel_java_test_jdk9_toolchain_released"
-    - "-//src/test/shell/bazel:bazel_java_test_jdk9_toolchain_head"
-    - "-//src/test/shell/bazel:bazel_java_test_jdk10_toolchain_head"
+      - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
+    include_json_profile:
+      - build
+      - test
   windows:
     batch_commands:
-    - powershell -Command "(Get-Content WORKSPACE) -Replace '# android_', 'android_' | Set-Content WORKSPACE"
+      - powershell -Command "(Get-Content WORKSPACE) -Replace '# android_', 'android_' | Set-Content WORKSPACE"
     build_flags:
-    - "--copt=-w"
-    - "--host_copt=-w"
-    # Remove when https://github.com/bazelbuild/bazel/issues/7026 is fixed.
-    - "--noincompatible_strict_action_env"
+      - "--copt=-w"
+      - "--host_copt=-w"
+      - "--test_env=JAVA_HOME"
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest_install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     build_targets:
-    - "//src:bazel"
-    - "//src:bazel_jdk_minimal"
+      - "//src:bazel.exe"
+      - "//src:bazel_jdk_minimal"
+      - "//src:test_repos"
     test_flags:
-    - "--copt=-w"
-    - "--host_copt=-w"
-    - "--test_env=JAVA_HOME"
-    - "--test_timeout=1200"
-    # Remove when https://github.com/bazelbuild/bazel/issues/7026 is fixed.
-    - "--noincompatible_strict_action_env"
+      - "--copt=-w"
+      - "--host_copt=-w"
+      - "--test_env=JAVA_HOME"
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest_install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     test_targets:
-    - "--"
-    - "//src:all_windows_tests"
-    # TODO(iirina): Re-enable after #7952 was released.
-    - "-//src/test/shell/bazel:embedded_tools_deps_test"
+      - "//src:all_windows_tests"
+    include_json_profile:
+      - build
+      - test
   rbe_ubuntu1604:
     shell_commands:
-    - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/'
-      -e 's/^# android_ndk_repository/android_ndk_repository/'
-      -e 's/^# rbe_autoconfig/rbe_autoconfig/'
-      -e 's/^# load("@bazel_toolchains/load("@bazel_toolchains/' WORKSPACE
-    - rm -f WORKSPACE.bak
+      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/'
+        -e 's/^# android_ndk_repository/android_ndk_repository/'
+        -e 's/^# rbe_autoconfig/rbe_autoconfig/'
+        -e 's/^# load("@bazel_toolchains/load("@bazel_toolchains/' WORKSPACE
+      - rm -f WORKSPACE.bak
     build_targets:
-    - "//src:bazel"
-    - "//src:bazel_jdk_minimal"
+      - "//src:bazel"
+      - "//src:bazel_jdk_minimal"
+    include_json_profile:
+      - build
+  kythe_ubuntu2004:
+    shell_commands:
+    - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/'
+      -e 's/^# android_ndk_repository/android_ndk_repository/' WORKSPACE
+    - rm -f WORKSPACE.bak
+    index_flags:
+    - "--define=kythe_corpus=github.com/bazelbuild/bazel"
+    index_targets_query: "kind(\"cc_(binary|library|test|proto_library) rule\", ...) union kind(\"java_(binary|import|library|plugin|test|proto_library) rule\", ...) union kind(\"proto_library rule\", ...)"
+    index_upload_policy: Always
+    index_upload_gcs: True

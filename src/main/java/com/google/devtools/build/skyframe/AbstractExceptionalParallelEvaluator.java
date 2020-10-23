@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -32,6 +33,7 @@ import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -40,7 +42,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -79,8 +80,7 @@ import javax.annotation.Nullable;
  */
 public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
     extends AbstractParallelEvaluator {
-  private static final Logger logger =
-      Logger.getLogger(AbstractExceptionalParallelEvaluator.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   AbstractExceptionalParallelEvaluator(
       ProcessableGraph graph,
@@ -124,10 +124,9 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
           valueVersion,
           evaluatorContext.getGraphVersion());
 
-      if (value != null) {
-        ValueWithMetadata valueWithMetadata =
-            ValueWithMetadata.wrapWithMetadata(entry.getValueMaybeWithMetadata());
-        replay(valueWithMetadata);
+      SkyValue valueMaybeWithMetadata = entry.getValueMaybeWithMetadata();
+      if (valueMaybeWithMetadata != null) {
+        replay(ValueWithMetadata.wrapWithMetadata(valueMaybeWithMetadata));
       }
 
       // For most nodes we do not inform the progress receiver if they were already done when we
@@ -171,7 +170,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         informProgressReceiverThatValueIsDone(skyKey, batch.get(skyKey));
       }
       // Note that the 'catastrophe' parameter doesn't really matter here (it's only used for
-      // sanity checking).
+      // checking).
       return constructResultExceptionally(skyKeySet, null, /*catastrophe=*/ false);
     }
 
@@ -191,7 +190,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       // Errors, even cached ones, should halt evaluations not in keepGoing mode.
       if (!cachedErrorKeys.isEmpty()) {
         // Note that the 'catastrophe' parameter doesn't really matter here (it's only used for
-        // sanity checking).
+        // checking).
         return constructResultExceptionally(cachedErrorKeys, null, /*catastrophe=*/ false);
       }
     }
@@ -205,22 +204,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
   @ThreadCompatible
   private <T extends SkyValue> EvaluationResult<T> doMutatingEvaluation(
       ImmutableSet<SkyKey> skyKeys) throws InterruptedException, E {
-    // We unconditionally add the ErrorTransienceValue here, to ensure that it will be created, and
-    // in the graph, by the time that it is needed. Creating it on demand in a parallel context sets
-    // up a race condition, because there is no way to atomically create a node and set its value.
-    NodeEntry errorTransienceEntry =
-        Iterables.getOnlyElement(
-            graph
-                .createIfAbsentBatch(
-                    null, Reason.PRE_OR_POST_EVALUATION, ImmutableList.of(ErrorTransienceValue.KEY))
-                .values());
-    if (!errorTransienceEntry.isDone()) {
-      injectValues(
-          ImmutableMap.of(ErrorTransienceValue.KEY, ErrorTransienceValue.INSTANCE),
-          evaluatorContext.getGraphVersion(),
-          graph,
-          evaluatorContext.getProgressReceiver());
-    }
+    injectErrorTransienceValue();
     try {
       for (Map.Entry<SkyKey, ? extends NodeEntry> e :
           graph.createIfAbsentBatch(null, Reason.PRE_OR_POST_EVALUATION, skyKeys).entrySet()) {
@@ -263,6 +247,25 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
     }
 
     return waitForCompletionAndConstructResult(skyKeys);
+  }
+
+  protected void injectErrorTransienceValue() throws InterruptedException {
+    // We unconditionally add the ErrorTransienceValue here, to ensure that it will be created, and
+    // in the graph, by the time that it is needed. Creating it on demand in a parallel context sets
+    // up a race condition, because there is no way to atomically create a node and set its value.
+    NodeEntry errorTransienceEntry =
+        Iterables.getOnlyElement(
+            graph
+                .createIfAbsentBatch(
+                    null, Reason.PRE_OR_POST_EVALUATION, ImmutableList.of(ErrorTransienceValue.KEY))
+                .values());
+    if (!errorTransienceEntry.isDone()) {
+      injectValues(
+          ImmutableMap.of(ErrorTransienceValue.KEY, ErrorTransienceValue.INSTANCE),
+          evaluatorContext.getGraphVersion(),
+          graph,
+          evaluatorContext.getProgressReceiver());
+    }
   }
 
   private <T extends SkyValue> EvaluationResult<T> waitForCompletionAndConstructResult(
@@ -398,23 +401,18 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
             "Current key %s has to be a top-level key: %s",
             errorKey,
             rootValues);
+        SkyValue valueMaybeWithMetadata = errorEntry.getValueMaybeWithMetadata();
+        if (valueMaybeWithMetadata != null) {
+          replay(ValueWithMetadata.wrapWithMetadata(valueMaybeWithMetadata));
+        }
         break;
       }
       SkyKey parent = Preconditions.checkNotNull(Iterables.getFirst(reverseDeps, null));
       if (bubbleErrorInfo.containsKey(parent)) {
-        logger.info(
-            "Bubbled into a cycle. Don't try to bubble anything up. Cycle detection will kick in. "
-                + parent
-                + ": "
-                + errorEntry
-                + ", "
-                + bubbleErrorInfo
-                + ", "
-                + leafFailure
-                + ", "
-                + roots
-                + ", "
-                + rdepsToBubbleUpTo);
+        logger.atInfo().log(
+            "Bubbled into a cycle. Don't try to bubble anything up. Cycle detection will kick in."
+                + " %s: %s, %s, %s, %s, %s",
+            parent, errorEntry, bubbleErrorInfo, leafFailure, roots, rdepsToBubbleUpTo);
         return null;
       }
       NodeEntry parentEntry =
@@ -480,6 +478,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
             throw new AssertionError(parent + " not in valid dirty state: " + parentEntry);
         }
       }
+      SkyKey childErrorKey = errorKey;
       errorKey = parent;
       SkyFunctionEnvironment env =
           new SkyFunctionEnvironment(
@@ -489,10 +488,12 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
               ImmutableSet.<SkyKey>of(),
               evaluatorContext);
       externalInterrupt = externalInterrupt || Thread.currentThread().isInterrupted();
+      boolean completedRun = false;
       try {
         // This build is only to check if the parent node can give us a better error. We don't
         // care about a return value.
         factory.compute(parent, env);
+        completedRun = true;
       } catch (InterruptedException interruptedException) {
         // Do nothing.
         // This throw happens if the builder requested the failed node, and then checked the
@@ -508,27 +509,38 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
               ErrorInfo.fromException(reifiedBuilderException, /*isTransitivelyTransient=*/ false);
           Pair<NestedSet<TaggedEvents>, NestedSet<Postable>> eventsAndPostables =
               env.buildAndReportEventsAndPostables(parentEntry, /*expectDoneDeps=*/ false);
-          bubbleErrorInfo.put(
-              errorKey,
+          ValueWithMetadata valueWithMetadata =
               ValueWithMetadata.error(
                   ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)),
                   eventsAndPostables.first,
-                  eventsAndPostables.second));
+                  eventsAndPostables.second);
+          replay(valueWithMetadata);
+          bubbleErrorInfo.put(errorKey, valueWithMetadata);
           continue;
         }
       } finally {
         // Clear interrupted status. We're not listening to interrupts here.
         Thread.interrupted();
       }
-      // Builder didn't throw an exception, so just propagate this one up.
+      // TODO(b/149495181): remove when resolved.
+      if (completedRun
+          && error.getException() != null
+          && error.getException() instanceof IOException) {
+        logger.atInfo().log(
+            "SkyFunction did not rethrow error, may be a bug that it did not expect one: %s"
+                + " via %s, %s (%s)",
+            errorKey, childErrorKey, error, bubbleErrorInfo);
+      }
+      // Builder didn't throw its own exception, so just propagate this one up.
       Pair<NestedSet<TaggedEvents>, NestedSet<Postable>> eventsAndPostables =
           env.buildAndReportEventsAndPostables(parentEntry, /*expectDoneDeps=*/ false);
-      bubbleErrorInfo.put(
-          errorKey,
+      ValueWithMetadata valueWithMetadata =
           ValueWithMetadata.error(
               ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)),
               eventsAndPostables.first,
-              eventsAndPostables.second));
+              eventsAndPostables.second);
+      replay(valueWithMetadata);
+      bubbleErrorInfo.put(errorKey, valueWithMetadata);
     }
 
     // Reset the interrupt bit if there was an interrupt from outside this evaluator interrupt.
@@ -538,18 +550,6 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       Thread.currentThread().interrupt();
     }
     return bubbleErrorInfo;
-  }
-
-  private void replay(ValueWithMetadata valueWithMetadata) {
-    // Replaying actions is done on a small number of nodes, but potentially over a large dependency
-    // graph. Under those conditions, using the regular NestedSet flattening with .toList() is more
-    // efficient than using NestedSetVisitor's custom traversal logic.
-    evaluatorContext
-        .getReplayingNestedSetPostableVisitor()
-        .visit(valueWithMetadata.getTransitivePostables().toList());
-    evaluatorContext
-        .getReplayingNestedSetEventVisitor()
-        .visit(valueWithMetadata.getTransitiveEvents().toList());
   }
 
   abstract <T extends SkyValue> EvaluationResult<T> constructResultExceptionally(
@@ -594,8 +594,6 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         }
         continue;
       }
-      // Replaying here is necessary for error bubbling and other cases.
-      replay(valueWithMetadata);
       SkyValue value = valueWithMetadata.getValue();
       ErrorInfo errorInfo = valueWithMetadata.getErrorInfo();
       Preconditions.checkState(value != null || errorInfo != null, skyKey);
@@ -683,10 +681,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
             prevEntry.noDepsLastBuild(), "existing entry for %s has deps: %s", key, prevEntry);
       }
       prevEntry.markRebuilding();
-      prevEntry.setValue(
-          value,
-          version,
-          prevEntry.canPruneDepsByFingerprint() ? new DepFingerprintList.Builder(0).build() : null);
+      prevEntry.setValue(value, version);
       // Now that this key's injected value is set, it is no longer dirty.
       progressReceiver.injected(key);
     }

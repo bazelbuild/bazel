@@ -13,25 +13,51 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionCacheAwareAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
+import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
+import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.StarlarkAction.Code;
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import javax.annotation.Nullable;
 
-/**
- * A Starlark specific SpawnAction.
- *
- * <p>Note: current implementation is empty: StarlarkAction is equivalent to SpawnAction. This
- * refactoring will help isolate Starlark specific implementation without impacting other classes
- * derived from SpawnAction.
- */
-public final class StarlarkAction extends SpawnAction {
+/** A Starlark specific SpawnAction. */
+public final class StarlarkAction extends SpawnAction implements ActionCacheAwareAction {
+
+  private final Optional<Artifact> unusedInputsList;
+  private final NestedSet<Artifact> allInputs;
 
   /**
    * Constructs a StarlarkAction using direct initialization arguments.
@@ -56,11 +82,12 @@ public final class StarlarkAction extends SpawnAction {
    * @param progressMessage the message printed during the progression of the build
    * @param runfilesSupplier {@link RunfilesSupplier}s describing the runfiles for the action
    * @param mnemonic the mnemonic that is reported in the master log
+   * @param unusedInputsList file containing the list of inputs that were not used by the action.
    */
   public StarlarkAction(
       ActionOwner owner,
-      Iterable<Artifact> tools,
-      Iterable<Artifact> inputs,
+      NestedSet<Artifact> tools,
+      NestedSet<Artifact> inputs,
       Iterable<Artifact> outputs,
       Artifact primaryOutput,
       ResourceSet resourceSet,
@@ -71,7 +98,8 @@ public final class StarlarkAction extends SpawnAction {
       ImmutableMap<String, String> executionInfo,
       CharSequence progressMessage,
       RunfilesSupplier runfilesSupplier,
-      String mnemonic) {
+      String mnemonic,
+      Optional<Artifact> unusedInputsList) {
     super(
         owner,
         tools,
@@ -88,11 +116,136 @@ public final class StarlarkAction extends SpawnAction {
         runfilesSupplier,
         mnemonic,
         /* executeUnconditionally */ false,
-        /* extraActionInfoSupplier */ null);
+        /* extraActionInfoSupplier */ null,
+        /* resultConsumer */ null);
+    this.allInputs = inputs;
+    this.unusedInputsList = unusedInputsList;
+  }
+
+  @VisibleForTesting
+  public Optional<Artifact> getUnusedInputsList() {
+    return unusedInputsList;
+  }
+
+  @Override
+  public boolean isShareable() {
+    return !unusedInputsList.isPresent();
+  }
+
+  @Override
+  public boolean discoversInputs() {
+    return unusedInputsList.isPresent();
+  }
+
+  @Override
+  public NestedSet<Artifact> getAllowedDerivedInputs() {
+    return getInputs();
+  }
+
+  @Override
+  public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException, InterruptedException {
+    // We need to "re-discover" all the original inputs: the unused ones that were removed
+    // might now be needed.
+    updateInputs(allInputs);
+    return allInputs;
+  }
+
+  private InputStream getUnusedInputListInputStream(
+      ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults)
+      throws IOException, ExecException {
+
+    // Check if the file is in-memory.
+    // Note: SpawnActionContext guarantees that the first list entry exists and corresponds to the
+    // executed spawn.
+    Artifact unusedInputsListArtifact = unusedInputsList.get();
+    InputStream inputStream = spawnResults.get(0).getInMemoryOutput(unusedInputsListArtifact);
+    if (inputStream != null) {
+      return inputStream;
+    }
+    // Fallback to reading from disk.
+    try {
+      return actionExecutionContext
+          .getPathResolver()
+          .toPath(unusedInputsListArtifact)
+          .getInputStream();
+    } catch (FileNotFoundException e) {
+      String message =
+          "Action did not create expected output file listing unused inputs: "
+              + unusedInputsListArtifact.getExecPathString();
+      throw new UserExecException(
+          e, createFailureDetail(message, Code.UNUSED_INPUT_LIST_FILE_NOT_FOUND));
+    }
+  }
+
+  @Override
+  protected void afterExecute(
+      ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults)
+      throws ExecException {
+    if (!unusedInputsList.isPresent()) {
+      return;
+    }
+    Map<String, Artifact> usedInputs = new HashMap<>();
+    for (Artifact input : allInputs.toList()) {
+      usedInputs.put(input.getExecPathString(), input);
+    }
+    try (BufferedReader br =
+        new BufferedReader(
+            new InputStreamReader(
+                getUnusedInputListInputStream(actionExecutionContext, spawnResults), UTF_8))) {
+      String line;
+      while ((line = br.readLine()) != null) {
+        line = line.trim();
+        if (line.isEmpty()) {
+          continue;
+        }
+        usedInputs.remove(line);
+      }
+    } catch (IOException e) {
+      throw new EnvironmentalExecException(
+          e,
+          createFailureDetail("Unused inputs read failure", Code.UNUSED_INPUT_LIST_READ_FAILURE));
+    }
+    updateInputs(NestedSetBuilder.wrap(Order.STABLE_ORDER, usedInputs.values()));
+  }
+
+  @Override
+  Spawn getSpawnForExtraAction() throws CommandLineExpansionException {
+    return getSpawn(allInputs);
+  }
+
+  @Override
+  public NestedSet<Artifact> getInputFilesForExtraAction(
+      ActionExecutionContext actionExecutionContext) {
+    return allInputs;
+  }
+
+  private static FailureDetail createFailureDetail(String message, Code detailedCode) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setStarlarkAction(FailureDetails.StarlarkAction.newBuilder().setCode(detailedCode))
+        .build();
+  }
+
+  /**
+   * StarlarkAction can contain `unused_input_list`, which rely on the action cache entry's file
+   * list to determine the list of inputs for a subsequent run, taking into account
+   * unused_input_list. Hence we need to store the inputs' execPaths in the action cache.
+   */
+  @Override
+  public boolean storeInputsExecPathsInActionCache() {
+    return unusedInputsList.isPresent();
   }
 
   /** Builder class to construct {@link StarlarkAction} instances. */
   public static class Builder extends SpawnAction.Builder {
+
+    private Optional<Artifact> unusedInputsList = Optional.empty();
+
+    public Builder setUnusedInputsList(Optional<Artifact> unusedInputsList) {
+      this.unusedInputsList = unusedInputsList;
+      return this;
+    }
 
     /** Creates a SpawnAction. */
     @Override
@@ -107,10 +260,21 @@ public final class StarlarkAction extends SpawnAction {
         CommandLineLimits commandLineLimits,
         boolean isShellCommand,
         ActionEnvironment env,
+        @Nullable BuildConfiguration configuration,
         ImmutableMap<String, String> executionInfo,
         CharSequence progressMessage,
         RunfilesSupplier runfilesSupplier,
         String mnemonic) {
+      if (unusedInputsList.isPresent()) {
+        // Always download unused_inputs_list file from remote cache.
+        executionInfo =
+            ImmutableMap.<String, String>builderWithExpectedSize(executionInfo.size() + 1)
+                .putAll(executionInfo)
+                .put(
+                    ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
+                    unusedInputsList.get().getExecPathString())
+                .build();
+      }
       return new StarlarkAction(
           owner,
           tools,
@@ -125,7 +289,8 @@ public final class StarlarkAction extends SpawnAction {
           executionInfo,
           progressMessage,
           runfilesSupplier,
-          mnemonic);
+          mnemonic,
+          unusedInputsList);
     }
   }
 }

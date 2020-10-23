@@ -48,7 +48,7 @@ import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
 /** A testing utility that allows assertions against Paths. */
-public class PathsSubject extends Subject<PathsSubject, Path> {
+public class PathsSubject extends Subject {
 
   private static final String PATH_NORMALIZER =
       String.format(
@@ -74,6 +74,21 @@ public class PathsSubject extends Subject<PathsSubject, Path> {
     }
   }
 
+  void containsExactlyUncompressedFilesIn(String... paths) throws IOException {
+    if (actual == null) {
+      failWithoutActual(simpleFact("expected not to be null"));
+    }
+    exists();
+    assertThat(
+            new ZipFile(actual.toFile())
+                .stream()
+                    .filter(entry -> entry.getMethod() == ZipEntry.STORED)
+                    .map(ZipEntry::getName)
+                    .map(n -> n.replaceAll(PATH_NORMALIZER, "$1/$3"))
+                    .collect(Collectors.toSet()))
+        .containsExactlyElementsIn(paths);
+  }
+
   void containsAllArchivedFilesIn(String... paths) throws IOException {
     if (actual == null) {
       failWithoutActual(simpleFact("expected not to be null"));
@@ -86,22 +101,7 @@ public class PathsSubject extends Subject<PathsSubject, Path> {
                     .map(ZipEntry::getName)
                     .map(n -> n.replaceAll(PATH_NORMALIZER, "$1/$3"))
                     .collect(Collectors.toSet()))
-        .containsAtLeastElementsIn(Arrays.asList(paths));
-  }
-
-  void containsExactlyArchivedFilesIn(String... paths) throws IOException {
-    if (actual == null) {
-      failWithoutActual(simpleFact("expected not to be null"));
-    }
-    exists();
-
-    assertThat(
-            new ZipFile(actual.toFile())
-                .stream()
-                    .map(ZipEntry::getName)
-                    .map(n -> n.replaceAll(PATH_NORMALIZER, "$1/$3"))
-                    .collect(Collectors.toSet()))
-        .containsExactly(Arrays.asList(paths));
+        .containsAtLeastElementsIn(paths);
   }
 
   void containsNoArchivedFilesIn(String... paths) throws IOException {
@@ -138,7 +138,7 @@ public class PathsSubject extends Subject<PathsSubject, Path> {
       failWithoutActual(
           fact("expected to have contents", asList(contents)),
           fact("but failed to read file with", e),
-          fact("path was", actual()));
+          fact("path was", actual));
     }
   }
 

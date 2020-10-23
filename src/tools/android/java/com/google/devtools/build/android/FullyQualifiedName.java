@@ -22,6 +22,7 @@ import com.android.ide.common.resources.configuration.FolderConfiguration;
 import com.android.ide.common.resources.configuration.ResourceQualifier;
 import com.android.resources.ResourceFolderType;
 import com.android.resources.ResourceType;
+import com.google.common.base.Ascii;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
@@ -54,6 +55,10 @@ import javax.annotation.concurrent.Immutable;
  *
  * <p>Each resource name consists of the resource package, name, type, and qualifiers.
  */
+// TODO(b/146498565): remove and/or replace.  For normal resources this can just be a ResourceName
+// with Configuration, and the latter can come from aapt2 directly.  tools:* attributes should be a
+// separate DataKey; as FullyQualifiedName they all have the same package, same singleton
+// VirtualType, and same empty qualifiers.
 @Immutable
 public class FullyQualifiedName implements DataKey {
   public static final String DEFAULT_PACKAGE = "res-auto";
@@ -65,6 +70,7 @@ public class FullyQualifiedName implements DataKey {
 
   private static final AtomicInteger cacheHit = new AtomicInteger(0);
   private final String pkg;
+  // TODO(b/146498565): use com.android.aapt.ConfigurationOuterClass.Configuration.
   private final ImmutableList<String> qualifiers;
   private final Type type;
   private final String name;
@@ -141,14 +147,16 @@ public class FullyQualifiedName implements DataKey {
         protoKey.getKeyValue());
   }
 
+  // Note that while "$" is not allowed in source code, it's used in generated names (precisely to
+  // avoid colliding with source code).
   static final Pattern QUALIFIED_REFERENCE =
-      Pattern.compile("((?<package>[^:]+):)?(?<type>\\w+)/(?<name>\\w+)");
+      Pattern.compile("^((?<package>[^:]+):)?(?<type>\\w+)/(?<name>[A-Za-z0-9_.$]+)$");
 
   public static FullyQualifiedName fromReference(
       String qualifiedReference, Optional<String> packageName) {
     final Matcher matcher = QUALIFIED_REFERENCE.matcher(qualifiedReference);
     Preconditions.checkArgument(
-        matcher.find(),
+        matcher.matches(),
         "%s is not a reference. Expected %s",
         qualifiedReference,
         QUALIFIED_REFERENCE.pattern());
@@ -316,6 +324,13 @@ public class FullyQualifiedName implements DataKey {
   @Override
   public KeyType getKeyType() {
     return KeyType.FULL_QUALIFIED_NAME;
+  }
+
+  @Override
+  public boolean shouldDetectConflicts() {
+    // Ignore conflicts among pseudolocales.
+    return qualifiers.stream()
+        .noneMatch(q -> Ascii.equalsIgnoreCase(q, "en-rXA") || Ascii.equalsIgnoreCase(q, "ar-rXB"));
   }
 
   @Override
@@ -528,25 +543,7 @@ public class FullyQualifiedName implements DataKey {
       List<String> handledQualifiers = new ArrayList<>();
       // Do some substitution of language/region qualifiers.
       while (rawQualifiers.hasNext()) {
-        String qualifier = rawQualifiers.next();
-        if ("es".equalsIgnoreCase(qualifier)
-            && rawQualifiers.hasNext()
-            && "419".equalsIgnoreCase(rawQualifiers.peek())) {
-          // Replace the es-419.
-          handledQualifiers.add("b+es+419");
-          // Consume the next value, as it's been replaced.
-          rawQualifiers.next();
-        } else if ("sr".equalsIgnoreCase(qualifier)
-            && rawQualifiers.hasNext()
-            && "rlatn".equalsIgnoreCase(rawQualifiers.peek())) {
-          // Replace the sr-rLatn.
-          handledQualifiers.add("b+sr+Latn");
-          // Consume the next value, as it's been replaced.
-          rawQualifiers.next();
-        } else {
-          // This qualifier can probably be handled by FolderConfiguration.
-          handledQualifiers.add(qualifier);
-        }
+        handledQualifiers.add(rawQualifiers.next());
       }
       // Create a configuration
       FolderConfiguration config = FolderConfiguration.getConfigFromQualifiers(handledQualifiers);

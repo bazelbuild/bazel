@@ -5,14 +5,6 @@ title: Toolchains
 
 # Toolchains
 
-- [Overview](#overview)
-- [Motivation](#motivation)
-- [Writing rules that use toolchains](#writing-rules-that-use-toolchains)
-- [Defining toolchains](#defining-toolchains)
-- [Registering and building with toolchains](#registering-and-building-with-toolchains)
-- [Toolchain resolution](#toolchain-resolution)
-- [Debugging toolchains](#debugging-toolchains)
-
 ## Overview
 
 This page describes the toolchain framework -- a way for rule authors to
@@ -104,14 +96,14 @@ We can improve on this solution by using `select` to choose the `compiler`
 config_setting(
     name = "on_linux",
     constraint_values = [
-        "@bazel_tools//platforms:linux",
+        "@platforms//os:linux",
     ],
 )
 
 config_setting(
     name = "on_windows",
     constraint_values = [
-        "@bazel_tools//platforms:windows",
+        "@platforms//os:windows",
     ],
 )
 
@@ -196,6 +188,25 @@ Bazel's procedure for resolving toolchains to targets is described
 made a dependency of the `bar_binary` target, not the whole space of candidate
 toolchains.
 
+### Writing aspects that use toolchains
+
+Aspects have access to the same toolchain API as rules: you can define required
+toolchain types, access toolchains via the context, and use them to generate new
+actions using the toolchain.
+
+```py
+bar_aspect = aspect(
+    implementation = _bar_aspect_impl,
+    attrs = {},
+    toolchains = ['//bar_tools:toolchain_type'],
+)
+
+def _bar_aspect_impl(target, ctx):
+  toolchain = ctx.toolchains['//bar_tools:toolchain_type']
+  # Use the toolchain provider like in a rule.
+  return []
+```
+
 ## Defining toolchains
 
 To define some toolchains for a given toolchain type, we need three things:
@@ -276,12 +287,12 @@ appropriate for a given platform.
 toolchain(
     name = "barc_linux_toolchain",
     exec_compatible_with = [
-        "@bazel_tools//platforms:linux",
-        "@bazel_tools//platforms:x86_64",
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
     ],
     target_compatible_with = [
-        "@bazel_tools//platforms:linux",
-        "@bazel_tools//platforms:x86_64",
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
     ],
     toolchain = ":barc_linux",
     toolchain_type = ":toolchain_type",
@@ -290,12 +301,12 @@ toolchain(
 toolchain(
     name = "barc_windows_toolchain",
     exec_compatible_with = [
-        "@bazel_tools//platforms:windows",
-        "@bazel_tools//platforms:x86_64",
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_64",
     ],
     target_compatible_with = [
-        "@bazel_tools//platforms:windows",
-        "@bazel_tools//platforms:x86_64",
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_64",
     ],
     toolchain = ":barc_windows",
     toolchain_type = ":toolchain_type",
@@ -336,7 +347,7 @@ toolchain will be selected based on the target and execution platforms.
 platform(
     name = "my_target_platform",
     constraint_values = [
-        "@bazel_tools//platforms:linux",
+        "@platforms//os:linux",
     ],
 )
 
@@ -351,14 +362,16 @@ bazel build //my_pkg:my_bar_binary --platforms=//my_pkg:my_target_platform
 ```
 
 Bazel will see that `//my_pkg:my_bar_binary` is being built with a platform that
-has `@bazel_tools//platforms:linux` and therefore resolve the
+has `@platforms//os:linux` and therefore resolve the
 `//bar_tools:toolchain_type` reference to `//bar_tools:barc_linux_toolchain`.
 This will end up building `//bar_tools:barc_linux` but not
-`//barc_tools:barc_windows`.
+`//bar_tools:barc_windows`.
 
-## Toolchain Resolution
+## Toolchain resolution
 
-**Note:** Some Bazel rules do not yet support toolchain resolution.
+**Note:**
+[Some Bazel rules](platforms-intro.html#status)
+do not yet support toolchain resolution.
 
 For each target that uses toolchains, Bazel's toolchain resolution procedure
 determines the target's concrete toolchain dependencies. The procedure takes as input a
@@ -379,21 +392,29 @@ and
 [`--extra_toolchains`](command-line-reference.html#flag--extra_toolchains).
 The host platform is automatically included as an available execution platform.
 Available platforms and toolchains are tracked as ordered lists for determinism,
+with preference given to earlier items in the list.
 
 The resolution steps are as follows.
 
-1. If the target specifies the
+1. A `target_compatible_with` or `exec_compatible_with` clause *matches* a
+   platform iff, for each `constraint_value` in its list, the platform also has
+   that `constraint_value` (either explicitly or as a default).
+
+   If the platform has `constraint_value`s from `constraint_setting`s not
+   referenced by the clause, these do not affect matching.
+
+1. If the target being built specifies the
    [`exec_compatible_with` attribute](be/common-definitions.html#common.exec_compatible_with)
-   (or the rule specifies the
-   [`exec_compatible_with` argument](skylark/lib/globals.html#rule.exec_compatible_with),
+   (or its rule definition specifies the
+   [`exec_compatible_with` argument](skylark/lib/globals.html#rule.exec_compatible_with)),
    the list of available execution platforms is filtered to remove
    any that do not match the execution constraints.
 
-2. For each available execution platform, we associate each toolchain type with
+1. For each available execution platform, we associate each toolchain type with
    the first available toolchain, if any, that is compatible with this execution
    platform and the target platform.
 
-3. Any execution platform that failed to find a compatible toolchain for one of
+1. Any execution platform that failed to find a compatible toolchain for one of
    its toolchain types is ruled out. Of the remaining platforms, the first one
    becomes the current target's execution platform, and its associated
    toolchains become dependencies of the target.

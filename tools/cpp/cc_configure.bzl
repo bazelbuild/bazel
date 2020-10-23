@@ -21,25 +21,99 @@ load(
     "get_cpu_value",
     "resolve_labels",
 )
+load("@bazel_tools//tools/osx:xcode_configure.bzl", "run_xcode_locator")
+
+def _generate_cpp_only_build_file(repository_ctx, cpu_value, paths):
+    repository_ctx.template(
+        "BUILD",
+        paths["@bazel_tools//tools/cpp:BUILD.toolchains.tpl"],
+        {"%{name}": cpu_value},
+    )
+
+def cc_autoconf_toolchains_impl(repository_ctx):
+    """Generate BUILD file with 'toolchain' targets for the local host C++ toolchain.
+
+    Args:
+      repository_ctx: repository context
+    """
+    paths = resolve_labels(repository_ctx, [
+        "@bazel_tools//tools/cpp:BUILD.toolchains.tpl",
+        "@bazel_tools//tools/osx/crosstool:BUILD.toolchains",
+        "@bazel_tools//tools/osx/crosstool:osx_archs.bzl",
+        "@bazel_tools//tools/osx:xcode_locator.m",
+    ])
+    env = repository_ctx.os.environ
+    cpu_value = get_cpu_value(repository_ctx)
+
+    # Should we try to find C++ toolchain at all? If not, we don't have to generate toolchains for C++ at all.
+    should_detect_cpp_toolchain = "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN" not in env or env["BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN"] != "1"
+
+    # Should we unconditionally *not* use xcode? If so, we don't have to run Xcode locator ever.
+    should_use_cpp_only_toolchain = "BAZEL_USE_CPP_ONLY_TOOLCHAIN" in env and env["BAZEL_USE_CPP_ONLY_TOOLCHAIN"] == "1"
+
+    # Should we unconditionally use xcode? If so, we don't have to run Xcode locator now.
+    should_use_xcode = "BAZEL_USE_XCODE_TOOLCHAIN" in env and env["BAZEL_USE_XCODE_TOOLCHAIN"] == "1"
+
+    if not should_detect_cpp_toolchain:
+        repository_ctx.file("BUILD", "# C++ toolchain autoconfiguration was disabled by BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN env variable.")
+    elif cpu_value == "darwin" and not should_use_cpp_only_toolchain:
+        xcode_toolchains = []
+
+        # Only detect xcode if the user didn't tell us it will be there.
+        if not should_use_xcode:
+            # TODO(#6926): Unify C++ and ObjC toolchains so we don't have to run xcode locator to generate toolchain targets.
+            # And also so we don't have to keep this code in sync with //tools/cpp:osx_cc_configure.bzl.
+            (xcode_toolchains, _xcodeloc_err) = run_xcode_locator(
+                repository_ctx,
+                paths["@bazel_tools//tools/osx:xcode_locator.m"],
+            )
+
+        if should_use_xcode or xcode_toolchains:
+            repository_ctx.symlink(paths["@bazel_tools//tools/osx/crosstool:BUILD.toolchains"], "BUILD")
+            repository_ctx.symlink(paths["@bazel_tools//tools/osx/crosstool:osx_archs.bzl"], "osx_archs.bzl")
+        else:
+            _generate_cpp_only_build_file(repository_ctx, cpu_value, paths)
+    else:
+        _generate_cpp_only_build_file(repository_ctx, cpu_value, paths)
+
+cc_autoconf_toolchains = repository_rule(
+    environ = [
+        "BAZEL_USE_CPP_ONLY_TOOLCHAIN",
+        "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN",
+    ],
+    implementation = cc_autoconf_toolchains_impl,
+    configure = True,
+)
 
 def cc_autoconf_impl(repository_ctx, overriden_tools = dict()):
-    paths = resolve_labels(repository_ctx, [
-        "@bazel_tools//tools/cpp:BUILD.static.freebsd",
-        "@bazel_tools//tools/cpp:cc_toolchain_config.bzl",
-    ])
+    """Generate BUILD file with 'cc_toolchain' targets for the local host C++ toolchain.
+
+    Args:
+       repository_ctx: repository context
+       overriden_tools: dict of tool paths to use instead of autoconfigured tools
+    """
 
     env = repository_ctx.os.environ
     cpu_value = get_cpu_value(repository_ctx)
     if "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN" in env and env["BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN"] == "1":
-        repository_ctx.symlink(paths["@bazel_tools//tools/cpp:cc_toolchain_config.bzl"], "cc_toolchain_config.bzl")
-        repository_ctx.symlink(Label("@bazel_tools//tools/cpp:BUILD.empty"), "BUILD")
-    elif cpu_value == "freebsd":
-        # This is defaulting to the static crosstool, we should eventually
-        # autoconfigure this platform too.  Theorically, FreeBSD should be
-        # straightforward to add but we cannot run it in a docker container so
-        # skipping until we have proper tests for FreeBSD.
-        repository_ctx.symlink(paths["@bazel_tools//tools/cpp:cc_toolchain_config.bzl"], "cc_toolchain_config.bzl")
-        repository_ctx.symlink(paths["@bazel_tools//tools/cpp:BUILD.static.freebsd"], "BUILD")
+        paths = resolve_labels(repository_ctx, [
+            "@bazel_tools//tools/cpp:BUILD.empty",
+            "@bazel_tools//tools/cpp:empty_cc_toolchain_config.bzl",
+        ])
+        repository_ctx.symlink(paths["@bazel_tools//tools/cpp:empty_cc_toolchain_config.bzl"], "cc_toolchain_config.bzl")
+        repository_ctx.symlink(paths["@bazel_tools//tools/cpp:BUILD.empty"], "BUILD")
+    elif cpu_value == "freebsd" or cpu_value == "openbsd":
+        paths = resolve_labels(repository_ctx, [
+            "@bazel_tools//tools/cpp:BUILD.static.bsd",
+            "@bazel_tools//tools/cpp:bsd_cc_toolchain_config.bzl",
+        ])
+
+        # This is defaulting to a static crosstool. We should eventually
+        # autoconfigure this platform too. Theorically, FreeBSD and OpenBSD
+        # should be straightforward to add but we cannot run them in a Docker
+        # container so skipping until we have proper tests for these platforms.
+        repository_ctx.symlink(paths["@bazel_tools//tools/cpp:bsd_cc_toolchain_config.bzl"], "cc_toolchain_config.bzl")
+        repository_ctx.symlink(paths["@bazel_tools//tools/cpp:BUILD.static.bsd"], "BUILD")
     elif cpu_value == "x64_windows":
         # TODO(ibiryukov): overriden_tools are only supported in configure_unix_toolchain.
         # We might want to add that to Windows too(at least for msys toolchain).
@@ -50,6 +124,22 @@ def cc_autoconf_impl(repository_ctx, overriden_tools = dict()):
     else:
         configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools)
 
+MSVC_ENVVARS = [
+    "BAZEL_VC",
+    "BAZEL_VC_FULL_VERSION",
+    "BAZEL_VS",
+    "BAZEL_WINSDK_FULL_VERSION",
+    "VS90COMNTOOLS",
+    "VS100COMNTOOLS",
+    "VS110COMNTOOLS",
+    "VS120COMNTOOLS",
+    "VS140COMNTOOLS",
+    "VS150COMNTOOLS",
+    "VS160COMNTOOLS",
+    "TMP",
+    "TEMP",
+]
+
 cc_autoconf = repository_rule(
     environ = [
         "ABI_LIBC_VERSION",
@@ -58,39 +148,39 @@ cc_autoconf = repository_rule(
         "BAZEL_HOST_SYSTEM",
         "BAZEL_CXXOPTS",
         "BAZEL_LINKOPTS",
+        "BAZEL_LINKLIBS",
+        "BAZEL_LLVM_COV",
         "BAZEL_PYTHON",
         "BAZEL_SH",
         "BAZEL_TARGET_CPU",
         "BAZEL_TARGET_LIBC",
         "BAZEL_TARGET_SYSTEM",
         "BAZEL_USE_CPP_ONLY_TOOLCHAIN",
+        "BAZEL_USE_XCODE_TOOLCHAIN",
         "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN",
         "BAZEL_USE_LLVM_NATIVE_COVERAGE",
-        "BAZEL_VC",
-        "BAZEL_VS",
         "BAZEL_LLVM",
+        "BAZEL_IGNORE_SYSTEM_HEADERS_VERSIONS",
         "USE_CLANG_CL",
         "CC",
         "CC_CONFIGURE_DEBUG",
         "CC_TOOLCHAIN_NAME",
         "CPLUS_INCLUDE_PATH",
+        "DEVELOPER_DIR",
         "GCOV",
         "HOMEBREW_RUBY_PATH",
         "SYSTEMROOT",
-        "VS90COMNTOOLS",
-        "VS100COMNTOOLS",
-        "VS110COMNTOOLS",
-        "VS120COMNTOOLS",
-        "VS140COMNTOOLS",
-    ],
+    ] + MSVC_ENVVARS,
     implementation = cc_autoconf_impl,
+    configure = True,
 )
 
 def cc_configure():
     """A C++ configuration rules that generate the crosstool file."""
+    cc_autoconf_toolchains(name = "local_config_cc_toolchains")
     cc_autoconf(name = "local_config_cc")
     native.bind(name = "cc_toolchain", actual = "@local_config_cc//:toolchain")
     native.register_toolchains(
         # Use register_toolchain's target pattern expansion to register all toolchains in the package.
-        "@local_config_cc//:all",
+        "@local_config_cc_toolchains//:all",
     )

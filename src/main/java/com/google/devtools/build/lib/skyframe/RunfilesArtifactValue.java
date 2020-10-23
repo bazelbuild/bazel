@@ -17,21 +17,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.util.Pair;
-import java.math.BigInteger;
-import javax.annotation.Nullable;
 
 /** The artifacts behind a runfiles middleman. */
-class RunfilesArtifactValue extends AggregatingArtifactValue {
+final class RunfilesArtifactValue extends AggregatingArtifactValue {
   RunfilesArtifactValue(
       ImmutableList<Pair<Artifact, FileArtifactValue>> fileInputs,
       ImmutableList<Pair<Artifact, TreeArtifactValue>> directoryInputs,
-      FileArtifactValue selfData) {
-    super(fileInputs, directoryInputs, selfData);
-  }
-
-  @Nullable
-  @Override
-  public BigInteger getValueFingerprint() {
-    return getFingerprintBuilder().addBoolean(Boolean.TRUE).getFingerprint();
+      FileArtifactValue metadata) {
+    super(fileInputs, directoryInputs, metadata);
   }
 }

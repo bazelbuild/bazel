@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * A description of a subprocess, as well as the necessary file system / sandbox setup.
@@ -36,6 +37,15 @@ interface SandboxedSpawn {
   /** The environment variables to be set for the subprocess. */
   Map<String, String> getEnvironment();
 
+  /** Returns {@code true}, if the runner should use the Subprocess timeout feature. */
+  default boolean useSubprocessTimeout() {
+    return false;
+  }
+
+  /** Returns the path where statistics about subprocess execution are written, if any. */
+  @Nullable
+  Path getStatisticsPath();
+
   /**
    * Creates the sandboxed execution root, making all {@code inputs} available for reading, making
    * sure that the parent directories of all {@code outputs} and that all {@code writableDirs}
@@ -52,8 +62,6 @@ interface SandboxedSpawn {
    */
   void copyOutputs(Path execRoot) throws IOException;
 
-  /**
-   * Deletes the sandbox directory.
-   */
+  /** Deletes the sandbox directory. */
   void delete();
 }

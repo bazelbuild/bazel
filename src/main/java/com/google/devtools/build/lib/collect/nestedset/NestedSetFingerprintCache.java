@@ -59,8 +59,8 @@ public class NestedSetFingerprintCache {
 
   private <T> void addNestedSetToFingerprintSlow(
       MapFn<? super T> mapFn, Fingerprint fingerprint, NestedSet<T> nestedSet) {
-    for (T object : nestedSet) {
-      mapFn.expandToCommandLine(object, fingerprint);
+    for (T object : nestedSet.toList()) {
+      addToFingerprint(mapFn, fingerprint, object);
     }
   }
 
@@ -92,7 +92,7 @@ public class NestedSetFingerprintCache {
   @VisibleForTesting
   <T> void addToFingerprint(
       CommandLineItem.MapFn<? super T> mapFn, Fingerprint fingerprint, T object) {
-    mapFn.expandToCommandLine(object, fingerprint);
+    mapFn.expandToCommandLine(object, fingerprint::addString);
   }
 
   private static Map<CommandLineItem.MapFn<?>, DigestMap> createMap() {
@@ -123,6 +123,6 @@ public class NestedSetFingerprintCache {
     }
     // TODO(b/112460990): Use the value from DigestHashFunction.getDefault(), but check for
     // contention.
-    return new DigestMap(DigestHashFunction.MD5, 1024);
+    return new DigestMap(DigestHashFunction.SHA256, 1024);
   }
 }

@@ -27,10 +27,7 @@ public class Lambda {
   }
 
   public List<String> as() {
-    return names
-        .stream()
-        .filter(n -> n.startsWith("A"))
-        .collect(Collectors.toList());
+    return names.stream().filter(n -> n.startsWith("A")).collect(Collectors.toList());
   }
 
   public static Callable<String> hello() {

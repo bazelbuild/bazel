@@ -91,10 +91,12 @@ interface SerializationCodeGenerator {
   };
 
   /** Appends code statements to serialize a pre-declared variable. */
-  void addSerializationCode(Context context);
+  void addSerializationCode(Context context)
+      throws SerializationProcessorUtil.SerializationProcessingFailedException;
 
   /** Appends code statements to initialize the pre-declared variable with deserialization. */
-  void addDeserializationCode(Context context);
+  void addDeserializationCode(Context context)
+      throws SerializationProcessorUtil.SerializationProcessingFailedException;
 
   /** A {@link SerializationCodeGenerator} for a particular declared type. */
   interface Marshaller extends SerializationCodeGenerator {

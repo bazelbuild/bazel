@@ -16,42 +16,97 @@
 
 set -euo pipefail
 
-# This script bootstraps building a Bazel binary without Bazel then
-# use this compiled Bazel to bootstrap Bazel itself. It can also
-# be provided with a previous version of Bazel to bootstrap Bazel
-# itself.
+# This script creates the Bazel archive that Bazel client unpacks and then
+# starts the server from.
 
 WORKDIR=$(pwd)
 OUT=$1
 EMBEDDED_TOOLS=$2
 DEPLOY_JAR=$3
 INSTALL_BASE_KEY=$4
-shift 4
+PLATFORMS_ARCHIVE=$5
+shift 5
+
+if [[ "$OUT" == *jdk_allmodules.zip ]]; then
+  DEV_BUILD=1
+else
+  DEV_BUILD=0
+fi
 
 TMP_DIR=${TMPDIR:-/tmp}
-PACKAGE_DIR="$(mktemp -d ${TMP_DIR%%/}/bazel.XXXXXXXX)"
+ROOT="$(mktemp -d ${TMP_DIR%%/}/bazel.XXXXXXXX)"
+RECOMP="$ROOT/recomp"
+PACKAGE_DIR="$ROOT/pkg"
+DEPLOY_UNCOMP="$ROOT/deploy-uncompressed.jar"
 mkdir -p "${PACKAGE_DIR}"
-trap "rm -fr ${PACKAGE_DIR}" EXIT
+trap "rm -fr ${ROOT}" EXIT
 
 cp $* ${PACKAGE_DIR}
 
-# Re"compress" the deploy jar. Saves ~10% of final binary size.
-unzip -q -d recompress ${DEPLOY_JAR}
-cd recompress
-find . -type f -print0 | xargs -0 touch -t 198001010000.00
-find . -type f | sort | zip -q0DX@ ../deploy-uncompressed.jar
-cd ..
+if [[ $DEV_BUILD -eq 0 ]]; then
+  # Unpack the deploy jar for postprocessing and for "re-compressing" to save
+  # ~10% of final binary size.
+  unzip -q -d $RECOMP ${DEPLOY_JAR}
+  cd $RECOMP
 
-# The server jar needs to be the first binary we extract. This is how the Bazel
-# client knows what .jar to pass to the JVM.
-cp deploy-uncompressed.jar ${PACKAGE_DIR}/A-server.jar
-cp ${INSTALL_BASE_KEY} ${PACKAGE_DIR}/install_base_key
-# The timestamp of embedded tools should already be zeroed out in the input zip
-touch -t 198001010000.00 ${PACKAGE_DIR}/*
+  # Zero out timestamps and sort the entries to ensure determinism.
+  find . -type f -print0 | xargs -0 touch -t 198001010000.00
+  find . -type f | sort | zip -q0DX@ "$DEPLOY_UNCOMP"
+
+  # While we're in the deploy jar, grab the label and pack it into the final
+  # packaged distribution zip where it can be used to quickly determine version
+  # info.
+  bazel_label="$(\
+    (grep '^build.label=' build-data.properties | cut -d'=' -f2- | tr -d '\n') \
+        || echo -n 'no_version')"
+  echo -n "${bazel_label:-no_version}" > "${PACKAGE_DIR}/build-label.txt"
+
+  cd $WORKDIR
+
+  DEPLOY_JAR="$DEPLOY_UNCOMP"
+fi
 
 if [ -n "${EMBEDDED_TOOLS}" ]; then
   mkdir ${PACKAGE_DIR}/embedded_tools
   (cd ${PACKAGE_DIR}/embedded_tools && unzip -q "${WORKDIR}/${EMBEDDED_TOOLS}")
 fi
 
-(cd ${PACKAGE_DIR} && find . -type f | sort | zip -q9DX@ "${WORKDIR}/${OUT}")
+# Unzip platforms.zip into platforms/, move files up from external/platforms
+# subdirectory, and create WORKSPACE if it doesn't exist.
+(
+  cd $PACKAGE_DIR
+  unzip -q -d platforms $WORKDIR/$PLATFORMS_ARCHIVE
+  cd platforms
+  mv external/platforms/* .
+  rmdir -p external/platforms
+  >> WORKSPACE
+)
+
+# Make a list of the files in the order we want them inside the final zip.
+(
+  cd $PACKAGE_DIR
+  # The server jar needs to be the first binary we extract.
+  # This is how the Bazel client knows which .jar to pass to the JVM.
+  echo A-server.jar
+  find . -type f | sort
+  # And install_base_key must be last.
+  echo install_base_key
+) > files.list
+
+# Move these after the 'find' above.
+cp $DEPLOY_JAR $PACKAGE_DIR/A-server.jar
+cp $INSTALL_BASE_KEY $PACKAGE_DIR/install_base_key
+
+# Zero timestamps.
+(cd $PACKAGE_DIR; xargs touch -t 198001010000.00) < files.list
+
+if [[ "$DEV_BUILD" -eq 1 ]]; then
+  # Create output zip with lowest compression, but fast.
+  ZIP_ARGS="-q1DX@"
+else
+  # Create output zip with highest compression, but slow.
+  ZIP_ARGS="-q9DX@"
+fi
+(cd $PACKAGE_DIR; zip $ZIP_ARGS $WORKDIR/$OUT) < files.list
+
+

@@ -19,6 +19,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+
+#include <cstring>
 #include <memory>
 #include <string>
 #include <vector>
@@ -39,6 +41,8 @@ static void Usage(char *program_name, const char *fmt, ...) {
   fprintf(
       stderr,
       "\nPossible arguments:\n"
+      "  -g/--graceful_sigterm  propagate SIGTERM to the subprocess and delay "
+      "the corresponding SIGKILL until --kill_delay has passed\n"
       "  -t/--timeout <timeout>  timeout after which the child process will be "
       "terminated with SIGTERM\n"
       "  -k/--kill_delay <timeout>  in case timeout occurs, how long to wait "
@@ -55,6 +59,7 @@ static void Usage(char *program_name, const char *fmt, ...) {
 // global `opt` struct.
 static void ParseCommandLine(const std::vector<char *> &args) {
   static struct option long_options[] = {
+      {"graceful_sigterm", no_argument, 0, 'g'},
       {"timeout", required_argument, 0, 't'},
       {"kill_delay", required_argument, 0, 'k'},
       {"stdout", required_argument, 0, 'o'},
@@ -66,9 +71,12 @@ static void ParseCommandLine(const std::vector<char *> &args) {
   extern int optind, optopt;
   int c;
 
-  while ((c = getopt_long(args.size(), args.data(), "+:t:k:o:e:s:d",
+  while ((c = getopt_long(args.size(), args.data(), "+:gt:k:o:e:s:d",
                           long_options, nullptr)) != -1) {
     switch (c) {
+      case 'g':
+        opt.graceful_sigterm = true;
+        break;
       case 't':
         if (sscanf(optarg, "%lf", &opt.timeout_secs) != 1) {
           Usage(args.front(), "Invalid timeout (-t) value: %s", optarg);

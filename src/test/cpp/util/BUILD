@@ -2,6 +2,8 @@
 #   C++ utility tests for Bazel
 package(default_visibility = ["//visibility:public"])
 
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -133,15 +135,6 @@ cc_test(
         ],
         "//conditions:default": [],
     }),
-)
-
-cc_test(
-    name = "profiler_test",
-    srcs = ["profiler_test.cc"],
-    deps = [
-        "//src/main/cpp/util:profiler",
-        "@com_google_googletest//:gtest_main",
-    ],
 )
 
 cc_library(

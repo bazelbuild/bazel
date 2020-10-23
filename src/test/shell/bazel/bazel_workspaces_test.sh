@@ -88,11 +88,11 @@ function test_execute() {
   set_workspace_command 'repository_ctx.execute(["echo", "testing!"])'
   build_and_process_log
 
-  ensure_contains_exactly "location: .*repos.bzl:2:3" 1
+  ensure_contains_exactly "location: .*repos.bzl:2:25" 1
 
   # Cached executions are not replayed
   build_and_process_log
-  ensure_contains_exactly "location: .*repos.bzl:2:3" 0
+  ensure_contains_exactly "location: .*repos.bzl:2:25" 0
 }
 
 # The workspace is set up so that the function is interrupted and re-executed.
@@ -139,7 +139,7 @@ EOF
 
   build_and_process_log
 
-  ensure_contains_atleast "location: .*repos.bzl:2:3" 2
+  ensure_contains_atleast "location: .*repos.bzl:2:" 2
 }
 
 
@@ -149,7 +149,7 @@ function test_execute2() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:2:25' 1
   ensure_contains_exactly 'arguments: "echo"' 1
   ensure_contains_exactly 'arguments: "test_contents"' 1
   ensure_contains_exactly 'timeout_seconds: 21' 1
@@ -165,7 +165,7 @@ function test_execute_quiet2() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:2:25' 1
   ensure_contains_exactly 'arguments: "echo"' 1
   ensure_contains_exactly 'arguments: "test2"' 1
   ensure_contains_exactly 'timeout_seconds: 32' 1
@@ -193,7 +193,7 @@ function test_download() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:2:26' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
   ensure_contains_exactly 'download_event' 1
   ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/file.txt\"" 1
@@ -205,22 +205,115 @@ function test_download_multiple() {
   # Prepare HTTP server with Python
   local server_dir="${TEST_TMPDIR}/server_dir"
   mkdir -p "${server_dir}"
+  local file1="${server_dir}/file1.txt"
   local file2="${server_dir}/file2.txt"
-  echo "second contents here" > "${file2}"
+  echo "contents here" > "${file1}"
+  echo "contents here" > "${file2}"
+  sha256=$(sha256sum "${file2}" | head -c 64)
 
   # Start HTTP server with Python
+  ls -al "${server_dir}"
+  sha256sum "${file2}"
+
   startup_server "${server_dir}"
 
-  set_workspace_command "repository_ctx.download([\"http://localhost:${fileserver_port}/file1.txt\",\"http://localhost:${fileserver_port}/file2.txt\"], \"out_for_list.txt\")"
+  set_workspace_command "repository_ctx.download([\"http://localhost:${fileserver_port}/file1.txt\",\"http://localhost:${fileserver_port}/file2.txt\"], \"out_for_list.txt\", sha256='${sha256}')"
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:2:26' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
   ensure_contains_exactly 'download_event' 1
   ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/file1.txt\"" 1
   ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/file2.txt\"" 1
   ensure_contains_exactly 'output: "out_for_list.txt"' 1
+}
+
+function test_download_integrity_sha256() {
+  # Prepare HTTP server with Python
+  local server_dir="${TEST_TMPDIR}/server_dir"
+  mkdir -p "${server_dir}"
+  local file="${server_dir}/file.txt"
+  echo "file contents here" > "${file}"
+
+  # Use Python for hashing and encoding due to cross-platform differences in
+  # presence + behavior of `shasum` and `base64`.
+  sha256_py='import base64, hashlib, sys; print(base64.b64encode(hashlib.sha256(sys.stdin.buffer.read()).digest()).decode("ascii"))'
+  file_integrity="sha256-$(cat "${file}" | python3 -c "${sha256_py}")"
+
+  # Start HTTP server with Python
+  startup_server "${server_dir}"
+
+  set_workspace_command "repository_ctx.download(\"http://localhost:${fileserver_port}/file.txt\", \"file.txt\", integrity=\"${file_integrity}\")"
+
+  build_and_process_log --exclude_rule "//external:local_config_cc"
+
+  ensure_contains_exactly 'location: .*repos.bzl:2:26' 1
+  ensure_contains_atleast 'rule: "//external:repo"' 1
+  ensure_contains_exactly 'download_event' 1
+  ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/file.txt\"" 1
+  ensure_contains_exactly 'output: "file.txt"' 1
+  ensure_contains_exactly "sha256: " 0
+  ensure_contains_exactly "integrity: \"${file_integrity}\"" 1
+}
+
+function test_download_integrity_sha512() {
+  # Prepare HTTP server with Python
+  local server_dir="${TEST_TMPDIR}/server_dir"
+  mkdir -p "${server_dir}"
+  local file="${server_dir}/file.txt"
+  echo "file contents here" > "${file}"
+
+  # Use Python for hashing and encoding due to cross-platform differences in
+  # presence + behavior of `shasum` and `base64`.
+  sha512_py='import base64, hashlib, sys; print(base64.b64encode(hashlib.sha512(sys.stdin.buffer.read()).digest()).decode("ascii"))'
+  file_integrity="sha512-$(cat "${file}" | python3 -c "${sha512_py}")"
+
+
+  # Start HTTP server with Python
+  startup_server "${server_dir}"
+
+  set_workspace_command "repository_ctx.download(\"http://localhost:${fileserver_port}/file.txt\", \"file.txt\", integrity=\"${file_integrity}\")"
+
+  build_and_process_log --exclude_rule "//external:local_config_cc"
+
+  ensure_contains_exactly 'location: .*repos.bzl:2:26' 1
+  ensure_contains_atleast 'rule: "//external:repo"' 1
+  ensure_contains_exactly 'download_event' 1
+  ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/file.txt\"" 1
+  ensure_contains_exactly 'output: "file.txt"' 1
+  ensure_contains_exactly "sha256: " 0
+  ensure_contains_exactly "integrity: \"${file_integrity}\"" 1
+}
+
+function test_download_integrity_malformed() {
+  # Verify that a malformed value for integrity leads to a failing build
+  local server_dir="${TEST_TMPDIR}/server_dir"
+  mkdir -p "${server_dir}"
+  local file="${server_dir}/file.txt"
+  startup_server "${server_dir}"
+  echo "file contents here" > "${file}"
+
+  # Unsupported checksum algorithm
+  file_integrity="This is no a checksum algorithm"
+  set_workspace_command "repository_ctx.download(\"http://localhost:${fileserver_port}/file.txt\", \"file.txt\", integrity=\"${file_integrity}\")"
+  bazel build //:test > "${TEST_log}" 2>&1 && fail "Expected failure" || :
+  expect_log "${file_integrity}"
+  expect_log "[Uu]nsupported checksum algorithm"
+
+  # Syntactically invalid checksum
+  file_integrity="sha512-ThisIsNotASha512Hash"
+  set_workspace_command "repository_ctx.download(\"http://localhost:${fileserver_port}/file.txt\", \"file.txt\", integrity=\"${file_integrity}\")"
+  bazel build //:test > "${TEST_log}" 2>&1 && fail "Expected failure" || :
+  expect_log "${file_integrity}"
+  expect_log "[Ii]nvalid.*checksum"
+
+  # Syntactically correct, but incorrect value
+  file_integrity="sha512-cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e"
+  set_workspace_command "repository_ctx.download(\"http://localhost:${fileserver_port}/file.txt\", \"file.txt\", integrity=\"${file_integrity}\")"
+  bazel build //:test > "${TEST_log}" 2>&1 && fail "Expected failure" || :
+  expect_log "${file_integrity}"
+  expect_log "[Ii]nvalid.*checksum"
 }
 
 function test_download_then_extract() {
@@ -244,8 +337,8 @@ function test_download_then_extract() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:3:3' 1
-  ensure_contains_exactly 'location: .*repos.bzl:4:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:3:26' 1
+  ensure_contains_exactly 'location: .*repos.bzl:4:25' 1
   ensure_contains_atleast 'rule: "//external:repo"' 2
   ensure_contains_exactly 'download_event' 1
   ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/download_then_extract.zip\"" 1
@@ -281,8 +374,8 @@ function test_download_then_extract_tar() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:3:3' 1
-  ensure_contains_exactly 'location: .*repos.bzl:4:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:3:26' 1
+  ensure_contains_exactly 'location: .*repos.bzl:4:25' 1
   ensure_contains_atleast 'rule: "//external:repo"' 2
   ensure_contains_exactly 'download_event' 1
   ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/download_then_extract.tar.gz\"" 1
@@ -315,7 +408,7 @@ function test_download_and_extract() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:2:38' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
   ensure_contains_exactly 'download_and_extract_event' 1
   ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/download_and_extract.zip\"" 1
@@ -332,7 +425,7 @@ function test_file() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:2:22' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
 
   # There are 3 file_event in external:repo as it is currently set up
@@ -347,7 +440,7 @@ function test_file_nonascii() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:2:22' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
 
   # There are 3 file_event in external:repo as it is currently set up
@@ -378,8 +471,8 @@ function test_read() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:4:3' 1
-  ensure_contains_exactly 'location: .*repos.bzl:5:17' 1
+  ensure_contains_exactly 'location: .*repos.bzl:4:22' 1
+  ensure_contains_exactly 'location: .*repos.bzl:5:36' 1
   ensure_contains_atleast 'rule: "//external:repo"' 2
 
   ensure_contains_exactly 'read_event' 1
@@ -416,7 +509,8 @@ function test_os() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:2:9' 1
+  # This assertion matches the location of the rule's implementation function.
+  ensure_contains_exactly 'location: .*repos.bzl:1:5' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
   ensure_contains_exactly 'os_event' 1
 }
@@ -427,7 +521,7 @@ function test_symlink() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:3:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:2:22' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
   ensure_contains_exactly 'symlink_event' 1
   ensure_contains_exactly 'target: ".*symlink.txt"' 1
@@ -440,7 +534,7 @@ function test_template() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:3:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:2:22' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
   ensure_contains_exactly 'template_event' 1
   ensure_contains_exactly 'path: ".*template_out.txt"' 1
@@ -455,7 +549,7 @@ function test_which() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:2:9' 1
+  ensure_contains_exactly 'location: .*repos.bzl:2:29' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
   ensure_contains_exactly 'which_event' 1
   ensure_contains_exactly 'program: "which_prog"' 1
@@ -470,4 +564,3 @@ function tear_down() {
 }
 
 run_suite "workspaces_tests"
-

@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -23,20 +23,16 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
 import com.google.devtools.build.lib.packages.BuildType.Selector;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.SelectorList;
-import com.google.devtools.build.lib.syntax.SelectorValue;
-import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.syntax.Type.ConversionException;
+import com.google.devtools.build.lib.packages.Type.ConversionException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -144,7 +140,7 @@ public class BuildTypeTest {
             ConversionException.class,
             () ->
                 BuildType.LABEL_KEYED_STRING_DICT.convert(
-                    ImmutableMap.of(1, "OK"), null, currentRule));
+                    ImmutableMap.of(StarlarkInt.of(1), "OK"), null, currentRule));
     assertThat(expected)
         .hasMessageThat()
         .isEqualTo("expected value of type 'string' for dict key element, but got 1 (int)");
@@ -157,7 +153,7 @@ public class BuildTypeTest {
             ConversionException.class,
             () ->
                 BuildType.LABEL_KEYED_STRING_DICT.convert(
-                    ImmutableMap.of("//actually/a:label", 3), null, currentRule));
+                    ImmutableMap.of("//actually/a:label", StarlarkInt.of(3)), null, currentRule));
     assertThat(expected)
         .hasMessageThat()
         .isEqualTo("expected value of type 'string' for dict value element, but got 3 (int)");
@@ -462,7 +458,7 @@ public class BuildTypeTest {
     List<String> list = ImmutableList.of("//a:a", "//b:b");
 
     // Creating a SelectorList from a SelectorList and a list should work properly.
-    SelectorList result = SelectorList.of(Location.BUILTIN, selectorList, list);
+    SelectorList result = SelectorList.concat(selectorList, list);
     assertThat(result).isNotNull();
     assertThat(result.getType()).isAssignableTo(List.class);
   }
@@ -474,7 +470,7 @@ public class BuildTypeTest {
     List<String> list = ImmutableList.of("//a:a", "//b:b");
 
     // Creating a SelectorList from a SelectorValue and a list should work properly.
-    SelectorList result = SelectorList.of(Location.BUILTIN, selectorValue, list);
+    SelectorList result = SelectorList.concat(selectorValue, list);
     assertThat(result).isNotNull();
     assertThat(result.getType()).isAssignableTo(List.class);
   }
@@ -486,7 +482,7 @@ public class BuildTypeTest {
     arrayList.add("//a:a");
 
     // Creating a SelectorList from two lists of different types should work properly.
-    SelectorList result = SelectorList.of(Location.BUILTIN, list, arrayList);
+    SelectorList result = SelectorList.concat(list, arrayList);
     assertThat(result).isNotNull();
     assertThat(result.getType()).isAssignableTo(List.class);
   }
@@ -496,14 +492,14 @@ public class BuildTypeTest {
     List<String> list = ImmutableList.of("//a:a", "//b:b");
 
     // Creating a SelectorList from a list and a non-list should fail.
-    assertThrows(EvalException.class, () -> SelectorList.of(Location.BUILTIN, list, "A string"));
+    assertThrows(EvalException.class, () -> SelectorList.concat(list, "A string"));
   }
 
   /**
-   * Tests that {@link BuildType#selectableConvert} returns either the native type or a selector
-   * on that type, in accordance with the provided input.
+   * Tests that {@link BuildType#selectableConvert} returns either the native type or a selector on
+   * that type, in accordance with the provided input.
    */
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings({"unchecked", "TruthIncompatibleType"})
   @Test
   public void testSelectableConvert() throws Exception {
     Object nativeInput = Arrays.asList("//a:a1", "//a:a2");
@@ -528,7 +524,7 @@ public class BuildTypeTest {
     BuildType.SelectorList<?> selectorList = (BuildType.SelectorList<?>) converted;
     assertThat(((Selector<Label>) selectorList.getSelectors().get(0)).getEntries().entrySet())
         .containsExactlyElementsIn(
-            ImmutableMap.of(
+            /* expected: Entry<Label, Label>, actual: Entry<Label, List<Label>> */ ImmutableMap.of(
                     Label.parseAbsolute("//conditions:a", ImmutableMap.of()),
                     expectedLabels,
                     Label.parseAbsolute(
@@ -538,7 +534,8 @@ public class BuildTypeTest {
   }
 
   /**
-   * Tests that {@link com.google.devtools.build.lib.syntax.Type#convert} fails on selector inputs.
+   * Tests that {@link com.google.devtools.build.lib.packages.Type#convert} fails on selector
+   * inputs.
    */
   @Test
   public void testConvertDoesNotAcceptSelectables() throws Exception {
@@ -655,7 +652,7 @@ public class BuildTypeTest {
     // with a List<Label> even though this isn't a valid datatype in the
     // interpreter.
     // Fileset isn't part of bazel, even though FilesetEntry is.
-    assertThat(Printer.repr(createTestFilesetEntry()))
+    assertThat(Starlark.repr(createTestFilesetEntry()))
         .isEqualTo(createExpectedFilesetEntryString('"'));
   }
 
@@ -664,7 +661,7 @@ public class BuildTypeTest {
     FilesetEntry entryDereference =
       createTestFilesetEntry(FilesetEntry.SymlinkBehavior.DEREFERENCE);
 
-    assertThat(Printer.repr(entryDereference))
+    assertThat(Starlark.repr(entryDereference))
         .isEqualTo(createExpectedFilesetEntryString(FilesetEntry.SymlinkBehavior.DEREFERENCE, '"'));
   }
 
@@ -684,8 +681,8 @@ public class BuildTypeTest {
     FilesetEntry withoutStripPrefix = createStripPrefixFilesetEntry(".");
     FilesetEntry withStripPrefix = createStripPrefixFilesetEntry("orange");
 
-    String prettyWithout = Printer.repr(withoutStripPrefix);
-    String prettyWith = Printer.repr(withStripPrefix);
+    String prettyWithout = Starlark.repr(withoutStripPrefix);
+    String prettyWith = Starlark.repr(withStripPrefix);
 
     assertThat(prettyWithout).contains("strip_prefix = \".\"");
     assertThat(prettyWith).contains("strip_prefix = \"orange\"");
@@ -694,7 +691,7 @@ public class BuildTypeTest {
   @Test
   public void testPrintFilesetEntry() throws Exception {
     assertThat(
-            Printer.repr(
+            Starlark.repr(
                 new FilesetEntry(
                     /* srcLabel */ Label.parseAbsolute("//foo:BUILD", ImmutableMap.of()),
                     /* files */ ImmutableList.of(
@@ -717,8 +714,8 @@ public class BuildTypeTest {
 
   @Test
   public void testFilesetTypeDefinition() throws Exception {
-    assertThat(EvalUtils.getDataTypeName(makeFilesetEntry())).isEqualTo("FilesetEntry");
-    assertThat(EvalUtils.isImmutable(makeFilesetEntry())).isFalse();
+    assertThat(Starlark.type(makeFilesetEntry())).isEqualTo("FilesetEntry");
+    assertThat(Starlark.isImmutable(makeFilesetEntry())).isTrue();
   }
 
   private static ImmutableList<Label> collectLabels(Type<?> type, Object value) {

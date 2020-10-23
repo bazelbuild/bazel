@@ -1,3 +1,5 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+
 # Description:
 #   The Bazel launcher.
 package(
@@ -15,7 +17,7 @@ cc_library(
     name = "blaze_util",
     srcs = [
         "blaze_util.cc",
-        "global_variables.h",
+        "server_process_info.h",
         "startup_options.h",
     ] + select({
         "//src/conditions:darwin": [
@@ -26,8 +28,20 @@ cc_library(
             "blaze_util_darwin.cc",
             "blaze_util_posix.cc",
         ],
+        "//src/conditions:darwin_arm64": [
+            "blaze_util_darwin.cc",
+            "blaze_util_posix.cc",
+        ],
+        "//src/conditions:darwin_arm64e": [
+            "blaze_util_darwin.cc",
+            "blaze_util_posix.cc",
+        ],
         "//src/conditions:freebsd": [
-            "blaze_util_freebsd.cc",
+            "blaze_util_bsd.cc",
+            "blaze_util_posix.cc",
+        ],
+        "//src/conditions:openbsd": [
+            "blaze_util_bsd.cc",
             "blaze_util_posix.cc",
         ],
         "//src/conditions:windows": [
@@ -49,7 +63,15 @@ cc_library(
         "//src/conditions:darwin_x86_64": [
             "-framework CoreFoundation",
         ],
+        "//src/conditions:darwin_arm64": [
+            "-framework CoreFoundation",
+        ],
+        "//src/conditions:darwin_arm64e": [
+            "-framework CoreFoundation",
+        ],
         "//src/conditions:freebsd": [
+        ],
+        "//src/conditions:openbsd": [
         ],
         "//src/conditions:windows": WIN_LINK_OPTS,
         "//conditions:default": [
@@ -64,10 +86,27 @@ cc_library(
         "//src/conditions:windows": [
             "//src/main/native/windows:lib-file",
             "//src/main/native/windows:lib-process",
-            "//src/main/native/windows:lib-util",
         ],
         "//conditions:default": [],
     }),
+)
+
+cc_library(
+    name = "archive_utils",
+    srcs = [
+        "archive_utils.cc",
+    ],
+    hdrs = [
+        "archive_utils.h",
+    ],
+    deps = [
+        ":blaze_util",
+        "//src/main/cpp/util",
+        "//src/main/cpp/util:blaze_exit_code",
+        "//src/main/cpp/util:errors",
+        "//src/main/cpp/util:logging",
+        "//third_party/ijar:zip",
+    ],
 )
 
 cc_binary(
@@ -75,8 +114,8 @@ cc_binary(
     srcs = [
         "blaze.cc",
         "blaze.h",
-        "global_variables.cc",
-        "global_variables.h",
+        "server_process_info.cc",
+        "server_process_info.h",
         "main.cc",
     ] + select({
         "//src/conditions:windows": ["resources.o"],
@@ -91,9 +130,15 @@ cc_binary(
         ],
         "//src/conditions:darwin_x86_64": [
         ],
+        "//src/conditions:darwin_arm64": [
+        ],
+        "//src/conditions:darwin_arm64e": [
+        ],
         "//src/conditions:freebsd": [
             "-lprocstat",
             "-lm",
+        ],
+        "//src/conditions:openbsd": [
         ],
         "//src/conditions:windows": [
         ],
@@ -104,6 +149,7 @@ cc_binary(
     }),
     visibility = ["//src:__pkg__"],
     deps = [
+        ":archive_utils",
         ":bazel_startup_options",
         ":blaze_util",
         ":option_processor",
@@ -114,6 +160,7 @@ cc_binary(
         "//src/main/cpp/util:errors",
         "//src/main/cpp/util:logging",
         "//src/main/cpp/util:strings",
+        "//src/main/protobuf:command_server_cc_grpc",
         "//src/main/protobuf:command_server_cc_proto",
         "//third_party/ijar:zip",
     ],

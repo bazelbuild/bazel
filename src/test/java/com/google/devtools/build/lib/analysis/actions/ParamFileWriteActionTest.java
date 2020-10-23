@@ -19,15 +19,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.Executor;
@@ -35,16 +33,18 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.util.Collection;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -60,17 +60,18 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
   @Before
   public void createArtifacts() throws Exception  {
     Path execRoot = scratch.getFileSystem().getPath("/exec");
-    rootDir = ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/exec/out"));
+    rootDir = ArtifactRoot.asDerivedRoot(execRoot, "out");
     outputArtifact = getBinArtifactWithNoOwner("destination.txt");
-    FileSystemUtils.createDirectoryAndParents(outputArtifact.getPath().getParentDirectory());
+    outputArtifact.getPath().getParentDirectory().createDirectoryAndParents();
     treeArtifact = createTreeArtifact("artifact/myTreeFileArtifact");
   }
 
 
   @Test
   public void testOutputs() {
-    Action action = createParameterFileWriteAction(
-        ImmutableList.<Artifact>of(), createNormalCommandLine());
+    Action action =
+        createParameterFileWriteAction(
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER), createNormalCommandLine());
     assertThat(Artifact.toRootRelativePaths(action.getOutputs())).containsExactly(
         "destination.txt");
   }
@@ -79,15 +80,17 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
   public void testInputs() {
     Action action =
         createParameterFileWriteAction(
-            ImmutableList.of(treeArtifact), createTreeArtifactExpansionCommandLineDefault());
-    assertThat(Artifact.toExecPaths(action.getInputs()))
+            NestedSetBuilder.create(Order.STABLE_ORDER, treeArtifact),
+            createTreeArtifactExpansionCommandLineDefault());
+    assertThat(Artifact.asExecPaths(action.getInputs()))
         .containsExactly("out/artifact/myTreeFileArtifact");
   }
 
   @Test
   public void testWriteCommandLineWithoutTreeArtifactExpansion() throws Exception {
-    Action action = createParameterFileWriteAction(
-        ImmutableList.<Artifact>of(), createNormalCommandLine());
+    Action action =
+        createParameterFileWriteAction(
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER), createNormalCommandLine());
     ActionExecutionContext context = actionExecutionContext();
     ActionResult actionResult = action.execute(context);
     assertThat(actionResult.spawnResults()).isEmpty();
@@ -99,7 +102,8 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
   public void testWriteCommandLineWithTreeArtifactExpansionDefault() throws Exception {
     Action action =
         createParameterFileWriteAction(
-            ImmutableList.of(treeArtifact), createTreeArtifactExpansionCommandLineDefault());
+            NestedSetBuilder.create(Order.STABLE_ORDER, treeArtifact),
+            createTreeArtifactExpansionCommandLineDefault());
     ActionExecutionContext context = actionExecutionContext();
     ActionResult actionResult = action.execute(context);
     assertThat(actionResult.spawnResults()).isEmpty();
@@ -115,7 +119,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
   public void testWriteCommandLineWithTreeArtifactExpansionExpandedFunction() throws Exception {
     Action action =
         createParameterFileWriteAction(
-            ImmutableList.of(treeArtifact),
+            NestedSetBuilder.create(Order.STABLE_ORDER, treeArtifact),
             createTreeArtifactExpansionCommandLineExpandedFunction());
     ActionExecutionContext context = actionExecutionContext();
     ActionResult actionResult = action.execute(context);
@@ -128,30 +132,18 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
   }
 
   private SpecialArtifact createTreeArtifact(String rootRelativePath) {
-    PathFragment relpath = PathFragment.create(rootRelativePath);
-    return new SpecialArtifact(
-        rootDir,
-        rootDir.getExecPath().getRelative(relpath),
-        ArtifactOwner.NullArtifactOwner.INSTANCE,
-        SpecialArtifactType.TREE);
-  }
-
-  private TreeFileArtifact createTreeFileArtifact(
-      SpecialArtifact inputTreeArtifact, String parentRelativePath) {
-    return ActionInputHelper.treeFileArtifact(
-        inputTreeArtifact,
-        PathFragment.create(parentRelativePath));
+    return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+        rootDir, rootDir.getExecPath().getRelative(rootRelativePath));
   }
 
   private ParameterFileWriteAction createParameterFileWriteAction(
-      Iterable<Artifact> inputTreeArtifacts, CommandLine commandLine) {
+      NestedSet<Artifact> inputTreeArtifacts, CommandLine commandLine) {
     return new ParameterFileWriteAction(
         ActionsTestUtil.NULL_ACTION_OWNER,
         inputTreeArtifacts,
         outputArtifact,
         commandLine,
-        ParameterFileType.UNQUOTED,
-        StandardCharsets.ISO_8859_1);
+        ParameterFileType.UNQUOTED);
   }
 
   private CommandLine createNormalCommandLine() {
@@ -177,9 +169,10 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
   }
 
   private ActionExecutionContext actionExecutionContext() throws Exception {
-    final Iterable<TreeFileArtifact> treeFileArtifacts = ImmutableList.of(
-        createTreeFileArtifact(treeArtifact, "artifacts/treeFileArtifact1"),
-        createTreeFileArtifact(treeArtifact, "artifacts/treeFileArtifact2"));
+    List<TreeFileArtifact> treeFileArtifacts =
+        ImmutableList.of(
+            TreeFileArtifact.createTreeOutput(treeArtifact, "artifacts/treeFileArtifact1"),
+            TreeFileArtifact.createTreeOutput(treeArtifact, "artifacts/treeFileArtifact2"));
 
     ArtifactExpander artifactExpander = new ArtifactExpander() {
       @Override
@@ -196,23 +189,25 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
     Executor executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
     return new ActionExecutionContext(
         executor,
-        null,
+        /*actionInputFileCache=*/ null,
         ActionInputPrefetcher.NONE,
         actionKeyContext,
-        null,
+        /*metadataHandler=*/ null,
+        /*rewindingEnabled=*/ false,
+        LostInputsCheck.NONE,
         new FileOutErr(),
         new StoredEventHandler(),
-        ImmutableMap.<String, String>of(),
-        ImmutableMap.of(),
+        /*clientEnv=*/ ImmutableMap.of(),
+        /*topLevelFilesets=*/ ImmutableMap.of(),
         artifactExpander,
         /*actionFileSystem=*/ null,
-        /*skyframeDepsResult=*/ null);
+        /*skyframeDepsResult=*/ null,
+        NestedSetExpander.DEFAULT);
   }
 
   private enum KeyAttributes {
     COMMANDLINE,
     FILE_TYPE,
-    CHARSET,
   }
 
   @Test
@@ -227,16 +222,8 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
               attributesToFlip.contains(KeyAttributes.FILE_TYPE)
                   ? ParameterFileType.SHELL_QUOTED
                   : ParameterFileType.UNQUOTED;
-          Charset charset =
-              attributesToFlip.contains(KeyAttributes.CHARSET)
-                  ? StandardCharsets.UTF_8
-                  : StandardCharsets.US_ASCII;
           return new ParameterFileWriteAction(
-              ActionsTestUtil.NULL_ACTION_OWNER,
-              outputArtifact,
-              commandLine,
-              parameterFileType,
-              charset);
+              ActionsTestUtil.NULL_ACTION_OWNER, outputArtifact, commandLine, parameterFileType);
         },
         actionKeyContext);
   }

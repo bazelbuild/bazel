@@ -15,6 +15,7 @@
 """Definitions related to the Python toolchain."""
 
 load(":utils.bzl", "expand_pyversion_template")
+load(":private/defs.bzl", "py_runtime")
 
 def _py_runtime_pair_impl(ctx):
     if ctx.attr.py2_runtime != None:
@@ -41,14 +42,24 @@ def _py_runtime_pair_impl(ctx):
 py_runtime_pair = rule(
     implementation = _py_runtime_pair_impl,
     attrs = {
-        "py2_runtime": attr.label(providers = [PyRuntimeInfo], doc = """\
+        # The two runtimes are used by the py_binary at runtime, and so need to
+        # be built for the target platform.
+        "py2_runtime": attr.label(
+            providers = [PyRuntimeInfo],
+            cfg = "target",
+            doc = """\
 The runtime to use for Python 2 targets. Must have `python_version` set to
 `PY2`.
-"""),
-        "py3_runtime": attr.label(providers = [PyRuntimeInfo], doc = """\
+""",
+        ),
+        "py3_runtime": attr.label(
+            providers = [PyRuntimeInfo],
+            cfg = "target",
+            doc = """\
 The runtime to use for Python 3 targets. Must have `python_version` set to
 `PY3`.
-"""),
+""",
+        ),
     },
     doc = """\
 A toolchain rule for Python.
@@ -76,7 +87,7 @@ Example usage:
 ```python
 # In your BUILD file...
 
-load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
+load("@rules_python//python:defs.bzl", "py_runtime_pair")
 
 py_runtime(
     name = "my_py2_runtime",
@@ -100,7 +111,7 @@ toolchain(
     name = "my_toolchain",
     target_compatible_with = <...>,
     toolchain = ":my_py_runtime_pair",
-    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
+    toolchain_type = "@rules_python//python:toolchain_type",
 )
 ```
 
@@ -121,6 +132,8 @@ def define_autodetecting_toolchain(
         pywrapper_template,
         windows_config_setting):
     """Defines the autodetecting Python toolchain.
+
+    This includes both strict and non-strict variants.
 
     For use only by @bazel_tools//tools/python:BUILD; see the documentation
     comment there.
@@ -146,6 +159,8 @@ def define_autodetecting_toolchain(
         template = pywrapper_template,
         out2 = ":py2wrapper.sh",
         out3 = ":py3wrapper.sh",
+        out2_nonstrict = ":py2wrapper_nonstrict.sh",
+        out3_nonstrict = ":py3wrapper_nonstrict.sh",
         visibility = ["//visibility:private"],
     )
 
@@ -155,16 +170,30 @@ def define_autodetecting_toolchain(
     # have to use a workaround to allow it to be depended on by py_runtime. See
     # https://github.com/bazelbuild/bazel/issues/4286#issuecomment-475661317.
 
-    native.py_runtime(
+    py_runtime(
         name = "_autodetecting_py2_runtime",
         interpreter = ":py2wrapper.sh",
         python_version = "PY2",
         visibility = ["//visibility:private"],
     )
 
-    native.py_runtime(
+    py_runtime(
         name = "_autodetecting_py3_runtime",
         interpreter = ":py3wrapper.sh",
+        python_version = "PY3",
+        visibility = ["//visibility:private"],
+    )
+
+    py_runtime(
+        name = "_autodetecting_py2_runtime_nonstrict",
+        interpreter = ":py2wrapper_nonstrict.sh",
+        python_version = "PY2",
+        visibility = ["//visibility:private"],
+    )
+
+    py_runtime(
+        name = "_autodetecting_py3_runtime_nonstrict",
+        interpreter = ":py3wrapper_nonstrict.sh",
         python_version = "PY3",
         visibility = ["//visibility:private"],
     )
@@ -172,7 +201,7 @@ def define_autodetecting_toolchain(
     # This is a dummy runtime whose interpreter_path triggers the native rule
     # logic to use the legacy behavior on Windows.
     # TODO(#7844): Remove this target.
-    native.py_runtime(
+    py_runtime(
         name = "_sentinel_py2_runtime",
         interpreter_path = "/_magic_pyruntime_sentinel_do_not_use",
         python_version = "PY2",
@@ -193,9 +222,28 @@ def define_autodetecting_toolchain(
         visibility = ["//visibility:public"],
     )
 
+    py_runtime_pair(
+        name = "_autodetecting_py_runtime_pair_nonstrict",
+        py2_runtime = select({
+            # Same hack as above.
+            # TODO(#7844): Remove this hack.
+            windows_config_setting: ":_sentinel_py2_runtime",
+            "//conditions:default": ":_autodetecting_py2_runtime_nonstrict",
+        }),
+        py3_runtime = ":_autodetecting_py3_runtime_nonstrict",
+        visibility = ["//visibility:public"],
+    )
+
     native.toolchain(
         name = name,
         toolchain = ":_autodetecting_py_runtime_pair",
+        toolchain_type = ":toolchain_type",
+        visibility = ["//visibility:public"],
+    )
+
+    native.toolchain(
+        name = name + "_nonstrict",
+        toolchain = ":_autodetecting_py_runtime_pair_nonstrict",
         toolchain_type = ":toolchain_type",
         visibility = ["//visibility:public"],
     )

@@ -34,11 +34,10 @@ import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls.
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls.LibCppStlImpl;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -58,6 +57,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.eval.EvalException;
 
 /** Implementation of the {@code android_ndk_repository} rule. */
 public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
@@ -85,11 +85,14 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
     String ccToolchainSuiteTemplate = getTemplate("android_ndk_cc_toolchain_suite_template.txt");
     String ccToolchainTemplate = getTemplate("android_ndk_cc_toolchain_template.txt");
     String stlFilegroupTemplate = getTemplate("android_ndk_stl_filegroup_template.txt");
+    String vulkanValidationLayersTemplate =
+        getTemplate("android_ndk_vulkan_validation_layers_template.txt");
     String miscLibrariesTemplate = getTemplate("android_ndk_misc_libraries_template.txt");
 
     StringBuilder ccToolchainSuites = new StringBuilder();
     StringBuilder ccToolchainRules = new StringBuilder();
     StringBuilder stlFilegroups = new StringBuilder();
+    StringBuilder vulkanValidationLayers = new StringBuilder();
     for (CrosstoolStlPair crosstoolStlPair : crosstools) {
 
       // Create the cc_toolchain_suite rule
@@ -131,6 +134,14 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
                 .replace("%name%", entry.getKey())
                 .replace("%fileGlobPattern%", entry.getValue()));
       }
+
+      // Create the Vulkan validation layers libraries
+      for (CToolchain toolchain : crosstool.getToolchainList()) {
+        vulkanValidationLayers.append(
+            vulkanValidationLayersTemplate
+                .replace("%toolchainName%", toolchain.getToolchainIdentifier())
+                .replace("%cpu%", toolchain.getTargetCpu()));
+      }
     }
 
     return buildFileTemplate
@@ -139,6 +150,7 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
         .replace("%ccToolchainSuites%", ccToolchainSuites)
         .replace("%ccToolchainRules%", ccToolchainRules)
         .replace("%stlFilegroups%", stlFilegroups)
+        .replace("%vulkanValidationLayers%", vulkanValidationLayers)
         .replace("%miscLibraries%", miscLibrariesTemplate);
   }
 
@@ -201,12 +213,28 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
     return ccToolchainTemplate
         .replace("%toolchainName%", toolchain.getToolchainIdentifier())
         .replace("%cpu%", toolchain.getTargetCpu())
+        .replace("%platform_cpu%", getPlatformCpuLabel(toolchain.getTargetCpu()))
         .replace("%compiler%", toolchain.getCompiler())
         .replace("%version%", version)
         .replace("%dynamicRuntimeLibs%", toolchain.getDynamicRuntimesFilegroup())
         .replace("%staticRuntimeLibs%", toolchain.getStaticRuntimesFilegroup())
         .replace("%toolchainDirectory%", toolchainDirectory)
         .replace("%toolchainFileGlobs%", toolchainFileGlobs.toString().trim());
+  }
+
+  private static String getPlatformCpuLabel(String targetCpu) {
+    // Create a mapping of CcToolchain CPU values to platform arch constraint values
+    // in @bazel_tools//platforms
+    switch (targetCpu) {
+      case "x86":
+        return "x86_32";
+      case "armeabi-v7a":
+        return "arm";
+      case "arm64-v8a":
+        return "aarch64";
+      default:
+        return "x86_64";
+    }
   }
 
   private static String getTemplate(String templateFile) {
@@ -249,9 +277,12 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
     prepareLocalRepositorySymlinkTree(rule, outputDirectory);
     WorkspaceAttributeMapper attributes = WorkspaceAttributeMapper.of(rule);
     PathFragment pathFragment;
+    String userDefinedPath = null;
     if (attributes.isAttributeValueExplicitlySpecified("path")) {
-      pathFragment = getTargetPath(rule, directories.getWorkspace());
+      userDefinedPath = getPathAttr(rule);
+      pathFragment = getTargetPath(userDefinedPath, directories.getWorkspace());
     } else if (environ.get(PATH_ENV_VAR) != null) {
+      userDefinedPath = environ.get(PATH_ENV_VAR);
       pathFragment = getAndroidNdkHomeEnvironmentVar(directories.getWorkspace(), environ);
     } else {
       throw new RepositoryFunctionException(
@@ -270,7 +301,7 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
     }
 
     Path ndkHome = directories.getOutputBase().getFileSystem().getPath(pathFragment);
-    if (!symlinkLocalRepositoryContents(ndkSymlinkTreeDirectory, ndkHome)) {
+    if (!symlinkLocalRepositoryContents(ndkSymlinkTreeDirectory, ndkHome, userDefinedPath)) {
       return null;
     }
 

@@ -20,47 +20,48 @@ import com.google.devtools.build.docgen.builtin.BuiltinProtos.Callable;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos.Param;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos.Type;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos.Value;
-import com.google.devtools.build.docgen.skylark.SkylarkConstructorMethodDoc;
-import com.google.devtools.build.docgen.skylark.SkylarkMethodDoc;
-import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
-import com.google.devtools.build.docgen.skylark.SkylarkParamDoc;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.BuiltinCallable;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
-import com.google.devtools.build.lib.syntax.MethodDescriptor;
-import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
-import com.google.devtools.build.lib.syntax.SkylarkType;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
+import com.google.devtools.build.docgen.starlark.StarlarkConstructorMethodDoc;
+import com.google.devtools.build.docgen.starlark.StarlarkMethodDoc;
+import com.google.devtools.build.docgen.starlark.StarlarkParamDoc;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.function.Function;
+import net.starlark.java.annot.StarlarkAnnotations;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.BuiltinCallable;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkSemantics;
 
-/** The main class for the Skylark documentation generator. */
+/** The main class for the Starlark documentation generator. */
 public class ApiExporter {
 
   private static void appendTypes(
       Builtins.Builder builtins,
-      Map<String, SkylarkModuleDoc> types,
+      Map<String, StarlarkBuiltinDoc> types,
       List<RuleDocumentation> nativeRules)
       throws BuildEncyclopediaDocException {
 
-    for (Entry<String, SkylarkModuleDoc> modEntry : types.entrySet()) {
-      SkylarkModuleDoc mod = modEntry.getValue();
+    for (Entry<String, StarlarkBuiltinDoc> modEntry : types.entrySet()) {
+      StarlarkBuiltinDoc mod = modEntry.getValue();
 
       Type.Builder type = Type.newBuilder();
       type.setName(mod.getName());
       type.setDoc(mod.getDocumentation());
-      for (SkylarkMethodDoc meth : mod.getJavaMethods()) {
+      for (StarlarkMethodDoc meth : mod.getJavaMethods()) {
         // Constructors are exported as global symbols.
-        if (!(meth instanceof SkylarkConstructorMethodDoc)) {
+        if (!(meth instanceof StarlarkConstructorMethodDoc)) {
           Value.Builder value = collectMethodInfo(meth);
           // Methods from the native package are available as top level functions in BUILD files.
           if (mod.getName().equals("native")) {
@@ -92,17 +93,8 @@ public class ApiExporter {
     for (Entry<String, Object> entry : globalMethods.entrySet()) {
       Object obj = entry.getValue();
       Value.Builder value = Value.newBuilder();
-      if (obj instanceof BaseFunction) {
-        value = collectFunctionInfo((BaseFunction) obj);
-      } else if (obj instanceof BuiltinCallable) {
-        BuiltinCallable builtinCallable = (BuiltinCallable) obj;
-        MethodDescriptor descriptor =
-            builtinCallable.getMethodDescriptor(StarlarkSemantics.DEFAULT_SEMANTICS);
-        value =
-            collectFunctionInfo(
-                descriptor.getName(),
-                SkylarkSignatureProcessor.getSignatureForCallable(
-                    descriptor.getName(), descriptor, null, null));
+      if (obj instanceof StarlarkCallable) {
+        value = valueFromCallable((StarlarkCallable) obj);
       } else {
         value.setName(entry.getKey());
       }
@@ -117,21 +109,17 @@ public class ApiExporter {
       Object obj = entry.getValue();
       Value.Builder value = Value.newBuilder();
 
-      if (obj instanceof BaseFunction) {
-        value = collectFunctionInfo((BaseFunction) obj);
+      if (obj instanceof StarlarkCallable) {
+        value = valueFromCallable((StarlarkCallable) obj);
       } else {
-        SkylarkModule typeModule = SkylarkInterfaceUtils.getSkylarkModule(obj.getClass());
+        StarlarkBuiltin typeModule = StarlarkAnnotations.getStarlarkBuiltin(obj.getClass());
         if (typeModule != null) {
-          if (FuncallExpression.hasSelfCallMethod(
-              StarlarkSemantics.DEFAULT_SEMANTICS, obj.getClass())) {
-            MethodDescriptor descriptor =
-                FuncallExpression.getSelfCallMethodDescriptor(
-                    StarlarkSemantics.DEFAULT_SEMANTICS, obj);
-
-            value = collectFunctionInfo(
-                descriptor.getName(),
-                SkylarkSignatureProcessor.getSignatureForCallable(
-                    descriptor.getName(), descriptor, null, null));
+          Method selfCallMethod =
+              Starlark.getSelfCallMethod(StarlarkSemantics.DEFAULT, obj.getClass());
+          if (selfCallMethod != null) {
+            // selfCallMethod may be from a subclass of the annotated method.
+            StarlarkMethod annotation = StarlarkAnnotations.getStarlarkMethod(selfCallMethod);
+            value = valueFromAnnotation(annotation);
           } else {
             value.setName(entry.getKey());
             value.setType(entry.getKey());
@@ -155,65 +143,95 @@ public class ApiExporter {
     }
   }
 
-  private static Value.Builder collectFunctionInfo(BaseFunction func) {
-    return collectFunctionInfo(func.getName(), func.getSignature());
+  private static Value.Builder valueFromCallable(StarlarkCallable x) {
+    // Starlark def statement?
+    if (x instanceof StarlarkFunction) {
+      StarlarkFunction fn = (StarlarkFunction) x;
+      Signature sig = new Signature();
+      sig.name = fn.getName();
+      sig.parameterNames = fn.getParameterNames();
+      sig.hasVarargs = fn.hasVarargs();
+      sig.hasKwargs = fn.hasKwargs();
+      sig.getDefaultValue =
+          (i) -> {
+            Object v = fn.getDefaultValue(i);
+            return v == null ? null : Starlark.repr(v);
+          };
+      return signatureToValue(sig);
+    }
+
+    // annotated Java method?
+    if (x instanceof BuiltinCallable) {
+      return valueFromAnnotation(((BuiltinCallable) x).getAnnotation());
+    }
+
+    // application-defined callable?  Treat as def f(**kwargs).
+    Signature sig = new Signature();
+    sig.name = x.getName();
+    sig.parameterNames = ImmutableList.of("kwargs");
+    sig.hasKwargs = true;
+    return signatureToValue(sig);
   }
 
-  private static Value.Builder collectFunctionInfo(
-      String funcName, FunctionSignature.WithValues<Object, SkylarkType> funcSignature) {
+  private static Value.Builder valueFromAnnotation(StarlarkMethod annot) {
+    return signatureToValue(getSignature(annot));
+  }
+
+  private static class Signature {
+    String name;
+    List<String> parameterNames;
+    boolean hasVarargs;
+    boolean hasKwargs;
+
+    // Returns the string form of the ith default value, using the
+    // index, ordering, and null Conventions of StarlarkFunction.getDefaultValue.
+    Function<Integer, String> getDefaultValue = (i) -> null;
+  }
+
+  private static Value.Builder signatureToValue(Signature sig) {
     Value.Builder value = Value.newBuilder();
-    value.setName(funcName);
+    value.setName(sig.name);
+
+    int nparams = sig.parameterNames.size();
+    int kwargsIndex = sig.hasKwargs ? --nparams : -1;
+    int varargsIndex = sig.hasVarargs ? --nparams : -1;
+    // Inv: nparams is number of regular parameters.
+
     Callable.Builder callable = Callable.newBuilder();
-
-    ImmutableList<String> paramNames = funcSignature.getSignature().getNames();
-    List<Object> defaultValues = funcSignature.getDefaultValues();
-    int positionals = funcSignature.getSignature().getShape().getMandatoryPositionals();
-    int optionals = funcSignature.getSignature().getShape().getOptionals();
-    int nameIndex = 0;
-
-    for (int i = 0; i < positionals; i++) {
+    for (int i = 0; i < sig.parameterNames.size(); i++) {
+      String name = sig.parameterNames.get(i);
       Param.Builder param = Param.newBuilder();
-      param.setName(paramNames.get(nameIndex));
-      param.setIsMandatory(true);
-      callable.addParam(param);
-      nameIndex++;
-    }
-
-    for (int i = 0; i < optionals; i++) {
-      Param.Builder param = Param.newBuilder();
-      param.setName(paramNames.get(nameIndex));
-      param.setIsMandatory(false);
-      param.setDefaultValue(defaultValues.get(i).toString());
-      callable.addParam(param);
-      nameIndex++;
-    }
-
-    if (funcSignature.getSignature().getShape().hasStarArg()) {
-      Param.Builder param = Param.newBuilder();
-      param.setName("*" + paramNames.get(nameIndex));
-      param.setIsMandatory(false);
-      param.setIsStarArg(true);
-      nameIndex++;
-      callable.addParam(param);
-    }
-    if (funcSignature.getSignature().getShape().hasKwArg()) {
-      Param.Builder param = Param.newBuilder();
-      param.setIsMandatory(false);
-      param.setIsStarStarArg(true);
-      param.setName("**" + paramNames.get(nameIndex));
+      if (i == varargsIndex) {
+        // *args
+        param.setName("*" + name); // * seems redundant
+        param.setIsStarArg(true);
+      } else if (i == kwargsIndex) {
+        // **kwargs
+        param.setName("**" + name); // ** seems redundant
+        param.setIsStarStarArg(true);
+      } else {
+        // regular parameter
+        param.setName(name);
+        String v = sig.getDefaultValue.apply(i);
+        if (v != null) {
+          param.setDefaultValue(v);
+        } else {
+          param.setIsMandatory(true); // bool seems redundant
+        }
+      }
       callable.addParam(param);
     }
     value.setCallable(callable);
     return value;
   }
 
-  private static Value.Builder collectMethodInfo(SkylarkMethodDoc meth) {
+  private static Value.Builder collectMethodInfo(StarlarkMethodDoc meth) {
     Value.Builder field = Value.newBuilder();
     field.setName(meth.getShortName());
     field.setDoc(meth.getDocumentation());
     if (meth.isCallable()) {
       Callable.Builder callable = Callable.newBuilder();
-      for (SkylarkParamDoc par : meth.getParams()) {
+      for (StarlarkParamDoc par : meth.getParams()) {
         Param.Builder param = newParam(par.getName(), par.getDefaultValue().isEmpty());
         param.setType(par.getType());
         param.setDoc(par.getDocumentation());
@@ -261,7 +279,7 @@ public class ApiExporter {
   private static void printUsage(OptionsParser parser) {
     System.err.println(
         "Usage: api_exporter_bin -n product_name -p rule_class_provider (-i input_dir)+\n"
-            + "   -f outputFile [-b blacklist] [-h]\n\n"
+            + "   -f outputFile [-b denylist] [-h]\n\n"
             + "Exports all Starlark builtins to a file including the embedded native rules.\n"
             + "The product name (-n), rule class provider (-p), output file (-f) and at least \n"
             + " one input_dir (-i) must be specified.\n");
@@ -271,7 +289,8 @@ public class ApiExporter {
   }
 
   public static void main(String[] args) {
-    OptionsParser parser = OptionsParser.newOptionsParser(BuildEncyclopediaOptions.class);
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(BuildEncyclopediaOptions.class).build();
     parser.parseAndExitUponError(args);
     BuildEncyclopediaOptions options = parser.getOptions(BuildEncyclopediaOptions.class);
 
@@ -291,7 +310,7 @@ public class ApiExporter {
     try {
       SymbolFamilies symbols =
           new SymbolFamilies(
-              options.productName, options.provider, options.inputDirs, options.blacklist);
+              options.productName, options.provider, options.inputDirs, options.denylist);
       Builtins.Builder builtins = Builtins.newBuilder();
 
       appendTypes(builtins, symbols.getTypes(), symbols.getNativeRules());
@@ -304,5 +323,51 @@ public class ApiExporter {
       System.err.println("ERROR: " + e.getMessage());
       e.printStackTrace();
     }
+  }
+
+  // Extracts signature and parameter default value expressions from a StarlarkMethod annotation.
+  private static Signature getSignature(StarlarkMethod annot) {
+    // Build-time annotation processing ensures mandatory parameters do not follow optional ones.
+    boolean hasStar = false;
+    String star = null;
+    String starStar = null;
+    ArrayList<String> params = new ArrayList<>();
+    ArrayList<String> defaults = new ArrayList<>();
+
+    for (net.starlark.java.annot.Param param : annot.parameters()) {
+      // Implicit * or *args parameter separates transition from positional to named.
+      // f (..., *, ... )  or  f(..., *args, ...)
+      // TODO(adonovan): this logic looks fishy. Clean it up.
+      if (param.named() && !param.positional() && !hasStar) {
+        hasStar = true;
+        if (!annot.extraPositionals().name().isEmpty()) {
+          star = annot.extraPositionals().name();
+        }
+      }
+      params.add(param.name());
+      defaults.add(param.defaultValue().isEmpty() ? null : param.defaultValue());
+    }
+
+    // f(..., *args, ...)
+    if (!annot.extraPositionals().name().isEmpty() && !hasStar) {
+      star = annot.extraPositionals().name();
+    }
+    if (star != null) {
+      params.add(star);
+    }
+
+    // f(..., **kwargs)
+    if (!annot.extraKeywords().name().isEmpty()) {
+      starStar = annot.extraKeywords().name();
+      params.add(starStar);
+    }
+
+    Signature sig = new Signature();
+    sig.name = annot.name();
+    sig.parameterNames = params;
+    sig.hasVarargs = star != null;
+    sig.hasKwargs = starStar != null;
+    sig.getDefaultValue = defaults::get;
+    return sig;
   }
 }

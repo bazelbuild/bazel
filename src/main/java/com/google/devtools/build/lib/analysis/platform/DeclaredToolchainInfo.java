@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis.platform;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.platform.ConstraintCollection.DuplicateConstraintException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
@@ -27,7 +26,7 @@ import javax.annotation.Nullable;
  * Provider for a toolchain declaration, which associates a toolchain type, the execution and target
  * constraints, and the actual toolchain label. The toolchain is then available for use but will be
  * lazily resolved only when it is actually needed for toolchain-aware rules. Toolchain definitions
- * are exposed to Skylark and Bazel via {@link ToolchainInfo} providers.
+ * are exposed to Starlark and Bazel via {@link ToolchainInfo} providers.
  */
 @AutoValue
 @AutoCodec

@@ -38,7 +38,7 @@ fi
 function hash_outputs() {
   # runfiles/MANIFEST & runfiles_manifest contain absolute path, ignore.
   # ar on OS-X is non-deterministic, ignore .a files.
-  find bazel-bin/ bazel-genfiles/ \
+  find bazel-bin/ \
       -type f \
       -a \! -name MANIFEST \
       -a \! -name '*.runfiles_manifest' \
@@ -55,12 +55,26 @@ function test_determinism()  {
     cd "${workdir}" || fail "Could not change to work directory"
     unzip -q "${DISTFILE}"
 
+    distdir="derived/distdir"
+
     # Build Bazel once.
-    bazel --output_base="${TEST_TMPDIR}/out1" build --nostamp //src:bazel
+    bazel \
+      --output_base="${TEST_TMPDIR}/out1" \
+      build \
+      --distdir=$distdir \
+      --nostamp \
+      //src:bazel
     hash_outputs >"${TEST_TMPDIR}/sum1"
 
     # Build Bazel twice.
-    bazel-bin/src/bazel --output_base="${TEST_TMPDIR}/out2" build --nostamp //src:bazel
+    bazel-bin/src/bazel \
+      --bazelrc="${TEST_TMPDIR}/bazelrc" \
+      --install_base="${TEST_TMPDIR}/install_base2" \
+      --output_base="${TEST_TMPDIR}/out2" \
+      build \
+      --distdir=$distdir \
+      --nostamp \
+      //src:bazel
     hash_outputs >"${TEST_TMPDIR}/sum2"
 
     if ! diff -U0 "${TEST_TMPDIR}/sum1" "${TEST_TMPDIR}/sum2" >$TEST_log; then

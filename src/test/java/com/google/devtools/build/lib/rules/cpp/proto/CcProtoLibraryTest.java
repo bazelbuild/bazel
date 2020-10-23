@@ -19,18 +19,23 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirs
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.rules.cpp.proto.BazelCcProtoAspect;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
+import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
@@ -41,25 +46,32 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class CcProtoLibraryTest extends BuildViewTestCase {
+
   @Before
   public void setUp() throws Exception {
-    mockToolsConfig.create("/protobuf/WORKSPACE");
-    mockToolsConfig.overwrite(
-        "/protobuf/BUILD",
+    scratch.file("protobuf/WORKSPACE");
+    scratch.overwriteFile(
+        "protobuf/BUILD",
+        TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
+        TestConstants.LOAD_PROTO_LIBRARY,
         "package(default_visibility=['//visibility:public'])",
         "exports_files(['protoc'])",
+        "proto_library(",
+        "    name = 'any_proto',",
+        "    srcs = ['any.proto'],",
+        ")",
         "proto_lang_toolchain(",
         "    name = 'cc_toolchain',",
         "    command_line = '--cpp_out=$(OUT)',",
-        "    blacklisted_protos = [],",
+        "    blacklisted_protos = [':any_proto'],",
         ")");
-
-    String existingWorkspace =
-        new String(FileSystemUtils.readContentAsLatin1(rootDirectory.getRelative("WORKSPACE")));
-    mockToolsConfig.overwrite(
+    scratch.appendFile(
         "WORKSPACE",
-        "local_repository(name = 'com_google_protobuf', path = '/protobuf/')",
-        existingWorkspace);
+        "local_repository(",
+        "    name = 'com_google_protobuf',",
+        "    path = 'protobuf',",
+        ")");
+    MockProtoSupport.setupWorkspace(scratch);
     invalidatePackages(); // A dash of magic to re-evaluate the WORKSPACE file.
   }
 
@@ -75,6 +87,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
                     CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
     scratch.file(
         "x/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "cc_proto_library(name = 'foo_cc_proto', deps = ['foo_proto'])",
         "proto_library(name = 'foo_proto', srcs = ['foo.proto'])");
     assertThat(prettyArtifactNames(getFilesToBuild(getConfiguredTarget("//x:foo_cc_proto"))))
@@ -86,6 +99,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
   public void canBeUsedFromCcRules() throws Exception {
     scratch.file(
         "x/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "cc_library(name = 'foo', srcs = ['foo.cc'], deps = ['foo_cc_proto'])",
         "cc_binary(name = 'bin', srcs = ['bin.cc'], deps = ['foo_cc_proto'])",
         "cc_proto_library(name = 'foo_cc_proto', deps = ['foo_proto'])",
@@ -105,6 +119,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "x",
         "foo_cc_proto",
         "'deps' attribute must contain exactly one label",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "cc_proto_library(name = 'foo_cc_proto', deps = ['foo_proto', 'bar_proto'])",
         "proto_library(name = 'foo_proto', srcs = ['foo.proto'])",
         "proto_library(name = 'bar_proto', srcs = ['bar.proto'])");
@@ -120,6 +135,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
   public void aliasProtos() throws Exception {
     scratch.file(
         "x/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "cc_proto_library(name = 'foo_cc_proto', deps = ['alias_proto'])",
         "proto_library(name = 'alias_proto', deps = [':foo_proto'])",
         "proto_library(name = 'foo_proto', srcs = ['foo.proto'])");
@@ -131,9 +147,40 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
   }
 
   @Test
+  public void blacklistedProtos() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "cc_proto_library(name = 'any_cc_proto', deps = ['@com_google_protobuf//:any_proto'])");
+
+    CcCompilationContext ccCompilationContext =
+        getConfiguredTarget("//x:any_cc_proto").get(CcInfo.PROVIDER).getCcCompilationContext();
+    assertThat(prettyArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs())).isEmpty();
+  }
+
+  @Test
+  public void blacklistedProtosInTransitiveDeps() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "cc_proto_library(name = 'foo_cc_proto', deps = ['foo_proto'])",
+        "proto_library(",
+        "    name = 'foo_proto',",
+        "    srcs = ['foo.proto'],",
+        "    deps = ['@com_google_protobuf//:any_proto'],",
+        ")");
+
+    CcCompilationContext ccCompilationContext =
+        getConfiguredTarget("//x:foo_cc_proto").get(CcInfo.PROVIDER).getCcCompilationContext();
+    assertThat(prettyArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
+        .containsExactly("x/foo.pb.h");
+  }
+
+  @Test
   public void ccCompilationContext() throws Exception {
     scratch.file(
         "x/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "cc_proto_library(name = 'foo_cc_proto', deps = ['foo_proto'])",
         "proto_library(name = 'foo_proto', srcs = ['foo.proto'], deps = [':bar_proto'])",
         "proto_library(name = 'bar_proto', srcs = ['bar.proto'])");
@@ -148,6 +195,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
   public void outputDirectoryForProtoCompileAction() throws Exception {
     scratch.file(
         "x/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "cc_proto_library(name = 'foo_cc_proto', deps = [':bar_proto'])",
         "proto_library(name = 'bar_proto', srcs = ['bar.proto'])");
 
@@ -159,7 +207,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
     assertThat(protoCompileAction.getArguments())
         .contains(
             String.format(
-                "--cpp_out=%s", getTargetConfiguration().getGenfilesFragment().toString()));
+                "--cpp_out=%s", getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN)));
   }
 
   @Test
@@ -171,6 +219,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
     // Create the rule '@bla//foo:bar_proto'.
     scratch.file(
         "/bla/foo/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "package(default_visibility=['//visibility:public'])",
         "proto_library(name = 'bar_proto', srcs = ['bar.proto'])");
     String existingWorkspace =
@@ -187,19 +236,19 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         .contains(
             String.format(
                 "--cpp_out=%s/external/bla",
-                getTargetConfiguration().getGenfilesFragment().toString()));
+                getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN)));
 
     Artifact headerFile =
         getDerivedArtifact(
             PathFragment.create("external/bla/foo/bar.pb.h"),
-            targetConfig.getGenfilesDirectory(),
+            targetConfig.getGenfilesDirectory(RepositoryName.create("bla")),
             getOwnerForAspect(
                 getConfiguredTarget("@bla//foo:bar_proto"),
                 ruleClassProvider.getNativeAspectClass(BazelCcProtoAspect.class.getSimpleName()),
                 AspectParameters.EMPTY));
     CcCompilationContext ccCompilationContext =
         target.get(CcInfo.PROVIDER).getCcCompilationContext();
-    assertThat(ccCompilationContext.getDeclaredIncludeSrcs()).containsExactly(headerFile);
+    assertThat(ccCompilationContext.getDeclaredIncludeSrcs().toList()).containsExactly(headerFile);
   }
 
   @Test
@@ -217,6 +266,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "--cc_proto_library_source_suffixes=.pb.cc,.pb.cc.meta");
     scratch.file(
         "x/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "cc_proto_library(name = 'foo_cc_proto', deps = ['foo_proto'])",
         "proto_library(name = 'foo_proto', srcs = ['foo.proto'])");
 
@@ -232,6 +282,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
     useConfiguration("--collect_code_coverage", "--instrumentation_filter=.");
     scratch.file(
         "x/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "cc_proto_library(name = 'foo_cc_proto', deps = ['foo_proto'])",
         "proto_library(name = 'foo_proto', srcs = ['foo.proto'])");
     ConfiguredTarget target = getConfiguredTarget("//x:foo_cc_proto");
@@ -242,5 +293,128 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
     List<String> options = compilationSteps.get(0).getCompilerOptions();
     assertThat(options).doesNotContain("-fprofile-arcs");
     assertThat(options).doesNotContain("-ftest-coverage");
+  }
+
+  @Test
+  public void importPrefixWorksWithRepositories() throws Exception {
+    FileSystemUtils.appendIsoLatin1(
+        scratch.resolve("WORKSPACE"), "local_repository(name = 'yolo_repo', path = '/yolo_repo')");
+    invalidatePackages();
+
+    scratch.file("/yolo_repo/WORKSPACE");
+    scratch.file("/yolo_repo/yolo_pkg/yolo.proto");
+    scratch.file(
+        "/yolo_repo/yolo_pkg/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "proto_library(",
+        "  name = 'yolo_proto',",
+        "  srcs = ['yolo.proto'],",
+        "  import_prefix = 'bazel.build/yolo',",
+        ")",
+        "cc_proto_library(",
+        "  name = 'yolo_cc_proto',",
+        "  deps = [':yolo_proto'],",
+        ")");
+    assertThat(getTarget("@yolo_repo//yolo_pkg:yolo_cc_proto")).isNotNull();
+    assertThat(getProtoHeaderExecPath())
+        .endsWith("_virtual_includes/yolo_proto/bazel.build/yolo/yolo_pkg/yolo.pb.h");
+  }
+
+  @Test
+  public void stripImportPrefixWorksWithRepositories() throws Exception {
+    FileSystemUtils.appendIsoLatin1(
+        scratch.resolve("WORKSPACE"), "local_repository(name = 'yolo_repo', path = '/yolo_repo')");
+    invalidatePackages();
+
+    scratch.file("/yolo_repo/WORKSPACE");
+    scratch.file("/yolo_repo/yolo_pkg/yolo.proto");
+    scratch.file(
+        "/yolo_repo/yolo_pkg/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "proto_library(",
+        "  name = 'yolo_proto',",
+        "  srcs = ['yolo.proto'],",
+        "  strip_import_prefix = '/yolo_pkg',",
+        ")",
+        "cc_proto_library(",
+        "  name = 'yolo_cc_proto',",
+        "  deps = [':yolo_proto'],",
+        ")");
+    assertThat(getTarget("@yolo_repo//yolo_pkg:yolo_cc_proto")).isNotNull();
+    assertThat(getProtoHeaderExecPath()).endsWith("_virtual_includes/yolo_proto/yolo.pb.h");
+  }
+
+  @Test
+  public void importPrefixAndStripImportPrefixWorksWithRepositories() throws Exception {
+    FileSystemUtils.appendIsoLatin1(
+        scratch.resolve("WORKSPACE"), "local_repository(name = 'yolo_repo', path = '/yolo_repo')");
+    invalidatePackages();
+
+    scratch.file("/yolo_repo/WORKSPACE");
+    scratch.file("/yolo_repo/yolo_pkg/yolo.proto");
+    scratch.file(
+        "/yolo_repo/yolo_pkg/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "proto_library(",
+        "  name = 'yolo_proto',",
+        "  srcs = ['yolo.proto'],",
+        "  import_prefix = 'bazel.build/yolo',",
+        "  strip_import_prefix = '/yolo_pkg'",
+        ")",
+        "cc_proto_library(",
+        "  name = 'yolo_cc_proto',",
+        "  deps = [':yolo_proto'],",
+        ")");
+    getTarget("@yolo_repo//yolo_pkg:yolo_cc_proto");
+
+    assertThat(getTarget("@yolo_repo//yolo_pkg:yolo_cc_proto")).isNotNull();
+    assertThat(getProtoHeaderExecPath())
+        .endsWith("_virtual_includes/yolo_proto/bazel.build/yolo/yolo.pb.h");
+  }
+
+  private String getProtoHeaderExecPath() throws LabelSyntaxException {
+    ConfiguredTarget configuredTarget = getConfiguredTarget("@yolo_repo//yolo_pkg:yolo_cc_proto");
+    CcInfo ccInfo = configuredTarget.get(CcInfo.PROVIDER);
+    ImmutableList<Artifact> headers =
+        ccInfo.getCcCompilationContext().getDeclaredIncludeSrcs().toList();
+    return Iterables.getOnlyElement(headers).getExecPathString();
+  }
+
+  @Test
+  public void testCcProtoLibraryLoadedThroughMacro() throws Exception {
+    if (!analysisMock.isThisBazel()) {
+      return;
+    }
+    setupTestCcProtoLibraryLoadedThroughMacro(/* loadMacro= */ true);
+    assertThat(getConfiguredTarget("//a:a")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void testCcProtoLibraryNotLoadedThroughMacro() throws Exception {
+    if (!analysisMock.isThisBazel()) {
+      return;
+    }
+    setupTestCcProtoLibraryLoadedThroughMacro(/* loadMacro= */ false);
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:a");
+    assertContainsEvent("rules are deprecated");
+  }
+
+  private void setupTestCcProtoLibraryLoadedThroughMacro(boolean loadMacro) throws Exception {
+    useConfiguration("--incompatible_load_cc_rules_from_bzl");
+
+    scratch.file(
+        "a/BUILD",
+        getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "cc_proto_library"),
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "cc_proto_library(",
+        "    name='a',",
+        "    deps=[':a_p'],",
+        ")",
+        "proto_library(",
+        "    name='a_p',",
+        "    srcs = ['a.proto'],",
+        ")");
   }
 }

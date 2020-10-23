@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.bazel.repository.cache;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.hash.HashFunction;
@@ -23,6 +25,8 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.UUID;
 import javax.annotation.Nullable;
 
 /** The cache implementation to store download artifacts from external repositories.
@@ -33,7 +37,9 @@ public class RepositoryCache {
   /** The types of cache keys used. */
   public enum KeyType {
     SHA1("SHA-1", "\\p{XDigit}{40}", "sha1", Hashing.sha1()),
-    SHA256("SHA-256", "\\p{XDigit}{64}", "sha256", Hashing.sha256());
+    SHA256("SHA-256", "\\p{XDigit}{64}", "sha256", Hashing.sha256()),
+    SHA384("SHA-384", "\\p{XDigit}{96}", "sha384", Hashing.sha384()),
+    SHA512("SHA-512", "\\p{XDigit}{128}", "sha512", Hashing.sha512());
 
     private final String stringRepr;
     private final String regexp;
@@ -60,6 +66,10 @@ public class RepositoryCache {
       return hashFunction.newHasher();
     }
 
+    public String getHashName() {
+      return hashName;
+    }
+
     @Override
     public String toString() {
       return stringRepr;
@@ -73,6 +83,8 @@ public class RepositoryCache {
 
   // Rename cached files to this value to simplify lookup.
   public static final String DEFAULT_CACHE_FILENAME = "file";
+  public static final String TMP_PREFIX = "tmp-";
+  public static final String ID_PREFIX = "id-";
 
   @Nullable private Path repositoryCachePath;
   @Nullable private Path contentAddressablePath;
@@ -104,7 +116,26 @@ public class RepositoryCache {
    */
   public boolean exists(String cacheKey, KeyType keyType) {
     Preconditions.checkState(isEnabled());
-    return keyType.getCachePath(contentAddressablePath).getChild(cacheKey).exists();
+    return keyType
+        .getCachePath(contentAddressablePath)
+        .getChild(cacheKey)
+        .getChild(DEFAULT_CACHE_FILENAME)
+        .exists();
+  }
+
+  boolean hasCanonicalId(String cacheKey, KeyType keyType, String canonicalId) {
+    Preconditions.checkState(isEnabled());
+    String idHash = keyType.newHasher().putString(canonicalId, UTF_8).hash().toString();
+    return keyType
+        .getCachePath(contentAddressablePath)
+        .getChild(cacheKey)
+        .getChild(ID_PREFIX + idHash)
+        .exists();
+  }
+
+  public synchronized Path get(String cacheKey, Path targetPath, KeyType keyType)
+      throws IOException, InterruptedException {
+    return get(cacheKey, targetPath, keyType, null);
   }
 
   /**
@@ -117,13 +148,19 @@ public class RepositoryCache {
    * @param cacheKey The string key to cache the value by.
    * @param targetPath The path where the cache value should be copied to.
    * @param keyType The type of key used. See: KeyType
+   * @param canonicalId If set to a non-empty string, restrict cache hits to those cases, where the
+   *     entry with the given cacheKey was added with this String given.
    * @return The Path value where the cache value has been copied to. If cache value does not exist,
    *     return null.
    * @throws IOException
    */
   @Nullable
-  public synchronized Path get(String cacheKey, Path targetPath, KeyType keyType)
-      throws IOException {
+  public synchronized Path get(
+      String cacheKey, Path targetPath, KeyType keyType, String canonicalId)
+      throws IOException, InterruptedException {
+    if (Thread.interrupted()) {
+      throw new InterruptedException();
+    }
     Preconditions.checkState(isEnabled());
 
     assertKeyIsValid(cacheKey, keyType);
@@ -142,6 +179,12 @@ public class RepositoryCache {
           + "Please delete the directory " + cacheEntry + " and try again.");
     }
 
+    if (!Strings.isNullOrEmpty(canonicalId)) {
+      if (!hasCanonicalId(cacheKey, keyType, canonicalId)) {
+        return null;
+      }
+    }
+
     FileSystemUtils.createDirectoryAndParents(targetPath.getParentDirectory());
     if (useHardlinks) {
       FileSystemUtils.createHardLink(targetPath, cacheValue);
@@ -158,16 +201,28 @@ public class RepositoryCache {
     return targetPath;
   }
 
+  public synchronized void put(String cacheKey, Path sourcePath, KeyType keyType)
+      throws IOException, InterruptedException {
+    put(cacheKey, sourcePath, keyType, null);
+  }
+
   /**
    * Copies a value from a specified path into the cache.
    *
    * @param cacheKey The string key to cache the value by.
    * @param sourcePath The path of the value to be cached.
    * @param keyType The type of key used. See: KeyType
+   * @param canonicalId If set to a non-empty String associate the file with this name, allowing
+   *     restricted cache lookups later.
    * @throws IOException
    */
-  public synchronized void put(String cacheKey, Path sourcePath, KeyType keyType)
-    throws IOException {
+  public synchronized void put(
+      String cacheKey, Path sourcePath, KeyType keyType, String canonicalId)
+      throws IOException, InterruptedException {
+    // Check for interrupts while waiting for the monitor of this synchronized method
+    if (Thread.interrupted()) {
+      throw new InterruptedException();
+    }
     Preconditions.checkState(isEnabled());
 
     assertKeyIsValid(cacheKey, keyType);
@@ -175,8 +230,23 @@ public class RepositoryCache {
 
     Path cacheEntry = keyType.getCachePath(contentAddressablePath).getRelative(cacheKey);
     Path cacheValue = cacheEntry.getRelative(DEFAULT_CACHE_FILENAME);
+    Path tmpName = cacheEntry.getRelative(TMP_PREFIX + UUID.randomUUID());
     FileSystemUtils.createDirectoryAndParents(cacheEntry);
-    FileSystemUtils.copyFile(sourcePath, cacheValue);
+    FileSystemUtils.copyFile(sourcePath, tmpName);
+    FileSystemUtils.moveFile(tmpName, cacheValue);
+
+    if (!Strings.isNullOrEmpty(canonicalId)) {
+      byte[] canonicalIdBytes = canonicalId.getBytes(UTF_8);
+      String idHash = keyType.newHasher().putBytes(canonicalIdBytes).hash().toString();
+      OutputStream idStream = cacheEntry.getRelative(ID_PREFIX + idHash).getOutputStream();
+      idStream.write(canonicalIdBytes);
+      idStream.close();
+    }
+  }
+
+  public synchronized String put(Path sourcePath, KeyType keyType)
+      throws IOException, InterruptedException {
+    return put(sourcePath, keyType, null);
   }
 
   /**
@@ -184,12 +254,15 @@ public class RepositoryCache {
    *
    * @param sourcePath The path of the value to be cached.
    * @param keyType The type of key to be used.
+   * @param canonicalId If set to a non-empty String associate the file with this name, allowing
+   *     restricted cache lookups later.
    * @throws IOException
    * @return The key for the cached entry.
    */
-  public synchronized String put(Path sourcePath, KeyType keyType) throws IOException {
+  public synchronized String put(Path sourcePath, KeyType keyType, String canonicalId)
+      throws IOException, InterruptedException {
     String cacheKey = getChecksum(keyType, sourcePath);
-    put(cacheKey, sourcePath, keyType);
+    put(cacheKey, sourcePath, keyType, canonicalId);
     return cacheKey;
   }
 
@@ -206,11 +279,11 @@ public class RepositoryCache {
    * @param expectedChecksum The expected checksum of the file.
    * @param filePath The path to the file.
    * @param keyType The type of hash function. e.g. SHA-1, SHA-256
-   * @throws IOException If the checksum does not match or the file cannot be hashed, an
-   *   exception is thrown.
+   * @throws IOException If the checksum does not match or the file cannot be hashed, an exception
+   *     is thrown.
    */
   public static void assertFileChecksum(String expectedChecksum, Path filePath, KeyType keyType)
-      throws IOException {
+      throws IOException, InterruptedException {
     Preconditions.checkArgument(!expectedChecksum.isEmpty());
 
     String actualChecksum;
@@ -235,7 +308,8 @@ public class RepositoryCache {
    * @param path The path to the file.
    * @throws IOException
    */
-  public static String getChecksum(KeyType keyType, Path path) throws IOException {
+  public static String getChecksum(KeyType keyType, Path path)
+      throws IOException, InterruptedException {
     Hasher hasher = keyType.newHasher();
     byte[] byteBuffer = new byte[BUFFER_SIZE];
     try (InputStream stream = path.getInputStream()) {
@@ -244,6 +318,9 @@ public class RepositoryCache {
         if (numBytesRead != 0) {
           // If more than 0 bytes were read, add them to the hash.
           hasher.putBytes(byteBuffer, 0, numBytesRead);
+        }
+        if (Thread.interrupted()) {
+          throw new InterruptedException();
         }
         numBytesRead = stream.read(byteBuffer);
       }

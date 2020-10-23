@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -32,6 +33,7 @@ public class SpawnStats {
 
   private final ConcurrentHashMultiset<String> runners = ConcurrentHashMultiset.create();
   private final AtomicLong totalWallTimeMillis = new AtomicLong();
+  private final AtomicInteger totalNumberOfActions = new AtomicInteger();
 
   public void countActionResult(ActionResult actionResult) {
     for (SpawnResult r : actionResult.spawnResults()) {
@@ -44,6 +46,10 @@ public class SpawnStats {
     runners.add(runner);
   }
 
+  public void incrementActionCount() {
+    totalNumberOfActions.incrementAndGet();
+  }
+
   public long getTotalWallTimeMillis() {
     return totalWallTimeMillis.get();
   }
@@ -52,14 +58,28 @@ public class SpawnStats {
    * Returns a human-readable summary of spawns counted.
    */
   public String getSummary() {
+    return getSummary(REPORT_FIRST);
+  }
+
+  /*
+   * Returns a human-readable summary of spawns counted.
+   */
+  public String getSummary(ImmutableList<String> reportFirst) {
     ResultString result = new ResultString();
+    int numActionsWithoutInternal = runners.size();
+    int numActionsTotal = totalNumberOfActions.get();
 
     // First report cache results.
-    for (String s : REPORT_FIRST) {
+    for (String s : reportFirst) {
       int count = runners.setCount(s, 0);
       if (count > 0) {
         result.add(s, count);
       }
+    }
+
+    // Account for internal actions such as SymlinkTree.
+    if (numActionsWithoutInternal < numActionsTotal) {
+      result.add("internal", numActionsTotal - numActionsWithoutInternal);
     }
 
     // Sort the rest alphabetically
@@ -70,21 +90,14 @@ public class SpawnStats {
       result.add(e.getElement(), e.getCount());
     }
 
-    int total = result.spawnsCount();
-    return total + " process" + (total == 1 ? "" : "es") + result + ".";
+    return numActionsTotal + " process" + (numActionsTotal == 1 ? "" : "es") + result + ".";
   }
 
   private static class ResultString {
     StringBuilder result = new StringBuilder();
-    int spawnsCount = 0;
     int runnersNum = 0;
 
-    public int spawnsCount() {
-      return spawnsCount;
-    }
-
     public void add(String name, int count) {
-      spawnsCount += count;
       runnersNum += 1;
 
       if (result.length() > 0) {

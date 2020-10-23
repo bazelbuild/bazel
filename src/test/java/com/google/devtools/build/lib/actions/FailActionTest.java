@@ -15,12 +15,13 @@ package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.testutil.Scratch;
 import java.util.Collection;
-import java.util.Collections;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -43,11 +44,10 @@ public class FailActionTest {
   public final void setUp() throws Exception  {
     errorMessage = "An error just happened.";
     anOutput =
-        new Artifact(
-            scratch.file("/out/foo"),
-            ArtifactRoot.asDerivedRoot(scratch.dir("/"), scratch.dir("/out")));
+        ActionsTestUtil.createArtifact(
+            ArtifactRoot.asDerivedRoot(scratch.dir("/"), "out"), scratch.file("/out/foo"));
     outputs = ImmutableList.of(anOutput);
-    failAction = new FailAction(NULL_ACTION_OWNER, outputs, errorMessage);
+    failAction = new FailAction(NULL_ACTION_OWNER, outputs, errorMessage, Code.FAIL_ACTION_UNKNOWN);
     actionGraph.registerAction(failAction);
     assertThat(actionGraph.getGeneratingAction(anOutput)).isSameInstanceAs(failAction);
   }
@@ -56,12 +56,12 @@ public class FailActionTest {
   public void testExecutingItYieldsExceptionWithErrorMessage() {
     ActionExecutionException e =
         assertThrows(ActionExecutionException.class, () -> failAction.execute(null));
-    assertThat(e).hasMessageThat().isEqualTo(errorMessage);
+    assertThat(e).hasMessageThat().contains(errorMessage);
   }
 
   @Test
   public void testInputsAreEmptySet() {
-    assertThat(failAction.getInputs()).containsExactlyElementsIn(Collections.emptySet());
+    assertThat(failAction.getInputs().toList()).isEmpty();
   }
 
   @Test

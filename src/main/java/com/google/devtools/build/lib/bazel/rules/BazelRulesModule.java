@@ -30,8 +30,11 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -40,12 +43,46 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
 
-/**
- * Module implementing the rule set of Bazel.
- */
+/** Module implementing the rule set of Bazel. */
 public class BazelRulesModule extends BlazeModule {
   /** This is where deprecated options go to die. */
   public static class GraveyardOptions extends OptionsBase {
+    @Option(
+        name = "incompatible_disable_legacy_proto_provider",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+        },
+        help = "Deprecated no-op.")
+    public boolean disableLegacyProtoProvider;
+
+    @Option(
+        name = "incompatible_disable_proto_source_root",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+        },
+        help = "Deprecated no-op.")
+    public boolean disableProtoSourceRoot;
+
+    @Option(
+        name = "incompatible_do_not_emit_buggy_external_repo_import",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "Deprecated no-op.")
+    public boolean doNotUseBuggyImportPath;
 
     @Option(
         name = "incompatible_disable_crosstool_file",
@@ -159,14 +196,14 @@ public class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op")
-    public boolean enableCcToolchainConfigInfoFromSkylark;
+    public boolean enableCcToolchainConfigInfoFromStarlark;
 
     @Option(
         name = "output_symbol_counts",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-        metadataTags = {OptionMetadataTag.DEPRECATED},
+        metadataTags = {OptionMetadataTag.HIDDEN, OptionMetadataTag.DEPRECATED},
         help = "Deprecated no-op.")
     public boolean symbolCounts;
 
@@ -241,7 +278,7 @@ public class BazelRulesModule extends BlazeModule {
           OptionMetadataTag.DEPRECATED
         },
         help =
-            "Flag for disabling the legacy cc_toolchain Skylark API for accessing legacy "
+            "Flag for disabling the legacy cc_toolchain Starlark API for accessing legacy "
                 + "CROSSTOOL fields.")
     public boolean disableLegacyFlagsCcToolchainApi;
 
@@ -256,7 +293,7 @@ public class BazelRulesModule extends BlazeModule {
           OptionMetadataTag.DEPRECATED
         },
         help = "Obsolete, no effect.")
-    public boolean enableLegacyToolchainSkylarkApi;
+    public boolean enableLegacyToolchainStarlarkApi;
 
     @Option(
         name = "incompatible_disable_legacy_cpp_toolchain_skylark_api",
@@ -269,7 +306,7 @@ public class BazelRulesModule extends BlazeModule {
           OptionMetadataTag.DEPRECATED
         },
         help = "Obsolete, no effect.")
-    public boolean disableLegacyToolchainSkylarkApi;
+    public boolean disableLegacyToolchainStarlarkApi;
 
     @Option(
         name = "incompatible_cc_coverage",
@@ -306,7 +343,7 @@ public class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated no-op.")
     public String glibc;
-    
+
     @Deprecated
     @Option(
         name = "experimental_shortened_obj_file_path",
@@ -336,12 +373,76 @@ public class BazelRulesModule extends BlazeModule {
         },
         help = "This option is deprecated and has no effect.")
     public boolean incompatibleDisableLateBoundOptionDefaults;
+
+    @Option(
+        name = "incompatible_use_native_patch",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "This option is deprecated and has no effect.")
+    public boolean useNativePatch;
+
+    @Deprecated
+    @Option(
+        name = "ui",
+        oldName = "experimental_ui",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "No-op.")
+    public boolean experimentalUi;
+
+    @Option(
+        name = "experimental_profile_action_counts",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "No-op.")
+    public boolean enableActionCountProfile;
+
+    @Option(
+        name = "incompatible_remove_binary_profile",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "No-op.")
+    public boolean removeBinaryProfile;
+
+    @Option(
+        name = "experimental_post_profile_started_event",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "No-op.")
+    public boolean postProfileStartedEvent;
+
+    @Option(
+        name = "incompatible_enable_profile_by_default",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "No-op.")
+    public boolean enableProfileByDefault;
   }
 
   @Override
   public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
     builder.setToolsRepository(BazelRuleClassProvider.TOOLS_REPOSITORY);
     BazelRuleClassProvider.setup(builder);
+
     try {
       // Load auto-configuration files, it is made outside of the rule class provider so that it
       // will not be loaded for our Java tests.
@@ -370,14 +471,15 @@ public class BazelRulesModule extends BlazeModule {
 
   @Override
   public BuildOptions getDefaultBuildOptions(BlazeRuntime blazeRuntime) {
-    return DefaultBuildOptionsForDiffing.getDefaultBuildOptionsForFragments(
+    return BuildOptions.getDefaultBuildOptionsForFragments(
         blazeRuntime.getRuleClassProvider().getConfigurationOptions());
   }
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return "build".equals(command.name())
-        ? ImmutableList.of(GraveyardOptions.class) : ImmutableList.of();
+        ? ImmutableList.of(GraveyardOptions.class)
+        : ImmutableList.of();
   }
 
   private static void validateRemoteOutputsMode(CommandEnvironment env) throws AbruptExitException {
@@ -388,18 +490,28 @@ public class BazelRulesModule extends BlazeModule {
     if (!remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
       JavaOptions javaOptions = env.getOptions().getOptions(JavaOptions.class);
       if (javaOptions != null && !javaOptions.inmemoryJdepsFiles) {
-        throw new AbruptExitException(
+        throw createRemoteExecutionExitException(
             "--experimental_remote_download_outputs=minimal requires"
                 + " --experimental_inmemory_jdeps_files to be enabled",
-            ExitCode.COMMAND_LINE_ERROR);
+            Code.REMOTE_DOWNLOAD_OUTPUTS_MINIMAL_WITHOUT_INMEMORY_JDEPS);
       }
       CppOptions cppOptions = env.getOptions().getOptions(CppOptions.class);
       if (cppOptions != null && !cppOptions.inmemoryDotdFiles) {
-        throw new AbruptExitException(
+        throw createRemoteExecutionExitException(
             "--experimental_remote_download_outputs=minimal requires"
                 + " --experimental_inmemory_dotd_files to be enabled",
-            ExitCode.COMMAND_LINE_ERROR);
+            Code.REMOTE_DOWNLOAD_OUTPUTS_MINIMAL_WITHOUT_INMEMORY_DOTD);
       }
     }
+  }
+
+  private static AbruptExitException createRemoteExecutionExitException(
+      String message, Code remoteExecutionCode) {
+    return new AbruptExitException(
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setRemoteExecution(RemoteExecution.newBuilder().setCode(remoteExecutionCode))
+                .build()));
   }
 }

@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
 package(
     default_visibility = ["//src:__subpackages__"],
 )
@@ -14,11 +16,11 @@ java_library(
     srcs = glob(["*.java"]),
     resources = [":template_files"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
-        "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:stardoc_output_java_proto",
-        "//src/tools/skylark/java/com/google/devtools/skylark/common",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
+        "//src/tools/starlark/java/com/google/devtools/starlark/common",
         "//third_party:apache_velocity",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -27,7 +29,10 @@ java_library(
 
 filegroup(
     name = "template_files",
-    srcs = glob([
-        "templates/*.vm",
-    ]),
+    srcs = glob(
+        [
+            "templates/*.vm",
+        ],
+        allow_empty = True,
+    ),
 )

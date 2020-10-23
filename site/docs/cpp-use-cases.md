@@ -91,8 +91,8 @@ directory structure:
 
 Bazel will expect `some_lib.h` to be included as
 `legacy/some_lib/include/some_lib.h`, but suppose `some_lib.cc` includes
-`"include/some_lib.h"`.  To make that include path valid,
-`legacy/some_lib/BUILD` will need to specify that the `some_lib/`
+`"some_lib.h"`.  To make that include path valid,
+`legacy/some_lib/BUILD` will need to specify that the `some_lib/include`
 directory is an include directory:
 
 ```python
@@ -155,7 +155,8 @@ cc_library(
         "googletest-release-1.7.0/src/*.h"
     ]),
     copts = [
-        "-Iexternal/gtest/googletest-release-1.7.0/include"
+        "-Iexternal/gtest/googletest-release-1.7.0/include",
+        "-Iexternal/gtest/googletest-release-1.7.0"
     ],
     linkopts = ["-pthread"],
     visibility = ["//visibility:public"],
@@ -173,7 +174,7 @@ http_archive(
     name = "gtest",
     url = "https://github.com/google/googletest/archive/release-1.7.0.zip",
     sha256 = "b58cb7547a28b2c718d1e38aee18a3659c9e3ff52440297e965f5edffe34b6d0",
-    build_file = "gtest.BUILD",
+    build_file = "@//:gtest.BUILD",
     strip_prefix = "googletest-release-1.7.0",
 )
 ```
@@ -262,4 +263,3 @@ cc_library(
 ```
 
 This way, other C++ targets in your workspace can depend on this rule.
-

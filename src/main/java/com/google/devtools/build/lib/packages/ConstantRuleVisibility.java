@@ -20,10 +20,11 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.EvalException;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /**
  * A rule visibility that simply says yes or no. It corresponds to public,
@@ -86,9 +87,9 @@ public class ConstantRuleVisibility implements RuleVisibility, Serializable {
     for (Label label : labels) {
       visibility = tryParse(label);
       if (visibility != null) {
-        throw new EvalException(null,
-            "Public or private visibility labels (e.g. //visibility:public or" +
-            " //visibility:private) cannot be used in combination with other labels");
+        throw Starlark.errorf(
+            "Public or private visibility labels (e.g. //visibility:public or"
+                + " //visibility:private) cannot be used in combination with other labels");
       }
     }
     return null;

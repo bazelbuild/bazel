@@ -318,12 +318,11 @@ public abstract class DirtyBuildingState {
 
   /** Returns whether all known children of this node have signaled that they are done. */
   boolean isReady(int numDirectDeps) {
-    Preconditions.checkState(
-        signaledDeps <= numDirectDeps + externalDeps,
-        "%s %s %s",
-        numDirectDeps,
-        externalDeps,
-        this);
+    // Avoids calling Preconditions.checkState because it showed up in garbage profiles due to
+    // boxing of the int format args.
+    if (signaledDeps > numDirectDeps + externalDeps) {
+      throw new IllegalStateException(String.format("%s %s %s", numDirectDeps, externalDeps, this));
+    }
     return signaledDeps == numDirectDeps + externalDeps;
   }
 

@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
 package(default_visibility = [
     "//src/java_tools/junitrunner:junitrunner_package_group",
 ])
@@ -23,4 +25,5 @@ filegroup(
         "BUILD",
         "XmlOutputExercises.ant.xml",
     ],
+    visibility = ["//src:__subpackages__"],
 )

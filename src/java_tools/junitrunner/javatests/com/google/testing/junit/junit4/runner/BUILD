@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_test")
+
 package(default_visibility = [
     "//src/java_tools/junitrunner:junitrunner_package_group",
 ])
@@ -5,6 +7,7 @@ package(default_visibility = [
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 java_test(

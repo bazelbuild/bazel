@@ -28,8 +28,6 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.cquery.ProtoOutputFormatterCallback.OutputType;
-import com.google.devtools.build.lib.query2.engine.ConfiguredTargetQueryHelper;
-import com.google.devtools.build.lib.query2.engine.ConfiguredTargetQueryTest;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
@@ -59,9 +57,14 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   @Before
   public final void setUpCqueryOptions() {
     this.options = new CqueryOptions();
+    // TODO(bazel-team): reduce the confusion about these two seemingly similar settings.
+    // options.aspectDeps impacts how proto and similar output formatters output aspect results.
+    // Setting.INCLUDE_ASPECTS impacts whether or not aspect dependencies are included when
+    // following target deps. See CommonQueryOptions for further flag details.
     options.aspectDeps = Mode.OFF;
+    helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
     options.protoIncludeConfigurations = true;
-
+    options.protoIncludeRuleInputsAndOutputs = true;
     this.reporter = new Reporter(new EventBus(), events::add);
   }
 

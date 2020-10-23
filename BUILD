@@ -1,5 +1,9 @@
 # Bazel - Google's Build System
 
+load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup")
+load("//tools/python:private/defs.bzl", "py_binary")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+
 package(default_visibility = ["//scripts/release:__pkg__"])
 
 exports_files(["LICENSE"])
@@ -9,12 +13,14 @@ filegroup(
     srcs = glob(
         ["*"],
         exclude = [
+            "WORKSPACE",  # Needs to be filtered.
             "bazel-*",  # convenience symlinks
             "out",  # IntelliJ with setup-intellij.sh
             "output",  # output of compile.sh
             ".*",  # mainly .git* files
         ],
     ) + [
+        "//:WORKSPACE.filtered",
         "//examples:srcs",
         "//scripts:srcs",
         "//site:srcs",
@@ -57,24 +63,70 @@ filegroup(
     ],
 )
 
-filegroup(
-    name = "bootstrap-derived-java-srcs",
-    srcs = glob(["derived/**/*.java"]),
+genrule(
+    name = "filtered_WORKSPACE",
+    srcs = ["WORKSPACE"],
+    outs = ["WORKSPACE.filtered"],
+    cmd = "\n".join([
+        "cp $< $@",
+        # Comment out the android repos if they exist.
+        "sed -i.bak -e 's/^android_sdk_repository/# android_sdk_repository/' -e 's/^android_ndk_repository/# android_ndk_repository/' $@",
+    ]),
+)
+
+pkg_tar(
+    name = "bootstrap-jars",
+    srcs = [
+        "@com_google_protobuf//:protobuf_java",
+        "@com_google_protobuf//:protobuf_java_util",
+        "@com_google_protobuf//:protobuf_javalite",
+    ],
+    remap_paths = {
+        "..": "derived/jars",
+    },
+    strip_prefix = ".",
+    # Public but bazel-only visibility.
     visibility = ["//:__subpackages__"],
 )
 
-load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+distrib_jar_filegroup(
+    name = "bootstrap-derived-java-jars",
+    srcs = glob(
+        ["derived/jars/**/*.jar"],
+        allow_empty = True,
+    ),
+    enable_distributions = ["debian"],
+    visibility = ["//:__subpackages__"],
+)
+
+filegroup(
+    name = "bootstrap-derived-java-srcs",
+    srcs = glob(
+        ["derived/**/*.java"],
+        allow_empty = True,
+    ),
+    visibility = ["//:__subpackages__"],
+)
 
 pkg_tar(
     name = "bazel-srcs",
     srcs = [":srcs"],
     remap_paths = {
+        "WORKSPACE.filtered": "WORKSPACE",
         # Rewrite paths coming from local repositories back into third_party.
         "../googleapis": "third_party/googleapis",
         "../remoteapis": "third_party/remoteapis",
     },
     strip_prefix = ".",
     # Public but bazel-only visibility.
+    visibility = ["//:__subpackages__"],
+)
+
+pkg_tar(
+    name = "platforms-srcs",
+    srcs = ["@platforms//:srcs"],
+    package_dir = "platforms",
+    strip_prefix = ".",
     visibility = ["//:__subpackages__"],
 )
 
@@ -89,6 +141,8 @@ genrule(
     name = "bazel-distfile",
     srcs = [
         ":bazel-srcs",
+        ":bootstrap-jars",
+        ":platforms-srcs",
         "//src:derived_java_srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:bootstrap_autocodec.tar",
         "@additional_distfiles//:archives.tar",
@@ -104,6 +158,8 @@ genrule(
     name = "bazel-distfile-tar",
     srcs = [
         ":bazel-srcs",
+        ":bootstrap-jars",
+        ":platforms-srcs",
         "//src:derived_java_srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:bootstrap_autocodec.tar",
         "@additional_distfiles//:archives.tar",
@@ -138,22 +194,46 @@ platform(
     constraint_values = [
         ":highcpu_machine",
     ],
-    parents = ["@bazel_tools//platforms:host_platform"],
+    parents = ["@local_config_platform//:host"],
 )
 
-# The highcpu RBE platform where heavy actions run on. In order to
-# use this platform add the highcpu_machine constraint to your target.
-platform(
-    name = "rbe_highcpu_platform",
-    constraint_values = [
-        "//:highcpu_machine",
-    ],
-    parents = ["@bazel_rbe_toolchains//configs/bazel_0.25.0/bazel-ubuntu1804:default_platform"],
-    remote_execution_properties = """
-        {PARENT_REMOTE_EXECUTION_PROPERTIES}
-        properties: {
-          name: "gceMachineType"
-          value: "n1-highcpu-32"
-        }
-        """,
-)
+REMOTE_PLATFORMS = ("rbe_ubuntu1604_java8", "rbe_ubuntu1804_java11")
+
+[
+    platform(
+        name = platform_name + "_platform",
+        parents = ["@" + platform_name + "//config:platform"],
+        remote_execution_properties = """
+            {PARENT_REMOTE_EXECUTION_PROPERTIES}
+            properties: {
+                name: "dockerNetwork"
+                value: "standard"
+            }
+            properties: {
+                name: "dockerPrivileged"
+                value: "true"
+            }
+            """,
+    )
+    for platform_name in REMOTE_PLATFORMS
+]
+
+[
+    # The highcpu RBE platform where heavy actions run on. In order to
+    # use this platform add the highcpu_machine constraint to your target.
+    platform(
+        name = platform_name + "_highcpu_platform",
+        constraint_values = [
+            "//:highcpu_machine",
+        ],
+        parents = ["//:" + platform_name + "_platform"],
+        remote_execution_properties = """
+            {PARENT_REMOTE_EXECUTION_PROPERTIES}
+            properties: {
+                name: "gceMachineType"
+                value: "n1-highcpu-32"
+            }
+            """,
+    )
+    for platform_name in REMOTE_PLATFORMS
+]

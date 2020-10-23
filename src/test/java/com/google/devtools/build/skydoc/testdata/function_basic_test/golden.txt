@@ -5,7 +5,8 @@
 ## check_sources
 
 <pre>
-check_sources(<a href="#check_sources-name">name</a>, <a href="#check_sources-required_param">required_param</a>, <a href="#check_sources-bool_param">bool_param</a>, <a href="#check_sources-srcs">srcs</a>, <a href="#check_sources-string_param">string_param</a>, <a href="#check_sources-int_param">int_param</a>, <a href="#check_sources-dict_param">dict_param</a>, <a href="#check_sources-struct_param">struct_param</a>)
+check_sources(<a href="#check_sources-name">name</a>, <a href="#check_sources-required_param">required_param</a>, <a href="#check_sources-bool_param">bool_param</a>, <a href="#check_sources-srcs">srcs</a>, <a href="#check_sources-string_param">string_param</a>, <a href="#check_sources-int_param">int_param</a>, <a href="#check_sources-dict_param">dict_param</a>,
+              <a href="#check_sources-struct_param">struct_param</a>)
 </pre>
 
 Runs some checks on the given source files.
@@ -79,7 +80,58 @@ Use `bazel build` to run the check.
     <tr id="check_sources-struct_param">
       <td><code>struct_param</code></td>
       <td>
-        optional.
+        optional. default is <code>struct(foo = "bar")</code>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+
+<a name="#deprecated_do_not_use"></a>
+
+## deprecated_do_not_use
+
+<pre>
+deprecated_do_not_use()
+</pre>
+
+This function is deprecated.
+
+### Deprecated
+
+Use literally anything but this function.
+
+
+
+<a name="#returns_a_thing"></a>
+
+## returns_a_thing
+
+<pre>
+returns_a_thing(<a href="#returns_a_thing-name">name</a>)
+</pre>
+
+Returns a suffixed name.
+
+### Returns
+
+A suffixed version of the name.
+
+### Parameters
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="returns_a_thing-name">
+      <td><code>name</code></td>
+      <td>
+        required.
+        <p>
+          A unique name for this rule.
+        </p>
       </td>
     </tr>
   </tbody>

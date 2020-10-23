@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
-import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
@@ -125,6 +124,87 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
   }
 
   @Test
+  public void testLinkSimpleLibName() throws Exception {
+    useConfiguration();
+
+    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['some-dir/libbar.so'])");
+    scratch.file("x/some-dir/bar.so");
+
+    ConfiguredTarget target = getConfiguredTarget("//x:bin");
+
+    CcToolchainVariables variables = getLinkBuildVariables(target, LinkTargetType.EXECUTABLE);
+    VariableValue librariesToLinkSequence =
+        variables.getVariable(LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName());
+    Iterable<? extends VariableValue> librariestoLink =
+        librariesToLinkSequence.getSequenceValue(
+            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName());
+    VariableValue nameValue =
+        librariestoLink
+            .iterator()
+            .next()
+            .getFieldValue(
+                LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
+                LibraryToLinkValue.NAME_FIELD_NAME);
+    assertThat(nameValue).isNotNull();
+    String name = nameValue.getStringValue(LibraryToLinkValue.NAME_FIELD_NAME);
+    assertThat(name).isEqualTo("bar");
+  }
+
+  @Test
+  public void testLinkVersionedLibName() throws Exception {
+    useConfiguration();
+
+    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['some-dir/libbar.so.1a.2'])");
+    scratch.file("x/some-dir/bar.so");
+
+    ConfiguredTarget target = getConfiguredTarget("//x:bin");
+
+    CcToolchainVariables variables = getLinkBuildVariables(target, LinkTargetType.EXECUTABLE);
+    VariableValue librariesToLinkSequence =
+        variables.getVariable(LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName());
+    Iterable<? extends VariableValue> librariestoLink =
+        librariesToLinkSequence.getSequenceValue(
+            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName());
+    VariableValue nameValue =
+        librariestoLink
+            .iterator()
+            .next()
+            .getFieldValue(
+                LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
+                LibraryToLinkValue.NAME_FIELD_NAME);
+    assertThat(nameValue).isNotNull();
+    String name = nameValue.getStringValue(LibraryToLinkValue.NAME_FIELD_NAME);
+    assertThat(name).isEqualTo("libbar.so.1a.2");
+  }
+
+  @Test
+  public void testLinkUnusualLibName() throws Exception {
+    useConfiguration();
+
+    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['some-dir/_libbar.so'])");
+    scratch.file("x/some-dir/_libbar.so");
+
+    ConfiguredTarget target = getConfiguredTarget("//x:bin");
+
+    CcToolchainVariables variables = getLinkBuildVariables(target, LinkTargetType.EXECUTABLE);
+    VariableValue librariesToLinkSequence =
+        variables.getVariable(LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName());
+    Iterable<? extends VariableValue> librariestoLink =
+        librariesToLinkSequence.getSequenceValue(
+            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName());
+    VariableValue nameValue =
+        librariestoLink
+            .iterator()
+            .next()
+            .getFieldValue(
+                LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
+                LibraryToLinkValue.NAME_FIELD_NAME);
+    assertThat(nameValue).isNotNull();
+    String name = nameValue.getStringValue(LibraryToLinkValue.NAME_FIELD_NAME);
+    assertThat(name).isEqualTo("_libbar.so");
+  }
+
+  @Test
   public void testLinkerParamFileIsExported() throws Exception {
     useConfiguration();
 
@@ -217,7 +297,6 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
                 .withFeatures(
                     CppRuleClasses.THIN_LTO,
                     CppRuleClasses.SUPPORTS_PIC,
-                    MockCcSupport.HOST_AND_NONHOST_CONFIGURATION_FEATURES,
                     CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES,
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
                     CppRuleClasses.SUPPORTS_START_END_LIB));
@@ -343,7 +422,6 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
             CcToolchainConfig.builder()
                 .withFeatures(
                     CppRuleClasses.THIN_LTO,
-                    MockCcSupport.HOST_AND_NONHOST_CONFIGURATION_FEATURES,
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
                     CppRuleClasses.SUPPORTS_PIC,
                     CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES,
@@ -490,7 +568,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
   }
 
   private Action getPredecessorByInputName(Action action, String str) {
-    for (Artifact a : action.getInputs()) {
+    for (Artifact a : action.getInputs().toList()) {
       if (a.getExecPathString().contains(str)) {
         return getGeneratingAction(a);
       }
@@ -528,7 +606,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
         "x/BUILD",
         "cc_library(name='a', hdrs=['a.h'], srcs = ['a.cc'], "
             + " features=['disable_whole_archive_for_static_lib'])",
-        "cc_library(name='b', hdrs=['b.h'], srcs = ['b.cc'])",
+        "cc_library(name='b', hdrs=['b.h'], srcs = ['b.cc'], alwayslink=1)",
         "cc_binary(name = 'c.so', linkstatic=1, linkshared=1, deps=[':a', ':b'])");
 
     ConfiguredTarget testTarget = getConfiguredTarget("//x:c.so");

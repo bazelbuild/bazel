@@ -14,7 +14,7 @@
 package com.google.devtools.build.android.desugar;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.android.desugar.io.BitFlags;
 import org.junit.Test;
@@ -49,8 +49,8 @@ public class Java7CompatibilityTest {
   }
 
   /**
-   * Tests that a class implementing interfaces with bridge methods redeclares those bridges.
-   * This is behavior of javac that we rely on.
+   * Tests that a class implementing interfaces with bridge methods redeclares those bridges. This
+   * is behavior of javac that we rely on.
    */
   @Test
   public void testConcreteClassRedeclaresBridges() throws Exception {
@@ -68,7 +68,7 @@ public class Java7CompatibilityTest {
     int clinitMethods;
 
     private ClassTester() {
-      super(Opcodes.ASM5, null);
+      super(Opcodes.ASM8, null);
     }
 
     @Override
@@ -100,22 +100,29 @@ public class Java7CompatibilityTest {
     default int getVersion() {
       return 18;
     }
+
     T get();
   }
 
   // Javac will generate a default bridge method "Object get()" that Java7Compatibility will remove
   interface ExtendsDefault<T extends Number> extends WithDefault<T> {
     public static final Integer X = Integer.valueOf(37);
+
     String name();
-    @Override T get();
+
+    @Override
+    T get();
   }
 
   // Javac will generate 2 bridge methods that we *don't* want to remove
   static class Impl implements ExtendsDefault<Integer> {
-    @Override public Integer get() {
+    @Override
+    public Integer get() {
       return X;
     }
-    @Override public String name() {
+
+    @Override
+    public String name() {
       return "test";
     }
   }

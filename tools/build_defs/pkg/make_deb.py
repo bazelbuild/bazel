@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,17 +14,23 @@
 # limitations under the License.
 """A simple cross-platform helper to create a debian package."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import gzip
 import hashlib
 from io import BytesIO
 import os
 import os.path
-import sys
 import tarfile
 import textwrap
 import time
 
-from third_party.py import gflags
+# Do not edit this line. Copybara replaces it with PY2 migration helper.
+from absl import app
+from absl import flags
+import six
 
 # list of debian fields : (name, mandatory, wrap[, default])
 # see http://www.debian.org/doc/debian-policy/ch-controlfields.html
@@ -48,24 +55,27 @@ DEBIAN_FIELDS = [
     ('Urgency', False, False, 'medium'),
 ]
 
-gflags.DEFINE_string('output', None, 'The output file, mandatory')
-gflags.MarkFlagAsRequired('output')
+flags.DEFINE_string('output', None, 'The output file, mandatory')
+flags.mark_flag_as_required('output')
 
-gflags.DEFINE_string('changes', None, 'The changes output file, mandatory.')
-gflags.MarkFlagAsRequired('changes')
+flags.DEFINE_string('changes', None, 'The changes output file, mandatory.')
+flags.mark_flag_as_required('changes')
 
-gflags.DEFINE_string('data', None,
-                     'Path to the data tarball, mandatory')
-gflags.MarkFlagAsRequired('data')
+flags.DEFINE_string('data', None, 'Path to the data tarball, mandatory')
+flags.mark_flag_as_required('data')
 
-gflags.DEFINE_string('preinst', None,
-                     'The preinst script (prefix with @ to provide a path).')
-gflags.DEFINE_string('postinst', None,
-                     'The postinst script (prefix with @ to provide a path).')
-gflags.DEFINE_string('prerm', None,
-                     'The prerm script (prefix with @ to provide a path).')
-gflags.DEFINE_string('postrm', None,
-                     'The postrm script (prefix with @ to provide a path).')
+flags.DEFINE_string('preinst', None,
+                    'The preinst script (prefix with @ to provide a path).')
+flags.DEFINE_string('postinst', None,
+                    'The postinst script (prefix with @ to provide a path).')
+flags.DEFINE_string('prerm', None,
+                    'The prerm script (prefix with @ to provide a path).')
+flags.DEFINE_string('postrm', None,
+                    'The postrm script (prefix with @ to provide a path).')
+flags.DEFINE_string('config', None,
+                    'The config script (prefix with @ to provide a path).')
+flags.DEFINE_string('templates', None,
+                    'The templates file (prefix with @ to provide a path).')
 
 # size of chunks for copying package content to final .deb file
 # This is a wild guess, but I am not convinced of the value of doing much work
@@ -74,25 +84,25 @@ _COPY_CHUNK_SIZE = 1024 * 32
 
 # see
 # https://www.debian.org/doc/manuals/debian-faq/ch-pkg_basics.en.html#s-conffile
-gflags.DEFINE_multistring(
+flags.DEFINE_multi_string(
     'conffile', None,
     'List of conffiles (prefix item with @ to provide a path)')
 
 
-def MakeGflags():
+def Makeflags():
   """Creates a flag for each of the control file fields."""
   for field in DEBIAN_FIELDS:
     fieldname = field[0].replace('-', '_').lower()
     msg = 'The value for the %s content header entry.' % field[0]
     if len(field) > 3:
       if isinstance(field[3], list):
-        gflags.DEFINE_multistring(fieldname, field[3], msg)
+        flags.DEFINE_multi_string(fieldname, field[3], msg)
       else:
-        gflags.DEFINE_string(fieldname, field[3], msg)
+        flags.DEFINE_string(fieldname, field[3], msg)
     else:
-      gflags.DEFINE_string(fieldname, None, msg)
+      flags.DEFINE_string(fieldname, None, msg)
     if field[1]:
-      gflags.MarkFlagAsRequired(fieldname)
+      flags.mark_flag_as_required(fieldname)
 
 
 def ConvertToFileLike(content, content_len, converter):
@@ -133,19 +143,19 @@ def AddArFileEntry(fileobj, filename,
 
 def MakeDebianControlField(name, value, wrap=False):
   """Add a field to a debian control file."""
-  result = name + ': '
+  result = six.ensure_str(name) + ': '
   if isinstance(value, str):
-    value = value.decode('utf-8')
+    value = six.ensure_str(value, 'utf-8')
   if isinstance(value, list):
-    value = u', '.join(value)
+    value = ', '.join(six.ensure_str(v) for v in value)
   if wrap:
-    result += u' '.join(value.split('\n'))
+    result += ' '.join(six.ensure_str(value).split('\n'))
     result = textwrap.fill(result,
                            break_on_hyphens=False,
                            break_long_words=False)
   else:
     result += value
-  return result.replace(u'\n', u'\n ') + u'\n'
+  return six.ensure_str(result).replace('\n', '\n ') + '\n'
 
 
 def CreateDebControl(extrafiles=None, **kwargs):
@@ -162,15 +172,16 @@ def CreateDebControl(extrafiles=None, **kwargs):
   with gzip.GzipFile('control.tar.gz', mode='w', fileobj=tar, mtime=0) as gz:
     with tarfile.open('control.tar.gz', mode='w', fileobj=gz) as f:
       tarinfo = tarfile.TarInfo('control')
+      controlfile_utf8 = six.ensure_binary(controlfile, 'utf-8')
       # Don't discard unicode characters when computing the size
-      tarinfo.size = len(controlfile.encode('utf-8'))
-      f.addfile(tarinfo, fileobj=BytesIO(controlfile.encode('utf-8')))
+      tarinfo.size = len(controlfile_utf8)
+      f.addfile(tarinfo, fileobj=BytesIO(controlfile_utf8))
       if extrafiles:
         for name, (data, mode) in extrafiles.items():
           tarinfo = tarfile.TarInfo(name)
           tarinfo.size = len(data)
           tarinfo.mode = mode
-          f.addfile(tarinfo, fileobj=BytesIO(data.encode('utf-8')))
+          f.addfile(tarinfo, fileobj=BytesIO(six.ensure_binary(data, 'utf-8')))
   control = tar.getvalue()
   tar.close()
   return control
@@ -182,6 +193,8 @@ def CreateDeb(output,
               postinst=None,
               prerm=None,
               postrm=None,
+              config=None,
+              templates=None,
               conffiles=None,
               **kwargs):
   """Create a full debian package."""
@@ -194,6 +207,10 @@ def CreateDeb(output,
     extrafiles['prerm'] = (prerm, 0o755)
   if postrm:
     extrafiles['postrm'] = (postrm, 0o755)
+  if config:
+    extrafiles['config'] = (config, 0o755)
+  if templates:
+    extrafiles['templates'] = (templates, 0o755)
   if conffiles:
     extrafiles['conffiles'] = ('\n'.join(conffiles) + '\n', 0o644)
   control = CreateDebControl(extrafiles=extrafiles, **kwargs)
@@ -204,7 +221,7 @@ def CreateDeb(output,
     AddArFileEntry(f, 'debian-binary', b'2.0\n')
     AddArFileEntry(f, 'control.tar.gz', control)
     # Tries to preserve the extension name
-    ext = os.path.basename(data).split('.')[-2:]
+    ext = six.ensure_str(os.path.basename(data)).split('.')[-2:]
     if len(ext) < 2:
       ext = 'tar'
     elif ext[1] == 'tgz':
@@ -293,15 +310,15 @@ def CreateChanges(output,
           '\n' + ' '.join([checksums['sha256'], debsize, deb_basename]))
   ])
   with open(output, 'w') as changes_fh:
-    changes_fh.write(changesdata.encode('utf-8'))
+    changes_fh.write(six.ensure_binary(changesdata, 'utf-8'))
 
 
 def GetFlagValue(flagvalue, strip=True):
   if flagvalue:
-    flagvalue = flagvalue.decode('utf-8')
+    flagvalue = six.ensure_text(flagvalue, 'utf-8')
     if flagvalue[0] == '@':
       with open(flagvalue[1:], 'r') as f:
-        flagvalue = f.read().decode('utf-8')
+        flagvalue = six.ensure_text(f.read(), 'utf-8')
     if strip:
       return flagvalue.strip()
   return flagvalue
@@ -322,6 +339,8 @@ def main(unused_argv):
       postinst=GetFlagValue(FLAGS.postinst, False),
       prerm=GetFlagValue(FLAGS.prerm, False),
       postrm=GetFlagValue(FLAGS.postrm, False),
+      config=GetFlagValue(FLAGS.config, False),
+      templates=GetFlagValue(FLAGS.templates, False),
       conffiles=GetFlagValues(FLAGS.conffile),
       package=FLAGS.package,
       version=GetFlagValue(FLAGS.version),
@@ -350,6 +369,6 @@ def main(unused_argv):
       urgency=FLAGS.urgency)
 
 if __name__ == '__main__':
-  MakeGflags()
-  FLAGS = gflags.FLAGS
-  main(FLAGS(sys.argv))
+  Makeflags()
+  FLAGS = flags.FLAGS
+  app.run(main)

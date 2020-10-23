@@ -15,8 +15,8 @@ package com.google.devtools.build.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static com.google.devtools.build.skyframe.NodeEntrySubjectFactory.assertThatNodeEntry;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -477,7 +477,7 @@ public class InMemoryNodeEntryTest {
     addTemporaryDirectDep(entry, dep);
     entry.signalDep(ZERO_VERSION, /*childForDebugging=*/ null);
     assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.VERIFIED_CLEAN);
-    assertThat(entry.markClean()).containsExactly(parent);
+    assertThat(entry.markClean().getRdepsToSignal()).containsExactly(parent);
     assertThat(entry.isDone()).isTrue();
     assertThat(entry.getVersion()).isEqualTo(ZERO_VERSION);
   }
@@ -788,7 +788,7 @@ public class InMemoryNodeEntryTest {
     entry.markRebuilding();
     addTemporaryDirectDep(entry, originalChild);
     entry.signalDep(ZERO_VERSION, originalChild);
-    entry.setValue(originalValue, version, null);
+    entry.setValue(originalValue, version);
     entry.addReverseDepAndCheckIfDone(key("parent1"));
     InMemoryNodeEntry clone1 = entry.cloneNodeEntry();
     entry.addReverseDepAndCheckIfDone(key("parent2"));
@@ -802,7 +802,7 @@ public class InMemoryNodeEntryTest {
     addTemporaryDirectDep(clone2, newChild);
     clone2.signalDep(ONE_VERSION, newChild);
     clone2.markRebuilding();
-    clone2.setValue(updatedValue, version.next(), null);
+    clone2.setValue(updatedValue, version.next());
 
     assertThat(entry.getVersion()).isEqualTo(version);
     assertThat(clone1.getVersion()).isEqualTo(version);
@@ -846,7 +846,7 @@ public class InMemoryNodeEntryTest {
         entry.signalDep(ZERO_VERSION, dep);
       }
     }
-    entry.setValue(new IntegerValue(42), IntVersion.of(42L), null);
+    entry.setValue(new IntegerValue(42), IntVersion.of(42L));
     int i = 0;
     GroupedList<SkyKey> entryGroupedDirectDeps =
         GroupedList.create(entry.getCompressedDirectDepsForDoneEntry());
@@ -856,13 +856,38 @@ public class InMemoryNodeEntryTest {
     }
   }
 
+  @Test
+  public void hasAtLeastOneDep_true() throws Exception {
+    SkyKey dep = key("dep");
+    InMemoryNodeEntry entry = new InMemoryNodeEntry();
+    assertThatNodeEntry(entry)
+        .addReverseDepAndCheckIfDone(null)
+        .isEqualTo(DependencyState.NEEDS_SCHEDULING);
+    entry.markRebuilding();
+    entry.addTemporaryDirectDeps(GroupedListHelper.create(dep));
+    entry.signalDep(ZERO_VERSION, dep);
+    entry.setValue(new IntegerValue(1), ZERO_VERSION);
+    assertThat(entry.hasAtLeastOneDep()).isTrue();
+  }
+
+  @Test
+  public void hasAtLeastOneDep_false() throws Exception {
+    InMemoryNodeEntry entry = new InMemoryNodeEntry();
+    assertThatNodeEntry(entry)
+        .addReverseDepAndCheckIfDone(null)
+        .isEqualTo(DependencyState.NEEDS_SCHEDULING);
+    entry.markRebuilding();
+    entry.addTemporaryDirectDeps(new GroupedListHelper<>());
+    entry.setValue(new IntegerValue(1), ZERO_VERSION);
+    assertThat(entry.hasAtLeastOneDep()).isFalse();
+  }
+
   private static Set<SkyKey> setValue(
       NodeEntry entry, SkyValue value, @Nullable ErrorInfo errorInfo, long graphVersion)
       throws InterruptedException {
     return entry.setValue(
         ValueWithMetadata.normal(value, errorInfo, NO_EVENTS, NO_POSTS),
-        IntVersion.of(graphVersion),
-        null);
+        IntVersion.of(graphVersion));
   }
 
   private static void addTemporaryDirectDep(NodeEntry entry, SkyKey key) {

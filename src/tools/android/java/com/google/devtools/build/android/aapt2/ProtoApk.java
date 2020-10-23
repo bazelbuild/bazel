@@ -29,6 +29,7 @@ import com.android.aapt.Resources.Plural;
 import com.android.aapt.Resources.Reference;
 import com.android.aapt.Resources.ResourceTable;
 import com.android.aapt.Resources.Style;
+import com.android.aapt.Resources.ToolFingerprint;
 import com.android.aapt.Resources.Type;
 import com.android.aapt.Resources.Value;
 import com.android.aapt.Resources.XmlAttribute;
@@ -39,7 +40,11 @@ import com.android.resources.ResourceType;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.ByteStreams;
+import com.google.common.xml.XmlEscapers;
+import com.google.devtools.build.android.AndroidResourceOutputs.UniqueZipBuilder;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.ExtensionRegistry;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -51,24 +56,22 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardOpenOption;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 import java.util.logging.Logger;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 import javax.annotation.Nullable;
 
 /**
@@ -80,7 +83,9 @@ public class ProtoApk implements Closeable {
   static final Logger logger = Logger.getLogger(ProtoApk.class.getName());
   private static final String RESOURCE_TABLE = "resources.pb";
   private static final String MANIFEST = "AndroidManifest.xml";
+
   private static final String RES_DIRECTORY = "res";
+
   private final URI uri;
   private final FileSystem apkFileSystem;
 
@@ -115,33 +120,62 @@ public class ProtoApk implements Closeable {
       throws IOException {
 
     final URI dstZipUri = URI.create("jar:" + destination.toUri());
-    try (FileSystem dstZip =
-        FileSystems.newFileSystem(dstZipUri, ImmutableMap.of("create", "true"))) {
-
-      final ResourceTable.Builder dstTableBuilder = ResourceTable.newBuilder();
+    try (final ZipFile srcZip = new ZipFile(uri.getPath());
+        final UniqueZipBuilder dstZip = UniqueZipBuilder.createFor(destination)) {
       final ResourceTable resourceTable =
-          ResourceTable.parseFrom(Files.newInputStream(apkFileSystem.getPath(RESOURCE_TABLE)));
-      dstTableBuilder.setSourcePool(resourceTable.getSourcePool());
+          ResourceTable.parseFrom(
+              Files.newInputStream(apkFileSystem.getPath(RESOURCE_TABLE)),
+              ExtensionRegistry.getEmptyRegistry());
+      final ResourceTable.Builder dstTableBuilder =
+          resourceTable.toBuilder()
+              .addToolFingerprint(
+                  ToolFingerprint.newBuilder().setTool("ResourceProcessorBusyBox")
+                  // NB: "stamp" information should go here, but that's not available:
+                  // https://github.com/bazelbuild/bazel/blob/78bb263e46bf301900c1d4b1e04fabf3a6854762/src/main/java/com/google/devtools/build/lib/bazel/rules/java/BazelJavaRuleClasses.java#L380
+                  );
+
+      dstTableBuilder.clearPackage(); // we'll add these back, with filtering below
       for (Package pkg : resourceTable.getPackageList()) {
         Package dstPkg = copyPackage(resourceFilter, dstZip, pkg);
-        if (!dstPkg.getTypeList().isEmpty()) {
-          dstTableBuilder.addPackage(dstPkg);
-        }
+        dstTableBuilder.addPackage(dstPkg);
       }
-      try (OutputStream output =
-          Files.newOutputStream(dstZip.getPath(RESOURCE_TABLE), StandardOpenOption.CREATE_NEW)) {
-        dstTableBuilder.build().writeTo(output);
-      }
-
-      Files.walkFileTree(
-          apkFileSystem.getPath("/"), new CopyingFileVisitor(dstZip, not(RESOURCE_TABLE::equals)));
+      dstZip.addEntry(RESOURCE_TABLE, dstTableBuilder.build().toByteArray(), ZipEntry.DEFLATED);
+      srcZip.stream()
+          .filter(not(ZipEntry::isDirectory))
+          .filter(entry -> !entry.getName().startsWith(RES_DIRECTORY + "/"))
+          .filter(entry -> !entry.getName().equals(RESOURCE_TABLE))
+          .forEach(
+              entry -> {
+                try {
+                  createDirectories(dstZip, apkFileSystem.getPath(entry.getName()).getParent());
+                  try (InputStream srcEntryInputStream = srcZip.getInputStream(entry)) {
+                    byte[] content = ByteStreams.toByteArray(srcEntryInputStream);
+                    dstZip.addEntry(entry, content);
+                  }
+                } catch (IOException e) {
+                  throw new RuntimeException(e);
+                }
+              });
     }
 
     return readFrom(dstZipUri);
   }
 
+  /**
+   * Recursively creates all parent directories in {@code zip} before creating {@code directory},
+   * similar to {@link Files#createDirectories}.
+   */
+  private static void createDirectories(UniqueZipBuilder zip, @Nullable Path directory)
+      throws IOException {
+    if (directory == null) {
+      return;
+    }
+    createDirectories(zip, directory.getParent());
+    zip.addDirEntry(directory.toString());
+  }
+
   private Package copyPackage(
-      BiPredicate<ResourceType, String> resourceFilter, FileSystem dstZip, Package pkg)
+      BiPredicate<ResourceType, String> resourceFilter, UniqueZipBuilder dstZip, Package pkg)
       throws IOException {
     Package.Builder dstPkgBuilder = Package.newBuilder(pkg);
     dstPkgBuilder.clearType();
@@ -153,7 +187,7 @@ public class ProtoApk implements Closeable {
 
   private void copyResourceType(
       BiPredicate<ResourceType, String> resourceFilter,
-      FileSystem dstZip,
+      UniqueZipBuilder dstZip,
       Package.Builder dstPkgBuilder,
       Resources.Type type)
       throws IOException {
@@ -172,7 +206,7 @@ public class ProtoApk implements Closeable {
     }
   }
 
-  private void copyEntry(FileSystem dstZip, Type.Builder dstTypeBuilder, Entry entry)
+  private void copyEntry(UniqueZipBuilder dstZip, Type.Builder dstTypeBuilder, Entry entry)
       throws IOException {
     dstTypeBuilder.addEntry(Entry.newBuilder(entry));
     for (ConfigValue configValue : entry.getConfigValueList()) {
@@ -180,18 +214,24 @@ public class ProtoApk implements Closeable {
           && configValue.getValue().hasItem()
           && configValue.getValue().getItem().hasFile()) {
         final String path = configValue.getValue().getItem().getFile().getPath();
-        final Path resourcePath = dstZip.getPath(path);
-        Files.createDirectories(resourcePath.getParent());
-        Files.copy(apkFileSystem.getPath(path), resourcePath);
+        final Path apkFileSystemPath = apkFileSystem.getPath(path);
+        createDirectories(dstZip, apkFileSystemPath.getParent());
+        byte[] content = Files.readAllBytes(apkFileSystemPath);
+        dstZip.addEntry(path, content, ZipEntry.STORED);
       }
+    }
+  }
+
+  public XmlNode getManifest() throws IOException {
+    try (InputStream in = Files.newInputStream(apkFileSystem.getPath(MANIFEST))) {
+      return XmlNode.parseFrom(in, ExtensionRegistry.getEmptyRegistry());
     }
   }
 
   /** Copy manifest as xml to an external directory. */
   public Path writeManifestAsXmlTo(Path directory) {
-    try (InputStream in = Files.newInputStream(apkFileSystem.getPath(MANIFEST));
-        XmlWriter out = XmlWriter.openNew(Files.createDirectories(directory).resolve(MANIFEST))) {
-      out.write(XmlNode.parseFrom(in));
+    try (XmlWriter out = XmlWriter.openNew(Files.createDirectories(directory).resolve(MANIFEST))) {
+      out.write(getManifest());
       return directory.resolve(MANIFEST);
     } catch (IOException e) {
       throw new ProtoApkException(e);
@@ -200,7 +240,7 @@ public class ProtoApk implements Closeable {
 
   /** The apk as path. */
   public Path asApkPath() {
-    return Paths.get(uri.toString().substring("jar:".length() + 1));
+    return Paths.get(uri);
   }
 
   /** Thrown when errors occur during proto apk processing. */
@@ -251,9 +291,13 @@ public class ProtoApk implements Closeable {
 
     private void writeXmlFrom(XmlElement element) throws IOException {
       ANGLE_OPEN.writeTo(out);
+      if (!element.getNamespaceUriBytes().isEmpty()) {
+        findNamespacePrefix(element.getNamespaceUriBytes()).writeTo(out);
+        COLON.writeTo(out);
+      }
       final ByteString name = element.getNameBytes();
       name.writeTo(out);
-      final Map<ByteString, ByteString> namespaces = new HashMap<>();
+      final Map<ByteString, ByteString> namespaces = new LinkedHashMap<>();
       for (XmlNamespace namespace : element.getNamespaceDeclarationList()) {
         final ByteString prefix = namespace.getPrefixBytes();
         SPACE.writeTo(out);
@@ -284,6 +328,10 @@ public class ProtoApk implements Closeable {
         }
         ANGLE_OPEN.writeTo(out);
         FORWARD_SLASH.writeTo(out);
+        if (!element.getNamespaceUriBytes().isEmpty()) {
+          findNamespacePrefix(element.getNamespaceUriBytes()).writeTo(out);
+          COLON.writeTo(out);
+        }
         name.writeTo(out);
         ANGLE_CLOSE.writeTo(out);
       }
@@ -292,7 +340,10 @@ public class ProtoApk implements Closeable {
 
     private void quote(ByteString bytes) throws IOException {
       QUOTE.writeTo(out);
-      bytes.writeTo(out);
+      out.write(
+          XmlEscapers.xmlAttributeEscaper()
+              .escape(bytes.toStringUtf8())
+              .getBytes(StandardCharsets.UTF_8));
       QUOTE.writeTo(out);
     }
 
@@ -328,7 +379,9 @@ public class ProtoApk implements Closeable {
 
     // visit resource table and associated files.
     final ResourceTable resourceTable =
-        ResourceTable.parseFrom(Files.newInputStream(apkFileSystem.getPath(RESOURCE_TABLE)));
+        ResourceTable.parseFrom(
+            Files.newInputStream(apkFileSystem.getPath(RESOURCE_TABLE)),
+            ExtensionRegistry.getEmptyRegistry());
 
     final List<String> sourcePool =
         resourceTable.hasSourcePool()
@@ -400,6 +453,7 @@ public class ProtoApk implements Closeable {
 
         strings.add(new String(bytes, stringOffset, length, "UTF8"));
       } else {
+        // TODO(b/148817379): this next block of lines is forming an int with holes in it.
         int characterCount = byteBuffer.get(stringOffset) & 0xFFFF;
         if ((characterCount & 0x8000) != 0) {
           characterCount =
@@ -549,7 +603,7 @@ public class ProtoApk implements Closeable {
     }
 
     try (InputStream in = Files.newInputStream(path)) {
-      visit(XmlNode.parseFrom(in), visitor);
+      visit(XmlNode.parseFrom(in, ExtensionRegistry.getEmptyRegistry()), visitor);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -671,41 +725,6 @@ public class ProtoApk implements Closeable {
     /** Called when a reference is null. */
     default void acceptNullReference() {
       // pass
-    }
-  }
-
-  private static class CopyingFileVisitor extends SimpleFileVisitor<Path> {
-
-    private final FileSystem dstZip;
-    private final Predicate<String> shouldCopy;
-    private final Predicate<Path> notDirectory = not(Files::isDirectory);
-
-    CopyingFileVisitor(FileSystem dstZip, Predicate<String> shouldCopy) {
-      this.dstZip = dstZip;
-      this.shouldCopy = shouldCopy;
-    }
-
-    @Override
-    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
-      // Skip the resources, they are copied above.
-      if (dir.endsWith(RES_DIRECTORY)) {
-        return FileVisitResult.SKIP_SUBTREE;
-      }
-      return FileVisitResult.CONTINUE;
-    }
-
-    @Override
-    // Not using Files.copy(Path, Path), as it has been shown to corrupt on certain OSs when copying
-    // between filesystems.
-    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-      if (notDirectory.test(file) && shouldCopy.test(file.getFileName().toString())) {
-        Path dest = dstZip.getPath(file.toString());
-        Files.createDirectories(dest.getParent());
-        try (InputStream in = Files.newInputStream(file)) {
-          Files.copy(in, dest);
-        }
-      }
-      return FileVisitResult.CONTINUE;
     }
   }
 }

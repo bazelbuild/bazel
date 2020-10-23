@@ -36,8 +36,6 @@ my_rule = rule(
         "deps": attr.label_list(
             doc = """
 A list of dependencies.
-These dependencies better provide MyInfo!
-...or else.
 """,
             providers = [MyInfo],
             allow_files = False,

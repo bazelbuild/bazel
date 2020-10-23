@@ -15,22 +15,20 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -52,7 +50,6 @@ import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
@@ -60,10 +57,12 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain.EnvEntry;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -87,20 +86,29 @@ public class CppLinkActionTest extends BuildViewTestCase {
           }
 
           @Override
-          public StarlarkSemantics getSkylarkSemantics() {
-            return StarlarkSemantics.DEFAULT_SEMANTICS;
+          public StarlarkSemantics getStarlarkSemantics() {
+            return StarlarkSemantics.DEFAULT;
           }
 
           @Override
-          public Artifact getDerivedArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+          public Artifact.DerivedArtifact getDerivedArtifact(
+              PathFragment rootRelativePath, ArtifactRoot root) {
             return CppLinkActionTest.this.getDerivedArtifact(
                 rootRelativePath, root, ActionsTestUtil.NULL_ARTIFACT_OWNER);
+          }
+
+          @Override
+          public Artifact.DerivedArtifact getDerivedArtifact(
+              PathFragment rootRelativePath, ArtifactRoot root, boolean contentBasedPaths) {
+            Preconditions.checkArgument(
+                !contentBasedPaths, "C++ tests don't use content-based outputs");
+            return getDerivedArtifact(rootRelativePath, root);
           }
         },
         masterConfig);
   }
 
-  private FeatureConfiguration getMockFeatureConfiguration() throws Exception {
+  private FeatureConfiguration getMockFeatureConfiguration(ImmutableMap<String, String> envVars) {
     CToolchain.FlagGroup flagGroup =
         CToolchain.FlagGroup.newBuilder().addFlag("-lcpp_standard_library").build();
     CToolchain.FlagSet flagSet =
@@ -108,11 +116,23 @@ public class CppLinkActionTest extends BuildViewTestCase {
             .addAction("c++-link-executable")
             .addFlagGroup(flagGroup)
             .build();
+    CToolchain.EnvSet.Builder envSet =
+        CToolchain.EnvSet.newBuilder()
+            .addAction("c++-link-executable")
+            .addAction("c++-link-static-library")
+            .addAction("c++-link-dynamic-library")
+            .addAction("c++-link-nodeps-dynamic-library");
+    for (String envVar : envVars.keySet()) {
+      envSet.addEnvEntry(
+          EnvEntry.newBuilder().setKey(envVar).setValue(envVars.get(envVar)).build());
+    }
+
     CToolchain.Feature linkCppStandardLibrary =
         CToolchain.Feature.newBuilder()
             .setName("link_cpp_standard_library")
             .setEnabled(true)
             .addFlagSet(flagSet)
+            .addEnvSet(envSet.build())
             .build();
     ImmutableList<CToolchain.Feature> features =
         new ImmutableList.Builder<CToolchain.Feature>()
@@ -136,16 +156,21 @@ public class CppLinkActionTest extends BuildViewTestCase {
             "gcc_tool",
             "ar_tool",
             "strip_tool",
-            /* supportsInterfaceSharedLibraries= */ false);
+            /* supportsInterfaceSharedLibraries= */ false,
+            /* existingActionConfigNames= */ ImmutableSet.of());
 
-    return CcToolchainFeaturesTest.buildFeatures(features, actionConfigs)
-        .getFeatureConfiguration(
-            ImmutableSet.of(
-                "link_cpp_standard_library",
-                Link.LinkTargetType.EXECUTABLE.getActionName(),
-                Link.LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName(),
-                Link.LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
-                Link.LinkTargetType.STATIC_LIBRARY.getActionName()));
+    try {
+      return CcToolchainTestHelper.buildFeatures(features, actionConfigs)
+          .getFeatureConfiguration(
+              ImmutableSet.of(
+                  "link_cpp_standard_library",
+                  LinkTargetType.EXECUTABLE.getActionName(),
+                  LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName(),
+                  LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
+                  LinkTargetType.STATIC_LIBRARY.getActionName()));
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Test
@@ -153,7 +178,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     RuleContext ruleContext = createDummyRuleContext();
 
     FeatureConfiguration featureConfiguration =
-        CcToolchainFeaturesTest.buildFeatures(
+        CcToolchainTestHelper.buildFeatures(
                 MockCcSupport.EMPTY_EXECUTABLE_ACTION_CONFIG,
                 "feature {",
                 "   name: 'a'",
@@ -182,7 +207,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     RuleContext ruleContext = createDummyRuleContext();
 
     FeatureConfiguration featureConfiguration =
-        CcToolchainFeaturesTest.buildFeatures(
+        CcToolchainTestHelper.buildFeatures(
                 "action_config {",
                 "   config_name: '" + LinkTargetType.EXECUTABLE.getActionName() + "'",
                 "   action_name: '" + LinkTargetType.EXECUTABLE.getActionName() + "'",
@@ -211,13 +236,13 @@ public class CppLinkActionTest extends BuildViewTestCase {
         "x/BUILD",
         "cc_binary(",
         "  name = 'foo',",
-        "  srcs = ['some-dir/bar.so', 'some-other-dir/qux.so'],",
+        "  srcs = ['some-dir/libbar.so', 'some-other-dir/qux.so'],",
         "  linkopts = [",
         "    '-ldl',",
         "    '-lutil',",
         "  ],",
         ")");
-    scratch.file("x/some-dir/bar.so");
+    scratch.file("x/some-dir/libbar.so");
     scratch.file("x/some-other-dir/qux.so");
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//x:foo");
@@ -228,7 +253,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     assertThat(Joiner.on(" ").join(arguments))
         .matches(
             ".* -L[^ ]*some-dir(?= ).* -L[^ ]*some-other-dir(?= ).* "
-                + "-lbar -lqux(?= ).* -ldl -lutil .*");
+                + "-lbar -l:qux.so(?= ).* -ldl -lutil .*");
     assertThat(Joiner.on(" ").join(arguments))
         .matches(".* -Wl,-rpath[^ ]*some-dir(?= ).* -Wl,-rpath[^ ]*some-other-dir .*");
   }
@@ -325,48 +350,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCompilesTestSourcesIntoDynamicLibrary() throws Exception {
-    if (OS.getCurrent() == OS.WINDOWS) {
-      // Skip the test on Windows.
-      // TODO(#7524): This test should work on Windows just fine, investigate and fix.
-      return;
-    }
-    getAnalysisMock()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder()
-                .withFeatures(
-                    CppRuleClasses.SUPPORTS_PIC,
-                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
-                    CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
-
-    scratch.file(
-        "x/BUILD",
-        "cc_test(name = 'a', srcs = ['a.cc'])",
-        "cc_binary(name = 'b', srcs = ['a.cc'], linkstatic = 0)");
-    scratch.file("x/a.cc", "int main() {}");
-    useConfiguration("--experimental_link_compile_output_separately", "--force_pic");
-
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//x:a");
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/a");
-    assertThat(artifactsToStrings(linkAction.getInputs()))
-        .contains("bin _solib_k8/libx_Sliba.ifso");
-    assertThat(linkAction.getArguments())
-        .contains(getBinArtifactWithNoOwner("_solib_k8/libx_Sliba.ifso").getExecPathString());
-    RunfilesProvider runfilesProvider = configuredTarget.getProvider(RunfilesProvider.class);
-    assertThat(artifactsToStrings(runfilesProvider.getDefaultRunfiles().getArtifacts()))
-        .contains("bin _solib_k8/libx_Sliba.so");
-
-    configuredTarget = getConfiguredTarget("//x:b");
-    linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/b");
-    assertThat(artifactsToStrings(linkAction.getInputs())).contains("bin x/_objs/b/a.pic.o");
-    runfilesProvider = configuredTarget.getProvider(RunfilesProvider.class);
-    assertThat(artifactsToStrings(runfilesProvider.getDefaultRunfiles().getArtifacts()))
-        .containsExactly("bin x/b");
-  }
-
-  @Test
   public void testCompilesDynamicModeTestSourcesWithFeatureIntoDynamicLibrary() throws Exception {
     if (OS.getCurrent() == OS.WINDOWS) {
       // Skip the test on Windows.
@@ -449,7 +432,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     RuleContext ruleContext = createDummyRuleContext();
 
     FeatureConfiguration featureConfiguration =
-        CcToolchainFeaturesTest.buildFeatures(
+        CcToolchainTestHelper.buildFeatures(
                 MockCcSupport.EMPTY_EXECUTABLE_ACTION_CONFIG,
                 "feature {",
                 "   name: 'a'",
@@ -477,8 +460,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
     OUTPUT_FILE,
     NATIVE_DEPS,
     USE_TEST_ONLY_FLAGS,
-    FAKE,
-    RUNTIME_SOLIB_DIR
+    RUNTIME_SOLIB_DIR,
+    ENVIRONMENT,
   }
 
   /**
@@ -492,7 +475,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
     final PathFragment dynamicOutputPath = PathFragment.create("dummyRuleContext/output/path.so");
     final Artifact staticOutputFile = getBinArtifactWithNoOwner(exeOutputPath.getPathString());
     final Artifact dynamicOutputFile = getBinArtifactWithNoOwner(dynamicOutputPath.getPathString());
-    final FeatureConfiguration featureConfiguration = getMockFeatureConfiguration();
 
     ActionTester.runTest(
         NonStaticAttributes.class,
@@ -514,7 +496,10 @@ public class CppLinkActionTest extends BuildViewTestCase {
                     ruleContext.getConfiguration(),
                     toolchain,
                     toolchain.getFdoContext(),
-                    featureConfiguration,
+                    getMockFeatureConfiguration(
+                        attributesToFlip.contains(NonStaticAttributes.ENVIRONMENT)
+                            ? ImmutableMap.of("var", "value")
+                            : ImmutableMap.of()),
                     MockCppSemantics.INSTANCE);
             if (attributesToFlip.contains(NonStaticAttributes.OUTPUT_FILE)) {
               builder.setLinkType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
@@ -526,7 +511,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
             builder.setNativeDeps(attributesToFlip.contains(NonStaticAttributes.NATIVE_DEPS));
             builder.setUseTestOnlyFlags(
                 attributesToFlip.contains(NonStaticAttributes.USE_TEST_ONLY_FLAGS));
-            builder.setFake(attributesToFlip.contains(NonStaticAttributes.FAKE));
             builder.setToolchainLibrariesSolibDir(
                 attributesToFlip.contains(NonStaticAttributes.RUNTIME_SOLIB_DIR)
                     ? null
@@ -540,6 +524,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
   private enum StaticKeyAttributes {
     OUTPUT_FILE,
+    ENVIRONMENT,
   }
 
   /**
@@ -553,7 +538,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
     final PathFragment dynamicOutputPath = PathFragment.create("dummyRuleContext/output/path.so");
     final Artifact staticOutputFile = getBinArtifactWithNoOwner(staticOutputPath.getPathString());
     final Artifact dynamicOutputFile = getBinArtifactWithNoOwner(dynamicOutputPath.getPathString());
-    final FeatureConfiguration featureConfiguration = getMockFeatureConfiguration();
 
     ActionTester.runTest(
         StaticKeyAttributes.class,
@@ -575,7 +559,10 @@ public class CppLinkActionTest extends BuildViewTestCase {
                     ruleContext.getConfiguration(),
                     toolchain,
                     toolchain.getFdoContext(),
-                    featureConfiguration,
+                    getMockFeatureConfiguration(
+                        attributes.contains(StaticKeyAttributes.ENVIRONMENT)
+                            ? ImmutableMap.of("var", "value")
+                            : ImmutableMap.of()),
                     MockCppSemantics.INSTANCE);
             builder.setLinkType(
                 attributes.contains(StaticKeyAttributes.OUTPUT_FILE)
@@ -660,8 +647,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 "dummyRuleContext/binary2",
                 objects.build(),
                 ImmutableList.<LibraryToLink>of(),
-                getMockFeatureConfiguration())
-            .setFake(true)
+                getMockFeatureConfiguration(/* envVars= */ ImmutableMap.of()))
             .build();
 
     // Ensure that minima are enforced.
@@ -671,7 +657,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
     assertThat(resources.getCpuUsage())
         .isAtLeast(CppLinkAction.MIN_STATIC_LINK_RESOURCES.getCpuUsage());
 
-    final int linkSize = Iterables.size(linkAction.getLinkCommandLine().getLinkerInputArtifacts());
+    final int linkSize =
+        linkAction.getLinkCommandLine().getLinkerInputArtifacts().memoizedFlattenAndGetSize();
     ResourceSet scaledSet =
         ResourceSet.createWithRamCpu(
             CppLinkAction.LINK_RESOURCES_PER_INPUT.getMemoryMb() * linkSize,
@@ -702,17 +689,16 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 ruleContext,
                 ruleContext,
                 ruleContext.getLabel(),
-                new Artifact(
-                    PathFragment.create(outputPath),
-                    getTargetConfiguration()
-                        .getBinDirectory(ruleContext.getRule().getRepository())),
+                ActionsTestUtil.createArtifact(
+                    getTargetConfiguration().getBinDirectory(ruleContext.getRule().getRepository()),
+                    outputPath),
                 ruleContext.getConfiguration(),
                 toolchain,
                 toolchain.getFdoContext(),
                 featureConfiguration,
                 MockCppSemantics.INSTANCE)
             .addObjectFiles(nonLibraryInputs)
-            .addLibraries(NestedSetBuilder.wrap(Order.LINK_ORDER, libraryInputs))
+            .addLibraries(libraryInputs)
             .setLinkType(type)
             .setLinkerFiles(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER))
             .setLinkingMode(LinkingMode.STATIC);
@@ -728,21 +714,23 @@ public class CppLinkActionTest extends BuildViewTestCase {
         output.getPathString(),
         ImmutableList.<Artifact>of(),
         ImmutableList.<LibraryToLink>of(),
-        getMockFeatureConfiguration());
+        getMockFeatureConfiguration(/* envVars= */ ImmutableMap.of()));
   }
 
   public Artifact getOutputArtifact(String relpath) {
-    return new Artifact(
+    return ActionsTestUtil.createArtifactWithExecPath(
         getTargetConfiguration().getBinDirectory(RepositoryName.MAIN),
-        getTargetConfiguration().getBinFragment().getRelative(relpath));
+        getTargetConfiguration().getBinFragment(RepositoryName.MAIN).getRelative(relpath));
   }
 
   private Artifact scratchArtifact(String s) {
     Path execRoot = outputBase.getRelative("exec");
-    Path outputRoot = execRoot.getRelative("out");
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, outputRoot);
+    String outSegment = "out";
+    Path outputRoot = execRoot.getRelative(outSegment);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, outSegment);
     try {
-      return new Artifact(scratch.overwriteFile(outputRoot.getRelative(s).toString()), root);
+      return ActionsTestUtil.createArtifact(
+          root, scratch.overwriteFile(outputRoot.getRelative(s).toString()));
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -761,7 +749,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
         createLinkBuilder(ruleContext, LinkTargetType.EXECUTABLE)
             .setInterfaceOutput(scratchArtifact("FakeInterfaceOutput"));
 
-    assertError("Interface output can only be used with non-fake DYNAMIC_LIBRARY targets", builder);
+    assertError("Interface output can only be used with DYNAMIC_LIBRARY targets", builder);
   }
 
   @Test
@@ -780,8 +768,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:foo");
     assertThat(configuredTarget).isNotNull();
     ImmutableList<String> inputs =
-        ImmutableList.copyOf(getGeneratingAction(configuredTarget, "foo/libfoo.so").getInputs())
-            .stream()
+        getGeneratingAction(configuredTarget, "foo/libfoo.so").getInputs().toList().stream()
             .map(Artifact::getExecPathString)
             .collect(ImmutableList.toImmutableList());
     assertThat(inputs.stream().anyMatch(i -> i.contains("tools/cpp/link_dynamic_library")))
@@ -793,7 +780,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     RuleContext ruleContext = createDummyRuleContext();
 
     FeatureConfiguration featureConfiguration =
-        CcToolchainFeaturesTest.buildFeatures(
+        CcToolchainTestHelper.buildFeatures(
                 MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE,
                 "feature {",
                 "   name: 'build_interface_libraries'",
@@ -897,11 +884,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
     FileSystem fs = scratch.getFileSystem();
     Path execRoot = fs.getPath(TestUtils.tmpDir());
     PathFragment execPath = PathFragment.create("out").getRelative(name);
-    return new SpecialArtifact(
-        ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("out")),
-        execPath,
-        ArtifactOwner.NullArtifactOwner.INSTANCE,
-        SpecialArtifactType.TREE);
+    return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+        ArtifactRoot.asDerivedRoot(execRoot, "out"), execPath);
   }
 
   private void verifyArguments(
@@ -918,8 +902,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
     SpecialArtifact testTreeArtifact = createTreeArtifact("library_directory");
 
-    TreeFileArtifact library0 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library0.o");
-    TreeFileArtifact library1 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library1.o");
+    TreeFileArtifact library0 = TreeFileArtifact.createTreeOutput(testTreeArtifact, "library0.o");
+    TreeFileArtifact library1 = TreeFileArtifact.createTreeOutput(testTreeArtifact, "library1.o");
 
     ArtifactExpander expander =
         new ArtifactExpander() {
@@ -969,8 +953,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
     SpecialArtifact testTreeArtifact = createTreeArtifact("library_directory");
 
-    TreeFileArtifact library0 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library0.o");
-    TreeFileArtifact library1 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library1.o");
+    TreeFileArtifact library0 = TreeFileArtifact.createTreeOutput(testTreeArtifact, "library0.o");
+    TreeFileArtifact library1 = TreeFileArtifact.createTreeOutput(testTreeArtifact, "library1.o");
 
     ArtifactExpander expander =
         (artifact, output) -> {
@@ -985,24 +969,24 @@ public class CppLinkActionTest extends BuildViewTestCase {
     for (LinkTargetType linkType : targetTypesToTest) {
 
       scratch.deleteFile("dummyRuleContext/BUILD");
-      Artifact output = scratchArtifact("output." + linkType.getDefaultExtension());
+      Artifact output = ruleContext.getBinArtifact("output." + linkType.getDefaultExtension());
 
       CppLinkActionBuilder builder =
           createLinkBuilder(
                   ruleContext,
                   linkType,
-                  output.getExecPathString(),
+                  output.getRootRelativePathString(),
                   ImmutableList.<Artifact>of(),
                   ImmutableList.<LibraryToLink>of(),
-                  getMockFeatureConfiguration())
+                  getMockFeatureConfiguration(/* envVars= */ ImmutableMap.of()))
               .setLibraryIdentifier("foo")
               .addObjectFiles(ImmutableList.of(testTreeArtifact))
-              .addObjectFile(objectFile)
-              // Makes sure this doesn't use a params file.
-              .setFake(true);
+              .addObjectFile(objectFile);
 
       CppLinkAction linkAction = builder.build();
-      assertThat(linkAction.getCommandLine(expander))
+      assertThat(
+              ImmutableList.copyOf(
+                  linkAction.getLinkCommandLine().paramCmdLine().arguments(expander)))
           .containsAtLeast(
               library0.getExecPathString(),
               library1.getExecPathString(),
@@ -1023,7 +1007,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 "dummyRuleContext/out.so",
                 ImmutableList.of(),
                 ImmutableList.of(),
-                getMockFeatureConfiguration())
+                getMockFeatureConfiguration(/* envVars= */ ImmutableMap.of()))
             .setLinkingMode(Link.LinkingMode.STATIC)
             .addLinkopts(ImmutableList.of("-pie", "-other", "-pie"))
             .setLibraryIdentifier("foo")
@@ -1046,7 +1030,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 "dummyRuleContext/out",
                 ImmutableList.of(),
                 ImmutableList.of(),
-                getMockFeatureConfiguration())
+                getMockFeatureConfiguration(/* envVars= */ ImmutableMap.of()))
             .setLinkingMode(Link.LinkingMode.STATIC)
             .addLinkopts(ImmutableList.of("-pie", "-other", "-pie"))
             .build();
@@ -1077,7 +1061,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 "dummyRuleContext/out",
                 ImmutableList.of(),
                 ImmutableList.copyOf(linkerInputs),
-                getMockFeatureConfiguration())
+                getMockFeatureConfiguration(/* envVars= */ ImmutableMap.of()))
             .addLinkopts(ImmutableList.of("FakeLinkopt1", "FakeLinkopt2"))
             .build();
 
@@ -1138,7 +1122,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.DO_NOT_SPLIT_LINKING_CMDLINE));
     RuleContext ruleContext = createDummyRuleContext();
 
-    FeatureConfiguration featureConfiguration = getMockFeatureConfiguration();
+    FeatureConfiguration featureConfiguration =
+        getMockFeatureConfiguration(/* envVars= */ ImmutableMap.of());
 
     CppLinkAction linkAction =
         createLinkBuilder(
@@ -1173,38 +1158,38 @@ public class CppLinkActionTest extends BuildViewTestCase {
   }
 
   @Test
-  @Deprecated
-  // TODO(b/113358321): Remove once #7670 is finished.
-  public void testSplitExecutableLinkCommandDynamicWithSplitting() throws Exception {
-    RuleContext ruleContext = createDummyRuleContext();
+  public void testExposesLinkstampSources() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "cc_binary(",
+        "  name = 'bin',",
+        "  deps = [':lib'],",
+        ")",
+        "cc_library(",
+        "  name = 'lib',",
+        "  linkstamp = 'linkstamp.cc',",
+        ")");
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//x:bin");
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/bin");
+    assertThat(artifactsToStrings(linkAction.getLinkstampObjects()))
+        .containsExactly("src x/linkstamp.cc");
+  }
 
-    FeatureConfiguration featureConfiguration = getMockFeatureConfiguration();
-
-    CppLinkAction linkAction =
-        createLinkBuilder(
-                ruleContext,
-                LinkTargetType.DYNAMIC_LIBRARY,
-                "dummyRuleContext/out.so",
-                ImmutableList.of(),
-                ImmutableList.of(),
-                featureConfiguration)
-            .setLibraryIdentifier("library")
-            .build();
-    Pair<List<String>, List<String>> result = linkAction.getLinkCommandLine().splitCommandline();
-
-    assertThat(
-            result.first.stream()
-                .map(x -> removeOutDirectory(x))
-                .collect(ImmutableList.toImmutableList()))
-        .containsExactly(
-            "crosstool/gcc_tool",
-            "-shared",
-            "-o",
-            "/k8-fastbuild/bin/dummyRuleContext/out.so",
-            "-Wl,-S",
-            "--sysroot=/usr/grte/v1",
-            "@/k8-fastbuild/bin/dummyRuleContext/out.so-2.params")
-        .inOrder();
-    assertThat(result.second).isEmpty();
+  @Test
+  public void testExposesLinkstampObjects() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "cc_binary(",
+        "  name = 'bin',",
+        "  deps = [':lib'],",
+        ")",
+        "cc_library(",
+        "  name = 'lib',",
+        "  linkstamp = 'linkstamp.cc',",
+        ")");
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//x:bin");
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/bin");
+    assertThat(artifactsToStrings(linkAction.getLinkstampObjectFileInputs()))
+        .containsExactly("bin x/_objs/bin/x/linkstamp.o");
   }
 }

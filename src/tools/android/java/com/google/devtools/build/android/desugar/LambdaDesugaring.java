@@ -31,7 +31,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 import org.objectweb.asm.ClassVisitor;
@@ -50,15 +50,15 @@ import org.objectweb.asm.tree.TypeInsnNode;
  * rewriting lambda-related invokedynamic instructions as well as fixing accessibility of methods
  * that javac emits for lambda bodies.
  *
- * <p>Implementation note: {@link InvokeDynamicLambdaMethodCollector} needs to detect any class
- * that this visitor may rewrite, as we conditionally apply this visitor based on it.
+ * <p>Implementation note: {@link InvokeDynamicLambdaMethodCollector} needs to detect any class that
+ * this visitor may rewrite, as we conditionally apply this visitor based on it.
  */
 class LambdaDesugaring extends ClassVisitor {
 
   private final ClassLoader targetLoader;
   private final LambdaClassMaker lambdas;
   private final ImmutableSet.Builder<String> aggregateInterfaceLambdaMethods;
-  private final Map<Handle, MethodReferenceBridgeInfo> bridgeMethods = new HashMap<>();
+  private final Map<Handle, MethodReferenceBridgeInfo> bridgeMethods = new LinkedHashMap<>();
   private final ImmutableSet<MethodInfo> lambdaMethodsUsedInInvokeDyanmic;
   private final boolean allowDefaultMethods;
 
@@ -73,7 +73,7 @@ class LambdaDesugaring extends ClassVisitor {
       ImmutableSet.Builder<String> aggregateInterfaceLambdaMethods,
       ImmutableSet<MethodInfo> lambdaMethodsUsedInInvokeDyanmic,
       boolean allowDefaultMethods) {
-    super(Opcodes.ASM7, dest);
+    super(Opcodes.ASM8, dest);
     this.targetLoader = targetLoader;
     this.lambdas = lambdas;
     this.aggregateInterfaceLambdaMethods = aggregateInterfaceLambdaMethods;
@@ -381,7 +381,7 @@ class LambdaDesugaring extends ClassVisitor {
         String desc,
         String signature,
         String[] exceptions) {
-      super(Opcodes.ASM7, access, name, desc, signature, exceptions);
+      super(Opcodes.ASM8, access, name, desc, signature, exceptions);
       this.dest = checkNotNull(dest, "Null destination for %s.%s : %s", internalName, name, desc);
     }
 
@@ -577,8 +577,7 @@ class LambdaDesugaring extends ClassVisitor {
       // machine.
       switch (type.getSort()) {
         case Type.BOOLEAN:
-          return opcode == Opcodes.ICONST_0
-              || opcode == Opcodes.ICONST_1;
+          return opcode == Opcodes.ICONST_0 || opcode == Opcodes.ICONST_1;
 
         case Type.BYTE:
         case Type.CHAR:
@@ -594,8 +593,7 @@ class LambdaDesugaring extends ClassVisitor {
               || opcode == Opcodes.ICONST_M1;
 
         case Type.LONG:
-          return opcode == Opcodes.LCONST_0
-              || opcode == Opcodes.LCONST_1;
+          return opcode == Opcodes.LCONST_0 || opcode == Opcodes.LCONST_1;
 
         case Type.FLOAT:
           return opcode == Opcodes.FCONST_0
@@ -603,8 +601,7 @@ class LambdaDesugaring extends ClassVisitor {
               || opcode == Opcodes.FCONST_2;
 
         case Type.DOUBLE:
-          return opcode == Opcodes.DCONST_0
-              || opcode == Opcodes.DCONST_1;
+          return opcode == Opcodes.DCONST_0 || opcode == Opcodes.DCONST_1;
 
         case Type.OBJECT:
         case Type.ARRAY:

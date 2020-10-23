@@ -15,17 +15,18 @@ package com.google.devtools.build.lib.bazel.commands;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
-import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
+import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
@@ -34,9 +35,14 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.runtime.commands.QueryCommand;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.FetchCommand.Code;
+import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.util.EnumSet;
@@ -44,7 +50,7 @@ import java.util.EnumSet;
 /** Fetches external repositories. Which is so fetch. */
 @Command(
     name = FetchCommand.NAME,
-    options = {PackageCacheOptions.class, KeepGoingOption.class, LoadingPhaseThreadsOption.class},
+    options = {PackageOptions.class, KeepGoingOption.class, LoadingPhaseThreadsOption.class},
     help = "resource:fetch.txt",
     shortDescription = "Fetches external repositories that are prerequisites to the targets.",
     allowResidue = true,
@@ -57,31 +63,35 @@ public final class FetchCommand implements BlazeCommand {
   public static final String NAME = "fetch";
 
   @Override
-  public void editOptions(OptionsParser optionsParser) { }
-
-  @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     if (options.getResidue().isEmpty()) {
-      env.getReporter().handle(Event.error(String.format(
-          "missing fetch expression. Type '%s help fetch' for syntax and help",
-          env.getRuntime().getProductName())));
-      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+      String errorMessage =
+          String.format(
+              "missing fetch expression. Type '%s help fetch' for syntax and help",
+              env.getRuntime().getProductName());
+      env.getReporter().handle(Event.error(errorMessage));
+      return createFailedBlazeCommandResult(Code.EXPRESSION_MISSING, errorMessage);
     }
 
     try {
-      env.setupPackageCache(options);
+      env.syncPackageLoading(options);
     } catch (InterruptedException e) {
-      env.getReporter().handle(Event.error("fetch interrupted"));
-      return BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
+      String errorMessage = "Fetch interrupted: " + e.getMessage();
+      env.getReporter().handle(Event.error(errorMessage));
+      return BlazeCommandResult.detailedExitCode(
+          InterruptedFailureDetails.detailedExitCode(
+              errorMessage, Interrupted.Code.PACKAGE_LOADING_SYNC));
+
     } catch (AbruptExitException e) {
       env.getReporter().handle(Event.error(null, "Unknown error: " + e.getMessage()));
-      return BlazeCommandResult.exitCode(e.getExitCode());
+      return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
     }
 
-    PackageCacheOptions pkgOptions = options.getOptions(PackageCacheOptions.class);
+    PackageOptions pkgOptions = options.getOptions(PackageOptions.class);
     if (!pkgOptions.fetch) {
-      env.getReporter().handle(Event.error(null, "You cannot run fetch with --fetch=false"));
-      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+      String errorMessage = "You cannot run fetch with --fetch=false";
+      env.getReporter().handle(Event.error(null, errorMessage));
+      return createFailedBlazeCommandResult(Code.OPTIONS_INVALID, errorMessage);
     }
 
     // Querying for all of the dependencies of the targets has the side-effect of populating the
@@ -99,18 +109,21 @@ public final class FetchCommand implements BlazeCommand {
             env,
             options.getOptions(KeepGoingOption.class).keepGoing,
             false,
-            Lists.<String>newArrayList(),
+            UniverseScope.EMPTY,
             threadsOption.threads,
-            EnumSet.noneOf(Setting.class));
+            EnumSet.noneOf(Setting.class),
+            /* useGraphlessQuery= */ true);
 
     // 1. Parse query:
     QueryExpression expr;
     try {
       expr = QueryExpression.parse(query, queryEnv);
-    } catch (QueryException e) {
-      env.getReporter().handle(Event.error(
-          null, "Error while parsing '" + query + "': " + e.getMessage()));
-      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+    } catch (QuerySyntaxException e) {
+      String errorMessage =
+          String.format(
+              "Error while parsing '%s': %s", QueryExpression.truncate(query), e.getMessage());
+      env.getReporter().handle(Event.error(null, errorMessage));
+      return createFailedBlazeCommandResult(Code.QUERY_PARSE_ERROR, errorMessage);
     }
 
     env.getReporter()
@@ -139,7 +152,9 @@ public final class FetchCommand implements BlazeCommand {
           .post(
               new NoBuildRequestFinishedEvent(
                   ExitCode.COMMAND_LINE_ERROR, env.getRuntime().getClock().currentTimeMillis()));
-      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+      return BlazeCommandResult.detailedExitCode(
+          InterruptedFailureDetails.detailedExitCode(
+              e.getMessage(), Interrupted.Code.FETCH_COMMAND));
     } catch (QueryException e) {
       // Keep consistent with reportBuildFileError()
       env.getReporter().handle(Event.error(e.getMessage()));
@@ -147,21 +162,37 @@ public final class FetchCommand implements BlazeCommand {
           .post(
               new NoBuildRequestFinishedEvent(
                   ExitCode.COMMAND_LINE_ERROR, env.getRuntime().getClock().currentTimeMillis()));
-      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+      return createFailedBlazeCommandResult(Code.QUERY_PARSE_ERROR, e.getMessage());
     } catch (IOException e) {
       // Should be impossible since our OutputFormatterCallback doesn't throw IOException.
       throw new IllegalStateException(e);
     }
 
     if (queryEvalResult.getSuccess()) {
-      env.getReporter().handle(Event.progress("All external dependencies fetched successfully."));
+      env.getReporter().handle(Event.info("All external dependencies fetched successfully."));
     }
-    ExitCode exitCode =
-        queryEvalResult.getSuccess() ? ExitCode.SUCCESS : ExitCode.COMMAND_LINE_ERROR;
     env.getReporter()
         .post(
             new NoBuildRequestFinishedEvent(
-                exitCode, env.getRuntime().getClock().currentTimeMillis()));
-    return BlazeCommandResult.exitCode(exitCode);
+                queryEvalResult.getSuccess() ? ExitCode.SUCCESS : ExitCode.COMMAND_LINE_ERROR,
+                env.getRuntime().getClock().currentTimeMillis()));
+    return queryEvalResult.getSuccess()
+        ? BlazeCommandResult.success()
+        : createFailedBlazeCommandResult(
+            Code.QUERY_EVALUATION_ERROR,
+            String.format(
+                "Evaluation of query \"%s\" failed but --keep_going specified, ignoring errors",
+                expr));
+  }
+
+  private static BlazeCommandResult createFailedBlazeCommandResult(
+      Code fetchCommandCode, String message) {
+    return BlazeCommandResult.detailedExitCode(
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setFetchCommand(
+                    FailureDetails.FetchCommand.newBuilder().setCode(fetchCommandCode).build())
+                .build()));
   }
 }

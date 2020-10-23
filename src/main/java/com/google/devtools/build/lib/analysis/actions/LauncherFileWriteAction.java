@@ -21,8 +21,10 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import java.io.IOException;
@@ -51,7 +53,7 @@ public final class LauncherFileWriteAction extends AbstractFileWriteAction {
         new LauncherFileWriteAction(
             ruleContext.getActionOwner(),
             output,
-            ruleContext.getPrerequisiteArtifact("$launcher", Mode.HOST),
+            ruleContext.getPrerequisiteArtifact("$launcher"),
             launchInfo));
   }
 
@@ -60,7 +62,7 @@ public final class LauncherFileWriteAction extends AbstractFileWriteAction {
       ActionOwner owner, Artifact output, Artifact launcher, LaunchInfo launchInfo) {
     super(
         owner,
-        ImmutableList.of(Preconditions.checkNotNull(launcher)),
+        NestedSetBuilder.create(Order.STABLE_ORDER, Preconditions.checkNotNull(launcher)),
         output,
         /*makeExecutable=*/ true);
     this.launcher = launcher; // already null-checked in the superclass c'tor
@@ -88,7 +90,10 @@ public final class LauncherFileWriteAction extends AbstractFileWriteAction {
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable ArtifactExpander artifactExpander,
+      Fingerprint fp) {
     fp.addString(GUID);
     fp.addPath(this.launcher.getExecPath());
     fp.addString(this.launchInfo.fingerPrint);

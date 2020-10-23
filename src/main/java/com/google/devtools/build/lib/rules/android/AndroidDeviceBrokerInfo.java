@@ -16,15 +16,15 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDeviceBrokerInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDeviceBrokerInfoApi;
+import net.starlark.java.eval.EvalException;
 
 /** Supplies the device broker type string, passed to the Android test runtime. */
 @Immutable
 public final class AndroidDeviceBrokerInfo extends NativeInfo
     implements AndroidDeviceBrokerInfoApi {
 
-  private static final String SKYLARK_NAME = "AndroidDeviceBrokerInfo";
+  private static final String STARLARK_NAME = "AndroidDeviceBrokerInfo";
 
   /**
    * Provider instance for {@link AndroidDeviceBrokerInfo}.
@@ -53,7 +53,7 @@ public final class AndroidDeviceBrokerInfo extends NativeInfo
       implements AndroidDeviceBrokerInfoApiProvider {
 
     private AndroidDeviceBrokerInfoProvider() {
-      super(SKYLARK_NAME, AndroidDeviceBrokerInfo.class);
+      super(STARLARK_NAME, AndroidDeviceBrokerInfo.class);
     }
 
     @Override

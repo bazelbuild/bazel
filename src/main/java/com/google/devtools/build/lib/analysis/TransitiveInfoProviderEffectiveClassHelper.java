@@ -53,7 +53,7 @@ class TransitiveInfoProviderEffectiveClassHelper {
                         } else if (TransitiveInfoProvider.class.isAssignableFrom(clazz)) {
                           result.addAll(
                               getDirectImplementations(
-                                  (Class<? extends TransitiveInfoProvider>) clazz));
+                                  clazz.asSubclass(TransitiveInfoProvider.class)));
                         }
                       }
 
@@ -62,7 +62,7 @@ class TransitiveInfoProviderEffectiveClassHelper {
                           && TransitiveInfoProvider.class.isAssignableFrom(superclass)) {
                         result.addAll(
                             getDirectImplementations(
-                                (Class<? extends TransitiveInfoProvider>) superclass));
+                                superclass.asSubclass(TransitiveInfoProvider.class)));
                       }
                       return result;
                     }
@@ -83,10 +83,12 @@ class TransitiveInfoProviderEffectiveClassHelper {
                   });
 
   // TODO(arielb): see if these can be made private?
+  @SuppressWarnings("unchecked")
   static <T extends TransitiveInfoProvider> Class<T> get(T provider) {
     return get((Class<T>) provider.getClass());
   }
 
+  @SuppressWarnings("unchecked")
   static <T extends TransitiveInfoProvider> Class<T> get(Class<T> providerClass) {
     return (Class<T>) EFFECTIVE_PROVIDER_CLASS_CACHE.getUnchecked(providerClass);
   }

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.packages.util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
+import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 
@@ -57,13 +58,24 @@ public final class MockObjcSupport {
 
   /** Returns the set of flags required to build objc libraries using the mock OSX crosstool. */
   public static ImmutableList<String> requiredObjcCrosstoolFlags() {
+    ImmutableList.Builder<String> builder = ImmutableList.builder();
+    return builder
+        .addAll(requiredObjcCrosstoolFlagsNoXcodeConfig())
+        .add("--xcode_version_config=" + MockObjcSupport.XCODE_VERSION_CONFIG)
+        .build();
+  }
+
+  /**
+   * Returns the set of flags required to build objc libraries using the mock OSX crosstool except
+   * for --xcode_version_config.
+   */
+  public static ImmutableList<String> requiredObjcCrosstoolFlagsNoXcodeConfig() {
+
     ImmutableList.Builder<String> argsBuilder = ImmutableList.builder();
-    argsBuilder.addAll(TestConstants.OSX_CROSSTOOL_FLAGS);
 
     // TODO(b/68751876): Set --apple_crosstool_top and --crosstool_top using the
     // AppleCrosstoolTransition
     argsBuilder
-        .add("--xcode_version_config=" + MockObjcSupport.XCODE_VERSION_CONFIG)
         .add("--apple_crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
         .add("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
 
@@ -80,16 +92,9 @@ public final class MockObjcSupport {
   public static void setup(MockToolsConfig config) throws IOException {
     for (String tool :
         ImmutableSet.of(
-            "actoolwrapper",
-            "bundlemerge",
             "objc_dummy.mm",
-            "device_debug_entitlements.plist",
             "gcov",
-            "ibtoolwrapper",
-            "momcwrapper",
-            "plmerge",
             "realpath",
-            "swiftstdlibtoolwrapper",
             "testrunner",
             "xcrunwrapper.sh",
             "mcov",
@@ -161,7 +166,6 @@ public final class MockObjcSupport {
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/xctest.plist");
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/proto_support");
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/j2objc_dead_code_pruner.py");
-    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/header_scanner");
     setupCcToolchainConfig(config);
     setupObjcProto(config);
   }
@@ -206,7 +210,7 @@ public final class MockObjcSupport {
           .setCcToolchainFile(readCcToolchainConfigFile())
           .setSupportedArchs(OSX_ARCHS)
           .setToolchainConfigs(toolchainConfigBuilder.build())
-          .setSupportsHeaderParsing(false)
+          .setSupportsHeaderParsing(true)
           .writeOSX();
     }
   }
@@ -222,7 +226,7 @@ public final class MockObjcSupport {
           .setCcToolchainFile(readCcToolchainConfigFile())
           .setSupportedArchs(OSX_ARCHS)
           .setToolchainConfigs(getDefaultCcToolchainConfigs())
-          .setSupportsHeaderParsing(false)
+          .setSupportsHeaderParsing(true)
           .writeOSX();
     }
   }
@@ -558,5 +562,25 @@ public final class MockObjcSupport {
 
   public static String readCcToolchainConfigFile() throws IOException {
     return ResourceLoader.readFromResources(MOCK_OSX_TOOLCHAIN_CONFIG_PATH);
+  }
+
+  /** Creates a mock objc_proto_library rule in the current main workspace. */
+  public static void setupObjcProtoLibrary(Scratch scratch) throws Exception {
+    // Append file instead of creating one in case it already exists.
+    String toolsRepo = TestConstants.TOOLS_REPOSITORY;
+    scratch.file("objc_proto_library/BUILD", "");
+    scratch.file(
+        "objc_proto_library/objc_proto_library.bzl",
+        "def _impl(ctx):",
+        "  return [apple_common.new_objc_provider()]",
+        "",
+        "objc_proto_library = rule(",
+        "  _impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "    'portable_proto_filters': attr.label_list(allow_files=True),",
+        "    '_lib_protobuf': attr.label(default = '" + toolsRepo + "//objcproto:protobuf_lib'),",
+        "  }",
+        ")");
   }
 }

@@ -106,9 +106,19 @@ def _jvm_import_external(repository_ctx):
         lines.append(extra)
         if not extra.endswith("\n"):
             lines.append("")
-    repository_ctx.download(urls, path, sha)
+    repository_ctx.download(
+        urls,
+        path,
+        sha,
+        canonical_id = repository_ctx.attr.canonical_id,
+    )
     if srcurls and _should_fetch_sources_in_current_env(repository_ctx):
-        repository_ctx.download(srcurls, srcpath, srcsha)
+        repository_ctx.download(
+            srcurls,
+            srcpath,
+            srcsha,
+            canonical_id = repository_ctx.attr.canonical_id,
+        )
     repository_ctx.file("BUILD", "\n".join(lines))
     repository_ctx.file("%s/BUILD" % extension, "\n".join([
         _HEADER,
@@ -123,6 +133,10 @@ def _jvm_import_external(repository_ctx):
         "    actual = \"@%s\"," % repository_ctx.name,
         ")",
         "",
+        "filegroup(",
+        "    name = \"file\",",
+        "    srcs = [\"//:%s\"]," % path,
+        ")",
     ]))
 
 def _should_fetch_sources_in_current_env(repository_ctx):
@@ -219,6 +233,7 @@ jvm_import_external = repository_rule(
         "additional_rule_attrs": attr.string_dict(),
         "srcjar_urls": attr.string_list(),
         "srcjar_sha256": attr.string(),
+        "canonical_id": attr.string(),
         "deps": attr.string_list(),
         "runtime_deps": attr.string_list(),
         "testonly_": attr.bool(),
@@ -248,6 +263,10 @@ def jvm_maven_import_external(
     srcjar_urls = kwargs.pop("srcjar_urls", None)
 
     rule_name = kwargs.pop("rule_name", "java_import")
+    rule_load = kwargs.pop(
+        "rule_load",
+        'load("@rules_java//java:defs.bzl", "java_import")',
+    )
 
     if fetch_sources:
         src_coordinates = struct(
@@ -260,4 +279,15 @@ def jvm_maven_import_external(
 
         srcjar_urls = _convert_coordinates_to_urls(src_coordinates, server_urls)
 
-    jvm_import_external(artifact_urls = jar_urls, srcjar_urls = srcjar_urls, rule_name = rule_name, **kwargs)
+    tags = kwargs.pop("tags", [])
+    tags.append("maven_coordinates=" + artifact)
+
+    jvm_import_external(
+        artifact_urls = jar_urls,
+        srcjar_urls = srcjar_urls,
+        canonical_id = artifact,
+        rule_name = rule_name,
+        rule_load = rule_load,
+        tags = tags,
+        **kwargs
+    )

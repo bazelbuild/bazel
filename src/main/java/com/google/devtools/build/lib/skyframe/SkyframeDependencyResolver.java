@@ -13,12 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.cmdline.LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER;
+
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
+import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
+import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
@@ -26,8 +34,10 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.RepositoryFetchException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -47,13 +57,6 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
     this.env = env;
   }
 
-  @Override
-  protected void invalidPackageGroupReferenceHook(TargetAndConfiguration value, Label label) {
-    env.getListener().handle(
-        Event.error(TargetUtils.getLocationMaybe(value.getTarget()), String.format(
-            "label '%s' does not refer to a package group", label)));
-  }
-
   private void missingEdgeHook(
       Target from, DependencyKind dependencyKind, Label to, NoSuchThingException e) {
     boolean raiseError = false;
@@ -70,7 +73,7 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
     }
 
     String message;
-    if (dependencyKind == TOOLCHAIN_DEPENDENCY) {
+    if (DependencyKind.isToolchain(dependencyKind)) {
       message =
           String.format(
               "Target '%s' depends on toolchain '%s', which cannot be found: %s'",
@@ -86,10 +89,9 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
   @Override
   protected Map<Label, Target> getTargets(
       OrderedSetMultimap<DependencyKind, Label> labelMap,
-      Target fromTarget,
+      TargetAndConfiguration fromNode,
       NestedSetBuilder<Cause> rootCauses)
       throws InterruptedException {
-
     Map<PackageIdentifier, SkyKey> packageKeys = new HashMap<>(labelMap.size());
     for (Label label : labelMap.values()) {
       packageKeys.computeIfAbsent(label.getPackageIdentifier(), id -> PackageValue.key(id));
@@ -97,6 +99,8 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
 
     Map<SkyKey, ValueOrException<NoSuchPackageException>> packages =
         env.getValuesOrThrow(packageKeys.values(), NoSuchPackageException.class);
+
+    Target fromTarget = fromNode.getTarget();
 
     // As per the comment in SkyFunctionEnvironment.getValueOrUntypedExceptions(), we are supposed
     // to prefer reporting errors to reporting null, we first check for errors in our dependencies.
@@ -119,7 +123,35 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
           continue;
         }
       } catch (NoSuchPackageException e) {
-        rootCauses.add(new LoadingFailedCause(label, e.getMessage()));
+        if (e instanceof RepositoryFetchException) {
+          Label repositoryLabel;
+          try {
+            repositoryLabel =
+                Label.create(EXTERNAL_PACKAGE_IDENTIFIER, label.getRepository().strippedName());
+          } catch (LabelSyntaxException lse) {
+            // We're taking the repository name from something that was already
+            // part of a label, so it should be valid. If we really get into this
+            // strange we situation, better not try to be smart and report the original
+            // label.
+            repositoryLabel = label;
+          }
+          rootCauses.add(new LoadingFailedCause(repositoryLabel, e.getDetailedExitCode()));
+          env.getListener()
+              .handle(
+                  Event.error(
+                      TargetUtils.getLocationMaybe(fromTarget),
+                      String.format(
+                          "%s depends on %s in repository %s which failed to fetch. %s",
+                          fromTarget.getLabel(), label, label.getRepository(), e.getMessage())));
+          continue;
+        }
+        @Nullable BuildConfiguration configuration = fromNode.getConfiguration();
+        @Nullable ConfigurationId configId = null;
+        if (configuration != null) {
+          configId =  configuration.getEventId().getConfiguration();
+        }
+        env.getListener().post(new AnalysisRootCauseEvent(configuration, label, e.getMessage()));
+        rootCauses.add(new AnalysisFailedCause(label, configId, e.getDetailedExitCode()));
         missingEdgeHook(fromTarget, entry.getKey(), label, e);
         continue;
       }
@@ -130,11 +162,13 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
         if (pkg.containsErrors()) {
           NoSuchTargetException e = new NoSuchTargetException(target);
           missingEdgeHook(fromTarget, entry.getKey(), label, e);
-          rootCauses.add(new LoadingFailedCause(label, e.getMessage()));
+          rootCauses.add(
+              new LoadingFailedCause(
+                  label, DetailedExitCode.of(pkg.contextualizeFailureDetailForTarget(target))));
         }
         result.put(label, target);
       } catch (NoSuchTargetException e) {
-        rootCauses.add(new LoadingFailedCause(label, e.getMessage()));
+        rootCauses.add(new LoadingFailedCause(label, e.getDetailedExitCode()));
         missingEdgeHook(fromTarget, entry.getKey(), label, e);
       }
     }

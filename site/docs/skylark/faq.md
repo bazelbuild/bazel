@@ -3,13 +3,9 @@ layout: documentation
 title: Extension FAQ
 ---
 
-# Frequently Asked Questions
+# Frequently asked questions
 
 These are some common issues and questions with writing extensions.
-
-* ToC
-{:toc}
-
 
 ## Why is my file not produced / my action never executed?
 
@@ -77,8 +73,8 @@ runfile to actions and executables that need it during the execution phase.
 For rules and rule attributes, you can pass a docstring literal (possibly
 triple-quoted) to the `doc` parameter of `rule` or `attr.*()`. For helper
 functions and macros, use a triple-quoted docstring literal following the format
-given [here](skylint.md#docstrings). Rule implementation functions generally do
-not need their own docstring.
+given [here](https://github.com/bazelbuild/buildtools/blob/master/WARNINGS.md#function-docstring).
+Rule implementation functions generally do not need their own docstring.
 
 Using string literals in the expected places makes it easier for automated
 tooling to extract documentation. Feel free to use standard non-string comments

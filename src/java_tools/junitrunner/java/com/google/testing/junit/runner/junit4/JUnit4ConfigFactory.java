@@ -15,7 +15,7 @@
 package com.google.testing.junit.runner.junit4;
 
 import com.google.testing.junit.runner.util.Factory;
-import com.google.testing.junit.runner.util.Supplier;
+import java.util.function.Supplier;
 
 /**
  * A factory that supplies {@link JUnit4Config}.

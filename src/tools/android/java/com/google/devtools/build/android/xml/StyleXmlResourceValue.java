@@ -13,23 +13,27 @@
 // limitations under the License.
 package com.google.devtools.build.android.xml;
 
+import com.android.aapt.Resources.Reference;
 import com.android.aapt.Resources.Style;
 import com.android.aapt.Resources.Value;
 import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.AndroidDataWritingVisitor.ValuesResourceDefinition;
 import com.google.devtools.build.android.AndroidResourceSymbolSink;
 import com.google.devtools.build.android.DataSource;
+import com.google.devtools.build.android.DependencyInfo;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.XmlType;
+import com.google.devtools.build.android.resources.Visibility;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -62,11 +66,17 @@ public class StyleXmlResourceValue implements XmlResourceValue {
           return String.format("<item name='%s'>%s</item>", input.getKey(), input.getValue());
         }
       };
+
+  private final Visibility visibility;
+  private final Style style;
+  // TODO(b/112848607): remove parent/values in favor of "style" above, or replace the Strings with
+  // stronger types.
   private final String parent;
   private final ImmutableMap<String, String> values;
 
   public static StyleXmlResourceValue of(String parent, Map<String, String> values) {
-    return new StyleXmlResourceValue(parent, ImmutableMap.copyOf(values));
+    return new StyleXmlResourceValue(
+        Visibility.UNKNOWN, Style.getDefaultInstance(), parent, ImmutableMap.copyOf(values));
   }
 
   @SuppressWarnings("deprecation")
@@ -74,7 +84,7 @@ public class StyleXmlResourceValue implements XmlResourceValue {
     return of(proto.hasValue() ? proto.getValue() : null, proto.getMappedStringValue());
   }
 
-  public static XmlResourceValue from(Value proto) {
+  public static XmlResourceValue from(Value proto, Visibility visibility) {
     Style style = proto.getCompoundValue().getStyle();
     String parent = "";
 
@@ -88,16 +98,22 @@ public class StyleXmlResourceValue implements XmlResourceValue {
 
     Map<String, String> items = itemMapFromProto(style);
 
-    return of(parent, items);
+    return new StyleXmlResourceValue(visibility, style, parent, ImmutableMap.copyOf(items));
   }
 
-  private StyleXmlResourceValue(@Nullable String parent, ImmutableMap<String, String> values) {
+  private StyleXmlResourceValue(
+      Visibility visibility,
+      Style style,
+      @Nullable String parent,
+      ImmutableMap<String, String> values) {
+    this.visibility = visibility;
+    this.style = style;
     this.parent = parent;
     this.values = values;
   }
 
   private static Map<String, String> itemMapFromProto(Style style) {
-    Map<String, String> result = new HashMap<>();
+    Map<String, String> result = new LinkedHashMap<>();
 
     for (Style.Entry styleEntry : style.getEntryList()) {
       String itemName = styleEntry.getKey().getName().replace("attr/", "");
@@ -148,8 +164,9 @@ public class StyleXmlResourceValue implements XmlResourceValue {
   }
 
   @Override
-  public void writeResourceToClass(FullyQualifiedName key, AndroidResourceSymbolSink sink) {
-    sink.acceptSimpleResource(key.type(), key.name());
+  public void writeResourceToClass(
+      DependencyInfo dependencyInfo, FullyQualifiedName key, AndroidResourceSymbolSink sink) {
+    sink.acceptSimpleResource(dependencyInfo, visibility, key.type(), key.name());
   }
 
   @Override
@@ -170,7 +187,7 @@ public class StyleXmlResourceValue implements XmlResourceValue {
 
   @Override
   public int hashCode() {
-    return Objects.hash(parent, values);
+    return Objects.hash(visibility, parent, values);
   }
 
   @Override
@@ -179,7 +196,10 @@ public class StyleXmlResourceValue implements XmlResourceValue {
       return false;
     }
     StyleXmlResourceValue other = (StyleXmlResourceValue) obj;
-    return Objects.equals(parent, other.parent) && Objects.equals(values, other.values);
+    return Objects.equals(visibility, other.visibility)
+        && Objects.equals(parent, other.parent)
+        // TODO(b/112848607): include the "style" proto in comparison; right now it's redundant.
+        && Objects.equals(values, other.values);
   }
 
   @Override
@@ -203,5 +223,25 @@ public class StyleXmlResourceValue implements XmlResourceValue {
   @Override
   public String asConflictStringWith(DataSource source) {
     return source.asConflictString();
+  }
+
+  @Override
+  public Visibility getVisibility() {
+    return visibility;
+  }
+
+  @Override
+  public ImmutableList<Reference> getReferencedResources() {
+    ImmutableList.Builder<Reference> result = ImmutableList.builder();
+    if (style.hasParent()) {
+      result.add(style.getParent());
+    }
+    for (Style.Entry entry : style.getEntryList()) {
+      result.add(entry.getKey());
+      if (entry.getItem().hasRef()) {
+        result.add(entry.getItem().getRef());
+      }
+    }
+    return result.build();
   }
 }

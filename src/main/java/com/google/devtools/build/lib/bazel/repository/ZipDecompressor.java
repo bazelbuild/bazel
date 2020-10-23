@@ -74,7 +74,8 @@ public class ZipDecompressor implements Decompressor {
    */
   @Override
   @Nullable
-  public Path decompress(DecompressorDescriptor descriptor) throws IOException {
+  public Path decompress(DecompressorDescriptor descriptor)
+      throws IOException, InterruptedException {
     Path destinationDirectory = descriptor.repositoryPath();
     Optional<String> prefix = descriptor.prefix();
     boolean foundPrefix = false;
@@ -122,7 +123,7 @@ public class ZipDecompressor implements Decompressor {
       PathFragment strippedRelativePath,
       Optional<String> prefix,
       Map<Path, PathFragment> symlinks)
-      throws IOException {
+      throws IOException, InterruptedException {
     if (strippedRelativePath.isAbsolute()) {
       throw new IOException(
           String.format(
@@ -156,6 +157,9 @@ public class ZipDecompressor implements Decompressor {
       try (InputStream input = reader.getInputStream(entry);
           OutputStream output = outputPath.getOutputStream()) {
         ByteStreams.copy(input, output);
+        if (Thread.interrupted()) {
+          throw new InterruptedException();
+        }
       }
       outputPath.chmod(permissions);
       outputPath.setLastModifiedTime(entry.getTime());

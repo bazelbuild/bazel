@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.server;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.mockito.Matchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -23,6 +23,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.server.ServerWatcherRunnable.ProcMeminfoLowMemoryChecker;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.unix.ProcMeminfoParser;
@@ -127,7 +128,7 @@ public class ServerWatcherRunnableTest {
             /*maxIdleSeconds=*/ Duration.ofHours(1).getSeconds(),
             shutdownOnLowSysMem,
             mockCommandManager,
-            () -> mockParser);
+            new ProcMeminfoLowMemoryChecker(() -> mockParser));
     Thread thread = new Thread(underTest);
     when(mockCommandManager.isEmpty()).thenReturn(true);
     AtomicInteger serverWatcherLoopCounter = new AtomicInteger();

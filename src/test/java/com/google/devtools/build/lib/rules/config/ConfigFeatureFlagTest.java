@@ -21,11 +21,12 @@ import com.google.common.collect.Iterables;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import org.junit.Before;
 import org.junit.Test;
@@ -34,7 +35,14 @@ import org.junit.runners.JUnit4;
 
 /** Tests for the config_feature_flag rule. */
 @RunWith(JUnit4.class)
-public final class ConfigFeatureFlagTest extends SkylarkTestCase {
+public final class ConfigFeatureFlagTest extends BuildViewTestCase {
+
+  private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
+
+  private StarlarkRuleContext createRuleContext(String label) throws Exception {
+    return new StarlarkRuleContext(
+        getRuleContextForStarlark(getConfiguredTarget(label)), null, getStarlarkSemantics());
+  }
 
   @Before
   public void useTrimmedConfigurations() throws Exception {
@@ -44,7 +52,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
   }
 
   @Override
-  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder =
         new ConfiguredRuleClassProvider.Builder().addRuleDefinition(new FeatureFlagSetterRule());
     TestRuleClassProvider.addStandardRules(builder);
@@ -80,7 +88,8 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "    name = 'flag',",
         "    allowed_values = ['default', 'configured', 'other'],",
         ")");
-    assertThat(ConfigFeatureFlagProvider.fromTarget(getConfiguredTarget("//test:top")).getFlagValue())
+    assertThat(
+            ConfigFeatureFlagProvider.fromTarget(getConfiguredTarget("//test:top")).getFlagValue())
         .isEqualTo("configured");
   }
 
@@ -101,12 +110,13 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "    allowed_values = ['default', 'configured', 'other'],",
         "    default_value = 'default',",
         ")");
-    assertThat(ConfigFeatureFlagProvider.fromTarget(getConfiguredTarget("//test:top")).getFlagValue())
+    assertThat(
+            ConfigFeatureFlagProvider.fromTarget(getConfiguredTarget("//test:top")).getFlagValue())
         .isEqualTo("configured");
   }
 
   @Test
-  public void configFeatureFlagProvider_skylarkConstructor() throws Exception {
+  public void configFeatureFlagProvider_starlarkConstructor() throws Exception {
     scratch.file(
         "test/wrapper.bzl",
         "def _flag_reading_wrapper_impl(ctx):",
@@ -143,7 +153,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
   }
 
   @Test
-  public void configFeatureFlagProvider_valueIsAccessibleFromSkylark() throws Exception {
+  public void configFeatureFlagProvider_valueIsAccessibleFromStarlark() throws Exception {
     scratch.file(
         "test/wrapper.bzl",
         "def _flag_reading_wrapper_impl(ctx):",
@@ -176,11 +186,11 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
     ConfiguredTarget top = getConfiguredTarget("//test:top");
     ConfiguredTarget wrapper =
         (ConfiguredTarget) Iterables.getOnlyElement(getPrerequisites(top, "deps"));
-    SkylarkRuleContext ctx = new SkylarkRuleContext(getRuleContextForSkylark(wrapper), null,
-        getSkylarkSemantics());
-    update("ruleContext", ctx);
-    update("config_common", new ConfigSkylarkCommon());
-    String value = (String) eval("ruleContext.attr.flag[config_common.FeatureFlagInfo].value");
+    StarlarkRuleContext ctx =
+        new StarlarkRuleContext(getRuleContextForStarlark(wrapper), null, getStarlarkSemantics());
+    ev.update("ruleContext", ctx);
+    ev.update("config_common", new ConfigStarlarkCommon());
+    String value = (String) ev.eval("ruleContext.attr.flag[config_common.FeatureFlagInfo].value");
     assertThat(value).isEqualTo("configured");
   }
 
@@ -206,7 +216,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
   }
 
   @Test
-  public void configFeatureFlagProvider_valueValidationIsPossibleFromSkylark() throws Exception {
+  public void configFeatureFlagProvider_valueValidationIsPossibleFromStarlark() throws Exception {
     scratch.file(
         "test/wrapper.bzl",
         "def _flag_reading_wrapper_impl(ctx):",
@@ -228,17 +238,17 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "    allowed_values = ['default', 'configured', 'other'],",
         "    default_value = 'default',",
         ")");
-    SkylarkRuleContext ctx = createRuleContext("//test:wrapper");
-    update("ruleContext", ctx);
-    update("config_common", new ConfigSkylarkCommon());
+    StarlarkRuleContext ctx = createRuleContext("//test:wrapper");
+    ev.update("ruleContext", ctx);
+    ev.update("config_common", new ConfigStarlarkCommon());
     String provider = "ruleContext.attr.flag[config_common.FeatureFlagInfo]";
-    Boolean isDefaultValid = (Boolean) eval(provider + ".is_valid_value('default')");
-    Boolean isConfiguredValid = (Boolean) eval(provider + ".is_valid_value('configured')");
-    Boolean isOtherValid = (Boolean) eval(provider + ".is_valid_value('other')");
-    Boolean isAbsentValid = (Boolean) eval(provider + ".is_valid_value('absent')");
+    Boolean isDefaultValid = (Boolean) ev.eval(provider + ".is_valid_value('default')");
+    Boolean isConfiguredValid = (Boolean) ev.eval(provider + ".is_valid_value('configured')");
+    Boolean isOtherValid = (Boolean) ev.eval(provider + ".is_valid_value('other')");
+    Boolean isAbsentValid = (Boolean) ev.eval(provider + ".is_valid_value('absent')");
     Boolean isIncorrectCapitalizationValid =
-        (Boolean) eval(provider + ".is_valid_value('conFigured')");
-    Boolean isIncorrectSpacingValid = (Boolean) eval(provider + ".is_valid_value('  other')");
+        (Boolean) ev.eval(provider + ".is_valid_value('conFigured')");
+    Boolean isIncorrectSpacingValid = (Boolean) ev.eval(provider + ".is_valid_value('  other')");
 
     assertThat(isDefaultValid).isTrue();
     assertThat(isConfiguredValid).isTrue();
@@ -381,7 +391,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "    default_value = 'default',",
         ")");
     assertThat(getConfiguredTarget("//test:top")).isNull();
-    // TODO(mstaib): when configurationError is implemented, switch to testing for that
+    // TODO(b/140635901): when configurationError is implemented, switch to testing for that
     assertContainsEvent(
         "in config_feature_flag rule //test:flag: "
             + "value must be one of [\"configured\", \"default\", \"other\"], but was \"invalid\"");
@@ -391,7 +401,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
   public void policy_mustContainRulesPackage() throws Exception {
     reporter.removeHandler(failFastHandler); // expecting an error
     scratch.overwriteFile(
-        "tools/whitelists/config_feature_flag/BUILD",
+        "tools/allowlists/config_feature_flag/BUILD",
         "package_group(name = 'config_feature_flag', packages = ['//some/other'])");
     scratch.file(
         "test/BUILD",
@@ -409,7 +419,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
   @Test
   public void policy_doesNotBlockRuleIfInPackageGroup() throws Exception {
     scratch.overwriteFile(
-        "tools/whitelists/config_feature_flag/BUILD",
+        "tools/allowlists/config_feature_flag/BUILD",
         "package_group(name = 'config_feature_flag', packages = ['//test'])");
     scratch.file(
         "test/BUILD",

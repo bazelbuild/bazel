@@ -14,15 +14,19 @@
 
 package com.google.devtools.build.buildjar;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.MoreFiles;
 import com.google.devtools.build.buildjar.instrumentation.JacocoInstrumentationProcessor;
 import com.google.devtools.build.buildjar.javac.BlazeJavacArguments;
+import com.google.devtools.build.buildjar.javac.JavacOptions;
+import com.google.devtools.build.buildjar.javac.JavacOptions.FilteredJavacopts;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
 import com.google.devtools.build.buildjar.javac.plugins.processing.AnnotationProcessingModule;
@@ -54,10 +58,11 @@ public final class JavaLibraryBuildRequest {
   private final ImmutableList<Path> sourcePath;
   private final ImmutableList<Path> classPath;
   private final ImmutableList<Path> bootClassPath;
-  private final ImmutableList<Path> extClassPath;
+  private final Path system;
 
   private final ImmutableList<Path> processorPath;
   private final List<String> processorNames;
+  private final ImmutableSet<String> builtinProcessorNames;
 
   private final Path outputJar;
   private final Path nativeHeaderOutput;
@@ -122,10 +127,7 @@ public final class JavaLibraryBuildRequest {
     }
     depsBuilder.addDepsArtifacts(asPaths(optionsParser.getDepsArtifacts()));
     depsBuilder.setPlatformJars(
-        ImmutableSet.<Path>builder()
-            .addAll(asPaths(optionsParser.getBootClassPath()))
-            .addAll(asPaths(optionsParser.getExtClassPath()))
-            .build());
+        optionsParser.getBootClassPath().stream().map(Paths::get).collect(toImmutableSet()));
     if (optionsParser.reduceClasspathMode() != OptionsParser.ReduceClasspathMode.NONE) {
       depsBuilder.setReduceClasspath();
     }
@@ -133,15 +135,14 @@ public final class JavaLibraryBuildRequest {
       depsBuilder.setTargetLabel(optionsParser.getTargetLabel());
     }
     this.dependencyModule = depsBuilder.build();
+    this.sourceGenDir =
+        deriveDirectory(optionsParser.getTargetLabel(), optionsParser.getOutputJar(), "_sources");
 
     AnnotationProcessingModule.Builder processingBuilder = AnnotationProcessingModule.builder();
-    if (optionsParser.getSourceGenDir() != null) {
-      processingBuilder.setSourceGenDir(Paths.get(optionsParser.getSourceGenDir()));
-    }
+    processingBuilder.setSourceGenDir(sourceGenDir);
     if (optionsParser.getManifestProtoPath() != null) {
       processingBuilder.setManifestProtoPath(Paths.get(optionsParser.getManifestProtoPath()));
     }
-    processingBuilder.addAllSourceRoots(optionsParser.getSourceRoots());
     this.processingModule = processingBuilder.build();
 
     ImmutableList.Builder<BlazeJavaCompilerPlugin> pluginsBuilder =
@@ -159,13 +160,14 @@ public final class JavaLibraryBuildRequest {
     this.classPath = asPaths(optionsParser.getClassPath());
     this.sourcePath = asPaths(optionsParser.getSourcePath());
     this.bootClassPath = asPaths(optionsParser.getBootClassPath());
-    this.extClassPath = asPaths(optionsParser.getExtClassPath());
+    this.system = asPath(optionsParser.getSystem());
     this.processorPath = asPaths(optionsParser.getProcessorPath());
     this.processorNames = optionsParser.getProcessorNames();
-    // Since the default behavior of this tool with no arguments is "rm -fr <classDir>", let's not
-    // default to ".", shall we?
-    this.classDir = asPath(firstNonNull(optionsParser.getClassDir(), "classes"));
-    this.tempDir = asPath(firstNonNull(optionsParser.getTempDir(), "_tmp"));
+    this.builtinProcessorNames = ImmutableSet.copyOf(optionsParser.getBuiltinProcessorNames());
+    this.classDir =
+        deriveDirectory(optionsParser.getTargetLabel(), optionsParser.getOutputJar(), "_classes");
+    this.tempDir =
+        deriveDirectory(optionsParser.getTargetLabel(), optionsParser.getOutputJar(), "_tmp");
     this.outputJar = asPath(optionsParser.getOutputJar());
     this.nativeHeaderOutput = asPath(optionsParser.getNativeHeaderOutput());
     for (Map.Entry<String, List<String>> entry : optionsParser.getPostProcessors().entrySet()) {
@@ -179,11 +181,28 @@ public final class JavaLibraryBuildRequest {
       }
     }
     this.javacOpts = ImmutableList.copyOf(optionsParser.getJavacOpts());
-    this.sourceGenDir = asPath(optionsParser.getSourceGenDir());
     this.generatedSourcesOutputJar = asPath(optionsParser.getGeneratedSourcesOutputJar());
     this.generatedClassOutputJar = asPath(optionsParser.getManifestProtoPath());
     this.targetLabel = optionsParser.getTargetLabel();
     this.injectingRuleKind = optionsParser.getInjectingRuleKind();
+  }
+
+  /**
+   * Derive a temporary directory path based on the path to the output jar, to avoid breaking
+   * fragile assumptions made by the implementation of javahotswap.
+   */
+  // TODO(b/169793789): kill this with fire if javahotswap starts using jars instead of classes
+  @VisibleForTesting
+  static Path deriveDirectory(String label, String outputJar, String suffix) throws IOException {
+    checkArgument(label != null, "--target_label is required");
+    checkArgument(outputJar != null, "--output is required");
+    checkArgument(
+        label.contains(":"), "--target_label must be a canonical label (containing a `:`)");
+
+    Path path = Paths.get(outputJar);
+    String name = MoreFiles.getNameWithoutExtension(path);
+    String base = label.substring(label.lastIndexOf(':') + 1);
+    return path.resolveSibling("_javac").resolve(base).resolve(name + suffix);
   }
 
   private static ImmutableList<Path> asPaths(Collection<String> paths) {
@@ -197,10 +216,6 @@ public final class JavaLibraryBuildRequest {
 
   public ImmutableList<String> getJavacOpts() {
     return javacOpts;
-  }
-
-  public void setJavacOpts(List<String> javacOpts) {
-    this.javacOpts = ImmutableList.copyOf(javacOpts);
   }
 
   public Path getSourceGenDir() {
@@ -236,8 +251,8 @@ public final class JavaLibraryBuildRequest {
     return bootClassPath;
   }
 
-  public ImmutableList<Path> getExtClassPath() {
-    return extClassPath;
+  public Path getSystem() {
+    return system;
   }
 
   public ImmutableList<Path> getProcessorPath() {
@@ -317,18 +332,25 @@ public final class JavaLibraryBuildRequest {
         BlazeJavacArguments.builder()
             .classPath(classPath)
             .classOutput(getClassDir())
-            .bootClassPath(
-                ImmutableList.<Path>builder()
-                    .addAll(getBootClassPath())
-                    .addAll(getExtClassPath())
-                    .build())
-            .javacOptions(makeJavacArguments())
+            .bootClassPath(getBootClassPath())
+            .system(getSystem())
             .sourceFiles(ImmutableList.copyOf(getSourceFiles()))
-            .processors(null)
+            .builtinProcessors(builtinProcessorNames)
             .sourcePath(getSourcePath())
             .sourceOutput(getSourceGenDir())
             .processorPath(getProcessorPath())
             .plugins(getPlugins());
+    addJavacArguments(builder);
+    // Performance optimization: when reduced classpaths are enabled, stop the compilation after
+    // the first diagnostic that would result in fallback to the transitive classpath. The user
+    // only sees diagnostics from the fallback compilation, so collecting additional diagnostics
+    // from the reduced classpath compilation is a waste of time.
+    // Exception: this doesn't hold if annotation processing is enabled, since diagnostics may be
+    // resolved during subsequent processing rounds.
+    if (reduceClasspathMode.equals(OptionsParser.ReduceClasspathMode.BAZEL_REDUCED)
+        && getProcessors().isEmpty()) {
+      builder.failFast(getProcessors().isEmpty());
+    }
     if (getNativeHeaderOutput() != null) {
       builder.nativeHeaderOutput(getNativeHeaderDir());
     }
@@ -336,11 +358,17 @@ public final class JavaLibraryBuildRequest {
   }
 
   /** Constructs a command line that can be used for a javac invocation. */
-  ImmutableList<String> makeJavacArguments() {
+  void addJavacArguments(BlazeJavacArguments.Builder builder) {
+    FilteredJavacopts filtered = JavacOptions.filterJavacopts(getJavacOpts());
+    builder.blazeJavacOptions(filtered.bazelJavacopts());
+
+    ImmutableList<String> javacOpts = filtered.standardJavacopts();
+
     ImmutableList.Builder<String> javacArguments = ImmutableList.builder();
+
     // default to -implicit:none, but allow the user to override with -implicit:class.
     javacArguments.add("-implicit:none");
-    javacArguments.addAll(getJavacOpts());
+    javacArguments.addAll(javacOpts);
 
     if (!getProcessors().isEmpty() && !getSourceFiles().isEmpty()) {
       // ImmutableSet.copyOf maintains order
@@ -354,7 +382,7 @@ public final class JavaLibraryBuildRequest {
       javacArguments.add("-proc:none");
     }
 
-    for (String option : getJavacOpts()) {
+    for (String option : javacOpts) {
       if (option.startsWith("-J")) { // ignore the VM options.
         continue;
       }
@@ -367,6 +395,6 @@ public final class JavaLibraryBuildRequest {
       }
     }
 
-    return javacArguments.build();
+    builder.javacOptions(javacArguments.build());
   }
 }

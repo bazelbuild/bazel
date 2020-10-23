@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: BUILD Style Guide
+title: BUILD style guide
 ---
 
-# BUILD Style Guide
+# BUILD style guide
 
 
 In `BUILD` files, we take the same approach as in Go: We let the machine take care
@@ -17,22 +17,11 @@ generate `BUILD` files.
 `BUILD` file formatting must match the output of `buildifier`.
 
 
-## Contents
-
-- [Formatting example](#formatting-example)
-- [File structure](#file-structure)
-- [References to targets in the current package](#references-to-targets-in-the-current-package)
-- [Target naming](#target-naming)
-- [Visibility](#visibility)
-- [Dependencies](#dependencies)
-- [Globs](#globs)
-- [Other conventions](#other-conventions)
-- [Differences with Python style guide](#differences-with-python-style-guide)
-
 ## Formatting example
 
 ```python
-package(default_visibility = ["//visibility:public"])
+# Test code implementing the Foo controller.
+package(default_testonly = True)
 
 py_test(
     name = "foo_test",
@@ -57,13 +46,13 @@ py_test(
 
 We recommend to use the following order (every element is optional):
 
-  * Package description (a comment)
+*   Package description (a comment)
 
-  * All `load()` statements
+*   All `load()` statements
 
-  * The `package()` function.
+*   The `package()` function.
 
-  * Calls to rules and macros
+*   Calls to rules and macros
 
 Buildifier makes a distinction between a standalone comment and a comment
 attached to an element. If a comment is not attached to a specific element, use
@@ -89,11 +78,11 @@ example, assuming `x.cc` is a source file:
 cc_library(
     name = "lib",
     srcs = ["x.cc"],
-    hdrs = [":gen-header"],
+    hdrs = [":gen_header"],
 )
 
 genrule(
-    name = "gen-header",
+    name = "gen_header",
     srcs = [],
     outs = ["x.h"],
     cmd = "echo 'int x();' > $@",
@@ -103,8 +92,9 @@ genrule(
 ## Target naming
 
 Target names should be descriptive. If a target contains one source file,
-the target should generally be named after that source (e.g., a `cc_library`
-for `chat.cc` should be named "`chat`").
+the target should generally have a name derived from that source (e.g., a
+`cc_library` for `chat.cc` could be named "`chat`", or a `java_library` for
+`DirectMessage.java` could be named "`direct_message`").
 
 The eponymous target for a package (the target with the same name as the
 containing directory) should provide the functionality described by the
@@ -114,6 +104,35 @@ target.
 Prefer using the short name when referring to an eponymous target (`//x`
 instead of `//x:x`). If you are in the same package, prefer the local
 reference (`:x` instead of `//x`).
+
+Avoid using "reserved" target names which have special meaning.  This includes
+"`all`", "`__pkg__`", and "`__subpackages__`", these names have special
+semantics and can cause confusion and unexpected behaviors when they are used.
+
+In the absence of a prevailing team convention these are some non-binding
+recommendations that are broadly used at Google:
+
+* In general, use ["snake_case"](https://en.wikipedia.org/wiki/Snake_case)
+    * For a java_library with one src this would mean using a name that is not
+      the same as the filename without the extension
+    * For Java \*\_binary and \*\_test rules use
+      ["Upper CamelCase"](https://en.wikipedia.org/wiki/Camel_case).  This
+      allows for the target name to match one of the srcs. For
+      java\_test, this makes it possible for the test\_class attribute to be
+      inferred from the name of the target.
+* If there are multiple variants of a particular target then add a suffix to
+  disambiguate (i.e. :foo_dev, :foo_prod or :bar_x86, :bar_x64)
+* \_test targets should be suffixed with "\_test", "\_unittest", "Test", or
+  "Tests"
+* Avoid meaningless suffixes like "\_lib" or "\_library" (unless necessary to
+  avoid conflicts between a \_library target and its corresponding \_binary)
+* For proto related targets:
+    * proto_library targets should have names ending in "\_proto"
+    * Languages specific \*\_proto_library rules should match the underlying
+      proto but replace "\_proto" with a language specific suffix such as:
+         * cc_proto_library: "\_cc\_proto"
+         * java_proto_library: "\_java\_proto"
+         * java_lite_proto_library: "\_java_proto_lite"
 
 ## Visibility
 
@@ -150,14 +169,15 @@ is more error-prone and less obvious than an empty list.
 
 ### Recursive
 
-Do not use recursive globs (for example, `glob(["**/*.java"])`).
+Do not use recursive globs to match source files (for example,
+`glob(["**/*.java"])`).
 
 Recursive globs make BUILD files difficult to reason about because they skip
 subdirectories containing BUILD files.
 
 Recursive globs are generally less efficient than having a BUILD file per
 directory with a dependency graph defined between them as this enables better
-forge caching and parallelism.
+remote caching and parallelism.
 
 We recommend authoring a BUILD file per directory and defining a dependency
 graph between them instead.

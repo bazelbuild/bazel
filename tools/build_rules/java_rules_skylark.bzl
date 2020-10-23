@@ -62,7 +62,7 @@ def _java_library_impl(ctx):
     if ctx.files.srcjars:
         files += " @" + javalist_output
         for file in ctx.files.srcjars:
-            cmd += "%s tf %s | grep '\.java$' | sed 's|^|%s/|' >> %s\n" % (jar_path, file.path, java_output, javalist_output)
+            cmd += "%s tf %s | grep '\\.java$' | sed 's|^|%s/|' >> %s\n" % (jar_path, file.path, java_output, javalist_output)
             cmd += "unzip %s -d %s >/dev/null\n" % (file.path, java_output)
 
     if ctx.files.srcs or ctx.files.srcjars:
@@ -120,14 +120,14 @@ def _java_binary_impl(ctx):
 
     # Cleaning build output directory
     cmd = "set -e;rm -rf " + build_output + ";mkdir " + build_output + "\n"
-    for jar in library_result[1].runtime_jars:
+    for jar in library_result[1].runtime_jars.to_list():
         cmd += "unzip -qn " + jar.path + " -d " + build_output + "\n"
     cmd += (jar_path + " cmf " + manifest.path + " " +
             deploy_jar.path + " -C " + build_output + " .\n" +
             "touch " + build_output + "\n")
 
     ctx.actions.run_shell(
-        inputs = list(library_result[1].runtime_jars) + [manifest] + ctx.files._jdk,
+        inputs = library_result[1].runtime_jars.to_list() + [manifest] + ctx.files._jdk,
         outputs = [deploy_jar],
         mnemonic = "Deployjar",
         command = cmd,

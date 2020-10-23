@@ -309,7 +309,6 @@ function test_native_python_with_python3() {
 
 function test_python_test_with_data() {
   touch BUILD
-  touch WORKSPACE
 
   mkdir data
   cat >data/BUILD <<EOF

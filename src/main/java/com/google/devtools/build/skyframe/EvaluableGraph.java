@@ -14,6 +14,8 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
+import com.google.devtools.build.lib.supplier.MemoizingInterruptibleSupplier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.Map;
@@ -52,7 +54,7 @@ interface EvaluableGraph extends QueryableGraph, DeletableGraph {
   @CanIgnoreReturnValue
   default InterruptibleSupplier<Map<SkyKey, ? extends NodeEntry>> createIfAbsentBatchAsync(
       @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
-    return InterruptibleSupplier.Memoize.of(() -> createIfAbsentBatch(requestor, reason, keys));
+    return MemoizingInterruptibleSupplier.of(() -> createIfAbsentBatch(requestor, reason, keys));
   }
 
   /**

@@ -17,13 +17,17 @@ import static java.nio.file.StandardOpenOption.CREATE_NEW;
 
 import com.android.SdkConstants;
 import com.android.resources.ResourceType;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -39,27 +43,59 @@ import org.objectweb.asm.commons.InstructionAdapter;
 public class RClassGenerator {
   private static final int JAVA_VERSION = Opcodes.V1_7;
   private static final String SUPER_CLASS = "java/lang/Object";
+
+  static final String PROVENANCE_ANNOTATION_CLASS_DESCRIPTOR =
+      "Lcom/google/devtools/build/android/resources/Provenance;";
+  static final String PROVENANCE_ANNOTATION_LABEL_KEY = "label";
+
+  private final String label;
   private final Path outFolder;
   private final FieldInitializers initializers;
   private final boolean finalFields;
+  private final boolean annotateTransitiveFields;
   private static final Splitter PACKAGE_SPLITTER = Splitter.on('.');
 
   /**
    * Create an RClassGenerator given a collection of initializers.
    *
+   * @param label Bazel target which owns the generated R class
    * @param outFolder base folder to place the output R class files.
    * @param initializers the list of initializers to use for each inner class
    * @param finalFields true if the fields should be marked final
+   * @param annotateTransitiveFields whether the R class and fields from transitive dependencies
+   *     should be annotated.
    */
   public static RClassGenerator with(
-      Path outFolder, FieldInitializers initializers, boolean finalFields) {
-    return new RClassGenerator(outFolder, initializers, finalFields);
+      String label,
+      Path outFolder,
+      FieldInitializers initializers,
+      boolean finalFields,
+      boolean annotateTransitiveFields) {
+    return new RClassGenerator(
+        label, outFolder, initializers, finalFields, annotateTransitiveFields);
   }
 
-  private RClassGenerator(Path outFolder, FieldInitializers initializers, boolean finalFields) {
+  @VisibleForTesting
+  static RClassGenerator with(Path outFolder, FieldInitializers initializers, boolean finalFields) {
+    return new RClassGenerator(
+        /* label= */ null,
+        outFolder,
+        initializers,
+        finalFields,
+        /*annotateTransitiveFields=*/ false);
+  }
+
+  private RClassGenerator(
+      String label,
+      Path outFolder,
+      FieldInitializers initializers,
+      boolean finalFields,
+      boolean annotateTransitiveFields) {
+    this.label = label;
     this.outFolder = outFolder;
-    this.finalFields = finalFields;
     this.initializers = initializers;
+    this.finalFields = finalFields;
+    this.annotateTransitiveFields = annotateTransitiveFields;
   }
 
   /**
@@ -77,7 +113,7 @@ public class RClassGenerator {
 
   private void writeClasses(
       String packageName,
-      Iterable<Map.Entry<ResourceType, Map<String, FieldInitializer>>> initializersToWrite)
+      Iterable<Map.Entry<ResourceType, Collection<FieldInitializer>>> initializersToWrite)
       throws IOException {
 
     Iterable<String> folders = PACKAGE_SPLITTER.split(packageName);
@@ -105,10 +141,16 @@ public class RClassGenerator {
         null, /* signature */
         SUPER_CLASS,
         null /* interfaces */);
+    if (annotateTransitiveFields) {
+      AnnotationVisitor av =
+          classWriter.visitAnnotation(PROVENANCE_ANNOTATION_CLASS_DESCRIPTOR, /*visible=*/ true);
+      av.visit(PROVENANCE_ANNOTATION_LABEL_KEY, label);
+      av.visitEnd();
+    }
     classWriter.visitSource(SdkConstants.FN_RESOURCE_CLASS, null);
     writeConstructor(classWriter);
     // Build the R.class w/ the inner classes, then later build the individual R$inner.class.
-    for (Map.Entry<ResourceType, Map<String, FieldInitializer>> entry : initializersToWrite) {
+    for (Map.Entry<ResourceType, Collection<FieldInitializer>> entry : initializersToWrite) {
       String innerClassName = rClassName + "$" + entry.getKey().toString();
       classWriter.visitInnerClass(
           innerClassName,
@@ -119,13 +161,13 @@ public class RClassGenerator {
     classWriter.visitEnd();
     Files.write(rClassFile, classWriter.toByteArray(), CREATE_NEW);
     // Now generate the R$inner.class files.
-    for (Map.Entry<ResourceType, Map<String, FieldInitializer>> entry : initializersToWrite) {
+    for (Map.Entry<ResourceType, Collection<FieldInitializer>> entry : initializersToWrite) {
       writeInnerClass(entry.getValue(), packageDir, rClassName, entry.getKey().toString());
     }
   }
 
   private void writeInnerClass(
-      Map<String, FieldInitializer> initializers,
+      Collection<FieldInitializer> initializers,
       Path packageDir,
       String fullyQualifiedOuterClass,
       String innerClass)
@@ -134,18 +176,12 @@ public class RClassGenerator {
     String fullyQualifiedInnerClass =
         writeInnerClassHeader(fullyQualifiedOuterClass, innerClass, innerClassWriter);
 
-    Map<String, FieldInitializer> deferredInitializers = new LinkedHashMap<>();
-    int fieldAccessLevel = Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC;
-    if (finalFields) {
-      fieldAccessLevel |= Opcodes.ACC_FINAL;
-    }
-    for (Map.Entry<String, FieldInitializer> entry : initializers.entrySet()) {
-      FieldInitializer init = entry.getValue();
+    List<FieldInitializer> deferredInitializers = new ArrayList<>();
+    for (FieldInitializer init : initializers) {
       JavaIdentifierValidator.validate(
-          entry.getKey(), "in class:", fullyQualifiedInnerClass, "and package:", packageDir);
-      if (init.writeFieldDefinition(
-          entry.getKey(), innerClassWriter, fieldAccessLevel, finalFields)) {
-        deferredInitializers.put(entry.getKey(), init);
+          init.getFieldName(), "in class:", fullyQualifiedInnerClass, "and package:", packageDir);
+      if (init.writeFieldDefinition(innerClassWriter, finalFields, annotateTransitiveFields)) {
+        deferredInitializers.add(init);
       }
     }
     if (!deferredInitializers.isEmpty()) {
@@ -192,17 +228,15 @@ public class RClassGenerator {
   private static void writeStaticClassInit(
       ClassWriter classWriter,
       String className,
-      Map<String, FieldInitializer> deferredInitializers) {
+      Collection<FieldInitializer> deferredInitializers) {
     MethodVisitor visitor =
         classWriter.visitMethod(
             Opcodes.ACC_STATIC, "<clinit>", "()V", null, /* signature */ null /* exceptions */);
     visitor.visitCode();
     int stackSlotsNeeded = 0;
     InstructionAdapter insts = new InstructionAdapter(visitor);
-    for (Map.Entry<String, FieldInitializer> fieldEntry : deferredInitializers.entrySet()) {
-      final FieldInitializer fieldInit = fieldEntry.getValue();
-      stackSlotsNeeded =
-          Math.max(stackSlotsNeeded, fieldInit.writeCLInit(fieldEntry.getKey(), insts, className));
+    for (FieldInitializer fieldInit : deferredInitializers) {
+      stackSlotsNeeded = Math.max(stackSlotsNeeded, fieldInit.writeCLInit(insts, className));
     }
     insts.areturn(Type.VOID_TYPE);
     visitor.visitMaxs(stackSlotsNeeded, 0);

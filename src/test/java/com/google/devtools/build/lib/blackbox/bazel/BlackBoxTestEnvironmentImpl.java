@@ -40,7 +40,7 @@ public class BlackBoxTestEnvironmentImpl extends BlackBoxTestEnvironment {
         new BlackBoxTestContext(
             testName, "bazel", binaryPath, Collections.emptyMap(), executorService);
     // Any Bazel command requires that workspace is already set up.
-    testContext.write("WORKSPACE", "workspace(name = 'main')");
+    testContext.write("WORKSPACE", "workspace(name = 'main')", getWorkspaceWithDefaultRepos());
 
     List<ToolsSetup> allTools = Lists.newArrayList(new DefaultToolsSetup());
     allTools.addAll(tools);

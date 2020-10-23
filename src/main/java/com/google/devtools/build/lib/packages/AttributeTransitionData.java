@@ -14,13 +14,13 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.auto.value.AutoValue;
-import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import javax.annotation.Nullable;
 
 /**
- * Helper class which contains data used by a {@link TransitionFactory} to create a transition for
- * attributes.
+ * Helper class which contains data used by a {@link
+ * com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory} to create a
+ * transition for attributes.
  */
 @AutoValue
 public abstract class AttributeTransitionData {
@@ -34,14 +34,21 @@ public abstract class AttributeTransitionData {
   @Nullable
   public abstract Label executionPlatform();
 
-  /** Returns a new {@link AttributeTransitionData} instance. */
-  public static AttributeTransitionData create(AttributeMap attributes) {
-    return create(attributes, null);
+  /** Returns a new {@link Builder} for {@link AttributeTransitionData}. */
+  public static Builder builder() {
+    return new AutoValue_AttributeTransitionData.Builder();
   }
 
-  /** Returns a new {@link AttributeTransitionData} instance. */
-  public static AttributeTransitionData create(
-      AttributeMap attributes, @Nullable Label executionPlatform) {
-    return new AutoValue_AttributeTransitionData(attributes, executionPlatform);
+  /** Builder class for {@link AttributeTransitionData}. */
+  @AutoValue.Builder
+  public abstract static class Builder {
+    /** Sets the attributes. */
+    public abstract Builder attributes(AttributeMap attributes);
+
+    /** Sets the execution platform label. */
+    public abstract Builder executionPlatform(@Nullable Label executionPlatform);
+
+    /** Returns the new {@link AttributeTransitionData}. */
+    public abstract AttributeTransitionData build();
   }
 }

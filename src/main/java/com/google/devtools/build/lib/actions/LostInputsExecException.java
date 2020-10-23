@@ -17,10 +17,13 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.util.io.FileOutErr;
-import com.google.devtools.build.lib.vfs.Path;
-import java.util.Set;
-import javax.annotation.Nullable;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.server.FailureDetails.Execution;
+import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * An {@link ExecException} thrown when an action fails to execute because one or more of its inputs
@@ -28,14 +31,27 @@ import javax.annotation.Nullable;
  */
 public class LostInputsExecException extends ExecException {
 
+  /** Maps lost input digests to their ActionInputs. */
   private final ImmutableMap<String, ActionInput> lostInputs;
-  private final InputOwners inputOwners;
+
+  private final ActionInputDepOwners owners;
 
   public LostInputsExecException(
-      ImmutableMap<String, ActionInput> lostInputs, InputOwners inputOwners) {
-    super("lost inputs with digests: " + Joiner.on(",").join(lostInputs.keySet()));
+      ImmutableMap<String, ActionInput> lostInputs, ActionInputDepOwners owners) {
+    super(getMessage(lostInputs));
     this.lostInputs = lostInputs;
-    this.inputOwners = inputOwners;
+    this.owners = owners;
+  }
+
+  public LostInputsExecException(
+      ImmutableMap<String, ActionInput> lostInputs, ActionInputDepOwners owners, Throwable cause) {
+    super(getMessage(lostInputs), cause);
+    this.lostInputs = lostInputs;
+    this.owners = owners;
+  }
+
+  private static String getMessage(ImmutableMap<String, ActionInput> lostInputs) {
+    return "lost inputs with digests: " + Joiner.on(",").join(lostInputs.keySet());
   }
 
   @VisibleForTesting
@@ -44,102 +60,58 @@ public class LostInputsExecException extends ExecException {
   }
 
   @VisibleForTesting
-  public InputOwners getInputOwners() {
-    return inputOwners;
+  public ActionInputDepOwners getOwners() {
+    return owners;
   }
 
   @Override
-  public ActionExecutionException toActionExecutionException(
-      String messagePrefix, boolean verboseFailures, Action action) {
-    String message = messagePrefix + " failed";
-    return new LostInputsActionExecutionException(message, this, action);
+  protected ActionExecutionException toActionExecutionException(
+      String message, Action action, DetailedExitCode code) {
+    return new LostInputsActionExecutionException(
+        message, lostInputs, owners, action, /*cause=*/ this, code);
   }
 
-  /** An {@link ActionExecutionException} wrapping a {@link LostInputsExecException}. */
-  public static class LostInputsActionExecutionException extends ActionExecutionException {
-
-    /**
-     * If an ActionStartedEvent was emitted, then:
-     *
-     * <ul>
-     *   <li>if rewinding is attempted, then an ActionRewindEvent should be emitted.
-     *   <li>if rewinding fails, then an ActionCompletionEvent should be emitted.
-     * </ul>
-     */
-    private boolean actionStartedEventAlreadyEmitted;
-
-    /** Used to report the action execution failure if rewinding also fails. */
-    private Path primaryOutputPath;
-
-    /**
-     * Used to report the action execution failure if rewinding also fails. Note that this will be
-     * closed, so it may only be used for reporting.
-     */
-    private FileOutErr fileOutErr;
-
-    /** Used to inform rewinding that lost inputs were found during input discovery. */
-    private boolean fromInputDiscovery;
-
-    private LostInputsActionExecutionException(
-        String message, LostInputsExecException cause, Action action) {
-      super(message, cause, action, /*catastrophe=*/ false);
-    }
-
-    public ImmutableMap<String, ActionInput> getLostInputs() {
-      return ((LostInputsExecException) getCause()).getLostInputs();
-    }
-
-    public InputOwners getInputOwners() {
-      return ((LostInputsExecException) getCause()).getInputOwners();
-    }
-
-    public Path getPrimaryOutputPath() {
-      return primaryOutputPath;
-    }
-
-    public void setPrimaryOutputPath(Path primaryOutputPath) {
-      this.primaryOutputPath = primaryOutputPath;
-    }
-
-    public FileOutErr getFileOutErr() {
-      return fileOutErr;
-    }
-
-    public void setFileOutErr(FileOutErr fileOutErr) {
-      this.fileOutErr = fileOutErr;
-    }
-
-    public boolean isActionStartedEventAlreadyEmitted() {
-      return actionStartedEventAlreadyEmitted;
-    }
-
-    public void setActionStartedEventAlreadyEmitted() {
-      this.actionStartedEventAlreadyEmitted = true;
-    }
-
-    public boolean isFromInputDiscovery() {
-      return fromInputDiscovery;
-    }
-
-    public void setFromInputDiscovery() {
-      this.fromInputDiscovery = true;
-    }
+  @Override
+  protected FailureDetail getFailureDetail(String message) {
+    return FailureDetail.newBuilder()
+        .setExecution(Execution.newBuilder().setCode(Code.ACTION_INPUT_LOST))
+        .setMessage(message)
+        .build();
   }
 
-  /**
-   * Specifies the owning {@link Artifact}s that were responsible for the lost inputs and whether
-   * the inputs came from runfiles.
-   */
-  public interface InputOwners {
+  public void combineAndThrow(LostInputsExecException other) throws LostInputsExecException {
+    // This uses a HashMap when merging the two lostInputs maps because key collisions are expected.
+    // In contrast, ImmutableMap.Builder treats collisions as errors. Collisions will happen when
+    // the two sources of the original exceptions shared knowledge of what was lost. For example,
+    // a SpawnRunner may discover a lost input and look it up in an action filesystem in which it's
+    // also lost. The SpawnRunner and the filesystem may then each throw a LostInputsExecException
+    // with the same information.
+    Map<String, ActionInput> map = new HashMap<>();
+    map.putAll(lostInputs);
+    map.putAll(other.lostInputs);
+    LostInputsExecException combined =
+        new LostInputsExecException(
+            ImmutableMap.copyOf(map), new MergedActionInputDepOwners(owners, other.owners), this);
+    combined.addSuppressed(other);
+    throw combined;
+  }
 
-    /**
-     * Returns the owning {@link Artifact} that was responsible for the lost {@link ActionInput} or
-     * {@code null} if there is no such owner. Throws if {@code input} was not lost.
-     */
-    @Nullable
-    Artifact getOwner(ActionInput input);
+  private static class MergedActionInputDepOwners implements ActionInputDepOwners {
 
-    /** Returns the lost {@link ActionInput}s that came from runfiles along with their owners. */
-    Set<ActionInput> getRunfilesInputsAndOwners();
+    private final ActionInputDepOwners left;
+    private final ActionInputDepOwners right;
+
+    MergedActionInputDepOwners(ActionInputDepOwners left, ActionInputDepOwners right) {
+      this.left = left;
+      this.right = right;
+    }
+
+    @Override
+    public ImmutableSet<Artifact> getDepOwners(ActionInput input) {
+      return ImmutableSet.<Artifact>builder()
+          .addAll(left.getDepOwners(input))
+          .addAll(right.getDepOwners(input))
+          .build();
+    }
   }
 }

@@ -92,6 +92,10 @@ bool LaunchDataParser::GetLaunchInfo(const wstring& binary_path,
   unique_ptr<ifstream> binary =
       make_unique<ifstream>(AsAbsoluteWindowsPath(binary_path.c_str()).c_str(),
                             ios::binary | ios::in);
+  if (!binary->good()) {
+    PrintError(L"Cannot open the binary to read launch data");
+    return false;
+  }
   int64_t data_size = ReadDataSize(binary.get());
   if (data_size == 0) {
     PrintError(L"No data appended, cannot launch anything!");

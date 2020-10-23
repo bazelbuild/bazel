@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 
 package com.google.devtools.build.lib.remote;
 
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.channels.ReadableByteChannel;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
@@ -40,14 +42,14 @@ import javax.annotation.Nullable;
  *
  * <p>This implementation only supports creating local action outputs.
  */
-public class RemoteActionFileSystem extends DelegateFileSystem {
+class RemoteActionFileSystem extends DelegateFileSystem {
 
   private final Path execRoot;
   private final Path outputBase;
   private final ActionInputMap inputArtifactData;
   private final RemoteActionInputFetcher inputFetcher;
 
-  public RemoteActionFileSystem(
+  RemoteActionFileSystem(
       FileSystem localDelegate,
       PathFragment execRootFragment,
       String relativeOutputPath,
@@ -61,6 +63,11 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     this.inputFetcher = Preconditions.checkNotNull(inputFetcher, "inputFetcher");
   }
 
+  /** Returns true if {@code path} is a file that's stored remotely. */
+  boolean isRemote(Path path) {
+    return getRemoteInputMetadata(path) != null;
+  }
+
   @Override
   public String getFileSystemType(Path path) {
     return "remoteActionFS";
@@ -69,7 +76,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   @Override
   public boolean delete(Path path) throws IOException {
     RemoteFileArtifactValue m = getRemoteInputMetadata(path);
-    if (m != null) {
+    if (m == null) {
       return super.delete(path);
     }
     return true;
@@ -79,6 +86,12 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   protected InputStream getInputStream(Path path) throws IOException {
     downloadFileIfRemote(path);
     return super.getInputStream(path);
+  }
+
+  @Override
+  protected ReadableByteChannel createReadableByteChannel(Path path) throws IOException {
+    downloadFileIfRemote(path);
+    return super.createReadableByteChannel(path);
   }
 
   @Override
@@ -262,7 +275,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     return super.stat(path, followSymlinks);
   }
 
-  private FileStatus statFromRemoteMetadata(RemoteFileArtifactValue m) {
+  private static FileStatus statFromRemoteMetadata(RemoteFileArtifactValue m) {
     return new FileStatus() {
       @Override
       public boolean isFile() {
@@ -301,7 +314,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
       @Override
       public long getNodeId() {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("Cannot get node id for " + m);
       }
     };
   }

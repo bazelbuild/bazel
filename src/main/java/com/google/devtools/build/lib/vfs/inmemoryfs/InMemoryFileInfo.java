@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 package com.google.devtools.build.lib.vfs.inmemoryfs;
 
 import com.google.common.base.Preconditions;
@@ -22,6 +23,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.channels.ReadableByteChannel;
+import java.util.function.Consumer;
 
 /**
  * InMemoryFileInfo manages file contents by storing them entirely in memory.
@@ -66,6 +70,32 @@ public class InMemoryFileInfo extends FileInfo {
   }
 
   @Override
+  public ReadableByteChannel createReadableByteChannel() {
+    return new ReadableByteChannel() {
+      private int offset = 0;
+
+      @Override
+      public int read(ByteBuffer dst) {
+        if (offset >= content.length) {
+          return -1;
+        }
+        int length = Math.min(dst.remaining(), content.length - offset);
+        dst.put(content, offset, length);
+        offset += length;
+        return length;
+      }
+
+      @Override
+      public boolean isOpen() {
+        return true;
+      }
+
+      @Override
+      public void close() {}
+    };
+  }
+
+  @Override
   public synchronized OutputStream getOutputStream(boolean append) {
     OutputStream out = new InMemoryOutputStream(this::setContent);
     if (append) {
@@ -82,10 +112,10 @@ public class InMemoryFileInfo extends FileInfo {
    * A {@link ByteArrayOutputStream} which notifiers a callback when it has flushed its data.
    */
   public static class InMemoryOutputStream extends ByteArrayOutputStream {
-    private final IOByteReceiver receiver;
+    private final Consumer<byte[]> receiver;
     private boolean closed = false;
 
-    public InMemoryOutputStream(IOByteReceiver receiver) {
+    public InMemoryOutputStream(Consumer<byte[]> receiver) {
       this.receiver = receiver;
     }
 
@@ -108,22 +138,14 @@ public class InMemoryFileInfo extends FileInfo {
     }
 
     @Override
-    public synchronized void close() throws IOException {
+    public synchronized void close() {
       flush();
       closed = true;
     }
 
     @Override
-    public synchronized void flush() throws IOException {
+    public synchronized void flush() {
       receiver.accept(toByteArray().clone());
     }
-  }
-
-  /**
-   * Similar to {@link com.google.common.base.Receiver}, but allows implementations to throw
-   * {@link IOException}.
-   */
-  public interface IOByteReceiver {
-    void accept(byte[] bytes) throws IOException;
   }
 }

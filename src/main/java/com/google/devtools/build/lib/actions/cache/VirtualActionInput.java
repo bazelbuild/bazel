@@ -59,6 +59,11 @@ public interface VirtualActionInput extends ActionInput, StreamWriter {
     }
 
     @Override
+    public boolean isSymlink() {
+      return false;
+    }
+
+    @Override
     public String getExecPathString() {
       return execPath.getPathString();
     }

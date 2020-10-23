@@ -34,6 +34,8 @@ public class ShellConfigurationTest extends BuildViewTestCase {
         .isEqualTo(PathFragment.create("/bin/bash"));
     assertThat(determineShellExecutable(OS.FREEBSD, null))
         .isEqualTo(PathFragment.create("/usr/local/bin/bash"));
+    assertThat(determineShellExecutable(OS.OPENBSD, null))
+        .isEqualTo(PathFragment.create("/usr/local/bin/bash"));
     assertThat(determineShellExecutable(OS.WINDOWS, null))
         .isEqualTo(PathFragment.create("c:/tools/msys64/usr/bin/bash.exe"));
   }
@@ -44,6 +46,8 @@ public class ShellConfigurationTest extends BuildViewTestCase {
     assertThat(determineShellExecutable(OS.LINUX, binBash))
         .isEqualTo(PathFragment.create("/bin/bash"));
     assertThat(determineShellExecutable(OS.FREEBSD, binBash))
+        .isEqualTo(PathFragment.create("/bin/bash"));
+    assertThat(determineShellExecutable(OS.OPENBSD, binBash))
         .isEqualTo(PathFragment.create("/bin/bash"));
     assertThat(determineShellExecutable(OS.WINDOWS, binBash))
         .isEqualTo(PathFragment.create("/bin/bash"));

@@ -16,13 +16,14 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.SkylarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.skylarkbuildapi.ActionsInfoProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.ActionsInfoProviderApi;
 import java.util.HashMap;
 import java.util.Map;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.syntax.Location;
 
 /**
  * This provides a view over the actions that were created during the analysis of a rule
@@ -45,12 +46,11 @@ public final class ActionsProvider extends BuiltinProvider<StructImpl>
       for (Artifact artifact : action.getOutputs()) {
         // In the case that two actions generated the same artifact, the first wins. They
         // ought to be equal anyway.
-        if (!map.containsKey(artifact)) {
-          map.put(artifact, action);
-        }
+        map.putIfAbsent(artifact, action);
       }
     }
-    ImmutableMap<String, Object> fields = ImmutableMap.<String, Object>of("by_file", map);
-    return SkylarkInfo.createSchemaless(INSTANCE, fields, Location.BUILTIN);
+    ImmutableMap<String, Object> fields =
+        ImmutableMap.<String, Object>of("by_file", Starlark.fromJava(map, /*mutability=*/ null));
+    return StarlarkInfo.create(INSTANCE, fields, Location.BUILTIN);
   }
 }

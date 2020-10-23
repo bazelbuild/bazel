@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkProvider;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,7 +35,7 @@ import org.junit.runners.JUnit4;
 public final class XcodeVersionTest extends BuildViewTestCase {
 
   @Test
-  public void testXcodeVersionCanBeReadFromSkylark() throws Exception {
+  public void testXcodeVersionCanBeReadFromStarlark() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
@@ -60,7 +60,7 @@ public final class XcodeVersionTest extends BuildViewTestCase {
         "   },",
         ")");
     scratch.file(
-        "examples/apple_skylark/BUILD",
+        "examples/apple_starlark/BUILD",
         "package(default_visibility = ['//visibility:public'])",
         "load('//examples/rule:apple_rules.bzl', 'my_rule')",
         "my_rule(",
@@ -76,12 +76,12 @@ public final class XcodeVersionTest extends BuildViewTestCase {
         "    default_macos_sdk_version = '9.3',",
         ")");
 
-    RuleConfiguredTarget skylarkTarget =
-        (RuleConfiguredTarget) getConfiguredTarget("//examples/apple_skylark:my_target");
+    RuleConfiguredTarget starlarkTarget =
+        (RuleConfiguredTarget) getConfiguredTarget("//examples/apple_starlark:my_target");
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.parseAbsolute("//examples/rule:apple_rules.bzl", ImmutableMap.of()), "MyInfo");
-    StructImpl myInfo = (StructImpl) skylarkTarget.get(key);
+    StructImpl myInfo = (StructImpl) starlarkTarget.get(key);
     assertThat((String) myInfo.getValue("xcode_version")).isEqualTo("8");
     assertThat((String) myInfo.getValue("ios_version")).isEqualTo("9.0");
     assertThat((String) myInfo.getValue("watchos_version")).isEqualTo("9.1");
@@ -105,7 +105,7 @@ public final class XcodeVersionTest extends BuildViewTestCase {
 
     ConfiguredTarget nativeTarget = getConfiguredTarget("//examples/apple:my_xcode");
     XcodeVersionProperties xcodeProperties =
-        nativeTarget.get(XcodeVersionProperties.SKYLARK_CONSTRUCTOR);
+        nativeTarget.get(XcodeVersionProperties.STARLARK_CONSTRUCTOR);
     assertThat(xcodeProperties.getXcodeVersion().get().toString()).isEqualTo("8");
     assertThat(xcodeProperties.getDefaultIosSdkVersion().toString()).isEqualTo("9.0");
     assertThat(xcodeProperties.getDefaultWatchosSdkVersion().toString()).isEqualTo("9.1");

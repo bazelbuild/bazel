@@ -1,0 +1,14 @@
+
+Usage: %{product} %{command} <options> [<config_id> | <config_id> <config_id>]
+
+Displays the given configuration objects, if they can be found in the Skyframe cache. The best way
+to use this command is to first run a build (or cquery), and then immediately run the config
+command to view the configuration. Note that any flags passed to build (or cquery) must also be
+passed to config, or else the Skyframe cache will be evicted and no configurations will be found.
+
+If two configuration ids are passed, the difference between them will be computed and displayed,
+instead of the entire configurations.
+
+This command is experimental and unsupported.
+
+%{options}

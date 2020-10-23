@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec.local;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.exec.BinTools;
+import com.google.devtools.build.lib.util.OS;
 import java.io.IOException;
 import java.util.Map;
 
@@ -23,14 +25,22 @@ import java.util.Map;
  */
 public interface LocalEnvProvider {
 
-  public static final LocalEnvProvider UNMODIFIED =
-      new LocalEnvProvider() {
-        @Override
-        public Map<String, String> rewriteLocalEnv(
-            Map<String, String> env, BinTools binTools, String fallbackTmpDir) {
-          return env;
-        }
-      };
+  /**
+   * Creates a local environment provider for the current OS.
+   *
+   * @param clientEnv the environment variables as supplied by the Bazel client
+   * @return the local environment provider
+   */
+  static LocalEnvProvider forCurrentOs(Map<String, String> clientEnv) {
+    switch (OS.getCurrent()) {
+      case DARWIN:
+        return new XcodeLocalEnvProvider(clientEnv);
+      case WINDOWS:
+        return new WindowsLocalEnvProvider(clientEnv);
+      default:
+        return new PosixLocalEnvProvider(clientEnv);
+    }
+  }
 
   /**
    * Rewrites a {@code Spawn}'s the environment if necessary.
@@ -42,6 +52,7 @@ public interface LocalEnvProvider {
    *     typically the "TMPDIR" environment variable in the Bazel client's environment, but if
    *     that's unavailable, the implementation may decide to use this {@code fallbackTmpDir}.
    */
-  Map<String, String> rewriteLocalEnv(
-      Map<String, String> env, BinTools binTools, String fallbackTmpDir) throws IOException;
+  ImmutableMap<String, String> rewriteLocalEnv(
+      Map<String, String> env, BinTools binTools, String fallbackTmpDir)
+      throws IOException, InterruptedException;
 }

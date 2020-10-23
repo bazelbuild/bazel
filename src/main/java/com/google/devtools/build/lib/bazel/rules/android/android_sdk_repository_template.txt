@@ -5,6 +5,11 @@ load(
     "create_android_sdk_rules",
     "create_system_images_filegroups")
 
+alias(
+    name = "has_androidsdk",
+    actual = "@bazel_tools//tools/android:always_true",
+)
+
 create_android_sdk_rules(
     name = "%repository_name%",
     build_tools_version = "%build_tools_version%",
@@ -23,19 +28,24 @@ alias(
     actual = "emulator/emulator",
 )
 
+# emulator v29+ removed the arm and x86 specific binaries.
+# Keeping these aliases around for backwards compatibility.
 alias(
     name = "emulator_arm",
-    actual = "emulator/emulator64-arm",
+    actual = "emulator/emulator",
 )
 
 alias(
     name = "emulator_x86",
-    actual = "emulator/emulator64-x86",
+    actual = "emulator/emulator",
 )
 
 filegroup(
     name = "emulator_x86_bios",
-    srcs = glob(["emulator/lib/pc-bios/*"]),
+    srcs = glob(
+        ["emulator/lib/pc-bios/*"],
+        allow_empty = True,
+    ),
 )
 
 alias(
@@ -45,7 +55,10 @@ alias(
 
 filegroup(
     name = "emulator_shared_libs",
-    srcs = glob(["emulator/lib64/**"]),
+    srcs = glob(
+        ["emulator/lib64/**"],
+        allow_empty = True,
+    ),
 )
 
 filegroup(
@@ -68,4 +81,4 @@ create_system_images_filegroups(
 )
 
 exports_files([
-%exported_files%] + glob(["system-images/**"]))
+%exported_files%] + glob(["system-images/**"], allow_empty = True))

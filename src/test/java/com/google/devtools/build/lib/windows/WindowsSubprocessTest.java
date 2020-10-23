@@ -24,10 +24,8 @@ import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.windows.jni.WindowsProcesses;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.File;
-import java.util.function.Function;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -50,7 +48,7 @@ public class WindowsSubprocessTest {
     runfiles = Runfiles.create();
     mockSubprocess =
         runfiles.rlocation(
-            "io_bazel/src/test/java/com/google/devtools/build/lib/MockSubprocess_deploy.jar");
+            "io_bazel/src/test/java/com/google/devtools/build/lib/windows/MockSubprocess_deploy.jar");
     mockBinary = System.getProperty("java.home") + "\\bin\\java.exe";
 
     process = null;
@@ -65,11 +63,11 @@ public class WindowsSubprocessTest {
     }
   }
 
-  private void assertSystemRootIsSetByDefault(boolean windowsStyleArgEscaping) throws Exception {
-    SubprocessBuilder subprocessBuilder =
-        new SubprocessBuilder(new WindowsSubprocessFactory(windowsStyleArgEscaping));
+  @Test
+  public void testSystemRootIsSetByDefault() throws Exception {
+    SubprocessBuilder subprocessBuilder = new SubprocessBuilder(WindowsSubprocessFactory.INSTANCE);
     subprocessBuilder.setWorkingDirectory(new File("."));
-    subprocessBuilder.setArgv(mockBinary, "-jar", mockSubprocess, "O$SYSTEMROOT");
+    subprocessBuilder.setArgv(ImmutableList.of(mockBinary, "-jar", mockSubprocess, "O$SYSTEMROOT"));
     process = subprocessBuilder.start();
     process.waitFor();
     assertThat(process.exitValue()).isEqualTo(0);
@@ -80,20 +78,11 @@ public class WindowsSubprocessTest {
   }
 
   @Test
-  public void testSystemRootIsSetByDefaultNoWindowsStyleArgEscaping() throws Exception {
-    assertSystemRootIsSetByDefault(false);
-  }
-
-  @Test
-  public void testSystemRootIsSetByDefaultWithWindowsStyleArgEscaping() throws Exception {
-    assertSystemRootIsSetByDefault(true);
-  }
-
-  private void assertSystemDriveIsSetByDefault(boolean windowsStyleArgEscaping) throws Exception {
-    SubprocessBuilder subprocessBuilder =
-        new SubprocessBuilder(new WindowsSubprocessFactory(windowsStyleArgEscaping));
+  public void testSystemDriveIsSetByDefault() throws Exception {
+    SubprocessBuilder subprocessBuilder = new SubprocessBuilder(WindowsSubprocessFactory.INSTANCE);
     subprocessBuilder.setWorkingDirectory(new File("."));
-    subprocessBuilder.setArgv(mockBinary, "-jar", mockSubprocess, "O$SYSTEMDRIVE");
+    subprocessBuilder.setArgv(
+        ImmutableList.of(mockBinary, "-jar", mockSubprocess, "O$SYSTEMDRIVE"));
     process = subprocessBuilder.start();
     process.waitFor();
     assertThat(process.exitValue()).isEqualTo(0);
@@ -104,20 +93,10 @@ public class WindowsSubprocessTest {
   }
 
   @Test
-  public void testSystemDriveIsSetByDefaultNoWindowsStyleArgEscaping() throws Exception {
-    assertSystemDriveIsSetByDefault(false);
-  }
-
-  @Test
-  public void testSystemDriveIsSetByDefaultWithWindowsStyleArgEscaping() throws Exception {
-    assertSystemDriveIsSetByDefault(true);
-  }
-
-  private void assertSystemRootIsSet(boolean windowsStyleArgEscaping) throws Exception {
-    SubprocessBuilder subprocessBuilder =
-        new SubprocessBuilder(new WindowsSubprocessFactory(windowsStyleArgEscaping));
+  public void testSystemRootIsSet() throws Exception {
+    SubprocessBuilder subprocessBuilder = new SubprocessBuilder(WindowsSubprocessFactory.INSTANCE);
     subprocessBuilder.setWorkingDirectory(new File("."));
-    subprocessBuilder.setArgv(mockBinary, "-jar", mockSubprocess, "O$SYSTEMROOT");
+    subprocessBuilder.setArgv(ImmutableList.of(mockBinary, "-jar", mockSubprocess, "O$SYSTEMROOT"));
     // Case shouldn't matter on Windows
     subprocessBuilder.setEnv(ImmutableMap.of("SystemRoot", "C:\\MySystemRoot"));
     process = subprocessBuilder.start();
@@ -130,20 +109,11 @@ public class WindowsSubprocessTest {
   }
 
   @Test
-  public void testSystemRootIsSetNoWindowsStyleArgEscaping() throws Exception {
-    assertSystemRootIsSet(false);
-  }
-
-  @Test
-  public void testSystemRootIsSetWithWindowsStyleArgEscaping() throws Exception {
-    assertSystemRootIsSet(true);
-  }
-
-  private void assertSystemDriveIsSet(boolean windowsStyleArgEscaping) throws Exception {
-    SubprocessBuilder subprocessBuilder =
-        new SubprocessBuilder(new WindowsSubprocessFactory(windowsStyleArgEscaping));
+  public void testSystemDriveIsSet() throws Exception {
+    SubprocessBuilder subprocessBuilder = new SubprocessBuilder(WindowsSubprocessFactory.INSTANCE);
     subprocessBuilder.setWorkingDirectory(new File("."));
-    subprocessBuilder.setArgv(mockBinary, "-jar", mockSubprocess, "O$SYSTEMDRIVE");
+    subprocessBuilder.setArgv(
+        ImmutableList.of(mockBinary, "-jar", mockSubprocess, "O$SYSTEMDRIVE"));
     // Case shouldn't matter on Windows
     subprocessBuilder.setEnv(ImmutableMap.of("SystemDrive", "X:"));
     process = subprocessBuilder.start();
@@ -153,16 +123,6 @@ public class WindowsSubprocessTest {
     byte[] buf = new byte[3];
     process.getInputStream().read(buf);
     assertThat(new String(buf, UTF_8).trim()).isEqualTo("X:");
-  }
-
-  @Test
-  public void testSystemDriveIsSetNoWindowsStyleArgEscaping() throws Exception {
-    assertSystemDriveIsSet(false);
-  }
-
-  @Test
-  public void testSystemDriveIsSetWithWindowsStyleArgEscaping() throws Exception {
-    assertSystemDriveIsSet(true);
   }
 
   /**
@@ -181,23 +141,22 @@ public class WindowsSubprocessTest {
   };
 
   /** Asserts that a subprocess correctly receives command line arguments. */
-  private void assertSubprocessReceivesArgsAsIntended(
-      boolean windowsStyleArgEscaping, Function<String, String> escaper, ArgPair... args)
-      throws Exception {
+  private void assertSubprocessReceivesArgsAsIntended(ArgPair... args) throws Exception {
     // Look up the path of the printarg.exe utility.
     String printArgExe =
-        runfiles.rlocation("io_bazel/src/test/java/com/google/devtools/build/lib/printarg.exe");
+        runfiles.rlocation(
+            "io_bazel/src/test/java/com/google/devtools/build/lib/windows/printarg.exe");
     assertThat(printArgExe).isNotEmpty();
 
     for (ArgPair arg : args) {
       // Assert that the command-line encoding logic works as intended.
-      assertThat(escaper.apply(arg.original)).isEqualTo(arg.escaped);
+      assertThat(ShellUtils.windowsEscapeArg(arg.original)).isEqualTo(arg.escaped);
 
       // Create a separate subprocess just for this argument.
       SubprocessBuilder subprocessBuilder =
-          new SubprocessBuilder(new WindowsSubprocessFactory(windowsStyleArgEscaping));
+          new SubprocessBuilder(WindowsSubprocessFactory.INSTANCE);
       subprocessBuilder.setWorkingDirectory(new File("."));
-      subprocessBuilder.setArgv(printArgExe, arg.original);
+      subprocessBuilder.setArgv(ImmutableList.of(printArgExe, arg.original));
       process = subprocessBuilder.start();
       process.waitFor();
       assertThat(process.exitValue()).isEqualTo(0);
@@ -212,25 +171,8 @@ public class WindowsSubprocessTest {
   }
 
   @Test
-  public void testSubprocessReceivesArgsAsIntendedNoWindowsStyleArgEscaping() throws Exception {
+  public void testSubprocessReceivesArgsAsIntended() throws Exception {
     assertSubprocessReceivesArgsAsIntended(
-        false,
-        x -> WindowsProcesses.quoteCommandLine(ImmutableList.of(x)),
-        new ArgPair("", "\"\""),
-        new ArgPair(" ", "\" \""),
-        new ArgPair("foo", "foo"),
-        new ArgPair("foo\\bar", "foo\\bar"),
-        new ArgPair("foo bar", "\"foo bar\""));
-    // TODO(laszlocsomor): the escaping logic in WindowsProcesses.quoteCommandLine is wrong, because
-    // it fails to properly escape things like a single backslash followed by a quote, e.g. a\"b
-    // Fix the escaping logic and add more test here.
-  }
-
-  @Test
-  public void testSubprocessReceivesArgsAsIntendedWithWindowsStyleArgEscaping() throws Exception {
-    assertSubprocessReceivesArgsAsIntended(
-        true,
-        x -> ShellUtils.windowsEscapeArg(x),
         new ArgPair("", "\"\""),
         new ArgPair(" ", "\" \""),
         new ArgPair("\"", "\"\\\"\""),

@@ -1,5 +1,6 @@
 def exercise_the_api():
     var1 = cc_common.CcToolchainInfo
+    var2 = native.cc_library(name = "foo")
 
 exercise_the_api()
 

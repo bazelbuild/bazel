@@ -1,6 +1,4 @@
-package(default_visibility = ["//visibility:private"])
-
-load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 
 filegroup(
     name = "srcs",
@@ -21,16 +19,22 @@ filegroup(
 
 cc_library(
     name = "lib-file",
-    srcs = ["file.cc"],
-    hdrs = ["file.h"],
+    srcs = [
+        "file.cc",
+        "util.cc",
+    ],
+    hdrs = [
+        "file.h",
+        "util.h",
+    ],
     visibility = [
         "//src/main/cpp:__subpackages__",
         "//src/main/tools:__pkg__",
         "//src/test/cpp:__subpackages__",
         "//src/test/native:__subpackages__",
+        "//src/tools/launcher/util:__pkg__",
         "//tools/test:__pkg__",
     ],
-    deps = [":lib-util"],
 )
 
 cc_library(
@@ -39,20 +43,11 @@ cc_library(
     hdrs = ["process.h"],
     visibility = [
         "//src/main/cpp:__pkg__",
+        "//src/test/native:__subpackages__",
+        "//src/tools/launcher:__pkg__",
         "//tools/test:__pkg__",
     ],
-    deps = [":lib-util"],
-)
-
-cc_library(
-    name = "lib-util",
-    srcs = ["util.cc"],
-    hdrs = ["util.h"],
-    visibility = [
-        "//src/main/cpp:__pkg__",
-        "//src/tools/launcher/util:__pkg__",
-        "//tools/test:__pkg__",
-    ],
+    deps = [":lib-file"],
 )
 
 cc_binary(
@@ -61,20 +56,20 @@ cc_binary(
         "file-jni.cc",
         "jni-util.cc",
         "jni-util.h",
+        "memory_pressure_jni.cc",
         "processes-jni.cc",
+        "sleep_prevention_jni.cc",
+        "suspend_counter_jni.cc",
         "//src/main/native:jni.h",
         "//src/main/native:jni_md.h",
     ],
     linkshared = 1,
     visibility = [
-        "//src:__pkg__",
-        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
-        "//src/tools/android/java/com/google/devtools/build/android:__subpackages__",
+        "//src/main/java/com/google/devtools/build/lib/jni:__pkg__",
     ],
     deps = [
         ":lib-file",
         ":lib-process",
-        ":lib-util",
     ],
 )
 

@@ -40,6 +40,12 @@ message Source {
   SourcePosition position = 2;
 }
 
+// The name and version fingerprint of a build tool.
+message ToolFingerprint {
+  string tool = 1;
+  string version = 2;
+}
+
 // Top level message representing a resource table.
 message ResourceTable {
   // The string pool containing source paths referenced throughout the resource table. This does
@@ -48,6 +54,12 @@ message ResourceTable {
 
   // Resource definitions corresponding to an Android package.
   repeated Package package = 2;
+
+  // The <overlayable> declarations within the resource table.
+  repeated Overlayable overlayable = 3;
+
+  // The version fingerprints of the tools that built the resource table.
+  repeated ToolFingerprint tool_fingerprint = 4;
 }
 
 // A package ID in the range [0x00, 0xff].
@@ -132,13 +144,43 @@ message AllowNew {
   string comment = 2;
 }
 
-// Whether a resource is overlayable by runtime resource overlays (RRO).
+// Represents a set of overlayable resources.
 message Overlayable {
-  // Where this declaration was defined in source.
+  // The name of the <overlayable>.
+  string name = 1;
+
+  // The location of the <overlayable> declaration in the source.
+  Source source = 2;
+
+  // The component responsible for enabling and disabling overlays targeting this <overlayable>.
+  string actor = 3;
+}
+
+// Represents an overlayable <item> declaration within an <overlayable> tag.
+message OverlayableItem {
+  enum Policy {
+    NONE = 0;
+    PUBLIC = 1;
+    SYSTEM = 2;
+    VENDOR = 3;
+    PRODUCT = 4;
+    SIGNATURE = 5;
+    ODM = 6;
+    OEM = 7;
+  }
+
+  // The location of the <item> declaration in source.
   Source source = 1;
 
   // Any comment associated with the declaration.
   string comment = 2;
+
+  // The policy defined by the enclosing <policy> tag of this <item>.
+  repeated Policy policy = 3;
+
+  // The index into overlayable list that points to the <overlayable> tag that contains
+  // this <item>.
+  uint32 overlayable_idx = 4;
 }
 
 // An entry ID in the range [0x0000, 0xffff].
@@ -168,7 +210,7 @@ message Entry {
   AllowNew allow_new = 4;
 
   // Whether this resource can be overlaid by a runtime resource overlay (RRO).
-  Overlayable overlayable = 5;
+  OverlayableItem overlayable_item = 5;
 
   // The set of values defined for this entry, each corresponding to a different
   // configuration/variant.
@@ -305,10 +347,28 @@ message FileReference {
 }
 
 // A value that represents a primitive data type (float, int, boolean, etc.).
-// Corresponds to the fields (type/data) of the C struct android::Res_value.
+// Refer to Res_value in ResourceTypes.h for info on types and formatting
 message Primitive {
-  uint32 type = 1;
-  uint32 data = 2;
+  message NullType {
+  }
+  message EmptyType {
+  }
+  oneof oneof_value {
+    NullType null_value = 1;
+    EmptyType empty_value = 2;
+    float float_value = 3;
+    uint32 dimension_value = 13;
+    uint32 fraction_value = 14;
+    int32 int_decimal_value = 6;
+    uint32 int_hexadecimal_value = 7;
+    bool boolean_value = 8;
+    uint32 color_argb8_value = 9;
+    uint32 color_rgb8_value = 10;
+    uint32 color_argb4_value = 11;
+    uint32 color_rgb4_value = 12;
+    float dimension_value_deprecated = 4 [deprecated=true];
+    float fraction_value_deprecated = 5 [deprecated=true];
+  }
 }
 
 // A value that represents an XML attribute and what values it accepts.
@@ -327,6 +387,9 @@ message Attribute {
 
     // The value of the enum/flag.
     uint32 value = 4;
+
+    // The data type of the enum/flag as defined in android::Res_value.
+    uint32 type = 5;
   }
 
   // Bitmask of formats allowed for an attribute.

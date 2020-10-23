@@ -14,6 +14,12 @@
 
 // Mock C++ binary, only used in tests.
 
+#ifdef IS_WINDOWS
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#endif  // IS_WINDOWS
+
 #include "tools/cpp/runfiles/runfiles.h"
 
 #ifdef IS_WINDOWS

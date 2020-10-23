@@ -13,45 +13,30 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidManifestInfoApi;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
-import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidManifestInfoApi;
 
 /** A provider of information about this target's manifest. */
 public class AndroidManifestInfo extends NativeInfo implements AndroidManifestInfoApi<Artifact> {
 
-  private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
-      FunctionSignature.WithValues.create(
-          FunctionSignature.of(
-              /* numMandatoryPositionals = */ 2, // Manifest file and package
-              /* numOptionalPositionals = */ 1, // exports_manifest
-              /* numMandatoryNamedOnly = */ 0,
-              /* starArg = */ false,
-              /* kwArg = */ false,
-              /* names = */ "manifest",
-              "package",
-              "exports_manifest"),
-          /* defaultValues = */ ImmutableList.of(false), // is_dummy
-          /* types = */ ImmutableList.of(
-              SkylarkType.of(Artifact.class), // manifest
-              SkylarkType.STRING, // package
-              SkylarkType.BOOL)); // exports_manifest
+  /** Provider singleton constant. */
+  public static final Provider PROVIDER = new Provider();
 
-  public static final NativeProvider<AndroidManifestInfo> PROVIDER =
-      new NativeProvider<AndroidManifestInfo>(AndroidManifestInfo.class, NAME, SIGNATURE) {
-        @Override
-        public AndroidManifestInfo createInstanceFromSkylark(
-            Object[] args, Environment env, Location loc) {
-          // Skylark support code puts positional inputs in the correct order and validates types.
-          return of((Artifact) args[0], (String) args[1], (boolean) args[2]);
-        }
-      };
+  /** Provider for {@link AndroidManifestInfo} objects. */
+  public static class Provider extends BuiltinProvider<AndroidManifestInfo>
+      implements AndroidManifestInfoApi.Provider<Artifact> {
+    private Provider() {
+      super(NAME, AndroidManifestInfo.class);
+    }
+
+    @Override
+    public AndroidManifestInfo androidManifestInfo(
+        Artifact manifest, String packageString, Boolean exportsManifest) {
+      return of(manifest, packageString, exportsManifest);
+    }
+  }
 
   private final Artifact manifest;
   private final String pkg;

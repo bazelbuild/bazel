@@ -17,7 +17,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -26,6 +25,8 @@ import com.google.devtools.build.lib.analysis.BuildInfo;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.IOException;
@@ -36,6 +37,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Properties;
+import javax.annotation.Nullable;
 
 /** An action that creates a Java properties file containing the build informations. */
 @AutoCodec
@@ -121,7 +123,7 @@ public class WriteBuildInfoPropertiesAction extends AbstractFileWriteAction {
    * @param timestampFormatter formats dates printed in the properties file
    */
   public WriteBuildInfoPropertiesAction(
-      Iterable<Artifact> inputs,
+      NestedSet<Artifact> inputs,
       Artifact primaryOutput,
       BuildInfoPropertiesTranslator keyTranslations,
       boolean includeVolatile,
@@ -133,13 +135,13 @@ public class WriteBuildInfoPropertiesAction extends AbstractFileWriteAction {
     this.includeNonVolatile = includeNonVolatile;
     this.timestampFormatter = timestampFormatter;
 
-    if (!Iterables.isEmpty(inputs)) {
+    if (!inputs.isEmpty()) {
       // With non-empty inputs we should not generate both volatile and non-volatile data
       // in the same properties file.
       Preconditions.checkState(includeVolatile ^ includeNonVolatile);
     }
     Preconditions.checkState(
-        primaryOutput.isConstantMetadata() == (includeVolatile && !Iterables.isEmpty(inputs)));
+        primaryOutput.isConstantMetadata() == (includeVolatile && !inputs.isEmpty()));
   }
 
   @Override
@@ -150,7 +152,7 @@ public class WriteBuildInfoPropertiesAction extends AbstractFileWriteAction {
       public void writeOutputFile(OutputStream out) throws IOException {
         WorkspaceStatusAction.Context context = ctx.getContext(WorkspaceStatusAction.Context.class);
         Map<String, String> values = new LinkedHashMap<>();
-        for (Artifact valueFile : getInputs()) {
+        for (Artifact valueFile : getInputs().toList()) {
           values.putAll(WorkspaceStatusAction.parseValues(ctx.getInputPath(valueFile)));
         }
 
@@ -192,7 +194,10 @@ public class WriteBuildInfoPropertiesAction extends AbstractFileWriteAction {
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable Artifact.ArtifactExpander artifactExpander,
+      Fingerprint fp) {
     fp.addString(GUID);
     fp.addString(keyTranslations.computeKey());
     fp.addBoolean(includeVolatile);
@@ -206,6 +211,6 @@ public class WriteBuildInfoPropertiesAction extends AbstractFileWriteAction {
 
   @Override
   public boolean isVolatile() {
-    return includeVolatile && !Iterables.isEmpty(getInputs());
+    return includeVolatile && !getInputs().isEmpty();
   }
 }

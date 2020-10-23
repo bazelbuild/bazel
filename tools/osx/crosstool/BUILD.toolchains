@@ -1,0 +1,23 @@
+package(default_visibility = ["//visibility:public"])
+
+load(":osx_archs.bzl", "OSX_TOOLS_ARCHS", "OSX_TOOLS_CONSTRAINTS")
+
+OSX_DEVELOPER_PLATFORM_CPUS = [
+    "aarch64",
+    "x86_64",
+]
+
+[
+    toolchain(
+        name = "cc-toolchain-" + arch + "-" + cpu,
+        exec_compatible_with = [
+            # These only execute on macOS.
+            "@platforms//os:osx",
+            "@platforms//cpu:" + cpu,
+        ],
+        target_compatible_with = OSX_TOOLS_CONSTRAINTS[arch],
+        toolchain = "@local_config_cc//:cc-compiler-" + arch,
+        toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+    )
+    for arch in OSX_TOOLS_ARCHS for cpu in OSX_DEVELOPER_PLATFORM_CPUS
+]

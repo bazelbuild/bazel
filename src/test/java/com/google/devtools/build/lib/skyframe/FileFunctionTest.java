@@ -16,12 +16,10 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.skyframe.SkyframeExecutor.DEFAULT_THREAD_COUNT;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Function;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -44,8 +42,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
@@ -53,15 +49,17 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileStatus;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -69,7 +67,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.ErrorInfoSubject;
@@ -84,21 +81,18 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -111,10 +105,10 @@ public class FileFunctionTest {
       EvaluationContext.newBuilder()
           .setKeepGoing(false)
           .setNumThreads(DEFAULT_THREAD_COUNT)
-          .setEventHander(NullEventHandler.INSTANCE)
+          .setEventHandler(NullEventHandler.INSTANCE)
           .build();
 
-  private CustomInMemoryFs fs;
+  private InMemoryFileSystem fs;
   private Root pkgRoot;
   private Path outputBase;
   private PathPackageLocator pkgLocator;
@@ -138,7 +132,7 @@ public class FileFunctionTest {
             outputBase,
             ImmutableList.of(pkgRoot),
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
-    FileSystemUtils.createDirectoryAndParents(pkgRoot.asPath());
+    pkgRoot.asPath().createDirectoryAndParents();
   }
 
   private SequentialBuildDriver makeDriver() {
@@ -164,7 +158,7 @@ public class FileFunctionTest {
                 .put(
                     FileStateValue.FILE_STATE,
                     new FileStateFunction(
-                        new AtomicReference<TimestampGranularityMonitor>(),
+                        new AtomicReference<>(),
                         new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
                         externalFilesHelper))
                 .put(
@@ -176,34 +170,39 @@ public class FileFunctionTest {
                 .put(FileValue.FILE, new FileFunction(pkgLocatorRef))
                 .put(
                     SkyFunctions.PACKAGE,
-                    new PackageFunction(null, null, null, null, null, null, null))
+                    new PackageFunction(null, null, null, null, null, null, null, null))
                 .put(
                     SkyFunctions.PACKAGE_LOOKUP,
                     new PackageLookupFunction(
-                        new AtomicReference<>(ImmutableSet.<PackageIdentifier>of()),
+                        new AtomicReference<>(ImmutableSet.of()),
                         CrossRepositoryLabelViolationStrategy.ERROR,
-                        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
-                .put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider))
+                        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
+                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
                 .put(
                     WorkspaceFileValue.WORKSPACE_FILE,
                     new WorkspaceFileFunction(
                         ruleClassProvider,
-                        TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING
+                        TestPackageFactoryBuilderFactory.getInstance()
                             .builder(directories)
                             .build(ruleClassProvider, fs),
                         directories,
-                        /*skylarkImportLookupFunctionForInlining=*/ null))
-                .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
-                .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
+                        /*bzlLoadFunctionForInlining=*/ null))
+                .put(
+                    SkyFunctions.EXTERNAL_PACKAGE,
+                    new ExternalPackageFunction(
+                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
+                .put(
+                    SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
+                    new LocalRepositoryLookupFunction(
+                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
                 .build(),
             differencer);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator);
-    RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(
-        differencer, ImmutableMap.<RepositoryName, PathFragment>of());
-    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT_SEMANTICS);
+    RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
+    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
-        differencer, Optional.<RootedPath>absent());
+        differencer, Optional.empty());
     return new SequentialBuildDriver(evaluator);
   }
 
@@ -215,7 +214,7 @@ public class FileFunctionTest {
     return valueForPathHelper(Root.absoluteRoot(fs), path, makeDriver());
   }
 
-  private FileValue valueForPathHelper(Root root, Path path, SequentialBuildDriver driver)
+  private static FileValue valueForPathHelper(Root root, Path path, SequentialBuildDriver driver)
       throws InterruptedException {
     PathFragment pathFragment = root.relativize(path);
     RootedPath rootedPath = RootedPath.toRootedPath(root, pathFragment);
@@ -395,7 +394,7 @@ public class FileFunctionTest {
   public void testAbsoluteSymlinkToExternal() throws Exception {
     String externalPath =
         outputBase
-            .getRelative(LabelConstants.EXTERNAL_PACKAGE_NAME)
+            .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION)
             .getRelative("a/b")
             .getPathString();
     symlink("a", externalPath);
@@ -409,6 +408,7 @@ public class FileFunctionTest {
     assertThat(seenFiles)
         .containsExactly(
             rootedPath("WORKSPACE"),
+            rootedPath("WORKSPACE.bazel"),
             rootedPath("a"),
             rootedPath(""),
             RootedPath.toRootedPath(root, PathFragment.create("/")),
@@ -459,7 +459,16 @@ public class FileFunctionTest {
   @Test
   public void testRecursiveNestingSymlink() throws Exception {
     symlink("a/a", "../a");
-    assertError("a/a/b");
+    file("b");
+    assertNoError("a/a/a/a/b");
+  }
+
+  @Test
+  public void testSimpleUnboundedAncestorSymlinkExpansionChainReported() throws Exception {
+    symlink("a/a", "../a");
+    FileValue v = valueForPath(path("a/a"));
+    assertThat(v.unboundedAncestorSymlinkExpansionChain())
+        .containsExactly(rootedPath("a/a"), rootedPath("a"));
   }
 
   @Test
@@ -505,7 +514,7 @@ public class FileFunctionTest {
     createFsAndRoot(
         new CustomInMemoryFs(manualClock) {
           @Override
-          protected byte[] getFastDigest(Path path) throws IOException {
+          protected byte[] getFastDigest(Path path) {
             return digest;
           }
         });
@@ -538,8 +547,7 @@ public class FileFunctionTest {
 
   @Test
   public void testUnreadableFileWithFastDigest() throws Exception {
-    final byte[] expectedDigest =
-        MessageDigest.getInstance("md5").digest("blah".getBytes(StandardCharsets.UTF_8));
+    final byte[] expectedDigest = {1, 2, 3, 4};
 
     createFsAndRoot(
         new CustomInMemoryFs(manualClock) {
@@ -596,7 +604,7 @@ public class FileFunctionTest {
     p = symlink("file", "foo");
     FileValue b = valueForPath(p);
     p.delete();
-    FileSystemUtils.createDirectoryAndParents(pkgRoot.getRelative("file"));
+    pkgRoot.getRelative("file").createDirectoryAndParents();
     FileValue c = valueForPath(p);
     assertThat(a.equals(b)).isFalse();
     assertThat(b.equals(c)).isFalse();
@@ -805,16 +813,10 @@ public class FileFunctionTest {
     return ImmutableSet.copyOf(
         (Iterable<RootedPath>)
             (Iterable)
-                Iterables.transform(
-                    Iterables.filter(
-                        graph.getValues().keySet(),
-                        SkyFunctionName.functionIs(FileStateValue.FILE_STATE)),
-                    new Function<SkyKey, Object>() {
-                      @Override
-                      public Object apply(SkyKey skyKey) {
-                        return skyKey.argument();
-                      }
-                    }));
+                graph.getValues().keySet().stream()
+                    .filter(SkyFunctionName.functionIs(FileStateValue.FILE_STATE)::apply)
+                    .map(SkyKey::argument)
+                    .collect(Collectors.toList()));
   }
 
   @Test
@@ -899,6 +901,7 @@ public class FileFunctionTest {
 
   @Test
   public void testDoesntStatChildIfParentDoesntExist() throws Exception {
+    CustomInMemoryFs fs = (CustomInMemoryFs) this.fs;
     // Our custom filesystem says "a" does not exist, so FileFunction shouldn't bother trying to
     // think about "a/b". Test for this by having a stat of "a/b" fail with an io error, and
     // observing that we don't encounter the error.
@@ -908,7 +911,8 @@ public class FileFunctionTest {
   }
 
   @Test
-  public void testFilesystemInconsistencies_GetFastDigest() throws Exception {
+  public void testFilesystemInconsistencies_getFastDigest() throws Exception {
+    CustomInMemoryFs fs = (CustomInMemoryFs) this.fs;
     file("a");
     // Our custom filesystem says "a/b" exists but "a" does not exist.
     fs.stubFastDigestError(path("a"), new IOException("nope"));
@@ -924,7 +928,7 @@ public class FileFunctionTest {
   }
 
   @Test
-  public void testFilesystemInconsistencies_GetFastDigestAndIsReadableFailure() throws Exception {
+  public void testFilesystemInconsistencies_getFastDigestAndIsReadableFailure() throws Exception {
     createFsAndRoot(
         new CustomInMemoryFs(manualClock) {
           @Override
@@ -971,10 +975,10 @@ public class FileFunctionTest {
                 ImmutableList.of(rootedPath("c"), rootedPath("d"), rootedPath("e")))
             .put(
                 rootedPath("d"),
-                ImmutableList.<RootedPath>of(rootedPath("d"), rootedPath("e"), rootedPath("c")))
+                ImmutableList.of(rootedPath("d"), rootedPath("e"), rootedPath("c")))
             .put(
                 rootedPath("e"),
-                ImmutableList.<RootedPath>of(rootedPath("e"), rootedPath("c"), rootedPath("d")))
+                ImmutableList.of(rootedPath("e"), rootedPath("c"), rootedPath("d")))
             .put(
                 rootedPath("a/some/descendant"),
                 ImmutableList.of(rootedPath("c"), rootedPath("d"), rootedPath("e")))
@@ -983,29 +987,29 @@ public class FileFunctionTest {
                 ImmutableList.of(rootedPath("c"), rootedPath("d"), rootedPath("e")))
             .put(
                 rootedPath("d/some/descendant"),
-                ImmutableList.<RootedPath>of(rootedPath("d"), rootedPath("e"), rootedPath("c")))
+                ImmutableList.of(rootedPath("d"), rootedPath("e"), rootedPath("c")))
             .put(
                 rootedPath("e/some/descendant"),
-                ImmutableList.<RootedPath>of(rootedPath("e"), rootedPath("c"), rootedPath("d")))
+                ImmutableList.of(rootedPath("e"), rootedPath("c"), rootedPath("d")))
             .build();
     Map<RootedPath, ImmutableList<RootedPath>> startToPathToCycleMap =
         ImmutableMap.<RootedPath, ImmutableList<RootedPath>>builder()
             .put(rootedPath("a"), ImmutableList.of(rootedPath("a"), rootedPath("b")))
             .put(rootedPath("b"), ImmutableList.of(rootedPath("b")))
-            .put(rootedPath("d"), ImmutableList.<RootedPath>of())
-            .put(rootedPath("e"), ImmutableList.<RootedPath>of())
+            .put(rootedPath("d"), ImmutableList.of())
+            .put(rootedPath("e"), ImmutableList.of())
             .put(
                 rootedPath("a/some/descendant"), ImmutableList.of(rootedPath("a"), rootedPath("b")))
             .put(rootedPath("b/some/descendant"), ImmutableList.of(rootedPath("b")))
-            .put(rootedPath("d/some/descendant"), ImmutableList.<RootedPath>of())
-            .put(rootedPath("e/some/descendant"), ImmutableList.<RootedPath>of())
+            .put(rootedPath("d/some/descendant"), ImmutableList.of())
+            .put(rootedPath("e/some/descendant"), ImmutableList.of())
             .build();
     ImmutableList<SkyKey> keys;
     if (ancestorCycle && startInCycle) {
       keys = ImmutableList.of(skyKey("d/some/descendant"), skyKey("e/some/descendant"));
-    } else if (ancestorCycle && !startInCycle) {
+    } else if (ancestorCycle) {
       keys = ImmutableList.of(skyKey("a/some/descendant"), skyKey("b/some/descendant"));
-    } else if (!ancestorCycle && startInCycle) {
+    } else if (startInCycle) {
       keys = ImmutableList.of(skyKey("d"), skyKey("e"));
     } else {
       keys = ImmutableList.of(skyKey("a"), skyKey("b"));
@@ -1016,7 +1020,7 @@ public class FileFunctionTest {
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
             .setNumThreads(DEFAULT_THREAD_COUNT)
-            .setEventHander(eventHandler)
+            .setEventHandler(eventHandler)
             .build();
     EvaluationResult<FileValue> result = driver.evaluate(keys, evaluationContext);
     assertThat(result.hasError()).isTrue();
@@ -1038,64 +1042,38 @@ public class FileFunctionTest {
   }
 
   @Test
-  public void testSymlinkCycle_AncestorCycle_StartInCycle() throws Exception {
+  public void testSymlinkCycle_ancestorCycle_startInCycle() throws Exception {
     runTestSymlinkCycle(/*ancestorCycle=*/ true, /*startInCycle=*/ true);
   }
 
   @Test
-  public void testSymlinkCycle_AncestorCycle_StartOutOfCycle() throws Exception {
+  public void testSymlinkCycle_ancestorCycle_startOutOfCycle() throws Exception {
     runTestSymlinkCycle(/*ancestorCycle=*/ true, /*startInCycle=*/ false);
   }
 
   @Test
-  public void testSymlinkCycle_RegularCycle_StartInCycle() throws Exception {
+  public void testSymlinkCycle_regularCycle_startInCycle() throws Exception {
     runTestSymlinkCycle(/*ancestorCycle=*/ false, /*startInCycle=*/ true);
   }
 
   @Test
-  public void testSymlinkCycle_RegularCycle_StartOutOfCycle() throws Exception {
+  public void testSymlinkCycle_regularCycle_startOutOfCycle() throws Exception {
     runTestSymlinkCycle(/*ancestorCycle=*/ false, /*startInCycle=*/ false);
   }
 
   @Test
   public void testSerialization() throws Exception {
-    ByteArrayOutputStream bos = new ByteArrayOutputStream();
-    ObjectOutputStream oos = new ObjectOutputStream(bos);
-
-    FileSystem oldFileSystem = Path.getFileSystemForSerialization();
-    try {
-      // InMemoryFS is not supported for serialization.
-      FileSystem fs = FileSystems.getJavaIoFileSystem();
-      Path.setFileSystemForSerialization(fs);
-      pkgRoot = Root.absoluteRoot(fs);
-
-      FileValue a = valueForPath(fs.getPath("/"));
-
-      Path tmp = fs.getPath(TestUtils.tmpDirFile().getAbsoluteFile() + "/file.txt");
-
-      FileSystemUtils.writeContentAsLatin1(tmp, "test contents");
-
-      FileValue b = valueForPath(tmp);
-      Preconditions.checkState(b.isFile());
-      FileValue c = valueForPath(fs.getPath("/does/not/exist"));
-      oos.writeObject(a);
-      oos.writeObject(b);
-      oos.writeObject(c);
-
-      ByteArrayInputStream bis = new ByteArrayInputStream(bos.toByteArray());
-      ObjectInputStream ois = new ObjectInputStream(bis);
-
-      FileValue a2 = (FileValue) ois.readObject();
-      FileValue b2 = (FileValue) ois.readObject();
-      FileValue c2 = (FileValue) ois.readObject();
-
-      assertThat(a2).isEqualTo(a);
-      assertThat(b2).isEqualTo(b);
-      assertThat(c2).isEqualTo(c);
-      assertThat(a2.equals(b2)).isFalse();
-    } finally {
-      Path.setFileSystemForSerialization(oldFileSystem);
-    }
+    fs = FsUtils.TEST_FILESYSTEM;
+    pkgRoot = Root.absoluteRoot(fs);
+    FileValue a = valueForPath(fs.getPath("/"));
+    Path tmp = fs.getPath("/file.txt");
+    FileSystemUtils.writeContentAsLatin1(tmp, "test contents");
+    FileValue b = valueForPath(tmp);
+    Preconditions.checkState(b.isFile());
+    FileValue c = valueForPath(fs.getPath("/does/not/exist"));
+    SerializationTester serializationTester = new SerializationTester(a, b, c).makeMemoizing();
+    FsUtils.addDependencies(serializationTester);
+    serializationTester.runTests();
   }
 
   @Test
@@ -1134,7 +1112,7 @@ public class FileFunctionTest {
   public void testSymlinkToPackagePathBoundary() throws Exception {
     Path path = path("this/is/a/path");
     FileSystemUtils.ensureSymbolicLink(path, pkgRoot.asPath());
-    assertError("this/is/a/path");
+    assertNoError("this/is/a/path");
   }
 
   private void runTestSimpleInfiniteSymlinkExpansion(
@@ -1192,60 +1170,62 @@ public class FileFunctionTest {
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
             .setNumThreads(DEFAULT_THREAD_COUNT)
-            .setEventHander(eventHandler)
+            .setEventHandler(eventHandler)
             .build();
     EvaluationResult<FileValue> result = driver.evaluate(keys, evaluationContext);
-    assertThat(result.hasError()).isTrue();
-    for (SkyKey key : errorKeys) {
-      ErrorInfo errorInfo = result.getError(key);
-      // FileFunction detects infinite symlink expansion explicitly.
-      assertThat(errorInfo.getCycleInfo()).isEmpty();
-      FileSymlinkInfiniteExpansionException fsiee =
-          (FileSymlinkInfiniteExpansionException) errorInfo.getException();
-      assertThat(fsiee).hasMessageThat().contains("Infinite symlink expansion");
-      assertThat(fsiee.getChain()).containsExactlyElementsIn(expectedChain).inOrder();
+    if (symlinkToAncestor) {
+      assertThat(result.hasError()).isFalse();
+    } else {
+      assertThat(result.hasError()).isTrue();
+      for (SkyKey key : errorKeys) {
+        ErrorInfo errorInfo = result.getError(key);
+        // FileFunction detects infinite symlink expansion explicitly.
+        assertThat(errorInfo.getCycleInfo()).isEmpty();
+        FileSymlinkInfiniteExpansionException fsiee =
+            (FileSymlinkInfiniteExpansionException) errorInfo.getException();
+        assertThat(fsiee).hasMessageThat().contains("Infinite symlink expansion");
+        assertThat(fsiee.getChain()).containsExactlyElementsIn(expectedChain).inOrder();
+      }
+      // Check that the unique symlink expansion error was reported exactly once.
+      assertThat(eventHandler.getEvents()).hasSize(1);
+      assertThat(Iterables.getOnlyElement(eventHandler.getEvents()).getMessage())
+          .contains("infinite symlink expansion detected");
     }
-    // Check that the unique symlink expansion error was reported exactly once.
-    assertThat(eventHandler.getEvents()).hasSize(1);
-    assertThat(Iterables.getOnlyElement(eventHandler.getEvents()).getMessage())
-        .contains("infinite symlink expansion detected");
   }
 
   @Test
-  public void testInfiniteSymlinkExpansion_AbsoluteSymlinkToDescendant() throws Exception {
+  public void testInfiniteSymlinkExpansion_absoluteSymlinkToDescendant() throws Exception {
     runTestSimpleInfiniteSymlinkExpansion(
         /* symlinkToAncestor= */ false, /*absoluteSymlink=*/ true);
   }
 
   @Test
-  public void testInfiniteSymlinkExpansion_RelativeSymlinkToDescendant() throws Exception {
+  public void testInfiniteSymlinkExpansion_relativeSymlinkToDescendant() throws Exception {
     runTestSimpleInfiniteSymlinkExpansion(
         /* symlinkToAncestor= */ false, /*absoluteSymlink=*/ false);
   }
 
   @Test
-  public void testInfiniteSymlinkExpansion_AbsoluteSymlinkToAncestor() throws Exception {
+  public void testInfiniteSymlinkExpansion_absoluteSymlinkToAncestor() throws Exception {
     runTestSimpleInfiniteSymlinkExpansion(/* symlinkToAncestor= */ true, /*absoluteSymlink=*/ true);
   }
 
   @Test
-  public void testInfiniteSymlinkExpansion_RelativeSymlinkToAncestor() throws Exception {
+  public void testInfiniteSymlinkExpansion_relativeSymlinkToAncestor() throws Exception {
     runTestSimpleInfiniteSymlinkExpansion(
         /* symlinkToAncestor= */ true, /*absoluteSymlink=*/ false);
   }
 
   @Test
-  public void testInfiniteSymlinkExpansion_SymlinkToReferrerToAncestor() throws Exception {
+  public void testInfiniteSymlinkExpansion_symlinkToReferrerToAncestor() throws Exception {
     symlink("d", "a");
-    Path abPath = directory("a/b");
-    Path abcPath = abPath.getChild("c");
+    directory("a/b");
     symlink("a/b/c", "../../d/b");
+    symlink("e", "a/b/c");
+    Path fPath = symlink("f", "e");
 
-    RootedPath rootedPathABC = RootedPath.toRootedPath(pkgRoot, pkgRoot.relativize(abcPath));
-    RootedPath rootedPathAB = RootedPath.toRootedPath(pkgRoot, pkgRoot.relativize(abPath));
-    RootedPath rootedPathDB = RootedPath.toRootedPath(pkgRoot, pkgRoot.relativize(path("d/b")));
-
-    SkyKey keyABC = FileValue.key(rootedPathABC);
+    RootedPath rootedPathF = RootedPath.toRootedPath(pkgRoot, pkgRoot.relativize(fPath));
+    SkyKey keyF = FileValue.key(rootedPathF);
 
     StoredEventHandler eventHandler = new StoredEventHandler();
     SequentialBuildDriver driver = makeDriver();
@@ -1253,41 +1233,28 @@ public class FileFunctionTest {
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
             .setNumThreads(DEFAULT_THREAD_COUNT)
-            .setEventHander(eventHandler)
+            .setEventHandler(eventHandler)
             .build();
-    EvaluationResult<FileValue> result =
-        driver.evaluate(ImmutableList.of(keyABC), evaluationContext);
+    EvaluationResult<FileValue> result = driver.evaluate(ImmutableList.of(keyF), evaluationContext);
 
-    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(keyABC).isNotTransient();
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(keyABC)
-        .hasExceptionThat()
-        .isInstanceOf(FileSymlinkInfiniteExpansionException.class);
-    FileSymlinkInfiniteExpansionException fiee =
-        (FileSymlinkInfiniteExpansionException) result.getError(keyABC).getException();
-    assertThat(fiee).hasMessageThat().contains("Infinite symlink expansion");
-    assertThat(fiee.getPathToChain()).isEmpty();
-    assertThat(fiee.getChain())
-        .containsExactly(rootedPathABC, rootedPathDB, rootedPathAB)
+    assertThatEvaluationResult(result).hasNoError();
+    FileValue e = result.get(keyF);
+    assertThat(e.pathToUnboundedAncestorSymlinkExpansionChain())
+        .containsExactly(rootedPath("f"), rootedPath("e"))
         .inOrder();
-
-    assertThat(eventHandler.getEvents()).hasSize(1);
-    assertThat(Iterables.getOnlyElement(eventHandler.getEvents()).getMessage())
-        .contains("infinite symlink expansion detected");
+    assertThat(e.unboundedAncestorSymlinkExpansionChain())
+        .containsExactly(rootedPath("a/b/c"), rootedPath("d/b"), rootedPath("a/b"))
+        .inOrder();
   }
 
   @Test
-  public void testInfiniteSymlinkExpansion_SymlinkToReferrerToAncestor_LevelsOfDirectorySymlinks()
+  public void testInfiniteSymlinkExpansion_symlinkToReferrerToAncestor_levelsOfDirectorySymlinks()
       throws Exception {
     symlink("dir1/a", "../dir2");
     symlink("dir2/b", "../dir1");
 
     RootedPath rootedPathDir1AB =
         RootedPath.toRootedPath(pkgRoot, pkgRoot.relativize(path("dir1/a/b")));
-    RootedPath rootedPathDir2B =
-        RootedPath.toRootedPath(pkgRoot, pkgRoot.relativize(path("dir2/b")));
-    RootedPath rootedPathDir1 = RootedPath.toRootedPath(pkgRoot, pkgRoot.relativize(path("dir1")));
-
     SkyKey keyDir1AB = FileValue.key(rootedPathDir1AB);
 
     StoredEventHandler eventHandler = new StoredEventHandler();
@@ -1296,27 +1263,12 @@ public class FileFunctionTest {
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
             .setNumThreads(DEFAULT_THREAD_COUNT)
-            .setEventHander(eventHandler)
+            .setEventHandler(eventHandler)
             .build();
     EvaluationResult<FileValue> result =
         driver.evaluate(ImmutableList.of(keyDir1AB), evaluationContext);
 
-    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(keyDir1AB).isNotTransient();
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(keyDir1AB)
-        .hasExceptionThat()
-        .isInstanceOf(FileSymlinkInfiniteExpansionException.class);
-    FileSymlinkInfiniteExpansionException fiee =
-        (FileSymlinkInfiniteExpansionException) result.getError(keyDir1AB).getException();
-    assertThat(fiee).hasMessageThat().contains("Infinite symlink expansion");
-    assertThat(fiee.getPathToChain()).isEmpty();
-    assertThat(fiee.getChain())
-        .containsExactly(rootedPathDir1AB, rootedPathDir2B, rootedPathDir1)
-        .inOrder();
-
-    assertThat(eventHandler.getEvents()).hasSize(1);
-    assertThat(Iterables.getOnlyElement(eventHandler.getEvents()).getMessage())
-        .contains("infinite symlink expansion detected");
+    assertThatEvaluationResult(result).hasNoError();
   }
 
   @Test
@@ -1330,6 +1282,7 @@ public class FileFunctionTest {
 
   @Test
   public void testInjectionOverIOException() throws Exception {
+    CustomInMemoryFs fs = (CustomInMemoryFs) this.fs;
     Path foo = file("foo");
     SkyKey fooKey = skyKey("foo");
     fs.stubStatError(foo, new IOException("bork"));
@@ -1338,7 +1291,7 @@ public class FileFunctionTest {
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
             .setNumThreads(1)
-            .setEventHander(NullEventHandler.INSTANCE)
+            .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     EvaluationResult<FileValue> result =
         driver.evaluate(ImmutableList.of(fooKey), evaluationContext);
@@ -1361,7 +1314,7 @@ public class FileFunctionTest {
   }
 
   @Test
-  public void testMultipleLevelsOfDirectorySymlinks_Clean() throws Exception {
+  public void testMultipleLevelsOfDirectorySymlinks_clean() throws Exception {
     symlink("a/b/c", "../c");
     Path abcd = path("a/b/c/d");
     symlink("a/c/d", "../d");
@@ -1369,7 +1322,7 @@ public class FileFunctionTest {
   }
 
   @Test
-  public void testMultipleLevelsOfDirectorySymlinks_Incremental() throws Exception {
+  public void testMultipleLevelsOfDirectorySymlinks_incremental() throws Exception {
     SequentialBuildDriver driver = makeDriver();
 
     symlink("a/b/c", "../c");
@@ -1407,7 +1360,7 @@ public class FileFunctionTest {
   }
 
   @Test
-  public void testLogicalChainDuringResolution_Directory_SimpleSymlink() throws Exception {
+  public void testLogicalChainDuringResolution_directory_simpleSymlink() throws Exception {
     symlink("a", "b");
     symlink("b", "c");
     directory("c");
@@ -1415,11 +1368,12 @@ public class FileFunctionTest {
     assertThat(fileValue).isInstanceOf(SymlinkFileValueWithStoredChain.class);
     assertThat(fileValue.getUnresolvedLinkTarget()).isEqualTo(PathFragment.create("b"));
     assertThat(fileValue.logicalChainDuringResolution())
-        .isEqualTo(ImmutableList.of(rootedPath("a"), rootedPath("b"), rootedPath("c")));
+        .containsExactly(rootedPath("a"), rootedPath("b"), rootedPath("c"))
+        .inOrder();
   }
 
   @Test
-  public void testLogicalChainDuringResolution_Directory_SimpleAncestorSymlink() throws Exception {
+  public void testLogicalChainDuringResolution_directory_simpleAncestorSymlink() throws Exception {
     symlink("a", "b");
     symlink("b", "c");
     directory("c/d");
@@ -1432,29 +1386,29 @@ public class FileFunctionTest {
   }
 
   @Test
-  public void testLogicalChainDuringResolution_File_SimpleSymlink() throws Exception {
+  public void testLogicalChainDuringResolution_file_simpleSymlink() throws Exception {
     symlink("a", "b");
     symlink("b", "c");
     file("c");
     FileValue fileValue = valueForPath(path("a"));
     assertThat(fileValue).isInstanceOf(SymlinkFileValueWithoutStoredChain.class);
     assertThat(fileValue.getUnresolvedLinkTarget()).isEqualTo(PathFragment.create("b"));
-    assertThrows(IllegalStateException.class, () -> fileValue.logicalChainDuringResolution());
+    assertThrows(IllegalStateException.class, fileValue::logicalChainDuringResolution);
   }
 
   @Test
-  public void testLogicalChainDuringResolution_File_SimpleAncestorSymlink() throws Exception {
+  public void testLogicalChainDuringResolution_file_simpleAncestorSymlink() throws Exception {
     symlink("a", "b");
     symlink("b", "c");
     file("c/d");
     FileValue fileValue = valueForPath(path("a/d"));
     assertThat(fileValue).isInstanceOf(DifferentRealPathFileValueWithoutStoredChain.class);
     assertThat(fileValue.realRootedPath()).isEqualTo(rootedPath("c/d"));
-    assertThrows(IllegalStateException.class, () -> fileValue.logicalChainDuringResolution());
+    assertThrows(IllegalStateException.class, fileValue::logicalChainDuringResolution);
   }
 
   @Test
-  public void testLogicalChainDuringResolution_Complicated() throws Exception {
+  public void testLogicalChainDuringResolution_complicated() throws Exception {
     symlink("a", "b");
     symlink("b", "c");
     directory("c");
@@ -1477,20 +1431,34 @@ public class FileFunctionTest {
         .inOrder();
   }
 
+  @Test
+  public void testFileAccessException() throws Exception {
+    CustomInMemoryFs fs = (CustomInMemoryFs) this.fs;
+    Path foo = file("foo");
+    FileAccessException fae = new FileAccessException("nope");
+    fs.stubStatError(foo, fae);
+    SkyKey skyKey = skyKey("foo");
+    BuildDriver driver = makeDriver();
+    EvaluationResult<FileValue> result =
+        driver.evaluate(ImmutableList.of(skyKey), EVALUATION_OPTIONS);
+    assertThat(result.hasError()).isTrue();
+    ErrorInfoSubject errorInfoSubject =
+        assertThatEvaluationResult(result).hasErrorEntryForKeyThat(skyKey);
+    errorInfoSubject.isTransient();
+    errorInfoSubject.hasExceptionThat().isSameInstanceAs(fae);
+  }
+
   /**
    * Returns a callback that, when executed, deletes the given path. Not meant to be called directly
    * by tests.
    */
-  private Runnable makeDeletePathCallback(final Path toDelete) {
-    return new Runnable() {
-      @Override
-      public void run() {
-        try {
-          toDelete.delete();
-        } catch (IOException e) {
-          e.printStackTrace();
-          fail(e.getMessage());
-        }
+  private static Runnable makeDeletePathCallback(Path toDelete) {
+    return () -> {
+      try {
+        toDelete.delete();
+      } catch (IOException e) {
+        e.printStackTrace();
+        fail(e.getMessage());
       }
     };
   }
@@ -1499,16 +1467,13 @@ public class FileFunctionTest {
    * Returns a callback that, when executed, writes the given bytes to the given file path. Not
    * meant to be called directly by tests.
    */
-  private Runnable makeWriteFileContentCallback(final Path toChange, final byte[] contents) {
-    return new Runnable() {
-      @Override
-      public void run() {
-        try (OutputStream outputStream = toChange.getOutputStream()) {
-          outputStream.write(contents);
-        } catch (IOException e) {
-          e.printStackTrace();
-          fail(e.getMessage());
-        }
+  private static Runnable makeWriteFileContentCallback(Path toChange, byte[] contents) {
+    return () -> {
+      try (OutputStream outputStream = toChange.getOutputStream()) {
+        outputStream.write(contents);
+      } catch (IOException e) {
+        e.printStackTrace();
+        fail(e.getMessage());
       }
     };
   }
@@ -1517,16 +1482,13 @@ public class FileFunctionTest {
    * Returns a callback that, when executed, creates the given directory path. Not meant to be
    * called directly by tests.
    */
-  private Runnable makeCreateDirectoryCallback(final Path toCreate) {
-    return new Runnable() {
-      @Override
-      public void run() {
-        try {
-          toCreate.createDirectory();
-        } catch (IOException e) {
-          e.printStackTrace();
-          fail(e.getMessage());
-        }
+  private static Runnable makeCreateDirectoryCallback(Path toCreate) {
+    return () -> {
+      try {
+        toCreate.createDirectory();
+      } catch (IOException e) {
+        e.printStackTrace();
+        fail(e.getMessage());
       }
     };
   }
@@ -1535,22 +1497,19 @@ public class FileFunctionTest {
    * Returns a callback that, when executed, makes {@code toLink} a symlink to {@code toTarget}. Not
    * meant to be called directly by tests.
    */
-  private Runnable makeSymlinkCallback(final Path toLink, final PathFragment toTarget) {
-    return new Runnable() {
-      @Override
-      public void run() {
-        try {
-          FileSystemUtils.ensureSymbolicLink(toLink, toTarget);
-        } catch (IOException e) {
-          e.printStackTrace();
-          fail(e.getMessage());
-        }
+  private static Runnable makeSymlinkCallback(Path toLink, PathFragment toTarget) {
+    return () -> {
+      try {
+        FileSystemUtils.ensureSymbolicLink(toLink, toTarget);
+      } catch (IOException e) {
+        e.printStackTrace();
+        fail(e.getMessage());
       }
     };
   }
 
   /** Returns the files that would be changed/created if {@code path} were to be changed/created. */
-  private ImmutableList<String> filesTouchedIfTouched(Path path) {
+  private static ImmutableList<String> filesTouchedIfTouched(Path path) {
     List<String> filesToBeTouched = Lists.newArrayList();
     do {
       filesToBeTouched.add(path.getPathString());
@@ -1685,14 +1644,7 @@ public class FileFunctionTest {
     ImmutableList<String> changedPathStrings = changeResult.first;
     Runnable undoCallback = changeResult.second;
     differencer.invalidate(
-        Iterables.transform(
-            changedPathStrings,
-            new Function<String, SkyKey>() {
-              @Override
-              public SkyKey apply(String input) {
-                return fileStateSkyKey(input);
-              }
-            }));
+        changedPathStrings.stream().map(this::fileStateSkyKey).collect(Collectors.toList()));
 
     result = driver.evaluate(ImmutableList.of(key), EVALUATION_OPTIONS);
     if (result.hasError()) {
@@ -1744,35 +1696,34 @@ public class FileFunctionTest {
         .that(result.hasError())
         .isTrue();
     assertThat(
-            !Iterables.isEmpty(result.getError().getCycleInfo())
-                || result.getError().getException() != null)
+            !result.getError().getCycleInfo().isEmpty() || result.getError().getException() != null)
         .isTrue();
     return filesSeen(driver.getGraphForTesting());
   }
 
   private Path file(String fileName) throws Exception {
     Path path = path(fileName);
-    FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
+    path.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.createEmptyFile(path);
     return path;
   }
 
   private Path file(String fileName, String contents) throws Exception {
     Path path = path(fileName);
-    FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
+    path.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(path, contents);
     return path;
   }
 
   private Path directory(String directoryName) throws Exception {
     Path path = path(directoryName);
-    FileSystemUtils.createDirectoryAndParents(path);
+    path.createDirectoryAndParents();
     return path;
   }
 
   private Path symlink(String link, String target) throws Exception {
     Path path = path(link);
-    FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
+    path.getParentDirectory().createDirectoryAndParents();
     path.createSymbolicLink(PathFragment.create(target));
     return path;
   }
@@ -1805,11 +1756,11 @@ public class FileFunctionTest {
     private final Map<Path, IOException> stubbedStatErrors = Maps.newHashMap();
     private final Map<Path, IOException> stubbedFastDigestErrors = Maps.newHashMap();
 
-    public CustomInMemoryFs(ManualClock manualClock) {
-      super(manualClock);
+    CustomInMemoryFs(ManualClock manualClock) {
+      super(manualClock, DigestHashFunction.SHA256);
     }
 
-    public void stubFastDigestError(Path path, IOException error) {
+    void stubFastDigestError(Path path, IOException error) {
       stubbedFastDigestErrors.put(path, error);
     }
 
@@ -1821,11 +1772,11 @@ public class FileFunctionTest {
       return fastDigest ? getDigest(path) : null;
     }
 
-    public void stubStat(Path path, @Nullable FileStatus stubbedResult) {
+    void stubStat(Path path, @Nullable FileStatus stubbedResult) {
       stubbedStats.put(path, stubbedResult);
     }
 
-    public void stubStatError(Path path, IOException error) {
+    void stubStatError(Path path, IOException error) {
       stubbedStatErrors.put(path, error);
     }
 

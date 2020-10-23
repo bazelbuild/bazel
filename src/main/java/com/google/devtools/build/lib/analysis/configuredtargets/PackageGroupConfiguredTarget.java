@@ -24,20 +24,23 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.InfoInterface;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import java.util.Optional;
 
 /**
  * Dummy ConfiguredTarget for package groups. Contains no functionality, since package groups are
  * not really first-class Targets.
  */
 @AutoCodec
+@Immutable
 public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
     implements PackageSpecificationProvider {
   private static final FileProvider NO_FILES = new FileProvider(
@@ -66,8 +69,9 @@ public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
       TargetContext targetContext, PackageGroup packageGroup) {
     NestedSetBuilder<PackageGroupContents> builder = NestedSetBuilder.stableOrder();
     for (Label label : packageGroup.getIncludes()) {
-      TransitiveInfoCollection include = targetContext.maybeFindDirectPrerequisite(
-          label, targetContext.getConfiguration());
+      TransitiveInfoCollection include =
+          targetContext.findDirectPrerequisite(
+              label, Optional.ofNullable(targetContext.getConfiguration()));
       PackageSpecificationProvider provider = include == null ? null
           : include.getProvider(PackageSpecificationProvider.class);
       if (provider == null) {
@@ -96,19 +100,19 @@ public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
   @Override
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
     if (provider == FileProvider.class) {
-      return (P) NO_FILES;
+      return provider.cast(NO_FILES); // can't fail
     } else {
       return super.getProvider(provider);
     }
   }
 
   @Override
-  protected InfoInterface rawGetSkylarkProvider(Provider.Key providerKey) {
+  protected Info rawGetStarlarkProvider(Provider.Key providerKey) {
     return null;
   }
 
   @Override
-  protected Object rawGetSkylarkProvider(String providerKey) {
+  protected Object rawGetStarlarkProvider(String providerKey) {
     return null;
   }
 }

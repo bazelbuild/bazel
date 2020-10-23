@@ -87,6 +87,13 @@ function get_deb_ctl_listing() {
   dpkg-deb --ctrl-tarfile "${test_data}" | tar tf - | sort
 }
 
+function get_deb_ctl_file() {
+  local input=$1
+  local ctl_file=$2
+  local test_data="${TEST_DATA_DIR}/${input}"
+  dpkg-deb --info "${test_data}" "${ctl_file}"
+}
+
 function get_deb_ctl_permission() {
   local input=$1
   local file=$2
@@ -196,15 +203,26 @@ function test_deb() {
   expect_log "Urgency: low"
   expect_log "Distribution: trusty"
 
+  get_deb_ctl_file test-deb.deb templates >$TEST_log
+  expect_log "Template: titi/test"
+  expect_log "Type: string"
+
+  get_deb_ctl_file test-deb.deb config >$TEST_log
+  expect_log "# test config file"
+
   if ! dpkg_deb_supports_ctrl_tarfile test-deb.deb ; then
-    echo "Unable to test deb control files, too old dpkg-deb!" >&2
+    echo "Unable to test deb control files listing, too old dpkg-deb!" >&2
     return 0
   fi
   local ctrl_listing="conffiles
-control"
+config
+control
+templates"
   check_eq "$ctrl_listing" "$(get_deb_ctl_listing test-deb.deb)"
   check_eq "-rw-r--r--" "$(get_deb_ctl_permission test-deb.deb conffiles)"
+  check_eq "-rwxr-xr-x" "$(get_deb_ctl_permission test-deb.deb config)"
   check_eq "-rw-r--r--" "$(get_deb_ctl_permission test-deb.deb control)"
+  check_eq "-rwxr-xr-x" "$(get_deb_ctl_permission test-deb.deb templates)"
   local conffiles="/etc/nsswitch.conf
 /etc/other"
   check_eq "$conffiles" "$(get_deb_ctl_file test-deb.deb conffiles)"

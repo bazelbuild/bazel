@@ -47,6 +47,7 @@ public class DexFileSplitterTest {
 
   private static final Path INPUT_JAR;
   private static final Path INPUT_JAR2;
+  private static final Path MIXED_JAR;
   private static final Path MAIN_DEX_LIST_FILE;
   static final String DEX_PREFIX = "classes";
 
@@ -56,6 +57,7 @@ public class DexFileSplitterTest {
 
       INPUT_JAR = Paths.get(runfiles.rlocation(System.getProperty("testinputjar")));
       INPUT_JAR2 = Paths.get(runfiles.rlocation(System.getProperty("testinputjar2")));
+      MIXED_JAR = Paths.get(runfiles.rlocation(System.getProperty("mixedinputjar")));
       MAIN_DEX_LIST_FILE = Paths.get(runfiles.rlocation(System.getProperty("testmaindexlist")));
     } catch (Exception e) {
       throw new ExceptionInInitializerError(e);
@@ -87,7 +89,7 @@ public class DexFileSplitterTest {
   public void testSingleInputMultidexOutput() throws Exception {
     Path dexArchive = buildDexArchive();
     ImmutableList<Path> outputArchives = runDexSplitter(200, "multidex_from_single", dexArchive);
-    assertThat(outputArchives.size()).isGreaterThan(1); // test sanity
+    assertThat(outputArchives.size()).isGreaterThan(1);
 
     ImmutableSet<String> expectedEntries = dexEntries(dexArchive);
     assertExpectedEntries(outputArchives, expectedEntries);
@@ -98,7 +100,7 @@ public class DexFileSplitterTest {
     Path dexArchive = buildDexArchive();
     Path dexArchive2 = buildDexArchive(INPUT_JAR2, "jar2.dex.zip");
     ImmutableList<Path> outputArchives = runDexSplitter(200, "multidex", dexArchive, dexArchive2);
-    assertThat(outputArchives.size()).isGreaterThan(1); // test sanity
+    assertThat(outputArchives.size()).isGreaterThan(1);
 
     HashSet<String> expectedEntries = new HashSet<>();
     expectedEntries.addAll(dexEntries(dexArchive));
@@ -115,7 +117,7 @@ public class DexFileSplitterTest {
     Path dexArchive = buildDexArchive();
     Path dexArchive2 = buildDexArchive(INPUT_JAR2, "jar2.dex.zip");
     ImmutableList<Path> outputArchives = runDexSplitter(200, "det1", dexArchive, dexArchive2);
-    assertThat(outputArchives.size()).isGreaterThan(1); // test sanity
+    assertThat(outputArchives.size()).isGreaterThan(1);
     ImmutableList<Path> outputArchives2 = runDexSplitter(200, "det2", dexArchive, dexArchive2);
     assertThat(outputArchives2).hasSize(outputArchives.size()); // paths differ though
 
@@ -154,7 +156,7 @@ public class DexFileSplitterTest {
             dexArchive);
 
     ImmutableSet<String> expectedEntries = dexEntries(dexArchive);
-    assertThat(outputArchives.size()).isGreaterThan(1); // test sanity
+    assertThat(outputArchives.size()).isGreaterThan(1);
     assertThat(dexEntries(outputArchives.get(0)))
         .containsAtLeastElementsIn(expectedMainDexEntries());
     assertExpectedEntries(outputArchives, expectedEntries);
@@ -192,7 +194,7 @@ public class DexFileSplitterTest {
             dexArchive);
 
     ImmutableSet<String> expectedEntries = dexEntries(dexArchive);
-    assertThat(outputArchives.size()).isGreaterThan(1); // test sanity
+    assertThat(outputArchives.size()).isGreaterThan(1);
     assertThat(dexEntries(outputArchives.get(0)))
         .containsExactlyElementsIn(expectedMainDexEntries());
     assertExpectedEntries(outputArchives, expectedEntries);
@@ -214,6 +216,18 @@ public class DexFileSplitterTest {
 
     // Only expect entries from the Jar we filtered by
     assertExpectedEntries(outputArchives, dexEntries(dexArchive2));
+  }
+
+  @Test
+  public void testMixedInput_keptSeparate() throws Exception {
+    Path dexArchive = buildDexArchive();
+    Path mixedArchive = buildDexArchive(MIXED_JAR, "mixed.jar.dex.zip");
+    ImmutableList<Path> outputArchives =
+        runDexSplitter(256 * 256, "mixed_input", dexArchive, mixedArchive);
+    assertThat(outputArchives).hasSize(3);
+    assertThat(dexEntries(outputArchives.get(0))).contains("aaa/Baz.class.dex");
+    assertThat(dexEntries(outputArchives.get(1))).containsExactly("j$/test/Foo.class.dex");
+    assertThat(dexEntries(outputArchives.get(2))).containsExactly("zzz/Bar.class.dex");
   }
 
   private static Iterable<String> expectedMainDexEntries() throws IOException {
@@ -264,7 +278,7 @@ public class DexFileSplitterTest {
               .map(ZipEntryName.INSTANCE)
               .filter(Predicates.containsPattern(".*\\.class.dex$"))
               .collect(ImmutableSet.<String>toImmutableSet());
-      assertThat(result).isNotEmpty(); // test sanity
+      assertThat(result).isNotEmpty();
       return result;
     }
   }

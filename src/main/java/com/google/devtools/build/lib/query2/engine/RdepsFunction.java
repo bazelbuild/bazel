@@ -19,8 +19,11 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.CustomFunctionQueryEnvironment;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCallable;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -88,6 +91,29 @@ public final class RdepsFunction extends AllRdepsFunction {
       Callback<T> callback) {
     QueryTaskFuture<ThreadSafeMutableSet<T>> universeValueFuture =
         QueryUtil.evalAll(env, context, universeExpression);
+
+    if (env instanceof CustomFunctionQueryEnvironment) {
+      QueryTaskFuture<ThreadSafeMutableSet<T>> fromValueFuture =
+          QueryUtil.evalAll(env, context, argumentExpression);
+      return env.whenAllSucceedCall(
+          ImmutableList.of(fromValueFuture, universeValueFuture),
+          new QueryTaskCallable<Void>() {
+            @Override
+            public Void call() throws QueryException, InterruptedException {
+              Collection<T> fromValue = fromValueFuture.getIfSuccessful();
+              Collection<T> universeValue = universeValueFuture.getIfSuccessful();
+              ((CustomFunctionQueryEnvironment<T>) env)
+                  .rdeps(
+                      fromValue,
+                      universeValue,
+                      depth,
+                      rdepsFunctionExpressionForErrorMessages,
+                      callback);
+              return null;
+            }
+          });
+    }
+
     Function<ThreadSafeMutableSet<T>, QueryTaskFuture<Void>> evalInUniverseAsyncFunction =
         universeValue -> {
           Predicate<T> universe;
@@ -103,7 +129,6 @@ public final class RdepsFunction extends AllRdepsFunction {
 
           return AllRdepsFunction.eval(env, argumentExpression, universe, context, callback, depth);
         };
-
     return env.transformAsync(universeValueFuture, evalInUniverseAsyncFunction);
   }
 }

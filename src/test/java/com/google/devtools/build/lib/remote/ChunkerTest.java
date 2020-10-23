@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.remote.Chunker.Chunk;
 import com.google.protobuf.ByteString;
@@ -141,6 +141,36 @@ public class ChunkerTest {
     chunker.next();
     chunker.reset();
     Mockito.verify(in.get()).close();
+  }
+
+  @Test
+  public void seekAfterReset() throws IOException {
+    // Test that seek() works on an uninitialized chunker
+
+    byte[] data = new byte[10];
+    Chunker chunker = Chunker.builder().setInput(data).setChunkSize(10).build();
+
+    chunker.reset();
+    chunker.seek(2);
+
+    Chunk next = chunker.next();
+    assertThat(next).isNotNull();
+    assertThat(next.getOffset()).isEqualTo(2);
+    assertThat(next.getData()).hasSize(8);
+  }
+
+  @Test
+  public void seekBackwards() throws IOException {
+    byte[] data = new byte[10];
+    Chunker chunker = Chunker.builder().setInput(data).setChunkSize(10).build();
+
+    chunker.seek(4);
+    chunker.seek(2);
+
+    Chunk next = chunker.next();
+    assertThat(next).isNotNull();
+    assertThat(next.getOffset()).isEqualTo(2);
+    assertThat(next.getData()).hasSize(8);
   }
 
   private void assertNextEquals(Chunker chunker, byte... data) throws IOException {

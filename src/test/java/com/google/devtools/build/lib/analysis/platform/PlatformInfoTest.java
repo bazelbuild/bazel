@@ -15,9 +15,11 @@
 package com.google.devtools.build.lib.analysis.platform;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -137,6 +139,7 @@ public class PlatformInfoTest extends BuildViewTestCase {
 
     assertThat(platformInfo).isNotNull();
     assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("child properties");
+    assertThat(platformInfo.execProperties()).isEmpty();
   }
 
   @Test
@@ -264,5 +267,204 @@ public class PlatformInfoTest extends BuildViewTestCase {
                 .setRemoteExecutionProperties("foo")
                 .build())
         .testEquals();
+  }
+
+  @Test
+  public void platformInfo_execProperties_empty() throws Exception {
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setExecProperties(ImmutableMap.of());
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.execProperties()).isNotNull();
+    assertThat(platformInfo.execProperties()).isEmpty();
+  }
+
+  @Test
+  public void platformInfo_execProperties_one() throws Exception {
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setExecProperties(ImmutableMap.of("elem1", "value1"));
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.execProperties()).isNotNull();
+    assertThat(platformInfo.execProperties()).containsExactly("elem1", "value1");
+  }
+
+  @Test
+  public void platformInfo_parentPlatform_keepExecProperties() throws Exception {
+    PlatformInfo parent =
+        PlatformInfo.builder().setExecProperties(ImmutableMap.of("parent", "properties")).build();
+
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.execProperties()).containsExactly("parent", "properties");
+  }
+
+  @Test
+  public void platformInfo_parentPlatform_inheritanceRules() throws Exception {
+    PlatformInfo parent =
+        PlatformInfo.builder()
+            .setExecProperties(
+                ImmutableMap.of("p1", "keep", "p2", "delete", "p3", "parent", "p4", "del2"))
+            .build();
+
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    PlatformInfo platformInfo =
+        builder.setExecProperties(ImmutableMap.of("p2", "", "p3", "child", "p4", "")).build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.execProperties()).containsExactly("p1", "keep", "p3", "child");
+  }
+
+  @Test
+  public void platformInfo_constructor() throws Exception {
+    scratch.file(
+        "test/platform/my_platform.bzl",
+        "def _impl(ctx):",
+        "  constraints = [val[platform_common.ConstraintValueInfo] "
+            + "for val in ctx.attr.constraints]",
+        "  platform = platform_common.PlatformInfo(",
+        "      label = ctx.label, constraint_values = constraints)",
+        "  return [platform]",
+        "my_platform = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'constraints': attr.label_list(providers = [platform_common.ConstraintValueInfo])",
+        "  }",
+        ")");
+    scratch.file(
+        "test/constraint/BUILD",
+        "constraint_setting(name = 'basic')",
+        "constraint_value(name = 'foo',",
+        "    constraint_setting = ':basic',",
+        ")");
+    scratch.file(
+        "test/platform/BUILD",
+        "load('//test/platform:my_platform.bzl', 'my_platform')",
+        "my_platform(name = 'custom',",
+        "    constraints = [",
+        "       '//test/constraint:foo',",
+        "    ],",
+        ")");
+
+    setBuildLanguageOptions("--experimental_platforms_api");
+    ConfiguredTarget platform = getConfiguredTarget("//test/platform:custom");
+    assertThat(platform).isNotNull();
+
+    PlatformInfo provider = PlatformProviderUtils.platform(platform);
+    assertThat(provider).isNotNull();
+    assertThat(provider.label()).isEqualTo(makeLabel("//test/platform:custom"));
+    ConstraintSettingInfo constraintSetting =
+        ConstraintSettingInfo.create(makeLabel("//test/constraint:basic"));
+    ConstraintValueInfo constraintValue =
+        ConstraintValueInfo.create(constraintSetting, makeLabel("//test/constraint:foo"));
+    assertThat(provider.constraints().get(constraintSetting)).isEqualTo(constraintValue);
+  }
+
+  @Test
+  public void platformInfo_constructor_parent() throws Exception {
+    scratch.file(
+        "test/platform/my_platform.bzl",
+        "def _impl(ctx):",
+        "  constraints = [val[platform_common.ConstraintValueInfo] "
+            + "for val in ctx.attr.constraints]",
+        "  platform = platform_common.PlatformInfo(",
+        "      label = ctx.label, constraint_values = constraints)",
+        "  return [platform]",
+        "my_platform = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'constraints': attr.label_list(providers = [platform_common.ConstraintValueInfo])",
+        "  }",
+        ")");
+    scratch.file(
+        "test/constraint/BUILD",
+        "constraint_setting(name = 'basic')",
+        "constraint_setting(name = 'complex')",
+        "constraint_value(name = 'foo',",
+        "    constraint_setting = ':basic',",
+        ")",
+        "constraint_value(name = 'bar',",
+        "    constraint_setting = ':basic',",
+        ")",
+        "constraint_value(name = 'baz',",
+        "    constraint_setting = ':complex',",
+        ")");
+    scratch.file(
+        "test/platform/BUILD",
+        "load('//test/platform:my_platform.bzl', 'my_platform')",
+        "platform(",
+        "    name='parent',",
+        "    constraint_values = [",
+        "       '//test/constraint:foo',",
+        "    ],",
+        ")",
+        "my_platform(name = 'custom',",
+        "    constraints = [",
+        "       '//test/constraint:bar',",
+        "       '//test/constraint:baz',",
+        "    ],",
+        ")");
+
+    setBuildLanguageOptions("--experimental_platforms_api");
+    ConfiguredTarget platform = getConfiguredTarget("//test/platform:custom");
+    assertThat(platform).isNotNull();
+
+    PlatformInfo provider = PlatformProviderUtils.platform(platform);
+    assertThat(provider).isNotNull();
+    assertThat(provider.label()).isEqualTo(makeLabel("//test/platform:custom"));
+
+    // Check that overrides work.
+    ConstraintSettingInfo constraintSetting =
+        ConstraintSettingInfo.create(makeLabel("//test/constraint:basic"));
+    ConstraintValueInfo constraintValue =
+        ConstraintValueInfo.create(constraintSetting, makeLabel("//test/constraint:bar"));
+    assertThat(provider.constraints().get(constraintSetting)).isEqualTo(constraintValue);
+
+    // Check that inheritance works.
+    ConstraintSettingInfo constraintSetting2 =
+        ConstraintSettingInfo.create(makeLabel("//test/constraint:complex"));
+    ConstraintValueInfo constraintValue2 =
+        ConstraintValueInfo.create(constraintSetting2, makeLabel("//test/constraint:baz"));
+    assertThat(provider.constraints().get(constraintSetting2)).isEqualTo(constraintValue2);
+  }
+
+  @Test
+  public void platformInfo_constructor_error_duplicateConstraints() throws Exception {
+    scratch.file(
+        "test/platform/my_platform.bzl",
+        "def _impl(ctx):",
+        "  platform = platform_common.PlatformInfo()",
+        "  return [platform]",
+        "my_platform = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'constraints': attr.label_list(providers = [platform_common.ConstraintValueInfo])",
+        "  }",
+        ")");
+    scratch.file(
+        "test/constraint/BUILD",
+        "constraint_setting(name = 'basic')",
+        "constraint_value(name = 'foo',",
+        "    constraint_setting = ':basic',",
+        ")");
+    setBuildLanguageOptions("--experimental_platforms_api");
+    checkError(
+        "test/platform",
+        "custom",
+        "Label '//test/constraint:foo' is duplicated in the 'constraints' attribute of rule"
+            + " 'custom'",
+        "load('//test/platform:my_platform.bzl', 'my_platform')",
+        "my_platform(name = 'custom',",
+        "    constraints = [",
+        "       '//test/constraint:foo',",
+        "       '//test/constraint:foo',",
+        "    ],",
+        ")");
   }
 }

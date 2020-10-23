@@ -72,11 +72,13 @@ public interface IncludeScanner {
   /** Supplies IncludeScanners upon request. */
   interface IncludeScannerSupplier {
     /**
-     * Returns the possibly shared scanner to be used for a given pair of include paths. The paths
-     * are specified as PathFragments relative to the execution root.
+     * Returns the possibly shared scanner to be used for a given triplet of include paths. The
+     * paths are specified as PathFragments relative to the execution root.
      */
-    IncludeScanner scannerFor(List<PathFragment> quoteIncludePaths,
-        List<PathFragment> includePaths);
+    IncludeScanner scannerFor(
+        List<PathFragment> quoteIncludePaths,
+        List<PathFragment> includePaths,
+        List<PathFragment> frameworkIncludePaths);
   }
 
   /**

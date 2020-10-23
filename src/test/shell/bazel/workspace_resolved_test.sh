@@ -53,8 +53,17 @@ EOF
 
   bazel clean --expunge
   bazel build --experimental_repository_resolved_file=../repo.bzl @ext//... \
-      || fail "Expected success"
+        > "${TEST_log}" 2>&1 || fail "Expected success"
+  inplace-sed -e "s?$(pwd)?PWD?g" "$TEST_log"
   bazel shutdown
+
+  # We expect the additional argument to be reported to the user...
+  expect_log 'extra_arg.*foobar'
+  # ...as well as the location of the rule instantiation and definition.
+  expect_log 'Repository ext instantiated at:'
+  expect_log '  PWD/WORKSPACE:2:'
+  expect_log 'Repository rule trivial_rule defined at:'
+  expect_log '  PWD/rule.bzl:5:'
 
   # Verify that bazel can read the generated repo.bzl file and that it contains
   # the expected information
@@ -393,7 +402,9 @@ EOF
   cat > BUILD <<'EOF'
 load("//:repo.bzl", "resolved")
 
-names = [entry["original_attributes"]["name"] for entry in resolved]
+names = [entry["original_attributes"]["name"]
+         for entry in resolved
+         if "native" not in entry]
 
 [
   genrule(
@@ -449,8 +460,9 @@ EOF
   cat > BUILD <<'EOF'
 load("//:repo.bzl", "resolved")
 
-names = [entry["original_attributes"]["name"] for entry in resolved]
-
+names = [entry["original_attributes"]["name"]
+         for entry in resolved
+         if "native" not in entry]
 [
   genrule(
    name = name,
@@ -498,7 +510,7 @@ broken_rule = repository_rule(
 )
 EOF
   touch BUILD
-  cat > WORKSPACE <<'EOF'
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<'EOF'
 load("//:rule.bzl", "broken_rule")
 
 broken_rule(name = "broken")
@@ -639,7 +651,8 @@ genrule(
 EOF
 
   bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_resolved_file=resolved.bzl
-  rm WORKSPACE; touch WORKSPACE
+  rm WORKSPACE
+  touch WORKSPACE
   echo; cat resolved.bzl; echo
 
   bazel build --experimental_resolved_file_instead_of_workspace=resolved.bzl \
@@ -804,13 +817,14 @@ time_rule = repository_rule(
   attrs = {},
 )
 EOF
-    cat > WORKSPACE <<'EOF'
+  cat > WORKSPACE <<'EOF'
 load("//:rule.bzl", "time_rule")
 
 time_rule(name="timestamprepo")
 EOF
 
     bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_resolved_file=resolved.bzl
+    cat resolved.bzl > /dev/null || fail "resolved.bzl should exist"
     bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_hash_file=`pwd`/resolved.bzl \
           --experimental_verify_repository_rules='//:rule.bzl%time_rule' \
           > "${TEST_log}" 2>&1 && fail "expected failure" || :
@@ -1069,6 +1083,66 @@ EOF
         //:it || fail "Expected success"
 }
 
+test_toolchain_recorded() {
+  # Verify that the registration of toolchains and execution platforms is
+  # recorded in the resolved file
+  EXTREPODIR=`pwd`
+  tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
+
+  mkdir ext
+  touch ext/BUILD
+  cat > ext/toolchains.bzl <<'EOF'
+def ext_toolchains():
+  native.register_toolchains("@ext//:toolchain")
+  native.register_execution_platforms("@ext//:platform")
+EOF
+  tar cvf ext.tar ext
+  rm -rf ext
+
+  mkdir main
+  cd main
+  cat >> WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext",
+  urls=["file://${EXTREPODIR}/ext.tar"],
+)
+load("@ext//:toolchains.bzl", "ext_toolchains")
+ext_toolchains()
+EOF
+  touch BUILD
+  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir \
+        --experimental_repository_resolved_file=resolved.bzl
+  echo; cat resolved.bzl; echo
+
+  grep 'register_toolchains.*ext//:toolchain' resolved.bzl \
+      || fail "tool chain not registered in resolved file"
+  grep 'register_execution_platforms.*ext//:platform' resolved.bzl \
+      || fail "execution platform not registered in resolved file"
+}
+
+test_local_config_platform_recorded() {
+  EXTREPODIR=`pwd`
+  tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
+
+  # Verify that the auto-generated local_config_platform repo is
+  # recorded in the resolved file
+  mkdir main
+  cd main
+  # Clear out the WORKSPACE.
+  cat >> WORKSPACE <<EOF
+EOF
+  touch BUILD
+  bazel sync \
+      --distdir=${EXTREPODIR}/test_WORKSPACE/distdir \
+      --experimental_repository_resolved_file=resolved.bzl
+  echo; cat resolved.bzl; echo
+
+  grep 'local_config_platform' resolved.bzl \
+      || fail "local_config_platform in resolved file"
+}
+
 test_definition_location_recorded() {
   # Verify that for Starlark repositories the location of the definition
   # is recorded in the resolved file.
@@ -1133,10 +1207,61 @@ EOF
   bazel build //:ext_def
 
   cat `bazel info bazel-genfiles`/ext_def.txt > "${TEST_log}"
+  inplace-sed -e "s?$(pwd)/?PWD/?g" -e "s?$TEST_TMPDIR/?TEST_TMPDIR/?g" "${TEST_log}"
+  expect_log "Repository ext instantiated at:"
+  expect_log "  PWD/WORKSPACE:3"
+  expect_log "  PWD/first/path/foo.bzl:4"
+  expect_log "  PWD/another/directory/bar.bzl:4"
+  expect_log "Repository rule http_archive defined at:"
+  expect_log "  TEST_TMPDIR/.*/external/bazel_tools/tools/build_defs/repo/http.bzl:"
+}
 
-  expect_log "WORKSPACE:3"
-  expect_log "first/path/foo.bzl:4"
-  expect_log "another/directory/bar.bzl:4"
+# Regression test for #11040.
+#
+# Test that a canonical repo warning is generated for explicitly specified
+# attributes whose values differ, and that it is never generated for implicitly
+# created attributes (in particular, the generator_* attributes).
+test_canonical_warning() {
+  EXTREPODIR=`pwd`
+  tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
+
+  mkdir main
+  touch main/BUILD
+  cat > main/reporule.bzl <<EOF
+def _impl(repository_ctx):
+    repository_ctx.file("a.txt", "A")
+    repository_ctx.file("BUILD.bazel", "exports_files(['a.txt'])")
+    # Don't include "name", test that we warn about it below.
+    return {"myattr": "bar"}
+
+reporule = repository_rule(
+    implementation = _impl,
+    attrs = {
+        "myattr": attr.string()
+    })
+
+# We need to use a macro for the generator_* attributes to be defined.
+def instantiate_reporule(name, **kwargs):
+    reporule(name=name, **kwargs)
+EOF
+  cat > main/WORKSPACE <<EOF
+workspace(name = "main")
+load("//:reporule.bzl", "instantiate_reporule")
+instantiate_reporule(
+  name = "myrepo",
+  myattr = "foo"
+)
+EOF
+
+  cd main
+  # We should get a warning for "myattr" having a changed value and for "name"
+  # being dropped, but not for the generator_* attributes.
+  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir >/dev/null 2>$TEST_log
+  bazel clean --expunge
+  expect_log "Rule 'myrepo' indicated that a canonical reproducible form \
+can be obtained by modifying arguments myattr = \"bar\" and dropping \
+\[.*\"name\".*\]"
+  expect_not_log "Rule 'myrepo' indicated .*generator"
 }
 
 run_suite "workspace_resolved_test tests"

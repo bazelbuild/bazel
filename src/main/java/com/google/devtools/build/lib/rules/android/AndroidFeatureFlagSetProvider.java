@@ -16,11 +16,11 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -30,10 +30,10 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlag;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidFeatureFlagSetProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidFeatureFlagSetProviderApi;
 import java.util.Map;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
 
 /**
  * Provider for checking the set of feature flags used by an android_binary.
@@ -65,10 +65,10 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
 
   /**
    * Constructs a definition for the attribute used to restrict access to feature flags. The
-   * whitelist will only be reached if the feature_flags attribute is explicitly set.
+   * allowlist will only be reached if the feature_flags attribute is explicitly set.
    */
-  public static Attribute.Builder<Label> getWhitelistAttribute(RuleDefinitionEnvironment env) {
-    return ConfigFeatureFlag.getWhitelistAttribute(env, FEATURE_FLAG_ATTR);
+  public static Attribute.Builder<Label> getAllowlistAttribute(RuleDefinitionEnvironment env) {
+    return ConfigFeatureFlag.getAllowlistAttribute(env, FEATURE_FLAG_ATTR);
   }
 
   /**
@@ -93,32 +93,47 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
     }
 
     if (!ConfigFeatureFlag.isAvailable(ruleContext)) {
-      ruleContext.attributeError(
+      throw ruleContext.throwWithAttributeError(
           FEATURE_FLAG_ATTR,
           String.format(
               "the %s attribute is not available in package '%s'",
               FEATURE_FLAG_ATTR, ruleContext.getLabel().getPackageIdentifier()));
-      throw new RuleErrorException();
     }
 
     Iterable<? extends TransitiveInfoCollection> actualTargets =
-        ruleContext.getPrerequisites(FEATURE_FLAG_ATTR, Mode.TARGET);
-    boolean aliasFound = false;
+        ruleContext.getPrerequisites(FEATURE_FLAG_ATTR);
+    RuleErrorException exception = null;
     for (TransitiveInfoCollection target : actualTargets) {
       Label label = AliasProvider.getDependencyLabel(target);
       if (!label.equals(target.getLabel())) {
-        ruleContext.attributeError(
-            FEATURE_FLAG_ATTR,
-            String.format(
-                "Feature flags must be named directly, not through aliases; use '%s', not '%s'",
-                target.getLabel(), label));
-        aliasFound = true;
+        try {
+          exception =
+              ruleContext.throwWithAttributeError(
+                  FEATURE_FLAG_ATTR,
+                  String.format(
+                      "Feature flags must be named directly, not through aliases; use '%s', not"
+                          + " '%s'",
+                      target.getLabel(), label));
+        } catch (RuleErrorException e) {
+          exception = e;
+        }
       }
     }
-    if (aliasFound) {
-      throw new RuleErrorException();
+    if (exception != null) {
+      throw exception;
     }
     return Optional.of(ImmutableMap.copyOf(expectedValues));
+  }
+
+  /** Returns the feature flags this rule sets as user-friendly strings. */
+  public static ImmutableSet<String> getFlagNames(RuleContext ruleContext) {
+    return ruleContext
+        .attributes()
+        .get(AndroidFeatureFlagSetProvider.FEATURE_FLAG_ATTR, BuildType.LABEL_KEYED_STRING_DICT)
+        .keySet()
+        .stream()
+        .map(label -> label.toString())
+        .collect(ImmutableSet.toImmutableSet());
   }
 
   /**
@@ -153,11 +168,10 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
     }
 
     @Override
-    public AndroidFeatureFlagSetProvider create(SkylarkDict<Label, String> flags)
+    public AndroidFeatureFlagSetProvider create(Dict<?, ?> flags) // <Label, String>
         throws EvalException {
       return new AndroidFeatureFlagSetProvider(
-          Optional.of(
-              SkylarkDict.castSkylarkDictOrNoneToDict(flags, Label.class, String.class, "flags")));
+          Optional.of(Dict.noneableCast(flags, Label.class, String.class, "flags")));
     }
   }
 }

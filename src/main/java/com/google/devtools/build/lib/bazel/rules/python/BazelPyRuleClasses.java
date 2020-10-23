@@ -19,9 +19,8 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -33,7 +32,7 @@ import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.python.PyCommon;
 import com.google.devtools.build.lib.rules.python.PyInfo;
@@ -46,7 +45,7 @@ import com.google.devtools.build.lib.util.FileType;
  * Bazel-specific rule definitions for Python rules.
  */
 public final class BazelPyRuleClasses {
-  public static final FileType PYTHON_SOURCE = FileType.of(".py");
+  public static final FileType PYTHON_SOURCE = FileType.of(".py", ".py3");
 
   public static final LabelLateBoundDefault<?> PY_INTERPRETER =
       LabelLateBoundDefault.fromTargetConfiguration(
@@ -75,9 +74,9 @@ public final class BazelPyRuleClasses {
                   .mandatoryProvidersList(
                       ImmutableList.of(
                           // Legacy provider.
-                          // TODO(#7010): Remove this legacy set.
+                          // TODO(b/153363654): Remove this legacy set.
                           ImmutableList.of(
-                              SkylarkProviderIdentifier.forLegacy(PyStructUtils.PROVIDER_NAME)),
+                              StarlarkProviderIdentifier.forLegacy(PyStructUtils.PROVIDER_NAME)),
                           // Modern provider.
                           ImmutableList.of(PyInfo.PROVIDER.id())))
                   .allowedFileTypes())
@@ -106,20 +105,19 @@ public final class BazelPyRuleClasses {
           reasons, but they are essentially the same as <code>"PY2"</code> and <code>"PY3"</code>
           and should be avoided.
 
-          <p>Under the old semantics
-          (<code>--incompatible_allow_python_version_transitions=false</code>), it is an error to
-          build any Python target for a version disallowed by its <code>srcs_version</code>
-          attribute. Under the new semantics
-          (<code>--incompatible_allow_python_version_transitions=true</code>), this check is
-          deferred to the executable rule: You can build a <code>srcs_version = "PY3"</code>
-          <code>py_library</code> target for Python 2, but you cannot actually depend on it via
-          <code>deps</code> from a Python 3 <code>py_binary</code>.
+          <p>Note that only the executable rules (<code>py_binary</code> and <code>py_library
+          </code>) actually verify the current Python version against the value of this attribute.
+          (This is a feature; since <code>py_library</code> does not change the current Python
+          version, if it did the validation, it'd be impossible to build both <code>PY2ONLY</code>
+          and <code>PY3ONLY</code> libraries in the same invocation.) Furthermore, if there is a
+          version mismatch, the error is only reported in the execution phase. In particular, the
+          error will not appear in a <code>bazel build --nobuild</code> invocation.)
 
           <p>To get diagnostic information about which dependencies introduce version requirements,
           you can run the <code>find_requirements</code> aspect on your target:
           <pre>
           bazel build &lt;your target&gt; \
-              --aspects=@bazel_tools//tools/python:srcs_version.bzl%find_requirements \
+              --aspects=@rules_python//python:defs.bzl%find_requirements \
               --output_groups=pyversioninfo
           </pre>
           This will build a file with the suffix <code>-pyversioninfo.txt</code> giving information
@@ -165,38 +163,17 @@ public final class BazelPyRuleClasses {
           match any filename in <code>srcs</code>, <code>main</code> must be specified.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("main", LABEL).allowedFileTypes(PYTHON_SOURCE))
-          /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(default_python_version) -->
-          A deprecated alias for <code>python_version</code>; use that instead. This attribute is
-          disabled under <code>--incompatible_remove_old_python_version_api</code>. For migration
-          purposes, if <code>python_version</code> is given then the value of
-          <code>default_python_version</code> is ignored.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(
-              attr(PyCommon.DEFAULT_PYTHON_VERSION_ATTRIBUTE, STRING)
-                  .value(PythonVersion._INTERNAL_SENTINEL.toString())
-                  .allowedValues(PyRuleClasses.TARGET_PYTHON_ATTR_VALUE_SET)
-                  .nonconfigurable(
-                      "read by PyRuleClasses.PYTHON_VERSION_TRANSITION, which doesn't have access"
-                          + " to the configuration"))
           /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(python_version) -->
           Whether to build this target (and its transitive <code>deps</code>) for Python 2 or Python
-          3. Valid values are <code>"PY2"</code> (the default) and <code>"PY3"</code>.
+          3. Valid values are <code>"PY2"</code> and <code>"PY3"</code> (the default).
 
-          <p>Under the old semantics
-          (<code>--incompatible_allow_python_version_transitions=false</code>), the Python version
-          generally cannot be changed once set. This means that the <code>--python_version</code>
-          flag overrides this attribute, and other Python binaries in the <code>data</code> deps of
-          this target are forced to use the same version as this target.
-
-          <p>Under the new semantics
-          (<code>--incompatible_allow_python_version_transitions=true</code>), the Python version
-          is always set (possibly by default) to whatever version is specified by this attribute,
-          regardless of the version specified on the command line or by other targets that depend on
-          this one.
+          <p>The Python version is always reset (possibly by default) to whatever version is
+          specified by this attribute, regardless of the version specified on the command line or by
+          other higher targets that depend on this one.
 
           <p>If you want to <code>select()</code> on the current Python version, you can inspect the
-          value of <code>@bazel_tools//tools/python:python_version</code>. See
-          <a href="https://github.com/bazelbuild/bazel/blob/4b74ea9a3f81b7ed30562f1689827b5488884c86/tools/python/BUILD#L33">here</a>
+          value of <code>@rules_python//python:python_version</code>. See
+          <a href="https://github.com/bazelbuild/rules_python/blob/120590e2f2b66e5590bf4dc8ebef9c5338984775/python/BUILD#L43">here</a>
           for more information.
 
           <p><b>Bug warning:</b> This attribute sets the version for which Bazel builds your target,
@@ -229,11 +206,12 @@ public final class BazelPyRuleClasses {
           Whether to implicitly create empty __init__.py files in the runfiles tree.
           These are created in every directory containing Python source code or
           shared libraries, and every parent directory of those directories, excluding the repo root
-          directory. The default is true for backward compatibility. If false, the user is
+          directory. The default, auto, means true unless
+          <code>--incompatible_default_to_explicit_init_py</code> is used. If false, the user is
           responsible for creating (possibly empty) __init__.py files and adding them to the
           <code>srcs</code> of Python targets as required.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("legacy_create_init", BOOLEAN).value(true))
+          .add(attr("legacy_create_init", TRISTATE).value(TriState.AUTO))
           /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(stamp) -->
           Enable link stamping.
           Whether to encode build information into the binary. Possible values:
@@ -258,6 +236,7 @@ public final class BazelPyRuleClasses {
               attr("$py_toolchain_type", NODEP_LABEL)
                   .value(env.getToolsLabel("//tools/python:toolchain_type")))
           .addRequiredToolchains(env.getToolsLabel("//tools/python:toolchain_type"))
+          .useToolchainTransition(true)
           .build();
     }
 

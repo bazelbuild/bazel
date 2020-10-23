@@ -67,10 +67,11 @@ public class GenClass {
   public static void main(String[] args) throws IOException {
     GenClassOptions options = GenClassOptionsParser.parse(Arrays.asList(args));
     Manifest manifest = readManifest(options.manifest());
-    deleteTree(options.tempDir());
-    Files.createDirectories(options.tempDir());
-    extractGeneratedClasses(options.classJar(), manifest, options.tempDir());
-    writeOutputJar(options);
+    Path tempDir = Files.createTempDirectory("tmp");
+    Files.createDirectories(tempDir);
+    extractGeneratedClasses(options.classJar(), manifest, tempDir);
+    writeOutputJar(tempDir, options);
+    deleteTree(tempDir);
   }
 
   /** Reads the compilation manifest. */
@@ -161,11 +162,11 @@ public class GenClass {
   }
 
   /** Writes the generated class files to the output jar. */
-  private static void writeOutputJar(GenClassOptions options) throws IOException {
+  private static void writeOutputJar(Path tempDir, GenClassOptions options) throws IOException {
     JarCreator output = new JarCreator(options.outputJar().toString());
     output.setCompression(true);
     output.setNormalize(true);
-    output.addDirectory(options.tempDir().toString());
+    output.addDirectory(tempDir);
     output.execute();
   }
 }

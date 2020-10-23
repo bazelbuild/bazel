@@ -2,15 +2,15 @@
 The packages `devtools/build/lib/rules/objc` and
 `devtools/build/lib/rules/apple` implement the objc and ios Bazel rules.
 
-## Interfacing from Skylark
+## Interfacing from Starlark
 
-Information exchange between skylark rules and native objc_* or ios_* rules
+Information exchange between Starlark rules and native objc_* or ios_* rules
 occurs by three mechanisms:
 
 1) **`AppleToolchain:`**
 
 `AppleToolchain.java` houses constants and static methods for use in rule
-implementations.  It is accessed in skylark through the global `apple_common`
+implementations.  It is accessed in Starlark through the global `apple_common`
 namespace:
 
 ```
@@ -26,7 +26,7 @@ build information (that is, information that cannot always be derived strictly
 from BUILD files).  The contents of these configurations can be inspected by
 looking at `rules/objc/ObjcConfiguration.java` and
 `rules/apple/AppleConfiguration.java`.  To access a configuration fragment from
-skylark, the fragment must be declared in the rule definition:
+Starlark, the fragment must be declared in the rule definition:
 
 ```
 def __impl(ctx):
@@ -44,7 +44,7 @@ objects defined in ObjcProvider that identify a category of transitive
 information to be communicated between targets in a dependency chain.
 
 Native objc/ios rules export ObjcProvider instances, which are made available
-to skylark dependants:
+to Starlark dependants:
 
 ```
 def __impl(ctx):
@@ -56,10 +56,10 @@ The provider can be queried by accessing fields that correspond to ObjcProvider
 keys.
 
 ```
-    libraries = objc_provider.library  # A SkylarkNestedSet of Artifacts
+    libraries = objc_provider.library  # A Depset of Artifacts
 ```
 
-A skylark rule that is intended to be a dependency of native objc rules should
+A Starlark rule that is intended to be a dependency of native objc rules should
 export an ObjcProvider itself.  An ObjcProvider is constructed using a
 constructor exposed on the apple_common namespace.
 
@@ -71,7 +71,7 @@ def __impl(ctx):
 ```
 
 Arguments to `new_objc_provider` should correspond to ObjcProvider keys, and
-values should be skylark sets that should be added to the provider. Other
+values should be Starlark sets that should be added to the provider. Other
 instances of ObjcProvider can also be used in provider construction.
 
 ```

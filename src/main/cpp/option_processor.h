@@ -63,6 +63,9 @@ class OptionProcessor {
 
   virtual ~OptionProcessor() {}
 
+  // Returns the lower-case product name associated with this options processor.
+  std::string GetLowercaseProductName() const;
+
   // Splits the arguments of a command line invocation.
   //
   // For instance:
@@ -105,6 +108,8 @@ class OptionProcessor {
   // Gets the arguments explicitly provided by the user's command line.
   std::vector<std::string> GetExplicitCommandArguments() const;
 
+  // Returns the underlying StartupOptions object with parsed values. Must
+  // only be called after ParseOptions.
   virtual StartupOptions* GetParsedStartupOptions() const;
 
   // Prints a message about the origin of startup options. This should be called
@@ -116,7 +121,7 @@ class OptionProcessor {
   // server to configure blazerc options and client environment.
   static std::vector<std::string> GetBlazercAndEnvCommandArgs(
       const std::string& cwd,
-      const std::vector<std::unique_ptr<RcFile>>& blazercs,
+      const std::vector<RcFile*>& blazercs,
       const std::vector<std::string>& env);
 
   // Finds and parses the appropriate RcFiles:
@@ -133,8 +138,7 @@ class OptionProcessor {
 
  private:
   blaze_exit_code::ExitCode ParseStartupOptions(
-      const std::vector<std::unique_ptr<RcFile>>& rc_files,
-      std::string* error);
+      const std::vector<RcFile*>& rc_files, std::string* error);
 
   // An ordered list of command args that contain information about the
   // execution environment and the flags passed via the bazelrc files.
@@ -145,9 +149,12 @@ class OptionProcessor {
 
   const WorkspaceLayout* workspace_layout_;
 
-  // The startup options parsed from args, this field is initialized by
-  // ParseOptions.
-  std::unique_ptr<StartupOptions> parsed_startup_options_;
+  // The StartupOptions object defining the startup options which are accepted,
+  // and, after ParseOptions has been called, their values.
+  const std::unique_ptr<StartupOptions> startup_options_;
+
+  // Whether or not ParseOptions has been called.
+  bool parse_options_called_;
 
   // Path to the system-wide bazelrc configuration file.
   // This is configurable for testing purposes only.

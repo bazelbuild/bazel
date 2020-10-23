@@ -14,13 +14,20 @@
 #ifndef BAZEL_SRC_MAIN_CPP_BLAZE_H_
 #define BAZEL_SRC_MAIN_CPP_BLAZE_H_
 
+#include <string>
+
 #include "src/main/cpp/option_processor.h"
 #include "src/main/cpp/workspace_layout.h"
 #include "src/main/cpp/util/logging.h"
 
 namespace blaze {
 
-int Main(int argc, const char* argv[], WorkspaceLayout* workspace_layout,
+// Prints client version information to standard output, e.g. when invoking the
+// client with "--version".
+void PrintVersionInfo(const std::string& self_path,
+                      const std::string& product_name);
+
+int Main(int argc, const char *const *argv, WorkspaceLayout* workspace_layout,
          OptionProcessor* option_processor, uint64_t start_time);
 
 }  // namespace blaze

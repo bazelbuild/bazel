@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.testutil;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsSublist;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertDoesNotContainSublist;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import java.util.Arrays;
 import java.util.List;

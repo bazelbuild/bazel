@@ -36,13 +36,13 @@ public class DocgenConsts {
   public static final String RULES_TEMPLATE = BE_TEMPLATE_DIR + "/rules.vm";
   public static final String BE_NAV_TEMPLATE = BE_TEMPLATE_DIR + "/be-nav.vm";
 
-  public static final String SKYLARK_LIBRARY_TEMPLATE =
+  public static final String STARLARK_LIBRARY_TEMPLATE =
       "com/google/devtools/build/docgen/templates/skylark-library.vm";
-  public static final String SKYLARK_NAV_TEMPLATE =
+  public static final String STARLARK_NAV_TEMPLATE =
       "com/google/devtools/build/docgen/templates/skylark-nav.vm";
-  public static final String SKYLARK_MODULE_CATEGORY_TEMPLATE =
+  public static final String STARLARK_MODULE_CATEGORY_TEMPLATE =
       "com/google/devtools/build/docgen/templates/skylark-category.vm";
-  public static final String SKYLARK_OVERVIEW_TEMPLATE =
+  public static final String STARLARK_OVERVIEW_TEMPLATE =
       "com/google/devtools/build/docgen/templates/skylark-overview.vm";
 
   public static final String VAR_LEFT_PANEL = "LEFT_PANEL";
@@ -60,7 +60,7 @@ public class DocgenConsts {
   public static final String VAR_TEST_ATTRIBUTE_DEFINITION = "TEST_ATTRIBUTE_DEFINITION";
   public static final String VAR_BINARY_ATTRIBUTE_DEFINITION = "BINARY_ATTRIBUTE_DEFINITION";
 
-  public static final String VAR_SECTION_SKYLARK_BUILTIN = "SECTION_BUILTIN";
+  public static final String VAR_SECTION_STARLARK_BUILTIN = "SECTION_BUILTIN";
 
   public static final String COMMON_ATTRIBUTES = "common";
   public static final String TEST_ATTRIBUTES = "test";
@@ -184,7 +184,7 @@ public class DocgenConsts {
       .build();
 
   // The following variables are not constants as they can be overridden from
-  // SkylarkDocumentationProcessor#parseOptions
+  // StarlarkDocumentationProcessor#parseOptions
 
   // Build Encyclopedia documentation root
   public static String BeDocsRoot = "/versions/master/be";

@@ -33,17 +33,18 @@ public interface ExtraLinkTimeLibrary {
 
   /** Output of {@link #buildLibraries}. Pair of libraries to link and runtime libraries. */
   class BuildLibraryOutput {
-    public NestedSet<LibraryToLink> librariesToLink;
+    public NestedSet<CcLinkingContext.LinkerInput> linkerInputs;
     public NestedSet<Artifact> runtimeLibraries;
 
     public BuildLibraryOutput(
-        NestedSet<LibraryToLink> librariesToLink, NestedSet<Artifact> runtimeLibraries) {
-      this.librariesToLink = librariesToLink;
+        NestedSet<CcLinkingContext.LinkerInput> linkerInputs,
+        NestedSet<Artifact> runtimeLibraries) {
+      this.linkerInputs = linkerInputs;
       this.runtimeLibraries = runtimeLibraries;
     }
 
-    public NestedSet<LibraryToLink> getLibrariesToLink() {
-      return librariesToLink;
+    public NestedSet<CcLinkingContext.LinkerInput> getLinkerInputs() {
+      return linkerInputs;
     }
 
     public NestedSet<Artifact> getRuntimeLibraries() {
@@ -52,7 +53,7 @@ public interface ExtraLinkTimeLibrary {
   }
 
   /**
-   * Build and return the LibraryToLink inputs to pass to the C++ linker and the associated runtime
+   * Build and return the LinkerInput inputs to pass to the C++ linker and the associated runtime
    * libraries.
    */
   BuildLibraryOutput buildLibraries(

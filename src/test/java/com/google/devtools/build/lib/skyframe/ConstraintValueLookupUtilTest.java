@@ -69,9 +69,15 @@ public class ConstraintValueLookupUtilTest extends ToolchainTestCase {
   @Test
   public void testConstraintValueLookup() throws Exception {
     ConfiguredTargetKey linuxKey =
-        ConfiguredTargetKey.of(makeLabel("//constraints:linux"), targetConfigKey, false);
+        ConfiguredTargetKey.builder()
+            .setLabel(makeLabel("//constraints:linux"))
+            .setConfigurationKey(targetConfigKey)
+            .build();
     ConfiguredTargetKey macKey =
-        ConfiguredTargetKey.of(makeLabel("//constraints:mac"), targetConfigKey, false);
+        ConfiguredTargetKey.builder()
+            .setLabel(makeLabel("//constraints:mac"))
+            .setConfigurationKey(targetConfigKey)
+            .build();
     GetConstraintValueInfoKey key =
         GetConstraintValueInfoKey.create(ImmutableList.of(linuxKey, macKey));
 
@@ -91,7 +97,10 @@ public class ConstraintValueLookupUtilTest extends ToolchainTestCase {
     scratch.file("invalid/BUILD", "filegroup(name = 'not_a_constraint')");
 
     ConfiguredTargetKey targetKey =
-        ConfiguredTargetKey.of(makeLabel("//invalid:not_a_constraint"), targetConfigKey, false);
+        ConfiguredTargetKey.builder()
+            .setLabel(makeLabel("//invalid:not_a_constraint"))
+            .setConfigurationKey(targetConfigKey)
+            .build();
     GetConstraintValueInfoKey key = GetConstraintValueInfoKey.create(ImmutableList.of(targetKey));
 
     EvaluationResult<GetConstraintValueInfoValue> result = getConstraintValueInfo(key);
@@ -111,7 +120,10 @@ public class ConstraintValueLookupUtilTest extends ToolchainTestCase {
   @Test
   public void testConstraintValueLookup_targetDoesNotExist() throws Exception {
     ConfiguredTargetKey targetKey =
-        ConfiguredTargetKey.of(makeLabel("//fake:missing"), targetConfigKey, false);
+        ConfiguredTargetKey.builder()
+            .setLabel(makeLabel("//fake:missing"))
+            .setConfigurationKey(targetConfigKey)
+            .build();
     GetConstraintValueInfoKey key = GetConstraintValueInfoKey.create(ImmutableList.of(targetKey));
 
     EvaluationResult<GetConstraintValueInfoValue> result = getConstraintValueInfo(key);

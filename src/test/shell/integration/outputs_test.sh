@@ -72,7 +72,7 @@ function test_plain_outputs() {
   mkdir -p $pkg || fail "mkdir -p $pkg failed"
   cat >$pkg/rule.bzl <<EOF
 def _impl(ctx):
-  ctx.file_action(
+  ctx.actions.write(
       output=ctx.outputs.out,
       content="Hello World!"
   )
@@ -110,7 +110,7 @@ def _outputs(foo):
   }
 
 def _impl(ctx):
-  ctx.file_action(
+  ctx.actions.write(
       output=ctx.outputs.out,
       content="Hello World!"
   )
@@ -141,7 +141,7 @@ function test_output_select_error() {
   mkdir -p $pkg || fail "mkdir -p $pkg failed"
   cat >$pkg/rule.bzl <<EOF
 def _impl(ctx):
-  ctx.file_action(
+  ctx.actions.write(
       output=ctx.outputs.out,
       content="Hello World!"
   )
@@ -170,7 +170,7 @@ EOF
   if bazel build //$pkg:demo &> $TEST_log; then
     fail "Build expected to fail"
   fi
-  expect_log "expected value of type 'dict or NoneType or function' for parameter 'outputs', for call to function rule"
+  expect_log "got.* 'select', want 'dict, NoneType, or function'" # (outputs)
 }
 
 function test_configurable_output_error() {
@@ -178,7 +178,7 @@ function test_configurable_output_error() {
   mkdir -p $pkg || fail "mkdir -p $pkg failed"
   cat >$pkg/rule.bzl <<EOF
 def _impl(ctx):
-  ctx.file_action(
+  ctx.actions.write(
       output=ctx.outputs.out,
       content="Hello World!"
   )
@@ -210,4 +210,4 @@ EOF
   expect_log "Attribute foo is configurable and cannot be used in outputs"
 }
 
-run_suite "skylark outputs tests"
+run_suite "starlark outputs tests"

@@ -38,8 +38,10 @@
 
 #include <libgen.h>
 #include <spawn.h>
+#include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
 #include <cerrno>
 #include <climits>
 #include <cstdio>
@@ -49,7 +51,6 @@
 #include <map>
 #include <memory>
 #include <sstream>
-#include <string>
 #include <utility>
 #include <vector>
 
@@ -200,6 +201,7 @@ int main(int argc, char *argv[]) {
     abort();
   }
 
+  bool relative_ast_path = getenv("RELATIVE_AST_PATH") != nullptr;
   for (int i = 1; i < argc; i++) {
     std::string arg(argv[i]);
 
@@ -218,13 +220,17 @@ int main(int argc, char *argv[]) {
     if (SetArgIfFlagPresent(arg, "DEBUG_PREFIX_MAP_PWD", &dest_dir)) {
       arg = "-fdebug-prefix-map=" + std::string(cwd.get()) + "=" + dest_dir;
     }
+    if (arg.compare("OSO_PREFIX_MAP_PWD") == 0) {
+      arg = "-Wl,-oso_prefix," + std::string(cwd.get()) + "/";
+    }
     FindAndReplace("__BAZEL_XCODE_DEVELOPER_DIR__", developer_dir, &arg);
     FindAndReplace("__BAZEL_XCODE_SDKROOT__", sdk_root, &arg);
 
     // Make the `add_ast_path` options used to embed Swift module references
     // absolute to enable Swift debugging without dSYMs: see
     // https://forums.swift.org/t/improving-swift-lldb-support-for-path-remappings/22694
-    if (StripPrefixStringIfPresent(&arg, kAddASTPathPrefix)) {
+    if (!relative_ast_path &&
+        StripPrefixStringIfPresent(&arg, kAddASTPathPrefix)) {
       // Only modify relative paths.
       if (!StartsWith(arg, "/")) {
         arg = std::string(kAddASTPathPrefix) +

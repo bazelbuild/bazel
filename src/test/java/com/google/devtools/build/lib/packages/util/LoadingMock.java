@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.skyframe.packages.PackageFactoryBuilderWithSkyframeForTesting;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 
 /** Create a mock client for the loading phase, as well as a configuration factory. */
@@ -32,7 +33,7 @@ public class LoadingMock {
   public PackageFactoryBuilderWithSkyframeForTesting getPackageFactoryBuilderForTesting(
       BlazeDirectories directories) {
     return (PackageFactoryBuilderWithSkyframeForTesting)
-        TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING.builder(directories);
+        TestPackageFactoryBuilderFactory.getInstance().builder(directories);
   }
 
   public ConfiguredRuleClassProvider createRuleClassProvider() {

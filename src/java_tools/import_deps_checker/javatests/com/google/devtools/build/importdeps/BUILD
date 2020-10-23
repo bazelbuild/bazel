@@ -1,3 +1,6 @@
+load("@rules_java//java:defs.bzl", "java_binary", "java_library", "java_test")
+load("//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps:tests.bzl", "create_golden_test")
+
 # Description:
 #   Tests for the checker to check the completeness of the deps of java_import or aar_import targets.
 package(
@@ -38,7 +41,6 @@ java_test(
     srcs = ["LazyClassEntryStateTest.java"],
     deps = [
         "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:import_deps_checker",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -74,7 +76,6 @@ java_test(
     test_class = "com.google.devtools.build.importdeps.ClassCacheTest",
     deps = [
         "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:import_deps_checker",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -117,8 +118,6 @@ java_test(
         "@local_jdk//:jre/lib/rt.jar",
     ],
 )
-
-load("//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps:tests.bzl", "create_golden_test")
 
 create_golden_test(
     name = "bootclasspath_missing_golden_test",
@@ -263,7 +262,6 @@ java_test(
     srcs = ["MainTest.java"],
     deps = [
         "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:junit4",
         "//third_party:truth",
     ],

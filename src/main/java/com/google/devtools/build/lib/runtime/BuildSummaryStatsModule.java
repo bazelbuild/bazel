@@ -17,11 +17,14 @@ import com.google.common.base.Joiner;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
@@ -31,17 +34,18 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
+import com.google.devtools.build.lib.vfs.Path;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Logger;
 
 /**
  * Blaze module for the build summary message that reports various stats to the user.
  */
 public class BuildSummaryStatsModule extends BlazeModule {
 
-  private static final Logger logger = Logger.getLogger(BuildSummaryStatsModule.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private ActionKeyContext actionKeyContext;
   private CriticalPathComputer criticalPathComputer;
@@ -54,6 +58,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
   private long executionStartMillis;
   private long executionEndMillis;
   private SpawnStats spawnStats;
+  private Path profilePath;
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
@@ -76,6 +81,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     enabled = env.getOptions().getOptions(ExecutionOptions.class).enableCriticalPathProfiling;
+    statsSummary = env.getOptions().getOptions(ExecutionOptions.class).statsSummary;
   }
 
   @Subscribe
@@ -89,6 +95,11 @@ public class BuildSummaryStatsModule extends BlazeModule {
   }
 
   @Subscribe
+  public void profileStarting(ProfilerStartedEvent event) {
+    this.profilePath = event.getProfilePath();
+  }
+
+  @Subscribe
   public void executionPhaseFinish(@SuppressWarnings("unused") ExecutionFinishedEvent event) {
     executionEndMillis = BlazeClock.instance().currentTimeMillis();
   }
@@ -97,6 +108,12 @@ public class BuildSummaryStatsModule extends BlazeModule {
   @AllowConcurrentEvents
   public void actionResultReceived(ActionResultReceivedEvent event) {
     spawnStats.countActionResult(event.getActionResult());
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
+  public void actionCompletion(ActionCompletionEvent event) {
+    spawnStats.incrementActionCount();
   }
 
   @Subscribe
@@ -120,10 +137,10 @@ public class BuildSummaryStatsModule extends BlazeModule {
           event.getResult().getBuildToolLogCollection()
               .addDirectValue(
                   "critical path", criticalPath.toString().getBytes(StandardCharsets.UTF_8));
-          logger.info(criticalPath.toString());
-          logger.info(
-              "Slowest actions:\n  "
-                  + Joiner.on("\n  ").join(criticalPathComputer.getSlowestComponents()));
+          logger.atInfo().log(criticalPath.toString());
+          logger.atInfo().log(
+              "Slowest actions:\n  %s",
+              Joiner.on("\n  ").join(criticalPathComputer.getSlowestComponents()));
           // We reverse the critical path because the profiler expect events ordered by the time
           // when the actions were executed while critical path computation is stored in the reverse
           // way.
@@ -135,6 +152,20 @@ public class BuildSummaryStatsModule extends BlazeModule {
                     ProfilerTask.CRITICAL_PATH_COMPONENT,
                     stat.prettyPrintAction());
           }
+        }
+      }
+      if (profilePath != null) {
+        // This leads to missing the afterCommand profiles of the other modules in the profile.
+        // Since the BEP currently shuts down at the BuildCompleteEvent, we cannot just move posting
+        // the BuildToolLogs to afterCommand of this module.
+        try {
+          Profiler.instance().stop();
+          event
+              .getResult()
+              .getBuildToolLogCollection()
+              .addLocalFile(profilePath.getBaseName(), profilePath);
+        } catch (IOException e) {
+          reporter.handle(Event.error("Error while writing profile file: " + e.getMessage()));
         }
       }
 
@@ -166,7 +197,11 @@ public class BuildSummaryStatsModule extends BlazeModule {
       event.getResult().getBuildToolLogCollection()
           .addDirectValue("process stats", spawnSummary.getBytes(StandardCharsets.UTF_8));
     } finally {
-      criticalPathComputer = null;
+      if (criticalPathComputer != null) {
+        eventBus.unregister(criticalPathComputer);
+        criticalPathComputer = null;
+      }
+      profilePath = null;
     }
   }
 }

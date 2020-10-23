@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
+
 # Description:
 #   Tests for the extension classes for desugaring try-with-resources for Android.
 package(
@@ -34,7 +36,6 @@ java_test(
     deps = [
         ":throwable_extension_test_utility",
         "//src/test/java/com/google/devtools/build/android/desugar:mocked_android_os_sdk_for_testing",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:throwable_extension",
         "//third_party:guava",
         "//third_party:junit4",
@@ -55,7 +56,6 @@ java_test(
     deps = [
         ":throwable_extension_test_utility",
         "//src/test/java/com/google/devtools/build/android/desugar:mocked_android_os_sdk_for_testing",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:throwable_extension",
         "//third_party:guava",
         "//third_party:junit4",
@@ -75,7 +75,6 @@ java_test(
     deps = [
         ":throwable_extension_test_utility",
         "//src/test/java/com/google/devtools/build/android/desugar:mocked_android_os_sdk_for_testing",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:throwable_extension",
         "//third_party:guava",
         "//third_party:junit4",
@@ -94,6 +93,24 @@ java_test(
         "//third_party:guava-testlib",
         "//third_party:junit4",
         "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "UnsignedIntsTest",
+    srcs = ["UnsignedIntsTest.java"],
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:primitives",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
+    name = "UnsignedLongsTest",
+    srcs = ["UnsignedLongsTest.java"],
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:primitives",
+        "//third_party:junit4",
     ],
 )
 

@@ -13,13 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /** Dummy {@link SkyValue} for {@link CollectTestSuitesInPackageFunction}. */
@@ -38,19 +37,23 @@ public class CollectTestSuitesInPackageValue implements SkyValue {
     return Key.create(packageId);
   }
 
-  /** {@link SkyKey} argument. */
-  @AutoValue
+  /**
+   * A {@link com.google.devtools.build.skyframe.SkyKey} for {@link
+   * CollectTestSuitesInPackageValue}.
+   */
   @AutoCodec
-  public abstract static class Key implements SkyKey {
+  public static class Key extends AbstractSkyKey<PackageIdentifier> {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+
+    private Key(PackageIdentifier arg) {
+      super(arg);
+    }
 
     @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
-    static Key create(PackageIdentifier packageId) {
-      return interner.intern(new AutoValue_CollectTestSuitesInPackageValue_Key(packageId));
+    static Key create(PackageIdentifier arg) {
+      return interner.intern(new Key(arg));
     }
-
-    public abstract PackageIdentifier getPackageId();
 
     @Override
     public SkyFunctionName functionName() {

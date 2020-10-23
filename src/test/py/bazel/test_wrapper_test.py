@@ -33,7 +33,7 @@ class TestWrapperTest(test_base.TestBase):
     self.fail('FAIL:\n | %s\n---' % '\n | '.join(output))
 
   def _CreateMockWorkspace(self):
-    self.ScratchFile('WORKSPACE')
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'load(":native_test.bzl", "bat_test", "exe_test")',
         'bat_test(',
@@ -54,10 +54,18 @@ class TestWrapperTest(test_base.TestBase):
         '        "@echo USER=%USER%",',
         '    ]',
         ')',
-        'py_test(',
+        'bat_test(',
         '    name = "runfiles_test",',
-        '    srcs = ["runfiles_test.py"],',
+        '    content = [',
+        '        "@echo off",',
+        '        "echo MF=%RUNFILES_MANIFEST_FILE%",',
+        '        "echo ONLY=%RUNFILES_MANIFEST_ONLY%",',
+        '        "echo DIR=%RUNFILES_DIR%",',
+        '        "echo data_path=%1",',
+        '        "if exist %1 (echo data_exists=1) else (echo data_exists=0)",',
+        '    ],',
         '    data = ["dummy.dat"],',
+        '    args = ["$(location dummy.dat)"],',
         ')',
         'bat_test(',
         '    name = "sharded_test",',
@@ -72,6 +80,12 @@ class TestWrapperTest(test_base.TestBase):
         '    content = [',
         '        "@echo GOOD=%HOME%",',
         '        "@echo BAD=%TEST_UNDECLARED_OUTPUTS_MANIFEST%",',
+        '    ],',
+        ')',
+        'bat_test(',
+        '    name = "print_arg0_test",',
+        '    content = [',
+        '        "@echo ARG0=%0",',
         '    ],',
         ')',
         'exe_test(',
@@ -97,6 +111,10 @@ class TestWrapperTest(test_base.TestBase):
         '    name = "xml2_test",',
         '    srcs = ["xml2_test.py"],',
         ')',
+        'py_test(',
+        '    name = "add_cur_dir_to_path_test",',
+        '    srcs = ["add_cur_dir_to_path_test.py"],',
+        ')'
     ])
 
     self.CopyFile(
@@ -141,16 +159,6 @@ class TestWrapperTest(test_base.TestBase):
         dst_path='foo/native_test.bzl')
 
     self.ScratchFile(
-        'foo/runfiles_test.py', [
-            'from __future__ import print_function',
-            'import os',
-            'print("MF=%s" % os.environ.get("RUNFILES_MANIFEST_FILE"))',
-            'print("ONLY=%s" % os.environ.get("RUNFILES_MANIFEST_ONLY"))',
-            'print("DIR=%s" % os.environ.get("RUNFILES_DIR"))',
-        ],
-        executable=True)
-
-    self.ScratchFile(
         'foo/undecl_test.py', [
             'from bazel_tools.tools.python.runfiles import runfiles',
             'import os',
@@ -164,7 +172,7 @@ class TestWrapperTest(test_base.TestBase):
             'shutil.copyfile(r.Rlocation("__main__/foo/dummy.ico"),',
             '                os.path.join(root, "out1", "data1.ico"))',
             'shutil.copyfile(r.Rlocation("__main__/foo/dummy.dat"),',
-            '                os.path.join(root, "out2", "data2.dat"))',
+            '                os.path.join(root, "out2", "my data 2.dat"))',
         ],
         executable=True)
 
@@ -207,6 +215,15 @@ class TestWrapperTest(test_base.TestBase):
             'import os',
             'with open(os.environ.get("XML_OUTPUT_FILE"), "wt") as f:',
             '  f.write("leave this")'
+        ],
+        executable=True)
+
+    self.ScratchFile(
+        'foo/add_cur_dir_to_path_test.py', [
+            'import os',
+            'path = os.getenv("PATH")',
+            'if ".;" not in path:',
+            '  exit(1)'
         ],
         executable=True)
 
@@ -275,7 +292,7 @@ class TestWrapperTest(test_base.TestBase):
         '--enable_runfiles=no',
     ] + flags)
     self.AssertExitCode(exit_code, 0, stderr)
-    mf = mf_only = rf_dir = None
+    mf = mf_only = rf_dir = path = exists = None
     for line in stderr + stdout:
       if line.startswith('MF='):
         mf = line[len('MF='):]
@@ -283,6 +300,10 @@ class TestWrapperTest(test_base.TestBase):
         mf_only = line[len('ONLY='):]
       elif line.startswith('DIR='):
         rf_dir = line[len('DIR='):]
+      elif line.startswith('data_path='):
+        path = line[len('data_path='):]
+      elif line.startswith('data_exists='):
+        exists = line[len('data_exists='):]
 
     if mf_only != '1':
       self._FailWithOutput(stderr + stdout)
@@ -297,6 +318,49 @@ class TestWrapperTest(test_base.TestBase):
       self._FailWithOutput(mf_contents)
 
     if not os.path.isdir(rf_dir):
+      self._FailWithOutput(stderr + stdout)
+
+    if not path:
+      # Expect the $(location) expansion in 'args' worked
+      self._FailWithOutput(stderr + stdout)
+
+    if exists != '0':
+      # Runfiles are disabled, expect the runfile symlink to be missing.
+      self._FailWithOutput(stderr + stdout)
+
+  def _AssertRunfilesSymlinks(self, flags):
+    exit_code, stdout, stderr = self.RunBazel([
+        'test',
+        '//foo:runfiles_test',
+        '-t-',
+        '--test_output=all',
+        # Ensure Bazel creates a runfiles tree.
+        '--enable_runfiles=yes',
+    ] + flags)
+    self.AssertExitCode(exit_code, 0, stderr)
+    mf_only = rf_dir = path = exists = None
+    for line in stderr + stdout:
+      if line.startswith('ONLY='):
+        mf_only = line[len('ONLY='):]
+      elif line.startswith('DIR='):
+        rf_dir = line[len('DIR='):]
+      elif line.startswith('data_path='):
+        path = line[len('data_path='):]
+      elif line.startswith('data_exists='):
+        exists = line[len('data_exists='):]
+
+    if mf_only == '1':
+      self._FailWithOutput(stderr + stdout)
+
+    if not rf_dir or not os.path.isdir(rf_dir):
+      self._FailWithOutput(stderr + stdout)
+
+    if not path:
+      # Expect the $(location) expansion in 'args' worked
+      self._FailWithOutput(stderr + stdout)
+
+    if exists != '1':
+      # Runfiles are enabled, expect the runfile symlink to exist.
       self._FailWithOutput(stderr + stdout)
 
   def _AssertShardedTest(self, flags):
@@ -340,16 +404,56 @@ class TestWrapperTest(test_base.TestBase):
     if not good or bad:
       self._FailWithOutput(stderr + stdout)
 
+  def _AssertTestBinaryLocation(self, flags):
+    exit_code, bazel_bin, stderr = self.RunBazel(['info', 'bazel-bin'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_bin = bazel_bin[0].replace('/', '\\')
+
+    exit_code, stdout, stderr = self.RunBazel([
+        'test',
+        '//foo:print_arg0_test',
+        '--test_output=all',
+    ] + flags)
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    arg0 = None
+    for line in stderr + stdout:
+      if line.startswith('ARG0='):
+        arg0 = line[len('ARG0='):]
+    # Get rid of the quotes if there is any
+    if arg0[0] == '"' and arg0[-1] == '"':
+      arg0 = arg0[1:-1]
+    # The test binary should located at the bazel bin folder
+    self.assertEqual(arg0, os.path.join(bazel_bin, 'foo\\print_arg0_test.bat'))
+
+    exit_code, stdout, stderr = self.RunBazel([
+        'test',
+        '//foo:print_arg0_test',
+        '--test_output=all',
+        '--enable_runfiles',
+    ] + flags)
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    arg0 = None
+    for line in stderr + stdout:
+      if line.startswith('ARG0='):
+        arg0 = line[len('ARG0='):]
+    # Get rid of the quotes if there is any
+    if arg0[0] == '"' and arg0[-1] == '"':
+      arg0 = arg0[1:-1]
+    self.assertEqual(
+        arg0,
+        os.path.join(bazel_bin,
+                     'foo\\print_arg0_test.bat.runfiles\\'
+                     '__main__\\foo\\print_arg0_test.bat')
+    )
+
   def _AssertTestArgs(self, flags):
     exit_code, bazel_bin, stderr = self.RunBazel(['info', 'bazel-bin'])
     self.AssertExitCode(exit_code, 0, stderr)
     bazel_bin = bazel_bin[0]
 
     exit_code, stdout, stderr = self.RunBazel([
-        # --[no]incompatible_windows_style_arg_escaping affects what arguments
-        # the test receives. Run with --incompatible_windows_style_arg_escaping
-        # to test for future (as of 2019-04-05) behavior.
-        '--incompatible_windows_style_arg_escaping',
         'test',
         '//foo:testargs_test',
         '-t-',
@@ -413,7 +517,7 @@ class TestWrapperTest(test_base.TestBase):
             'empty/': 0,
             'empty/sub/': 0,
             'out1/data1.ico': 70,
-            'out2/data2.dat': 16
+            'out2/my data 2.dat': 16
         })
 
     undecl_mf = os.path.join(bazel_testlogs, 'foo', 'undecl_test',
@@ -439,7 +543,7 @@ class TestWrapperTest(test_base.TestBase):
             'image/icon', 'text/ico', 'application/ico'
         ]):
       self._FailWithOutput(mf_content)
-    if mf_content[1] != 'out2/data2.dat\t16\tapplication/octet-stream':
+    if mf_content[1] != 'out2/my data 2.dat\t16\tapplication/octet-stream':
       self._FailWithOutput(mf_content)
 
   def _AssertUndeclaredOutputsAnnotations(self, flags):
@@ -536,14 +640,16 @@ class TestWrapperTest(test_base.TestBase):
       xml_contents = [line.strip() for line in f.readlines()]
     self.assertListEqual(xml_contents, ['leave this'])
 
-  # Test that the native test wrapper can run tests from external repositories.
+  # Test that we can run tests from external repositories.
   # See https://github.com/bazelbuild/bazel/issues/8088
-  # Unfortunately as of 2019-04-18 the legacy test wrapper (test-setup.sh) also
-  # has this bug, but I (@laszlocsomor) work on enabling the native test wrapper
-  # by default so fixing the legacy one seems to make little sense.
   def testRunningTestFromExternalRepo(self):
-    self.ScratchFile('WORKSPACE', ['local_repository(name = "a", path = "a")'])
-    self.ScratchFile('a/WORKSPACE')
+    rule_definition = [
+        'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")',
+        'local_repository(name = "a", path = "a")'
+    ]
+    rule_definition.extend(self.GetDefaultRepoRules())
+    self.ScratchFile('WORKSPACE', rule_definition)
+    self.CreateWorkspaceWithDefaultRepos('a/WORKSPACE')
     self.ScratchFile('BUILD', ['py_test(name = "x", srcs = ["x.py"])'])
     self.ScratchFile('a/BUILD', ['py_test(name = "x", srcs = ["x.py"])'])
     self.ScratchFile('x.py')
@@ -554,7 +660,6 @@ class TestWrapperTest(test_base.TestBase):
         exit_code, _, stderr = self.RunBazel([
             'test',
             '-t-',
-            '--incompatible_windows_native_test_wrapper',
             '--shell_executable=',
             '--test_output=errors',
             '--verbose_failures',
@@ -565,34 +670,25 @@ class TestWrapperTest(test_base.TestBase):
             exit_code, 0,
             ['flag=%s' % flag, 'target=%s' % target] + stderr)
 
-  def testTestExecutionWithTestSetupSh(self):
-    self._CreateMockWorkspace()
-    flags = ['--noincompatible_windows_native_test_wrapper']
-    self._AssertPassingTest(flags)
-    self._AssertFailingTest(flags)
-    self._AssertPrintingTest(flags)
-    self._AssertRunfiles(flags)
-    self._AssertShardedTest(flags)
-    self._AssertUnexportsEnvvars(flags)
-    self._AssertTestArgs(flags)
-    self._AssertUndeclaredOutputs(flags)
-    self._AssertUndeclaredOutputsAnnotations(flags)
-    self._AssertXmlGeneration(flags, split_xml=False)
-    self._AssertXmlGeneration(flags, split_xml=True)
-    self._AssertXmlGeneratedByTestIsRetained(flags, split_xml=False)
-    self._AssertXmlGeneratedByTestIsRetained(flags, split_xml=True)
+  def _AssertAddCurrentDirectoryToPathTest(self, flags):
+    exit_code, _, stderr = self.RunBazel([
+        'test',
+        '//foo:add_cur_dir_to_path_test',
+        '--test_output=all',
+    ] + flags)
+    self.AssertExitCode(exit_code, 0, stderr)
 
   def testTestExecutionWithTestWrapperExe(self):
     self._CreateMockWorkspace()
-    flags = [
-        '--incompatible_windows_native_test_wrapper', '--shell_executable='
-    ]
+    flags = ['--shell_executable=']
     self._AssertPassingTest(flags)
     self._AssertFailingTest(flags)
     self._AssertPrintingTest(flags)
     self._AssertRunfiles(flags)
+    self._AssertRunfilesSymlinks(flags)
     self._AssertShardedTest(flags)
     self._AssertUnexportsEnvvars(flags)
+    self._AssertTestBinaryLocation(flags)
     self._AssertTestArgs(flags)
     self._AssertUndeclaredOutputs(flags)
     self._AssertUndeclaredOutputsAnnotations(flags)
@@ -600,6 +696,7 @@ class TestWrapperTest(test_base.TestBase):
     self._AssertXmlGeneration(flags, split_xml=True)
     self._AssertXmlGeneratedByTestIsRetained(flags, split_xml=False)
     self._AssertXmlGeneratedByTestIsRetained(flags, split_xml=True)
+    self._AssertAddCurrentDirectoryToPathTest(flags)
 
 
 if __name__ == '__main__':

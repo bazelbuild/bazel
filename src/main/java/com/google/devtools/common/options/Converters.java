@@ -13,7 +13,12 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
+import static com.google.devtools.common.options.OptionsParser.STARLARK_SKIPPED_PREFIXES;
+
+import com.google.common.base.Ascii;
 import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
+import com.google.common.cache.CacheBuilderSpec;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -28,6 +33,18 @@ import java.util.regex.PatternSyntaxException;
 
 /** Some convenient converters used by blaze. Note: These are specific to blaze. */
 public final class Converters {
+  /**
+   * The name of the flag used for shorthand aliasing in blaze. {@see
+   * com.google.devtools.build.lib.analysis.config.CoreOptions#commandLineFlagAliases} for the
+   * option definition.
+   */
+  public static final String BLAZE_ALIASING_FLAG = "flag_alias";
+
+  private static final ImmutableList<String> ENABLED_REPS =
+      ImmutableList.of("true", "1", "yes", "t", "y");
+
+  private static final ImmutableList<String> DISABLED_REPS =
+      ImmutableList.of("false", "0", "no", "f", "n");
 
   /** Standard converter for booleans. Accepts common shorthands/synonyms. */
   public static class BooleanConverter implements Converter<Boolean> {
@@ -36,19 +53,11 @@ public final class Converters {
       if (input == null) {
         return false;
       }
-      input = input.toLowerCase();
-      if (input.equals("true")
-          || input.equals("1")
-          || input.equals("yes")
-          || input.equals("t")
-          || input.equals("y")) {
+      input = Ascii.toLowerCase(input);
+      if (ENABLED_REPS.contains(input)) {
         return true;
       }
-      if (input.equals("false")
-          || input.equals("0")
-          || input.equals("no")
-          || input.equals("f")
-          || input.equals("n")) {
+      if (DISABLED_REPS.contains(input)) {
         return false;
       }
       throw new OptionsParsingException("'" + input + "' is not a boolean");
@@ -131,22 +140,14 @@ public final class Converters {
       if (input == null) {
         return TriState.AUTO;
       }
-      input = input.toLowerCase();
+      input = Ascii.toLowerCase(input);
       if (input.equals("auto")) {
         return TriState.AUTO;
       }
-      if (input.equals("true")
-          || input.equals("1")
-          || input.equals("yes")
-          || input.equals("t")
-          || input.equals("y")) {
+      if (ENABLED_REPS.contains(input)) {
         return TriState.YES;
       }
-      if (input.equals("false")
-          || input.equals("0")
-          || input.equals("no")
-          || input.equals("f")
-          || input.equals("n")) {
+      if (DISABLED_REPS.contains(input)) {
         return TriState.NO;
       }
       throw new OptionsParsingException("'" + input + "' is not a boolean");
@@ -465,40 +466,114 @@ public final class Converters {
   }
 
   /**
-   * A converter for variable assignments from the parameter list of a blaze command invocation.
-   * Assignments are expected to have the form {@code name=value1[,..,valueN]}, where names and
-   * values are defined to be as permissive as possible.
+   * A converter for command line flag aliases. It does additional validation on the name and value
+   * of the assignment to ensure they conform to the naming limitations.
    */
-  public static class AssignmentToListOfValuesConverter
-      implements Converter<Map.Entry<String, List<String>>> {
-
-    private final Splitter splitter = Splitter.on(',');
+  public static class FlagAliasConverter extends AssignmentConverter {
 
     @Override
-    public Map.Entry<String, List<String>> convert(String input) throws OptionsParsingException {
-      int pos = input.indexOf("=");
-      if (pos <= 0) {
+    public Map.Entry<String, String> convert(String input) throws OptionsParsingException {
+      Map.Entry<String, String> entry = super.convert(input);
+      String shortForm = entry.getKey();
+      String longForm = entry.getValue();
+
+      String cmdLineAlias = "--" + BLAZE_ALIASING_FLAG + "=" + input;
+
+      if (!Pattern.matches("([\\w])*", shortForm)) {
         throw new OptionsParsingException(
-            "Variable definitions must be in the form of a 'name=value1[,..,valueN]' assignment");
+            shortForm + " should only consist of word characters to be a valid alias name.",
+            cmdLineAlias);
       }
-      String name = input.substring(0, pos);
-      List<String> value = splitter.splitToList(input.substring(pos + 1));
-      if (value.contains("")) {
+      if (longForm.contains("=")) {
+        throw new OptionsParsingException(
+            "--" + BLAZE_ALIASING_FLAG + " does not support flag value assignment.", cmdLineAlias);
+      }
+
+      // Remove this check if native options are permitted to be aliased
+      longForm = "--" + longForm;
+      if (STARLARK_SKIPPED_PREFIXES.stream().noneMatch(longForm::startsWith)) {
+        throw new OptionsParsingException(
+            "--" + BLAZE_ALIASING_FLAG + " only supports Starlark build settings.", cmdLineAlias);
+      }
+
+      return entry;
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a 'name=value' flag alias";
+    }
+  }
+
+  /**
+   * Base converter for assignments from a value to a list of values. Both the key type as well as
+   * the type for all instances in the list of values are processed via passed converters.
+   */
+  public abstract static class AssignmentToListOfValuesConverter<K, V>
+      implements Converter<Map.Entry<K, List<V>>> {
+
+    /** Whether to allow keys in the assignment to be empty (i.e. just a list of values) */
+    public enum AllowEmptyKeys {
+      YES,
+      NO
+    }
+
+    private static final Splitter SPLITTER = Splitter.on(',');
+
+    private final Converter<K> keyConverter;
+    private final Converter<V> valueConverter;
+    private final AllowEmptyKeys allowEmptyKeys;
+
+    public AssignmentToListOfValuesConverter(
+        Converter<K> keyConverter, Converter<V> valueConverter, AllowEmptyKeys allowEmptyKeys) {
+      this.keyConverter = keyConverter;
+      this.valueConverter = valueConverter;
+      this.allowEmptyKeys = allowEmptyKeys;
+    }
+
+    @Override
+    public Map.Entry<K, List<V>> convert(String input) throws OptionsParsingException {
+      int pos = input.indexOf("=");
+      if (allowEmptyKeys == AllowEmptyKeys.NO && pos <= 0) {
+        throw new OptionsParsingException(
+            "Must be in the form of a 'key=value[,value]' assignment");
+      }
+
+      String key = pos <= 0 ? "" : input.substring(0, pos);
+      List<String> values = SPLITTER.splitToList(input.substring(pos + 1));
+      if (values.contains("")) {
         // If the list contains exactly the empty string, it means an empty value was passed and we
         // should instead return an empty list.
-        if (value.size() == 1) {
-          value = ImmutableList.of();
+        if (values.size() == 1) {
+          values = ImmutableList.of();
         } else {
           throw new OptionsParsingException(
               "Variable definitions must not contain empty strings or leading / trailing commas");
         }
       }
-      return Maps.immutableEntry(name, value);
+      ImmutableList.Builder<V> convertedValues = ImmutableList.builder();
+      for (String value : values) {
+        convertedValues.add(valueConverter.convert(value));
+      }
+      return Maps.immutableEntry(keyConverter.convert(key), convertedValues.build());
+    }
+  }
+
+  /**
+   * A converter for variable assignments from the parameter list of a blaze command invocation.
+   * Assignments are expected to have the form {@code [name=]value1[,..,valueN]}, where names and
+   * values are defined to be as permissive as possible. If no name is provided, "" is used.
+   */
+  public static class StringToStringListConverter
+      extends AssignmentToListOfValuesConverter<String, String> {
+
+    public StringToStringListConverter() {
+      super(new StringConverter(), new StringConverter(), AllowEmptyKeys.YES);
     }
 
     @Override
     public String getTypeDescription() {
-      return "a 'name=value1[,..,valueN]' assignment";
+      return "a '[name=]value1[,..,valueN]' assignment";
     }
   }
 
@@ -576,6 +651,26 @@ public final class Converters {
   public static class PercentageConverter extends RangeConverter {
     public PercentageConverter() {
       super(0, 100);
+    }
+  }
+
+  /**
+   * A {@link Converter} for {@link CacheBuilderSpec}. The spec may be empty, in which case this
+   * converter returns null.
+   */
+  public static class CacheBuilderSpecConverter implements Converter<CacheBuilderSpec> {
+    @Override
+    public CacheBuilderSpec convert(String spec) throws OptionsParsingException {
+      try {
+        return Strings.isNullOrEmpty(spec) ? null : CacheBuilderSpec.parse(spec);
+      } catch (IllegalArgumentException e) {
+        throw new OptionsParsingException("Failed to parse CacheBuilderSpec: " + e.getMessage(), e);
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "Converts to a CacheBuilderSpec, or null if the input is empty";
     }
   }
 }

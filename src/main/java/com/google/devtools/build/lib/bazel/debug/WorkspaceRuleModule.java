@@ -20,8 +20,11 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Workspaces;
+import com.google.devtools.build.lib.server.FailureDetails.Workspaces.Code;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsBase;
@@ -29,14 +32,13 @@ import java.io.IOException;
 
 /** A module for logging workspace rule events */
 public final class WorkspaceRuleModule extends BlazeModule {
-  private Reporter reporter;
-  private EventBus eventBus;
+
   private AsynchronousFileOutputStream outFileStream;
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
-    reporter = env.getReporter();
-    eventBus = env.getEventBus();
+    Reporter reporter = env.getReporter();
+    EventBus eventBus = env.getEventBus();
 
     if (env.getOptions() == null || env.getOptions().getOptions(DebuggingOptions.class) == null) {
       reporter.handle(Event.error("Installation is corrupt: could not retrieve debugging options"));
@@ -54,19 +56,25 @@ public final class WorkspaceRuleModule extends BlazeModule {
         env.getBlazeModuleEnvironment()
             .exit(
                 new AbruptExitException(
-                    "Error initializing workspace rule log file.", ExitCode.COMMAND_LINE_ERROR));
+                    createDetailedExitCode(
+                        "Error initializing workspace rule log file.",
+                        Code.WORKSPACES_LOG_INITIALIZATION_FAILURE)));
       }
       eventBus.register(this);
     }
   }
 
   @Override
-  public void afterCommand() {
+  public void afterCommand() throws AbruptExitException {
     if (outFileStream != null) {
       try {
+        // Any AsynchronousFileOutputStream write failures get rethrown here.
         outFileStream.close();
       } catch (IOException e) {
-        throw new RuntimeException(e);
+        String message =
+            e.getMessage() == null ? "Error writing workspace rule log file." : e.getMessage();
+        throw new AbruptExitException(
+            createDetailedExitCode(message, Code.WORKSPACES_LOG_WRITE_FAILURE), e);
       } finally {
         outFileStream = null;
       }
@@ -75,7 +83,7 @@ public final class WorkspaceRuleModule extends BlazeModule {
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommonCommandOptions() {
-    return ImmutableList.<Class<? extends OptionsBase>>of(DebuggingOptions.class);
+    return ImmutableList.of(DebuggingOptions.class);
   }
 
   @Subscribe
@@ -83,5 +91,13 @@ public final class WorkspaceRuleModule extends BlazeModule {
     if (outFileStream != null) {
       outFileStream.write(event.getLogEvent());
     }
+  }
+
+  private static DetailedExitCode createDetailedExitCode(String message, Code detailedCode) {
+    return DetailedExitCode.of(
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setWorkspaces(Workspaces.newBuilder().setCode(detailedCode))
+            .build());
   }
 }

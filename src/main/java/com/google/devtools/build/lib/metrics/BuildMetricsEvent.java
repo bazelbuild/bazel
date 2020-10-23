@@ -15,23 +15,29 @@ package com.google.devtools.build.lib.metrics;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import java.util.Collection;
 
-class BuildMetricsEvent implements BuildEventWithOrderConstraint {
+/** An event encapsulating build metrics collected during a build. */
+public class BuildMetricsEvent implements BuildEventWithOrderConstraint {
   private final BuildMetrics buildMetrics;
 
-  BuildMetricsEvent(BuildMetrics buildMetrics) {
+  public BuildMetricsEvent(BuildMetrics buildMetrics) {
     this.buildMetrics = buildMetrics;
+  }
+
+  public static BuildMetricsEvent create(BuildMetrics buildMetrics) {
+    return new BuildMetricsEvent(buildMetrics);
   }
 
   @Override
   public BuildEventId getEventId() {
-    return BuildEventId.buildMetrics();
+    return BuildEventIdUtil.buildMetrics();
   }
 
   @Override
@@ -50,6 +56,6 @@ class BuildMetricsEvent implements BuildEventWithOrderConstraint {
 
   @Override
   public Collection<BuildEventId> postedAfter() {
-    return ImmutableList.of(BuildEventId.buildFinished());
+    return ImmutableList.of(BuildEventIdUtil.buildFinished());
   }
 }

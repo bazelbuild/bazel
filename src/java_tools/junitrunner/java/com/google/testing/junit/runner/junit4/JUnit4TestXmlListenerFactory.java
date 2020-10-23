@@ -19,9 +19,9 @@ import com.google.testing.junit.runner.internal.junit4.CancellableRequestFactory
 import com.google.testing.junit.runner.internal.junit4.JUnit4TestXmlListener;
 import com.google.testing.junit.runner.model.TestSuiteModel;
 import com.google.testing.junit.runner.util.Factory;
-import com.google.testing.junit.runner.util.Supplier;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.function.Supplier;
 
 /**
  * A factory that supplies {@link JUnit4TestXmlListener}.

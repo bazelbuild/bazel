@@ -13,16 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Streams;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -32,6 +34,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Action for generating an umbrella header. All the headers are #included in the umbrella header.
@@ -49,11 +52,21 @@ public final class UmbrellaHeaderAction extends AbstractFileWriteAction {
   public UmbrellaHeaderAction(
       ActionOwner owner,
       Artifact umbrellaHeader,
+      NestedSet<Artifact> publicHeaders,
+      Iterable<PathFragment> additionalExportedHeaders) {
+    this(owner, umbrellaHeader, publicHeaders.toList(), additionalExportedHeaders);
+  }
+
+  public UmbrellaHeaderAction(
+      ActionOwner owner,
+      Artifact umbrellaHeader,
       Iterable<Artifact> publicHeaders,
       Iterable<PathFragment> additionalExportedHeaders) {
     super(
         owner,
-        Streams.stream(publicHeaders).filter(Artifact::isTreeArtifact).collect(toImmutableList()),
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addAll(Iterables.filter(publicHeaders, Artifact::isTreeArtifact))
+            .build(),
         umbrellaHeader,
         /*makeExecutable=*/ false);
     this.umbrellaHeader = umbrellaHeader;
@@ -110,7 +123,10 @@ public final class UmbrellaHeaderAction extends AbstractFileWriteAction {
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable Artifact.ArtifactExpander artifactExpander,
+      Fingerprint fp) {
     fp.addString(GUID);
     fp.addPath(umbrellaHeader.getExecPath());
     fp.addInt(publicHeaders.size());

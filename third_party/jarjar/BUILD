@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_binary", "java_import")
+
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])  # Apache 2.0

@@ -22,10 +22,9 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.packages.Type;
 
 /** An implementation of the {@code android_host_service_fixture} rule. */
 public class AndroidHostServiceFixture implements RuleConfiguredTargetFactory {
@@ -42,7 +41,7 @@ public class AndroidHostServiceFixture implements RuleConfiguredTargetFactory {
     androidSemantics.checkForMigrationTag(ruleContext);
     RuleConfiguredTargetBuilder ruleBuilder = new RuleConfiguredTargetBuilder(ruleContext);
     NestedSet<Artifact> supportApks = AndroidCommon.getSupportApks(ruleContext);
-    FilesToRunProvider executable = ruleContext.getExecutablePrerequisite("executable", Mode.HOST);
+    FilesToRunProvider executable = ruleContext.getExecutablePrerequisite("executable");
 
     NestedSet<Artifact> filesToBuild =
         NestedSetBuilder.<Artifact>stableOrder()

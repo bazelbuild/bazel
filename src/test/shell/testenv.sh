@@ -19,6 +19,8 @@
 # TODO(bazel-team): This file is currently an append of the old testenv.sh and
 # test-setup.sh files. This must be cleaned up eventually.
 
+# TODO(bazel-team): Factor each test suite's is-this-windows setup check to use
+# this var instead, or better yet a common $IS_WINDOWS var.
 PLATFORM="$(uname -s | tr [:upper:] [:lower:])"
 
 function is_darwin() {
@@ -68,9 +70,10 @@ fi
 # Convert PATH_TO_BAZEL_WRAPPER to Unix path style on Windows, because it will be
 # added into PATH. There's problem if PATH=C:/msys64/usr/bin:/usr/local,
 # because ':' is used as both path separator and in C:/msys64/...
-if [[ $PLATFORM =~ msys ]]; then
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*|mingw*|cygwin*)
   PATH_TO_BAZEL_WRAPPER="$(cygpath -u "$PATH_TO_BAZEL_WRAPPER")"
-fi
+esac
 [ ! -f "${PATH_TO_BAZEL_WRAPPER}/bazel" ] \
   && log_fatal "Unable to find the Bazel binary at $PATH_TO_BAZEL_WRAPPER/bazel"
 export PATH="$PATH_TO_BAZEL_WRAPPER:$PATH"
@@ -103,7 +106,7 @@ linux_sandbox="${BAZEL_RUNFILES}/src/main/tools/linux-sandbox"
 
 # Test data
 testdata_path=${BAZEL_RUNFILES}/src/test/shell/bazel/testdata
-python_server="${BAZEL_RUNFILES}/src/test/shell/bazel/testing_server.py"
+python_server="$(rlocation io_bazel/src/test/shell/bazel/testing_server.py)"
 
 # Third-party
 protoc_compiler="${BAZEL_RUNFILES}/src/test/shell/integration/protoc"
@@ -116,19 +119,6 @@ else
   hamcrest_jar=$(rlocation io_bazel/third_party/hamcrest/hamcrest-.*.jar)
 fi
 
-
-function use_bazel_workspace_file() {
-  mkdir -p src/test/shell/bazel
-  cat >src/test/shell/bazel/list_source_repository.bzl <<EOF
-def list_source_repository(name):
-  pass
-EOF
-  touch src/test/shell/bazel/BUILD
-  rm -f WORKSPACE distdir.bzl
-  ln -sf ${workspace_file} WORKSPACE
-  touch BUILD
-  ln -sf ${distdir_bzl_file} distdir.bzl
-}
 
 # This function copies the tools directory from Bazel.
 function copy_tools_directory() {
@@ -149,16 +139,6 @@ EOF
   cp -R ${langtools_dir}/* third_party/java/jdk/langtools
 
   chmod -R +w .
-
-  mkdir -p third_party/py/gflags
-  cat > third_party/py/gflags/BUILD <<EOF
-licenses(["notice"])
-package(default_visibility = ["//visibility:public"])
-
-py_library(
-    name = "gflags",
-)
-EOF
 }
 
 # Report whether a given directory name corresponds to a tools directory.
@@ -281,40 +261,94 @@ common --show_progress_rate_limit=-1
 # Disable terminal-specific features.
 common --color=no --curses=no
 
-# TODO(#7899): Remove once we flip the flag default.
-build --incompatible_use_python_toolchains=true
+# Prevent SIGBUS during JVM actions.
+build --sandbox_tmpfs_path=/tmp
+
+build --incompatible_skip_genfiles_symlink=false
 
 ${EXTRA_BAZELRC:-}
 EOF
 
+  if [[ -n ${TEST_REPOSITORY_HOME:-} ]]; then
+    echo "testenv.sh: Using shared repositories from $TEST_REPOSITORY_HOME."
+
+    repos=(
+        "android_tools_for_testing"
+        "bazel_skylib"
+        "bazel_toolchains"
+        "com_google_protobuf"
+        "openjdk11_darwin_archive"
+        "openjdk11_linux_archive"
+        "openjdk11_windows_archive"
+        "openjdk14_darwin_archive"
+        "openjdk14_linux_archive"
+        "openjdk14_windows_archive"
+        "openjdk15_darwin_archive"
+        "openjdk15_linux_archive"
+        "openjdk15_windows_archive"
+        "openjdk_linux_aarch64_minimal"
+        "openjdk_linux_minimal"
+        "openjdk_macos_minimal"
+        "openjdk_win_minimal"
+        "remote_coverage_tools_for_testing"
+        "remote_java_tools_darwin_for_testing"
+        "remote_java_tools_javac11_test_darwin"
+        "remote_java_tools_javac11_test_linux"
+        "remote_java_tools_javac11_test_windows"
+        "remote_java_tools_linux_for_testing"
+        "remote_java_tools_windows_for_testing"
+        "remotejdk11_linux_for_testing"
+        "remotejdk11_linux_aarch64_for_testing"
+        "remotejdk11_linux_ppc64le_for_testing"
+        "remotejdk11_linux_s390x_for_testing"
+        "remotejdk11_macos_for_testing"
+        "remotejdk11_win_for_testing"
+        "remotejdk14_linux_for_testing"
+        "remotejdk14_macos_for_testing"
+        "remotejdk14_win_for_testing"
+        "remotejdk15_linux_for_testing"
+        "remotejdk15_macos_for_testing"
+        "remotejdk15_win_for_testing"
+        "rules_cc"
+        "rules_java"
+        "rules_pkg"
+        "rules_proto"
+        "rules_python"
+    )
+    for repo in "${repos[@]}"; do
+      reponame="${repo%"_for_testing"}"
+      echo "common --override_repository=$reponame=$TEST_REPOSITORY_HOME/$repo" >> $TEST_TMPDIR/bazelrc
+    done
+  fi
+
   if [[ -n ${REPOSITORY_CACHE:-} ]]; then
     echo "testenv.sh: Using repository cache at $REPOSITORY_CACHE."
     cat >>$TEST_TMPDIR/bazelrc <<EOF
-sync --repository_cache=$REPOSITORY_CACHE --experimental_repository_cache_hardlinks
-fetch --repository_cache=$REPOSITORY_CACHE --experimental_repository_cache_hardlinks
-build --repository_cache=$REPOSITORY_CACHE --experimental_repository_cache_hardlinks
-query --repository_cache=$REPOSITORY_CACHE --experimental_repository_cache_hardlinks
+common --repository_cache=$REPOSITORY_CACHE --experimental_repository_cache_hardlinks
 EOF
   fi
 
-  if [[ -n ${INSTALL_BASE:-} ]]; then
-    echo "testenv.sh: Using shared install base at $INSTALL_BASE."
-    echo "startup --install_base=$INSTALL_BASE" >> $TEST_TMPDIR/bazelrc
+  if [[ -n ${TEST_INSTALL_BASE:-} ]]; then
+    echo "testenv.sh: Using shared install base at $TEST_INSTALL_BASE."
+    echo "startup --install_base=$TEST_INSTALL_BASE" >> $TEST_TMPDIR/bazelrc
   fi
 }
 
 function setup_android_sdk_support() {
-  ANDROID_SDK=$PWD/android_sdk
-  SDK_SRCDIR=$TEST_SRCDIR/androidsdk
-  mkdir -p $ANDROID_SDK
-  for i in $SDK_SRCDIR/*; do
-    ln -s "$i" "$ANDROID_SDK/$(basename $i)"
-  done
+  # Required for runfiles library on Windows, since $(rlocation) lookups
+  # can't do directories. We use android-28's android.jar as the anchor
+  # for the androidsdk location.
+  local android_jar=$(rlocation androidsdk/platforms/android-28/android.jar)
+  local android=$(dirname $android_jar)
+  local platforms=$(dirname $android)
+  ANDROID_SDK=$(dirname $platforms)
+
 cat >> WORKSPACE <<EOF
 android_sdk_repository(
     name = "androidsdk",
     path = "$ANDROID_SDK",
 )
+register_toolchains("//tools/android:all")
 EOF
 }
 
@@ -363,7 +397,55 @@ java_import(
 EOF
 }
 
-function setup_skylark_javatest_support() {
+# If the current platform is Windows, defines a Python toolchain for our
+# Windows CI machines. Otherwise does nothing.
+#
+# Our Windows CI machines have Python 2 and 3 installed at C:\Python2 and
+# C:\Python3 respectively.
+#
+# Since the tools directory is not cleared between test cases, this only needs
+# to run once per suite. However, the toolchain must still be registered
+# somehow.
+#
+# TODO(#7844): Delete this custom (and machine-specific) test setup once we have
+# an autodetecting Python toolchain for Windows.
+function maybe_setup_python_windows_tools() {
+  if [[ ! $PLATFORM =~ msys ]]; then
+    return
+  fi
+
+  mkdir -p tools/python/windows
+  cat > tools/python/windows/BUILD << EOF
+load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
+
+py_runtime(
+  name = "py2_runtime",
+  interpreter_path = r"C:\Python2\python.exe",
+  python_version = "PY2",
+)
+
+py_runtime(
+  name = "py3_runtime",
+  interpreter_path = r"C:\Python3\python.exe",
+  python_version = "PY3",
+)
+
+py_runtime_pair(
+  name = "py_runtime_pair",
+  py2_runtime = ":py2_runtime",
+  py3_runtime = ":py3_runtime",
+)
+
+toolchain(
+  name = "py_toolchain",
+  toolchain = ":py_runtime_pair",
+  toolchain_type = "@bazel_tools//tools/python:toolchain_type",
+  target_compatible_with = ["@platforms//os:windows"],
+)
+EOF
+}
+
+function setup_starlark_javatest_support() {
   setup_javatest_common
   grep -q "name = \"junit4-jars\"" third_party/BUILD \
     || cat <<EOF >>third_party/BUILD
@@ -395,13 +477,111 @@ new_local_repository(
     build_file_content = '',
     path='$skylib_root',
 )
+
+load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
+bazel_skylib_workspace()
 EOF
+}
+
+function add_rules_cc_to_workspace() {
+  cat >> "$1"<<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "rules_cc",
+    sha256 = "1d4dbbd1e1e9b57d40bb0ade51c9e882da7658d5bfbf22bbd15b68e7879d761f",
+    strip_prefix = "rules_cc-8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip",
+        "https://github.com/bazelbuild/rules_cc/archive/8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip",
+    ],
+)
+EOF
+}
+
+function add_rules_java_to_workspace() {
+  cat >> "$1"<<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "rules_java",
+    sha256 = "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
+    strip_prefix = "rules_java-7cf3cefd652008d0a64a419c34c13bdca6c8f178",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
+        "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
+    ],
+)
+EOF
+}
+
+# TODO(https://github.com/bazelbuild/bazel/issues/8986): Build this dynamically
+# from //WORKSPACE
+function add_rules_pkg_to_workspace() {
+  cat >> "$1"<<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "rules_pkg",
+    sha256 = "5bdc04987af79bd27bc5b00fe30f59a858f77ffa0bd2d8143d5b31ad8b1bd71c",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/rules_pkg-0.2.0.tar.gz",
+        "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.0/rules_pkg-0.2.0.tar.gz",
+    ],
+)
+EOF
+}
+
+function add_rules_proto_to_workspace() {
+  cat >> "$1"<<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "rules_proto",
+    sha256 = "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
+    strip_prefix = "rules_proto-97d8af4dc474595af3900dd85cb3a29ad28cc313",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+        "https://github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+    ],
+)
+EOF
+}
+
+function create_workspace_with_default_repos() {
+  write_workspace_file "${1:-WORKSPACE}" "${2:-main}"
+  echo "$1"
 }
 
 # Write the default WORKSPACE file, wiping out any custom WORKSPACE setup.
 function write_workspace_file() {
-  cat > WORKSPACE << EOF
-workspace(name = '$WORKSPACE_NAME')
+  cat > "$1" << EOF
+workspace(name = "$2")
+EOF
+  add_rules_cc_to_workspace "WORKSPACE"
+  add_rules_java_to_workspace "WORKSPACE"
+  add_rules_pkg_to_workspace "WORKSPACE"
+  add_rules_proto_to_workspace "WORKSPACE"
+
+  maybe_setup_python_windows_workspace
+}
+
+# If the current platform is Windows, registers our custom Windows Python
+# toolchain. Otherwise does nothing.
+#
+# Since this modifies the WORKSPACE file, it must be called between test cases.
+function maybe_setup_python_windows_workspace() {
+  if [[ ! $PLATFORM =~ msys ]]; then
+    return
+  fi
+
+  # --extra_toolchains has left-to-right precedence semantics, but the bazelrc
+  # is processed before the command line. This means that any matching
+  # toolchains added to the bazelrc will always take precedence over toolchains
+  # set up by test cases. Instead, we add the toolchain to WORKSPACE so that it
+  # has lower priority than whatever is passed on the command line.
+  cat >> WORKSPACE << EOF
+register_toolchains("//tools/python/windows:py_toolchain")
 EOF
 }
 
@@ -421,7 +601,9 @@ function create_new_workspace() {
   [ -e third_party/java/jdk/langtools/javac-9+181-r4173-1.jar ] \
     || ln -s "${langtools_path}"  third_party/java/jdk/langtools/javac-9+181-r4173-1.jar
 
-  write_workspace_file
+  write_workspace_file "WORKSPACE" "$WORKSPACE_NAME"
+
+  maybe_setup_python_windows_tools
 }
 
 
@@ -445,14 +627,17 @@ function cleanup_workspace() {
   if [ -d "${WORKSPACE_DIR:-}" ]; then
     log_info "Cleaning up workspace" >> $TEST_log
     cd ${WORKSPACE_DIR}
-    bazel clean >> "$TEST_log" 2>&1
+
+    if [[ ${TESTENV_DONT_BAZEL_CLEAN:-0} == 0 ]]; then
+      bazel clean >> "$TEST_log" 2>&1
+    fi
 
     for i in *; do
       if ! is_tools_directory "$i"; then
         try_with_timeout rm -fr "$i"
       fi
     done
-    write_workspace_file
+    write_workspace_file "WORKSPACE" "$WORKSPACE_NAME"
   fi
   for i in "${workspaces[@]}"; do
     if [ "$i" != "${WORKSPACE_DIR:-}" ]; then

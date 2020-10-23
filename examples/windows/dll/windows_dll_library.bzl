@@ -1,21 +1,25 @@
-# This is a simple windows_dll_library rule for builing a DLL Windows
-# that can be depended on by other cc rules.
-#
-# Example useage:
-#   windows_dll_library(
-#       name = "hellolib",
-#       srcs = [
-#           "hello-library.cpp",
-#       ],
-#       hdrs = ["hello-library.h"],
-#       # Define COMPILING_DLL to export symbols during compiling the DLL.
-#       copts = ["/DCOMPILING_DLL"],
-#   )
-#
+"""
+This is a simple windows_dll_library rule for builing a DLL Windows
+that can be depended on by other cc rules.
+
+Example useage:
+  windows_dll_library(
+      name = "hellolib",
+      srcs = [
+          "hello-library.cpp",
+      ],
+      hdrs = ["hello-library.h"],
+      # Define COMPILING_DLL to export symbols during compiling the DLL.
+      copts = ["/DCOMPILING_DLL"],
+  )
+"""
+
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_import", "cc_library")
 
 def windows_dll_library(
         name,
         srcs = [],
+        deps = [],
         hdrs = [],
         visibility = None,
         **kwargs):
@@ -25,9 +29,10 @@ def windows_dll_library(
     import_target_name = name + "_dll_import"
 
     # Build the shared library
-    native.cc_binary(
+    cc_binary(
         name = dll_name,
         srcs = srcs + hdrs,
+        deps = deps,
         linkshared = 1,
         **kwargs
     )
@@ -41,18 +46,18 @@ def windows_dll_library(
 
     # Because we cannot directly depend on cc_binary from other cc rules in deps attribute,
     # we use cc_import as a bridge to depend on the dll.
-    native.cc_import(
+    cc_import(
         name = import_target_name,
         interface_library = ":" + import_lib_name,
         shared_library = ":" + dll_name,
     )
 
     # Create a new cc_library to also include the headers needed for the shared library
-    native.cc_library(
+    cc_library(
         name = name,
         hdrs = hdrs,
         visibility = visibility,
-        deps = [
+        deps = deps + [
             ":" + import_target_name,
         ],
     )

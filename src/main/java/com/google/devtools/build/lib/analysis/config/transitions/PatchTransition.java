@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config.transitions;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import java.util.List;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.events.EventHandler;
+import java.util.Collections;
+import java.util.Map;
 
 /**
  * A configuration transition that maps a single input {@link BuildOptions} to a single output
@@ -24,13 +26,12 @@ import java.util.List;
  * <p>Also see {@link SplitTransition}, which maps a single input {@link BuildOptions} to possibly
  * multiple {@link BuildOptions}.
  *
- * <p>The concept is simple: given the input configuration's build options, the
- * transition does whatever it wants to them and returns the modified result.
+ * <p>The concept is simple: given the input configuration's build options, the transition does
+ * whatever it wants to them and returns the modified result.
  *
- * <p>Implementations must be stateless: the output must exclusively depend on the
- * input build options and any immutable member fields. Implementations must also override
- * {@link Object#equals} and {@link Object#hashCode} unless exclusively accessed as
- * singletons. For example:
+ * <p>Implementations must be stateless: the output must exclusively depend on the input build
+ * options and any immutable member fields. Implementations must also override {@link Object#equals}
+ * and {@link Object#hashCode} unless exclusively accessed as singletons. For example:
  *
  * <pre>
  * public class MyTransition implements PatchTransition {
@@ -39,7 +40,7 @@ import java.util.List;
  *   private MyTransition() {}
  *
  *   {@literal @}Override
- *   public BuildOptions patch(BuildOptions options) {
+ *   public BuildOptions patch(RestrictedBuildOptions options) {
  *     BuildOptions toOptions = options.clone();
  *     // Change some setting on toOptions
  *     return toOptions;
@@ -48,26 +49,30 @@ import java.util.List;
  * </pre>
  *
  * <p>For performance reasons, the input options are passed as a <i>reference</i>, not a
- * <i>copy</i>. Implementations should <i>always</i> treat these as immutable, and call
- * {@link com.google.devtools.build.lib.analysis.config.BuildOptions#clone}
- * before making changes. Unfortunately,
- * {@link com.google.devtools.build.lib.analysis.config.BuildOptions} doesn't currently
- * enforce immutability. So care must be taken not to modify the wrong instance.
+ * <i>copy</i>. Implementations should <i>always</i> treat these as immutable, and call {@link
+ * com.google.devtools.build.lib.analysis.config.BuildOptions#clone} before making changes.
+ * Unfortunately, {@link com.google.devtools.build.lib.analysis.config.BuildOptions} doesn't
+ * currently enforce immutability. So care must be taken not to modify the wrong instance.
  */
-@FunctionalInterface
 public interface PatchTransition extends ConfigurationTransition {
   /**
    * Applies the transition.
    *
+   * <p>Blaze throws an {@link IllegalArgumentException} if this method reads any options fragment
+   * not declared in {@link ConfigurationTransition#requiresOptionFragments}.
+   *
    * @param options the options representing the input configuration to this transition. <b>DO NOT
    *     MODIFY THIS VARIABLE WITHOUT CLONING IT FIRST!</b>
+   * @param eventHandler
    * @return the options representing the desired post-transition configuration
    */
-  BuildOptions patch(BuildOptions options);
+  BuildOptions patch(BuildOptionsView options, EventHandler eventHandler)
+      throws InterruptedException;
 
   @Override
-  default List<BuildOptions> apply(BuildOptions buildOptions) {
-    return ImmutableList.of(patch(buildOptions));
+  default Map<String, BuildOptions> apply(BuildOptionsView buildOptions, EventHandler eventHandler)
+      throws InterruptedException {
+    return Collections.singletonMap(PATCH_TRANSITION_KEY, patch(buildOptions, eventHandler));
   }
 
   @Override

@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.rules;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.packages.RuleClass.Builder.SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
+import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.rules.LateBoundAlias.CommonAliasRule;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
@@ -54,13 +55,24 @@ public class LabelBuildSettings {
           null,
           (rule, attributes, configuration) -> {
             if (rule == null || configuration == null) {
-              return attributes.get(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, LABEL);
+              return attributes.get(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, LABEL);
             }
             Object commandLineValue =
                 configuration.getOptions().getStarlarkOptions().get(rule.getLabel());
-            return commandLineValue == null
-                ? attributes.get(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, LABEL)
-                : (Label) commandLineValue;
+            Label asLabel;
+            try {
+              asLabel =
+                  commandLineValue == null
+                      ? attributes.get(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, LABEL)
+                      : LABEL.convert(commandLineValue, "label_flag value resolution");
+            } catch (ConversionException e) {
+              throw new IllegalStateException(
+                  "Getting here means we must have processed a transition via"
+                      + " StarlarkTransition.validate, which checks that LABEL.convert works"
+                      + " without error.",
+                  e);
+            }
+            return asLabel;
           });
 
   private static RuleClass buildRuleClass(RuleClass.Builder builder, boolean flag) {
@@ -70,14 +82,11 @@ public class LabelBuildSettings {
         .add(attr(":alias", LABEL).value(ACTUAL))
         .setBuildSetting(new BuildSetting(flag, LABEL))
         .canHaveAnyProvider()
-        .supportsPlatforms(false)
+        .useToolchainResolution(false)
         .build();
   }
 
-  /**
-   * Rule definition of label_setting TODO(b/110417082): documentation when other documentation on
-   * SBC exists and we can point to it.
-   */
+  /** Rule definition of label_setting */
   public static class LabelBuildSettingRule extends CommonAliasRule<BuildConfiguration> {
 
     public LabelBuildSettingRule() {
@@ -90,10 +99,7 @@ public class LabelBuildSettings {
     }
   }
 
-  /**
-   * Rule definition of label_flag TODO(b/110417082): documentation when other documentation on SBC
-   * exists and we can point to it.
-   */
+  /** Rule definition of label_flag */
   public static class LabelBuildFlagRule extends CommonAliasRule<BuildConfiguration> {
 
     public LabelBuildFlagRule() {

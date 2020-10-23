@@ -12,11 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Runfiles lookup library for Bazel-built Bash binaries and tests.
+# Runfiles lookup library for Bazel-built Bash binaries and tests, version 2.
+#
+# VERSION HISTORY:
+# - version 2: Shorter init code.
+#   Features:
+#     - "set -euo pipefail" only at end of init code.
+#       "set -e" breaks the source <path1> || source <path2> || ... scheme on
+#       macOS, because it terminates if path1 does not exist.
+#     - Not exporting any environment variables in init code.
+#       This is now done in runfiles.bash itself.
+#   Compatibility:
+#     - The v1 init code can load the v2 library, i.e. if you have older source
+#       code (still using v1 init) then you can build it with newer Bazel (which
+#       contains the v2 library).
+#     - The reverse is not true: the v2 init code CANNOT load the v1 library,
+#       i.e. if your project (or any of its external dependencies) use v2 init
+#       code, then you need a newer Bazel version (which contains the v2
+#       library).
+# - version 1: Original Bash runfiles library.
 #
 # ENVIRONMENT:
-# - Use the example code provided below. It initializes the environment
-#   variables required by this script.
 # - If RUNFILES_LIB_DEBUG=1 is set, the script will print diagnostic messages to
 #   stderr.
 #
@@ -35,33 +51,32 @@
 #     up the library's runtime location, thus we have a chicken-and-egg problem.
 #     Insert the following code snippet to the top of your main script:
 #
-#       # --- begin runfiles.bash initialization ---
-#       # Copy-pasted from Bazel's Bash runfiles library (tools/bash/runfiles/runfiles.bash).
-#       set -euo pipefail
-#       if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
-#         if [[ -f "$0.runfiles_manifest" ]]; then
-#           export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
-#         elif [[ -f "$0.runfiles/MANIFEST" ]]; then
-#           export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
-#         elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
-#           export RUNFILES_DIR="$0.runfiles"
-#         fi
-#       fi
-#       if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
-#         source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
-#       elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
-#         source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
-#                   "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
-#       else
-#         echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
-#         exit 1
-#       fi
-#       # --- end runfiles.bash initialization ---
+#       # --- begin runfiles.bash initialization v2 ---
+#       # Copy-pasted from the Bazel Bash runfiles library v2.
+#       set -uo pipefail; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+#       source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+#         source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+#         source "$0.runfiles/$f" 2>/dev/null || \
+#         source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+#         source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+#         { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+#       # --- end runfiles.bash initialization v2 ---
 #
-# 3.  Use rlocation to look up runfile paths:
+#
+# 3.  Use rlocation to look up runfile paths.
 #
 #       cat "$(rlocation my_workspace/path/to/my/data.txt)"
 #
+
+if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  if [[ -f "$0.runfiles_manifest" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+  elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+  elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+    export RUNFILES_DIR="$0.runfiles"
+  fi
+fi
 
 case "$(uname -s | tr [:upper:] [:lower:])" in
 msys*|mingw*|cygwin*)
@@ -84,7 +99,7 @@ function rlocation() {
       echo >&2 "INFO[runfiles.bash]: rlocation($1): absolute path, return"
     fi
     # If the path is absolute, print it as-is.
-    echo $1
+    echo "$1"
   elif [[ "$1" == ../* || "$1" == */.. || "$1" == ./* || "$1" == */./* || "$1" == "*/." || "$1" == *//* ]]; then
     if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
       echo >&2 "ERROR[runfiles.bash]: rlocation($1): path is not normalized"

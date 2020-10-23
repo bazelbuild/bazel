@@ -14,7 +14,6 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
@@ -22,6 +21,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import java.io.PrintStream;
 import java.util.Map;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -101,7 +101,16 @@ public interface MemoizingEvaluator {
    * guaranteed to be at the same version.
    */
   default void noteEvaluationsAtSameVersionMayBeFinished(ExtendedEventHandler eventHandler)
-      throws InterruptedException {}
+      throws InterruptedException {
+    postLoggingStats(eventHandler);
+  }
+
+  /**
+   * Tells the evaluator to post any logging statistics that it may have accumulated over the last
+   * sequence of evaluations. Normally called internally by {@link
+   * #noteEvaluationsAtSameVersionMayBeFinished}.
+   */
+  default void postLoggingStats(ExtendedEventHandler eventHandler) {}
 
   /**
    * Returns the done (without error) values in the graph.
@@ -116,12 +125,11 @@ public interface MemoizingEvaluator {
    * <p>This method should mainly be used by tests that need to verify the presence of a value in
    * the graph after an {@link #evaluate} call.
    */
-  @VisibleForTesting
   @Nullable
   SkyValue getExistingValue(SkyKey key) throws InterruptedException;
 
   @Nullable
-  NodeEntry getExistingEntryAtLatestVersion(SkyKey key) throws InterruptedException;
+  NodeEntry getExistingEntryAtCurrentlyEvaluatingVersion(SkyKey key) throws InterruptedException;
 
   /**
    * Returns an error if and only if an earlier call to {@link #evaluate} created it; null
@@ -130,6 +138,7 @@ public interface MemoizingEvaluator {
    * <p>This method should only be used by tests that need to verify the presence of an error in the
    * graph after an {@link #evaluate} call.
    */
+  @SuppressWarnings("VisibleForTestingMisused") // Only exists for testing.
   @VisibleForTesting
   @Nullable
   ErrorInfo getExistingErrorForTesting(SkyKey key) throws InterruptedException;
@@ -147,6 +156,24 @@ public interface MemoizingEvaluator {
     QueryableGraph transform(QueryableGraph graph);
 
     ProcessableGraph transform(ProcessableGraph graph);
+
+    GraphTransformerForTesting NO_OP =
+        new GraphTransformerForTesting() {
+          @Override
+          public InMemoryGraph transform(InMemoryGraph graph) {
+            return graph;
+          }
+
+          @Override
+          public QueryableGraph transform(QueryableGraph graph) {
+            return graph;
+          }
+
+          @Override
+          public ProcessableGraph transform(ProcessableGraph graph) {
+            return graph;
+          }
+        };
   }
 
   /**

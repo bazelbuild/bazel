@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -37,7 +37,7 @@ public class RecursiveGlobTest {
 
   @Before
   public final void initializeFileSystem() throws Exception  {
-    fileSystem = new InMemoryFileSystem(BlazeClock.instance());
+    fileSystem = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
     tmpPath = fileSystem.getPath("/rglobtmp");
     for (String dir : ImmutableList.of("foo/bar/wiz",
                          "foo/baz/wiz",
@@ -151,9 +151,9 @@ public class RecursiveGlobTest {
 
   private void assertIllegalWildcard(String pattern)
       throws Exception {
-    IllegalArgumentException e =
+    UnixGlob.BadPattern e =
         assertThrows(
-            IllegalArgumentException.class,
+            UnixGlob.BadPattern.class,
             () -> new UnixGlob.Builder(tmpPath).addPattern(pattern).globInterruptible());
     assertThat(e).hasMessageThat().containsMatch("recursive wildcard must be its own segment");
   }

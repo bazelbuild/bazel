@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ComparisonChain;
@@ -23,10 +23,13 @@ import com.google.common.collect.MultimapBuilder;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.test.TestProvider;
+import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
@@ -36,13 +39,13 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.FailedTestCasesStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
-import com.google.devtools.build.lib.view.test.TestStatus.TestCase.Type;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import javax.annotation.Nullable;
 
 /**
  * Test summary entry. Stores summary information for a single test rule. Also used to sort summary
@@ -51,7 +54,6 @@ import java.util.TreeMap;
  * <p>Invariant: All TestSummary mutations should be performed through the Builder. No direct
  * TestSummary methods (except the constructor) may mutate the object.
  */
-@VisibleForTesting // Ideally package-scoped.
 public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrderConstraint {
   /**
    * Builder class responsible for creating and altering TestSummary objects.
@@ -65,21 +67,25 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       built = false;
     }
 
-    private void mergeFrom(TestSummary existingSummary) {
+    void mergeFrom(TestSummary existingSummary) {
       // Yuck, manually fill in fields.
       summary.shardRunStatuses =
           MultimapBuilder.hashKeys().arrayListValues().build(existingSummary.shardRunStatuses);
+      summary.firstStartTimeMillis = existingSummary.firstStartTimeMillis;
+      summary.lastStopTimeMillis = existingSummary.lastStopTimeMillis;
+      summary.totalRunDurationMillis = existingSummary.totalRunDurationMillis;
       setTarget(existingSummary.target);
       setConfiguration(existingSummary.configuration);
       setStatus(existingSummary.status);
       addCoverageFiles(existingSummary.coverageFiles);
       addPassedLogs(existingSummary.passedLogs);
       addFailedLogs(existingSummary.failedLogs);
-      addTotalTestCases(existingSummary.totalTestCases);
+      summary.totalTestCases += existingSummary.totalTestCases;
+      summary.totalUnknownTestCases += existingSummary.totalUnknownTestCases;
 
       if (existingSummary.failedTestCasesStatus != null) {
-        addFailedTestCases(existingSummary.getFailedTestCases(),
-            existingSummary.getFailedTestCasesStatus());
+        addFailedTestCases(
+            existingSummary.getFailedTestCases(), existingSummary.getFailedTestCasesStatus());
       }
 
       addTestTimes(existingSummary.testTimes);
@@ -157,59 +163,45 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       return this;
     }
 
-    public Builder addTotalTestCases(int totalTestCases) {
-      checkMutation(totalTestCases);
-      summary.totalTestCases += totalTestCases;
+    public Builder collectTestCases(@Nullable TestCase testCase) {
+      // Maintain the invariant: failedTestCases + totalUnknownTestCases <= totalTestCases
+      if (testCase == null) {
+        // If we don't have test case information, count each test as one case with unknown status.
+        summary.failedTestCasesStatus = FailedTestCasesStatus.NOT_AVAILABLE;
+        summary.totalTestCases++;
+        summary.totalUnknownTestCases++;
+      } else {
+        summary.failedTestCasesStatus = FailedTestCasesStatus.FULL;
+        summary.totalTestCases += traverseTestCases(testCase);
+      }
       return this;
     }
 
-    public Builder collectFailedTests(TestCase testCase) {
-      if (testCase == null) {
-        summary.failedTestCasesStatus = FailedTestCasesStatus.NOT_AVAILABLE;
-        return this;
-      }
-      summary.failedTestCasesStatus = FailedTestCasesStatus.FULL;
-      return collectFailedTestCases(testCase);
-    }
-
-    private Builder collectFailedTestCases(TestCase testCase) {
+    private int traverseTestCases(TestCase testCase) {
       if (testCase.getChildCount() > 0) {
         // This is a non-leaf result. Traverse its children, but do not add its
         // name to the output list. It should not contain any 'failure' or
         // 'error' tags, but we want to be lax here, because the syntax of the
         // test.xml file is also lax.
-        for (TestCase child : testCase.getChildList()) {
-          collectFailedTestCases(child);
-        }
-      } else {
-        // This is a leaf result. If it passed, don't add it.
-        if (testCase.getStatus() == TestCase.Status.PASSED) {
-          return this;
-        }
-
-        this.summary.failedTestCases.add(testCase);
-      }
-      return this;
-    }
-
-    public Builder countTotalTestCases(TestCase testCase) {
-      if (testCase != null) {
-        summary.totalTestCases = traverseCountTotalTestCases(testCase);
-      }
-      return this;
-    }
-
-    private int traverseCountTotalTestCases(TestCase testCase) {
-      if (testCase.getChildCount() > 0) {
         // don't count container of test cases as test
         int res = 0;
         for (TestCase child : testCase.getChildList()) {
-          res += traverseCountTotalTestCases(child);
+          res += traverseTestCases(child);
         }
         return res;
-      } else {
-        return testCase.getType() == Type.TEST_CASE ? 1 : 0;
+      } else if (testCase.getType() != TestCase.Type.TEST_CASE) {
+        return 0;
       }
+
+      // This is a leaf result.
+      if (!testCase.getRun()) {
+        // Don't count test cases that were not run.
+        return 0;
+      }
+      if (testCase.getStatus() != TestCase.Status.PASSED) {
+        this.summary.failedTestCases.add(testCase);
+      }
+      return 1;
     }
 
     public Builder addFailedTestCases(List<TestCase> testCases, FailedTestCasesStatus status) {
@@ -244,6 +236,15 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
     public Builder addTestTimes(List<Long> testTimes) {
       checkMutation(testTimes);
       summary.testTimes.addAll(testTimes);
+      return this;
+    }
+
+    public Builder mergeTiming(long startTimeMillis, long runDurationMillis) {
+      checkMutation();
+      summary.firstStartTimeMillis = Math.min(summary.firstStartTimeMillis, startTimeMillis);
+      summary.lastStopTimeMillis =
+          Math.max(summary.lastStopTimeMillis, startTimeMillis + runDurationMillis);
+      summary.totalRunDurationMillis += runDurationMillis;
       return this;
     }
 
@@ -354,8 +355,12 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   private List<String> warnings = new ArrayList<>();
   private List<Path> coverageFiles = new ArrayList<>();
   private List<Long> testTimes = new ArrayList<>();
+  private long totalRunDurationMillis;
+  private long firstStartTimeMillis = Long.MAX_VALUE;
+  private long lastStopTimeMillis = Long.MIN_VALUE;
   private FailedTestCasesStatus failedTestCasesStatus = null;
   private int totalTestCases;
+  private int totalUnknownTestCases;
 
   // Don't allow public instantiation; go through the Builder.
   private TestSummary() {
@@ -430,12 +435,16 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
     return wasUnreportedWrongSize;
   }
 
-  public List<TestCase> getFailedTestCases() {
-    return failedTestCases;
-  }
-
   public int getTotalTestCases() {
     return totalTestCases;
+  }
+
+  public int getUnkownTestCases() {
+    return totalUnknownTestCases;
+  }
+
+  public List<TestCase> getFailedTestCases() {
+    return failedTestCases;
   }
 
   public List<Path> getCoverageFiles() {
@@ -479,6 +488,18 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
         .result();
   }
 
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("target", this.getTarget())
+        .add("status", status)
+        .add("numCached", numCached)
+        .add("numLocalActionCached", numLocalActionCached)
+        .add("actionRan", actionRan)
+        .add("ranRemotely", ranRemotely)
+        .toString();
+  }
+
   public List<Long> getTestTimes() {
     // The return result is unmodifiable (UnmodifiableList instance)
     return testTimes;
@@ -492,6 +513,18 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
     return testTimes.size();
   }
 
+  public long getTotalRunDurationMillis() {
+    return totalRunDurationMillis;
+  }
+
+  public long getFirstStartTimeMillis() {
+    return firstStartTimeMillis;
+  }
+
+  public long getLastStopTimeMillis() {
+    return lastStopTimeMillis;
+  }
+
   static Mode getStatusMode(BlazeTestStatus status) {
     return status == BlazeTestStatus.PASSED
         ? Mode.INFO
@@ -500,9 +533,9 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
 
   @Override
   public BuildEventId getEventId() {
-    return BuildEventId.testSummary(
+    return BuildEventIdUtil.testSummary(
         AliasProvider.getDependencyLabel(target),
-        BuildEventId.configurationId(target.getConfigurationChecksum()));
+        BuildEventIdUtil.configurationId(target.getConfigurationChecksum()));
   }
 
   @Override
@@ -513,9 +546,9 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   @Override
   public Collection<BuildEventId> postedAfter() {
     return ImmutableList.of(
-        BuildEventId.targetCompleted(
+        BuildEventIdUtil.targetCompleted(
             AliasProvider.getDependencyLabel(target),
-            BuildEventId.configurationId(target.getConfigurationChecksum())));
+            BuildEventIdUtil.configurationId(target.getConfigurationChecksum())));
   }
 
   @Override
@@ -533,11 +566,17 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
     PathConverter pathConverter = converters.pathConverter();
+    TestParams testParams = target.getProvider(TestProvider.class).getTestParams();
     BuildEventStreamProtos.TestSummary.Builder summaryBuilder =
         BuildEventStreamProtos.TestSummary.newBuilder()
             .setOverallStatus(BuildEventStreamerUtils.bepStatus(status))
             .setTotalNumCached(getNumCached())
-            .setTotalRunCount(totalRuns());
+            .setTotalRunCount(totalRuns())
+            .setRunCount(testParams.getRuns())
+            .setShardCount(testParams.getShards())
+            .setFirstStartTimeMillis(firstStartTimeMillis)
+            .setLastStopTimeMillis(lastStopTimeMillis)
+            .setTotalRunDurationMillis(totalRunDurationMillis);
     for (Path path : getFailedLogs()) {
       String uri = pathConverter.apply(path);
       if (uri != null) {

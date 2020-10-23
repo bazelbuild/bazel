@@ -18,12 +18,10 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.windows.jni.WindowsFileOperations;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -38,10 +36,11 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   public static final LinkOption[] NO_OPTIONS = new LinkOption[0];
   public static final LinkOption[] NO_FOLLOW = new LinkOption[] {LinkOption.NOFOLLOW_LINKS};
 
-  public WindowsFileSystem() throws DefaultHashFunctionNotSetException {}
+  private final boolean createSymbolicLinks;
 
-  public WindowsFileSystem(DigestHashFunction hashFunction) {
+  public WindowsFileSystem(DigestHashFunction hashFunction, boolean createSymbolicLinks) {
     super(hashFunction);
+    this.createSymbolicLinks = createSymbolicLinks;
   }
 
   @Override
@@ -57,12 +56,19 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     try {
       return WindowsFileOperations.deletePath(path.getPathString());
     } catch (java.nio.file.DirectoryNotEmptyException e) {
-      throw new IOException(path.getPathString() + ERR_DIRECTORY_NOT_EMPTY);
+      throw new IOException(path.getPathString() + ERR_DIRECTORY_NOT_EMPTY, e);
     } catch (java.nio.file.AccessDeniedException e) {
-      throw new IOException(path.getPathString() + ERR_PERMISSION_DENIED);
+      throw new IOException(path.getPathString() + ERR_PERMISSION_DENIED, e);
     } finally {
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_DELETE, path.getPathString());
     }
+  }
+
+  @Override
+  public void renameTo(Path sourcePath, Path targetPath) throws IOException {
+    // Make sure the target path doesn't exist to avoid permission denied error on Windows.
+    targetPath.delete();
+    super.renameTo(sourcePath, targetPath);
   }
 
   @Override
@@ -78,12 +84,16 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       if (!target.toFile().exists() || target.toFile().isDirectory()) {
         WindowsFileOperations.createJunction(link.toString(), target.toString());
       } else {
-        Files.copy(target, link);
+        if (createSymbolicLinks) {
+          WindowsFileOperations.createSymlink(link.toString(), target.toString());
+        } else {
+          Files.copy(target, link);
+        }
       }
     } catch (java.nio.file.FileAlreadyExistsException e) {
-      throw new IOException(linkPath + ERR_FILE_EXISTS);
+      throw new IOException(linkPath + ERR_FILE_EXISTS, e);
     } catch (java.nio.file.AccessDeniedException e) {
-      throw new IOException(linkPath + ERR_PERMISSION_DENIED);
+      throw new IOException(linkPath + ERR_PERMISSION_DENIED, e);
     } catch (java.nio.file.NoSuchFileException e) {
       throw new FileNotFoundException(linkPath + ERR_NO_SUCH_FILE_OR_DIR);
     }
@@ -92,7 +102,15 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   @Override
   protected PathFragment readSymbolicLink(Path path) throws IOException {
     java.nio.file.Path nioPath = getNioPath(path);
-    return PathFragment.create(WindowsFileOperations.readSymlinkOrJunction(nioPath.toString()));
+    WindowsFileOperations.ReadSymlinkOrJunctionResult result =
+        WindowsFileOperations.readSymlinkOrJunction(nioPath.toString());
+    if (result.getStatus() == WindowsFileOperations.ReadSymlinkOrJunctionResult.Status.OK) {
+      return PathFragment.create(result.getResult());
+    }
+    if (result.getStatus() == WindowsFileOperations.ReadSymlinkOrJunctionResult.Status.NOT_A_LINK) {
+      throw new NotASymlinkException(path);
+    }
+    throw new IOException(result.getResult());
   }
 
   @Override
@@ -136,17 +154,20 @@ public class WindowsFileSystem extends JavaIoFileSystem {
         new FileStatus() {
           @Override
           public boolean isFile() {
-            return attributes.isRegularFile() || (isSpecialFile() && !isDirectory());
+            return !isSymbolicLink && (attributes.isRegularFile() || isSpecialFile());
           }
 
           @Override
           public boolean isSpecialFile() {
-            return attributes.isOther();
+            // attributes.isOther() returns false for symlinks but returns true for junctions.
+            // Bazel treats junctions like symlinks. So let's return false here for junctions.
+            // This fixes https://github.com/bazelbuild/bazel/issues/9176
+            return !isSymbolicLink && attributes.isOther();
           }
 
           @Override
           public boolean isDirectory() {
-            return attributes.isDirectory();
+            return !isSymbolicLink && attributes.isDirectory();
           }
 
           @Override

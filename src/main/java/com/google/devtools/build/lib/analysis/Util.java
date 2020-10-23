@@ -22,21 +22,18 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Utility methods for use by ConfiguredTarget implementations.
- */
+/** Utility methods for use by ConfiguredTarget implementations. */
 public abstract class Util {
 
   private Util() {}
 
-  //---------- Label and Target related methods
+  // ---------- Label and Target related methods
 
   /**
    * Returns the workspace-relative path of the specified target (file or rule).
@@ -57,8 +54,8 @@ public abstract class Util {
   }
 
   /**
-   * Returns the workspace-relative path of the specified target (file or rule),
-   * prepending a prefix and appending a suffix.
+   * Returns the workspace-relative path of the specified target (file or rule), prepending a prefix
+   * and appending a suffix.
    *
    * <p>For example, "//foo/bar:wiz" and "//foo:bar/wiz" both result in "foo/bar/wiz".
    */
@@ -66,9 +63,7 @@ public abstract class Util {
     return target.getLabel().getPackageFragment().getRelative(prefix + target.getName() + suffix);
   }
 
-  /**
-   * Checks if a PathFragment contains a '-'.
-   */
+  /** Checks if a PathFragment contains a '-'. */
   public static boolean containsHyphen(PathFragment path) {
     return path.getPathString().indexOf('-') >= 0;
   }
@@ -76,14 +71,17 @@ public abstract class Util {
   // ---------- Implicit dependency extractor
 
   /*
-   * Given a RuleContext, find all the implicit deps aka deps that weren't explicitly set in the
-   * build file and all toolchain deps.
+   * Given a RuleContext, find all the implicit attribute deps aka deps that weren't explicitly set
+   * in the build file but are attached behind the scenes to some attribute. This means this
+   * function does *not* cover deps attached other ways e.g. toolchain-related implicit deps
+   * (see {@link PostAnalysisQueryEnvironment#targetifyValues} for more info on further implicit
+   * deps filtering).
    * note: nodes that are depended on both implicitly and explicitly are considered explicit.
    */
   public static ImmutableSet<ConfiguredTargetKey> findImplicitDeps(RuleContext ruleContext) {
-    // (1) Consider rule attribute dependencies.
     Set<ConfiguredTargetKey> maybeImplicitDeps = CompactHashSet.create();
     Set<ConfiguredTargetKey> explicitDeps = CompactHashSet.create();
+    // Consider rule attribute dependencies.
     AttributeMap attributes = ruleContext.attributes();
     ListMultimap<String, ConfiguredTargetAndData> targetMap =
         ruleContext.getConfiguredTargetAndDataMap();
@@ -97,17 +95,30 @@ public abstract class Util {
         }
       }
     }
-    // (2) Consider toolchain dependencies
+    // Consider toolchain dependencies.
     ToolchainContext toolchainContext = ruleContext.getToolchainContext();
     if (toolchainContext != null) {
-      BuildConfiguration config = ruleContext.getConfiguration();
+      // This logic should stay up to date with the dep creation logic in
+      // DependencyResolver#partiallyResolveDependencies.
+      BuildConfiguration targetConfiguration = ruleContext.getConfiguration();
+      BuildConfiguration hostConfiguration = ruleContext.getHostConfiguration();
       for (Label toolchain : toolchainContext.resolvedToolchainLabels()) {
-        maybeImplicitDeps.add(ConfiguredTargetKey.of(toolchain, config));
+        if (DependencyResolver.shouldUseToolchainTransition(
+            targetConfiguration, ruleContext.getRule())) {
+          maybeImplicitDeps.add(
+              ConfiguredTargetKey.builder()
+                  .setLabel(toolchain)
+                  .setConfiguration(targetConfiguration)
+                  .setToolchainContextKey(toolchainContext.key())
+                  .build());
+        } else {
+          maybeImplicitDeps.add(
+              ConfiguredTargetKey.builder()
+                  .setLabel(toolchain)
+                  .setConfiguration(hostConfiguration)
+                  .build());
+        }
       }
-      maybeImplicitDeps.add(
-          ConfiguredTargetKey.of(toolchainContext.executionPlatform().label(), config));
-      maybeImplicitDeps.add(
-          ConfiguredTargetKey.of(toolchainContext.targetPlatform().label(), config));
     }
     return ImmutableSet.copyOf(Sets.difference(maybeImplicitDeps, explicitDeps));
   }
@@ -115,17 +126,12 @@ public abstract class Util {
   private static void addLabelsAndConfigs(
       Set<ConfiguredTargetKey> set, List<ConfiguredTargetAndData> deps) {
     for (ConfiguredTargetAndData dep : deps) {
-      // This must be done because {@link AliasConfiguredTarget#getLabel} returns the label of the
-      // "actual" configured target instead of the alias.
-      if (dep.getConfiguredTarget() instanceof AliasConfiguredTarget) {
-        set.add(
-            ConfiguredTargetKey.of(
-                ((AliasConfiguredTarget) dep.getConfiguredTarget()).getOriginalLabel(),
-                dep.getConfiguration()));
-      } else {
-        set.add(
-            ConfiguredTargetKey.of(dep.getConfiguredTarget().getLabel(), dep.getConfiguration()));
-      }
+      // Dereference any aliases that might be present.
+      set.add(
+          ConfiguredTargetKey.builder()
+              .setLabel(dep.getConfiguredTarget().getOriginalLabel())
+              .setConfiguration(dep.getConfiguration())
+              .build());
     }
   }
 }

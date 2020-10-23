@@ -14,79 +14,86 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /** Timing, size, and memory statistics for a Spawn execution. */
 public final class SpawnMetrics {
+
+  /** Indicates whether the metrics correspond to the remote, local or worker execution. */
+  public static enum ExecKind {
+    REMOTE("Remote"),
+    LOCAL("Local"),
+    WORKER("Worker"),
+    /**
+     * Other kinds of execution (or when it's not clear whether something happened locally or
+     * remotely).
+     */
+    OTHER("Other");
+
+    private final String name;
+
+    private ExecKind(String name) {
+      this.name = name;
+    }
+
+    @Override
+    public String toString() {
+      return name;
+    }
+  }
+
   /** Any non important stats < than 10% will not be shown in the summary. */
   private static final double STATS_SHOW_THRESHOLD = 0.10;
 
-  /** Represents a zero cost/null statistic. */
-  public static final SpawnMetrics EMPTY = new Builder().build();
-
   public static SpawnMetrics forLocalExecution(Duration wallTime) {
-    return new Builder().setTotalTime(wallTime).setExecutionWallTime(wallTime).build();
+    return Builder.forLocalExec().setTotalTime(wallTime).setExecutionWallTime(wallTime).build();
   }
 
+  private final ExecKind execKind;
   private final Duration totalTime;
   private final Duration parseTime;
   private final Duration fetchTime;
-  private final Duration remoteQueueTime;
+  private final Duration queueTime;
   private final Duration uploadTime;
   private final Duration setupTime;
   private final Duration executionWallTime;
-  private final Duration retryTime;
-  private final Duration remoteProcessOutputsTime;
+  private final Duration processOutputsTime;
   private final Duration networkTime;
+  private final Map<Integer, Duration> retryTime;
   private final long inputBytes;
   private final long inputFiles;
   private final long memoryEstimateBytes;
 
-  public SpawnMetrics(
-      Duration totalTime,
-      Duration parseTime,
-      Duration networkTime,
-      Duration fetchTime,
-      Duration remoteQueueTime,
-      Duration setupTime,
-      Duration uploadTime,
-      Duration executionWallTime,
-      Duration retryTime,
-      Duration remoteProcessOutputsTime,
-      long inputBytes,
-      long inputFiles,
-      long memoryEstimateBytes) {
-    this.totalTime = totalTime;
-    this.parseTime = parseTime;
-    this.networkTime = networkTime;
-    this.fetchTime = fetchTime;
-    this.remoteQueueTime = remoteQueueTime;
-    this.setupTime = setupTime;
-    this.uploadTime = uploadTime;
-    this.executionWallTime = executionWallTime;
-    this.retryTime = retryTime;
-    this.remoteProcessOutputsTime = remoteProcessOutputsTime;
-    this.inputBytes = inputBytes;
-    this.inputFiles = inputFiles;
-    this.memoryEstimateBytes = memoryEstimateBytes;
-  }
-
   private SpawnMetrics(Builder builder) {
+    this.execKind = builder.execKind;
     this.totalTime = builder.totalTime;
     this.parseTime = builder.parseTime;
     this.networkTime = builder.networkTime;
     this.fetchTime = builder.fetchTime;
-    this.remoteQueueTime = builder.remoteQueueTime;
+    this.queueTime = builder.queueTime;
     this.setupTime = builder.setupTime;
     this.uploadTime = builder.uploadTime;
     this.executionWallTime = builder.executionWallTime;
     this.retryTime = builder.retryTime;
-    this.remoteProcessOutputsTime = builder.remoteProcessOutputsTime;
+    this.processOutputsTime = builder.processOutputsTime;
     this.inputBytes = builder.inputBytes;
     this.inputFiles = builder.inputFiles;
     this.memoryEstimateBytes = builder.memoryEstimateBytes;
+  }
+
+  /** The kind of execution the metrics refer to (remote/local/worker). */
+  public ExecKind execKind() {
+    return execKind;
+  }
+
+  /** Returns true if {@link #totalTime()} is zero. */
+  public boolean isEmpty() {
+    return totalTime.isZero();
   }
 
   /**
@@ -106,12 +113,9 @@ public final class SpawnMetrics {
     return networkTime;
   }
 
-  /**
-   * Total time waiting in remote queues. Includes queue time for any failed attempts. This is 0 for
-   * locally executed spawns.
-   */
-  public Duration remoteQueueTime() {
-    return remoteQueueTime;
+  /** Total time waiting in queues. Includes queue time for any failed attempts. */
+  public Duration queueTime() {
+    return queueTime;
   }
 
   /** The time spent transferring files to the backends. This is 0 for locally executed spawns. */
@@ -148,12 +152,18 @@ public final class SpawnMetrics {
 
   /** Time spent in previous failed attempts. Does not include queue time. */
   public Duration retryTime() {
+    return retryTime.values().stream().reduce(Duration.ZERO, Duration::plus);
+  }
+
+  /** Time spent in previous failed attempts, keyed by error code. Does not include queue time. */
+  public Map<Integer, Duration> retryTimeByError() {
     return retryTime;
   }
 
+
   /** Time spend by the execution framework on processing outputs. */
-  public Duration remoteProcessOutputsTime() {
-    return remoteProcessOutputsTime;
+  public Duration processOutputsTime() {
+    return processOutputsTime;
   }
 
   /** Any time that is not measured by a more specific component, out of {@code totalTime()}. */
@@ -161,13 +171,13 @@ public final class SpawnMetrics {
     return totalTime
         .minus(parseTime)
         .minus(networkTime)
-        .minus(remoteQueueTime)
+        .minus(queueTime)
         .minus(uploadTime)
         .minus(setupTime)
         .minus(executionWallTime)
         .minus(fetchTime)
-        .minus(retryTime)
-        .minus(remoteProcessOutputsTime);
+        .minus(retryTime())
+        .minus(processOutputsTime);
   }
 
   /** Total size in bytes of inputs or 0 if unavailable. */
@@ -198,14 +208,14 @@ public final class SpawnMetrics {
     sb.append(" of the time): [");
     List<String> stats = new ArrayList<>(8);
     addStatToString(stats, "parse", !summary, parseTime, total);
-    addStatToString(stats, "queue", true, remoteQueueTime, total);
+    addStatToString(stats, "queue", true, queueTime, total);
     addStatToString(stats, "network", !summary, networkTime, total);
     addStatToString(stats, "upload", !summary, uploadTime, total);
     addStatToString(stats, "setup", true, setupTime, total);
     addStatToString(stats, "process", true, executionWallTime, total);
     addStatToString(stats, "fetch", !summary, fetchTime, total);
-    addStatToString(stats, "retry", !summary, retryTime, total);
-    addStatToString(stats, "processOutputs", !summary, remoteProcessOutputsTime, total);
+    addStatToString(stats, "retry", !summary, retryTime(), total);
+    addStatToString(stats, "processOutputs", !summary, processOutputsTime, total);
     addStatToString(stats, "other", !summary, otherTime(), total);
     if (!summary) {
       stats.add("input files: " + inputFiles);
@@ -249,23 +259,54 @@ public final class SpawnMetrics {
 
   /** Builder class for SpawnMetrics. */
   public static class Builder {
+    private ExecKind execKind = null;
     private Duration totalTime = Duration.ZERO;
     private Duration parseTime = Duration.ZERO;
     private Duration networkTime = Duration.ZERO;
     private Duration fetchTime = Duration.ZERO;
-    private Duration remoteQueueTime = Duration.ZERO;
+    private Duration queueTime = Duration.ZERO;
     private Duration setupTime = Duration.ZERO;
     private Duration uploadTime = Duration.ZERO;
     private Duration executionWallTime = Duration.ZERO;
-    private Duration retryTime = Duration.ZERO;
-    private Duration remoteProcessOutputsTime = Duration.ZERO;
+    private Duration processOutputsTime = Duration.ZERO;
+    private Map<Integer, Duration> retryTime = new HashMap<>();
     private long inputBytes = 0;
     private long inputFiles = 0;
     private long memoryEstimateBytes = 0;
 
+    public static Builder forLocalExec() {
+      return forExec(ExecKind.LOCAL);
+    }
+
+    public static Builder forRemoteExec() {
+      return forExec(ExecKind.REMOTE);
+    }
+
+    public static Builder forWorkerExec() {
+      return forExec(ExecKind.WORKER);
+    }
+
+    public static Builder forOtherExec() {
+      return forExec(ExecKind.OTHER);
+    }
+
+    public static Builder forExec(ExecKind kind) {
+      return new Builder().setExecKind(kind);
+    }
+
+    // Make the constructor private to force users to set the ExecKind by using one of the factory
+    // methods.
+    private Builder() {}
+
     public SpawnMetrics build() {
+      Preconditions.checkNotNull(execKind, "ExecKind must be explicitly set using `setExecKind`");
       // TODO(ulfjack): Add consistency checks here?
       return new SpawnMetrics(this);
+    }
+
+    public Builder setExecKind(ExecKind execKind) {
+      this.execKind = execKind;
+      return this;
     }
 
     public Builder setTotalTime(Duration totalTime) {
@@ -288,8 +329,8 @@ public final class SpawnMetrics {
       return this;
     }
 
-    public Builder setRemoteQueueTime(Duration remoteQueueTime) {
-      this.remoteQueueTime = remoteQueueTime;
+    public Builder setQueueTime(Duration queueTime) {
+      this.queueTime = queueTime;
       return this;
     }
 
@@ -308,13 +349,19 @@ public final class SpawnMetrics {
       return this;
     }
 
-    public Builder setRetryTime(Duration retryTime) {
-      this.retryTime = retryTime;
+    public Builder addRetryTime(int errorCode, Duration retryTime) {
+      Duration d = this.retryTime.getOrDefault(errorCode, Duration.ZERO);
+      this.retryTime.put(errorCode, d.plus(retryTime));
       return this;
     }
 
-    public Builder setRemoteProcessOutputsTime(Duration remoteProcessOutputsTime) {
-      this.remoteProcessOutputsTime = remoteProcessOutputsTime;
+    public Builder setRetryTime(Map<Integer, Duration> retryTime) {
+      this.retryTime = new HashMap<>(retryTime);
+      return this;
+    }
+
+    public Builder setProcessOutputsTime(Duration processOutputsTime) {
+      this.processOutputsTime = processOutputsTime;
       return this;
     }
 
@@ -330,6 +377,36 @@ public final class SpawnMetrics {
 
     public Builder setMemoryEstimateBytes(long memoryEstimateBytes) {
       this.memoryEstimateBytes = memoryEstimateBytes;
+      return this;
+    }
+
+    public Builder addDurations(SpawnMetrics metric) {
+      totalTime = totalTime.plus(metric.totalTime());
+      parseTime = parseTime.plus(metric.parseTime());
+      networkTime = networkTime.plus(metric.networkTime());
+      fetchTime = fetchTime.plus(metric.fetchTime());
+      queueTime = queueTime.plus(metric.queueTime());
+      uploadTime = uploadTime.plus(metric.uploadTime());
+      setupTime = setupTime.plus(metric.setupTime());
+      executionWallTime = executionWallTime.plus(metric.executionWallTime());
+      for (Map.Entry<Integer, Duration> entry : metric.retryTime.entrySet()) {
+        addRetryTime(entry.getKey().intValue(), entry.getValue());
+      }
+      processOutputsTime = processOutputsTime.plus(metric.processOutputsTime());
+      return this;
+    }
+
+    public Builder addNonDurations(SpawnMetrics metric) {
+      inputFiles += metric.inputFiles();
+      inputBytes += metric.inputBytes();
+      memoryEstimateBytes += metric.memoryEstimate();
+      return this;
+    }
+
+    public Builder maxNonDurations(SpawnMetrics metric) {
+      inputFiles = Long.max(inputFiles, metric.inputFiles());
+      inputBytes = Long.max(inputBytes, metric.inputBytes());
+      memoryEstimateBytes = Long.max(memoryEstimateBytes, metric.memoryEstimate());
       return this;
     }
   }

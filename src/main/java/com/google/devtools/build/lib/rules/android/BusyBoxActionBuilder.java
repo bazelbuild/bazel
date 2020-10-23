@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorAr
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.util.OS;
 import com.google.errorprone.annotations.CompileTimeConstant;
 import java.util.Collection;
@@ -71,6 +70,14 @@ public final class BusyBoxActionBuilder {
   }
 
   /** Adds a direct input artifact. */
+  public BusyBoxActionBuilder addInput(Artifact value) {
+    Preconditions.checkNotNull(value);
+    commandLine.addExecPath(value);
+    inputs.add(value);
+    return this;
+  }
+
+  /** Adds a direct input artifact. */
   public BusyBoxActionBuilder addInput(@CompileTimeConstant String arg, Artifact value) {
     Preconditions.checkNotNull(value);
     commandLine.addExecPath(arg, value);
@@ -89,10 +96,6 @@ public final class BusyBoxActionBuilder {
    */
   public BusyBoxActionBuilder addInput(
       @CompileTimeConstant String arg, String value, Iterable<Artifact> valueArtifacts) {
-    Preconditions.checkState(
-        !(valueArtifacts instanceof NestedSet),
-        "NestedSet values should not be added here, since they will be inefficiently collapsed in"
-            + " analysis time. Use one of the transitive input methods instead.");
     commandLine.add(arg, value);
     inputs.addAll(valueArtifacts);
     return this;
@@ -109,6 +112,14 @@ public final class BusyBoxActionBuilder {
       @CompileTimeConstant String arg, @Nullable Artifact value) {
     if (value != null) {
       addInput(arg, value);
+    }
+    return this;
+  }
+
+  /** Adds an input artifact if it is non-null */
+  public BusyBoxActionBuilder maybeAddInput(@Nullable Artifact value) {
+    if (value != null) {
+      this.inputs.add(value);
     }
     return this;
   }
@@ -223,21 +234,15 @@ public final class BusyBoxActionBuilder {
   /**
    * Adds an efficient flag and inputs based on transitive values.
    *
-   * <p>Each value will be separated on the command line by the host-specific path separator.
+   * <p>Each value will be separated on the command line by the ':' character, the option parser's
+   * PathListConverter delimiter.
    *
    * <p>Unlike other transitive input methods in this class, this method adds the values to both the
    * command line and the list of inputs.
    */
   public BusyBoxActionBuilder addTransitiveVectoredInput(
       @CompileTimeConstant String arg, NestedSet<Artifact> values) {
-    commandLine.addExecPaths(
-        arg,
-        VectorArg.join(
-                dataContext
-                    .getActionConstructionContext()
-                    .getConfiguration()
-                    .getHostPathSeparator())
-            .each(values));
+    commandLine.addExecPaths(arg, VectorArg.join(":").each(values));
     inputs.addTransitive(values);
     return this;
   }
@@ -305,18 +310,10 @@ public final class BusyBoxActionBuilder {
   }
 
   /** Adds aapt to the command line and inputs. */
-  public BusyBoxActionBuilder addAapt(AndroidAaptVersion aaptVersion) {
-    FilesToRunProvider aapt;
-    if (aaptVersion == AndroidAaptVersion.AAPT2) {
-      aapt = dataContext.getSdk().getAapt2();
-      commandLine.addExecPath("--aapt2", aapt.getExecutable());
-    } else {
-      aapt = dataContext.getSdk().getAapt();
-      commandLine.addExecPath("--aapt", aapt.getExecutable());
-    }
-
-    spawnActionBuilder.addTool(aapt);
-
+  public BusyBoxActionBuilder addAapt() {
+    FilesToRunProvider aapt2 = dataContext.getSdk().getAapt2();
+    commandLine.addExecPath("--aapt2", aapt2.getExecutable());
+    spawnActionBuilder.addTool(aapt2);
     return this;
   }
 
@@ -342,6 +339,7 @@ public final class BusyBoxActionBuilder {
         .setMnemonic(mnemonic);
 
     if (dataContext.isPersistentBusyboxToolsEnabled()) {
+      commandLine.add("--logWarnings=false");
       spawnActionBuilder
           .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED)
           .addCommandLine(commandLine.build(), WORKERS_FORCED_PARAM_FILE_INFO);

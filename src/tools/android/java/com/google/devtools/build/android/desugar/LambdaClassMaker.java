@@ -23,8 +23,8 @@ import java.lang.invoke.MethodHandle;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -35,7 +35,7 @@ class LambdaClassMaker {
 
   private final Path rootDirectory;
   private final Map<Path, LambdaInfo> generatedClasses = new LinkedHashMap<>();
-  private final Set<Path> existingPaths = new HashSet<>();
+  private final Set<Path> existingPaths = new LinkedHashSet<>();
 
   public LambdaClassMaker(Path rootDirectory) {
     checkArgument(
@@ -43,16 +43,26 @@ class LambdaClassMaker {
     this.rootDirectory = rootDirectory;
   }
 
-  public void generateLambdaClass(String invokerInternalName, LambdaInfo lambdaInfo,
-      MethodHandle bootstrapMethod, ArrayList<Object> bsmArgs) throws IOException {
+  public void generateLambdaClass(
+      String invokerInternalName,
+      LambdaInfo lambdaInfo,
+      MethodHandle bootstrapMethod,
+      ArrayList<Object> bsmArgs)
+      throws IOException {
     // Invoking the bootstrap method will dump the generated class.  Ignore any pre-existing
     // matching files, which can come from desugar's implementation using classes being desugared.
     existingPaths.addAll(findUnprocessed(invokerInternalName + "$$Lambda$"));
     try {
       bootstrapMethod.invokeWithArguments(bsmArgs);
     } catch (Throwable e) {
-      throw new IllegalStateException("Failed to generate lambda class for class "
-          + invokerInternalName + " using " + bootstrapMethod + " with arguments " + bsmArgs, e);
+      throw new IllegalStateException(
+          "Failed to generate lambda class for class "
+              + invokerInternalName
+              + " using "
+              + bootstrapMethod
+              + " with arguments "
+              + bsmArgs,
+          e);
     }
 
     Path generatedClassFile = getOnlyElement(findUnprocessed(invokerInternalName + "$$Lambda$"));

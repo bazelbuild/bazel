@@ -1,3 +1,5 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+
 package(default_visibility = ["//src:__subpackages__"])
 
 cc_binary(
@@ -13,7 +15,10 @@ cc_library(
 
 cc_library(
     name = "process-tools",
-    srcs = ["process-tools.cc"],
+    srcs = ["process-tools.cc"] + select({
+        "//src/conditions:darwin": ["process-tools-darwin.cc"],
+        "//conditions:default": ["process-tools-linux.cc"],
+    }),
     hdrs = ["process-tools.h"],
     deps = [
         ":logging",
@@ -53,6 +58,12 @@ cc_binary(
         "//src/conditions:windows": ["build-runfiles-windows.cc"],
         "//conditions:default": ["build-runfiles.cc"],
     }),
+    linkopts = select({
+        "//src/conditions:windows": [
+            "-DEFAULTLIB:advapi32.lib",  # RegGetValueW
+        ],
+        "//conditions:default": [],
+    }),
     deps = ["//src/main/cpp/util:filesystem"] + select({
         "//src/conditions:windows": ["//src/main/native/windows:lib-file"],
         "//conditions:default": [],
@@ -64,7 +75,10 @@ cc_binary(
     srcs = select({
         "//src/conditions:darwin": ["dummy-sandbox.c"],
         "//src/conditions:darwin_x86_64": ["dummy-sandbox.c"],
+        "//src/conditions:darwin_arm64": ["dummy-sandbox.c"],
+        "//src/conditions:darwin_arm64e": ["dummy-sandbox.c"],
         "//src/conditions:freebsd": ["dummy-sandbox.c"],
+        "//src/conditions:openbsd": ["dummy-sandbox.c"],
         "//src/conditions:windows": ["dummy-sandbox.c"],
         "//conditions:default": [
             "linux-sandbox.cc",
@@ -79,20 +93,16 @@ cc_binary(
     deps = select({
         "//src/conditions:darwin": [],
         "//src/conditions:darwin_x86_64": [],
+        "//src/conditions:darwin_arm64": [],
+        "//src/conditions:darwin_arm64e": [],
         "//src/conditions:freebsd": [],
+        "//src/conditions:openbsd": [],
         "//src/conditions:windows": [],
         "//conditions:default": [
             ":logging",
             ":process-tools",
         ],
     }),
-)
-
-filegroup(
-    name = "jdk-support",
-    srcs = [
-        "jdk.BUILD",
-    ],
 )
 
 exports_files([

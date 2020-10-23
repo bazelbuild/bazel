@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.stringtemplate;
 
+import com.google.common.collect.ImmutableSet;
+
 /**
  * Simple string template expansion. String templates consist of text interspersed with
  * <code>$(variable)</code> or <code>$(function value)</code> references, which are replaced by
@@ -30,6 +32,16 @@ public final class TemplateExpander {
   }
 
   /**
+   * If the string contains a single variable, return the expansion of that variable. Otherwise,
+   * return null.
+   */
+  public static String expandSingleVariable(String expression, TemplateContext context)
+      throws ExpansionException {
+    String var = new TemplateExpander(expression).getSingleVariable();
+    return (var != null) ? context.lookupVariable(var) : null;
+  }
+
+  /**
    * Expands all references to template variables embedded within string "expr", using the provided
    * {@link TemplateContext} instance to expand individual variables.
    *
@@ -38,26 +50,16 @@ public final class TemplateExpander {
    * @return the expansion of "expr"
    * @throws ExpansionException if "expr" contained undefined or ill-formed variables references
    */
-  public static String expand(String expression, TemplateContext context)
+  public static Expansion expand(String expression, TemplateContext context)
       throws ExpansionException {
     if (expression.indexOf('$') < 0) {
-      return expression;
+      return Expansion.create(expression, ImmutableSet.of());
     }
     return expand(expression, context, 0);
   }
 
-  /**
-   * If the string contains a single variable, return the expansion of that variable.
-   * Otherwise, return null.
-   */
-  public static String expandSingleVariable(String expression, TemplateContext context)
-      throws ExpansionException {
-    String var = new TemplateExpander(expression).getSingleVariable();
-    return (var != null) ? context.lookupVariable(var) : null;
-  }
-
   // Helper method for counting recursion depth.
-  private static String expand(String expression, TemplateContext context, int depth)
+  private static Expansion expand(String expression, TemplateContext context, int depth)
       throws ExpansionException {
     if (depth > 10) { // plenty!
       throw new ExpansionException(
@@ -66,8 +68,9 @@ public final class TemplateExpander {
     return new TemplateExpander(expression).expand(context, depth);
   }
 
-  private String expand(TemplateContext context, int depth) throws ExpansionException {
+  private Expansion expand(TemplateContext context, int depth) throws ExpansionException {
     StringBuilder result = new StringBuilder();
+    ImmutableSet.Builder<String> lookedUpVariables = ImmutableSet.builder();
     while (offset < length) {
       char c = buffer[offset];
       if (c == '$') { // variable
@@ -82,10 +85,13 @@ public final class TemplateExpander {
           int spaceIndex = var.indexOf(' ');
           if (spaceIndex < 0) {
             String value = context.lookupVariable(var);
+            lookedUpVariables.add(var);
             // To prevent infinite recursion for the ignored shell variables
             if (!value.equals(var)) {
               // recursively expand using Make's ":=" semantics:
-              value = expand(value, context, depth + 1);
+              Expansion expansion = expand(value, context, depth + 1);
+              value = expansion.expansion();
+              lookedUpVariables.addAll(expansion.lookedUpVariables());
             }
             result.append(value);
           } else {
@@ -93,6 +99,7 @@ public final class TemplateExpander {
             // Trim the string to remove leading and trailing whitespace.
             String param = var.substring(spaceIndex + 1).trim();
             String value = context.lookupFunction(name, param);
+            lookedUpVariables.add(name);
             result.append(value);
           }
         }
@@ -101,7 +108,7 @@ public final class TemplateExpander {
       }
       offset++;
     }
-    return result.toString();
+    return Expansion.create(result.toString(), lookedUpVariables.build());
   }
 
   /**

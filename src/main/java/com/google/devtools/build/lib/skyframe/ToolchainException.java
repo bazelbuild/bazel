@@ -13,11 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
-import javax.annotation.Nullable;
+import com.google.common.base.Strings;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 
 /** Base class for exceptions that happen during toolchain resolution. */
-public class ToolchainException extends Exception {
+public abstract class ToolchainException extends Exception implements DetailedException {
 
   public ToolchainException(String message) {
     super(message);
@@ -31,20 +34,18 @@ public class ToolchainException extends Exception {
     super(message, cause);
   }
 
-  /**
-   * Attempt to find a {@link ConfiguredValueCreationException} in this exception, or its causes.
-   *
-   * <p>If one cannot be found, a new one will be created.
-   */
-  @Nullable
-  public ConfiguredValueCreationException asConfiguredValueCreationException() {
-    for (Throwable cause = getCause();
-        cause != null && cause != cause.getCause();
-        cause = cause.getCause()) {
-      if (cause instanceof ConfiguredValueCreationException) {
-        return (ConfiguredValueCreationException) cause;
-      }
+  protected abstract Code getDetailedCode();
+
+  @Override
+  public DetailedExitCode getDetailedExitCode() {
+    if (getCause() instanceof DetailedException) {
+      return ((DetailedException) getCause()).getDetailedExitCode();
     }
-    return null;
+
+    return DetailedExitCode.of(
+        FailureDetail.newBuilder()
+            .setMessage(Strings.nullToEmpty(getMessage()))
+            .setToolchain(FailureDetails.Toolchain.newBuilder().setCode(getDetailedCode()))
+            .build());
   }
 }

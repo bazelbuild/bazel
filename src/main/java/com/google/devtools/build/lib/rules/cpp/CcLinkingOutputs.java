@@ -18,7 +18,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingOutputsApi;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingOutputsApi;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import javax.annotation.Nullable;
 
@@ -139,8 +140,8 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact> {
       return this;
     }
 
-    public Builder addLinkActionInputs(Iterable<Artifact> linkActionInputs) {
-      this.linkActionInputs.addAll(linkActionInputs);
+    public Builder addLinkActionInputs(NestedSet<Artifact> linkActionInputs) {
+      this.linkActionInputs.addAll(linkActionInputs.toList());
       return this;
     }
   }

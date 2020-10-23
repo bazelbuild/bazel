@@ -26,10 +26,10 @@ import com.google.devtools.build.lib.packages.NativeProvider;
 @Immutable
 public class AndroidDeviceScriptFixtureInfoProvider extends NativeInfo {
 
-  private static final String SKYLARK_NAME = "DeviceScriptFixtureInfo";
-  public static final NativeProvider<AndroidDeviceScriptFixtureInfoProvider> SKYLARK_CONSTRUCTOR =
+  private static final String STARLARK_NAME = "DeviceScriptFixtureInfo";
+  public static final NativeProvider<AndroidDeviceScriptFixtureInfoProvider> STARLARK_CONSTRUCTOR =
       new NativeProvider<AndroidDeviceScriptFixtureInfoProvider>(
-          AndroidDeviceScriptFixtureInfoProvider.class, SKYLARK_NAME) {};
+          AndroidDeviceScriptFixtureInfoProvider.class, STARLARK_NAME) {};
 
   private final Artifact fixtureScript;
   private final NestedSet<Artifact> supportApks;
@@ -38,7 +38,7 @@ public class AndroidDeviceScriptFixtureInfoProvider extends NativeInfo {
 
   public AndroidDeviceScriptFixtureInfoProvider(
       Artifact fixtureScript, NestedSet<Artifact> supportApks, boolean daemon, boolean strictExit) {
-    super(SKYLARK_CONSTRUCTOR);
+    super(STARLARK_CONSTRUCTOR);
     this.fixtureScript = fixtureScript;
     this.supportApks = supportApks;
     this.daemon = daemon;

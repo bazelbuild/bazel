@@ -14,9 +14,7 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -25,6 +23,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -91,11 +90,5 @@ public class ResolvedHashesFunction implements SkyFunction {
   @Nullable
   public String extractTag(SkyKey skyKey) {
     return null;
-  }
-
-  private static final class ResolvedHashesFunctionException extends SkyFunctionException {
-    ResolvedHashesFunctionException(BuildFileContainsErrorsException e) {
-      super(e, SkyFunctionException.Transience.PERSISTENT);
-    }
   }
 }

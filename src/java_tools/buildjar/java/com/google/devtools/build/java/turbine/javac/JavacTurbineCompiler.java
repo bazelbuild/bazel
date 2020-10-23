@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.jimfs.Configuration;
 import com.google.common.jimfs.Jimfs;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.StrictJavaDepsPlugin;
@@ -54,9 +55,11 @@ import javax.tools.StandardLocation;
 /** Performs a javac-based turbine compilation given a {@link JavacTurbineCompileRequest}. */
 public class JavacTurbineCompiler {
 
-  static JavacTurbineCompileResult compile(JavacTurbineCompileRequest request) throws IOException {
+  static JavacTurbineCompileResult compile(
+      JavacTurbineCompileRequest request, ImmutableList<Path> classPath) throws IOException {
 
-    Map<String, byte[]> files = new LinkedHashMap<>();
+    Map<String, byte[]> classOutputs = new LinkedHashMap<>();
+    Map<String, byte[]> sourceOutputs = new LinkedHashMap<>();
     Status status;
     StringWriter sw = new StringWriter();
     ImmutableList.Builder<FormattedDiagnostic> diagnostics = ImmutableList.builder();
@@ -66,7 +69,7 @@ public class JavacTurbineCompiler {
       setupContext(context, request.strictJavaDepsPlugin(), request.transitivePlugin());
       CacheFSInfo.preRegister(context);
       try (FileSystem fs = Jimfs.newFileSystem(Configuration.forCurrentPlatform());
-          JavacFileManager fm = new ClassloaderMaskingFileManager()) {
+          JavacFileManager fm = new ClassloaderMaskingFileManager(request.builtinProcessors())) {
         JavacTask task =
             JavacTool.create()
                 .getTask(
@@ -85,7 +88,7 @@ public class JavacTurbineCompiler {
 
         fm.setContext(context);
         fm.setLocationFromPaths(StandardLocation.SOURCE_PATH, Collections.<Path>emptyList());
-        fm.setLocationFromPaths(StandardLocation.CLASS_PATH, request.classPath());
+        fm.setLocationFromPaths(StandardLocation.CLASS_PATH, classPath);
         // The bootclasspath may legitimately be empty if --release is being used.
         Collection<Path> bootClassPath = request.bootClassPath();
         if (!bootClassPath.isEmpty()) {
@@ -99,18 +102,8 @@ public class JavacTurbineCompiler {
         status = task.call() ? Status.OK : Status.ERROR;
 
         // collect class output
-        Files.walkFileTree(
-            classes,
-            new SimpleFileVisitor<Path>() {
-              @Override
-              public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
-                  throws IOException {
-                // use `/` as the directory separator for jar paths, even on Windows
-                String name = Joiner.on('/').join(classes.relativize(path));
-                files.put(name, Files.readAllBytes(path));
-                return FileVisitResult.CONTINUE;
-              }
-            });
+        collectOutputs(classOutputs, classes);
+        collectOutputs(sourceOutputs, sources);
 
       } catch (Throwable t) {
         t.printStackTrace(pw);
@@ -119,7 +112,28 @@ public class JavacTurbineCompiler {
     }
 
     return new JavacTurbineCompileResult(
-        ImmutableMap.copyOf(files), status, sw.toString(), diagnostics.build(), context);
+        ImmutableMap.copyOf(classOutputs),
+        ImmutableMap.copyOf(sourceOutputs),
+        status,
+        classPath,
+        sw.toString(),
+        diagnostics.build(),
+        context);
+  }
+
+  private static void collectOutputs(Map<String, byte[]> files, Path classes) throws IOException {
+    Files.walkFileTree(
+        classes,
+        new SimpleFileVisitor<Path>() {
+          @Override
+          public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
+              throws IOException {
+            // use `/` as the directory separator for jar paths, even on Windows
+            String name = Joiner.on('/').join(classes.relativize(path));
+            files.put(name, Files.readAllBytes(path));
+            return FileVisitResult.CONTINUE;
+          }
+        });
   }
 
   private static FormattedDiagnostic formatDiagnostic(
@@ -141,14 +155,17 @@ public class JavacTurbineCompiler {
   @Trusted
   private static class ClassloaderMaskingFileManager extends JavacFileManager {
 
+    private final ImmutableSet<String> builtinProcessors;
+
     private static Context getContext() {
       Context context = new Context();
       CacheFSInfo.preRegister(context);
       return context;
     }
 
-    public ClassloaderMaskingFileManager() {
+    public ClassloaderMaskingFileManager(ImmutableSet<String> builtinProcessors) {
       super(getContext(), false, UTF_8);
+      this.builtinProcessors = builtinProcessors;
     }
 
     @Override
@@ -160,7 +177,8 @@ public class JavacTurbineCompiler {
             protected Class<?> findClass(String name) throws ClassNotFoundException {
               if (name.startsWith("com.sun.source.")
                   || name.startsWith("com.sun.tools.")
-                  || name.startsWith("com.google.devtools.build.buildjar.javac.statistics.")) {
+                  || name.startsWith("com.google.devtools.build.buildjar.javac.statistics.")
+                  || builtinProcessors.contains(name)) {
                 return Class.forName(name);
               }
               throw new ClassNotFoundException(name);

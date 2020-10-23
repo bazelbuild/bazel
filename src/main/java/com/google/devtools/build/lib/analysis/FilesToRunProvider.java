@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.FilesToRunProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.FilesToRunProviderApi;
 import javax.annotation.Nullable;
 
 /** Returns information about executables produced by a target and the files needed to run it. */
@@ -30,8 +30,8 @@ import javax.annotation.Nullable;
 @AutoCodec
 public final class FilesToRunProvider
     implements TransitiveInfoProvider, FilesToRunProviderApi<Artifact> {
-  /** The name of the field in Skylark used to access this class. */
-  public static final String SKYLARK_NAME = "files_to_run";
+  /** The name of the field in Starlark used to access this class. */
+  public static final String STARLARK_NAME = "files_to_run";
 
   public static final FilesToRunProvider EMPTY =
       new FilesToRunProvider(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER), null, null);
@@ -55,6 +55,11 @@ public final class FilesToRunProvider
   public static FilesToRunProvider fromSingleExecutableArtifact(Artifact artifact) {
     return new FilesToRunProvider(
         NestedSetBuilder.create(Order.STABLE_ORDER, artifact), null, artifact);
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
   }
 
   /** Returns artifacts needed to run the executable for this target. */
@@ -88,8 +93,8 @@ public final class FilesToRunProvider
 
   /** Return a {@link RunfilesSupplier} encapsulating runfiles for this tool. */
   public RunfilesSupplier getRunfilesSupplier() {
-    if (executable != null && runfilesSupport != null) {
-      return new RunfilesSupplierImpl(executable, runfilesSupport.getRunfiles());
+    if (runfilesSupport != null) {
+      return RunfilesSupplierImpl.create(runfilesSupport);
     } else {
       return EmptyRunfilesSupplier.INSTANCE;
     }

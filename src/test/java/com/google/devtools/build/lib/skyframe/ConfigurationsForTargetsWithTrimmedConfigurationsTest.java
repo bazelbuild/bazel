@@ -19,18 +19,22 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
@@ -43,6 +47,8 @@ import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.analysis.util.TestAspects.DummyRuleFactory;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -51,6 +57,7 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -67,37 +74,53 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
 
   private static class NoopSplitTransition implements SplitTransition {
     @Override
-    public List<BuildOptions> split(BuildOptions buildOptions) {
-      return ImmutableList.of(buildOptions);
+    public Map<String, BuildOptions> split(
+        BuildOptionsView buildOptions, EventHandler eventHandler) {
+      return ImmutableMap.of("noop", buildOptions.underlying());
     }
   }
 
   private static class SetsHostCpuSplitTransition implements SplitTransition {
     @Override
-    public List<BuildOptions> split(BuildOptions buildOptions) {
-      BuildOptions result = buildOptions.clone();
+    public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+      return ImmutableSet.of(CoreOptions.class);
+    }
+
+    @Override
+    public Map<String, BuildOptions> split(
+        BuildOptionsView buildOptions, EventHandler eventHandler) {
+      BuildOptionsView result = buildOptions.clone();
       result.get(CoreOptions.class).hostCpu = "SET BY SPLIT";
-      return ImmutableList.of(result);
+      return ImmutableMap.of("hostCpu", result.underlying());
     }
   }
 
   private static class SetsCpuSplitTransition implements SplitTransition {
+    @Override
+    public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+      return ImmutableSet.of(CoreOptions.class);
+    }
 
     @Override
-    public List<BuildOptions> split(BuildOptions buildOptions) {
-      BuildOptions result = buildOptions.clone();
+    public Map<String, BuildOptions> split(
+        BuildOptionsView buildOptions, EventHandler eventHandler) {
+      BuildOptionsView result = buildOptions.clone();
       result.get(CoreOptions.class).cpu = "SET BY SPLIT";
-      return ImmutableList.of(result);
+      return ImmutableMap.of("cpu", result.underlying());
     }
   }
 
   private static class SetsCpuPatchTransition implements PatchTransition {
+    @Override
+    public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+      return ImmutableSet.of(CoreOptions.class);
+    }
 
     @Override
-    public BuildOptions patch(BuildOptions options) {
-      BuildOptions result = options.clone();
+    public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
+      BuildOptionsView result = options.clone();
       result.get(CoreOptions.class).cpu = "SET BY PATCH";
-      return result;
+      return result.underlying();
     }
   }
 
@@ -148,10 +171,15 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     }
 
     @Override
-    public BuildOptions patch(BuildOptions options) {
-      BuildOptions result = options.clone();
+    public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+      return ImmutableSet.of(TestConfiguration.TestOptions.class);
+    }
+
+    @Override
+    public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
+      BuildOptionsView result = options.clone();
       result.get(TestConfiguration.TestOptions.class).testFilter = "SET BY PATCH FACTORY: " + value;
-      return result;
+      return result.underlying();
     }
   }
 
@@ -191,16 +219,21 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     }
 
     @Override
-    public BuildOptions patch(BuildOptions options) {
+    public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+      return ImmutableSet.of(TestConfiguration.TestOptions.class);
+    }
+
+    @Override
+    public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
       if (!options.contains(TestConfiguration.TestOptions.class)) {
-        return options;
+        return options.underlying();
       }
 
-      BuildOptions result = options.clone();
+      BuildOptionsView result = options.clone();
       TestConfiguration.TestOptions testOpts = result.get(TestConfiguration.TestOptions.class);
       testOpts.testArguments =
           new ImmutableList.Builder<String>().addAll(testOpts.testArguments).add(argument).build();
-      return result;
+      return result.underlying();
     }
   }
 
@@ -244,10 +277,10 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     builder.overrideTrimmingTransitionFactoryForTesting(trimmingTransitionFactory);
     useRuleClassProvider(builder.build());
     scratch.file(
-        "a/skylark.bzl",
+        "a/starlark.bzl",
         "def _impl(ctx):",
         "  return",
-        "skylark_rule = rule(",
+        "starlark_rule = rule(",
         "  implementation = _impl,",
         "  attrs = {",
         "    'deps': attr.label_list(),",
@@ -256,18 +289,18 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
         ")");
     scratch.file(
         "a/BUILD",
-        "load(':skylark.bzl', 'skylark_rule')",
-        // ensure that all Skylark rules get the TestConfiguration fragment
+        "load(':starlark.bzl', 'starlark_rule')",
+        // ensure that all Starlark rules get the TestConfiguration fragment
         "test_base(name = 'base')",
-        // skylark rules get trimmed
-        "skylark_rule(name = 'skylark_solo', deps = [':base'])",
+        // Starlark rules get trimmed
+        "starlark_rule(name = 'starlark_solo', deps = [':base'])",
         // native rules get trimmed; top-level targets get trimmed after the rule-class transition
         "add_test_arg_for_self(name = 'test_arg_on_self')",
         // deps with dependency transitions get trimmed after the dependency transition
         "add_test_arg_for_deps(name = 'attribute_transition', deps = [':dep_after_transition'])",
-        "skylark_rule(name = 'dep_after_transition')",
+        "starlark_rule(name = 'dep_after_transition')",
         // deps on rule-class transitions get trimmed after the rule-class transition
-        "skylark_rule(name = 'dep_on_ruleclass', deps = [':ruleclass_transition'])",
+        "starlark_rule(name = 'dep_on_ruleclass', deps = [':ruleclass_transition'])",
         "add_test_arg_for_self(name = 'ruleclass_transition')",
         // when all three (rule-class, attribute, trimming transitions) collide it's okay
         "add_test_arg_for_deps(name = 'attribute_outer', deps = [':ruleclass_inner'])",
@@ -276,10 +309,10 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     ConfiguredTarget configuredTarget;
     BuildConfiguration config;
 
-    configuredTarget = Iterables.getOnlyElement(update("//a:skylark_solo").getTargetsToBuild());
+    configuredTarget = Iterables.getOnlyElement(update("//a:starlark_solo").getTargetsToBuild());
     config = getConfiguration(configuredTarget);
     assertThat(config.getFragment(TestConfiguration.class).getTestArguments())
-        .containsExactly("trimming transition for //a:skylark_solo");
+        .containsExactly("trimming transition for //a:starlark_solo");
 
     configuredTarget = Iterables.getOnlyElement(update("//a:test_arg_on_self").getTargetsToBuild());
     config = getConfiguration(configuredTarget);
@@ -341,10 +374,10 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     builder.addTrimmingTransitionFactory(secondTrimmingTransitionFactory);
     useRuleClassProvider(builder.build());
     scratch.file(
-        "a/skylark.bzl",
+        "a/starlark.bzl",
         "def _impl(ctx):",
         "  return",
-        "skylark_rule = rule(",
+        "starlark_rule = rule(",
         "  implementation = _impl,",
         "  attrs = {",
         "    'deps': attr.label_list(),",
@@ -353,21 +386,21 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
         ")");
     scratch.file(
         "a/BUILD",
-        "load(':skylark.bzl', 'skylark_rule')",
-        // ensure that all Skylark rules get the TestConfiguration fragment
+        "load(':starlark.bzl', 'starlark_rule')",
+        // ensure that all Starlark rules get the TestConfiguration fragment
         "test_base(name = 'base')",
-        // skylark rules get trimmed
-        "skylark_rule(name = 'skylark_solo', deps = [':base'])");
+        // Starlark rules get trimmed
+        "starlark_rule(name = 'starlark_solo', deps = [':base'])");
 
     ConfiguredTarget configuredTarget;
     BuildConfiguration config;
 
-    configuredTarget = Iterables.getOnlyElement(update("//a:skylark_solo").getTargetsToBuild());
+    configuredTarget = Iterables.getOnlyElement(update("//a:starlark_solo").getTargetsToBuild());
     config = getConfiguration(configuredTarget);
     assertThat(config.getFragment(TestConfiguration.class).getTestArguments())
         .containsExactly(
-            "first trimming transition for //a:skylark_solo",
-            "second trimming transition for //a:skylark_solo")
+            "first trimming transition for //a:starlark_solo",
+            "second trimming transition for //a:starlark_solo")
         .inOrder();
   }
 
@@ -547,12 +580,17 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
   private static PatchTransition newPatchTransition(final String value) {
     return new PatchTransition() {
       @Override
-      public BuildOptions patch(BuildOptions options) {
-        BuildOptions toOptions = options.clone();
+      public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+        return ImmutableSet.of(TestConfiguration.TestOptions.class);
+      }
+
+      @Override
+      public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
+        BuildOptionsView toOptions = options.clone();
         TestConfiguration.TestOptions baseOptions =
             toOptions.get(TestConfiguration.TestOptions.class);
         baseOptions.testFilter = nullToEmpty(baseOptions.testFilter) + value;
-        return toOptions;
+        return toOptions.underlying();
       }
     };
   }
@@ -563,17 +601,26 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
    * prefix + "2"}.
    */
   private static SplitTransition newSplitTransition(final String prefix) {
-    return buildOptions -> {
-      ImmutableList.Builder<BuildOptions> result = ImmutableList.builder();
-      for (int index = 1; index <= 2; index++) {
-        BuildOptions toOptions = buildOptions.clone();
-        TestConfiguration.TestOptions baseOptions =
-            toOptions.get(TestConfiguration.TestOptions.class);
-        baseOptions.testFilter =
-            (baseOptions.testFilter == null ? "" : baseOptions.testFilter) + prefix + index;
-        result.add(toOptions);
+    return new SplitTransition() {
+      @Override
+      public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+        return ImmutableSet.of(TestConfiguration.TestOptions.class);
       }
-      return result.build();
+
+      @Override
+      public ImmutableMap<String, BuildOptions> split(
+          BuildOptionsView buildOptions, EventHandler eventHandler) {
+        ImmutableMap.Builder<String, BuildOptions> result = ImmutableMap.builder();
+        for (int index = 1; index <= 2; index++) {
+          BuildOptionsView toOptions = buildOptions.clone();
+          TestConfiguration.TestOptions baseOptions =
+              toOptions.get(TestConfiguration.TestOptions.class);
+          baseOptions.testFilter =
+              (baseOptions.testFilter == null ? "" : baseOptions.testFilter) + prefix + index;
+          result.put(prefix + index, toOptions.underlying());
+        }
+        return result.build();
+      }
     };
   }
 
@@ -586,9 +633,11 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     ImmutableList.Builder<String> outValues = ImmutableList.builder();
     for (BuildOptions toOptions :
         ConfigurationResolver.applyTransition(
-            getTargetConfiguration().getOptions(),
-            transition,
-            ImmutableMap.of())) {
+                getTargetConfiguration().getOptions(),
+                transition,
+                ImmutableMap.of(),
+                NullEventHandler.INSTANCE)
+            .values()) {
       outValues.add(toOptions.get(TestConfiguration.TestOptions.class).testFilter);
     }
     return outValues.build();
@@ -624,10 +673,11 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
   @Test
   public void composedSplitTransitions() throws Exception {
     update(); // Creates the target configuration.
-    assertThat(
+    assertThrows(
+        IllegalStateException.class,
+        () ->
             getTestFilterOptionValue(
-                ComposingTransition.of(newSplitTransition("s"), newSplitTransition("t"))))
-        .containsExactly("s1t1", "s1t2", "s2t1", "s2t2");
+                ComposingTransition.of(newSplitTransition("s"), newSplitTransition("t"))));
   }
 
 }

@@ -1,8 +1,6 @@
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]) + [
-        "//src/test/shell/bazel/testdata/bazel_toolchain_test_data:srcs",
-    ],
+    srcs = glob(["**"]),
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
@@ -18,19 +16,19 @@ filegroup(
 )
 
 filegroup(
-    name = "bazel_toolchain_test_project_pkg",
+    name = "embedded_tools_deps_test_data",
     testonly = 1,
     srcs = [
-        "//src/test/shell/bazel/testdata/bazel_toolchain_test_data:srcs",
+        "//src/test/shell/bazel/testdata:embedded_tools_srcs_deps",
     ],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
 filegroup(
-    name = "embedded_tools_deps_test_data",
+    name = "jdk_http_archives_filegroup",
     testonly = 1,
     srcs = [
-        "//src/test/shell/bazel/testdata:embedded_tools_srcs_deps",
+        "//src/test/shell/bazel/testdata:jdk_http_archives",
     ],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )

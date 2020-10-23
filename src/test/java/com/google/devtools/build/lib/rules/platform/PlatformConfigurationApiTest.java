@@ -15,19 +15,17 @@ package com.google.devtools.build.lib.rules.platform;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformConfigurationApi;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests Skylark API for Platform configuration fragments. */
+/** Tests Starlark API for Platform configuration fragments. */
 @RunWith(JUnit4.class)
 public class PlatformConfigurationApiTest extends BuildViewTestCase {
 
@@ -35,100 +33,63 @@ public class PlatformConfigurationApiTest extends BuildViewTestCase {
   public void testHostPlatform() throws Exception {
     scratch.file("platforms/BUILD", "platform(name = 'test_platform')");
 
-    useConfiguration("--host_platform=//platforms:test_platform");
-    ruleBuilder().build();
     scratch.file(
-        "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'my_skylark_rule',",
+        "verify/verify.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  platformConfig = ctx.fragments.platform",
+        "  host_platform = platformConfig.host_platform",
+        "  return [result(",
+        "    host_platform = host_platform,",
+        "  )]",
+        "verify = rule(",
+        "  implementation = _impl,",
+        "  fragments = ['platform'],",
         ")");
-    assertNoEvents();
+    scratch.file("verify/BUILD", "load(':verify.bzl', 'verify')", "verify(name = 'verify')");
 
-    PlatformConfigurationApi platformConfiguration = fetchPlatformConfiguration();
-    assertThat(platformConfiguration).isNotNull();
-    assertThat(platformConfiguration.getHostPlatform())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:test_platform"));
+    useConfiguration("--host_platform=//platforms:test_platform");
+
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//verify:verify");
+    StructImpl info =
+        (StructImpl)
+            myRuleTarget.get(
+                new StarlarkProvider.Key(
+                    Label.parseAbsolute("//verify:verify.bzl", ImmutableMap.of()), "result"));
+
+    Label hostPlatform = (Label) info.getValue("host_platform");
+    assertThat(hostPlatform).isEqualTo(Label.parseAbsoluteUnchecked("//platforms:test_platform"));
   }
 
   @Test
   public void testTargetPlatform_single() throws Exception {
     scratch.file("platforms/BUILD", "platform(name = 'test_platform')");
 
+    scratch.file(
+        "verify/verify.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  platformConfig = ctx.fragments.platform",
+        "  target_platform = platformConfig.platform",
+        "  return [result(",
+        "    target_platform = target_platform,",
+        "  )]",
+        "verify = rule(",
+        "  implementation = _impl,",
+        "  fragments = ['platform'],",
+        ")");
+    scratch.file("verify/BUILD", "load(':verify.bzl', 'verify')", "verify(name = 'verify')");
+
     useConfiguration("--platforms=//platforms:test_platform");
-    ruleBuilder().build();
-    scratch.file(
-        "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'my_skylark_rule',",
-        ")");
-    assertNoEvents();
 
-    PlatformConfigurationApi platformConfiguration = fetchPlatformConfiguration();
-    assertThat(platformConfiguration).isNotNull();
-    assertThat(platformConfiguration.getTargetPlatform())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:test_platform"));
-    assertThat(platformConfiguration.getTargetPlatforms())
-        .containsExactly(Label.parseAbsoluteUnchecked("//platforms:test_platform"));
-  }
-
-  @Test
-  public void testEnabledToolchainTypes() throws Exception {
-    scratch.file(
-        "toolchains/BUILD",
-        "toolchain_type(name = 'test_toolchain_type1')",
-        "toolchain_type(name = 'test_toolchain_type2')",
-        "toolchain_type(name = 'test_toolchain_type3')");
-
-    useConfiguration(
-        "--enabled_toolchain_types="
-            + "//toolchains:test_toolchain_type1,//toolchains:test_toolchain_type3");
-    ruleBuilder().build();
-    scratch.file(
-        "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'my_skylark_rule',",
-        ")");
-    assertNoEvents();
-
-    PlatformConfigurationApi platformConfiguration = fetchPlatformConfiguration();
-    assertThat(platformConfiguration).isNotNull();
-    assertThat(platformConfiguration.getEnabledToolchainTypes())
-        .containsExactly(
-            Label.parseAbsoluteUnchecked("//toolchains:test_toolchain_type1"),
-            Label.parseAbsoluteUnchecked("//toolchains:test_toolchain_type3"));
-  }
-
-  private RuleBuilder ruleBuilder() {
-    return new RuleBuilder();
-  }
-
-  private class RuleBuilder {
-    private void build() throws Exception {
-      ImmutableList.Builder<String> lines = ImmutableList.builder();
-      lines.add(
-          "result = provider()",
-          "def _impl(ctx):",
-          "  platformConfig = ctx.fragments.platform",
-          "  return [result(property = platformConfig)]");
-      lines.add("my_rule = rule(", "  implementation = _impl,", "  fragments = ['platform'],", ")");
-
-      scratch.file("foo/extension.bzl", lines.build().toArray(new String[] {}));
-    }
-  }
-
-  private PlatformConfigurationApi fetchPlatformConfiguration() throws Exception {
-    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_skylark_rule");
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//verify:verify");
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new SkylarkKey(
-                    Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
+                new StarlarkProvider.Key(
+                    Label.parseAbsolute("//verify:verify.bzl", ImmutableMap.of()), "result"));
 
-    @SuppressWarnings("unchecked")
-    PlatformConfigurationApi javaInfo = (PlatformConfigurationApi) info.getValue("property");
-    return javaInfo;
+    Label targetPlatform = (Label) info.getValue("target_platform");
+    assertThat(targetPlatform).isEqualTo(Label.parseAbsoluteUnchecked("//platforms:test_platform"));
   }
 }

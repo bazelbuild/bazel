@@ -30,10 +30,11 @@ import com.google.devtools.build.lib.rules.cpp.CcSkyframeFdoSupportFunction;
 import com.google.devtools.build.lib.rules.cpp.CcSkyframeFdoSupportValue;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
-import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryLoaderFunction;
+import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
+import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.packages.PackageFactoryBuilderWithSkyframeForTesting;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -97,6 +98,11 @@ public abstract class AnalysisMock extends LoadingMock {
    */
   public abstract void setupMockWorkspaceFiles(Path embeddedBinariesRoot) throws IOException;
 
+  /** Creates a mock tools repository. */
+  public void setupMockToolsRepository(MockToolsConfig config) throws IOException {
+    // Do nothing by default.
+  }
+
   /** Returns the default factories for configuration fragments used in tests. */
   public abstract List<ConfigurationFragmentFactory> getDefaultConfigurationFragmentFactories();
 
@@ -108,10 +114,6 @@ public abstract class AnalysisMock extends LoadingMock {
   public abstract MockCcSupport ccSupport();
 
   public abstract MockPythonSupport pySupport();
-
-  public void setupCcSupport(MockToolsConfig config) throws IOException {
-    get().ccSupport().setup(config);
-  }
 
   public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(BlazeDirectories directories) {
     // Some tests require the local_repository rule so we need the appropriate SkyFunctions.
@@ -131,7 +133,8 @@ public abstract class AnalysisMock extends LoadingMock {
             new AtomicBoolean(true),
             ImmutableMap::of,
             directories,
-            ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES),
+            ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
+            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER),
         SkyFunctions.REPOSITORY,
         new RepositoryLoaderFunction(),
         CcSkyframeFdoSupportValue.SKYFUNCTION,
@@ -168,6 +171,11 @@ public abstract class AnalysisMock extends LoadingMock {
     @Override
     public void setupMockWorkspaceFiles(Path embeddedBinariesRoot) throws IOException {
       delegate.setupMockWorkspaceFiles(embeddedBinariesRoot);
+    }
+
+    @Override
+    public void setupMockToolsRepository(MockToolsConfig config) throws IOException {
+      delegate.setupMockToolsRepository(config);
     }
 
     @Override

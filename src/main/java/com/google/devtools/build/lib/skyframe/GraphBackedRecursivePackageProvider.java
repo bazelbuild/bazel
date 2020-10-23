@@ -21,10 +21,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.concurrent.BatchCallback;
+import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -33,9 +36,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.pkgcache.AbstractRecursivePackageProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
-import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -45,12 +46,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.Logger;
 
 /**
- * A {@link RecursivePackageProvider} backed by a {@link WalkableGraph}, used by {@code
- * SkyQueryEnvironment} to look up the packages and targets matching the universe that's been
- * preloaded in {@code graph}.
+ * A {@link com.google.devtools.build.lib.pkgcache.RecursivePackageProvider} backed by a {@link
+ * WalkableGraph}, used by {@code SkyQueryEnvironment} to look up the packages and targets matching
+ * the universe that's been preloaded in {@code graph}.
  */
 @ThreadSafe
 public final class GraphBackedRecursivePackageProvider extends AbstractRecursivePackageProvider {
@@ -58,19 +58,18 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
   private final WalkableGraph graph;
   private final ImmutableList<Root> pkgRoots;
   private final RootPackageExtractor rootPackageExtractor;
-  private final ImmutableList<TargetPatternKey> universeTargetPatternKeys;
+  private final ImmutableList<TargetPattern> universeTargetPatterns;
 
-  private static final Logger logger =
-      Logger.getLogger(GraphBackedRecursivePackageProvider.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   public GraphBackedRecursivePackageProvider(
       WalkableGraph graph,
-      ImmutableList<TargetPatternKey> universeTargetPatternKeys,
+      ImmutableList<TargetPattern> universeTargetPatterns,
       PathPackageLocator pkgPath,
       RootPackageExtractor rootPackageExtractor) {
     this.graph = Preconditions.checkNotNull(graph);
     this.pkgRoots = pkgPath.getPathEntries();
-    this.universeTargetPatternKeys = Preconditions.checkNotNull(universeTargetPatternKeys);
+    this.universeTargetPatterns = Preconditions.checkNotNull(universeTargetPatterns);
     this.rootPackageExtractor = rootPackageExtractor;
   }
 
@@ -111,13 +110,9 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
 
     SetView<SkyKey> unknownKeys = Sets.difference(pkgKeys, packages.keySet());
     if (!Iterables.isEmpty(unknownKeys)) {
-      logger.warning(
-          "Unable to find "
-              + unknownKeys
-              + " in the batch lookup of "
-              + pkgKeys
-              + ". Successfully looked up "
-              + packages.keySet());
+      logger.atWarning().log(
+          "Unable to find %s in the batch lookup of %s. Successfully looked up %s",
+          unknownKeys, pkgKeys, packages.keySet());
     }
     for (Map.Entry<SkyKey, Exception> missingOrExceptionEntry :
         graph.getMissingAndExceptions(unknownKeys).entrySet()) {
@@ -166,18 +161,16 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
   private List<Root> checkValidDirectoryAndGetRoots(
       RepositoryName repository,
       PathFragment directory,
-      ImmutableSet<PathFragment> blacklistedSubdirectories,
+      ImmutableSet<PathFragment> ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException {
-    if (blacklistedSubdirectories.contains(directory)
-        || excludedSubdirectories.contains(directory)) {
+    if (ignoredSubdirectories.contains(directory) || excludedSubdirectories.contains(directory)) {
       return ImmutableList.of();
     }
 
     // Check that this package is covered by at least one of our universe patterns.
     boolean inUniverse = false;
-    for (TargetPatternKey patternKey : universeTargetPatternKeys) {
-      TargetPattern pattern = patternKey.getParsedPattern();
+    for (TargetPattern pattern : universeTargetPatterns) {
       boolean isTBD = pattern.getType().equals(TargetPattern.Type.TARGETS_BELOW_DIRECTORY);
       PackageIdentifier packageIdentifier = PackageIdentifier.create(repository, directory);
       if (isTBD && pattern.containsAllTransitiveSubdirectoriesForTBD(packageIdentifier)) {
@@ -207,24 +200,26 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
   }
 
   @Override
-  public Iterable<PathFragment> getPackagesUnderDirectory(
+  public void streamPackagesUnderDirectory(
+      BatchCallback<PackageIdentifier, UnusedException> results,
       ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
-      ImmutableSet<PathFragment> blacklistedSubdirectories,
+      ImmutableSet<PathFragment> ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException {
     List<Root> roots =
         checkValidDirectoryAndGetRoots(
-            repository, directory, blacklistedSubdirectories, excludedSubdirectories);
+            repository, directory, ignoredSubdirectories, excludedSubdirectories);
 
-    return rootPackageExtractor.getPackagesFromRoots(
+    rootPackageExtractor.streamPackagesFromRoots(
+        results,
         graph,
         roots,
         eventHandler,
         repository,
         directory,
-        blacklistedSubdirectories,
+        ignoredSubdirectories,
         excludedSubdirectories);
   }
 }

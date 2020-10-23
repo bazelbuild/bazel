@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker;
-import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
+import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutorFactory;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -78,7 +78,6 @@ public final class WorkspaceBuilder {
             directories,
             runtime.getActionKeyContext(),
             workspaceStatusActionFactory,
-            ruleClassProvider.getBuildInfoFactories(),
             diffAwarenessFactories.build(),
             skyFunctions.build(),
             customDirtinessCheckers.build(),

@@ -23,26 +23,27 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
-import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
+import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CppConfigurationApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * This class represents the C/C++ parts of the {@link BuildConfiguration}, including the host
  * architecture, target architecture, compiler version, and a standard library version.
  */
 @Immutable
-public final class CppConfiguration extends BuildConfiguration.Fragment
+public final class CppConfiguration extends Fragment
     implements CppConfigurationApi<InvalidConfigurationException> {
   /**
    * String indicating a Mac system, for example when used in a crosstool configuration's host or
@@ -63,6 +64,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     GCOV("gcov"),
     GCOVTOOL("gcov-tool"),
     LD("ld"),
+    LLVM_COV("llvm-cov"),
     NM("nm"),
     OBJCOPY("objcopy"),
     OBJDUMP("objdump"),
@@ -147,6 +149,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   private final PathFragment fdoPath;
   private final Label fdoOptimizeLabel;
 
+  private final PathFragment csFdoAbsolutePath;
+
   private final ImmutableList<String> conlyopts;
 
   private final ImmutableList<String> copts;
@@ -162,7 +166,11 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   private final boolean stripBinaries;
   private final CompilationMode compilationMode;
   private final boolean collectCodeCoverage;
-  private final boolean isThisHostConfigurationDoNotUseWillBeRemovedFor129045294;
+  private final boolean isToolConfigurationDoNotUseWillBeRemovedFor129045294;
+
+  private final boolean appleGenerateDsym;
+
+  private final CoreOptions.FatApkSplitSanitizer fatApkSplitSanitizer;
 
   static CppConfiguration create(CpuTransformer cpuTransformer, BuildOptions options)
       throws InvalidConfigurationException {
@@ -197,6 +205,22 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       }
     }
 
+    PathFragment csFdoAbsolutePath = null;
+    if (cppOptions.csFdoAbsolutePathForBuild != null) {
+      csFdoAbsolutePath = PathFragment.create(cppOptions.csFdoAbsolutePathForBuild);
+      if (!csFdoAbsolutePath.isAbsolute()) {
+        throw new InvalidConfigurationException(
+            "Path of '"
+                + csFdoAbsolutePath.getPathString()
+                + "' in --cs_fdo_absolute_path is not an absolute path.");
+      }
+      try {
+        FileSystemUtils.checkBaseName(csFdoAbsolutePath.getBaseName());
+      } catch (IllegalArgumentException e) {
+        throw new InvalidConfigurationException(e);
+      }
+    }
+
     return new CppConfiguration(
         cppOptions.doNotUseCpuTransformer
             ? commonOptions.cpu
@@ -204,6 +228,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
         Preconditions.checkNotNull(commonOptions.cpu),
         fdoPath,
         fdoProfileLabel,
+        csFdoAbsolutePath,
         ImmutableList.copyOf(cppOptions.conlyoptList),
         ImmutableList.copyOf(cppOptions.coptList),
         ImmutableList.copyOf(cppOptions.cxxoptList),
@@ -216,7 +241,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
                 && compilationMode == CompilationMode.FASTBUILD)),
         compilationMode,
         commonOptions.collectCodeCoverage,
-        commonOptions.isHost);
+        commonOptions.isHost || commonOptions.isExec,
+        (cppOptions.appleGenerateDsym
+            || (cppOptions.appleEnableAutoDsymDbg && compilationMode == CompilationMode.DBG)),
+        commonOptions.fatApkSplitSanitizer);
   }
 
   private CppConfiguration(
@@ -224,6 +252,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       String desiredCpu,
       PathFragment fdoPath,
       Label fdoOptimizeLabel,
+      PathFragment csFdoAbsolutePath,
       ImmutableList<String> conlyopts,
       ImmutableList<String> copts,
       ImmutableList<String> cxxopts,
@@ -234,11 +263,14 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       boolean stripBinaries,
       CompilationMode compilationMode,
       boolean collectCodeCoverage,
-      boolean isHostConfiguration) {
+      boolean isToolConfiguration,
+      boolean appleGenerateDsym,
+      CoreOptions.FatApkSplitSanitizer fatApkSplitSanitizer) {
     this.transformedCpuFromOptions = transformedCpuFromOptions;
     this.desiredCpu = desiredCpu;
     this.fdoPath = fdoPath;
     this.fdoOptimizeLabel = fdoOptimizeLabel;
+    this.csFdoAbsolutePath = csFdoAbsolutePath;
     this.conlyopts = conlyopts;
     this.copts = copts;
     this.cxxopts = cxxopts;
@@ -249,11 +281,13 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     this.stripBinaries = stripBinaries;
     this.compilationMode = compilationMode;
     this.collectCodeCoverage = collectCodeCoverage;
-    this.isThisHostConfigurationDoNotUseWillBeRemovedFor129045294 = isHostConfiguration;
+    this.isToolConfigurationDoNotUseWillBeRemovedFor129045294 = isToolConfiguration;
+    this.appleGenerateDsym = appleGenerateDsym;
+    this.fatApkSplitSanitizer = fatApkSplitSanitizer;
   }
 
   /** Returns the label of the <code>cc_compiler</code> rule for the C++ configuration. */
-  @SkylarkConfigurationField(
+  @StarlarkConfigurationField(
       name = "cc_toolchain",
       doc = "The label of the target describing the C++ toolchain",
       defaultLabel = "//tools/cpp:crosstool",
@@ -282,9 +316,11 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return ltobackendOptions;
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "minimum_os_version",
-      doc = "The minimum OS version for C/C++ compilation.")
+      doc = "The minimum OS version for C/C++ compilation.",
+      allowReturnNones = true)
+  @Nullable
   public String getMinimumOsVersion() {
     return cppOptions.minimumOsVersion;
   }
@@ -292,10 +328,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   /** Returns the value of the --dynamic_mode flag. */
   public DynamicMode getDynamicModeFlag() {
     return cppOptions.dynamicMode;
-  }
-
-  public boolean getLinkCompileOutputSeparately() {
-    return cppOptions.linkCompileOutputSeparately;
   }
 
   public boolean isFdo() {
@@ -344,9 +376,11 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return ImmutableList.copyOf(cppOptions.perFileLtoBackendOpts);
   }
 
-  /**
-   * Returns the custom malloc library label.
-   */
+  /** Returns the custom malloc library label. */
+  @Override
+  @StarlarkConfigurationField(
+      name = "custom_malloc",
+      doc = "The label specified in --custom_malloc")
   public Label customMalloc() {
     return cppOptions.customMalloc;
   }
@@ -500,6 +534,9 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   @Override
   public String getOutputDirectoryName() {
     String toolchainPrefix = desiredCpu;
+    if (fatApkSplitSanitizer.feature != null) {
+      toolchainPrefix += "-" + fatApkSplitSanitizer.feature;
+    }
     if (!cppOptions.outputDirectoryTag.isEmpty()) {
       toolchainPrefix += "-" + cppOptions.outputDirectoryTag;
     }
@@ -519,7 +556,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   }
 
   String getFdoInstrument() {
-    if (isThisHostConfigurationDoNotUseWillBeRemovedFor129045294()) {
+    if (isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
       // We don't want FDO in the host configuration
       return null;
     }
@@ -548,8 +585,12 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.csFdoInstrumentForBuild;
   }
 
+  public PathFragment getCSFdoAbsolutePath() {
+    return csFdoAbsolutePath;
+  }
+
   Label getFdoPrefetchHintsLabel() {
-    if (isThisHostConfigurationDoNotUseWillBeRemovedFor129045294()) {
+    if (isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
       // We don't want FDO in the host configuration
       return null;
     }
@@ -576,6 +617,22 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   public Label getCSFdoProfileLabel() {
     return cppOptions.csFdoProfileLabel;
+  }
+
+  public Label getPropellerOptimizeLabel() {
+    return cppOptions.propellerOptimizeLabel;
+  }
+
+  /**
+   * @deprecated Unsafe because it returns a value from target configuration even in the host
+   *     configuration.
+   */
+  @Deprecated
+  Label getPropellerOptimizeLabelUnsafeSinceItCanReturnValueFromWrongConfiguration() {
+    if (cppOptions.fdoInstrumentForBuild != null || cppOptions.csFdoInstrumentForBuild != null) {
+      return null;
+    }
+    return cppOptions.getPropellerOptimizeLabel();
   }
 
   /**
@@ -628,6 +685,18 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
    * Returns the value of the libc top-level directory (--grte_top) as specified on the command line
    */
   public Label getTargetLibcTopLabel() {
+    if (!isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
+      // This isn't for a platform-enabled C++ toolchain (legacy C++ toolchains evaluate in the
+      // target configuration while platform-enabled toolchains evaluate in the host/exec
+      // configuration). targetLibcTopLabel is only intended for platform-enabled toolchains and can
+      // cause errors otherwise.
+      //
+      // For example: if a legacy-configured toolchain inherits a --grte_top pointing to an Android
+      // runtime alias that select()s on a target Android CPU and an iOS dep changes the CPU to an
+      // iOS CPU, the alias resolution fails. Legacy toolchains should read --grte_top through
+      // libcTopLabel (which changes along with the iOS CPU change), not this.
+      return null;
+    }
     return cppOptions.targetLibcTopLabel;
   }
 
@@ -650,8 +719,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   /** @deprecated this is only a temporary workaround, will be removed by b/129045294. */
   // TODO(b/129045294): Remove at first opportunity
   @Deprecated
-  boolean isThisHostConfigurationDoNotUseWillBeRemovedFor129045294() {
-    return isThisHostConfigurationDoNotUseWillBeRemovedFor129045294;
+  boolean isToolConfigurationDoNotUseWillBeRemovedFor129045294() {
+    return isToolConfigurationDoNotUseWillBeRemovedFor129045294;
   }
 
   public boolean enableCcToolchainResolution() {
@@ -664,5 +733,41 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   public boolean useStandaloneLtoIndexingCommandLines() {
     return cppOptions.useStandaloneLtoIndexingCommandLines;
+  }
+
+  public boolean useSpecificToolFiles() {
+    return cppOptions.useSpecificToolFiles;
+  }
+
+  public boolean disableNoCopts() {
+    return cppOptions.disableNoCopts;
+  }
+
+  public boolean loadCcRulesFromBzl() {
+    return cppOptions.loadCcRulesFromBzl;
+  }
+
+  public boolean validateTopLevelHeaderInclusions() {
+    return cppOptions.validateTopLevelHeaderInclusions;
+  }
+
+  public boolean appleGenerateDsym() {
+    return appleGenerateDsym;
+  }
+
+  public boolean experimentalStarlarkCcImport() {
+    return cppOptions.experimentalStarlarkCcImport;
+  }
+
+  public boolean strictHeaderCheckingFromStarlark() {
+    return cppOptions.forceStrictHeaderCheckFromStarlark;
+  }
+
+  public boolean useCppCompileHeaderMnemonic() {
+    return cppOptions.useCppCompileHeaderMnemonic;
+  }
+
+  public boolean generateLlvmLCov() {
+    return cppOptions.generateLlvmLcov;
   }
 }

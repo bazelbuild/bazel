@@ -13,20 +13,34 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool.buildevent;
 
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.UploadContext;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.Path;
+import javax.annotation.Nullable;
 
 /**
  * This event is fired when the profiler is started.
  */
 public class ProfilerStartedEvent implements ExtendedEventHandler.Postable {
-  private final Path profilePath;
+  @Nullable private final Path profilePath;
+  @Nullable private final UploadContext streamingContext;
+  @Nullable private final String name;
 
-  public ProfilerStartedEvent(Path profilePath) {
+  public ProfilerStartedEvent(String name, Path profilePath, UploadContext streamingContext) {
     this.profilePath = profilePath;
+    this.streamingContext = streamingContext;
+    this.name = name;
   }
 
   public Path getProfilePath() {
     return profilePath;
+  }
+
+  public UploadContext getStreamingContext() {
+    return streamingContext;
+  }
+
+  public String getName() {
+    return name;
   }
 }

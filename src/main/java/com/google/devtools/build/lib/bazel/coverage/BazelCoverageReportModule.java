@@ -17,12 +17,14 @@ package com.google.devtools.build.lib.bazel.coverage;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
@@ -41,15 +43,14 @@ public class BazelCoverageReportModule extends BlazeModule {
   public static class Options extends OptionsBase {
 
     @Option(
-      name = "combined_report",
-      converter = ReportTypeConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      defaultValue = "none",
-      help =
-          "Specifies desired cumulative coverage report type. At this point only HTML "
-              + "and LCOV reports are supported."
-    )
+        name = "combined_report",
+        converter = ReportTypeConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        defaultValue = "none",
+        help =
+            "Specifies desired cumulative coverage report type. At this point only LCOV "
+                + "is supported.")
     public ReportType combinedReport;
   }
 
@@ -83,9 +84,10 @@ public class BazelCoverageReportModule extends BlazeModule {
           EventBus eventBus,
           BlazeDirectories directories,
           Collection<ConfiguredTarget> targetsToTest,
-          Iterable<Artifact> baselineCoverageArtifacts,
+          NestedSet<Artifact> baselineCoverageArtifacts,
           ArtifactFactory artifactFactory,
-          ArtifactOwner artifactOwner,
+          ActionKeyContext actionKeyContext,
+          ActionLookupKey actionLookupKey,
           String workspaceName) {
         if (options == null || options.combinedReport == ReportType.NONE) {
           return null;
@@ -98,7 +100,8 @@ public class BazelCoverageReportModule extends BlazeModule {
             targetsToTest,
             baselineCoverageArtifacts,
             artifactFactory,
-            artifactOwner,
+            actionKeyContext,
+            actionLookupKey,
             workspaceName,
             this::getArgs,
             this::getLocationMessage,

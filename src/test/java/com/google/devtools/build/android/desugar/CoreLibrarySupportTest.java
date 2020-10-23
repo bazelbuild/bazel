@@ -27,6 +27,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.objectweb.asm.Opcodes;
 
+/** Tests for {@link CoreLibrarySupport}. */
 @RunWith(JUnit4.class)
 public class CoreLibrarySupportTest {
 
@@ -110,7 +111,7 @@ public class CoreLibrarySupportTest {
     assertThat(support.getMoveTarget("java/util/Existing", "match")).isEqualTo("j$/util/Helper");
     assertThat(support.getMoveTarget("__/java/util/Existing", "matchesnot")).isNull();
     assertThat(support.getMoveTarget("__/java/util/ExistingOther", "match")).isNull();
-    assertThat(support.seenMoveTargets()).containsExactly("j$/util/Helper");
+    assertThat(support.usedRuntimeHelpers()).containsExactly("j$/util/Helper");
   }
 
   @Test
@@ -232,19 +233,11 @@ public class CoreLibrarySupportTest {
             ImmutableList.of());
     assertThat(
             support.getCoreInterfaceRewritingTarget(
-                Opcodes.INVOKEINTERFACE,
-                "java/util/Collection",
-                "size",
-                "()I",
-                true))
+                Opcodes.INVOKEINTERFACE, "java/util/Collection", "size", "()I", true))
         .isNull();
     assertThat(
             support.getCoreInterfaceRewritingTarget(
-                Opcodes.INVOKEVIRTUAL,
-                "java/util/ArrayList",
-                "size",
-                "()I",
-                false))
+                Opcodes.INVOKEVIRTUAL, "java/util/ArrayList", "size", "()I", false))
         .isNull();
   }
 
@@ -305,8 +298,8 @@ public class CoreLibrarySupportTest {
   }
 
   /**
-   * Tests that call sites of renamed core libraries are treated like call sites in regular
-   * {@link InterfaceDesugaring}.
+   * Tests that call sites of renamed core libraries are treated like call sites in regular {@link
+   * InterfaceDesugaring}.
    */
   @Test
   public void testGetCoreInterfaceRewritingTarget_renamed() throws Exception {
@@ -340,11 +333,7 @@ public class CoreLibrarySupportTest {
     // abstract methods: ignored
     assertThat(
             support.getCoreInterfaceRewritingTarget(
-                Opcodes.INVOKEINTERFACE,
-                "java/util/Collection",
-                "size",
-                "()I",
-                true))
+                Opcodes.INVOKEINTERFACE, "java/util/Collection", "size", "()I", true))
         .isNull();
 
     // static interface method
@@ -383,7 +372,7 @@ public class CoreLibrarySupportTest {
         new CoreLibrarySupport(
             new CoreLibraryRewriter(""),
             Thread.currentThread().getContextClassLoader(),
-            ImmutableList.of("java/util/concurrent/"),  // should return null for these
+            ImmutableList.of("java/util/concurrent/"), // should return null for these
             ImmutableList.of("java/util/Map"),
             ImmutableList.of(),
             ImmutableList.of());

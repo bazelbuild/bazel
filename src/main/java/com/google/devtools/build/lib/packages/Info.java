@@ -13,55 +13,43 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import java.io.Serializable;
-import javax.annotation.Nullable;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.syntax.Location;
 
 /**
- * Generic implementation of {@link InfoInterface}.
- *
- * <p>Natively-defined Info objects should subclass this to be registered as Info objects that may
- * be passed between targets.
+ * An Info is a unit of information produced by analysis of one configured target and consumed by
+ * other targets that depend directly upon it. The result of analysis is a dictionary of Info
+ * values, each keyed by its Provider. Every Info is an instance of a Provider: if a Provider is
+ * like a Java class, then an Info is like an instance of that class.
  */
-public abstract class Info implements Serializable, InfoInterface, SkylarkValue {
+public interface Info extends StarlarkValue {
 
-  /** The {@link Provider} that describes the type of this instance. */
-  protected final Provider provider;
+  /** Returns the provider that instantiated this Info. */
+  Provider getProvider();
 
   /**
-   * The Skylark location where this provider instance was created.
-   *
-   * <p>Built-in provider instances may use {@link Location#BUILTIN}.
+   * Returns the source location where this Info (provider instance) was created, or BUILTIN if it
+   * was instantiated by Java code.
    */
-  @VisibleForSerialization
-  protected final Location location;
-
-  protected Info(Provider provider, @Nullable Location location) {
-    this.provider = Preconditions.checkNotNull(provider);
-    this.location = location == null ? Location.BUILTIN : location;
+  default Location getCreationLoc() {
+    return Location.BUILTIN;
   }
 
   /**
-   * Returns the Skylark location where this provider instance was created.
-   *
-   * <p>Builtin provider instances may return {@link Location#BUILTIN}.
+   * This method (which is redundant with getCreationLoc and should not be overridden or called) is
+   * required to pacify the AutoCodec annotation processor.
    */
-  public Location getCreationLoc() {
-    return location;
-  }
-
-  public Provider getProvider() {
-    return provider;
+  // TODO(adonovan): find out why and stop it.
+  // Alternatively rename various constructor parameters from 'location' to 'creationLoc'.
+  default Location getLocation() {
+    return getCreationLoc();
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  default void repr(Printer printer) {
     printer.append("<instance of provider ");
-    printer.append(provider.getPrintableName());
+    printer.append(getProvider().getPrintableName());
     printer.append(">");
   }
 }

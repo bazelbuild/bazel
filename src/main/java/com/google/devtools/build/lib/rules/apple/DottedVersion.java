@@ -23,20 +23,25 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.DottedVersionApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.DottedVersionApi;
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Printer;
 
 /**
- * Represents a value with multiple components, separated by periods, for example {@code 4.5.6} or
- * {@code 5.0.1beta2}. Components must start with a non-negative integer and at least one component
- * must be present.
+ * Represents Xcode versions and allows parsing them.
+ *
+ * <p>Xcode versions are formed of multiple components, separated by periods, for example {@code
+ * 4.5.6} or {@code 5.0.1beta2}. Components must start with a non-negative integer and at least one
+ * component must be present.
  *
  * <p>Specifically, the format of a component is {@code \d+([a-z0-9]*?)?(\d+)?}.
+ *
+ * <p>If this smells a lot like semver, it does, but Xcode versions are sometimes special. This is
+ * why this class is in the {@code apple} package and has to remain as such.
  *
  * <p>Dotted versions are ordered using natural integer sorting on components in order from first to
  * last where any missing element is considered to have the value 0 if they don't contain any
@@ -124,23 +129,56 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
   private static final Splitter DOT_SPLITTER = Splitter.on('.');
   private static final Pattern COMPONENT_PATTERN =
       Pattern.compile("(\\d+)([a-z0-9]*?)?(\\d+)?", Pattern.CASE_INSENSITIVE);
+  private static final Pattern DESCRIPTIVE_COMPONENT_PATTERN =
+      Pattern.compile("([a-z]\\w*)", Pattern.CASE_INSENSITIVE);
   private static final String ILLEGAL_VERSION =
-      "Dotted version components must all be of the form \\d+([a-z0-9]*?)?(\\d+)? but got %s";
+      "Dotted version components must all start with the form \\d+([a-z0-9]*?)?(\\d+)? "
+          + "but got '%s'";
   private static final String NO_ALPHA_SEQUENCE = null;
   private static final Component ZERO_COMPONENT = new Component(0, NO_ALPHA_SEQUENCE, 0, "0");
+
+  /** Exception thrown when parsing an invalid dotted version. */
+  public static class InvalidDottedVersionException extends Exception {
+    InvalidDottedVersionException(String msg) {
+      super(msg);
+    }
+
+    InvalidDottedVersionException(String msg, Throwable cause) {
+      super(msg, cause);
+    }
+  }
+
+  /**
+   * Create a dotted version by parsing the given version string. Throws an unchecked exception if
+   * the argument is malformed.
+   */
+  public static DottedVersion fromStringUnchecked(String version) {
+    try {
+      return fromString(version);
+    } catch (InvalidDottedVersionException e) {
+      throw new IllegalArgumentException(e);
+    }
+  }
 
   /**
    * Generates a new dotted version from the given version string.
    *
-   * @throws IllegalArgumentException if the passed string is not a valid dotted version
+   * @throws InvalidDottedVersionException if the passed string is not a valid dotted version
    */
-  public static DottedVersion fromString(String version) {
+  public static DottedVersion fromString(String version) throws InvalidDottedVersionException {
     if (Strings.isNullOrEmpty(version)) {
-      throw new IllegalArgumentException(String.format(ILLEGAL_VERSION, version));
+      throw new InvalidDottedVersionException(String.format(ILLEGAL_VERSION, version));
     }
     ArrayList<Component> components = new ArrayList<>();
     for (String component : DOT_SPLITTER.split(version)) {
+      if (isDescriptiveComponent(component)) {
+        break;
+      }
       components.add(toComponent(component, version));
+    }
+
+    if (components.isEmpty()) {
+      throw new InvalidDottedVersionException(String.format(ILLEGAL_VERSION, version));
     }
 
     int numOriginalComponents = components.size();
@@ -158,10 +196,17 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
     return new DottedVersion(ImmutableList.copyOf(components), version, numOriginalComponents);
   }
 
-  private static Component toComponent(String component, String version) {
+  // Some of special build versions contains descriptive components like "experimental" or
+  // "internal". These components are usually by the end of version number, and can be ignored.
+  private static boolean isDescriptiveComponent(String component) {
+    return DESCRIPTIVE_COMPONENT_PATTERN.matcher(component).matches();
+  }
+
+  private static Component toComponent(String component, String version)
+      throws InvalidDottedVersionException {
     Matcher parsedComponent = COMPONENT_PATTERN.matcher(component);
     if (!parsedComponent.matches()) {
-      throw new IllegalArgumentException(String.format(ILLEGAL_VERSION, version));
+      throw new InvalidDottedVersionException(String.format(ILLEGAL_VERSION, version));
     }
 
     int firstNumber;
@@ -180,12 +225,13 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
     return new Component(firstNumber, alphaSequence, secondNumber, component);
   }
 
-  private static int parseNumber(Matcher parsedComponent, int group, String version) {
+  private static int parseNumber(Matcher parsedComponent, int group, String version)
+      throws InvalidDottedVersionException {
     int firstNumber;
     try {
       firstNumber = Integer.parseInt(parsedComponent.group(group));
     } catch (NumberFormatException e) {
-      throw new IllegalArgumentException(String.format(ILLEGAL_VERSION, version), e);
+      throw new InvalidDottedVersionException(String.format(ILLEGAL_VERSION, version), e);
     }
     return firstNumber;
   }
@@ -203,6 +249,11 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
   }
 
   @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
+  @Override
   public int compareTo(DottedVersion other) {
     int maxComponents = Math.max(components.size(), other.components.size());
     for (int componentIndex = 0; componentIndex < maxComponents; componentIndex++) {
@@ -217,7 +268,7 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
   }
 
   @Override
-  public int compareTo_skylark(DottedVersion other) {
+  public int compareTo_starlark(DottedVersion other) {
     return compareTo(other);
   }
 
@@ -315,7 +366,7 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append(stringRepresentation);
   }
 

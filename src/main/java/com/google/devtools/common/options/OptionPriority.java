@@ -14,6 +14,7 @@
 package com.google.devtools.common.options;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.flogger.GoogleLogger;
 import java.util.Objects;
 
 /**
@@ -25,6 +26,7 @@ import java.util.Objects;
  * order.
  */
 public class OptionPriority implements Comparable<OptionPriority> {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private final PriorityCategory priorityCategory;
   /**
    * Each option that is passed explicitly has 0 ancestors, so it only has its command line index
@@ -74,7 +76,9 @@ public class OptionPriority implements Comparable<OptionPriority> {
   public static OptionPriority getChildPriority(OptionPriority parentPriority)
       throws OptionsParsingException {
     if (parentPriority.alreadyExpanded) {
-      throw new OptionsParsingException("Tried to expand option too many times");
+      // TODO(bazel-team): Either tighten check or prevent multiple
+      // expansions when implicit requirements are set.
+      logger.atWarning().log("Tried to expand option too many times.");
     }
     // Prevent this option from being re-expanded.
     parentPriority.alreadyExpanded = true;

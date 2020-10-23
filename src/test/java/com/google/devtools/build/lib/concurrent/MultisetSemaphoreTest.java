@@ -43,7 +43,7 @@ import org.junit.runners.JUnit4;
 public class MultisetSemaphoreTest {
 
   @Test
-  public void testSimple_Serial() throws Exception {
+  public void testSimple_serial() throws Exception {
     // When we have a MultisetSemaphore
     MultisetSemaphore<String> multisetSemaphore = MultisetSemaphore.newBuilder()
         // with 3 max num unique values,
@@ -91,11 +91,11 @@ public class MultisetSemaphoreTest {
   }
 
   @Test
-  public void testSimple_Concurrent() throws Exception {
+  public void testSimple_concurrent() throws Exception {
     // When we have N and M, with M > N and M|N.
     final int n = 10;
     int m = n * 2;
-    Preconditions.checkState(m > n && m % n == 0, "M=%d N=%d", m, n);
+    Preconditions.checkState(m > n && m % n == 0, "M=%s N=%s", m, n);
     // When we have a MultisetSemaphore
     final MultisetSemaphore<String> multisetSemaphore = MultisetSemaphore.newBuilder()
         // with N max num unique values,
@@ -160,7 +160,7 @@ public class MultisetSemaphoreTest {
       Thread.currentThread().interrupt();
       throw new InterruptedException();
     }
-    // And the counters we used for sanity checks were correctly reset to 0.
+    // And the counters were correctly reset to 0.
     assertThat(numThreadsJustAfterAcquireInFirstRound.get()).isEqualTo(0);
     assertThat(numThreadsJustAfterAcquireInSecondRound.get()).isEqualTo(0);
     // And all M Runnables completed the second round.
@@ -232,7 +232,7 @@ public class MultisetSemaphoreTest {
   }
 
   @Test
-  public void testConcurrentRace_AllPermuations() throws Exception {
+  public void testConcurrentRace_allPermuations() throws Exception {
     // When we have N values
     int n = 6;
     ArrayList<String> vals = new ArrayList<>();
@@ -285,7 +285,7 @@ public class MultisetSemaphoreTest {
   }
 
   @Test
-  public void testConcurrentRace_AllSameSizedCombinations() throws Exception {
+  public void testConcurrentRace_allSameSizedCombinations() throws Exception {
     // When we have n values
     int n = 10;
     ImmutableSet.Builder<String> valsBuilder = ImmutableSet.builder();
@@ -354,46 +354,40 @@ public class MultisetSemaphoreTest {
     CountDownLatch thread3AboutToAcquireLatch = new CountDownLatch(1);
 
     TestThread thread1 =
-        new TestThread() {
-          @Override
-          public void runTest() throws InterruptedException {
-            multisetSemaphore.acquireAll(ImmutableSet.of("a", "b"));
-            thread1AcquiredLatch.countDown();
-            thread2AboutToAcquireLatch.await(
-                TestUtils.WAIT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS);
-            thread3AboutToAcquireLatch.await(
-                TestUtils.WAIT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS);
-            Thread.sleep(1000);
-            multisetSemaphore.releaseAll(ImmutableSet.of("a", "b"));
-          }
-        };
+        new TestThread(
+            () -> {
+              multisetSemaphore.acquireAll(ImmutableSet.of("a", "b"));
+              thread1AcquiredLatch.countDown();
+              thread2AboutToAcquireLatch.await(
+                  TestUtils.WAIT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS);
+              thread3AboutToAcquireLatch.await(
+                  TestUtils.WAIT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS);
+              Thread.sleep(1000);
+              multisetSemaphore.releaseAll(ImmutableSet.of("a", "b"));
+            });
     thread1.setName("Thread1");
 
     TestThread thread2 =
-        new TestThread() {
-          @Override
-          public void runTest() throws InterruptedException {
-            thread1AcquiredLatch.await(
-                TestUtils.WAIT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS);
-            thread2AboutToAcquireLatch.countDown();
-            multisetSemaphore.acquireAll(ImmutableSet.of("b", "c"));
-            multisetSemaphore.releaseAll(ImmutableSet.of("b", "c"));
-          }
-        };
+        new TestThread(
+            () -> {
+              thread1AcquiredLatch.await(
+                  TestUtils.WAIT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS);
+              thread2AboutToAcquireLatch.countDown();
+              multisetSemaphore.acquireAll(ImmutableSet.of("b", "c"));
+              multisetSemaphore.releaseAll(ImmutableSet.of("b", "c"));
+            });
     thread2.setName("Thread2");
 
     TestThread thread3 =
-        new TestThread() {
-          @Override
-          public void runTest() throws InterruptedException {
-            thread2AboutToAcquireLatch.await(
-                TestUtils.WAIT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS);
-            Thread.sleep(1000);
-            thread3AboutToAcquireLatch.countDown();
-            multisetSemaphore.acquireAll(ImmutableSet.of("a", "d"));
-            multisetSemaphore.releaseAll(ImmutableSet.of("a", "d"));
-          }
-        };
+        new TestThread(
+            () -> {
+              thread2AboutToAcquireLatch.await(
+                  TestUtils.WAIT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS);
+              Thread.sleep(1000);
+              thread3AboutToAcquireLatch.countDown();
+              multisetSemaphore.acquireAll(ImmutableSet.of("a", "d"));
+              multisetSemaphore.releaseAll(ImmutableSet.of("a", "d"));
+            });
     thread3.setName("Thread3");
 
     thread1.start();

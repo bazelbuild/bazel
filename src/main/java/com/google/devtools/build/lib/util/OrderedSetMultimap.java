@@ -29,7 +29,7 @@ public final class OrderedSetMultimap<K, V> extends ForwardingSetMultimap<K, V> 
   private final SetMultimap<K, V> delegate = LinkedHashMultimap.<K, V>create();
 
   @Override
-  protected SetMultimap delegate() {
+  protected SetMultimap<K, V> delegate() {
     return delegate;
   }
 

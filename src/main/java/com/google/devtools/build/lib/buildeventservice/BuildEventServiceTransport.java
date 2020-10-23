@@ -68,13 +68,23 @@ public class BuildEventServiceTransport implements BuildEventTransport {
   }
 
   @Override
+  public ListenableFuture<Void> getHalfCloseFuture() {
+    return besUploader.getHalfCloseFuture();
+  }
+
+  @Override
   public BuildEventArtifactUploader getUploader() {
-    return besUploader.getLocalFileUploader();
+    return besUploader.getBuildEventUploader();
   }
 
   @Override
   public String name() {
     return "Build Event Service";
+  }
+
+  @Override
+  public boolean mayBeSlow() {
+    return true;
   }
 
   @Override

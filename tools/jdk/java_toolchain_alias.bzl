@@ -49,7 +49,13 @@ def _java_host_runtime_alias(ctx):
     return [
         runtime[java_common.JavaRuntimeInfo],
         runtime[platform_common.TemplateVariableInfo],
-        runtime[DefaultInfo],
+        # Create a new DefaultInfo instead of propagating runtime[DefaultInfo]
+        # directly.
+        DefaultInfo(
+            files = runtime[DefaultInfo].files,
+            data_runfiles = runtime[DefaultInfo].data_runfiles,
+            default_runfiles = runtime[DefaultInfo].default_runfiles,
+        ),
     ]
 
 java_host_runtime_alias = rule(
@@ -86,6 +92,7 @@ java_toolchain_alias = rule(
             default = Label("@bazel_tools//tools/jdk:legacy_current_java_toolchain"),
         ),
     },
+    incompatible_use_toolchain_transition = True,
 )
 
 # Add aliases for the legacy native rules to allow referring to both versions in @bazel_tools//tools/jdk

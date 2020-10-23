@@ -16,23 +16,29 @@ package com.google.devtools.build.lib.buildtool.buildevent;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.util.ExitCode;
 
 /**
  * Event triggered after testing has completed.
  *
- * <p>This event is used by the BEP to construct the {@link BuildEventStreamProtos.BuildFinished}
- * event when the test command is used.
+ * <p>This event is used by the BEP to construct the {@link
+ * com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildFinished} event when
+ * the test command is used.
  */
 public class TestingCompleteEvent extends BuildCompletingEvent {
   /**
    * Creates a new {@link TestingCompleteEvent}.
    *
-   * @param exitCode  the overall exit code of "bazel test".
+   * @param exitCode the overall exit code of "bazel test".
    * @param finishTimeMillis the finish time in milliseconds since the epoch.
+   * @param wasSuspended was the build suspended at any point.
    */
-  public TestingCompleteEvent(ExitCode exitCode, long finishTimeMillis) {
-    super(exitCode, finishTimeMillis, ImmutableList.of(BuildEventId.buildToolLogs()));
+  public TestingCompleteEvent(ExitCode exitCode, long finishTimeMillis, boolean wasSuspended) {
+    super(
+        exitCode,
+        finishTimeMillis,
+        ImmutableList.of(BuildEventIdUtil.buildToolLogs()),
+        wasSuspended);
   }
 }

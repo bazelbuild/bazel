@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -22,18 +23,27 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 
 /** Common FileSystem related items for serialization tests. */
 public class FsUtils {
+  // Choice of digest function doesn't matter.
+  public static final InMemoryFileSystem TEST_FILESYSTEM =
+      new InMemoryFileSystem(DigestHashFunction.SHA256);
 
-  public static final FileSystem TEST_FILESYSTEM = new InMemoryFileSystem();
+  private static final Root TEST_ROOT =
+      Root.fromPath(TEST_FILESYSTEM.getPath(PathFragment.create("/anywhere/at/all")));
 
-  public static final RootedPath TEST_ROOT =
-      RootedPath.toRootedPath(
-          Root.fromPath(TEST_FILESYSTEM.getPath(PathFragment.create("/anywhere/at/all"))),
-          PathFragment.create("all/at/anywhere"));
+  public static final RootedPath TEST_ROOTED_PATH =
+      RootedPath.toRootedPath(TEST_ROOT, PathFragment.create("all/at/anywhere"));
 
   private FsUtils() {}
 
-  /** Returns path relative to {@link #TEST_ROOT}. */
+  /** Returns path relative to {@link #TEST_ROOTED_PATH}. */
   public static PathFragment rootPathRelative(String path) {
-    return TEST_ROOT.getRootRelativePath().getRelative(path);
+    return TEST_ROOTED_PATH.getRootRelativePath().getRelative(path);
+  }
+
+  public static void addDependencies(SerializationTester tester) {
+    tester.addDependency(FileSystem.class, TEST_FILESYSTEM);
+    tester.addDependency(
+        Root.RootCodecDependencies.class,
+        new Root.RootCodecDependencies(/*likelyPopularRoot=*/ TEST_ROOT));
   }
 }

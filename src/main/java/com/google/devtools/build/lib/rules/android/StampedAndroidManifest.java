@@ -21,9 +21,8 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.packages.Type;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
@@ -93,7 +92,7 @@ public class StampedAndroidManifest extends AndroidManifest {
 
     SpawnAction.Builder builder =
         new SpawnAction.Builder()
-            .setExecutable(ruleContext.getExecutablePrerequisite("$stubify_manifest", Mode.HOST))
+            .setExecutable(ruleContext.getExecutablePrerequisite("$stubify_manifest"))
             .setProgressMessage("Injecting mobile install stub application")
             .setMnemonic("InjectMobileInstallStubApplication")
             .addInput(getManifest())
@@ -140,8 +139,7 @@ public class StampedAndroidManifest extends AndroidManifest {
         AndroidBinary.getDxArtifact(ruleContext, "split_" + splitName + "/AndroidManifest.xml");
     SpawnAction.Builder builder =
         new SpawnAction.Builder()
-            .setExecutable(
-                ruleContext.getExecutablePrerequisite("$build_split_manifest", Mode.HOST))
+            .setExecutable(ruleContext.getExecutablePrerequisite("$build_split_manifest"))
             .setProgressMessage("Creating manifest for split %s", splitName)
             .setMnemonic("AndroidBuildSplitManifest")
             .addInput(getManifest())

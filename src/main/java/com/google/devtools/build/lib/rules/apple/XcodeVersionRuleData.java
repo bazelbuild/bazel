@@ -20,8 +20,9 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.packages.Type;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A tuple containing the information in a single target of the {@code xcode_version} rule.
@@ -35,6 +36,7 @@ import java.util.List;
  */
 @Immutable
 public class XcodeVersionRuleData implements TransitiveInfoProvider {
+
   private final Label label;
   private final DottedVersion version;
   private final XcodeVersionProperties xcodeVersionProperties;
@@ -45,8 +47,9 @@ public class XcodeVersionRuleData implements TransitiveInfoProvider {
         NonconfigurableAttributeMapper.of(rule);
 
     this.label = label;
-    DottedVersion xcodeVersion = DottedVersion.fromString(
-        attrMapper.get(XcodeVersionRule.VERSION_ATTR_NAME, Type.STRING));
+    DottedVersion xcodeVersion =
+        DottedVersion.fromStringUnchecked(
+            attrMapper.get(XcodeVersionRule.VERSION_ATTR_NAME, Type.STRING));
     String iosSdkVersionString =
         attrMapper.get(XcodeVersionRule.DEFAULT_IOS_SDK_VERSION_ATTR_NAME, Type.STRING);
     String watchosSdkVersionString =
@@ -56,8 +59,13 @@ public class XcodeVersionRuleData implements TransitiveInfoProvider {
     String macosxSdkVersionString =
         attrMapper.get(XcodeVersionRule.DEFAULT_MACOS_SDK_VERSION_ATTR_NAME, Type.STRING);
     this.version = xcodeVersion;
-    this.xcodeVersionProperties = new XcodeVersionProperties(xcodeVersion, iosSdkVersionString,
-        watchosSdkVersionString, tvosSdkVersionString, macosxSdkVersionString);
+    this.xcodeVersionProperties =
+        new XcodeVersionProperties(
+            xcodeVersion,
+            iosSdkVersionString,
+            watchosSdkVersionString,
+            tvosSdkVersionString,
+            macosxSdkVersionString);
     this.aliases = ImmutableList.copyOf(
         attrMapper.get(XcodeVersionRule.ALIASES_ATTR_NAME, Type.STRING_LIST));
   }
@@ -88,5 +96,37 @@ public class XcodeVersionRuleData implements TransitiveInfoProvider {
    */
   public List<String> getAliases() {
     return aliases;
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (other == null) {
+      return false;
+    }
+    if (!(other instanceof XcodeVersionRuleData)) {
+      return false;
+    }
+    XcodeVersionRuleData otherData = (XcodeVersionRuleData) other;
+    return (version.equals(otherData.getVersion())
+        && xcodeVersionProperties
+            .getXcodeVersion()
+            .equals(otherData.getXcodeVersionProperties().getXcodeVersion())
+        && xcodeVersionProperties
+            .getDefaultIosSdkVersion()
+            .equals(otherData.getXcodeVersionProperties().getDefaultIosSdkVersion())
+        && xcodeVersionProperties
+            .getDefaultWatchosSdkVersion()
+            .equals(otherData.getXcodeVersionProperties().getDefaultWatchosSdkVersion())
+        && xcodeVersionProperties
+            .getDefaultTvosSdkVersion()
+            .equals(otherData.getXcodeVersionProperties().getDefaultTvosSdkVersion())
+        && xcodeVersionProperties
+            .getDefaultMacosSdkVersion()
+            .equals(otherData.getXcodeVersionProperties().getDefaultMacosSdkVersion()));
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(version, xcodeVersionProperties);
   }
 }

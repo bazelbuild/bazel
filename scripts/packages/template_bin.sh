@@ -115,6 +115,10 @@ if [ -z "${JAVA_HOME-}" ]; then
       JAVA_HOME="/usr/local/openjdk8"
       BASHRC="~/.bashrc"
       ;;
+    openbsd)
+      JAVA_HOME="/usr/local/jdk-1.8.0"
+      BASHRC="~/.bashrc"
+      ;;
     darwin)
       JAVA_HOME="$(/usr/libexec/java_home -v ${JAVA_VERSION}+ 2> /dev/null)" || true
       BASHRC="~/.bash_profile"
@@ -152,7 +156,7 @@ fi
 mkdir -p ${bin} ${base} ${base}/bin ${base}/etc
 echo -n .
 
-unzip -q "${BASH_SOURCE[0]}" bazel bazel-real bazel-complete.bash _bazel -d "${base}/bin"
+unzip -q "${BASH_SOURCE[0]}" bazel bazel-real bazel-complete.bash _bazel bazel.fish -d "${base}/bin"
 echo -n .
 chmod 0755 "${base}/bin/bazel" "${base}/bin/bazel-real"
 echo -n .
@@ -174,9 +178,14 @@ cat <<EOF
 
 Bazel is now installed!
 
-Make sure you have "${bin}" in your path. You can also activate bash
-completion by adding the following line to your ${BASHRC}:
+Make sure you have "${bin}" in your path.
+
+For bash completion, add the following line to your ${BASHRC}:
   source ${base}/bin/bazel-complete.bash
+
+For fish shell completion, link this file into your
+${HOME}/.config/fish/completions/ directory:
+  ln -s ${base}/bin/bazel.fish ${HOME}/.config/fish/completions/bazel.fish
 
 See http://bazel.build/docs/getting-started.html to start a new project!
 EOF

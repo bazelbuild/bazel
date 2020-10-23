@@ -41,8 +41,8 @@ public class J2ObjcLibraryRule implements RuleDefinition {
             AppleConfiguration.class,
             CppConfiguration.class)
         /* <!-- #BLAZE_RULE(j2objc_library).ATTRIBUTE(deps) -->
-        A list of <code>j2objc_library</code>, <code>java_library</code>
-        and <code>java_import</code> targets that contain
+        A list of <code>j2objc_library</code>, <code>java_library</code>,
+        <code>java_import</code> and <code>java_proto_library</code> targets that contain
         Java files to be transpiled to Objective-C.
         <p>All <code>java_library</code> and <code>java_import</code> targets that can be reached
         transitively through <code>exports</code>, <code>deps</code> and <code>runtime_deps</code>
@@ -73,7 +73,8 @@ public class J2ObjcLibraryRule implements RuleDefinition {
             attr("deps", LABEL_LIST)
                 .aspect(j2ObjcAspect)
                 .direct_compile_time_input()
-                .allowedRuleClasses("j2objc_library", "java_library", "java_import")
+                .allowedRuleClasses(
+                    "j2objc_library", "java_library", "java_import", "java_proto_library")
                 .allowedFileTypes())
         /*<!-- #BLAZE_RULE(j2objc_library).IMPLICIT_OUTPUTS -->
         <ul>
@@ -84,6 +85,7 @@ public class J2ObjcLibraryRule implements RuleDefinition {
         .setImplicitOutputsFunction(CompilationSupport.FULLY_LINKED_LIB)
         .cfg(AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
+        .useToolchainTransition(true)
         .build();
   }
 
@@ -95,7 +97,6 @@ public class J2ObjcLibraryRule implements RuleDefinition {
         .ancestors(
             J2ObjcLibraryBaseRule.class,
             ObjcRuleClasses.CrosstoolRule.class,
-            ObjcRuleClasses.LibtoolRule.class,
             ObjcRuleClasses.XcrunRule.class)
         .build();
   }

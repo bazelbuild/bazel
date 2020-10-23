@@ -18,20 +18,14 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.CommandLineItem;
-import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -41,6 +35,13 @@ import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.util.Arrays;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * A class to identify a BUILD target. All targets belong to exactly one package. The name of a
@@ -50,16 +51,12 @@ import javax.annotation.Nullable;
  *
  * <p>Parsing is robust against bad input, for example, from the command line.
  */
-@SkylarkModule(
-  name = "Label",
-  category = SkylarkModuleCategory.BUILTIN,
-  doc = "A BUILD target identifier."
-)
+@StarlarkBuiltin(name = "Label", category = DocCategory.BUILTIN, doc = "A BUILD target identifier.")
 @AutoCodec
 @Immutable
 @ThreadSafe
 public final class Label
-    implements Comparable<Label>, Serializable, SkylarkValue, SkyKey, CommandLineItem {
+    implements Comparable<Label>, Serializable, StarlarkValue, SkyKey, CommandLineItem {
 
   /**
    * Package names that aren't made relative to the current repository because they mean special
@@ -344,18 +341,21 @@ public final class Label
     return packageIdentifier;
   }
 
+  public RepositoryName getRepository() {
+    return packageIdentifier.getRepository();
+  }
+
   /**
    * Returns the name of the package in which this rule was declared (e.g. {@code
    * //file/base:fileutils_test} returns {@code file/base}).
    */
-  @SkylarkCallable(
-    name = "package",
-    structField = true,
-    doc =
-        "The package part of this label. "
-            + "For instance:<br>"
-            + "<pre class=language-python>Label(\"//pkg/foo:abc\").package == \"pkg/foo\"</pre>"
-  )
+  @StarlarkMethod(
+      name = "package",
+      structField = true,
+      doc =
+          "The package part of this label. "
+              + "For instance:<br>"
+              + "<pre class=language-python>Label(\"//pkg/foo:abc\").package == \"pkg/foo\"</pre>")
   public String getPackageName() {
     return packageIdentifier.getPackageFragment().getPathString();
   }
@@ -364,18 +364,25 @@ public final class Label
    * Returns the execution root for the workspace, relative to the execroot (e.g., for label
    * {@code @repo//pkg:b}, it will returns {@code external/repo/pkg} and for label {@code //pkg:a},
    * it will returns an empty string.
+   *
+   * @deprecated The sole purpose of this method is to implement the workspace_root method. For
+   *     other purposes, use {@link RepositoryName#getExecPath} instead.
    */
-  @SkylarkCallable(
-    name = "workspace_root",
-    structField = true,
-    doc =
-        "Returns the execution root for the workspace of this label, relative to the execroot. "
-            + "For instance:<br>"
-            + "<pre class=language-python>Label(\"@repo//pkg/foo:abc\").workspace_root =="
-            + " \"external/repo\"</pre>"
-  )
-  public String getWorkspaceRoot() {
-    return packageIdentifier.getRepository().getSourceRoot().toString();
+  @StarlarkMethod(
+      name = "workspace_root",
+      structField = true,
+      doc =
+          "Returns the execution root for the workspace of this label, relative to the execroot. "
+              + "For instance:<br>"
+              + "<pre class=language-python>Label(\"@repo//pkg/foo:abc\").workspace_root =="
+              + " \"external/repo\"</pre>",
+      useStarlarkSemantics = true)
+  @Deprecated
+  public String getWorkspaceRootForStarlarkOnly(StarlarkSemantics semantics) {
+    return packageIdentifier
+        .getRepository()
+        .getExecPath(semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT))
+        .toString();
   }
 
   /**
@@ -408,14 +415,13 @@ public final class Label
    * Returns the name by which this rule was declared (e.g. {@code //foo/bar:baz} returns {@code
    * baz}).
    */
-  @SkylarkCallable(
-    name = "name",
-    structField = true,
-    doc =
-        "The name of this label within the package. "
-            + "For instance:<br>"
-            + "<pre class=language-python>Label(\"//pkg/foo:abc\").name == \"abc\"</pre>"
-  )
+  @StarlarkMethod(
+      name = "name",
+      structField = true,
+      doc =
+          "The name of this label within the package. "
+              + "For instance:<br>"
+              + "<pre class=language-python>Label(\"//pkg/foo:abc\").name == \"abc\"</pre>")
   public String getName() {
     return name;
   }
@@ -448,7 +454,7 @@ public final class Label
   }
 
   /** Return the name of the repository label refers to without the leading `at` symbol. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "workspace_name",
       structField = true,
       doc =
@@ -504,8 +510,9 @@ public final class Label
    * {@code //wiz:quux} relative to {@code //foo/bar:baz} is {@code //wiz:quux}.
    *
    * @param relName the relative label name; must be non-empty.
+   * @param thread the Starlark thread, which must provide a thread-local {@code HasRepoMapping}.
    */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "relative",
       doc =
           "Resolves a label that is either absolute (starts with <code>//</code>) or relative to "
@@ -532,15 +539,22 @@ public final class Label
               + "Label(\"@remapped//wiz:quux\")\n"
               + "</pre>",
       parameters = {
-        @Param(
-            name = "relName",
-            type = String.class,
-            doc = "The label that will be resolved relative to this one.")
+        @Param(name = "relName", doc = "The label that will be resolved relative to this one.")
       },
-      useContext = true)
-  public Label getRelative(String relName, StarlarkContext context) throws LabelSyntaxException {
-    BazelStarlarkContext bazelStarlarkContext = (BazelStarlarkContext) context;
-    return getRelativeWithRemapping(relName, bazelStarlarkContext.getRepoMapping());
+      useStarlarkThread = true)
+  public Label getRelative(String relName, StarlarkThread thread) throws LabelSyntaxException {
+    HasRepoMapping hrm = thread.getThreadLocal(HasRepoMapping.class);
+    return getRelativeWithRemapping(relName, hrm.getRepoMapping());
+  }
+
+  /**
+   * An interface for retrieving a repository mapping.
+   *
+   * <p>This has only a single implementation, {@code BazelStarlarkContext}, but we can't mention
+   * that type here because logically it belongs in Bazel, above this package.
+   */
+  public interface HasRepoMapping {
+    ImmutableMap<RepositoryName, RepositoryName> getRepoMapping();
   }
 
   /**
@@ -616,6 +630,9 @@ public final class Label
   /** Two labels are equal iff both their name and their package name are equal. */
   @Override
   public boolean equals(Object other) {
+    if (this == other) {
+      return true;
+    }
     if (!(other instanceof Label)) {
       return false;
     }
@@ -633,6 +650,9 @@ public final class Label
    */
   @Override
   public int compareTo(Label other) {
+    if (this == other) {
+      return 0;
+    }
     return ComparisonChain.start()
         .compare(packageIdentifier, other.packageIdentifier)
         .compare(name, other.name)
@@ -670,14 +690,14 @@ public final class Label
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("Label(");
     printer.repr(getCanonicalForm());
     printer.append(")");
   }
 
   @Override
-  public void str(SkylarkPrinter printer) {
+  public void str(Printer printer) {
     printer.append(getCanonicalForm());
   }
 

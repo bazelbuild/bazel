@@ -49,7 +49,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
@@ -76,18 +76,18 @@ class DexFileMerger {
    */
   public static class Options extends OptionsBase {
     @Option(
-      name = "input",
-      allowMultiple = true,
-      defaultValue = "",
-      category = "input",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      converter = ExistingPathConverter.class,
-      abbrev = 'i',
-      help = "Input archives with .dex files to merge.  Inputs are processed in given order, so "
-          + "classes from later inputs will be added after earlier inputs.  Duplicate classes "
-          + "are dropped."
-    )
+        name = "input",
+        allowMultiple = true,
+        defaultValue = "null",
+        category = "input",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        converter = ExistingPathConverter.class,
+        abbrev = 'i',
+        help =
+            "Input archives with .dex files to merge.  Inputs are processed in given order, so"
+                + " classes from later inputs will be added after earlier inputs.  Duplicate"
+                + " classes are dropped.")
     public List<Path> inputArchives;
 
     @Option(
@@ -195,9 +195,11 @@ class DexFileMerger {
   }
 
   public static void main(String[] args) throws Exception {
-    OptionsParser optionsParser = OptionsParser.newOptionsParser(Options.class);
-    optionsParser.enableParamsFileSupport(
-        new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
+    OptionsParser optionsParser =
+        OptionsParser.builder()
+            .optionsClasses(Options.class)
+            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
+            .build();
     optionsParser.parseAndExitUponError(args);
 
     buildMergedDexFiles(optionsParser.getOptions(Options.class));
@@ -237,7 +239,7 @@ class DexFileMerger {
         System.setOut(Dexing.nullout);
       }
 
-      HashSet<String> seen = new HashSet<>();
+      LinkedHashSet<String> seen = new LinkedHashSet<>();
       for (Path inputArchive : options.inputArchives) {
         // Simply merge files from inputs in order.  Doing that with a main dex list doesn't work,
         // but we rule out more than one input with a main dex list above.
@@ -286,7 +288,10 @@ class DexFileMerger {
   }
 
   private static void processDexFiles(
-      ZipFile zip, Iterable<ZipEntry> filesToProcess, HashSet<String> seen, DexFileAggregator out)
+      ZipFile zip,
+      Iterable<ZipEntry> filesToProcess,
+      LinkedHashSet<String> seen,
+      DexFileAggregator out)
       throws IOException {
     for (ZipEntry entry : filesToProcess) {
       String filename = entry.getName();

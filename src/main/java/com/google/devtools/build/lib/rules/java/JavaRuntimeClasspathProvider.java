@@ -16,10 +16,11 @@ package com.google.devtools.build.lib.rules.java;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaRuntimeClasspathProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaRuntimeClasspathProviderApi;
 
 /**
  * Provider for the runtime classpath contributions of a Java binary.
@@ -29,7 +30,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.java.JavaRuntimeClasspathPr
 @Immutable
 @AutoCodec
 public final class JavaRuntimeClasspathProvider
-    implements TransitiveInfoProvider, JavaRuntimeClasspathProviderApi<Artifact> {
+    implements TransitiveInfoProvider, JavaRuntimeClasspathProviderApi {
 
   private final NestedSet<Artifact> runtimeClasspath;
 
@@ -37,9 +38,18 @@ public final class JavaRuntimeClasspathProvider
     this.runtimeClasspath = runtimeClasspath;
   }
 
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
   /** Returns the artifacts included on the runtime classpath of this binary. */
   @Override
-  public NestedSet<Artifact> getRuntimeClasspath() {
+  public Depset /*<Artifact>*/ getRuntimeClasspath() {
+    return Depset.of(Artifact.TYPE, runtimeClasspath);
+  }
+
+  public NestedSet<Artifact> getRuntimeClasspathNestedSet() {
     return runtimeClasspath;
   }
 }

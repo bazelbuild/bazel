@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +15,10 @@
 """A wrapper to have a portable SHA-256 tool."""
 
 # TODO(dmarting): instead of this tool we should make SHA-256 of artifacts
-# available in Skylark.
+# available in Starlark.
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import hashlib
 import sys
 

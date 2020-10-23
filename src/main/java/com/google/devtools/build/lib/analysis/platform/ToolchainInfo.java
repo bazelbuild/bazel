@@ -14,66 +14,96 @@
 
 package com.google.devtools.build.lib.analysis.platform;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainInfoApi;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainInfoApi;
 import java.util.Map;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 
 /**
  * A provider that supplies information about a specific language toolchain, including what platform
  * constraints are required for execution and for the target platform.
+ *
+ * <p>Unusually, ToolchainInfo exposes both its StarlarkCallable-annotated fields and a Map of
+ * additional fields to Starlark code. Also, these are not disjoint.
  */
 @Immutable
 public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
 
-  /** Name used in Skylark for accessing this provider. */
-  public static final String SKYLARK_NAME = "ToolchainInfo";
+  /** Name used in Starlark for accessing this provider. */
+  public static final String STARLARK_NAME = "ToolchainInfo";
 
-  private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
-      FunctionSignature.WithValues.create(
-          FunctionSignature.of(
-              /*numMandatoryPositionals=*/ 0,
-              /*numOptionalPositionals=*/ 0,
-              /*numMandatoryNamedOnly*/ 0,
-              /*starArg=*/ false,
-              /*kwArg=*/ true,
-              /*names=*/ "data"),
-          /*defaultValues=*/ null,
-          /*types=*/ ImmutableList.<SkylarkType>of(SkylarkType.DICT));
+  /** Provider singleton constant. */
+  public static final BuiltinProvider<ToolchainInfo> PROVIDER = new Provider();
 
-  /** Skylark constructor and identifier for this provider. */
-  @AutoCodec
-  public static final NativeProvider<ToolchainInfo> PROVIDER =
-      new NativeProvider<ToolchainInfo>(ToolchainInfo.class, SKYLARK_NAME, SIGNATURE) {
-        @Override
-        protected ToolchainInfo createInstanceFromSkylark(
-            Object[] args, Environment env, Location loc) throws EvalException {
-          Map<String, Object> data =
-              SkylarkDict.castSkylarkDictOrNoneToDict(args[0], String.class, Object.class, "data");
-          return ToolchainInfo.create(data, loc);
-        }
-      };
+  /** Provider for {@link ToolchainInfo} objects. */
+  private static class Provider extends BuiltinProvider<ToolchainInfo>
+      implements ToolchainInfoApi.Provider {
+    private Provider() {
+      super(STARLARK_NAME, ToolchainInfo.class);
+    }
 
-  public ToolchainInfo(Map<String, Object> values, Location location) {
-    super(PROVIDER, ImmutableMap.copyOf(values), location);
+    @Override
+    public ToolchainInfo toolchainInfo(Dict<String, Object> kwargs, StarlarkThread thread) {
+      return new ToolchainInfo(kwargs, thread.getCallerLocation());
+    }
   }
 
-  public static ToolchainInfo create(Map<String, Object> toolchainData) {
-    return create(toolchainData, Location.BUILTIN);
+  @AutoCodec.VisibleForSerialization final ImmutableSortedMap<String, Object> values;
+  private ImmutableSet<String> fieldNames; // initialized lazily (with monitor synchronization)
+
+  /** Constructs a ToolchainInfo. The {@code values} map itself is not retained. */
+  protected ToolchainInfo(Map<String, Object> values, Location location) {
+    super(PROVIDER, location);
+    this.values = copyValues(values);
   }
 
-  public static ToolchainInfo create(Map<String, Object> toolchainData, Location loc) {
-    return new ToolchainInfo(toolchainData, loc);
+  public ToolchainInfo(Map<String, Object> values) {
+    super(PROVIDER, Location.BUILTIN);
+    this.values = copyValues(values);
+  }
+
+  /**
+   * Preprocesses a map of field values to convert the field names and field values to
+   * Starlark-acceptable names and types.
+   *
+   * <p>Entries are ordered by key.
+   */
+  private static ImmutableSortedMap<String, Object> copyValues(Map<String, Object> values) {
+    ImmutableSortedMap.Builder<String, Object> builder = ImmutableSortedMap.naturalOrder();
+    for (Map.Entry<String, Object> e : values.entrySet()) {
+      builder.put(Attribute.getStarlarkName(e.getKey()), Starlark.fromJava(e.getValue(), null));
+    }
+    return builder.build();
+  }
+
+  @Override
+  public Object getValue(String name) throws EvalException {
+    Object x = values.get(name);
+    return x != null ? x : super.getValue(name);
+  }
+
+  @Override
+  public synchronized ImmutableCollection<String> getFieldNames() {
+    if (fieldNames == null) {
+      fieldNames =
+          ImmutableSet.<String>builder()
+              .addAll(values.keySet())
+              .addAll(super.getFieldNames())
+              .build();
+    }
+    return fieldNames;
   }
 
   /** Add make variables to be exported to dependers. */

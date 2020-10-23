@@ -28,7 +28,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ActionExecutionInactivityWatchdogTest {
 
-  private void assertInactivityWatchdogReports(final boolean shouldReport) throws Exception {
+  private static void assertInactivityWatchdogReports(final boolean shouldReport) throws Exception {
     // The monitor implementation below is a state machine. This variable indicates which state
     // it is in.
     final int[] monitorState = new int[] {0};

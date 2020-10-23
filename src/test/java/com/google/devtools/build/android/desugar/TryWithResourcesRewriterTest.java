@@ -19,10 +19,10 @@ import static com.google.devtools.build.android.desugar.runtime.ThrowableExtensi
 import static com.google.devtools.build.android.desugar.runtime.ThrowableExtensionTestUtility.isMimicStrategy;
 import static com.google.devtools.build.android.desugar.runtime.ThrowableExtensionTestUtility.isNullStrategy;
 import static com.google.devtools.build.android.desugar.runtime.ThrowableExtensionTestUtility.isReuseStrategy;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.objectweb.asm.ClassWriter.COMPUTE_MAXS;
-import static org.objectweb.asm.Opcodes.ASM5;
+import static org.objectweb.asm.Opcodes.ASM8;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 import static org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
 
@@ -162,7 +162,7 @@ public class TryWithResourcesRewriterTest {
           assertThrows(
               RuntimeException.class, () -> ClassUsingTryWithResources.simpleTryWithResources());
       assertThat(expected.getClass()).isEqualTo(RuntimeException.class);
-        assertThat(expected.getSuppressed()).hasLength(1);
+      assertThat(expected.getSuppressed()).hasLength(1);
       assertThat(expected.getSuppressed()[0].getClass()).isEqualTo(IOException.class);
     }
 
@@ -254,7 +254,7 @@ public class TryWithResourcesRewriterTest {
     ClassReader reader = new ClassReader(classContent);
     final AtomicInteger counter = new AtomicInteger();
     ClassVisitor visitor =
-        new ClassVisitor(Opcodes.ASM5) {
+        new ClassVisitor(Opcodes.ASM8) {
           @Override
           public MethodVisitor visitMethod(
               int access, String name, String desc, String signature, String[] exceptions) {
@@ -276,7 +276,7 @@ public class TryWithResourcesRewriterTest {
     private int syntheticCloseResourceCount;
 
     public DesugaredThrowableMethodCallCounter(ClassLoader loader) {
-      super(ASM5);
+      super(ASM8);
       classLoader = loader;
       counterMap = new HashMap<>();
       TryWithResourcesRewriter.TARGET_METHODS
@@ -307,7 +307,7 @@ public class TryWithResourcesRewriterTest {
     private class InvokeCounter extends MethodVisitor {
 
       public InvokeCounter() {
-        super(ASM5);
+        super(ASM8);
       }
 
       private boolean isAssignableToThrowable(String owner) {

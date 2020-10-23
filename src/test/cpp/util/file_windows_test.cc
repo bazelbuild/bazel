@@ -11,9 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+
 #include <stdio.h>
 #include <string.h>
-#include <windows.h>
 
 #include <algorithm>
 #include <memory>
@@ -315,24 +320,23 @@ TEST_F(FileWindowsTest, TestMtimeHandling) {
   const char* tempdir_cstr = getenv("TEST_TMPDIR");
   ASSERT_NE(tempdir_cstr, nullptr);
   ASSERT_NE(tempdir_cstr[0], 0);
-  string tempdir(tempdir_cstr);
+  Path tempdir(tempdir_cstr);
 
-  string target(JoinPath(tempdir, "target" TOSTRING(__LINE__)));
-  wstring wtarget;
-  EXPECT_TRUE(AsWindowsPath(target, &wtarget, nullptr));
-  EXPECT_TRUE(CreateDirectoryW(wtarget.c_str(), NULL));
+  Path target = tempdir.GetRelative("target" TOSTRING(__LINE__));
+  EXPECT_TRUE(CreateDirectoryW(target.AsNativePath().c_str(), NULL));
 
   std::unique_ptr<IFileMtime> mtime(CreateFileMtime());
   // Assert that a directory is always a good embedded binary. (We do not care
   // about directories' mtimes.)
   ASSERT_TRUE(mtime.get()->IsUntampered(target));
   // Assert that junctions whose target exists are "good" embedded binaries.
-  string sym(JoinPath(tempdir, "junc" TOSTRING(__LINE__)));
-  CREATE_JUNCTION(sym, target);
+  Path sym = tempdir.GetRelative("junc" TOSTRING(__LINE__));
+  EXPECT_EQ(CreateJunction(sym.AsNativePath(), target.AsNativePath(), nullptr),
+            CreateJunctionResult::kSuccess);
   ASSERT_TRUE(mtime.get()->IsUntampered(sym));
   // Assert that checking fails for non-existent directories and dangling
   // junctions.
-  EXPECT_TRUE(RemoveDirectoryW(wtarget.c_str()));
+  EXPECT_TRUE(RemoveDirectoryW(target.AsNativePath().c_str()));
   ASSERT_FALSE(mtime.get()->IsUntampered(target));
   ASSERT_FALSE(mtime.get()->IsUntampered(sym));
 }

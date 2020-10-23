@@ -21,12 +21,8 @@ import com.google.common.collect.ImmutableList;
  */
 public final class CompoundEvaluationProgressReceiver
     extends CompoundEvaluationProgressReceiverBase {
-  private CompoundEvaluationProgressReceiver(
+  public CompoundEvaluationProgressReceiver(
       ImmutableList<? extends EvaluationProgressReceiver> receivers) {
     super(receivers);
-  }
-
-  public static EvaluationProgressReceiver of(EvaluationProgressReceiver... receivers) {
-    return new CompoundEvaluationProgressReceiver(ImmutableList.copyOf(receivers));
   }
 }

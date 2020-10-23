@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodec;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -25,6 +27,8 @@ import java.util.Arrays;
  * A high-performance {@link ObjectCodec} for {@link String} objects specialized for Strings in
  * JDK9, where a String can be represented as a byte array together with a single byte (0 or 1) for
  * Latin-1 or UTF16 encoding.
+ *
+ * <p>Does not register itself by default because of the CodecRegisterer inner classes below.
  */
 public class UnsafeJdk9StringCodec implements ObjectCodec<String> {
   @VisibleForTesting
@@ -34,6 +38,7 @@ public class UnsafeJdk9StringCodec implements ObjectCodec<String> {
 
   private final StringUnsafe stringUnsafe;
 
+  @VisibleForTesting
   public UnsafeJdk9StringCodec() {
     stringUnsafe = StringUnsafe.getInstance();
   }
@@ -87,6 +92,25 @@ public class UnsafeJdk9StringCodec implements ObjectCodec<String> {
     } catch (ReflectiveOperationException e) {
       throw new SerializationException(
           "Could not instantiate string: " + Arrays.toString(value) + ", " + coder, e);
+    }
+  }
+
+  private static final StringCodec stringCodec = new StringCodec();
+
+  private static final UnsafeJdk9StringCodec unsafeCodec =
+      canUseUnsafeCodec() ? new UnsafeJdk9StringCodec() : null;
+
+  static class UnsafeStringCodecRegisterer implements CodecRegisterer<UnsafeJdk9StringCodec> {
+    @Override
+    public Iterable<? extends ObjectCodec<?>> getCodecsToRegister() {
+      return canUseUnsafeCodec() ? ImmutableList.of(unsafeCodec) : ImmutableList.of();
+    }
+  }
+
+  static class SimpleStringCodecRegisterer implements CodecRegisterer<StringCodec> {
+    @Override
+    public Iterable<StringCodec> getCodecsToRegister() {
+      return canUseUnsafeCodec() ? ImmutableList.of() : ImmutableList.of(stringCodec);
     }
   }
 }

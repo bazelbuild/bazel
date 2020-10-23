@@ -16,35 +16,29 @@ package com.google.devtools.build.lib.rules.python;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.TriState;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * The configuration fragment containing information about the various pieces of infrastructure
  * needed to run Python compilations.
  */
 @Immutable
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "py",
     doc = "A configuration fragment for Python.",
-    category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT)
-public class PythonConfiguration extends BuildConfiguration.Fragment {
+    category = DocCategory.CONFIGURATION_FRAGMENT)
+public class PythonConfiguration extends Fragment implements StarlarkValue {
 
   private final PythonVersion version;
   private final PythonVersion defaultVersion;
   private final TriState buildPythonZip;
   private final boolean buildTransitiveRunfilesTrees;
-
-  // TODO(brandjon): Remove these once migration to the new version API is complete (#6583).
-  private final boolean oldPyVersionApiAllowed;
-  private final boolean useNewPyVersionSemantics;
 
   // TODO(brandjon): Remove this once migration to PY3-as-default is complete.
   private final boolean py2OutputsAreSuffixed;
@@ -55,37 +49,42 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
   // TODO(brandjon): Remove this once migration to Python toolchains is complete.
   private final boolean useToolchains;
 
-  private final boolean windowsEscapePythonArgs;
+  // TODO(brandjon): Remove this once migration for native rule access is complete.
+  private final boolean loadPythonRulesFromBzl;
+
+  private final boolean defaultToExplicitInitPy;
 
   PythonConfiguration(
       PythonVersion version,
       PythonVersion defaultVersion,
       TriState buildPythonZip,
       boolean buildTransitiveRunfilesTrees,
-      boolean oldPyVersionApiAllowed,
-      boolean useNewPyVersionSemantics,
       boolean py2OutputsAreSuffixed,
       boolean disallowLegacyPyProvider,
       boolean useToolchains,
-      boolean windowsEscapePythonArgs) {
+      boolean loadPythonRulesFromBzl,
+      boolean defaultToExplicitInitPy) {
     this.version = version;
     this.defaultVersion = defaultVersion;
     this.buildPythonZip = buildPythonZip;
     this.buildTransitiveRunfilesTrees = buildTransitiveRunfilesTrees;
-    this.oldPyVersionApiAllowed = oldPyVersionApiAllowed;
-    this.useNewPyVersionSemantics = useNewPyVersionSemantics;
     this.py2OutputsAreSuffixed = py2OutputsAreSuffixed;
     this.disallowLegacyPyProvider = disallowLegacyPyProvider;
     this.useToolchains = useToolchains;
-    this.windowsEscapePythonArgs = windowsEscapePythonArgs;
+    this.loadPythonRulesFromBzl = loadPythonRulesFromBzl;
+    this.defaultToExplicitInitPy = defaultToExplicitInitPy;
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
   }
 
   /**
    * Returns the Python version to use.
    *
    * <p>Specified using either the {@code --python_version} flag and {@code python_version} rule
-   * attribute (new API), or the {@code --force_python} flag and {@code default_python_version} rule
-   * attribute (old API).
+   * attribute (new API), or the {@code default_python_version} rule attribute (old API).
    */
   public PythonVersion getPythonVersion() {
     return version;
@@ -126,22 +125,6 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
     }
   }
 
-  @Override
-  public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
-    PythonOptions opts = buildOptions.get(PythonOptions.class);
-    if (opts.forcePython != null && opts.incompatibleRemoveOldPythonVersionApi) {
-      reporter.handle(
-          Event.error(
-              "`--force_python` is disabled by `--incompatible_remove_old_python_version_api`"));
-    }
-    if (opts.incompatiblePy3IsDefault && !opts.incompatibleAllowPythonVersionTransitions) {
-      reporter.handle(
-          Event.error(
-              "cannot enable `--incompatible_py3_is_default` without also enabling "
-                  + "`--incompatible_allow_python_version_transitions`"));
-    }
-  }
-
   /** Returns whether to build the executable zip file for Python binaries. */
   public boolean buildPythonZip() {
     switch (buildPythonZip) {
@@ -163,19 +146,6 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns whether use of {@code --force_python} flag and {@code default_python_version} attribute
-   * is allowed.
-   */
-  public boolean oldPyVersionApiAllowed() {
-    return oldPyVersionApiAllowed;
-  }
-
-  /** Returns true if the new semantics should be used for transitions on the Python version. */
-  public boolean useNewPyVersionSemantics() {
-    return useNewPyVersionSemantics;
-  }
-
-  /**
    * Returns true if Python rules should omit the legacy "py" provider and fail-fast when given this
    * provider from their {@code deps}.
    *
@@ -193,7 +163,22 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
     return useToolchains;
   }
 
-  public boolean windowsEscapePythonArgs() {
-    return windowsEscapePythonArgs;
+  /**
+   * Returns true if native Python rules should fail at analysis time when the magic tag, {@code
+   * __PYTHON_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__}, is not present.
+   *
+   * <p>This tag is set by the macros in bazelbuild/rules_python and should not be used anywhere
+   * else.
+   */
+  public boolean loadPythonRulesFromBzl() {
+    return loadPythonRulesFromBzl;
+  }
+
+  /**
+   * Returns true if executable Python rules should only write out empty __init__ files to their
+   * runfiles tree when explicitly requested via {@code legacy_create_init}.
+   */
+  public boolean defaultToExplicitInitPy() {
+    return defaultToExplicitInitPy;
   }
 }

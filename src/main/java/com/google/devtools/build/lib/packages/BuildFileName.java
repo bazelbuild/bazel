@@ -24,6 +24,12 @@ public enum BuildFileName {
       return getFilenameFragment();
     }
   },
+  WORKSPACE_DOT_BAZEL("WORKSPACE.bazel") {
+    @Override
+    public PathFragment getBuildFileFragment(PackageIdentifier packageIdentifier) {
+      return getFilenameFragment();
+    }
+  },
   BUILD("BUILD") {
     @Override
     public PathFragment getBuildFileFragment(PackageIdentifier packageIdentifier) {

@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
+
 filegroup(
     name = "srcs",
     testonly = 0,
@@ -25,9 +27,9 @@ java_test(
     timeout = "moderate",
     srcs = ["manageddirs/ManagedDirectoriesBlackBoxTest.java"],
     resources = [
-        "manageddirs/.bazelignore",
         "manageddirs/BUILD.test",
         "manageddirs/WORKSPACE.test",
+        "manageddirs/bazelignore.test",
         "manageddirs/package.json",
         "manageddirs/test_rule.bzl",
         "manageddirs/use_node_modules.bzl",
@@ -46,6 +48,16 @@ java_test(
     deps = [
         ":common_deps",
         "//src/test/java/com/google/devtools/build/lib/blackbox/bazel:python_tools",
+    ],
+)
+
+java_test(
+    name = "NinjaBlackBoxTest",
+    timeout = "moderate",
+    srcs = ["NinjaBlackBoxTest.java"],
+    tags = ["black_box_test"],
+    deps = [
+        ":common_deps",
     ],
 )
 

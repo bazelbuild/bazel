@@ -23,11 +23,10 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.extra.ExtraActionMapProvider;
 import com.google.devtools.build.lib.analysis.extra.ExtraActionSpec;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.packages.Type;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -69,8 +68,7 @@ public final class ActionListener implements RuleConfiguredTargetFactory {
    */
   private List<ExtraActionSpec> retrieveAndValidateExtraActions(RuleContext ruleContext) {
     List<ExtraActionSpec> extraActions = new ArrayList<>();
-    for (TransitiveInfoCollection prerequisite :
-        ruleContext.getPrerequisites("extra_actions", Mode.TARGET)) {
+    for (TransitiveInfoCollection prerequisite : ruleContext.getPrerequisites("extra_actions")) {
       ExtraActionSpec spec = prerequisite.getProvider(ExtraActionSpec.class);
       if (spec == null) {
         ruleContext.attributeError("extra_actions", String.format("target %s is not an "

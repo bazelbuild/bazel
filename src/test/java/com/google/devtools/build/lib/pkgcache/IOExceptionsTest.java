@@ -18,12 +18,12 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetKey;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -66,7 +66,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
   private boolean visitTransitively(Label label) throws InterruptedException {
     SkyKey key = TransitiveTargetKey.of(label);
     EvaluationContext evaluationContext =
-        EvaluationContext.newBuilder().setNumThreads(5).setEventHander(reporter).build();
+        EvaluationContext.newBuilder().setNumThreads(5).setEventHandler(reporter).build();
     EvaluationResult<SkyValue> result =
         skyframeExecutor.prepareAndGet(ImmutableSet.of(key), evaluationContext);
     TransitiveTargetValue value = (TransitiveTargetValue) result.get(key);
@@ -82,7 +82,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
 
   @Override
   protected FileSystem createFileSystem() {
-    return new InMemoryFileSystem(BlazeClock.instance()) {
+    return new InMemoryFileSystem(DigestHashFunction.SHA256) {
       @Nullable
       @Override
       public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {

@@ -157,9 +157,9 @@ public class ActionExecutionStatusReporterTest {
     verifyOutput("Still waiting for 1 job to complete:", "Running (remote):", "action1, 1 s");
     clock.advanceMillis(1000);
 
-    eventBus.post(new AnalyzingActionEvent(action));
+    eventBus.post(new ScanningActionEvent(action));
     // Locality strategy was changed, so timer was reset to 0 s.
-    verifyOutput("Still waiting for 1 job to complete:", "Analyzing:", "action1, 0 s");
+    verifyOutput("Still waiting for 1 job to complete:", "Scanning:", "action1, 0 s");
     statusReporter.remove(action);
     verifyNoOutput();
   }

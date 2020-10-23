@@ -37,8 +37,7 @@ public class EventCollectorTest extends EventTestTemplate {
     assertThat(onlyEvent.getMessage()).isEqualTo(event.getMessage());
     assertThat(onlyEvent.getLocation()).isSameInstanceAs(location);
     assertThat(onlyEvent.getKind()).isEqualTo(event.getKind());
-    assertThat(onlyEvent.getLocation().getStartOffset())
-        .isEqualTo(event.getLocation().getStartOffset());
+    assertThat(onlyEvent.getLocation()).isEqualTo(event.getLocation());
     assertThat(collector.count()).isEqualTo(1);
     assertThat(events).hasSize(1);
   }
@@ -52,8 +51,7 @@ public class EventCollectorTest extends EventTestTemplate {
     assertThat(onlyEvent.getMessage()).isEqualTo(event.getMessage());
     assertThat(onlyEvent.getLocation()).isSameInstanceAs(location);
     assertThat(onlyEvent.getKind()).isEqualTo(event.getKind());
-    assertThat(onlyEvent.getLocation().getStartOffset())
-        .isEqualTo(event.getLocation().getStartOffset());
+    assertThat(onlyEvent.getLocation()).isEqualTo(event.getLocation());
     assertThat(collectedEventIt.hasNext()).isFalse();
   }
 }

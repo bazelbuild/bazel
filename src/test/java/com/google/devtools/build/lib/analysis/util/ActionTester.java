@@ -22,8 +22,11 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Actions;
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.EnumSet;
+import java.util.List;
+import javax.annotation.CheckReturnValue;
 
 /**
  * Test helper for testing {@link Action} implementations.
@@ -58,6 +61,69 @@ public class ActionTester {
     Action generate(ImmutableSet<E> attributesToFlip) throws Exception;
   }
 
+  private final ActionKeyContext actionKeyContext;
+  private final List<Action> actions = new ArrayList<>();
+
+  public ActionTester(ActionKeyContext actionKeyContext) {
+    this.actionKeyContext = actionKeyContext;
+  }
+
+  public ActionTester() {
+    this(new ActionKeyContext());
+  }
+
+  /**
+   * Creates all possible combinations of actions given a set of flags which can be either on or
+   * off. This requires that all combinations result in different actions, i.e., all flags must be
+   * orthogonal. The generated actions are added to a local list for a subsequent call to {@link
+   * #runTest}. This method can be called multiple times to generate different sets of actions.
+   */
+  @CheckReturnValue
+  public <E extends Enum<E>> ActionTester combinations(
+      Class<E> attributeClass, ActionCombinationFactory<E> factory) throws Exception {
+    int attributesCount = attributeClass.getEnumConstants().length;
+    Preconditions.checkArgument(
+        attributesCount <= 30,
+        "Maximum attribute count is 30, more will overflow the max array size.");
+    Preconditions.checkArgument(attributesCount > 0, "Minimum attribute count is 1");
+    int count = (int) Math.pow(2, attributesCount);
+    Action firstAction = null;
+    for (int i = 0; i < count; i++) {
+      Action action = factory.generate(makeEnumSetInitializedTo(attributeClass, i));
+      actions.add(action);
+      // Check that creating the same action twice results in equal actions.
+      assertThat(
+              Actions.canBeShared(
+                  actionKeyContext,
+                  action,
+                  factory.generate(makeEnumSetInitializedTo(attributeClass, i))))
+          .isTrue();
+      if (i == 0) {
+        firstAction = action;
+      }
+    }
+    // Check that the count is correct.
+    assertThat(
+            Actions.canBeShared(
+                actionKeyContext,
+                firstAction,
+                factory.generate(makeEnumSetInitializedTo(attributeClass, count))))
+        .isTrue();
+    return this;
+  }
+
+  /** Checks that all actions are different. */
+  public void runTest() {
+    assertThat(actions).isNotEmpty();
+    for (int i = 0; i < actions.size(); i++) {
+      for (int j = i + 1; j < actions.size(); j++) {
+        assertWithMessage(i + " and " + j)
+            .that(Actions.canBeShared(actionKeyContext, actions.get(i), actions.get(j)))
+            .isFalse();
+      }
+    }
+  }
+
   /**
    * Tests that different actions have different keys. The attributeCount should specify how many
    * different permutations the {@link ActionCombinationFactory} should generate.
@@ -67,36 +133,7 @@ public class ActionTester {
       ActionCombinationFactory<E> factory,
       ActionKeyContext actionKeyContext)
       throws Exception {
-    int attributesCount = attributeClass.getEnumConstants().length;
-    Preconditions.checkArgument(
-        attributesCount <= 30,
-        "Maximum attribute count is 30, more will overflow the max array size.");
-    int count = (int) Math.pow(2, attributesCount);
-    Action[] actions = new Action[count];
-    for (int i = 0; i < actions.length; i++) {
-      actions[i] = factory.generate(makeEnumSetInitializedTo(attributeClass, i));
-    }
-    // Sanity check that the count is correct.
-    assertThat(
-            Actions.canBeShared(
-                actionKeyContext,
-                actions[0],
-                factory.generate(makeEnumSetInitializedTo(attributeClass, count))))
-        .isTrue();
-
-    for (int i = 0; i < actions.length; i++) {
-      assertThat(
-              Actions.canBeShared(
-                  actionKeyContext,
-                  actions[i],
-                  factory.generate(makeEnumSetInitializedTo(attributeClass, i))))
-          .isTrue();
-      for (int j = i + 1; j < actions.length; j++) {
-        assertWithMessage(i + " and " + j)
-            .that(Actions.canBeShared(actionKeyContext, actions[i], actions[j]))
-            .isFalse();
-      }
-    }
+    new ActionTester(actionKeyContext).combinations(attributeClass, factory).runTest();
   }
 
   private static <E extends Enum<E>> ImmutableSet<E> makeEnumSetInitializedTo(

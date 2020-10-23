@@ -24,13 +24,12 @@ import com.google.devtools.common.options.OptionsBase;
  */
 public class SsdOptions extends OptionsBase {
   @Option(
-    name = "experimental_multi_threaded_digest",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Whether to always compute MD5 digests of files with multiple threads. Might improve "
-            + "performance when using an SSD."
-  )
+      name = "experimental_multi_threaded_digest",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Whether to always compute digests of files with multiple threads. Setting this to "
+              + "false may improve performance when using a spinning platter.")
   public boolean experimentalMultiThreadedDigest;
 }

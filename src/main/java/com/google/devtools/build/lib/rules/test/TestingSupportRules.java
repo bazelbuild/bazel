@@ -19,10 +19,11 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSe
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.analysis.test.AnalysisTestResultInfo;
 import com.google.devtools.build.lib.analysis.test.CoverageCommon;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.rules.core.CoreRules;
-import com.google.devtools.build.lib.skylarkbuildapi.test.TestingBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.test.TestingBootstrap;
 
-/** Rules exposing testing infrastructure to Skylark */
+/** Rules exposing testing infrastructure to Starlark */
 public final class TestingSupportRules implements RuleSet {
   public static final TestingSupportRules INSTANCE = new TestingSupportRules();
 
@@ -32,12 +33,13 @@ public final class TestingSupportRules implements RuleSet {
 
   @Override
   public void init(ConfiguredRuleClassProvider.Builder builder) {
-    builder.addSkylarkBootstrap(
+    builder.addStarlarkBootstrap(
         new TestingBootstrap(
-            new SkylarkTestingModule(),
+            new StarlarkTestingModule(),
             new CoverageCommon(),
-            AnalysisFailureInfo.SKYLARK_CONSTRUCTOR,
-            AnalysisTestResultInfo.SKYLARK_CONSTRUCTOR));
+            InstrumentedFilesInfo.STARLARK_CONSTRUCTOR,
+            AnalysisFailureInfo.STARLARK_CONSTRUCTOR,
+            AnalysisTestResultInfo.STARLARK_CONSTRUCTOR));
   }
 
   @Override

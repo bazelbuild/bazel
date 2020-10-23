@@ -1,11 +1,29 @@
 #!/usr/bin/env python
 
+# This script must retain compatibility with a wide variety of Python versions
+# since it is run for every py_binary target. Currently we guarantee support
+# going back to Python 2.7, and try to support even Python 2.6 on a best-effort
+# basis. We might abandon 2.6 support once users have the ability to control the
+# above shebang string via the Python toolchain (#8685).
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+import sys
+
+# The Python interpreter unconditionally prepends the directory containing this
+# script (following symlinks) to the import path. This is the cause of #9239,
+# and is a special case of #7091. We therefore explicitly delete that entry.
+# TODO(#7091): Remove this hack when no longer necessary.
+del sys.path[0]
+
 import os
 import re
-import tempfile
 import shutil
-import sys
 import subprocess
+import sysconfig
+import tempfile
 import zipfile
 
 # Return True if running on Windows
@@ -13,19 +31,19 @@ def IsWindows():
   return os.name == 'nt'
 
 def GetWindowsPathWithUNCPrefix(path):
-  """
-  Adding UNC prefix after getting a normalized absolute Windows path,
-  it's no-op for non-Windows platforms or if running under python2.
+  """Adds UNC prefix after getting a normalized absolute Windows path.
+
+  No-op for non-Windows platforms or if running under python2.
   """
   path = path.strip()
 
   # No need to add prefix for non-Windows platforms.
-  # And \\?\ doesn't work in python 2
-  if not IsWindows() or sys.version_info[0] < 3:
+  # And \\?\ doesn't work in python 2 or on mingw
+  if not IsWindows() or sys.version_info[0] < 3 or sysconfig.get_platform() == 'mingw':
     return path
 
   # Lets start the unicode fun
-  unicode_prefix = "\\\\?\\"
+  unicode_prefix = '\\\\?\\'
   if path.startswith(unicode_prefix):
     return path
 
@@ -39,21 +57,21 @@ PYTHON_BINARY = '%python_binary%'
 if IsWindows() and not HasWindowsExecutableExtension(PYTHON_BINARY):
   PYTHON_BINARY = PYTHON_BINARY + '.exe'
 
-# Find a file in a given search path.
 def SearchPath(name):
+  """Finds a file in a given search path."""
   search_path = os.getenv('PATH', os.defpath).split(os.pathsep)
   for directory in search_path:
-    if directory == '': continue
-    path = os.path.join(directory, name)
-    if os.path.isfile(path) and os.access(path, os.X_OK):
-      return path
+    if directory:
+      path = os.path.join(directory, name)
+      if os.path.isfile(path) and os.access(path, os.X_OK):
+        return path
   return None
 
 def IsRunningFromZip():
   return %is_zipfile%
 
-# Find the real Python binary if it's not a normal absolute path
 def FindPythonBinary(module_space):
+  """Finds the real Python binary if it's not a normal absolute path."""
   if PYTHON_BINARY.startswith('//'):
     # Case 1: Path is a label. Not supported yet.
     raise AssertionError(
@@ -70,11 +88,11 @@ def FindPythonBinary(module_space):
     return SearchPath(PYTHON_BINARY)
 
 def CreatePythonPathEntries(python_imports, module_space):
-  parts = python_imports.split(':');
-  return [module_space] + ["%s/%s" % (module_space, path) for path in parts]
+  parts = python_imports.split(':')
+  return [module_space] + ['%s/%s' % (module_space, path) for path in parts]
 
-# Find the runfiles tree
 def FindModuleSpace():
+  """Finds the runfiles tree."""
   stub_filename = sys.argv[0]
   if not os.path.isabs(stub_filename):
     stub_filename = os.path.join(os.getcwd(), stub_filename)
@@ -128,19 +146,20 @@ def ExtractZip(zip_path, dest_dir):
 
 # Create the runfiles tree by extracting the zip file
 def CreateModuleSpace():
-  temp_dir = tempfile.mkdtemp("", "Bazel.runfiles_")
+  temp_dir = tempfile.mkdtemp('', 'Bazel.runfiles_')
   ExtractZip(os.path.dirname(__file__), temp_dir)
-  return os.path.join(temp_dir, "runfiles")
+  return os.path.join(temp_dir, 'runfiles')
 
 # Returns repository roots to add to the import path.
 def GetRepositoriesImports(module_space, import_all):
   if import_all:
     repo_dirs = [os.path.join(module_space, d) for d in os.listdir(module_space)]
+    repo_dirs.sort()
     return [d for d in repo_dirs if os.path.isdir(d)]
-  return [os.path.join(module_space, "%workspace_name%")]
+  return [os.path.join(module_space, '%workspace_name%')]
 
-# Finds the runfiles manifest or the runfiles directory.
 def RunfilesEnvvar(module_space):
+  """Finds the runfiles manifest or the runfiles directory."""
   # If this binary is the data-dependency of another one, the other sets
   # RUNFILES_MANIFEST_FILE or RUNFILES_DIR for our sake.
   runfiles = os.environ.get('RUNFILES_MANIFEST_FILE', None)
@@ -172,6 +191,92 @@ def RunfilesEnvvar(module_space):
 
   return (None, None)
 
+# TODO(#6443): Remove this once there's no longer a host configuration for
+# Python targets to appear in.
+def MaybeEmitHostVersionWarning(ret_code):
+  """Warns the user if a failure may be due to the host config's version.
+
+  This emits a message to stderr if
+    1) ret_code is non-zero,
+    2) the target was built in the host config and with toolchains enabled, and
+    3) at analysis time we detected a mismatch between the host config's version
+       and this target's explicitly declared version, or else this target did
+       not explicitly declare its version. (The former diagnoses targets
+       affected by #6443, and the latter diagnoses targets that are broken by
+       fixing #4815.)
+
+  See also #7899, #8549, and PyCommon#shouldWarnAboutHostVersionUponFailure.
+
+  Since this warning is emitted here in the stub script and not in Bazel itself,
+  it will be present in all failing runs of affected targets, even when executed
+  directly and not via `bazel run`. However, note that this warning is never
+  added to non-host-configured targets, and that it can be disabled by ensuring
+  the correct Python version is passed to --host_force_python and declared in
+  tools' python_version attributes.
+
+  Args:
+      ret_code: The exit code of the payload user program
+  """
+  if ret_code == 0:
+    return
+  if not %enable_host_version_warning%:
+    return
+
+  host_version = %python_version_from_config%
+  target_version = %python_version_from_attr%
+  opposite_of_host_version = '2' if host_version == '3' else '3'
+
+  if %python_version_specified_explicitly%:
+    # Mismatch with explicitly declared version.
+    diagnostic = """\
+Note: The failure of target {target} (with exit code {ret_code}) may have been \
+caused by the fact that it is a Python {target_version} program that was built \
+in the host configuration, which uses Python {host_version}. You can change \
+the host configuration (for the entire build) to instead use Python \
+{target_version} by setting --host_force_python=PY{target_version}.\
+""".format(
+    target='%target%',
+    ret_code=ret_code,
+    target_version=target_version,
+    host_version=host_version)
+  else:
+    diagnostic = """\
+Note: The failure of target {target} (with exit code {ret_code}) may have been \
+caused by the fact that it is running under Python {host_version} instead of \
+Python {opposite_of_host_version}. Examine the error to determine if that \
+appears to be the problem. Since this target is built in the host \
+configuration, the only way to change its version is to set \
+--host_force_python=PY{opposite_of_host_version}, which affects the entire \
+build.\
+""".format(
+    target='%target%',
+    ret_code=ret_code,
+    host_version=host_version,
+    opposite_of_host_version=opposite_of_host_version)
+
+  # TODO(brandjon): Change the wording "You are likely seeing this message
+  # because" to something less strong after a few releases from 0.27. By that
+  # point, migration for toolchains won't be the main reason this error is seen
+  # by users.
+  message = """\
+----------------
+{diagnostic}
+
+If this error started occurring in Bazel 0.27 and later, it may be because the \
+Python toolchain now enforces that targets analyzed as PY2 and PY3 run under a \
+Python 2 and Python 3 interpreter, respectively. See \
+https://github.com/bazelbuild/bazel/issues/7899 for more information.
+----------------""".format(diagnostic=diagnostic)
+  print(message, file=sys.stderr)
+
+def Deduplicate(items):
+  """Efficiently filter out duplicates, keeping the first element only."""
+  seen = set()
+  for it in items:
+      if it not in seen:
+          seen.add(it)
+          yield it
+
 def Main():
   args = sys.argv[1:]
 
@@ -185,8 +290,12 @@ def Main():
   python_imports = '%imports%'
   python_path_entries = CreatePythonPathEntries(python_imports, module_space)
   python_path_entries += GetRepositoriesImports(module_space, %import_all%)
-
-  python_path_entries = [GetWindowsPathWithUNCPrefix(d) for d in python_path_entries]
+  # Remove duplicates to avoid overly long PYTHONPATH (#10977). Preserve order,
+  # keep first occurrence only.
+  python_path_entries = [
+    GetWindowsPathWithUNCPrefix(d)
+    for d in Deduplicate(python_path_entries)
+  ]
 
   old_python_path = os.environ.get('PYTHONPATH')
   python_path = os.pathsep.join(python_path_entries)
@@ -194,7 +303,7 @@ def Main():
     python_path += os.pathsep + old_python_path
 
   if IsWindows():
-    python_path = python_path.replace("/", os.sep)
+    python_path = python_path.replace('/', os.sep)
 
   new_env['PYTHONPATH'] = python_path
   runfiles_envkey, runfiles_envvalue = RunfilesEnvvar(module_space)
@@ -206,7 +315,7 @@ def Main():
   # main file of the Python binary in BazelPythonSemantics.java.
   rel_path = '%main%'
   if IsWindows():
-    rel_path = rel_path.replace("/", os.sep)
+    rel_path = rel_path.replace('/', os.sep)
 
   main_filename = os.path.join(module_space, rel_path)
   main_filename = GetWindowsPathWithUNCPrefix(main_filename)
@@ -218,7 +327,26 @@ def Main():
   program = python_program = FindPythonBinary(module_space)
   if python_program is None:
     raise AssertionError('Could not find python binary: ' + PYTHON_BINARY)
-  args = [python_program, main_filename] + args
+
+  cov_tool = os.environ.get('PYTHON_COVERAGE')
+  if cov_tool:
+    # Inhibit infinite recursion:
+    del os.environ['PYTHON_COVERAGE']
+    if not os.path.exists(cov_tool):
+      raise EnvironmentError('Python coverage tool %s not found.' % cov_tool)
+    args = [python_program, cov_tool, 'run', '-a', '--branch', main_filename] + args
+    # coverage library expects sys.path[0] to contain the library, and replaces
+    # it with the directory of the program it starts. Our actual sys.path[0] is
+    # the runfiles directory, which must not be replaced.
+    # CoverageScript.do_execute() undoes this sys.path[0] setting.
+    #
+    # Update sys.path such that python finds the coverage package. The coverage
+    # entry point is coverage.coverage_main, so we need to do twice the dirname.
+    new_env['PYTHONPATH'] = \
+        new_env['PYTHONPATH'] + ':' + os.path.dirname(os.path.dirname(cov_tool))
+    new_env['PYTHON_LCOV_FILE'] = os.environ.get('COVERAGE_DIR') + '/pylcov.dat'
+  else:
+    args = [python_program, main_filename] + args
 
   os.environ.update(new_env)
 
@@ -228,16 +356,24 @@ def Main():
       # If RUN_UNDER_RUNFILES equals 1, it means we need to
       # change directory to the right runfiles directory.
       # (So that the data files are accessible)
-      if os.environ.get("RUN_UNDER_RUNFILES") == "1":
-        os.chdir(os.path.join(module_space, "%workspace_name%"))
-      retCode = subprocess.call(args)
+      if os.environ.get('RUN_UNDER_RUNFILES') == '1':
+        os.chdir(os.path.join(module_space, '%workspace_name%'))
+      ret_code = subprocess.call(args)
       shutil.rmtree(os.path.dirname(module_space), True)
-      exit(retCode)
+      MaybeEmitHostVersionWarning(ret_code)
+      sys.exit(ret_code)
     else:
-      if IsWindows():
-        # On Windows, os.execv doesn't handle arguments with spaces correctly,
-        # and it actually starts a subprocess just like subprocess.call.
-        exit(subprocess.call(args))
+      # On Windows, os.execv doesn't handle arguments with spaces correctly,
+      # and it actually starts a subprocess just like subprocess.call.
+      #
+      # If we may need to emit a host config warning after execution, don't
+      # execv because we need control to return here. This only happens for
+      # targets built in the host config, so other targets still get to take
+      # advantage of the performance benefits of execv.
+      if IsWindows() or %enable_host_version_warning%:
+        ret_code = subprocess.call(args)
+        MaybeEmitHostVersionWarning(ret_code)
+        sys.exit(ret_code)
       else:
         os.execv(args[0], args)
   except EnvironmentError:

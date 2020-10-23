@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.StaticMetadataProvider;
@@ -57,7 +58,7 @@ public class MerkleTreeTest {
   public void setup() {
     FileSystem fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/exec");
-    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("srcs"));
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, "srcs");
     digestUtil = new DigestUtil(fs.getDigestFunction());
   }
 
@@ -125,15 +126,15 @@ public class MerkleTreeTest {
           digestUtil.computeAsUtf8("buzz"),
           digestUtil.computeAsUtf8("fizzbuzz")
         };
-    assertThat(tree.getInputByDigest(inputDigests[0])).isEqualTo(foo);
-    assertThat(tree.getInputByDigest(inputDigests[1])).isEqualTo(bar);
-    assertThat(tree.getInputByDigest(inputDigests[2])).isEqualTo(buzz);
-    assertThat(tree.getInputByDigest(inputDigests[3])).isEqualTo(fizzbuzz);
+    assertThat(tree.getFileByDigest(inputDigests[0]).getPath()).isEqualTo(foo.getPath());
+    assertThat(tree.getFileByDigest(inputDigests[1]).getPath()).isEqualTo(bar.getPath());
+    assertThat(tree.getFileByDigest(inputDigests[2]).getPath()).isEqualTo(buzz.getPath());
+    assertThat(tree.getFileByDigest(inputDigests[3]).getPath()).isEqualTo(fizzbuzz.getPath());
 
     Digest[] allDigests = Iterables.toArray(tree.getAllDigests(), Digest.class);
     assertThat(allDigests.length).isEqualTo(dirDigests.length + inputDigests.length);
-    assertThat(allDigests).asList().containsAllIn(dirDigests);
-    assertThat(allDigests).asList().containsAllIn(inputDigests);
+    assertThat(allDigests).asList().containsAtLeastElementsIn(dirDigests);
+    assertThat(allDigests).asList().containsAtLeastElementsIn(inputDigests);
   }
 
   private Artifact addFile(
@@ -145,10 +146,10 @@ public class MerkleTreeTest {
     Path p = execRoot.getRelative(path);
     Preconditions.checkNotNull(p.getParentDirectory()).createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(p, content);
-    Artifact a = new Artifact(p, artifactRoot);
+    Artifact a = ActionsTestUtil.createArtifact(artifactRoot, p);
 
     sortedInputs.put(PathFragment.create(path), a);
-    metadata.put(a, FileArtifactValue.create(a));
+    metadata.put(a, FileArtifactValue.createForTesting(a));
     return a;
   }
 

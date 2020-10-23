@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
-import com.google.devtools.build.lib.bazel.rules.DefaultBuildOptionsForDiffing;
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -90,7 +89,7 @@ public class CleanCommandRecommendsAsyncTest {
             .setProductName(productName)
             .setServerDirectories(serverDirectories)
             .setStartupOptionsProvider(
-                OptionsParser.newOptionsParser(BlazeServerStartupOptions.class))
+                OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build())
             .addBlazeModule(
                 new BlazeModule() {
                   @Override
@@ -106,7 +105,7 @@ public class CleanCommandRecommendsAsyncTest {
                 new BlazeModule() {
                   @Override
                   public BuildOptions getDefaultBuildOptions(BlazeRuntime runtime) {
-                    return DefaultBuildOptionsForDiffing.getDefaultBuildOptionsForFragments(
+                    return BuildOptions.getDefaultBuildOptionsForFragments(
                         runtime.getRuleClassProvider().getConfigurationOptions());
                   }
                 })
@@ -119,7 +118,8 @@ public class CleanCommandRecommendsAsyncTest {
             productName);
     runtime.initWorkspace(directories, /* binTools= */ null);
 
-    BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime, new CleanCommand(os));
+    runtime.overrideCommands(ImmutableList.of(new CleanCommand(os)));
+    BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime);
     dispatcher.exec(commandLine, "test", outErr);
     String output = outErr.toString();
 

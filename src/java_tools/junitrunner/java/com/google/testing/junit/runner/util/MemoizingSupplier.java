@@ -14,6 +14,8 @@
 
 package com.google.testing.junit.runner.util;
 
+import java.util.function.Supplier;
+
 /**
  * Returns a {@link Supplier} which caches the instance retrieved during the first call to
  * {@code get()} and returns that value on subsequent calls to {@code get()}. See:

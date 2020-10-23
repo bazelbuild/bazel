@@ -26,6 +26,16 @@ cc_toolchain_config(
     version = "%version%",
 )
 
+toolchain(
+    name = "%toolchainName%_toolchain",
+    target_compatible_with = [
+        "@bazel_tools//platforms:android",
+        "@bazel_tools//platforms:%platform_cpu%",
+    ],
+    toolchain = "@androidndk//:%toolchainName%",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
+
 filegroup(
     name = "%toolchainName%-all_files",
     srcs = glob(["ndk/toolchains/%toolchainDirectory%/**"]) + glob([

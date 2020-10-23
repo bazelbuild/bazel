@@ -17,7 +17,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -25,24 +24,20 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.analysis.AnalysisProtos;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
+import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.query2.aquery.AqueryActionFilter;
 import com.google.devtools.build.lib.query2.aquery.AqueryUtils;
-import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
-import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
+import com.google.devtools.build.lib.util.Pair;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -63,7 +58,7 @@ public class ActionGraphDump {
   private final KnownConfigurations knownConfigurations;
   private final KnownNestedSets knownNestedSets;
   private final KnownAspectDescriptors knownAspectDescriptors;
-  private final KnownRuleConfiguredTargets knownRuleConfiguredTargets;
+  private final KnownTargets knownTargets;
   private final AqueryActionFilter actionFilters;
   private final boolean includeActionCmdLine;
   private final boolean includeArtifacts;
@@ -111,8 +106,7 @@ public class ActionGraphDump {
     knownConfigurations = new KnownConfigurations(actionGraphBuilder);
     knownNestedSets = new KnownNestedSets(actionGraphBuilder, knownArtifacts);
     knownAspectDescriptors = new KnownAspectDescriptors(actionGraphBuilder);
-    knownRuleConfiguredTargets = new KnownRuleConfiguredTargets(actionGraphBuilder,
-        knownRuleClassStrings);
+    knownTargets = new KnownTargets(actionGraphBuilder, knownRuleClassStrings);
   }
 
   public ActionKeyContext getActionKeyContext() {
@@ -143,21 +137,24 @@ public class ActionGraphDump {
       return;
     }
 
-    while (configuredTarget instanceof AliasConfiguredTarget) {
-      configuredTarget = ((AliasConfiguredTarget) configuredTarget).getActual();
-    }
+    // Dereference any aliases that might be present.
+    configuredTarget = configuredTarget.getActual();
 
     Preconditions.checkState(configuredTarget instanceof RuleConfiguredTarget);
-    RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
+    Pair<String, String> targetIdentifier =
+        new Pair<>(
+            configuredTarget.getLabel().toString(),
+            ((RuleConfiguredTarget) configuredTarget).getRuleClassString());
     AnalysisProtos.Action.Builder actionBuilder =
         AnalysisProtos.Action.newBuilder()
             .setMnemonic(action.getMnemonic())
-            .setTargetId(knownRuleConfiguredTargets.dataToId(ruleConfiguredTarget));
+            .setTargetId(knownTargets.dataToId(targetIdentifier));
 
     if (action instanceof ActionExecutionMetadata) {
       ActionExecutionMetadata actionExecutionMetadata = (ActionExecutionMetadata) action;
       actionBuilder
-          .setActionKey(actionExecutionMetadata.getKey(getActionKeyContext()))
+          .setActionKey(
+              actionExecutionMetadata.getKey(getActionKeyContext(), /*artifactExpander=*/ null))
           .setDiscoversInputs(actionExecutionMetadata.discoversInputs());
     }
 
@@ -186,7 +183,7 @@ public class ActionGraphDump {
     if (includeParamFiles) {
       // Assumption: if an Action takes a params file as an input, it will be used
       // to provide params to the command.
-      for (Artifact input : action.getInputs()) {
+      for (Artifact input : action.getInputs().toList()) {
         String inputFileExecPath = input.getExecPathString();
         if (getParamFileNameToContentMap().containsKey(inputFileExecPath)) {
           AnalysisProtos.ParamFile paramFile =
@@ -199,9 +196,9 @@ public class ActionGraphDump {
       }
     }
 
-    if (action instanceof ExecutionInfoSpecifier) {
-      ExecutionInfoSpecifier executionInfoSpecifier = (ExecutionInfoSpecifier) action;
-      for (Map.Entry<String, String> info : executionInfoSpecifier.getExecutionInfo().entrySet()) {
+    Map<String, String> executionInfo = action.getExecutionInfo();
+    if (executionInfo != null) {
+      for (Map.Entry<String, String> info : executionInfo.entrySet()) {
         actionBuilder.addExecutionInfo(
             AnalysisProtos.KeyValuePair.newBuilder()
                 .setKey(info.getKey())
@@ -226,14 +223,9 @@ public class ActionGraphDump {
 
     if (includeArtifacts) {
       // Store inputs
-      Iterable<Artifact> inputs = action.getInputs();
-      if (!(inputs instanceof NestedSet)) {
-        inputs = NestedSetBuilder.wrap(Order.STABLE_ORDER, inputs);
-      }
-      NestedSetView<Artifact> nestedSetView = new NestedSetView<>((NestedSet<Artifact>) inputs);
-
-      if (nestedSetView.directs().size() > 0 || nestedSetView.transitives().size() > 0) {
-        actionBuilder.addInputDepSetIds(knownNestedSets.dataToId(nestedSetView));
+      NestedSet<Artifact> inputs = action.getInputs();
+      if (!inputs.isEmpty()) {
+        actionBuilder.addInputDepSetIds(knownNestedSets.dataToId(inputs));
       }
 
       // store outputs
@@ -251,8 +243,7 @@ public class ActionGraphDump {
     if (!includeInActionGraph(configuredTarget.getLabel().toString())) {
       return;
     }
-    for (int i = 0; i < aspectValue.getNumActions(); i++) {
-      Action action = aspectValue.getAction(i);
+    for (ActionAnalysisMetadata action : aspectValue.getActions()) {
       dumpSingleAction(configuredTarget, action);
     }
   }
@@ -263,8 +254,7 @@ public class ActionGraphDump {
     if (!includeInActionGraph(configuredTarget.getLabel().toString())) {
       return;
     }
-    List<ActionAnalysisMetadata> actions = configuredTargetValue.getActions();
-    for (ActionAnalysisMetadata action : actions) {
+    for (ActionAnalysisMetadata action : configuredTargetValue.getActions()) {
       dumpSingleAction(configuredTarget, action);
     }
   }

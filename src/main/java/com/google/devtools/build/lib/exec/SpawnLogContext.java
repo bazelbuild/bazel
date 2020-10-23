@@ -13,31 +13,31 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import build.bazel.remote.execution.v2.Platform;
 import com.google.common.base.Preconditions;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.Protos.File;
-import com.google.devtools.build.lib.exec.Protos.Platform;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.util.io.MessageOutputStream;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.protobuf.TextFormat;
-import com.google.protobuf.TextFormat.ParseException;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Duration;
@@ -50,26 +50,23 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.function.Consumer;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
  * A logging utility for spawns.
  */
-@ExecutionStrategy(
-    name = {"spawn-log"},
-    contextType = SpawnLogContext.class
-)
 public class SpawnLogContext implements ActionContext {
 
-  private static final Logger logger = Logger.getLogger(SpawnLogContext.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private final Path execRoot;
   private final MessageOutputStream executionLog;
+  @Nullable private final RemoteOptions remoteOptions;
 
-  public SpawnLogContext(Path execRoot, MessageOutputStream executionLog) {
+  public SpawnLogContext(
+      Path execRoot, MessageOutputStream executionLog, @Nullable RemoteOptions remoteOptions) {
     this.execRoot = execRoot;
     this.executionLog = executionLog;
+    this.remoteOptions = remoteOptions;
   }
 
   /** Log the executed spawn to the output stream. */
@@ -79,7 +76,7 @@ public class SpawnLogContext implements ActionContext {
       SortedMap<PathFragment, ActionInput> inputMap,
       Duration timeout,
       SpawnResult result)
-      throws IOException {
+      throws IOException, ExecException {
     SortedMap<Path, ActionInput> existingOutputs = listExistingOutputs(spawn);
     SpawnExec.Builder builder = SpawnExec.newBuilder();
     builder.addAllCommandArgs(spawn.getArguments());
@@ -96,14 +93,14 @@ public class SpawnLogContext implements ActionContext {
         ActionInput input = e.getValue();
         Path inputPath = execRoot.getRelative(input.getExecPathString());
         if (inputPath.isDirectory()) {
-          listDirectoryContents(inputPath, (file) -> builder.addInputs(file), metadataProvider);
+          listDirectoryContents(inputPath, builder::addInputs, metadataProvider);
         } else {
           Digest digest = computeDigest(input, null, metadataProvider);
           builder.addInputsBuilder().setPath(input.getExecPathString()).setDigest(digest);
         }
       }
     } catch (IOException e) {
-      logger.log(Level.WARNING, "Error computing spawn inputs", e);
+      logger.atWarning().withCause(e).log("Error computing spawn inputs");
     }
     ArrayList<String> outputPaths = new ArrayList<>();
     for (ActionInput output : spawn.getOutputFiles()) {
@@ -114,23 +111,22 @@ public class SpawnLogContext implements ActionContext {
     for (Map.Entry<Path, ActionInput> e : existingOutputs.entrySet()) {
       Path path = e.getKey();
       if (path.isDirectory()) {
-        listDirectoryContents(path, (file) -> builder.addActualOutputs(file), metadataProvider);
+        listDirectoryContents(path, builder::addActualOutputs, metadataProvider);
       } else {
         File.Builder outputBuilder = builder.addActualOutputsBuilder();
         outputBuilder.setPath(path.relativeTo(execRoot).toString());
         try {
           outputBuilder.setDigest(computeDigest(e.getValue(), path, metadataProvider));
         } catch (IOException ex) {
-          logger.log(Level.WARNING, "Error computing spawn event output properties", ex);
+          logger.atWarning().withCause(ex).log("Error computing spawn event output properties");
         }
       }
     }
     builder.setRemotable(Spawns.mayBeExecutedRemotely(spawn));
 
-    PlatformInfo execPlatform = spawn.getExecutionPlatform();
-    if (execPlatform != null && execPlatform.remoteExecutionProperties() != null) {
-      builder.setPlatform(
-          buildPlatform(execPlatform.label(), execPlatform.remoteExecutionProperties()));
+    Platform execPlatform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
+    if (execPlatform != null) {
+      builder.setPlatform(buildPlatform(execPlatform));
     }
     if (result.status() != SpawnResult.Status.SUCCESS) {
       builder.setStatus(result.status().toString());
@@ -154,17 +150,10 @@ public class SpawnLogContext implements ActionContext {
     executionLog.close();
   }
 
-  private static Platform buildPlatform(Label platformLabel, @Nullable String platformDescription) {
-    Platform.Builder platformBuilder = Platform.newBuilder();
-    try {
-      if (platformDescription != null) {
-        TextFormat.getParser().merge(platformDescription, platformBuilder);
-      }
-    } catch (ParseException e) {
-      throw new IllegalArgumentException(
-          String.format(
-              "Failed to parse remote_execution_properties from platform %s", platformLabel),
-          e);
+  private static Protos.Platform buildPlatform(Platform platform) {
+    Protos.Platform.Builder platformBuilder = Protos.Platform.newBuilder();
+    for (Platform.Property p : platform.getPropertiesList()) {
+      platformBuilder.addPropertiesBuilder().setName(p.getName()).setValue(p.getValue());
     }
     return platformBuilder.build();
   }
@@ -201,7 +190,7 @@ public class SpawnLogContext implements ActionContext {
         }
       }
     } catch (IOException e) {
-      logger.log(Level.WARNING, "Error computing spawn event file properties", e);
+      logger.atWarning().withCause(e).log("Error computing spawn event file properties");
     }
   }
 
@@ -245,9 +234,11 @@ public class SpawnLogContext implements ActionContext {
       path = execRoot.getRelative(input.getExecPath());
     }
     // Compute digest manually.
+    long fileSize = path.getFileSize();
     return digest
-        .setHash(HashCode.fromBytes(path.getDigest()).toString())
-        .setSizeBytes(path.getFileSize())
+        .setHash(
+            HashCode.fromBytes(DigestUtils.getDigestWithManualFallback(path, fileSize)).toString())
+        .setSizeBytes(fileSize)
         .build();
   }
 }

@@ -17,9 +17,9 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.testutil.EventIterableSubjectFactory.assertThatEvents;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 import static com.google.devtools.build.skyframe.GraphTester.CONCATENATE;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
@@ -453,12 +453,10 @@ public class ParallelEvaluatorTest {
     // And we have a dedicated thread that kicks off the evaluation of A and B together (in that
     // order).
     TestThread evalThread =
-        new TestThread() {
-          @Override
-          public void runTest() throws Exception {
-            assertThrows(InterruptedException.class, () -> eval(/*keepGoing=*/ true, keyA, keyB));
-          }
-        };
+        new TestThread(
+            () ->
+                assertThrows(
+                    InterruptedException.class, () -> eval(/*keepGoing=*/ true, keyA, keyB)));
 
     // Then when we start that thread,
     evalThread.start();
@@ -518,13 +516,10 @@ public class ParallelEvaluatorTest {
               }
             });
     TestThread evalThread =
-        new TestThread() {
-          @Override
-          public void runTest() throws Exception {
-            assertThrows(
-                InterruptedException.class, () -> eval(/*keepGoing=*/ true, waitKey, fastKey));
-          }
-        };
+        new TestThread(
+            () ->
+                assertThrows(
+                    InterruptedException.class, () -> eval(/*keepGoing=*/ true, waitKey, fastKey)));
     evalThread.start();
     assertThat(allValuesReady.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
     evalThread.interrupt();
@@ -831,7 +826,7 @@ public class ParallelEvaluatorTest {
     .setComputedValue(CONCATENATE);
     tester.getOrCreate(errorKey).setHasError(true);
     ErrorInfo error = evalValueInError(parentErrorKey);
-    assertThat(error.getRootCauses()).containsExactly(errorKey);
+    assertThat(error.getRootCauses().toList()).containsExactly(errorKey);
   }
 
   @Test
@@ -849,7 +844,7 @@ public class ParallelEvaluatorTest {
     .setComputedValue(CONCATENATE);
     EvaluationResult<StringValue> result = eval(true, parentErrorKey, errorFreeKey);
     ErrorInfo error = result.getError(parentErrorKey);
-    assertThat(error.getRootCauses()).containsExactly(errorKey);
+    assertThat(error.getRootCauses().toList()).containsExactly(errorKey);
     StringValue abValue = result.get(errorFreeKey);
     assertThat(abValue.getValue()).isEqualTo("ab");
   }
@@ -917,7 +912,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(topKey).addDependency(catastropheKey).setComputedValue(CONCATENATE);
     EvaluationResult<StringValue> result = eval(keepGoing, topKey, otherKey);
     ErrorInfo error = result.getError(topKey);
-    assertThat(error.getRootCauses()).containsExactly(catastropheKey);
+    assertThat(error.getRootCauses().toList()).containsExactly(catastropheKey);
     if (keepGoing) {
       assertThat(result.getCatastrophe()).isSameInstanceAs(catastrophe);
     }
@@ -1012,7 +1007,7 @@ public class ParallelEvaluatorTest {
     assertThat(childValue.getValue()).isEqualTo("onions");
     ErrorInfo error = result.getError(parentKey);
     assertThat(error).isNotNull();
-    assertThat(error.getRootCauses()).containsExactly(parentKey);
+    assertThat(error.getRootCauses().toList()).containsExactly(parentKey);
   }
 
   @Test
@@ -1021,11 +1016,11 @@ public class ParallelEvaluatorTest {
     SkyKey errorKey = GraphTester.toSkyKey("error");
     tester.getOrCreate(errorKey).setHasError(true);
     ErrorInfo error = evalValueInError(errorKey);
-    assertThat(error.getRootCauses()).containsExactly(errorKey);
+    assertThat(error.getRootCauses().toList()).containsExactly(errorKey);
     SkyKey parentKey = GraphTester.toSkyKey("parent");
     tester.getOrCreate(parentKey).addDependency("error").setComputedValue(CONCATENATE);
     error = evalValueInError(parentKey);
-    assertThat(error.getRootCauses()).containsExactly(errorKey);
+    assertThat(error.getRootCauses().toList()).containsExactly(errorKey);
   }
 
   @Test
@@ -1037,7 +1032,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate("mid").addDependency(errorKey).setComputedValue(CONCATENATE);
     tester.getOrCreate(parentKey).addDependency("mid").setComputedValue(CONCATENATE);
     ErrorInfo error = evalValueInError(parentKey);
-    assertThat(error.getRootCauses()).containsExactly(errorKey);
+    assertThat(error.getRootCauses().toList()).containsExactly(errorKey);
   }
 
   @Test
@@ -1080,7 +1075,7 @@ public class ParallelEvaluatorTest {
       .addDependency("mid").addDependency(errorKey2).addDependency(errorKey3)
       .setComputedValue(CONCATENATE);
     ErrorInfo error = evalValueInError(parentKey);
-    assertThat(error.getRootCauses()).containsExactly(errorKey, errorKey2, errorKey3);
+    assertThat(error.getRootCauses().toList()).containsExactly(errorKey, errorKey2, errorKey3);
   }
 
   @Test
@@ -1094,7 +1089,7 @@ public class ParallelEvaluatorTest {
     EvaluationResult<StringValue> result = eval(false, ImmutableList.of(parentKey));
     Map.Entry<SkyKey, ErrorInfo> error = Iterables.getOnlyElement(result.errorMap().entrySet());
     assertThat(error.getKey()).isEqualTo(parentKey);
-    assertThat(error.getValue().getRootCauses()).containsExactly(errorKey);
+    assertThat(error.getValue().getRootCauses().toList()).containsExactly(errorKey);
   }
 
   @Test
@@ -1129,11 +1124,11 @@ public class ParallelEvaluatorTest {
     SkyKey parentKey = GraphTester.toSkyKey("parent");
     tester.getOrCreate(parentKey).addDependency(errorKey);
     ErrorInfo error = evalValueInError(parentKey);
-    assertThat(error.getRootCauses()).containsExactly(errorKey);
+    assertThat(error.getRootCauses().toList()).containsExactly(errorKey);
     SkyKey[] list = { parentKey };
     EvaluationResult<StringValue> result = eval(false, list);
     ErrorInfo errorInfo = result.getError();
-    assertThat(errorInfo.getRootCauses()).containsExactly(errorKey);
+    assertThat(errorInfo.getRootCauses().toList()).containsExactly(errorKey);
     assertThat(errorInfo.getException()).hasMessageThat().isEqualTo(errorKey.toString());
   }
 
@@ -1411,7 +1406,7 @@ public class ParallelEvaluatorTest {
     assertThat(result.keyNames()).isEmpty();
     assertThat(result.errorMap().keySet()).containsExactly(errorKey);
     ErrorInfo errorInfo = result.getError();
-    assertThat(errorInfo.getRootCauses()).containsExactly(errorKey);
+    assertThat(errorInfo.getRootCauses().toList()).containsExactly(errorKey);
     // Update value. But builder won't rebuild it.
     tester.getOrCreate(errorKey).setHasError(false);
     tester.set(errorKey, new StringValue("no error?"));
@@ -1419,7 +1414,7 @@ public class ParallelEvaluatorTest {
     assertThat(result.keyNames()).isEmpty();
     assertThat(result.errorMap().keySet()).containsExactly(errorKey);
     errorInfo = result.getError();
-    assertThat(errorInfo.getRootCauses()).containsExactly(errorKey);
+    assertThat(errorInfo.getRootCauses().toList()).containsExactly(errorKey);
   }
 
   /**
@@ -1542,7 +1537,7 @@ public class ParallelEvaluatorTest {
     assertThat(result.keyNames()).isEmpty();
     assertThat(result.errorMap().keySet()).containsExactly(errorKey);
     ErrorInfo errorInfo = result.getError();
-    assertThat(errorInfo.getRootCauses()).containsExactly(errorKey);
+    assertThat(errorInfo.getRootCauses().toList()).containsExactly(errorKey);
     // Update value. But builder won't rebuild it.
     tester.getOrCreate(errorKey).setHasError(false);
     tester.set(errorKey, new StringValue("no error?"));
@@ -1550,7 +1545,7 @@ public class ParallelEvaluatorTest {
     assertThat(result.keyNames()).isEmpty();
     assertThat(result.errorMap().keySet()).containsExactly(errorKey);
     errorInfo = result.getError();
-    assertThat(errorInfo.getRootCauses()).containsExactly(errorKey);
+    assertThat(errorInfo.getRootCauses().toList()).containsExactly(errorKey);
   }
 
   @Test
@@ -1569,7 +1564,7 @@ public class ParallelEvaluatorTest {
     assertThat(result.keyNames()).isEmpty();
     Map.Entry<SkyKey, ErrorInfo> error = Iterables.getOnlyElement(result.errorMap().entrySet());
     assertThat(error.getKey()).isEqualTo(parentKey);
-    assertThat(error.getValue().getRootCauses()).containsExactly(errorKey);
+    assertThat(error.getValue().getRootCauses().toList()).containsExactly(errorKey);
   }
 
   @Test
@@ -1585,7 +1580,7 @@ public class ParallelEvaluatorTest {
     assertThat(result.keyNames()).isEmpty();
     Map.Entry<SkyKey, ErrorInfo> error = Iterables.getOnlyElement(result.errorMap().entrySet());
     assertThat(error.getKey()).isEqualTo(parentErrorKey);
-    assertThat(error.getValue().getRootCauses()).containsExactly(parentErrorKey);
+    assertThat(error.getValue().getRootCauses().toList()).containsExactly(parentErrorKey);
   }
 
   @Test
@@ -1601,7 +1596,7 @@ public class ParallelEvaluatorTest {
     assertThat(result.keyNames()).isEmpty();
     Map.Entry<SkyKey, ErrorInfo> error = Iterables.getOnlyElement(result.errorMap().entrySet());
     assertThat(error.getKey()).isEqualTo(parentErrorKey);
-    assertThat(error.getValue().getRootCauses()).containsExactly(parentErrorKey);
+    assertThat(error.getValue().getRootCauses().toList()).containsExactly(parentErrorKey);
   }
 
   @Test
@@ -1638,7 +1633,7 @@ public class ParallelEvaluatorTest {
     assertThat(result.keyNames()).isEmpty();
     Map.Entry<SkyKey, ErrorInfo> error = Iterables.getOnlyElement(result.errorMap().entrySet());
     assertThat(error.getKey()).isEqualTo(topKey);
-    assertThat(error.getValue().getRootCauses()).containsExactly(errorKey);
+    assertThat(error.getValue().getRootCauses().toList()).containsExactly(errorKey);
   }
 
   @Test
@@ -1753,7 +1748,7 @@ public class ParallelEvaluatorTest {
     Iterable<CycleInfo> cycleInfos = result.getError(topKey).getCycleInfo();
     if (keepGoing) {
       // The error thrown will only be recorded in keep_going mode.
-      assertThat(result.getError().getRootCauses()).containsExactly(errorKey);
+      assertThat(result.getError().getRootCauses().toList()).containsExactly(errorKey);
     }
     assertThat(cycleInfos).isNotEmpty();
     CycleInfo cycleInfo = Iterables.getOnlyElement(cycleInfos);
@@ -1851,9 +1846,9 @@ public class ParallelEvaluatorTest {
         eval(keepGoing, ImmutableSet.of(topKey, otherTop));
     if (keepGoing) {
       assertThat(result.errorMap().keySet()).containsExactly(otherTop, topKey);
-      assertThat(result.getError(otherTop).getRootCauses()).containsExactly(otherTop);
+      assertThat(result.getError(otherTop).getRootCauses().toList()).containsExactly(otherTop);
       // The error thrown will only be recorded in keep_going mode.
-      assertThat(result.getError(topKey).getRootCauses()).containsExactly(errorKey);
+      assertThat(result.getError(topKey).getRootCauses().toList()).containsExactly(errorKey);
     }
     Iterable<CycleInfo> cycleInfos = result.getError(topKey).getCycleInfo();
     assertThat(cycleInfos).isNotEmpty();
@@ -1942,7 +1937,7 @@ public class ParallelEvaluatorTest {
     EvaluationResult<StringValue> result = eval(keepGoing, ImmutableList.of(topKey));
     assertThat(result.keyNames()).isEmpty();
     assertThat(result.getError(topKey).getException()).isSameInstanceAs(exception);
-    assertThat(result.getError(topKey).getRootCauses()).containsExactly(errorKey);
+    assertThat(result.getError(topKey).getRootCauses().toList()).containsExactly(errorKey);
   }
 
   /**
@@ -2012,7 +2007,7 @@ public class ParallelEvaluatorTest {
     if (!keepGoing) {
       assertThat(result.keyNames()).isEmpty();
       assertThat(result.getError(topKey).getException()).isEqualTo(topException);
-      assertThat(result.getError(topKey).getRootCauses()).containsExactly(topKey);
+      assertThat(result.getError(topKey).getRootCauses().toList()).containsExactly(topKey);
       assertThatEvaluationResult(result).hasError();
     } else {
       assertThatEvaluationResult(result).hasNoError();
@@ -2276,7 +2271,7 @@ public class ParallelEvaluatorTest {
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
             .setNumThreads(200)
-            .setEventHander(reporter)
+            .setEventHandler(reporter)
             .build();
     driver.evaluate(ImmutableList.of(GraphTester.toSkyKey("top1")), evaluationContext);
     assertThat(enqueuedValues).containsExactlyElementsIn(

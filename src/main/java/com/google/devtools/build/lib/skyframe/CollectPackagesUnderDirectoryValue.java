@@ -34,7 +34,8 @@ import javax.annotation.Nullable;
  * The value computed by {@link CollectPackagesUnderDirectoryFunction}. Contains a mapping for all
  * its non-excluded directories to whether there are packages or error messages beneath them.
  *
- * <p>This value is used by {@link GraphBackedRecursivePackageProvider#getPackagesUnderDirectory} to
+ * <p>This value is used by {@link
+ * com.google.devtools.build.lib.pkgcache.RecursivePackageProvider#streamPackagesUnderDirectory} to
  * help it traverse the graph and find the set of packages under a directory, recursively by {@link
  * CollectPackagesUnderDirectoryFunction} which computes a value for a directory by aggregating
  * results calculated from its subdirectories, and by {@link

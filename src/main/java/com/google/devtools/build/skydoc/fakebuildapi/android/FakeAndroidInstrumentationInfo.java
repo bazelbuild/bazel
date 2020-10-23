@@ -14,53 +14,44 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.android;
 
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidInstrumentationInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidInstrumentationInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.ApkInfoApi;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
 
-/**
- * Fake implementation of {@link AndroidInstrumentationInfoApi}.
- */
-public class FakeAndroidInstrumentationInfo implements AndroidInstrumentationInfoApi<FileApi> {
+/** Fake implementation of {@link AndroidInstrumentationInfoApi}. */
+public class FakeAndroidInstrumentationInfo
+    implements AndroidInstrumentationInfoApi<ApkInfoApi<?>> {
 
   @Override
-  public FileApi getTargetApk() {
+  public ApkInfoApi<?> getTarget() {
     return null;
   }
 
   @Override
-  public FileApi getInstrumentationApk() {
-    return null;
-  }
-
-  @Override
-  public String toProto(Location loc) throws EvalException {
+  public String toProto() throws EvalException {
     return "";
   }
 
   @Override
-  public String toJson(Location loc) throws EvalException {
+  public String toJson() throws EvalException {
     return "";
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 
-  /**
-   * Fake implementation of {@link AndroidInstrumentationInfoApiProvider}.
-   */
+  /** Fake implementation of {@link AndroidInstrumentationInfoApiProvider}. */
   public static class FakeAndroidInstrumentationInfoProvider
-      implements AndroidInstrumentationInfoApiProvider<FileApi> {
+      implements AndroidInstrumentationInfoApiProvider<ApkInfoApi<?>> {
 
     @Override
-    public AndroidInstrumentationInfoApi<FileApi> createInfo(FileApi targetApk,
-        FileApi instrumentationApk) throws EvalException {
+    public AndroidInstrumentationInfoApi<ApkInfoApi<?>> createInfo(ApkInfoApi<?> target)
+        throws EvalException {
       return new FakeAndroidInstrumentationInfo();
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {}
+    public void repr(Printer printer) {}
   }
 }

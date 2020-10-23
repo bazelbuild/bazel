@@ -46,3 +46,24 @@ filegroup(
     ],
     visibility = ["//:__pkg__"],
 )
+
+py_binary(
+    name = "generate_fish_completion",
+    srcs = ["generate_fish_completion.py"],
+    deps = ["//third_party/py/abseil"],
+)
+
+genrule(
+    name = "fish_completion",
+    outs = ["bazel.fish"],
+    cmd = " ".join([
+        "$(location :generate_fish_completion)",
+        "--bazel=$(location //src:bazel)",
+        "--output=$@",
+    ]),
+    tools = [
+        ":generate_fish_completion",
+        "//src:bazel",
+    ],
+    visibility = ["//scripts/packages:__subpackages__"],
+)

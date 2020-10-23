@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import net.starlark.java.syntax.Location;
 
 /**
  * Container for some attributes of a {@link Target} that is significantly less heavyweight than an

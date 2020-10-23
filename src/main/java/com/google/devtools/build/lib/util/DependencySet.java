@@ -212,6 +212,14 @@ public final class DependencySet {
               continue;
           }
 
+        case '$':
+          if (content[r] == '$') {
+            content[w++] = '$';
+            ++r;
+            continue;
+          }
+          // I don't think this can ever happen, but fall through nevertheless...
+
         default:
           content[w++] = c;
 

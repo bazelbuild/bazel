@@ -52,8 +52,7 @@ class CollectTargetsInPackageFunction implements SkyFunction {
     }
     env.getValues(
         Iterables.transform(
-            TargetPatternResolverUtil.resolvePackageTargets(pkg, argument.getFilteringPolicy())
-                .getTargets(),
+            TargetPatternResolverUtil.resolvePackageTargets(pkg, argument.getFilteringPolicy()),
             TO_TRANSITIVE_TRAVERSAL_KEY));
     if (env.valuesMissing()) {
       return null;

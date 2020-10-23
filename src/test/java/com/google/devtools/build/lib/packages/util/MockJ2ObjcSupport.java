@@ -76,6 +76,7 @@ public final class MockJ2ObjcSupport {
 
     config.create(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/j2objc/BUILD",
+        TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
         "package(default_visibility=['//visibility:public'])",
         "licenses(['notice'])",
         "filegroup(",
@@ -93,14 +94,15 @@ public final class MockJ2ObjcSupport {
         "    runtime = '//third_party/java/j2objc:proto_runtime',",
         ")",
         "exports_files(['j2objc_deploy.jar'])",
-        "filegroup(",
+        "proto_library(",
         "    name = 'j2objc_proto_blacklist',",
-        "    srcs = [",
-        "        '" + TestConstants.TOOLS_REPOSITORY + "//tools/j2objc/proto:blacklisted.proto'",
+        "    deps = [",
+        "        '" + TestConstants.TOOLS_REPOSITORY + "//tools/j2objc/proto:blacklisted'",
         "    ])");
 
     config.create(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/j2objc/proto/BUILD",
+        TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
         "package(default_visibility=['//visibility:public'])",
         "proto_library(name = 'blacklisted',",
         "              srcs = ['blacklisted.proto'])");

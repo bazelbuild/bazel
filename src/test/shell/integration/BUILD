@@ -1,3 +1,5 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+
 package(default_visibility = ["//visibility:private"])
 
 filegroup(
@@ -146,9 +148,9 @@ sh_test(
 )
 
 sh_test(
-    name = "experimental_ui_test",
+    name = "ui_test",
     size = "large",
-    srcs = ["experimental_ui_test.sh"],
+    srcs = ["ui_test.sh"],
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
@@ -162,6 +164,7 @@ sh_test(
     srcs = ["java_integration_test.sh"],
     args = ["$(JAVABASE)"],
     data = [
+        "java_integration_test_utils.sh",
         ":test-deps",
         "//src/test/shell:shell_utils",
     ],
@@ -188,7 +191,7 @@ sh_test(
     srcs = ["run_test.sh"],
     data = [":test-deps"],
     shard_count = 3,
-    tags = ["no_windows"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
 sh_test(
@@ -255,6 +258,26 @@ sh_test(
 )
 
 sh_test(
+    name = "starlark_configurations_test",
+    size = "medium",
+    srcs = ["starlark_configurations_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
+    name = "starlark_configurations_external_workspaces_test",
+    size = "medium",
+    srcs = ["starlark_configurations_external_workspaces_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "analysis_test_test",
     size = "medium",
     srcs = ["analysis_test_test.sh"],
@@ -311,7 +334,6 @@ sh_test(
     srcs = ["modify_execution_info_test.sh"],
     data = [
         ":test-deps",
-        "//third_party/protobuf/3.6.1:srcs",
         "@bazel_tools//tools/bash/runfiles",
     ],
 )
@@ -336,19 +358,9 @@ sh_test(
 )
 
 sh_test(
-    name = "skylark_flag_test",
+    name = "starlark_flag_test",
     size = "medium",
-    srcs = ["skylark_flag_test.sh"],
-    data = [
-        ":test-deps",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-)
-
-sh_test(
-    name = "ui_test",
-    size = "medium",
-    srcs = ["ui_test.sh"],
+    srcs = ["starlark_flag_test.sh"],
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
@@ -373,6 +385,17 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+)
+
+sh_test(
+    name = "action_aspect_test",
+    size = "large",
+    srcs = ["action_aspect_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],
 )
 
 sh_test(
@@ -442,10 +465,48 @@ sh_test(
     args = [
         "--worker_sandboxing=no",
         "non-sandboxed",
+        "proto",
     ],
     data = [
         ":test-deps",
         "//src/test/java/com/google/devtools/build/lib:ExampleWorker_deploy.jar",
+    ],
+    shard_count = 3,
+    tags = [
+        "no_windows",
+    ],
+)
+
+sh_test(
+    name = "bazel_json_worker_test",
+    size = "large",
+    srcs = ["bazel_worker_test.sh"],
+    args = [
+        "--worker_sandboxing=no",
+        "non-sandboxed",
+        "json",
+    ],
+    data = [
+        ":test-deps",
+        "//src/test/java/com/google/devtools/build/lib:ExampleWorker_deploy.jar",
+    ],
+    tags = [
+        "no_windows",
+    ],
+)
+
+sh_test(
+    name = "bazel_worker_multiplexer_test",
+    size = "large",
+    srcs = ["bazel_worker_multiplexer_test.sh"],
+    args = [
+        "--worker_sandboxing=no",
+        "non-sandboxed",
+        "proto",
+    ],
+    data = [
+        ":test-deps",
+        "//src/test/java/com/google/devtools/build/lib:ExampleWorkerMultiplexer_deploy.jar",
     ],
     shard_count = 3,
     tags = [
@@ -460,6 +521,7 @@ sh_test(
     args = [
         "--worker_sandboxing",
         "sandboxed",
+        "proto",
     ],
     data = [
         ":test-deps",
@@ -566,6 +628,7 @@ sh_test(
     data = [
         ":test-deps",
     ],
+    shard_count = 4,
     tags = ["no_windows"],
 )
 
@@ -625,6 +688,48 @@ sh_test(
     srcs = ["py_args_escaping_test.sh"],
     data = [":test-deps"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
+    name = "bash_runfiles_v1_test",
+    srcs = ["bash_runfiles_v1_test.sh"],
+    data = ["BUILD"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
+    name = "starlark_dependency_pruning_test",
+    timeout = "long",
+    srcs = ["starlark_dependency_pruning_test.sh"],
+    data = [":test-deps"],
+    shard_count = 2,
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
+    name = "validation_actions_test",
+    srcs = ["validation_actions_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
+    name = "target_pattern_file_test",
+    srcs = ["target_pattern_file_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
+    name = "info_test",
+    srcs = ["info_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 ########################################################################

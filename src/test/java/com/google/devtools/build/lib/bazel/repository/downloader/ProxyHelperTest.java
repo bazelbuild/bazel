@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
@@ -110,6 +110,25 @@ public class ProxyHelperTest {
                 "https://my.example.com"));
     Proxy proxy = helper.createProxyIfNeeded(new URL("https://www.example.com"));
     assertThat(proxy).isEqualTo(Proxy.NO_PROXY);
+  }
+
+  @Test
+  public void testCreateIfNeededMultipleNoProxySpaces() throws Exception {
+    ProxyHelper helper =
+        new ProxyHelper(
+            ImmutableMap.of(
+                "no_proxy",
+                "something.com ,   example.com, localhost",
+                "HTTPS_PROXY",
+                "https://my.example.com"));
+    Proxy proxy = helper.createProxyIfNeeded(new URL("https://www.something.com"));
+    assertThat(proxy).isEqualTo(Proxy.NO_PROXY);
+
+    Proxy proxy2 = helper.createProxyIfNeeded(new URL("https://www.example.com"));
+    assertThat(proxy2).isEqualTo(Proxy.NO_PROXY);
+
+    Proxy proxy3 = helper.createProxyIfNeeded(new URL("https://localhost"));
+    assertThat(proxy3).isEqualTo(Proxy.NO_PROXY);
   }
 
   @Test

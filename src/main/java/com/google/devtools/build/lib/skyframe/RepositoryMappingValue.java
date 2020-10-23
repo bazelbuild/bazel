@@ -22,21 +22,21 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
 
 /**
- * A value that represents the 'mappings' of an external Bazel workspace, as defined
- * in the main WORKSPACE file. The SkyValue contains the mappings themselves, with the key being
- * the name of the external repository.
+ * A value that represents the 'mappings' of an external Bazel workspace, as defined in the main
+ * WORKSPACE file. The SkyValue contains the mappings themselves, with the key being the name of the
+ * external repository.
  *
  * <p>Given the following rule:
+ *
  * <pre>{@code
  * local_repository(
- *   name = “a”,
- *   path = “../a”,
- *   repo_mapping = {“@x” : “@y”}
+ *   name = "a",
+ *   path = "../a",
+ *   repo_mapping = {"@x" : "@y"}
  * )
  * }</pre>
  *
@@ -44,8 +44,8 @@ import java.util.Objects;
  *
  * <p>This is kept as a separate value with trivial change pruning so as to not necessitate a
  * dependency from every {@link PackageValue} to the //external {@link PackageValue}, so that
- * changes to things in the WORKSPACE other than the mappings (and name) won't require reloading
- * all packages. If the mappings are changed then the external packages need to be reloaded.
+ * changes to things in the WORKSPACE other than the mappings (and name) won't require reloading all
+ * packages. If the mappings are changed then the external packages need to be reloaded.
  */
 public class RepositoryMappingValue implements SkyValue {
 
@@ -91,7 +91,7 @@ public class RepositoryMappingValue implements SkyValue {
     return repositoryMapping.toString();
   }
 
-  /** {@link SkyKey} for {@link RepositoryMappingValue}. */
+  /** {@link com.google.devtools.build.skyframe.SkyKey} for {@link RepositoryMappingValue}. */
   @AutoCodec.VisibleForSerialization
   @AutoCodec
   static class Key extends AbstractSkyKey<RepositoryName> {

@@ -14,15 +14,11 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Iterator;
 import javax.annotation.Nullable;
 
 /**
@@ -38,29 +34,6 @@ public final class MiddlemanFactory {
       ArtifactFactory artifactFactory, ActionRegistry actionRegistry) {
     this.artifactFactory = Preconditions.checkNotNull(artifactFactory);
     this.actionRegistry = Preconditions.checkNotNull(actionRegistry);
-  }
-
-  /**
-   * Creates a {@link MiddlemanType#AGGREGATING_MIDDLEMAN aggregating} middleman.
-   *
-   * @param owner the owner of the action that will be created; must not be null
-   * @param purpose the purpose for which this middleman is created. This should be a string which
-   *     is suitable for use as a filename. A single rule may have many middlemen with distinct
-   *     purposes.
-   * @param inputs the set of artifacts for which the created artifact is to be the middleman.
-   * @param middlemanDir the directory in which to place the middleman.
-   * @return null iff {@code inputs} is empty; the single element of {@code inputs} if there's only
-   *     one; a new aggregating middleman for the {@code inputs} otherwise
-   */
-  public Artifact createAggregatingMiddleman(
-      ActionOwner owner, String purpose, Iterable<Artifact> inputs, ArtifactRoot middlemanDir) {
-    if (hasExactlyOneInput(inputs)) { // Optimization: No middleman for just one input.
-      return Iterables.getOnlyElement(inputs);
-    }
-    Pair<Artifact, Action> result = createMiddleman(
-        owner, Label.print(owner.getLabel()), purpose, inputs, middlemanDir,
-        MiddlemanType.AGGREGATING_MIDDLEMAN);
-    return result == null ? null : result.getFirst();
   }
 
   /**
@@ -81,12 +54,12 @@ public final class MiddlemanFactory {
   public Artifact createRunfilesMiddleman(
       ActionOwner owner,
       @Nullable Artifact owningArtifact,
-      Iterable<Artifact> inputs,
+      NestedSet<Artifact> inputs,
       ArtifactRoot middlemanDir,
       String tag) {
     Preconditions.checkArgument(middlemanDir.isMiddlemanRoot());
-    if (hasExactlyOneInput(inputs)) { // Optimization: No middleman for just one input.
-      return Iterables.getOnlyElement(inputs);
+    if (inputs.isSingleton()) { // Optimization: No middleman for just one input.
+      return inputs.getSingleton();
     }
     String middlemanPath = owningArtifact == null
        ? Label.print(owner.getLabel())
@@ -95,20 +68,9 @@ public final class MiddlemanFactory {
         MiddlemanType.RUNFILES_MIDDLEMAN).getFirst();
   }
 
-  private <T> boolean hasExactlyOneInput(Iterable<T> iterable) {
-    if (iterable instanceof NestedSet) {
-      return ((NestedSet) iterable).isSingleton();
-    }
-    Iterator<T> it = iterable.iterator();
-    if (!it.hasNext()) {
-      return false;
-    }
-    it.next();
-    return !it.hasNext();
-  }
-
   /**
-   * Creates a {@link MiddlemanType#ERROR_PROPAGATING_MIDDLEMAN error-propagating} middleman.
+   * Creates a {@link MiddlemanType#SCHEDULING_DEPENDENCY_MIDDLEMAN scheduling dependency}
+   * middleman.
    *
    * @param owner the owner of the action that will be created. May not be null.
    * @param middlemanName a unique file name for the middleman artifact in the {@code middlemanDir};
@@ -123,26 +85,23 @@ public final class MiddlemanFactory {
    *     propagates errors, but is ignored by the dependency checker
    * @throws IllegalArgumentException if {@code inputs} is null or empty
    */
-  public Artifact createErrorPropagatingMiddleman(
+  public Artifact createSchedulingDependencyMiddleman(
       ActionOwner owner,
       String middlemanName,
       String purpose,
-      Iterable<Artifact> inputs,
+      NestedSet<Artifact> inputs,
       ArtifactRoot middlemanDir) {
     Preconditions.checkArgument(inputs != null);
-    Preconditions.checkArgument(!Iterables.isEmpty(inputs));
+    Preconditions.checkArgument(!inputs.isEmpty());
     // We must always create this middleman even if there is only one input.
-    return createMiddleman(owner, middlemanName, purpose, inputs, middlemanDir,
-        MiddlemanType.ERROR_PROPAGATING_MIDDLEMAN).getFirst();
-  }
-
-  /**
-   * Returns the same artifact as {@code createErrorPropagatingMiddleman} would return, but doesn't
-   * create any action.
-   */
-  public Artifact getErrorPropagatingMiddlemanArtifact(
-      String middlemanName, String purpose, ArtifactRoot middlemanDir) {
-    return getStampFileArtifact(middlemanName, purpose, middlemanDir);
+    return createMiddleman(
+            owner,
+            middlemanName,
+            purpose,
+            inputs,
+            middlemanDir,
+            MiddlemanType.SCHEDULING_DEPENDENCY_MIDDLEMAN)
+        .getFirst();
   }
 
   /**
@@ -158,16 +117,16 @@ public final class MiddlemanFactory {
       ActionOwner owner,
       String middlemanName,
       String purpose,
-      Iterable<Artifact> inputs,
+      NestedSet<Artifact> inputs,
       ArtifactRoot middlemanDir,
       MiddlemanType middlemanType) {
-    if (inputs == null || CollectionUtils.isEmpty(inputs)) {
+    if (inputs == null || inputs.isEmpty()) {
       return null;
     }
 
     Artifact stampFile = getStampFileArtifact(middlemanName, purpose, middlemanDir);
-    Action action = new MiddlemanAction(owner, inputs, stampFile, purpose, middlemanType);
-    actionRegistry.registerAction(action);
+    Action action =
+        MiddlemanAction.create(actionRegistry, owner, inputs, stampFile, purpose, middlemanType);
     return Pair.of(stampFile, action);
   }
 
@@ -181,30 +140,30 @@ public final class MiddlemanFactory {
    * <p>Note: there's no need to synchronize this method; the only use of a field is via a call to
    * another synchronized method (getArtifact()).
    */
-  public Artifact createMiddlemanAllowMultiple(
+  public Artifact.DerivedArtifact createMiddlemanAllowMultiple(
       ActionRegistry registry,
       ActionOwner owner,
       PathFragment packageDirectory,
       String purpose,
-      Iterable<Artifact> inputs,
+      NestedSet<Artifact> inputs,
       ArtifactRoot middlemanDir) {
     String escapedPackageDirectory = Actions.escapedPath(packageDirectory.getPathString());
     PathFragment stampName =
         PathFragment.create("_middlemen/" + (purpose.startsWith(escapedPackageDirectory)
                              ? purpose : (escapedPackageDirectory + purpose)));
-    Artifact stampFile = artifactFactory.getDerivedArtifact(stampName, middlemanDir,
-        actionRegistry.getOwner());
+    Artifact.DerivedArtifact stampFile =
+        artifactFactory.getDerivedArtifact(stampName, middlemanDir, actionRegistry.getOwner());
     MiddlemanAction.create(
         registry, owner, inputs, stampFile, purpose, MiddlemanType.AGGREGATING_MIDDLEMAN);
     return stampFile;
   }
 
-  private Artifact getStampFileArtifact(
+  private Artifact.DerivedArtifact getStampFileArtifact(
       String middlemanName, String purpose, ArtifactRoot middlemanDir) {
     String escapedFilename = Actions.escapedPath(middlemanName);
     PathFragment stampName = PathFragment.create("_middlemen/" + escapedFilename + "-" + purpose);
-    Artifact stampFile = artifactFactory.getDerivedArtifact(stampName, middlemanDir,
-        actionRegistry.getOwner());
+    Artifact.DerivedArtifact stampFile =
+        artifactFactory.getDerivedArtifact(stampName, middlemanDir, actionRegistry.getOwner());
     return stampFile;
   }
 }

@@ -17,6 +17,12 @@ package com.google.devtools.coverageoutputgenerator;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -48,6 +54,14 @@ public class LcovMergerTestUtils {
           "FNDA:0,file1-func3",
           "FNF:3",
           "FNH:2",
+          "BA:15,1",
+          "BA:15,2",
+          "BA:23,2",
+          "BA:23,1",
+          "BA:25,0",
+          "BA:25,0",
+          "BRF:6",
+          "BRH:2",
           "DA:10,3",
           "DA:11,3",
           "DA:12,30",
@@ -77,6 +91,14 @@ public class LcovMergerTestUtils {
           "FNDA:0,file1-func3",
           "FNF:3",
           "FNH:2",
+          "BA:15,1",
+          "BA:15,2",
+          "BA:23,2",
+          "BA:23,1",
+          "BA:25,0",
+          "BA:25,0",
+          "BRF:6",
+          "BRH:2",
           "DA:10,3",
           "DA:11,3",
           "DA:12,30",
@@ -107,6 +129,14 @@ public class LcovMergerTestUtils {
           "FNDA:2,file1-func3",
           "FNF:3",
           "FNH:3",
+          "BA:15,2",
+          "BA:15,1",
+          "BA:23,2",
+          "BA:23,2",
+          "BA:25,1",
+          "BA:25,2",
+          "BRF:6",
+          "BRH:4",
           "DA:10,2",
           "DA:11,2",
           "DA:12,20",
@@ -137,6 +167,14 @@ public class LcovMergerTestUtils {
           "FNDA:2,file1-func3",
           "FNF:3",
           "FNH:3",
+          "BA:15,2",
+          "BA:15,2",
+          "BA:23,2",
+          "BA:23,2",
+          "BA:25,1",
+          "BA:25,2",
+          "BRF:6",
+          "BRH:5",
           "DA:10,5",
           "DA:11,5",
           "DA:12,50",
@@ -162,22 +200,27 @@ public class LcovMergerTestUtils {
 
   static final String FUNC_1 = "file1-func1";
   static final int FUNC_1_LINE_NR = 10;
-  static final int FUNC_1_NR_EXECUTED_LINES_TRACEFILE1 = 3;
-  static final int FUNC_1_NR_EXECUTED_LINES_TRACEFILE2 = 2;
+  static final long FUNC_1_NR_EXECUTED_LINES_TRACEFILE1 = 3;
+  static final long FUNC_1_NR_EXECUTED_LINES_TRACEFILE2 = 2;
 
   static final String FUNC_2 = "file1-func2";
   static final int FUNC_2_LINE_NR = 20;
-  static final int FUNC_2_NR_EXECUTED_LINES_TRACEFILE1 = 5;
-  static final int FUNC_2_NR_EXECECUTED_LINES_TRACEFILE2 = 3;
+  static final long FUNC_2_NR_EXECUTED_LINES_TRACEFILE1 = 5;
+  static final long FUNC_2_NR_EXECECUTED_LINES_TRACEFILE2 = 3;
 
   static final String FUNC_3 = "file1-func3";
   static final int FUNC_3_LINE_NR = 25;
-  static final int FUNC_3_NR_EXECUTED_LINES_TRACEFILE1 = 0;
-  static final int FUNC_3_NR_EXECUTED_LINES_TRACEFILE2 = 2;
+  static final long FUNC_3_NR_EXECUTED_LINES_TRACEFILE1 = 0;
+  static final long FUNC_3_NR_EXECUTED_LINES_TRACEFILE2 = 2;
 
   static final int NR_LINES_FOUND = 14;
   static final int NR_LINES_HIT_TRACEFILE1 = 10;
   static final int NR_LINES_HIT_TRACEFILE2 = 13;
+
+  static final int NR_BRANCHES_FOUND = 6;
+  static final int NR_BRANCHES_HIT_TRACEFILE1 = 2;
+  static final int NR_BRANCHES_HIT_TRACEFILE2 = 4;
+  static final int NR_BRANCHES_HIT_MERGED = 5;
 
   static final int MAX_LINES_IN_FILE = 27;
 
@@ -250,28 +293,42 @@ public class LcovMergerTestUtils {
       }
     }
 
+    sourceFile.addBranch(15, BranchCoverage.create(15, 1));
+    sourceFile.addBranch(15, BranchCoverage.create(15, 2));
+    sourceFile.addBranch(23, BranchCoverage.create(23, 2));
+    sourceFile.addBranch(23, BranchCoverage.create(23, 1));
+    sourceFile.addBranch(25, BranchCoverage.create(25, 0));
+    sourceFile.addBranch(25, BranchCoverage.create(25, 0));
+
     return sourceFile;
   }
 
   // Create source file coverage data, excluding branch coverage
   static SourceFileCoverage createSourceFile2(int[] lineExecutionCount) {
-    SourceFileCoverage sourceFileCoverage = new SourceFileCoverage(SOURCE_FILENAME);
+    SourceFileCoverage sourceFile = new SourceFileCoverage(SOURCE_FILENAME);
 
-    sourceFileCoverage.addLineNumber(FUNC_1, FUNC_1_LINE_NR);
-    sourceFileCoverage.addFunctionExecution(FUNC_1, FUNC_1_NR_EXECUTED_LINES_TRACEFILE2);
+    sourceFile.addLineNumber(FUNC_1, FUNC_1_LINE_NR);
+    sourceFile.addFunctionExecution(FUNC_1, FUNC_1_NR_EXECUTED_LINES_TRACEFILE2);
 
-    sourceFileCoverage.addLineNumber(FUNC_2, FUNC_2_LINE_NR);
-    sourceFileCoverage.addFunctionExecution(FUNC_2, FUNC_2_NR_EXECECUTED_LINES_TRACEFILE2);
+    sourceFile.addLineNumber(FUNC_2, FUNC_2_LINE_NR);
+    sourceFile.addFunctionExecution(FUNC_2, FUNC_2_NR_EXECECUTED_LINES_TRACEFILE2);
 
-    sourceFileCoverage.addLineNumber(FUNC_3, FUNC_3_LINE_NR);
-    sourceFileCoverage.addFunctionExecution(FUNC_3, FUNC_3_NR_EXECUTED_LINES_TRACEFILE2);
+    sourceFile.addLineNumber(FUNC_3, FUNC_3_LINE_NR);
+    sourceFile.addFunctionExecution(FUNC_3, FUNC_3_NR_EXECUTED_LINES_TRACEFILE2);
 
     for (int line = FUNC_1_LINE_NR; line < MAX_LINES_IN_FILE; line++) {
       if (lineExecutionCount[line] >= 0) {
-        sourceFileCoverage.addLine(line, LineCoverage.create(line, lineExecutionCount[line], null));
+        sourceFile.addLine(line, LineCoverage.create(line, lineExecutionCount[line], null));
       }
     }
-    return sourceFileCoverage;
+
+    sourceFile.addBranch(15, BranchCoverage.create(15, 2));
+    sourceFile.addBranch(15, BranchCoverage.create(15, 1));
+    sourceFile.addBranch(23, BranchCoverage.create(23, 2));
+    sourceFile.addBranch(23, BranchCoverage.create(23, 2));
+    sourceFile.addBranch(25, BranchCoverage.create(25, 1));
+    sourceFile.addBranch(25, BranchCoverage.create(25, 2));
+    return sourceFile;
   }
 
   private static void assertLinesExecution_tracefile1(Map<Integer, LineCoverage> lines) {
@@ -307,17 +364,20 @@ public class LcovMergerTestUtils {
   static void assertTracefile1(SourceFileCoverage sourceFile) {
     Map<String, Integer> lineNumbers = sourceFile.getLineNumbers();
     assertThat(lineNumbers.size()).isEqualTo(3);
-    assertThat(lineNumbers.keySet()).containsAllOf(FUNC_1, FUNC_2, FUNC_3);
+    assertThat(lineNumbers.keySet()).containsAtLeast(FUNC_1, FUNC_2, FUNC_3);
     assertThat(lineNumbers.get(FUNC_1)).isEqualTo(FUNC_1_LINE_NR);
     assertThat(lineNumbers.get(FUNC_2)).isEqualTo(FUNC_2_LINE_NR);
     assertThat(lineNumbers.get(FUNC_3)).isEqualTo(FUNC_3_LINE_NR);
 
-    Map<String, Integer> functionsExecution = sourceFile.getFunctionsExecution();
+    Map<String, Long> functionsExecution = sourceFile.getFunctionsExecution();
     assertThat(functionsExecution.size()).isEqualTo(3);
-    assertThat(functionsExecution.keySet()).containsAllOf(FUNC_1, FUNC_2, FUNC_3);
+    assertThat(functionsExecution.keySet()).containsAtLeast(FUNC_1, FUNC_2, FUNC_3);
     assertThat(functionsExecution.get(FUNC_1)).isEqualTo(FUNC_1_NR_EXECUTED_LINES_TRACEFILE1);
     assertThat(functionsExecution.get(FUNC_2)).isEqualTo(FUNC_2_NR_EXECUTED_LINES_TRACEFILE1);
     assertThat(functionsExecution.get(FUNC_3)).isEqualTo(FUNC_3_NR_EXECUTED_LINES_TRACEFILE1);
+
+    assertThat(sourceFile.nrBranchesFound()).isEqualTo(NR_BRANCHES_FOUND);
+    assertThat(sourceFile.nrBranchesHit()).isEqualTo(NR_BRANCHES_HIT_TRACEFILE1);
 
     assertLinesExecution_tracefile1(sourceFile.getLines());
 
@@ -328,17 +388,20 @@ public class LcovMergerTestUtils {
   static void assertTracefile2(SourceFileCoverage sourceFile) {
     Map<String, Integer> lineNumbers = sourceFile.getLineNumbers();
     assertThat(lineNumbers.size()).isEqualTo(3);
-    assertThat(lineNumbers.keySet()).containsAllOf(FUNC_1, FUNC_2, FUNC_3);
+    assertThat(lineNumbers.keySet()).containsAtLeast(FUNC_1, FUNC_2, FUNC_3);
     assertThat(lineNumbers.get(FUNC_1)).isEqualTo(FUNC_1_LINE_NR);
     assertThat(lineNumbers.get(FUNC_2)).isEqualTo(FUNC_2_LINE_NR);
     assertThat(lineNumbers.get(FUNC_3)).isEqualTo(FUNC_3_LINE_NR);
 
-    Map<String, Integer> functionsExecution = sourceFile.getFunctionsExecution();
+    Map<String, Long> functionsExecution = sourceFile.getFunctionsExecution();
     assertThat(functionsExecution.size()).isEqualTo(3);
-    assertThat(functionsExecution.keySet()).containsAllOf(FUNC_1, FUNC_2, FUNC_3);
+    assertThat(functionsExecution.keySet()).containsAtLeast(FUNC_1, FUNC_2, FUNC_3);
     assertThat(functionsExecution.get(FUNC_1)).isEqualTo(FUNC_1_NR_EXECUTED_LINES_TRACEFILE2);
     assertThat(functionsExecution.get(FUNC_2)).isEqualTo(FUNC_2_NR_EXECECUTED_LINES_TRACEFILE2);
     assertThat(functionsExecution.get(FUNC_3)).isEqualTo(FUNC_3_NR_EXECUTED_LINES_TRACEFILE2);
+
+    assertThat(sourceFile.nrBranchesFound()).isEqualTo(NR_BRANCHES_FOUND);
+    assertThat(sourceFile.nrBranchesHit()).isEqualTo(NR_BRANCHES_HIT_TRACEFILE2);
 
     assertLines_tracefile2(sourceFile.getLines());
 
@@ -348,15 +411,15 @@ public class LcovMergerTestUtils {
 
   static void assertMergedLineNumbers(TreeMap<String, Integer> lineNumbers) {
     assertThat(lineNumbers.size()).isEqualTo(3);
-    assertThat(lineNumbers.keySet()).containsAllOf(FUNC_1, FUNC_2, FUNC_3);
+    assertThat(lineNumbers.keySet()).containsAtLeast(FUNC_1, FUNC_2, FUNC_3);
     assertThat(lineNumbers.get(FUNC_1)).isEqualTo(FUNC_1_LINE_NR);
     assertThat(lineNumbers.get(FUNC_2)).isEqualTo(FUNC_2_LINE_NR);
     assertThat(lineNumbers.get(FUNC_3)).isEqualTo(FUNC_3_LINE_NR);
   }
 
-  static void assertMergedFunctionsExecution(TreeMap<String, Integer> functionsExecution) {
+  static void assertMergedFunctionsExecution(TreeMap<String, Long> functionsExecution) {
     assertThat(functionsExecution.size()).isEqualTo(3);
-    assertThat(functionsExecution.keySet()).containsAllOf(FUNC_1, FUNC_2, FUNC_3);
+    assertThat(functionsExecution.keySet()).containsAtLeast(FUNC_1, FUNC_2, FUNC_3);
     assertThat(functionsExecution.get(FUNC_1))
         .isEqualTo(FUNC_1_NR_EXECUTED_LINES_TRACEFILE1 + FUNC_1_NR_EXECUTED_LINES_TRACEFILE2);
     assertThat(functionsExecution.get(FUNC_2))
@@ -395,9 +458,49 @@ public class LcovMergerTestUtils {
     assertMergedFunctionsExecution(merged.getFunctionsExecution());
     assertMergedLines(merged.getLines(), linesExecution1, linesExecution2);
 
+    assertThat(merged.nrBranchesFound()).isEqualTo(NR_BRANCHES_FOUND);
+    assertThat(merged.nrBranchesHit()).isEqualTo(NR_BRANCHES_HIT_MERGED);
+
     assertThat(merged.nrFunctionsFound()).isEqualTo(NR_FUNCTIONS_FOUND);
     assertThat(merged.nrFunctionsHit()).isEqualTo(NR_FUNCTIONS_FOUND);
     assertThat(merged.nrOfLinesWithNonZeroExecution()).isEqualTo(14);
     assertThat(merged.nrOfInstrumentedLines()).isEqualTo(14);
+  }
+
+  static List<String> generateLcovContents(
+      String srcPrefix, int numSourceFiles, int numLinesPerSourceFile) {
+    ArrayList<String> lines = new ArrayList<>();
+    for (int i = 0; i < numSourceFiles; i++) {
+      lines.add(String.format("SF:%s%s.cc", srcPrefix, i));
+      lines.add("FNF:0");
+      lines.add("FNH:0");
+      for (int srcLineNum = 1; srcLineNum <= numLinesPerSourceFile; srcLineNum += 4) {
+        lines.add(String.format("BA:%s,2", srcLineNum));
+      }
+      lines.add("BRF:" + numLinesPerSourceFile / 4);
+      lines.add("BRH:" + numLinesPerSourceFile / 4);
+      for (int srcLineNum = 1; srcLineNum <= numLinesPerSourceFile; srcLineNum++) {
+        lines.add(String.format("DA:%s,%s", srcLineNum, srcLineNum % 2));
+      }
+      lines.add("LH:" + numLinesPerSourceFile / 2);
+      lines.add("LF:" + numLinesPerSourceFile);
+      lines.add("end_of_record");
+    }
+    return lines;
+  }
+
+  static List<Path> generateLcovFiles(
+      String srcPrefix, int numLcovFiles, int numSrcFiles, int numLinesPerSrcFile, Path coverageDir)
+      throws IOException {
+    Path lcovFile = Files.createFile(Paths.get(coverageDir.toString(), "coverage0.dat"));
+    List<Path> lcovFiles = new ArrayList<>();
+    Files.write(lcovFile, generateLcovContents(srcPrefix, numSrcFiles, numLinesPerSrcFile));
+    lcovFiles.add(lcovFile);
+    for (int i = 1; i < numLcovFiles; i++) {
+      lcovFiles.add(
+          Files.createSymbolicLink(
+              Paths.get(coverageDir.toString(), String.format("coverage%s.dat", i)), lcovFile));
+    }
+    return lcovFiles;
   }
 }

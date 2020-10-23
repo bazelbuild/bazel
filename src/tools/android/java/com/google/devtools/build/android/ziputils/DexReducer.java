@@ -100,8 +100,8 @@ public class DexReducer implements EntryHandler {
     String filename = BASENAME + (count == 1 ? "" : Integer.toString(count)) + SUFFIX;
     String comment = dirEntry.getComment();
     byte[] extra = dirEntry.getExtraData();
-    out.nextEntry(dirEntry.clone(filename, extra, comment).set(CENTIM, DosTime.EPOCH.time));
-    out.write(header.clone(filename, extra).set(LOCTIM, DosTime.EPOCH.time));
+    out.nextEntry(dirEntry.clone(filename, extra, comment).set(CENTIM, DosTime.EPOCHISH.time));
+    out.write(header.clone(filename, extra).set(LOCTIM, DosTime.EPOCHISH.time));
     out.write(data);
     if ((header.get(LOCFLG) & LocalFileHeader.SIZE_MASKED_FLAG) != 0) {
       DataDescriptor desc = DataDescriptor.allocate()

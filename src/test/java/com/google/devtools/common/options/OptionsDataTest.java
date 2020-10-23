@@ -15,7 +15,7 @@
 package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.truth.Correspondence;
@@ -488,19 +488,6 @@ public class OptionsDataTest {
         .inOrder();
   }
 
-  private static class ReferenceEqualityCorrespondence extends Correspondence<Object, Object> {
-
-    @Override
-    public boolean compare(Object obj1, Object obj2) {
-      return obj1 == obj2;
-    }
-
-    @Override
-    public String toString() {
-      return "is the same object as";
-    }
-  }
-
   @Test
   public void optionsDefinitionsAreSharedBetweenOptionsBases() throws Exception {
     Class<FieldNamesDifferOptions> class1 = FieldNamesDifferOptions.class;
@@ -523,10 +510,11 @@ public class OptionsDataTest {
     data.getAllOptionDefinitions()
         .forEach(entry -> optionDefinitionsFromData.add(entry.getValue()));
 
-    ReferenceEqualityCorrespondence referenceEquality = new ReferenceEqualityCorrespondence();
+    Correspondence<Object, Object> referenceEquality =
+        Correspondence.from((obj1, obj2) -> obj1 == obj2, "is the same object as");
     assertThat(optionDefinitionsFromData)
         .comparingElementsUsing(referenceEquality)
-        .containsAllIn(optionDefinitions);
+        .containsAtLeastElementsIn(optionDefinitions);
 
     // Construct options data for each class separately, and check again.
     IsolatedOptionsData data1 = construct(class1);
@@ -546,7 +534,7 @@ public class OptionsDataTest {
 
     assertThat(optionDefinitionsFromGroupedData)
         .comparingElementsUsing(referenceEquality)
-        .containsAllIn(optionDefinitions);
+        .containsAtLeastElementsIn(optionDefinitions);
   }
 
   /** Dummy options class. */

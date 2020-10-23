@@ -41,13 +41,22 @@ public class EmptyRunfilesSupplier implements RunfilesSupplier {
   }
 
   @Override
-  public ImmutableMap<PathFragment, Map<PathFragment, Artifact>> getMappings(
-      ArtifactPathResolver resolver) {
+  public ImmutableMap<PathFragment, Map<PathFragment, Artifact>> getMappings() {
     return ImmutableMap.of();
   }
 
   @Override
   public ImmutableList<Artifact> getManifests() {
     return ImmutableList.<Artifact>of();
+  }
+
+  @Override
+  public boolean isBuildRunfileLinks(PathFragment runfilesDir) {
+    return false;
+  }
+
+  @Override
+  public boolean isRunfileLinksEnabled(PathFragment runfilesDir) {
+    return false;
   }
 }

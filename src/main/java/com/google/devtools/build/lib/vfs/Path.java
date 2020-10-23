@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,14 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Preconditions;
 import com.google.common.hash.Hasher;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.util.FileType;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -28,6 +27,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
+import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -56,8 +56,7 @@ import javax.annotation.Nullable;
  */
 @ThreadSafe
 @AutoCodec
-public class Path
-    implements Comparable<Path>, Serializable, SkylarkPrintable, FileType.HasFileType {
+public class Path implements Comparable<Path>, Serializable, FileType.HasFileType {
   private static FileSystem fileSystemForSerialization;
 
   /**
@@ -339,16 +338,6 @@ public class Path
       }
     }
     return OS.compare(this.path, o.path);
-  }
-
-  @Override
-  public void repr(SkylarkPrinter printer) {
-    printer.append(path);
-  }
-
-  @Override
-  public void str(SkylarkPrinter printer) {
-    repr(printer);
   }
 
   /** Returns true iff this path denotes an existing file of any kind. Follows symbolic links. */
@@ -677,7 +666,8 @@ public class Path
   /**
    * Deletes the file denoted by this path, not following symbolic links. Returns normally iff the
    * file doesn't exist after the call: true if this call deleted the file, false if the file
-   * already didn't exist. Throws an exception if the file could not be deleted for any reason.
+   * already didn't exist. Throws an exception if the file could not be deleted but was present
+   * prior to this call.
    *
    * @return true iff the file was actually deleted by this call
    * @throws IOException if the deletion failed but the file was present prior to the call
@@ -776,7 +766,11 @@ public class Path
   }
 
   /**
-   * Returns the digest of the file denoted by the current path, following symbolic links.
+   * Returns the digest of the file denoted by the current path, following symbolic links. Is not
+   * guaranteed to call {@link #getFastDigest} internally, even if a fast digest is likely
+   * available. Callers should prefer {@link DigestUtils#getDigestWithManualFallback} to this method
+   * unless they know that a fast digest is unavailable and do not need the other features
+   * (disk-read rate-limiting, global cache) that {@link DigestUtils} provides.
    *
    * @return a new byte array containing the file's digest
    * @throws IOException if the digest could not be computed for any reason
@@ -812,7 +806,7 @@ public class Path
         } else {
           hasher.putChar('-');
         }
-        hasher.putBytes(path.getDigest());
+        hasher.putBytes(DigestUtils.getDigestWithManualFallback(path, stat.getSize()));
       } else if (stat.isDirectory()) {
         hasher.putChar('d').putUnencodedChars(path.getDirectoryDigest());
       } else if (stat.isSymbolicLink()) {
@@ -826,7 +820,7 @@ public class Path
               } else {
                 hasher.putChar('-');
               }
-              hasher.putBytes(resolved.getDigest());
+              hasher.putBytes(DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(resolved));
             } else {
               // link to a non-file: include the link itself in the hash
               hasher.putChar('l').putUnencodedChars(link.toString());
@@ -856,6 +850,16 @@ public class Path
    */
   public InputStream getInputStream() throws IOException {
     return fileSystem.getInputStream(this);
+  }
+
+  /**
+   * Opens the file denoted by this path, following symbolic links, for reading, and returns a file
+   * channel for it.
+   *
+   * @throws IOException if the file was not found or could not be opened for reading
+   */
+  public ReadableByteChannel createReadableByteChannel() throws IOException {
+    return fileSystem.createReadableByteChannel(this);
   }
 
   /**

@@ -15,8 +15,8 @@
 package com.google.devtools.common.options;
 
 /**
- * Opaque options data type, returned by {@link OptionsParser#getOptionsData} and consumed by
- * {@link OptionsParser#newOptionsParser(OpaqueOptionsData)}.
+ * Opaque options data type, returned by {@link OptionsParser#getOptionsData} and consumed by {@link
+ * OptionsParser.Builder#optionsData(OpaqueOptionsData)}.
  */
 public abstract class OpaqueOptionsData {
   // Package-protected so the existence of subclasses is under our control.

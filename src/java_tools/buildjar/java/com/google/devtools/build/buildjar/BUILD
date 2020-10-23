@@ -1,3 +1,6 @@
+load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_binary", "bootstrap_java_library")
+
 # Description:
 #   The Java library builders, which are used by Bazel to compile Java
 #   source code.
@@ -13,6 +16,7 @@ filegroup(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
     ],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(
@@ -25,22 +29,28 @@ java_library(
         "//src/java_tools/buildjar:buildjar_package_group",
         "//src/test/java/com/google/devtools/build/lib:__subpackages__",
     ],
-    deps = [
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
+    deps =
+        [
+            ":javac_options",
+            "//third_party:guava",
+            "//third_party:jsr305",
+        ],
 )
+
+JAVAC_OPTIONS_SRCS = [
+    "javac/JavacOptions.java",
+    "javac/WerrorCustomOption.java",
+]
 
 java_library(
     name = "javac",
     srcs = glob(
         ["javac/*.java"],
-        exclude = [
-            "javac/JavacOptions.java",
-        ],
+        exclude = JAVAC_OPTIONS_SRCS,
     ),
     deps = [
         ":invalid_command_line_exception",
+        ":javac_options",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics",
         "//third_party:auto_value",
@@ -53,10 +63,7 @@ java_library(
 alias(
     name = "jarhelper",
     actual = "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper",
-    visibility = [
-        "//src/java_tools/buildjar:buildjar_package_group",
-        "//src/tools/android:__subpackages__",
-    ],
+    visibility = ["//visibility:public"],
 )
 
 # Bazel's BuildJar
@@ -87,7 +94,6 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/java/jacoco:core",
-        "//third_party/java/jdk/langtools:javac",
     ],
 )
 
@@ -99,9 +105,7 @@ java_binary(
 
 java_library(
     name = "javac_options",
-    srcs = [
-        "javac/JavacOptions.java",
-    ],
+    srcs = JAVAC_OPTIONS_SRCS,
     deps = [
         "//third_party:auto_value",
         "//third_party:guava",
@@ -145,19 +149,17 @@ java_library(
 )
 
 #
-## Bootstrapping using Skylark rules
+## Bootstrapping using Starlark rules
 #
 
-load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library", "bootstrap_java_binary")
-
 bootstrap_java_library(
-    name = "skylark-deps",
+    name = "starlark-deps",
     srcs = ["//:bootstrap-derived-java-srcs"],
     jars = [
         "//third_party:auto_value-jars",
+        "//:bootstrap-derived-java-jars",
         "//third_party:bootstrap_guava_and_error_prone-jars",
         "//third_party:jsr305-jars",
-        "//third_party/protobuf:protobuf-jars",
         "//third_party/java/jacoco:core-jars",
         "//third_party/grpc:bootstrap-grpc-jars",
         "//third_party:tomcat_annotations_api-jars",
@@ -191,11 +193,12 @@ bootstrap_java_binary(
         "OptionsParser.java",
         "VanillaJavaBuilder.java",
         "javac/JavacOptions.java",
+        "javac/WerrorCustomOption.java",
     ],
     main_class = "com.google.devtools.build.buildjar.VanillaJavaBuilder",
     tags = ["manual"],
     deps = [
-        ":skylark-deps",
+        ":starlark-deps",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:bootstrap_jarhelper",
     ],
 )

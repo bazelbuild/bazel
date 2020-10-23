@@ -15,10 +15,10 @@
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Matchers.same;
+import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -75,14 +75,6 @@ public class RetryingInputStreamTest {
     byte[] buffer = new byte[1024];
     stream.read(buffer);
     verify(delegate).read(same(buffer), eq(0), eq(1024));
-  }
-
-  @Test
-  public void readThrowsExceptionWhenDisabled_passesThrough() throws Exception {
-    stream.disabled = true;
-    when(delegate.read()).thenThrow(new IOException());
-    assertThrows(IOException.class, () -> stream.read());
-    verify(delegate).read();
   }
 
   @Test

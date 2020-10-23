@@ -94,11 +94,22 @@ public final class StableSort {
             Comparator.comparing(
                 o -> {
                   // Sort by comparing the path of the first output. We don't want the sorting to
-                  // rely on
-                  // file hashes because we want the same action graph to be sorted in the same way
-                  // regardless of file contents.
-                  Preconditions.checkArgument(o.getActualOutputsCount() > 0);
-                  return o.getActualOutputs(0).getPath();
+                  // rely on file hashes because we want the same action graph to be sorted in the
+                  // same way regardless of file contents.
+                  if (o.getListedOutputsCount() > 0) {
+                    return "1_" + o.getListedOutputs(0);
+                  }
+
+                  // Get a proto with only stable information from this proto
+                  SpawnExec.Builder stripped = SpawnExec.newBuilder();
+                  stripped.addAllCommandArgs(o.getCommandArgsList());
+                  stripped.addAllEnvironmentVariables(o.getEnvironmentVariablesList());
+                  stripped.setPlatform(o.getPlatform());
+                  stripped.addAllInputs(o.getInputsList());
+                  stripped.setProgressMessage(o.getProgressMessage());
+                  stripped.setMnemonic(o.getMnemonic());
+
+                  return "2_" + stripped.build();
                 }));
     for (SpawnExec ex : inputs) {
       if (!blockedBy.containsKey(ex)) {

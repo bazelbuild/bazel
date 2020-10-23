@@ -22,6 +22,7 @@ import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
+import com.google.devtools.build.lib.analysis.config.ConfigurationResolver.TopLevelTargetsAndConfigsResult;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.TransitionResolver;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
@@ -30,11 +31,10 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.InfoInterface;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TriState;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -52,12 +52,12 @@ public final class AnalysisUtils {
   /**
    * Returns whether link stamping is enabled for a rule.
    *
-   * <p>This returns false for unstampable rule classes and for rules in the
-   * host configuration. Otherwise it returns the value of the stamp attribute,
-   * or of the stamp option if the attribute value is -1.
+   * <p>This returns false for unstampable rule classes and for rules used to build tools. Otherwise
+   * it returns the value of the stamp attribute, or of the stamp option if the attribute value is
+   * -1.
    */
   public static boolean isStampingEnabled(RuleContext ruleContext, BuildConfiguration config) {
-    if (config.isHostConfiguration()
+    if (config.isToolConfiguration()
         || !ruleContext.attributes().has("stamp", BuildType.TRISTATE)) {
       return false;
     }
@@ -73,10 +73,9 @@ public final class AnalysisUtils {
   // be called with Iterable<ConfiguredTarget>. Once the configured target lockdown is complete, we
   // can eliminate the "extends" clauses.
   /**
-   * Returns the list of providers of the specified type from a set of transitive info
-   * collections.
+   * Returns the list of providers of the specified type from a set of transitive info collections.
    */
-  public static <C extends TransitiveInfoProvider> Iterable<C> getProviders(
+  public static <C extends TransitiveInfoProvider> List<C> getProviders(
       Iterable<? extends TransitiveInfoCollection> prerequisites, Class<C> provider) {
     ImmutableList.Builder<C> result = ImmutableList.builder();
     for (TransitiveInfoCollection prerequisite : prerequisites) {
@@ -89,15 +88,15 @@ public final class AnalysisUtils {
   }
 
   /**
-   * Returns the list of declared providers (native and Skylark) of the specified Skylark key from a
-   * set of transitive info collections.
+   * Returns the list of declared providers (native and Starlark) of the specified Starlark key from
+   * a set of transitive info collections.
    */
-  public static <T extends InfoInterface> Iterable<T> getProviders(
+  public static <T extends Info> List<T> getProviders(
       Iterable<? extends TransitiveInfoCollection> prerequisites,
-      final NativeProvider<T> skylarkKey) {
+      final NativeProvider<T> starlarkKey) {
     ImmutableList.Builder<T> result = ImmutableList.builder();
     for (TransitiveInfoCollection prerequisite : prerequisites) {
-      T prerequisiteProvider = prerequisite.get(skylarkKey);
+      T prerequisiteProvider = prerequisite.get(starlarkKey);
       if (prerequisiteProvider != null) {
         result.add(prerequisiteProvider);
       }
@@ -106,15 +105,15 @@ public final class AnalysisUtils {
   }
 
   /**
-   * Returns the list of declared providers (native and Skylark) of the specified Skylark key from a
-   * set of transitive info collections.
+   * Returns the list of declared providers (native and Starlark) of the specified Starlark key from
+   * a set of transitive info collections.
    */
-  public static <T extends InfoInterface> Iterable<T> getProviders(
+  public static <T extends Info> List<T> getProviders(
       Iterable<? extends TransitiveInfoCollection> prerequisites,
-      final BuiltinProvider<T> skylarkKey) {
+      final BuiltinProvider<T> starlarkKey) {
     ImmutableList.Builder<T> result = ImmutableList.builder();
     for (TransitiveInfoCollection prerequisite : prerequisites) {
-      T prerequisiteProvider = prerequisite.get(skylarkKey);
+      T prerequisiteProvider = prerequisite.get(starlarkKey);
       if (prerequisiteProvider != null) {
         result.add(prerequisiteProvider);
       }
@@ -131,11 +130,16 @@ public final class AnalysisUtils {
   }
 
   /** Returns the iterable of collections that have the specified provider. */
-  public static <S extends TransitiveInfoCollection, C extends InfoInterface> Iterable<S>
-      filterByProvider(Iterable<S> prerequisites, final NativeProvider<C> provider) {
+  public static <S extends TransitiveInfoCollection, C extends Info> Iterable<S> filterByProvider(
+      Iterable<S> prerequisites, final NativeProvider<C> provider) {
     return Iterables.filter(prerequisites, target -> target.get(provider) != null);
   }
 
+  /** Returns the iterable of collections that have the specified provider. */
+  public static <S extends TransitiveInfoCollection, C extends Info> Iterable<S> filterByProvider(
+      Iterable<S> prerequisites, final BuiltinProvider<C> provider) {
+    return Iterables.filter(prerequisites, target -> target.get(provider) != null);
+  }
 
   /**
    * Returns the path of the associated manifest file for the path of a Fileset. Works for both
@@ -148,14 +152,17 @@ public final class AnalysisUtils {
   }
 
   /**
-   * Returns a path fragment qualified by the rule name and unique fragment to
-   * disambiguate artifacts produced from the source file appearing in
-   * multiple rules.
+   * Returns a path fragment qualified by the rule name and unique fragment to disambiguate
+   * artifacts produced from the source file appearing in multiple rules.
    *
    * <p>For example "//pkg:target" -> "pkg/&lt;fragment&gt;/target.
    */
-  public static PathFragment getUniqueDirectory(Label label, PathFragment fragment) {
-    return label.getPackageIdentifier().getSourceRoot().getRelative(fragment)
+  public static PathFragment getUniqueDirectory(
+      Label label, PathFragment fragment, boolean siblingRepositoryLayout) {
+    return label
+        .getPackageIdentifier()
+        .getPackagePath()
+        .getRelative(fragment)
         .getRelative(label.getName());
   }
 
@@ -179,13 +186,13 @@ public final class AnalysisUtils {
    * <p>Preserves the original input ordering.
    */
   // Keep this in sync with PrepareAnalysisPhaseFunction.
-  public static List<TargetAndConfiguration> getTargetsWithConfigs(
+  public static TopLevelTargetsAndConfigsResult getTargetsWithConfigs(
       BuildConfigurationCollection configurations,
       Collection<Target> targets,
       ExtendedEventHandler eventHandler,
       ConfiguredRuleClassProvider ruleClassProvider,
-      SkyframeExecutor skyframeExecutor)
-      throws InvalidConfigurationException {
+      ConfigurationsCollector configurationsCollector)
+      throws InvalidConfigurationException, InterruptedException {
     // We use a hash set here to remove duplicate nodes; this can happen for input files and package
     // groups.
     LinkedHashSet<TargetAndConfiguration> nodes = new LinkedHashSet<>(targets.size());
@@ -195,22 +202,18 @@ public final class AnalysisUtils {
       }
     }
 
-    // We'll get the configs from SkyframeExecutor#getConfigurations, which gets configurations
-    // for deps including transitions. So to satisfy its API we resolve transitions and repackage
-    // each target as a Dependency (with a NONE transition if necessary).
-    Multimap<BuildConfiguration, Dependency> asDeps =
-        AnalysisUtils.targetsToDeps(nodes, ruleClassProvider);
+    // We'll get the configs from ConfigurationsCollector#getConfigurations, which gets
+    // configurations for deps including transitions.
+    Multimap<BuildConfiguration, DependencyKey> asDeps = targetsToDeps(nodes, ruleClassProvider);
 
-    return ImmutableList.copyOf(
-        ConfigurationResolver.getConfigurationsFromExecutor(
-            nodes, asDeps, eventHandler, skyframeExecutor));
+    return ConfigurationResolver.getConfigurationsFromExecutor(
+        nodes, asDeps, eventHandler, configurationsCollector);
   }
 
   @VisibleForTesting
-  public static Multimap<BuildConfiguration, Dependency> targetsToDeps(
+  public static Multimap<BuildConfiguration, DependencyKey> targetsToDeps(
       Collection<TargetAndConfiguration> nodes, ConfiguredRuleClassProvider ruleClassProvider) {
-    Multimap<BuildConfiguration, Dependency> asDeps =
-        ArrayListMultimap.<BuildConfiguration, Dependency>create();
+    Multimap<BuildConfiguration, DependencyKey> asDeps = ArrayListMultimap.create();
     for (TargetAndConfiguration targetAndConfig : nodes) {
       ConfigurationTransition transition =
           TransitionResolver.evaluateTransition(
@@ -219,13 +222,13 @@ public final class AnalysisUtils {
               targetAndConfig.getTarget(),
               ruleClassProvider.getTrimmingTransitionFactory());
       if (targetAndConfig.getConfiguration() != null) {
+        // TODO(bazel-team): support top-level aspects
         asDeps.put(
             targetAndConfig.getConfiguration(),
-            Dependency.withTransitionAndAspects(
-                targetAndConfig.getLabel(),
-                transition,
-                // TODO(bazel-team): support top-level aspects
-                AspectCollection.EMPTY));
+            DependencyKey.builder()
+                .setLabel(targetAndConfig.getLabel())
+                .setTransition(transition)
+                .build());
       }
     }
     return asDeps;

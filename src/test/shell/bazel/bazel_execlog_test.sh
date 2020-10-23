@@ -22,7 +22,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 function test_dir_depends() {
   create_new_workspace
-  cat > skylark.bzl <<'EOF'
+  cat > starlark.bzl <<'EOF'
 def _dir_impl(ctx):
   output_dir = ctx.actions.declare_directory(ctx.attr.outdir)
   ctx.actions.run_shell(
@@ -45,7 +45,7 @@ gen_dir = rule(
 )
 EOF
   cat > BUILD <<'EOF'
-load(":skylark.bzl", "gen_dir")
+load(":starlark.bzl", "gen_dir")
 
 gen_dir(
   name = "dir",
@@ -74,7 +74,7 @@ EOF
 
   bazel build //:all --execution_log_json_file output.json 2>&1 >> $TEST_log || fail "could not build"
 
-  # dir and dir2 are skylark functions that create a directory output
+  # dir and dir2 are Starlark functions that create a directory output
   # rule1 and rule2 are functions that consume the directory output
   #
   # the output files are named such that the rule's would be placed first in the
@@ -86,8 +86,8 @@ EOF
   # If dependencies were not properly accounted for, the order would have been:
   # rule1, rule2, dir1, dir2
 
-  dir1Num=`grep "SkylarkAction dir_name1" -n output.json | grep -Eo '^[^:]+'`
-  dir2Num=`grep "SkylarkAction dir_name2" -n output.json | grep -Eo '^[^:]+'`
+  dir1Num=`grep "Action dir_name1" -n output.json | grep -Eo '^[^:]+'`
+  dir2Num=`grep "Action dir_name2" -n output.json | grep -Eo '^[^:]+'`
   rule1Num=`grep "Executing genrule //:rule1" -n output.json | grep -Eo '^[^:]+'`
   rule2Num=`grep "Executing genrule //:rule2" -n output.json | grep -Eo '^[^:]+'`
 
@@ -105,6 +105,67 @@ EOF
   then
     fail "rule2 dependency on dir2 is not recornized"
   fi
+}
+
+function test_dir_relative() {
+  cat > BUILD <<'EOF'
+genrule(
+      name = "rule",
+      outs = ["out.txt"],
+      cmd = "echo hello > $(location out.txt)"
+)
+EOF
+  bazel build //:all --experimental_execution_log_file output 2>&1 >> $TEST_log || fail "could not build"
+  wc output || fail "no output produced"
+}
+
+function test_negating_flags() {
+  cat > BUILD <<'EOF'
+genrule(
+      name = "rule",
+      outs = ["out.txt"],
+      cmd = "echo hello > $(location out.txt)"
+)
+EOF
+  bazel build //:all --experimental_execution_log_file=output --experimental_execution_log_file= 2>&1 >> $TEST_log || fail "could not build"
+  if [[ -e output ]]; then
+    fail "file shouldn't exist"
+  fi
+
+  bazel build //:all --execution_log_json_file=output --execution_log_json_file= 2>&1 >> $TEST_log || fail "could not build"
+  if [[ -e output ]]; then
+    fail "file shouldn't exist"
+  fi
+
+  bazel build //:all --execution_log_binary_file=output --execution_log_binary_file= 2>&1 >> $TEST_log || fail "could not build"
+  if [[ -e output ]]; then
+    fail "file shouldn't exist"
+  fi
+}
+
+function test_no_output() {
+  create_new_workspace
+  cat > starlark.bzl <<'EOF'
+def _impl(ctx):
+  ctx.actions.write(ctx.outputs.executable, content="echo hello world", is_executable=True)
+  return DefaultInfo()
+
+my_test = rule(
+  implementation = _impl,
+  test = True,
+)
+EOF
+
+  cat > BUILD <<'EOF'
+load(":starlark.bzl", "my_test")
+
+my_test(
+  name = "little_test",
+)
+EOF
+
+  bazel test //:little_test --execution_log_json_file output.json 2>&1 >> $TEST_log || fail "could not test"
+  grep "listedOutputs" output.json || fail "log does not contain listed outputs"
 }
 
 run_suite "execlog_tests"

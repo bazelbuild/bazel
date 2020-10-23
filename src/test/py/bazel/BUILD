@@ -1,3 +1,6 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("//tools/python:private/defs.bzl", "py_library", "py_test")
+
 package(default_visibility = ["//visibility:private"])
 
 filegroup(
@@ -10,7 +13,10 @@ filegroup(
     name = "test-deps",
     testonly = 1,
     srcs = ["//src:bazel"],
-    data = ["//src/tools/remote:worker"],
+    data = [
+        "//src/tools/remote:worker",
+        "//src/tools/remote:worker_deploy.jar",
+    ],
 )
 
 py_library(
@@ -23,6 +29,7 @@ py_library(
         "//third_party/def_parser:__pkg__",
         "//tools/android:__pkg__",
         "//tools/build_rules:__pkg__",
+        "//tools/ctexplain:__pkg__",
         "//tools/python:__pkg__",
     ],
 )
@@ -67,7 +74,13 @@ py_test(
     size = "medium",
     srcs = ["bazel_external_repository_test.py"],
     data = glob(["testdata/bazel_external_repository_test/**"]),
-    deps = [":test_base"],
+    tags = [
+        "requires-network",
+    ],
+    deps = [
+        ":test_base",
+        "//third_party/py/six",
+    ],
 )
 
 py_test(
@@ -79,6 +92,23 @@ py_test(
     }),
     main = select({
         "//src/conditions:windows": "bazel_windows_test.py",
+        "//conditions:default": "empty_test.py",
+    }),
+    deps = select({
+        "//src/conditions:windows": [":test_base"],
+        "//conditions:default": [],
+    }),
+)
+
+py_test(
+    name = "bazel_windows_symlinks_test",
+    size = "medium",
+    srcs = select({
+        "//src/conditions:windows": ["bazel_windows_symlinks_test.py"],
+        "//conditions:default": ["empty_test.py"],
+    }),
+    main = select({
+        "//src/conditions:windows": "bazel_windows_symlinks_test.py",
         "//conditions:default": "empty_test.py",
     }),
     deps = select({
@@ -152,6 +182,16 @@ py_test(
 )
 
 py_test(
+    name = "bazel_remote_cache_decompression_test",
+    srcs = ["remote/cache_decompression_test.py"],
+    main = "remote/cache_decompression_test.py",
+    tags = [
+        "no-sandbox",  # This test sets up mock cache on localhost.
+    ],
+    deps = [":test_base"],
+)
+
+py_test(
     name = "test_wrapper_test",
     srcs = select({
         "//src/conditions:windows": ["test_wrapper_test.py"],
@@ -190,6 +230,26 @@ py_test(
     name = "query_test",
     size = "medium",
     srcs = ["query_test.py"],
+    deps = [":test_base"],
+)
+
+py_test(
+    name = "action_replay_test",
+    size = "medium",
+    srcs = ["action_replay_test.py"],
+    deps = [":test_base"],
+)
+
+py_test(
+    name = "genrule_test",
+    size = "medium",
+    srcs = ["genrule_test.py"],
+    deps = [":test_base"],
+)
+
+py_test(
+    name = "bazel_workspace_test",
+    srcs = ["bazel_workspace_test.py"],
     deps = [":test_base"],
 )
 

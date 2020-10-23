@@ -110,7 +110,7 @@ public class EnvironmentLabels {
    *
    * <p>If no environments fulfill the input, returns an empty set.
    */
-  public Iterable<Label> getFulfillers(Label environment) {
+  public NestedSet<Label> getFulfillers(Label environment) {
     checkInitialized();
     return fulfillersMap.get(environment);
   }

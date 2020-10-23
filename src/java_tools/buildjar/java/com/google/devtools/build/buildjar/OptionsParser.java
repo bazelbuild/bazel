@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.buildjar.javac.JavacOptions;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -26,7 +27,6 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Deque;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -70,10 +70,8 @@ public final class OptionsParser {
   private int fullClasspathLength = -1;
   private int reducedClasspathLength = -1;
 
-  private String sourceGenDir;
   private String generatedSourcesOutputJar;
   private String manifestProtoPath;
-  private final Set<String> sourceRoots = new HashSet<>();
 
   private final List<String> sourceFiles = new ArrayList<>();
   private final List<String> sourceJars = new ArrayList<>();
@@ -81,16 +79,14 @@ public final class OptionsParser {
   private final List<String> classPath = new ArrayList<>();
   private final List<String> sourcePath = new ArrayList<>();
   private final List<String> bootClassPath = new ArrayList<>();
-  private final List<String> extClassPath = new ArrayList<>();
+  private String system;
 
   private final List<String> processorPath = new ArrayList<>();
   private final List<String> processorNames = new ArrayList<>();
+  private final List<String> builtinProcessorNames = new ArrayList<>();
 
   private String outputJar;
   @Nullable private String nativeHeaderOutput;
-
-  private String classDir;
-  private String tempDir;
 
   private final Map<String, List<String>> postProcessors = new LinkedHashMap<>();
 
@@ -98,6 +94,10 @@ public final class OptionsParser {
 
   private String targetLabel;
   private String injectingRuleKind;
+
+  @Nullable private String profile;
+
+  @Nullable private final JavacOptions normalizer;
 
   /**
    * Constructs an {@code OptionsParser} from a list of command args. Sets the same JavacRunner for
@@ -107,6 +107,19 @@ public final class OptionsParser {
    * @throws InvalidCommandLineException on any command line error.
    */
   public OptionsParser(List<String> args) throws InvalidCommandLineException, IOException {
+    this(args, null);
+  }
+
+  /**
+   * Constructs an {@code OptionsParser} from a list of command args. Sets the same JavacRunner for
+   * both compilation and annotation processing.
+   *
+   * @param args the list of command line args.
+   * @throws InvalidCommandLineException on any command line error.
+   */
+  public OptionsParser(List<String> args, @Nullable JavacOptions normalizer)
+      throws InvalidCommandLineException, IOException {
+    this.normalizer = normalizer;
     processCommandlineArgs(expandArguments(args));
   }
 
@@ -149,17 +162,11 @@ public final class OptionsParser {
         case "--reduced_classpath_length":
           reducedClasspathLength = Integer.parseInt(getArgument(argQueue, arg));
           break;
-        case "--sourcegendir":
-          sourceGenDir = getArgument(argQueue, arg);
-          break;
         case "--generated_sources_output":
           generatedSourcesOutputJar = getArgument(argQueue, arg);
           break;
         case "--output_manifest_proto":
           manifestProtoPath = getArgument(argQueue, arg);
-          break;
-        case "--source_roots":
-          collectFlagArguments(sourceRoots, argQueue, "-");
           break;
         case "--sources":
           collectFlagArguments(sourceFiles, argQueue, "-");
@@ -177,31 +184,23 @@ public final class OptionsParser {
         case "--bootclasspath":
           collectFlagArguments(bootClassPath, argQueue, "-");
           break;
+        case "--system":
+          system = getArgument(argQueue, arg);
+          break;
         case "--processorpath":
           collectFlagArguments(processorPath, argQueue, "-");
           break;
         case "--processors":
           collectProcessorArguments(processorNames, argQueue, "-");
           break;
-        case "--extclasspath":
-        case "--extdir":
-          collectFlagArguments(extClassPath, argQueue, "-");
+        case "--builtin_processors":
+          collectProcessorArguments(builtinProcessorNames, argQueue, "-");
           break;
         case "--output":
           outputJar = getArgument(argQueue, arg);
           break;
         case "--native_header_output":
           nativeHeaderOutput = getArgument(argQueue, arg);
-          break;
-        case "--classdir":
-          classDir = getArgument(argQueue, arg);
-          break;
-        case "--tempdir":
-          tempDir = getArgument(argQueue, arg);
-          break;
-        case "--gendir":
-          // TODO(bazel-team) - remove when Bazel no longer passes this flag to buildjar.
-          getArgument(argQueue, arg);
           break;
         case "--post_processor":
           addExternalPostProcessor(argQueue, arg);
@@ -214,6 +213,9 @@ public final class OptionsParser {
           break;
         case "--injecting_rule_kind":
           injectingRuleKind = getArgument(argQueue, arg);
+          break;
+        case "--profile":
+          profile = getArgument(argQueue, arg);
           break;
         default:
           throw new InvalidCommandLineException("unknown option : '" + arg + "'");
@@ -349,7 +351,7 @@ public final class OptionsParser {
   }
 
   public List<String> getJavacOpts() {
-    return javacOpts;
+    return normalizer != null ? normalizer.normalize(javacOpts) : javacOpts;
   }
 
   public Set<String> directJars() {
@@ -384,20 +386,12 @@ public final class OptionsParser {
     return reducedClasspathLength;
   }
 
-  public String getSourceGenDir() {
-    return sourceGenDir;
-  }
-
   public String getGeneratedSourcesOutputJar() {
     return generatedSourcesOutputJar;
   }
 
   public String getManifestProtoPath() {
     return manifestProtoPath;
-  }
-
-  public Set<String> getSourceRoots() {
-    return sourceRoots;
   }
 
   public List<String> getSourceFiles() {
@@ -416,12 +410,12 @@ public final class OptionsParser {
     return bootClassPath;
   }
 
-  public List<String> getSourcePath() {
-    return sourcePath;
+  public String getSystem() {
+    return system;
   }
 
-  public List<String> getExtClassPath() {
-    return extClassPath;
+  public List<String> getSourcePath() {
+    return sourcePath;
   }
 
   public List<String> getProcessorPath() {
@@ -432,6 +426,10 @@ public final class OptionsParser {
     return processorNames;
   }
 
+  public List<String> getBuiltinProcessorNames() {
+    return builtinProcessorNames;
+  }
+
   public String getOutputJar() {
     return outputJar;
   }
@@ -439,14 +437,6 @@ public final class OptionsParser {
   @Nullable
   public String getNativeHeaderOutput() {
     return nativeHeaderOutput;
-  }
-
-  public String getClassDir() {
-    return classDir;
-  }
-
-  public String getTempDir() {
-    return tempDir;
   }
 
   public Map<String, List<String>> getPostProcessors() {
@@ -463,5 +453,9 @@ public final class OptionsParser {
 
   public String getInjectingRuleKind() {
     return injectingRuleKind;
+  }
+
+  public String getProfile() {
+    return profile;
   }
 }

@@ -14,16 +14,13 @@
 package com.google.devtools.build.lib.collect;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
@@ -58,13 +55,6 @@ public class CollectionUtilsTest {
     assertThat(CollectionUtils.isImmutable(ImmutableList.of(1, 2, 3))).isTrue();
     assertThat(CollectionUtils.isImmutable(ImmutableSet.of(1, 2, 3))).isTrue();
 
-    NestedSet<Integer> ns = NestedSetBuilder.<Integer>compileOrder()
-        .add(1).add(2).add(3).build();
-    assertThat(CollectionUtils.isImmutable(ns)).isTrue();
-
-    NestedSet<Integer> ns2 = NestedSetBuilder.<Integer>linkOrder().add(1).add(2).add(3).build();
-    assertThat(CollectionUtils.isImmutable(ns2)).isTrue();
-
     Iterable<Integer> chain = IterablesChain.<Integer>builder().addElement(1).build();
 
     assertThat(CollectionUtils.isImmutable(chain)).isTrue();
@@ -73,14 +63,6 @@ public class CollectionUtilsTest {
     assertThat(CollectionUtils.isImmutable(Lists.newLinkedList())).isFalse();
     assertThat(CollectionUtils.isImmutable(Sets.newHashSet())).isFalse();
     assertThat(CollectionUtils.isImmutable(Sets.newLinkedHashSet())).isFalse();
-
-    // The result of Iterables.concat() actually is immutable, but we have no way of checking if
-    // a given Iterable comes from concat().
-    assertThat(CollectionUtils.isImmutable(Iterables.concat(ns, ns2))).isFalse();
-
-    // We can override the check by using the ImmutableIterable wrapper.
-    assertThat(CollectionUtils.isImmutable(ImmutableIterable.from(Iterables.concat(ns, ns2))))
-        .isTrue();
   }
 
   @Test
@@ -101,7 +83,7 @@ public class CollectionUtilsTest {
     Iterable<Integer> immutableList = ImmutableList.of(1, 2, 3);
     assertThat(CollectionUtils.makeImmutable(immutableList)).isSameInstanceAs(immutableList);
 
-    Iterable<Integer> mutableList = Lists.newArrayList(1, 2, 3);
+    List<Integer> mutableList = Lists.newArrayList(1, 2, 3);
     Iterable<Integer> converted = CollectionUtils.makeImmutable(mutableList);
     assertThat(converted).isNotSameInstanceAs(mutableList);
     assertThat(ImmutableList.copyOf(converted)).isEqualTo(mutableList);

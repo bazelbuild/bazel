@@ -13,16 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.vfs.RootedPath;
 
 /** Exception indicating that a cycle was found in the filesystem. */
-class FileSymlinkCycleException extends FileSymlinkException {
+@VisibleForTesting
+public class FileSymlinkCycleException extends FileSymlinkException {
   private final ImmutableList<RootedPath> pathToCycle;
   private final ImmutableList<RootedPath> cycle;
 
-  FileSymlinkCycleException(ImmutableList<RootedPath> pathToCycle,
-      ImmutableList<RootedPath> cycle) {
+  @VisibleForTesting
+  public FileSymlinkCycleException(
+      ImmutableList<RootedPath> pathToCycle, ImmutableList<RootedPath> cycle) {
     // The cycle itself has already been reported by FileSymlinkCycleUniquenessValue, but we still
     // want to have a readable #getMessage.
     super("Symlink cycle");
@@ -34,15 +39,22 @@ class FileSymlinkCycleException extends FileSymlinkException {
    * The symlink path to the symlink cycle. For example, suppose 'a' -> 'b' -> 'c' -> 'd' -> 'c'.
    * The path to the cycle is 'a', 'b'.
    */
-  ImmutableList<RootedPath> getPathToCycle() {
+  @VisibleForTesting
+  public ImmutableList<RootedPath> getPathToCycle() {
     return pathToCycle;
   }
 
   /**
-   * The symlink cycle. For example, suppose 'a' -> 'b' -> 'c' -> 'd' -> 'c'.
-   * The cycle is 'c', 'd'.
+   * The symlink cycle. For example, suppose 'a' -> 'b' -> 'c' -> 'd' -> 'c'. The cycle is 'c', 'd'.
    */
-  ImmutableList<RootedPath> getCycle() {
+  @VisibleForTesting
+  public ImmutableList<RootedPath> getCycle() {
     return cycle;
+  }
+
+  @Override
+  public String getUserFriendlyMessage() {
+    return "Symlink cycle: "
+        + Joiner.on("- > ").join(Iterables.transform(cycle, RootedPath::asPath));
   }
 }

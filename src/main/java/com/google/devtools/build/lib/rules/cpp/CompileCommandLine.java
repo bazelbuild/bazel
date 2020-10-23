@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
@@ -27,7 +29,6 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /** The compile command line for the C++ compile action. */
@@ -64,7 +65,7 @@ public final class CompileCommandLine {
   }
 
   /** Returns the environment variables that should be set for C++ compile actions. */
-  protected Map<String, String> getEnvironment() throws CommandLineExpansionException {
+  ImmutableMap<String, String> getEnvironment() throws CommandLineExpansionException {
     try {
       return featureConfiguration.getEnvironmentVariables(actionName, variables);
     } catch (ExpansionException e) {
@@ -86,7 +87,7 @@ public final class CompileCommandLine {
    * @param overwrittenVariables: Variables that will overwrite original build variables. When null,
    *     unmodified original variables are used.
    */
-  protected List<String> getArguments(
+  List<String> getArguments(
       @Nullable PathFragment parameterFilePath, @Nullable CcToolchainVariables overwrittenVariables)
       throws CommandLineExpansionException {
     List<String> commandLine = new ArrayList<>();
@@ -101,6 +102,24 @@ public final class CompileCommandLine {
       commandLine.addAll(getCompilerOptions(overwrittenVariables));
     }
     return commandLine;
+  }
+
+  /**
+   * Returns {@link CommandLine} instance that contains the exactly same command line as the {@link
+   * CppCompileAction}.
+   *
+   * @param cppCompileAction - {@link CppCompileAction} owning this {@link CompileCommandLine}.
+   */
+  public CommandLine getFilteredFeatureConfigurationCommandLine(CppCompileAction cppCompileAction) {
+    return new CommandLine() {
+
+      @Override
+      public Iterable<String> arguments() throws CommandLineExpansionException {
+        CcToolchainVariables overwrittenVariables = cppCompileAction.getOverwrittenVariables();
+        List<String> compilerOptions = getCompilerOptions(overwrittenVariables);
+        return ImmutableList.<String>builder().add(getToolPath()).addAll(compilerOptions).build();
+      }
+    };
   }
 
   public List<String> getCompilerOptions(@Nullable CcToolchainVariables overwrittenVariables)

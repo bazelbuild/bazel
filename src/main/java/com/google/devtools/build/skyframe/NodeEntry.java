@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
-import java.math.BigInteger;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -84,7 +83,7 @@ public interface NodeEntry extends ThinNodeEntry {
     /**
      * A forced rebuilding is in progress, likely because of a transient error on the previous build
      * or a recoverable inconsistency in the current one. The distinction between this and {@link
-     * #REBUILDING} is only needed for internal sanity checks.
+     * #REBUILDING} is only needed for internal checks.
      */
     FORCED_REBUILDING
   }
@@ -107,6 +106,16 @@ public interface NodeEntry extends ThinNodeEntry {
    */
   @ThreadSafe
   Iterable<SkyKey> getDirectDeps() throws InterruptedException;
+
+  /**
+   * Returns {@code true} if this node has at least one direct dep.
+   *
+   * <p>Prefer calling this over {@link #getDirectDeps} if possible.
+   *
+   * <p>This method may only be called after the evaluation of this node is complete.
+   */
+  @ThreadSafe
+  boolean hasAtLeastOneDep() throws InterruptedException;
 
   /** Removes a reverse dependency. */
   @ThreadSafe
@@ -180,13 +189,9 @@ public interface NodeEntry extends ThinNodeEntry {
    * entry determines that the new value is equal to the previous value, the entry will keep its
    * current version. Callers can query that version to see if the node considers its value to have
    * changed.
-   *
-   * <p>{@code depFingerprintList} must be non-null iff {@link #canPruneDepsByFingerprint}.
    */
   @ThreadSafe
-  Set<SkyKey> setValue(
-      SkyValue value, Version version, @Nullable DepFingerprintList depFingerprintList)
-      throws InterruptedException;
+  Set<SkyKey> setValue(SkyValue value, Version version) throws InterruptedException;
 
   /**
    * Queries if the node is done and adds the given key as a reverse dependency. The return code
@@ -214,8 +219,8 @@ public interface NodeEntry extends ThinNodeEntry {
       throws InterruptedException;
 
   /**
-   * Similar to {@link #addReverseDepAndCheckIfDone}, except that {@param reverseDep} must already
-   * be a reverse dep of this entry. Should be used when reverseDep has been marked dirty and is
+   * Similar to {@link #addReverseDepAndCheckIfDone}, except that {@code reverseDep} must already be
+   * a reverse dep of this entry. Should be used when reverseDep has been marked dirty and is
    * checking its dependencies for changes or is rebuilding. The caller must treat the return value
    * just as they would the return value of {@link #addReverseDepAndCheckIfDone} by scheduling this
    * node for evaluation if needed.
@@ -251,10 +256,33 @@ public interface NodeEntry extends ThinNodeEntry {
   /**
    * Marks this entry as up-to-date at this version.
    *
-   * @return {@link Set} of reverse dependencies to signal that this node is done.
+   * @return {@link NodeValueAndRdepsToSignal} containing the SkyValue and reverse deps to signal.
    */
   @ThreadSafe
-  Set<SkyKey> markClean() throws InterruptedException;
+  NodeValueAndRdepsToSignal markClean() throws InterruptedException;
+
+  /**
+   * Returned by {@link #markClean} after making a node as clean. This is an aggregate object that
+   * contains the NodeEntry's SkyValue and its reverse dependencies that signal this node is done (a
+   * subset of all of the node's reverse dependencies).
+   */
+  final class NodeValueAndRdepsToSignal {
+    private final SkyValue value;
+    private final Set<SkyKey> rDepsToSignal;
+
+    public NodeValueAndRdepsToSignal(SkyValue value, Set<SkyKey> rDepsToSignal) {
+      this.value = value;
+      this.rDepsToSignal = rDepsToSignal;
+    }
+
+    SkyValue getValue() {
+      return this.value;
+    }
+
+    Set<SkyKey> getRdepsToSignal() {
+      return this.rDepsToSignal;
+    }
+  }
 
   /**
    * Forces this node to be re-evaluated, even if none of its dependencies are known to have
@@ -342,42 +370,6 @@ public interface NodeEntry extends ThinNodeEntry {
   ImmutableSet<SkyKey> getAllRemainingDirtyDirectDeps() throws InterruptedException;
 
   /**
-   * Whether this entry stores fingerprints of its dep groups, which enables it to change-prune
-   * (avoid re-evaluating) if the values in a dep group haven't changed. This is normally handled by
-   * version-based change pruning, but some graph evaluation modes do not support that (see {@link
-   * InMemoryNodeEntry#isEligibleForChangePruningOnUnchangedValue}). For such evaluation modes, the
-   * downstream dependents of nodes that have not changed can avoid re-evaluation via this
-   * change-pruning mode.
-   */
-  boolean canPruneDepsByFingerprint();
-
-  /**
-   * Can only be called if {@link #canPruneDepsByFingerprint} is true, during dirtiness checking
-   * when the entry is marked as {@link DirtyState#NEEDS_REBUILDING}. Returns the last direct deps
-   * group that was checked, so that its fingerprint can be calculated.
-   *
-   * <p>Returns null if fingerprint information is not stored for this group, and so computing the
-   * new fingerprint would be useless.
-   */
-  @Nullable
-  Iterable<SkyKey> getLastDirectDepsGroupWhenPruningDepsByFingerprint() throws InterruptedException;
-
-  /**
-   * Can only be called if {@link #canPruneDepsByFingerprint} is true, during dirtiness checking
-   * when the entry is marked as {@link DirtyState#NEEDS_REBUILDING}. {@code groupFingerprint} is
-   * the fingerprint that was calculated from the deps returned by {@link
-   * #getLastDirectDepsGroupWhenPruningDepsByFingerprint}.
-   *
-   * <p>If the dep group fingerprint is the same as the stored value, modifies this entry so that
-   * the dirty state is what it would have been if the last dep group had <i>not</i> triggered a
-   * {@link DirtyState#NEEDS_REBUILDING} state: either {@link DirtyState#CHECK_DEPENDENCIES} or
-   * {@link DirtyState#VERIFIED_CLEAN} (if this was the last dep group). Returns true if the
-   * fingerprints matched.
-   */
-  @ThreadSafe
-  boolean unmarkNeedsRebuildingIfGroupUnchangedUsingFingerprint(BigInteger groupFingerprint);
-
-  /**
    * Notifies a node that it is about to be rebuilt. This method can only be called if the node
    * {@link DirtyState#NEEDS_REBUILDING}. After this call, this node is ready to be rebuilt (it will
    * be in {@link DirtyState#REBUILDING}).
@@ -441,14 +433,14 @@ public interface NodeEntry extends ThinNodeEntry {
 
   /** Which edges a done NodeEntry stores (dependencies and/or reverse dependencies. */
   enum KeepEdgesPolicy {
-    /** Both deps and rdeps are stored. Incremental builds and sanity checks are possible. */
+    /** Both deps and rdeps are stored. Incremental builds and checking are possible. */
     ALL,
     /**
      * Only deps are stored. Incremental builds may be possible with a "top-down" evaluation
-     * framework. Sanity checking of reverse deps is not possible.
+     * framework. Checking of reverse deps is not possible.
      */
     JUST_DEPS,
-    /** Neither deps nor rdeps are stored. Incremental builds and sanity checking are disabled. */
+    /** Neither deps nor rdeps are stored. Incremental builds and checking are disabled. */
     NONE
   }
 }

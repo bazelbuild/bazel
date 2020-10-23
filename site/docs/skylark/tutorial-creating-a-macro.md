@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Creating a Macro
+title: Creating a macro
 ---
 
-# Creating a Macro
+# Creating a macro
 
 Let's suppose you need to run a tool as part of your build. For example, you
 may want to generate or preprocess a source file, or compress a binary. In this
@@ -40,7 +40,7 @@ def miniature(name, src, size="100x100", **kwargs):
     name = name,
     srcs = [src],
     outs = ["small_" + src],
-    cmd = "convert $< -resize 100x100 $@",
+    cmd = "convert $< -resize " + size + " $@",
     **kwargs
   )
 ```

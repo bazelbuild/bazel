@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
 # Description:
 #   Zip provides a library for reading and writing zip files, allowing more
 #   advanced manipulation than the JDK equivalents by providing detailed zip
@@ -7,6 +9,7 @@ package(default_visibility = ["//src/java_tools/singlejar:singlejar_package_grou
 filegroup(
     name = "srcs",
     srcs = glob(["*.java"]) + ["BUILD"],
+    visibility = ["//src:__subpackages__"],
 )
 
 # Necessary for the bootstrap compilation.

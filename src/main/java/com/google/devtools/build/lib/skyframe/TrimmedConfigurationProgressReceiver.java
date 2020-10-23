@@ -72,7 +72,7 @@ public final class TrimmedConfigurationProgressReceiver extends NullEvaluationPr
   public static boolean isKeyCacheable(SkyKey key) {
     if (!(key instanceof ConfiguredTargetKey)) {
       // Only configured targets go in the cache.
-      // TODO(mstaib): add aspect support
+      // TODO(b/129286648): add aspect support
       return false;
     }
     ConfiguredTargetKey configuredTargetKey = (ConfiguredTargetKey) key;

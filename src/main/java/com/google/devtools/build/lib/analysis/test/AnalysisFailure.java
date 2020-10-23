@@ -15,13 +15,17 @@
 package com.google.devtools.build.lib.analysis.test;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skylarkbuildapi.test.AnalysisFailureApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.starlarkbuildapi.test.AnalysisFailureApi;
+import net.starlark.java.eval.Printer;
 
 /**
  * Encapsulates information about an analysis-phase error which would have occurred during a build.
  */
 public class AnalysisFailure implements AnalysisFailureApi {
+
+  /** The Starlark type symbol for AnalysisFailure values. */
+  public static final Depset.ElementType TYPE = Depset.ElementType.of(AnalysisFailure.class);
 
   private final Label label;
   private final String message;
@@ -44,7 +48,7 @@ public class AnalysisFailure implements AnalysisFailureApi {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<AnalyisFailure object>");
   }
 

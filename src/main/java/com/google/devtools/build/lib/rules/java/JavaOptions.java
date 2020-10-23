@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsCheckingLevel;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
-import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -40,13 +39,6 @@ public class JavaOptions extends FragmentOptions {
   public static class JavaClasspathModeConverter extends EnumConverter<JavaClasspathMode> {
     public JavaClasspathModeConverter() {
       super(JavaClasspathMode.class, "Java classpath reduction strategy");
-    }
-  }
-
-  /** Converter for the --java_optimization_mode option. */
-  public static class JavaOptimizationModeConverter extends EnumConverter<JavaOptimizationMode> {
-    public JavaOptimizationModeConverter() {
-      super(JavaOptimizationMode.class, "Java optimization strategy");
     }
   }
 
@@ -125,21 +117,9 @@ public class JavaOptions extends FragmentOptions {
   public Label hostJavaBase;
 
   @Option(
-      name = "incompatible_use_jdk11_as_host_javabase",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If enabled, the default --host_javabase is JDK 11.")
-  public boolean useJDK11AsHostJavaBase;
-
-  @Option(
       name = "javacopt",
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Additional options to pass to javac.")
@@ -148,7 +128,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
       name = "host_javacopt",
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -159,7 +139,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
       name = "jvmopt",
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -295,17 +275,6 @@ public class JavaOptions extends FragmentOptions {
   public boolean explicitJavaTestDeps;
 
   @Option(
-      name = "experimental_testrunner",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Use the experimental test runner in bazel which runs the tests under a separate "
-              + "classloader. We must set the --explicit_java_test_deps flag with this to ensure "
-              + "the test targets have their dependencies right.")
-  public boolean experimentalTestRunner;
-
-  @Option(
       name = "javabuilder_top",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -395,7 +364,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
       name = "extra_proguard_specs",
       allowMultiple = true,
-      defaultValue = "", // Ignored
+      defaultValue = "null",
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -418,6 +387,28 @@ public class JavaOptions extends FragmentOptions {
       help = "Do not use.")
   public Map<String, Label> bytecodeOptimizers;
 
+  /**
+   * If true, the OPTIMIZATION stage of the bytecode optimizer will be split across multiple
+   * actions.
+   */
+  @Option(
+      name = "split_bytecode_optimization_pass",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Do not use.")
+  public boolean splitBytecodeOptimizationPass;
+
+  @Option(
+      name = "enforce_proguard_file_extension",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
+      help =
+          "If enabled, requires that ProGuard configuration files outside of third_party/ use the"
+              + " *.pgcfg file extension.")
+  public boolean enforceProguardFileExtension;
+
   @Option(
       name = "translations",
       defaultValue = "auto",
@@ -430,7 +421,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "message_translations",
-      defaultValue = "",
+      defaultValue = "null",
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -440,7 +431,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
       name = "check_constraint",
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Check the listed constraint.")
@@ -448,12 +439,11 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "java_optimization_mode",
-      defaultValue = "legacy",
-      converter = JavaOptimizationModeConverter.class,
+      defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Applies desired link-time optimizations to Java binaries and tests.")
-  public JavaOptimizationMode javaOptimizationMode;
+      help = "Do not use.")
+  public String javaOptimizationMode;
 
   @Option(
       name = "legacy_bazel_java_test",
@@ -484,17 +474,6 @@ public class JavaOptions extends FragmentOptions {
           "If set, any java_proto_library or java_mutable_proto_library which sets the "
               + "strict_deps attribute explicitly will fail to build.")
   public boolean isDisallowStrictDepsForJpl;
-
-  @Option(
-      name = "experimental_java_header_compilation_disable_javac_fallback",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "If --java_header_compilation is set, report diagnostics from turbine instead of "
-              + "falling back to javac. Diagnostics will be produced more quickly, but may be "
-              + "less helpful.")
-  public boolean headerCompilationDisableJavacFallback;
 
   @Option(
       name = "experimental_one_version_enforcement",
@@ -580,7 +559,7 @@ public class JavaOptions extends FragmentOptions {
       name = "plugin",
       converter = LabelListConverter.class,
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Plugins to use in the build. Currently works with java_plugin.")
@@ -588,7 +567,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_require_java_toolchain_header_compiler_direct",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {
@@ -613,6 +592,68 @@ public class JavaOptions extends FragmentOptions {
           "Disables the resource_jars attribute; use java_import and deps or runtime_deps instead.")
   public boolean disallowResourceJars;
 
+  @Option(
+      name = "incompatible_load_java_rules_from_bzl",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If enabled, direct usage of the native Java rules is disabled. Please use "
+              + "the Starlark rules instead https://github.com/bazelbuild/rules_java")
+  public boolean loadJavaRulesFromBzl;
+
+  @Option(
+      name = "experimental_java_header_input_pruning",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If enabled, header compilation actions support --java_classpath=bazel")
+  public boolean experimentalJavaHeaderInputPruning;
+
+  @Option(
+      name = "experimental_turbine_annotation_processing",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If enabled, turbine is used for all annotation processing")
+  public boolean experimentalTurbineAnnotationProcessing;
+
+  @Option(
+      name = "java_runtime_version",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The Java runtime version")
+  public String javaRuntimeVersion;
+
+  @Option(
+      name = "tool_java_runtime_version",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The Java runtime version used to execute tools during the build")
+  public String hostJavaRuntimeVersion;
+
+  @Option(
+      name = "java_language_version",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The Java language version")
+  public String javaLanguageVersion;
+
+  @Option(
+      name = "tool_java_language_version",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The Java language version used to build tools that are executed during a build")
+  public String hostJavaLanguageVersion;
+
   Label defaultJavaBase() {
     return Label.parseAbsoluteUnchecked(DEFAULT_JAVABASE);
   }
@@ -625,10 +666,7 @@ public class JavaOptions extends FragmentOptions {
   }
 
   Label defaultHostJavaBase() {
-    if (useJDK11AsHostJavaBase) {
-      return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_jdk11");
-    }
-    return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_jdk10");
+    return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_jdk11");
   }
 
   Label defaultJavaToolchain() {
@@ -673,6 +711,27 @@ public class JavaOptions extends FragmentOptions {
     host.requireJavaToolchainHeaderCompilerDirect = requireJavaToolchainHeaderCompilerDirect;
 
     host.disallowResourceJars = disallowResourceJars;
+    host.loadJavaRulesFromBzl = loadJavaRulesFromBzl;
+
+    host.javaRuntimeVersion = hostJavaRuntimeVersion;
+    host.javaLanguageVersion = hostJavaLanguageVersion;
+
+    host.bytecodeOptimizers = bytecodeOptimizers;
+    host.splitBytecodeOptimizationPass = splitBytecodeOptimizationPass;
+
+    host.enforceProguardFileExtension = enforceProguardFileExtension;
+    host.extraProguardSpecs = extraProguardSpecs;
+    host.proguard = proguard;
+
+    // Save host options for further use.
+    host.hostJavaBase = hostJavaBase;
+    host.hostJavacOpts = hostJavacOpts;
+    host.hostJavaLauncher = hostJavaLauncher;
+    host.hostJavaToolchain = hostJavaToolchain;
+    host.hostJavaRuntimeVersion = hostJavaRuntimeVersion;
+    host.hostJavaLanguageVersion = hostJavaLanguageVersion;
+
+    host.experimentalTurbineAnnotationProcessing = experimentalTurbineAnnotationProcessing;
 
     return host;
   }

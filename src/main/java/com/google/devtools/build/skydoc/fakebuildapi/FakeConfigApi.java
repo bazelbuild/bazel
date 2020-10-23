@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
-import com.google.devtools.build.lib.skylarkbuildapi.StarlarkConfigApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkConfigApi;
+import com.google.devtools.build.skydoc.fakebuildapi.ConfigApiFakes.FakeBuildSettingDescriptor;
+import com.google.devtools.build.skydoc.fakebuildapi.ConfigApiFakes.FakeExecTransitionFactory;
+import net.starlark.java.eval.Printer;
 
 /** Fake implementation of {@link StarlarkConfigApi}. */
 public class FakeConfigApi implements StarlarkConfigApi {
@@ -41,15 +43,10 @@ public class FakeConfigApi implements StarlarkConfigApi {
   }
 
   @Override
-  public BuildSettingApi labelSetting(Boolean flag) {
-    return new FakeBuildSettingDescriptor();
+  public ExecTransitionFactoryApi exec(Object execGroup) {
+    return new FakeExecTransitionFactory();
   }
 
   @Override
-  public BuildSettingApi labelListSetting(Boolean flag) {
-    return new FakeBuildSettingDescriptor();
-  }
-
-  @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 }

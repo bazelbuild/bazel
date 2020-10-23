@@ -14,9 +14,11 @@
 package com.google.devtools.build.lib.collect;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -42,6 +44,54 @@ public class ExtremaTest {
   }
 
   @Test
+  public void testIsEmpty() {
+    Extrema<Integer> extrema = Extrema.max(2);
+    assertThat(extrema.isEmpty()).isTrue();
+
+    extrema.aggregate(1);
+    assertThat(extrema.isEmpty()).isFalse();
+  }
+
+  @Test
+  public void testClear() {
+    Extrema<Integer> extrema = Extrema.max(2);
+
+    extrema.aggregate(1);
+    extrema.clear();
+    assertThat(extrema.isEmpty()).isTrue();
+  }
+
+  @Test
+  public void customComparator() {
+    class BoxedInt {
+      private final int i;
+
+      private BoxedInt(int i) {
+        this.i = i;
+      }
+    }
+    Extrema<BoxedInt> extrema =
+        Extrema.max(
+            2,
+            new Comparator<BoxedInt>() {
+              @Override
+              public int compare(BoxedInt bi1, BoxedInt bi2) {
+                return Integer.compare(bi1.i, bi2.i);
+              }
+            });
+    extrema.aggregate(new BoxedInt(4));
+    extrema.aggregate(new BoxedInt(1));
+    extrema.aggregate(new BoxedInt(2));
+    extrema.aggregate(new BoxedInt(3));
+    extrema.aggregate(new BoxedInt(5));
+    ImmutableList<Integer> extremeElements =
+        extrema.getExtremeElements().stream()
+            .map(bi -> bi.i)
+            .collect(ImmutableList.toImmutableList());
+    assertThat(extremeElements).containsExactly(5, 4).inOrder();
+  }
+
+  @Test
   public void minExtremaSmallK() {
     runRangeTest(Extrema.min(5), 1, 100, ImmutableList.of(1, 2, 3, 4, 5));
   }
@@ -59,6 +109,25 @@ public class ExtremaTest {
   @Test
   public void maxExtremaLargeK() {
     runRangeTest(Extrema.max(10), 1, 5, ImmutableList.of(5, 4, 3, 2, 1));
+  }
+
+  @Test
+  public void testEmptyExtrema() {
+    Extrema<Integer> extrema = Extrema.max(0);
+    extrema.aggregate(1);
+    assertThat(extrema.isEmpty()).isTrue();
+    assertThat(extrema.getExtremeElements()).isEmpty();
+
+    extrema.clear();
+    assertThat(extrema.isEmpty()).isTrue();
+    assertThat(extrema.getExtremeElements()).isEmpty();
+  }
+
+  @Test
+  public void testNegativeExtremaDisallowed() {
+    IllegalArgumentException thrown =
+        assertThrows(IllegalArgumentException.class, () -> Extrema.min(-1));
+    assertThat(thrown).hasMessageThat().isEqualTo("invalid k (-1), must be >=0");
   }
 
   private void runRangeTest(

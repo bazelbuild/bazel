@@ -29,14 +29,15 @@ import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
-import com.google.devtools.build.lib.query2.query.output.OutputFormatter.AbstractUnorderedFormatter;
-import com.google.devtools.build.lib.syntax.EvalUtils;
+import java.io.IOException;
 import java.io.OutputStream;
-import java.io.PrintStream;
+import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.function.BiPredicate;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * An output formatter that prints the generating rules using the syntax of the BUILD files. If
@@ -60,41 +61,46 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
    * implementations.
    */
   public static class TargetOutputter {
-    private final PrintStream printStream;
+    private final Writer writer;
     private final BiPredicate<Rule, Attribute> preserveSelect;
     private final String lineTerm;
     private final Set<Label> printed = CompactHashSet.create();
 
     /**
-     * @param printStream where to write output
+     * @param writer where to write output
      * @param preserveSelect a predicate that determines if the given attribute on the given rule is
      *     a <code>select</code> that should be output as-is (without figuring out which branch it
      *     takes). This is useful for implementations that can't evaluate <code>select</code>.
      * @param lineTerm character to add to the end of each line
      */
     public TargetOutputter(
-        PrintStream printStream, BiPredicate<Rule, Attribute> preserveSelect, String lineTerm) {
-      this.printStream = printStream;
+        Writer writer, BiPredicate<Rule, Attribute> preserveSelect, String lineTerm) {
+      this.writer = writer;
       this.preserveSelect = preserveSelect;
       this.lineTerm = lineTerm;
     }
 
     /** Outputs a given target in BUILD-style syntax. */
-    public void output(Target target, AttributeReader attrReader) throws InterruptedException {
+    public void output(Target target, AttributeReader attrReader) throws IOException {
       Rule rule = target.getAssociatedRule();
       if (rule == null || printed.contains(rule.getLabel())) {
         return;
       }
-      outputRule(rule, attrReader, printStream);
+      outputRule(rule, attrReader, writer);
       printed.add(rule.getLabel());
     }
 
     /** Outputs a given rule in BUILD-style syntax. */
-    private void outputRule(Rule rule, AttributeReader attrReader, PrintStream printStream) {
-      final String outputAttributePattern = "  %s = %s," + lineTerm;
-      printStream.printf("# %s%s", rule.getLocation(), lineTerm);
-      printStream.printf("%s(%s", rule.getRuleClass(), lineTerm);
-      printStream.printf("  name = \"%s\",%s", rule.getName(), lineTerm);
+    private void outputRule(Rule rule, AttributeReader attrReader, Writer writer)
+        throws IOException {
+      // TODO(b/151151653): display the filenames in root-relative form.
+      // This is an incompatible change, but Blaze users (and their editors)
+      // must already be equipped to handle relative paths as all compiler
+      // error messages are execroot-relative.
+
+      writer.append("# ").append(rule.getLocation().toString()).append(lineTerm);
+      writer.append(rule.getRuleClass()).append("(").append(lineTerm);
+      writer.append("  name = \"").append(rule.getName()).append("\",").append(lineTerm);
 
       for (Attribute attr : rule.getAttributes()) {
         // Ignore the "name" attribute here, as we already print it above.
@@ -104,24 +110,68 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
           continue;
         }
         if (preserveSelect.test(rule, attr)) {
-          printStream.printf(
-              outputAttributePattern, attr.getPublicName(), reconstructSelect(rule, attr));
+          writer
+              .append("  ")
+              .append(attr.getPublicName())
+              .append(" = ")
+              .append(reconstructSelect(rule, attr))
+              .append(",")
+              .append(lineTerm);
           continue;
         }
         PossibleAttributeValues values = attrReader.getPossibleValues(rule, attr);
-        if (values.source != AttributeValueSource.RULE) {
+        if (values.getSource() != AttributeValueSource.RULE) {
           continue; // Don't print default values.
         }
         if (Iterables.size(values) != 1) {
           // Computed defaults that depend on configurable attributes can have multiple values.
           continue;
         }
-        printStream.printf(
-            outputAttributePattern,
-            attr.getPublicName(),
-            outputRawAttrValue(Iterables.getOnlyElement(values)));
+        writer
+            .append("  ")
+            .append(attr.getPublicName())
+            .append(" = ")
+            .append(outputRawAttrValue(Iterables.getOnlyElement(values)))
+            .append(",")
+            .append(lineTerm);
       }
-      printStream.printf(")\n%s", lineTerm);
+      writer.append(")").append(lineTerm);
+
+      // Display the instantiation stack, if any.
+      appendStack(
+          String.format("# Rule %s instantiated at (most recent call last):", rule.getName()),
+          rule.getCallStack().toList());
+
+      // Display the stack of the rule class definition, if any.
+      appendStack(
+          String.format("# Rule %s defined at (most recent call last):", rule.getRuleClass()),
+          rule.getRuleClassObject().getCallStack());
+
+      // TODO(adonovan): also list inputs and outputs of the rule.
+
+      writer.append(lineTerm);
+    }
+
+    private void appendStack(String title, List<StarlarkThread.CallStackEntry> stack)
+        throws IOException {
+      // For readability, ensure columns line up.
+      int maxLocLen = 0;
+      for (StarlarkThread.CallStackEntry fr : stack) {
+        maxLocLen = Math.max(maxLocLen, fr.location.toString().length());
+      }
+      if (maxLocLen > 0) {
+        writer.append(title).append(lineTerm);
+        for (StarlarkThread.CallStackEntry fr : stack) {
+          String loc = fr.location.toString(); // TODO(b/151151653): display root-relative
+          // Java's String.format doesn't support
+          // right-padding with %*s, so we must loop.
+          writer.append("#   ").append(loc);
+          for (int i = loc.length(); i < maxLocLen; i++) {
+            writer.append(' ');
+          }
+          writer.append(" in ").append(fr.name).append(lineTerm);
+        }
+      }
     }
 
     /** Outputs the given attribute value BUILD-style. Does not support selects. */
@@ -132,13 +182,16 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
           licenseTypes.add(Ascii.toLowerCase(licenseType.toString()));
         }
         value = licenseTypes;
-      } else if (value instanceof List<?> && EvalUtils.isImmutable(value)) {
-        // Display it as a list (and not as a tuple). Attributes can never be tuples.
-        value = new ArrayList<>((List<?>) value);
       } else if (value instanceof TriState) {
         value = ((TriState) value).toInt();
       }
-      return new LabelPrinter().repr(value).toString();
+      return new Printer() {
+        // Print labels in their canonical form.
+        @Override
+        public Printer repr(Object o) {
+          return super.repr(o instanceof Label ? ((Label) o).getCanonicalForm() : o);
+        }
+      }.repr(value).toString();
     }
 
     /**
@@ -183,15 +236,16 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
       super(out);
       this.targetOutputter =
           new TargetOutputter(
-              printStream,
+              writer,
               (rule, attr) -> RawAttributeMapper.of(rule).isConfigurable(attr.getName()),
               lineTerm);
     }
 
     @Override
-    public void processOutput(Iterable<Target> partialResult) throws InterruptedException {
+    public void processOutput(Iterable<Target> partialResult) throws IOException {
       for (Target target : partialResult) {
-        targetOutputter.output(target, (rule, attr) -> getPossibleAttributeValues(rule, attr));
+        targetOutputter.output(
+            target, (rule, attr) -> PossibleAttributeValues.forRuleAndAttribute(rule, attr));
       }
     }
   }

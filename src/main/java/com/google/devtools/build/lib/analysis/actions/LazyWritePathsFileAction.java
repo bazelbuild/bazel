@@ -22,11 +22,14 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.IOException;
 import java.io.OutputStream;
+import javax.annotation.Nullable;
 
 /**
  * Lazily writes the exec path of the given files separated by newline into a specified output file.
@@ -35,23 +38,32 @@ public final class LazyWritePathsFileAction extends AbstractFileWriteAction {
   private static final String GUID = "6be94d90-96f3-4bec-8104-1fb08abc2546";
 
   private final NestedSet<Artifact> files;
+  private final ImmutableSet<Artifact> filesToIgnore;
   private final boolean includeDerivedArtifacts;
 
   public LazyWritePathsFileAction(
-      ActionOwner owner, Artifact output, NestedSet<Artifact> files,
+      ActionOwner owner,
+      Artifact output,
+      NestedSet<Artifact> files,
+      ImmutableSet<Artifact> filesToIgnore,
       boolean includeDerivedArtifacts) {
+    // TODO(ulfjack): It's a bad idea to have these two constructors do slightly different things.
     super(owner, files, output, false);
-    this.files = NestedSetBuilder.fromNestedSet(files).build();
+    this.files = files;
     this.includeDerivedArtifacts = includeDerivedArtifacts;
+    this.filesToIgnore = filesToIgnore;
   }
 
   public LazyWritePathsFileAction(
-      ActionOwner owner, Artifact output,
+      ActionOwner owner,
+      Artifact output,
       ImmutableSet<Artifact> files,
+      ImmutableSet<Artifact> filesToIgnore,
       boolean includeDerivedArtifacts) {
-    super(owner, Artifact.NO_ARTIFACTS, output, false);
+    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), output, false);
     this.files = NestedSetBuilder.<Artifact>stableOrder().addAll(files).build();
     this.includeDerivedArtifacts = includeDerivedArtifacts;
+    this.filesToIgnore = filesToIgnore;
   }
 
   @Override
@@ -66,7 +78,10 @@ public final class LazyWritePathsFileAction extends AbstractFileWriteAction {
 
   /** Computes the Action key for this action by computing the fingerprint for the file contents. */
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable ArtifactExpander artifactExpander,
+      Fingerprint fp) {
     fp.addString(GUID);
     fp.addBoolean(includeDerivedArtifacts);
     fp.addString(getContents());
@@ -74,7 +89,10 @@ public final class LazyWritePathsFileAction extends AbstractFileWriteAction {
 
   private String getContents() {
     StringBuilder stringBuilder = new StringBuilder();
-    for (Artifact file : files) {
+    for (Artifact file : files.toList()) {
+      if (filesToIgnore.contains(file)) {
+        continue;
+      }
       if (file.isSourceArtifact() || includeDerivedArtifacts) {
         stringBuilder.append(file.getRootRelativePathString());
         stringBuilder.append("\n");

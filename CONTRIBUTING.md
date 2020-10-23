@@ -15,7 +15,3 @@ again.
 ## Patch Acceptance Process
 
 Read how to [contribute to Bazel](https://bazel.build/contributing.html)
-
-## Setting up your development environment
-
-Read how to [set up your development environment](https://bazel.build/contributing.html)

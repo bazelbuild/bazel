@@ -25,14 +25,14 @@ import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
+import com.google.devtools.build.lib.query2.query.output.AttributeValueSource;
 import com.google.devtools.build.lib.query2.query.output.BuildOutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.BuildOutputFormatter.AttributeReader;
 import com.google.devtools.build.lib.query2.query.output.BuildOutputFormatter.TargetOutputter;
-import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
-import com.google.devtools.build.lib.query2.query.output.OutputFormatter.PossibleAttributeValues;
+import com.google.devtools.build.lib.query2.query.output.PossibleAttributeValues;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.skyframe.BuildDriver;
+import java.io.IOException;
 import java.io.OutputStream;
 
 /** Cquery implementation of BUILD-style output. */
@@ -41,7 +41,7 @@ class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
       ExtendedEventHandler eventHandler,
       CqueryOptions options,
       OutputStream out,
-      SkyframeExecutor<? extends BuildDriver> skyframeExecutor,
+      SkyframeExecutor skyframeExecutor,
       TargetAccessor<ConfiguredTarget> accessor) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
   }
@@ -68,7 +68,7 @@ class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
       Object actualValue = attributeMap.get(attr.getName(), attr.getType());
       return new PossibleAttributeValues(
           actualValue == null ? ImmutableList.of() : ImmutableList.of(actualValue),
-          OutputFormatter.getAttributeSource(rule, attr));
+          AttributeValueSource.forRuleAndAttribute(rule, attr));
     }
   }
 
@@ -94,7 +94,8 @@ class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   @Override
-  public void processOutput(Iterable<ConfiguredTarget> partialResult) throws InterruptedException {
+  public void processOutput(Iterable<ConfiguredTarget> partialResult)
+      throws InterruptedException, IOException {
     BuildOutputFormatter.TargetOutputter outputter =
         new TargetOutputter(
             printStream,

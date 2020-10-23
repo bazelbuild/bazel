@@ -14,7 +14,6 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
@@ -56,7 +55,7 @@ public class QueryableGraphBackedSkyFunctionEnvironment extends AbstractSkyFunct
     }
     // In a cycle.
     Preconditions.checkState(
-        !Iterables.isEmpty(errorInfo.getCycleInfo()), "%s %s", errorInfo, maybeWrappedValue);
+        !errorInfo.getCycleInfo().isEmpty(), "%s %s", errorInfo, maybeWrappedValue);
     return ValueOrUntypedException.ofNull();
   }
 
@@ -82,6 +81,11 @@ public class QueryableGraphBackedSkyFunctionEnvironment extends AbstractSkyFunct
 
   @Override
   public boolean inErrorBubblingForTesting() {
+    return false;
+  }
+
+  @Override
+  public boolean restartPermitted() {
     return false;
   }
 }

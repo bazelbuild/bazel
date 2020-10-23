@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -31,6 +32,9 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScannerSupplier;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.IncludeScanning.Code;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -49,18 +53,12 @@ public class IncludeScanning implements IncludeProcessing {
 
   @Nullable
   @Override
-  public ListenableFuture<Iterable<Artifact>> determineAdditionalInputs(
+  public ListenableFuture<List<Artifact>> determineAdditionalInputs(
       @Nullable IncludeScannerSupplier includeScannerSupplier,
       CppCompileAction action,
       ActionExecutionContext actionExecutionContext,
       IncludeScanningHeaderData includeScanningHeaderData)
       throws ExecException, InterruptedException {
-    // Return null when no include scanning occurs, as opposed to an empty set, to distinguish from
-    // the case where includes are scanned but none are found.
-    if (!action.shouldScanIncludes()) {
-      return null;
-    }
-
     Preconditions.checkNotNull(includeScannerSupplier, action);
 
     Set<Artifact> includes = Sets.newConcurrentHashSet();
@@ -73,6 +71,7 @@ public class IncludeScanning implements IncludeProcessing {
     // really mess up #include_next directives.
     Set<PathFragment> includeDirs = new LinkedHashSet<>(action.getIncludeDirs());
     List<PathFragment> quoteIncludeDirs = action.getQuoteIncludeDirs();
+    List<PathFragment> frameworkIncludeDirs = action.getFrameworkIncludeDirs();
     List<String> cmdlineIncludes = includeScanningHeaderData.getCmdlineIncludes();
 
     includeDirs.addAll(includeScanningHeaderData.getSystemIncludeDirs());
@@ -86,7 +85,8 @@ public class IncludeScanning implements IncludeProcessing {
     }
 
     List<PathFragment> includeDirList = ImmutableList.copyOf(includeDirs);
-    IncludeScanner scanner = includeScannerSupplier.scannerFor(quoteIncludeDirs, includeDirList);
+    IncludeScanner scanner =
+        includeScannerSupplier.scannerFor(quoteIncludeDirs, includeDirList, frameworkIncludeDirs);
 
     Artifact mainSource = action.getMainIncludeScannerSource();
     Collection<Artifact> sources = action.getIncludeScannerSources();
@@ -106,16 +106,17 @@ public class IncludeScanning implements IncludeProcessing {
               action.getGrepIncludes());
       return Futures.transformAsync(
           future,
-          new AsyncFunction<Object, Iterable<Artifact>>() {
+          new AsyncFunction<Object, List<Artifact>>() {
             @Override
-            public ListenableFuture<Iterable<Artifact>> apply(Object input) throws Exception {
+            public ListenableFuture<List<Artifact>> apply(Object input) throws Exception {
               return Futures.immediateFuture(
                   collect(actionExecutionContext, includes, absoluteBuiltInIncludeDirs));
             }
           },
           MoreExecutors.directExecutor());
     } catch (IOException e) {
-      throw new EnvironmentalExecException(e);
+      throw new EnvironmentalExecException(
+          e, createFailureDetail("Include scanning IOException", Code.SCANNING_IO_EXCEPTION));
     }
   }
 
@@ -125,7 +126,7 @@ public class IncludeScanning implements IncludeProcessing {
       List<PathFragment> absoluteBuiltInIncludeDirs)
       throws ExecException {
     // Collect inputs and output
-    List<Artifact> inputs = new ArrayList<>();
+    List<Artifact> inputs = new ArrayList<>(includes.size());
     for (Artifact included : includes) {
       // Check for absolute includes -- we assign the file system root as
       // the root path for such includes
@@ -137,11 +138,28 @@ public class IncludeScanning implements IncludeProcessing {
           continue;
         }
         throw new UserExecException(
-            "illegal absolute path to include file: "
-                + actionExecutionContext.getInputPath(included));
+            createFailureDetail(
+                "illegal absolute path to include file: "
+                    + actionExecutionContext.getInputPath(included),
+                Code.ILLEGAL_ABSOLUTE_PATH));
       }
-      inputs.add(included);
+      if (included.hasParent() && included.getParent().isTreeArtifact()) {
+        // Note that this means every file in the TreeArtifact becomes an input to the action, and
+        // we have spurious rebuilds if non-included files change.
+        Preconditions.checkArgument(
+            included instanceof TreeFileArtifact, "Not a TreeFileArtifact: %s", included);
+        inputs.add(included.getParent());
+      } else {
+        inputs.add(included);
+      }
     }
     return inputs;
+  }
+
+  private static FailureDetail createFailureDetail(String message, Code detailedCode) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setIncludeScanning(FailureDetails.IncludeScanning.newBuilder().setCode(detailedCode))
+        .build();
   }
 }

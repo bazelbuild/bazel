@@ -25,8 +25,13 @@ import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Handler;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -39,6 +44,7 @@ import org.junit.runners.JUnit4;
 public class AndroidResourceClassWriterTest {
 
   private FileSystem fs;
+  private TestLoggingHandler loggingHandler;
 
   @Rule public final ExpectedException thrown = ExpectedException.none();
 
@@ -48,6 +54,15 @@ public class AndroidResourceClassWriterTest {
   @Before
   public void createCleanEnvironment() {
     fs = Jimfs.newFileSystem();
+    loggingHandler = new TestLoggingHandler();
+    Logger.getLogger(PlaceholderIdFieldInitializerBuilder.class.getCanonicalName())
+        .addHandler(loggingHandler);
+  }
+
+  @After
+  public void removeLoggingHandler() {
+    Logger.getLogger(PlaceholderIdFieldInitializerBuilder.class.getCanonicalName())
+        .removeHandler(loggingHandler);
   }
 
   @Test
@@ -471,9 +486,15 @@ public class AndroidResourceClassWriterTest {
     UnwrittenMergedAndroidData unwrittenMergedAndroidData =
         UnwrittenMergedAndroidData.of(
             source.resolve("AndroidManifest.xml"), direct, ParsedAndroidDataBuilder.empty());
-    thrown.expect(IOException.class);
-    thrown.expectMessage("App attribute not found: aaazzz");
+
     unwrittenMergedAndroidData.writeResourceClass(resourceClassWriter);
+
+    assertThat(loggingHandler.logRecords).hasSize(1);
+    assertThat(loggingHandler.logRecords.get(0).getLevel()).isEqualTo(java.util.logging.Level.INFO);
+    assertThat(loggingHandler.logRecords.get(0).getMessage())
+        .isEqualTo(
+            "Attribute \"com_google_android_Dots\" of styleable \"aaazzz\" not defined among"
+                + " dependencies. Ignoring.");
   }
 
   /**
@@ -596,4 +617,19 @@ public class AndroidResourceClassWriterTest {
   }
 
   private static final Subject.Factory<ClassPathsSubject, Path> paths = ClassPathsSubject::new;
+
+  private static final class TestLoggingHandler extends Handler {
+    public final List<LogRecord> logRecords = new ArrayList<LogRecord>();
+
+    @Override
+    public void publish(LogRecord record) {
+      logRecords.add(record);
+    }
+
+    @Override
+    public void flush() {}
+
+    @Override
+    public void close() throws SecurityException {}
+  }
 }

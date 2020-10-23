@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -44,40 +44,47 @@ public class XcodeVersionRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(xcode_version).ATTRIBUTE(version) -->
         The official version number of a version of Xcode.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr(VERSION_ATTR_NAME, STRING)
-            .mandatory()
-            .nonconfigurable("this rule determines configuration"))
+        .add(
+            attr(VERSION_ATTR_NAME, STRING)
+                .mandatory()
+                .nonconfigurable("this rule determines configuration"))
         /* <!-- #BLAZE_RULE(xcode_version).ATTRIBUTE(version) -->
         Accepted aliases for this version of Xcode.
         If the value of the <code>xcode_version</code> build flag matches any of the given
         alias strings, this xcode version will be used.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr(ALIASES_ATTR_NAME, STRING_LIST)
-            .nonconfigurable("this rule determines configuration"))
+        .add(
+            attr(ALIASES_ATTR_NAME, STRING_LIST)
+                .nonconfigurable("this rule determines configuration"))
+
         /* <!-- #BLAZE_RULE(xcode_version).ATTRIBUTE(default_ios_sdk_version) -->
-        The ios sdk version that is used by default when this version of xcode is being used. 
+        The ios sdk version that is used by default when this version of xcode is being used.
         The <code>ios_sdk_version</code> build flag will override the value specified here.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr(DEFAULT_IOS_SDK_VERSION_ATTR_NAME, STRING)
-            .nonconfigurable("this rule determines configuration"))
+        .add(
+            attr(DEFAULT_IOS_SDK_VERSION_ATTR_NAME, STRING)
+                .nonconfigurable("this rule determines configuration"))
         /* <!-- #BLAZE_RULE(xcode_version).ATTRIBUTE(default_watchos_sdk_version) -->
-        The watchos sdk version that is used by default when this version of xcode is being used. 
+        The watchos sdk version that is used by default when this version of xcode is being used.
         The <code>watchos_sdk_version</code> build flag will override the value specified here.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr(DEFAULT_WATCHOS_SDK_VERSION_ATTR_NAME, STRING)
-            .nonconfigurable("this rule determines configuration"))
+        .add(
+            attr(DEFAULT_WATCHOS_SDK_VERSION_ATTR_NAME, STRING)
+                .nonconfigurable("this rule determines configuration"))
         /* <!-- #BLAZE_RULE(xcode_version).ATTRIBUTE(default_tvos_sdk_version) -->
-        The tvos sdk version that is used by default when this version of xcode is being used. 
+        The tvos sdk version that is used by default when this version of xcode is being used.
         The <code>tvos_sdk_version</code> build flag will override the value specified here.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr(DEFAULT_TVOS_SDK_VERSION_ATTR_NAME, STRING)
-            .nonconfigurable("this rule determines configuration"))
+        .add(
+            attr(DEFAULT_TVOS_SDK_VERSION_ATTR_NAME, STRING)
+                .nonconfigurable("this rule determines configuration"))
         /* <!-- #BLAZE_RULE(xcode_version).ATTRIBUTE(default_macos_sdk_version) -->
-        The macosx sdk version that is used by default when this version of xcode is being used. 
+        The macosx sdk version that is used by default when this version of xcode is being used.
         The <code>macos_sdk_version</code> build flag will override the value specified here.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr(DEFAULT_MACOS_SDK_VERSION_ATTR_NAME, STRING)
-            .nonconfigurable("this rule determines configuration"))
+        .add(
+            attr(DEFAULT_MACOS_SDK_VERSION_ATTR_NAME, STRING)
+                .nonconfigurable("this rule determines configuration"))
         .build();
   }
 
@@ -91,7 +98,7 @@ public class XcodeVersionRule implements RuleDefinition {
   }
 }
 
-/*<!-- #BLAZE_RULE (NAME = xcode_version, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = xcode_version, TYPE = OTHER, FAMILY = Objective-C) -->
 
 <p>Represents a single official xcode version with acceptable aliases for that xcode version.
 See the <code>xcode_config</code> rule.</p>

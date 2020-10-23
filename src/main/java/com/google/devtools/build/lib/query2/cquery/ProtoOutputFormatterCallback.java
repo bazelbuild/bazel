@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.query2.cquery;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
+import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.analysis.AnalysisProtos;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -35,9 +35,11 @@ import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.protobuf.Message;
 import com.google.protobuf.TextFormat;
+import com.google.protobuf.util.JsonFormat;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Map;
+import java.util.Comparator;
+import java.util.List;
 
 /** Proto output formatter for cquery results. */
 class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
@@ -45,7 +47,8 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   /** Defines the types of proto output this class can handle. */
   public enum OutputType {
     BINARY("proto"),
-    TEXT("textproto");
+    TEXT("textproto"),
+    JSON("jsonproto");
 
     private final String formatName;
 
@@ -60,6 +63,8 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
 
   private final OutputType outputType;
   private final AspectResolver resolver;
+  private final SkyframeExecutor skyframeExecutor;
+  private final JsonFormat.Printer jsonPrinter = JsonFormat.printer();
 
   private AnalysisProtos.CqueryResult.Builder protoResult;
 
@@ -75,6 +80,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       OutputType outputType) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
     this.outputType = outputType;
+    this.skyframeExecutor = skyframeExecutor;
     this.resolver = resolver;
   }
 
@@ -96,16 +102,21 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
         protoResult.getResultsList().forEach(ct -> queryResult.addTarget(ct.getTarget()));
         writeData(queryResult.build());
       }
+      printStream.flush();
     }
   }
 
   private void writeData(Message message) throws IOException {
     switch (outputType) {
       case BINARY:
-        message.writeTo(printStream);
+        message.writeTo(outputStream);
         break;
       case TEXT:
         TextFormat.print(message, printStream);
+        break;
+      case JSON:
+        jsonPrinter.appendTo(message, printStream);
+        printStream.append('\n');
         break;
       default:
         throw new IllegalStateException("Unknown outputType " + outputType.formatName());
@@ -125,7 +136,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   @Override
   public void processOutput(Iterable<ConfiguredTarget> partialResult) throws InterruptedException {
     ConfiguredProtoOutputFormatter formatter = new ConfiguredProtoOutputFormatter();
-    formatter.setOptions(options, resolver);
+    formatter.setOptions(options, resolver, skyframeExecutor.getHashFunction());
     for (ConfiguredTarget configuredTarget : partialResult) {
       AnalysisProtos.ConfiguredTarget.Builder builder =
           AnalysisProtos.ConfiguredTarget.newBuilder();
@@ -151,8 +162,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   private class ConfiguredProtoOutputFormatter extends ProtoOutputFormatter {
     @Override
     protected void addAttributes(
-        Build.Rule.Builder rulePb, Rule rule, Object extraDataForPostProcess)
-        throws InterruptedException {
+        Build.Rule.Builder rulePb, Rule rule, Object extraDataForAttrHash) {
       // We know <code>currentTarget</code> will be one of these two types of configured targets
       // because this method is only triggered in ProtoOutputFormatter.toTargetProtoBuffer when
       // the target in currentTarget is an instanceof Rule.
@@ -167,8 +177,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       }
       ConfiguredAttributeMapper attributeMapper =
           ConfiguredAttributeMapper.of(rule, configConditions);
-      Map<Attribute, Build.Attribute> serializedAttributes = Maps.newHashMap();
-      for (Attribute attr : rule.getAttributes()) {
+      for (Attribute attr : sortAttributes(rule.getAttributes())) {
         if (!shouldIncludeAttribute(rule, attr)) {
           continue;
         }
@@ -179,10 +188,12 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
                 attributeValue,
                 rule.isAttributeValueExplicitlySpecified(attr),
                 /*encodeBooleanAndTriStateAsIntegerAndString=*/ true);
-        serializedAttributes.put(attr, serializedAttribute);
+        rulePb.addAttribute(serializedAttribute);
       }
-      rulePb.addAllAttribute(serializedAttributes.values());
-      postProcess(rule, rulePb, serializedAttributes, extraDataForPostProcess);
     }
+  }
+
+  static List<Attribute> sortAttributes(Iterable<Attribute> attributes) {
+    return Ordering.from(Comparator.comparing(Attribute::getName)).sortedCopy(attributes);
   }
 }

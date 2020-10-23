@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.analysis.VisibilityProviderImpl;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
@@ -36,10 +36,30 @@ import com.google.devtools.build.lib.util.FileTypeSet;
  * Implementation of the <code>alias</code> rule.
  */
 public class Alias implements RuleConfiguredTargetFactory {
+
+  public static final String RULE_NAME = "alias";
+  public static final String ACTUAL_ATTRIBUTE_NAME = "actual";
+
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    ConfiguredTarget actual = (ConfiguredTarget) ruleContext.getPrerequisite("actual", Mode.TARGET);
+    ConfiguredTarget actual = (ConfiguredTarget) ruleContext.getPrerequisite("actual");
+
+    // TODO(b/129045294): Remove once the flag is flipped.
+    if (ruleContext.getLabel().getCanonicalForm().startsWith("@bazel_tools//platforms")
+        && ruleContext
+            .getConfiguration()
+            .getOptions()
+            .get(CoreOptions.class)
+            .usePlatformsRepoForConstraints) {
+      throw ruleContext.throwWithRuleError(
+          "Constraints from @bazel_tools//platforms have been "
+              + "removed. Please use constraints from @platforms repository embedded in "
+              + "Bazel, or preferably declare dependency on "
+              + "https://github.com/bazelbuild/platforms. See "
+              + "https://github.com/bazelbuild/bazel/issues/8622 for details.");
+    }
+
     return new AliasConfiguredTarget(
         ruleContext,
         actual,
@@ -64,22 +84,22 @@ public class Alias implements RuleConfiguredTargetFactory {
           .removeAttribute("licenses")
           .removeAttribute("distribs")
           .add(
-              attr("actual", LABEL)
+              attr(ACTUAL_ATTRIBUTE_NAME, LABEL)
                   .allowedFileTypes(FileTypeSet.ANY_FILE)
                   .allowedRuleClasses(ANY_RULE)
                   .mandatory())
           .canHaveAnyProvider()
           // Aliases themselves do not need toolchains or an execution platform, so this is fine.
-          // The actual target
-          // will resolve platforms and toolchains with no issues regardless of this setting.
-          .supportsPlatforms(false)
+          // The actual target will resolve platforms and toolchains with no issues regardless of
+          // this setting.
+          .useToolchainResolution(false)
           .build();
     }
 
     @Override
     public Metadata getMetadata() {
       return Metadata.builder()
-          .name("alias")
+          .name(RULE_NAME)
           .factoryClass(Alias.class)
           .ancestors(BaseRuleClasses.BaseRule.class)
           .build();
@@ -87,7 +107,7 @@ public class Alias implements RuleConfiguredTargetFactory {
   }
 }
 
-/*<!-- #BLAZE_RULE (NAME = alias, TYPE = OTHER, FAMILY = General)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = alias, FAMILY = General)[GENERIC_RULE] -->
 
 <p>
   The <code>alias</code> rule creates another name a rule can be referred to as.
@@ -95,7 +115,7 @@ public class Alias implements RuleConfiguredTargetFactory {
 
 <p>
   Aliasing only works for "regular" targets. In particular, <code>package_group</code>
-    and <code>test_suite</code> rules cannot be aliased.
+  and <code>test_suite</code> cannot be aliased.
 </p>
 
 <p>

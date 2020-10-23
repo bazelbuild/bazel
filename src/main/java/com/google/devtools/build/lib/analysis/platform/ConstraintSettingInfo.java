@@ -17,26 +17,26 @@ package com.google.devtools.build.lib.analysis.platform;
 import com.google.common.base.Objects;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintSettingInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintSettingInfoApi;
 import com.google.devtools.build.lib.util.Fingerprint;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.syntax.Location;
 
 /** Provider for a platform constraint setting that is available to be fulfilled. */
 @Immutable
 @AutoCodec
 public class ConstraintSettingInfo extends NativeInfo implements ConstraintSettingInfoApi {
-  /** Name used in Skylark for accessing this provider. */
-  public static final String SKYLARK_NAME = "ConstraintSettingInfo";
+  /** Name used in Starlark for accessing this provider. */
+  public static final String STARLARK_NAME = "ConstraintSettingInfo";
 
-  /** Skylark constructor and identifier for this provider. */
-  public static final NativeProvider<ConstraintSettingInfo> PROVIDER =
-      new NativeProvider<ConstraintSettingInfo>(ConstraintSettingInfo.class, SKYLARK_NAME) {};
+  /** Provider singleton constant. */
+  public static final BuiltinProvider<ConstraintSettingInfo> PROVIDER =
+      new BuiltinProvider<ConstraintSettingInfo>(STARLARK_NAME, ConstraintSettingInfo.class) {};
 
   private final Label label;
   @Nullable private final Label defaultConstraintValueLabel;
@@ -89,10 +89,11 @@ public class ConstraintSettingInfo extends NativeInfo implements ConstraintSetti
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
-    printer.format("ConstraintSettingInfo(%s", label.toString());
+  public void repr(Printer printer) {
+    Printer.format(printer, "ConstraintSettingInfo(%s", label.toString());
     if (defaultConstraintValueLabel != null) {
-      printer.format(", default_constraint_value=%s", defaultConstraintValueLabel.toString());
+      Printer.format(
+          printer, ", default_constraint_value=%s", defaultConstraintValueLabel.toString());
     }
     printer.append(")");
   }

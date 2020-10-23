@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,8 +15,15 @@
 
 """Unit tests for stubify_application_manifest."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import unittest
 from xml.etree import ElementTree
+
+# Do not edit this line. Copybara replaces it with PY2 migration helper.
+import six
 
 from tools.android.stubify_manifest import ANDROID
 from tools.android.stubify_manifest import BadManifestException
@@ -109,7 +117,8 @@ class StubifyMobileInstallTest(unittest.TestCase):
 
   def testRemovesHasCode(self):
     new_manifest, _, _ = StubifyMobileInstall(MANIFEST_WITH_HASCODE)
-    application = ElementTree.fromstring(new_manifest).find("application")
+    application = ElementTree.fromstring(
+        six.ensure_str(new_manifest)).find("application")
     self.assertFalse(("{%s}hasCode" % ANDROID) in application.attrib)
 
   def assertHasPermission(self, manifest_string, permission):

@@ -18,10 +18,11 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import net.starlark.java.eval.EvalException;
 
 /** Enum covering all build variables we create for all various {@link CppLinkAction}. */
 public enum LinkBuildVariables {
@@ -79,7 +80,9 @@ public enum LinkBuildVariables {
   /** Path to the fdo instrument. */
   FDO_INSTRUMENT_PATH("fdo_instrument_path"),
   /** Path to the context sensitive fdo instrument. */
-  CS_FDO_INSTRUMENT_PATH("cs_fdo_instrument_path");
+  CS_FDO_INSTRUMENT_PATH("cs_fdo_instrument_path"),
+  /** Path to the Propeller Optimize linker profile artifact */
+  PROPELLER_OPTIMIZE_LD_PATH("propeller_optimize_ld_path");
 
   private final String variableName;
 
@@ -112,9 +115,9 @@ public enum LinkBuildVariables {
       PathFragment ltoOutputRootPrefix,
       String defFile,
       FdoContext fdoContext,
-      Iterable<String> runtimeLibrarySearchDirectories,
+      NestedSet<String> runtimeLibrarySearchDirectories,
       SequenceBuilder librariesToLink,
-      Iterable<String> librarySearchDirectories,
+      NestedSet<String> librarySearchDirectories,
       boolean addIfsoRelatedVariables)
       throws EvalException {
     CcToolchainVariables.Builder buildVariables =
@@ -184,11 +187,13 @@ public enum LinkBuildVariables {
           ccToolchainProvider
               .getFeatures()
               .getArtifactNameExtensionForCategory(ArtifactCategory.OBJECT_FILE);
-      buildVariables.addStringVariable(
-          THINLTO_OBJECT_SUFFIX_REPLACE.getVariableName(),
-          Iterables.getOnlyElement(CppFileTypes.LTO_INDEXING_OBJECT_FILE.getExtensions())
-              + ";"
-              + objectFileExtension);
+      if (!featureConfiguration.isEnabled(CppRuleClasses.NO_USE_LTO_INDEXING_BITCODE_FILE)) {
+        buildVariables.addStringVariable(
+            THINLTO_OBJECT_SUFFIX_REPLACE.getVariableName(),
+            Iterables.getOnlyElement(CppFileTypes.LTO_INDEXING_OBJECT_FILE.getExtensions())
+                + ";"
+                + objectFileExtension);
+      }
       if (thinltoMergedObjectFile != null) {
         buildVariables.addStringVariable(
             THINLTO_MERGED_OBJECT_FILE.getVariableName(), thinltoMergedObjectFile);
@@ -235,6 +240,12 @@ public enum LinkBuildVariables {
       buildVariables.addStringVariable(CS_FDO_INSTRUMENT_PATH.getVariableName(), csFdoInstrument);
     }
 
+    if (featureConfiguration.isEnabled(CppRuleClasses.PROPELLER_OPTIMIZE)
+        && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
+      buildVariables.addStringVariable(
+          PROPELLER_OPTIMIZE_LD_PATH.getVariableName(),
+          fdoContext.getPropellerOptimizeInputFile().getLdArtifact().getExecPathString());
+    }
     Iterable<String> userLinkFlagsWithLtoIndexingIfNeeded;
     if (!isLtoIndexing || cppConfiguration.useStandaloneLtoIndexingCommandLines()) {
       userLinkFlagsWithLtoIndexingIfNeeded = userLinkFlags;

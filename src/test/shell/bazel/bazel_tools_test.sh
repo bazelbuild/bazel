@@ -25,4 +25,24 @@ function test_build_objc_tools() {
       || fail "should build tools/objc/make_hashed_objlist.py"
 }
 
+# Test that verifies @bazel_tools//tools:bzl_srcs contains all .bzl source
+# files underneath @bazel_tools//tools
+function test_bzl_srcs() {
+  local registered_files=$(bazel query 'kind(source, deps(@bazel_tools//tools:bzl_srcs))')
+  registered_files="${registered_files//://}"
+  # Find the actual set of .bzl source files. "bazel query @bazel_tools//..." does
+  # not work here, because that command currently fails.
+  # See https://github.com/bazelbuild/bazel/issues/8859.
+  local tools_base="$(bazel info output_base)/external/bazel_tools/tools"
+  local tools_base_len=$(echo $tools_base | wc -c)
+  local found_files=$(find "$tools_base" -name "*.bzl")
+
+  for found_file in $found_files; do
+    expected_label="@bazel_tools//tools/${found_file:tools_base_len}"
+    if ! [[ "$registered_files" =~ "$expected_label" ]]; then
+      fail "$expected_label was not found under @bazel_tools//tools:bzl_srcs. Found: $registered_files"
+    fi
+  done
+}
+
 run_suite "bazel_tools test suite"

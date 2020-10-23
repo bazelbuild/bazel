@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_test")
+
 package(
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
@@ -6,61 +8,92 @@ package(
 filegroup(
     name = "srcs",
     testonly = 0,
-    srcs = glob(["**"]) + [
+    srcs = glob(["*"]) + [
         "//src/test/java/com/google/devtools/build/lib/bazel/repository/cache:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository/downloader:srcs",
+        "//src/test/java/com/google/devtools/build/lib/bazel/repository/starlark:srcs",
     ],
-    visibility = ["//src/test/java/com/google/devtools/build/lib/bazel:__pkg__"],
+    visibility = ["//src:__subpackages__"],
 )
 
-java_test(
-    name = "RepositoryTests",
-    srcs = glob(["*.java"]) + [
-        "skylark/SkylarkRepositoryContextTest.java",
-    ],
+java_library(
+    name = "RepositoryTests_lib",
+    srcs = glob(
+        ["*.java"],
+        exclude = [
+            "LocalConfigPlatformFunctionTest.java",
+        ],
+    ),
     data = [
         "test_decompress_archive.tar.gz",
         "test_decompress_archive.zip",
     ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository",
+        "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
+        "//src/main/java/com/google/devtools/build/lib/unix",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
+        "//third_party:guava",
+        "//third_party:java-diff-utils",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
+        "@bazel_tools//tools/java/runfiles",
+    ],
+)
+
+java_test(
+    name = "RepositoryTests",
     tags = [
         "rules",
     ],
     test_class = "com.google.devtools.build.lib.AllTests",
+    runtime_deps = [
+        ":RepositoryTests_lib",
+        "//src/test/java/com/google/devtools/build/lib:test_runner",
+    ],
+)
+
+java_library(
+    name = "BazelRepositoryTests_lib",
+    srcs = [
+        "LocalConfigPlatformFunctionTest.java",
+    ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:bazel-main",
-        "//src/main/java/com/google/devtools/build/lib:bazel-repository",
-        "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:os_util",
-        "//src/main/java/com/google/devtools/build/lib:packages-internal",
-        "//src/main/java/com/google/devtools/build/lib:syntax",
-        "//src/main/java/com/google/devtools/build/lib:unix",
-        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:utils",
-        "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
-        "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
-        "//src/main/java/com/google/devtools/build/lib/collect",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/repository",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/java/com/google/devtools/common/options",
-        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
-        "//src/test/java/com/google/devtools/build/lib:foundations_testutil",
-        "//src/test/java/com/google/devtools/build/lib:packages_testutil",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:guava",
-        "//third_party:guava-testlib",
-        "//third_party:jsr305",
         "//third_party:junit4",
-        "//third_party:maven",
-        "//third_party:mockito",
         "//third_party:truth",
-        "@bazel_tools//tools/java/runfiles",
+    ],
+)
+
+java_test(
+    name = "BazelRepositoryTests",
+    tags = [
+        "manual",
+        "rules",
+    ],
+    test_class = "com.google.devtools.build.lib.AllTests",
+    runtime_deps = [
+        ":BazelRepositoryTests_lib",
+        "//src/test/java/com/google/devtools/build/lib:test_runner",
     ],
 )
 
@@ -70,7 +103,6 @@ test_suite(
         "-no_windows",
         "-slow",
     ],
-    visibility = ["//visibility:private"],
 )
 
 test_suite(
@@ -79,6 +111,6 @@ test_suite(
         ":windows_tests",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository/cache:all_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository/downloader:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/lib/bazel/repository/starlark:all_windows_tests",
     ],
-    visibility = ["//src/test/java/com/google/devtools/build/lib/bazel:__pkg__"],
 )

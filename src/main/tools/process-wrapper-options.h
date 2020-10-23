@@ -20,6 +20,8 @@
 
 // Options parsing result.
 struct Options {
+  // Whether to gracefully terminate subprocesses on SIGTERM (-g)
+  bool graceful_sigterm;
   // How long to wait before killing the child (-t)
   double timeout_secs;
   // How long to wait before sending SIGKILL in case of timeout (-k)

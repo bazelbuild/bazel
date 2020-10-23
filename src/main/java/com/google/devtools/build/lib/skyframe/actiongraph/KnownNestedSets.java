@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skyframe.actiongraph;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisProtos;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 
 /**
  * Cache for NestedSets in the action graph.
@@ -30,24 +30,21 @@ public class KnownNestedSets extends BaseCache<Object, AnalysisProtos.DepSetOfFi
   }
 
   @Override
-  protected Object transformToKey(Object nestedSetViewObject) {
-    NestedSetView<Artifact> nestedSetView = (NestedSetView<Artifact>) nestedSetViewObject;
-    // The NestedSet is identified by their raw 'children' object since multiple NestedSetViews
-    // can point to the same object.
-    return nestedSetView.identifier();
+  protected Object transformToKey(Object nestedSet) {
+    return ((NestedSet) nestedSet).toNode();
   }
 
   @Override
-  AnalysisProtos.DepSetOfFiles createProto(Object nestedSetViewObject, String id) {
-    NestedSetView<Artifact> nestedSetView = (NestedSetView<Artifact>) nestedSetViewObject;
+  AnalysisProtos.DepSetOfFiles createProto(Object nestedSetObject, String id) {
+    NestedSet<?> nestedSet = (NestedSet) nestedSetObject;
     AnalysisProtos.DepSetOfFiles.Builder depSetBuilder = AnalysisProtos.DepSetOfFiles
         .newBuilder()
         .setId(id);
-    for (NestedSetView<Artifact> transitiveNestedSet : nestedSetView.transitives()) {
-      depSetBuilder.addTransitiveDepSetIds(this.dataToId(transitiveNestedSet));
+    for (NestedSet<?> succ : nestedSet.getNonLeaves()) {
+      depSetBuilder.addTransitiveDepSetIds(this.dataToId(succ));
     }
-    for (Artifact directArtifact : nestedSetView.directs()) {
-      depSetBuilder.addDirectArtifactIds(knownArtifacts.dataToId(directArtifact));
+    for (Object elem : nestedSet.getLeaves()) {
+      depSetBuilder.addDirectArtifactIds(knownArtifacts.dataToId((Artifact) elem));
     }
     return depSetBuilder.build();
   }

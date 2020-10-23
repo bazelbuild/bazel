@@ -26,6 +26,9 @@ public final class PosixLocalEnvProvider implements LocalEnvProvider {
   /**
    * Create a new {@link PosixLocalEnvProvider}.
    *
+   * <p>Use {@link LocalEnvProvider#forCurrentOs(Map)} to instantiate this unless the calling code
+   * is platform-specific.
+   *
    * @param clientEnv a map of the current Bazel command's environment
    */
   public PosixLocalEnvProvider(Map<String, String> clientEnv) {
@@ -40,7 +43,7 @@ public final class PosixLocalEnvProvider implements LocalEnvProvider {
    * if that's empty or null, then by "/tmp".
    */
   @Override
-  public Map<String, String> rewriteLocalEnv(
+  public ImmutableMap<String, String> rewriteLocalEnv(
       Map<String, String> env, BinTools binTools, String fallbackTmpDir) {
     ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
     result.putAll(Maps.filterKeys(env, k -> !k.equals("TMPDIR")));

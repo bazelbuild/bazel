@@ -18,21 +18,25 @@ import static com.google.common.collect.ImmutableSetMultimap.flatteningToImmutab
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.AbstractRecursivePackageProvider.MissingDepException;
 import com.google.devtools.build.lib.pkgcache.CompileOneDependencyTransformer;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
@@ -40,10 +44,11 @@ import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
+import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue.TargetPatternPhaseKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -63,35 +68,33 @@ import javax.annotation.Nullable;
  */
 final class TargetPatternPhaseFunction implements SkyFunction {
 
-  public TargetPatternPhaseFunction() {
+  private final ExternalPackageHelper externalPackageHelper;
+
+  public TargetPatternPhaseFunction(ExternalPackageHelper externalPackageHelper) {
+    this.externalPackageHelper = externalPackageHelper;
   }
 
   @Override
   public TargetPatternPhaseValue compute(SkyKey key, Environment env) throws InterruptedException {
     TargetPatternPhaseKey options = (TargetPatternPhaseKey) key.argument();
-    PackageValue packageValue = null;
-    boolean workspaceError = false;
-    try {
-      packageValue =
-          (PackageValue)
-              env.getValueOrThrow(
-                  PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER),
-                  NoSuchPackageException.class);
-    } catch (NoSuchPackageException e) {
-      env.getListener().handle(Event.error(e.getMessage()));
-      workspaceError = true;
-    }
+    WorkspaceNameValue workspaceName = (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
+    ImmutableSortedSet<String> notSymlinkedInExecrootDirectories =
+        externalPackageHelper.getNotSymlinkedInExecrootDirectories(env);
     if (env.valuesMissing()) {
       return null;
     }
-    String workspaceName = "";
-    if (!workspaceError) {
-      workspaceName = packageValue.getPackage().getWorkspaceName();
+
+    RepositoryMappingValue repositoryMappingValue =
+        (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
+    if (repositoryMappingValue == null) {
+      return null;
     }
 
     // Determine targets to build:
     List<String> failedPatterns = new ArrayList<String>();
-    List<ExpandedPattern> expandedPatterns = getTargetsToBuild(env, options, failedPatterns);
+    List<ExpandedPattern> expandedPatterns =
+        getTargetsToBuild(
+            env, options, repositoryMappingValue.getRepositoryMapping(), failedPatterns);
     ResolvedTargets<Target> targets =
         env.valuesMissing()
             ? null
@@ -113,7 +116,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       for (Target target : targets.getTargets()) {
         if (TargetUtils.isTestSuiteRule(target) && options.isExpandTestSuites()) {
           Label label = target.getLabel();
-          SkyKey testExpansionKey = TestSuiteExpansionValue.key(ImmutableSet.of(label));
+          SkyKey testExpansionKey = TestsForTargetPatternValue.key(ImmutableSet.of(label));
           testExpansionKeys.put(label, testExpansionKey);
         }
       }
@@ -155,15 +158,17 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         }
       } else /*if (determineTests)*/ {
         testsToRun = testTargets.getTargets();
-        targets = ResolvedTargets.<Target>builder()
-            .merge(targets)
-            // Avoid merge() here which would remove the filteredTargets from the targets.
-            .addAll(testsToRun)
-            .mergeError(testTargets.hasError())
-            .build();
-        // filteredTargets is correct in this case - it cannot contain tests that got back in
-        // through test_suite expansion, because the test determination would also filter those out.
-        // However, that's not obvious, and it might be better to explicitly recompute it.
+        targets =
+            ResolvedTargets.<Target>builder()
+                .merge(targets)
+                // Merging in all testsToRun guarantees that targets that will be built (because
+                // they are tests) are not considered to be "filtered out", even if they were
+                // initially filtered out. We can't merge in testTargets because its set of
+                // filteredTargets could include targets that we're building but not testing.
+                .merge(ResolvedTargets.<Target>builder().addAll(testsToRun).build())
+                .mergeError(testTargets.hasError())
+                .build();
+        filteredTargets = targets.getFilteredTargets();
       }
       if (testsToRun != null) {
         // Note that testsToRun can still be null here, if buildTestsOnly && !shouldRunTests.
@@ -187,8 +192,8 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       if (TargetUtils.isTestSuiteRule(target) && options.isExpandTestSuites()) {
         SkyKey expansionKey =
             Preconditions.checkNotNull(testExpansionKeys.get(target.getLabel()));
-        TestSuiteExpansionValue testExpansion =
-            (TestSuiteExpansionValue) expandedTests.get(expansionKey);
+        TestsForTargetPatternValue testExpansion =
+            (TestsForTargetPatternValue) expandedTests.get(expansionKey);
         expandedLabelsBuilder.merge(testExpansion.getLabels());
       } else {
         expandedLabelsBuilder.add(target.getLabel());
@@ -196,7 +201,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     }
     ResolvedTargets<Label> targetLabels = expandedLabelsBuilder.build();
     ResolvedTargets<Target> expandedTargets =
-        TestSuiteExpansionFunction.labelsToTargets(
+        TestsForTargetPatternFunction.labelsToTargets(
             env, targetLabels.getTargets(), targetLabels.hasError());
     Set<Target> testSuiteTargets =
         Sets.difference(targets.getTargets(), expandedTargets.getTargets());
@@ -213,8 +218,9 @@ final class TargetPatternPhaseFunction implements SkyFunction {
             targetLabels.getTargets(),
             testsToRunLabels,
             targets.hasError(),
-            expandedTargets.hasError() || workspaceError,
-            workspaceName);
+            expandedTargets.hasError(),
+            workspaceName.getName(),
+            notSymlinkedInExecrootDirectories);
 
     env.getListener()
         .post(
@@ -224,7 +230,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
                 testFilteredTargets,
                 options.getTargetPatterns(),
                 expandedTargets.getTargets(),
-                failedPatterns,
+                ImmutableList.copyOf(failedPatterns),
                 mapOriginalPatternsToLabels(expandedPatterns, targets.getTargets())));
     env.getListener()
         .post(new LoadingPhaseCompleteEvent(result.getTargetLabels(), removedTargetLabels));
@@ -253,17 +259,26 @@ final class TargetPatternPhaseFunction implements SkyFunction {
    * Interprets the command-line arguments by expanding each pattern to targets and populating the
    * list of {@code failedPatterns}.
    *
-   * @param env the Skylark environment
+   * @param env the Starlark environment
    * @param options the command-line arguments in structured form
    * @param failedPatterns a list into which failed patterns are added
    */
   private static List<ExpandedPattern> getTargetsToBuild(
-      Environment env, TargetPatternPhaseKey options, List<String> failedPatterns)
+      Environment env,
+      TargetPatternPhaseKey options,
+      ImmutableMap<RepositoryName, RepositoryName> repoMapping,
+      List<String> failedPatterns)
       throws InterruptedException {
+
+    ImmutableList.Builder<String> canonicalPatterns = new ImmutableList.Builder<>();
+    for (String rawPattern : options.getTargetPatterns()) {
+      canonicalPatterns.add(TargetPattern.renameRepository(rawPattern, repoMapping));
+    }
+
     List<TargetPatternKey> patternSkyKeys = new ArrayList<>(options.getTargetPatterns().size());
     for (TargetPatternSkyKeyOrException keyOrException :
         TargetPatternValue.keys(
-            options.getTargetPatterns(),
+            canonicalPatterns.build(),
             options.getBuildManualTests()
                 ? FilteringPolicies.NO_FILTER
                 : FilteringPolicies.FILTER_MANUAL,
@@ -314,8 +329,9 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         continue;
       }
       // TODO(ulfjack): This is terribly inefficient.
-      ResolvedTargets<Target> asTargets = TestSuiteExpansionFunction.labelsToTargets(
-          env, value.getTargets().getTargets(), value.getTargets().hasError());
+      ResolvedTargets<Target> asTargets =
+          TestsForTargetPatternFunction.labelsToTargets(
+              env, value.getTargets().getTargets(), value.getTargets().hasError());
       if (asTargets == null) {
         continue;
       }
@@ -380,7 +396,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
    * @param testFilter the test filter
    */
   private static ResolvedTargets<Target> determineTests(
-      Environment env, List<String> targetPatterns, String offset, TestFilter testFilter)
+      Environment env, List<String> targetPatterns, PathFragment offset, TestFilter testFilter)
       throws InterruptedException {
     List<TargetPatternKey> patternSkyKeys = new ArrayList<>();
     for (TargetPatternSkyKeyOrException keyOrException :
@@ -406,7 +422,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         // Skip.
         continue;
       }
-      expandedSuiteKeys.add(TestSuiteExpansionValue.key(value.getTargets().getTargets()));
+      expandedSuiteKeys.add(TestsForTargetPatternValue.key(value.getTargets().getTargets()));
     }
     Map<SkyKey, SkyValue> expandedSuites = env.getValues(expandedSuiteKeys);
     if (env.valuesMissing()) {
@@ -423,11 +439,12 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         continue;
       }
 
-      TestSuiteExpansionValue expandedSuitesValue = (TestSuiteExpansionValue) expandedSuites.get(
-          TestSuiteExpansionValue.key(value.getTargets().getTargets()));
+      TestsForTargetPatternValue expandedSuitesValue =
+          (TestsForTargetPatternValue)
+              expandedSuites.get(TestsForTargetPatternValue.key(value.getTargets().getTargets()));
       if (pattern.isNegative()) {
         ResolvedTargets<Target> negativeTargets =
-            TestSuiteExpansionFunction.labelsToTargets(
+            TestsForTargetPatternFunction.labelsToTargets(
                 env,
                 expandedSuitesValue.getLabels().getTargets(),
                 expandedSuitesValue.getLabels().hasError());
@@ -435,7 +452,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         testTargetsBuilder.mergeError(negativeTargets.hasError());
       } else {
         ResolvedTargets<Target> positiveTargets =
-            TestSuiteExpansionFunction.labelsToTargets(
+            TestsForTargetPatternFunction.labelsToTargets(
                 env,
                 expandedSuitesValue.getLabels().getTargets(),
                 expandedSuitesValue.getLabels().hasError());

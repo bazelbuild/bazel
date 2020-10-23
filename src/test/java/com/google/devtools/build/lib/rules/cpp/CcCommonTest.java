@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
@@ -22,7 +21,6 @@ import static org.junit.Assume.assumeTrue;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.truth.IterableSubject;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -37,6 +35,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.util.OS;
@@ -106,7 +105,7 @@ public class CcCommonTest extends BuildViewTestCase {
     if (emptyShouldOutputStaticLibrary()) {
       assertThat(baseNamesOf(getFilesToBuild(emptylib))).isEqualTo("libemptylib.a");
     } else {
-      assertThat(getFilesToBuild(emptylib)).isEmpty();
+      assertThat(getFilesToBuild(emptylib).toList()).isEmpty();
     }
     assertThat(
             emptylib
@@ -130,7 +129,7 @@ public class CcCommonTest extends BuildViewTestCase {
 
   private List<String> getCopts(String target) throws Exception {
     ConfiguredTarget cLib = getConfiguredTarget(target);
-    Artifact object = getOnlyElement(getOutputGroup(cLib, OutputGroupInfo.FILES_TO_COMPILE));
+    Artifact object = getOutputGroup(cLib, OutputGroupInfo.FILES_TO_COMPILE).getSingleton();
     CppCompileAction compileAction = (CppCompileAction) getGeneratingAction(object);
     return compileAction.getCompilerOptions();
   }
@@ -195,7 +194,7 @@ public class CcCommonTest extends BuildViewTestCase {
   private Iterable<Artifact> getLinkerInputs(ConfiguredTarget target) {
     Artifact executable = getExecutable(target);
     CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(executable);
-    return linkAction.getLinkCommandLine().getLinkerInputArtifacts();
+    return linkAction.getLinkCommandLine().getLinkerInputArtifacts().toList();
   }
 
   @Test
@@ -228,7 +227,7 @@ public class CcCommonTest extends BuildViewTestCase {
                 .getDynamicLibrariesForRuntime(/* linkingStatically= */ false)
                 .isEmpty())
         .isTrue();
-    Artifact staticallyDotA = getOnlyElement(getFilesToBuild(statically));
+    Artifact staticallyDotA = getFilesToBuild(statically).getSingleton();
     assertThat(getGeneratingAction(staticallyDotA)).isInstanceOf(CppLinkAction.class);
     PathFragment dotAPath = staticallyDotA.getExecPath();
     assertThat(dotAPath.getPathString()).endsWith(STATIC_LIB);
@@ -243,7 +242,7 @@ public class CcCommonTest extends BuildViewTestCase {
             "cc_library(name = 'defineslib',",
             "           srcs = ['defines.cc'],",
             "           defines = ['FOO', 'BAR'])");
-    assertThat(isolatedDefines.get(CcInfo.PROVIDER).getCcCompilationContext().getDefines())
+    assertThat(isolatedDefines.get(CcInfo.PROVIDER).getCcCompilationContext().getDefines().toList())
         .containsExactly("FOO", "BAR")
         .inOrder();
   }
@@ -267,7 +266,7 @@ public class CcCommonTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//test:bin");
     CppLinkAction action = (CppLinkAction) getGeneratingAction(getExecutable(target));
-    for (Artifact input : action.getInputs()) {
+    for (Artifact input : action.getInputs().toList()) {
       String name = input.getFilename();
       assertThat(!CppFileTypes.ARCHIVE.matches(name) && !CppFileTypes.PIC_ARCHIVE.matches(name))
           .isTrue();
@@ -289,7 +288,7 @@ public class CcCommonTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//test:bin");
     CppLinkAction action = (CppLinkAction) getGeneratingAction(getExecutable(target));
-    for (Artifact input : action.getInputs()) {
+    for (Artifact input : action.getInputs().toList()) {
       String name = input.getFilename();
       assertThat(!CppFileTypes.ARCHIVE.matches(name) && !CppFileTypes.PIC_ARCHIVE.matches(name))
           .isTrue();
@@ -307,7 +306,8 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "ananas/BUILD",
         "cc_library(name='ananas',",
-        "           srcs=['1.c', '2.cc', '3.cpp', '4.S', '5.h', '6.hpp', '7.inc', '8.inl'])");
+        "           srcs=['1.c', '2.cc', '3.cpp', '4.S', '5.h', '6.hpp', '7.inc', '8.inl',",
+        "                 '9.tlh', 'A.tli'])");
 
     ConfiguredTarget ananas = getConfiguredTarget("//ananas:ananas");
     Iterable<String> temps =
@@ -401,7 +401,7 @@ public class CcCommonTest extends BuildViewTestCase {
     List<CppCompileAction> compilationSteps =
         actionsTestUtil()
             .findTransitivePrerequisitesOf(
-                getFilesToBuild(target).iterator().next(), CppCompileAction.class);
+                getFilesToBuild(target).toList().get(0), CppCompileAction.class);
     return compilationSteps.get(0);
   }
 
@@ -422,7 +422,7 @@ public class CcCommonTest extends BuildViewTestCase {
     assertThat(foo.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())
         .containsAtLeast(
             PathFragment.create(includesRoot),
-            targetConfig.getGenfilesFragment().getRelative(includesRoot));
+            targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot));
   }
 
   @Test
@@ -436,7 +436,8 @@ public class CcCommonTest extends BuildViewTestCase {
 
     useConfiguration("--noincompatible_merge_genfiles_directory");
     ConfiguredTarget foo = getConfiguredTarget("//bang:bang");
-    PathFragment genfilesDir = targetConfig.getGenfilesFragment().getRelative(includesRoot);
+    PathFragment genfilesDir =
+        targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot);
     assertThat(foo.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())
         .contains(genfilesDir);
 
@@ -470,8 +471,8 @@ public class CcCommonTest extends BuildViewTestCase {
             .addAll(
                 noIncludes.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())
             .add(PathFragment.create(includesRoot))
-            .add(targetConfig.getGenfilesFragment().getRelative(includesRoot))
-            .add(targetConfig.getBinFragment().getRelative(includesRoot))
+            .add(targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot))
+            .add(targetConfig.getBinFragment(RepositoryName.MAIN).getRelative(includesRoot))
             .build();
     assertThat(foo.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())
         .containsExactlyElementsIn(expected);
@@ -508,7 +509,7 @@ public class CcCommonTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "mypackage", "mytest", "cc_test(name = 'mytest', srcs = ['mytest.cc'])");
 
-    Iterable<Artifact> runfiles = collectRunfiles(target);
+    NestedSet<Artifact> runfiles = collectRunfiles(target);
     assertThat(baseArtifactNames(runfiles)).contains("mytest.dwp");
   }
 
@@ -661,9 +662,9 @@ public class CcCommonTest extends BuildViewTestCase {
     // make sure we did not print warnings about the linkopt
     assertNoEvents();
     // make sure the binary is dependent on the static lib
-    Action linkAction = getGeneratingAction(getOnlyElement(getFilesToBuild(theApp)));
-    ImmutableList<Artifact> filesToBuild = ImmutableList.copyOf(getFilesToBuild(theLib));
-    assertThat(ImmutableSet.copyOf(linkAction.getInputs()).containsAll(filesToBuild)).isTrue();
+    Action linkAction = getGeneratingAction(getFilesToBuild(theApp).getSingleton());
+    ImmutableList<Artifact> filesToBuild = getFilesToBuild(theLib).toList();
+    assertThat(linkAction.getInputs().toSet()).containsAtLeastElementsIn(filesToBuild);
   }
 
   @Test
@@ -802,7 +803,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "    deps=['a.lds'])");
     ConfiguredTarget target = getConfiguredTarget("//a:bin");
     CppLinkAction action =
-        (CppLinkAction) getGeneratingAction(getOnlyElement(getFilesToBuild(target)));
+        (CppLinkAction) getGeneratingAction(getFilesToBuild(target).getSingleton());
     assertThat(MockCcSupport.getLinkopts(action.getLinkCommandLine()))
         .containsExactly(
             String.format(
@@ -824,8 +825,8 @@ public class CcCommonTest extends BuildViewTestCase {
         "    deps=['a.lds'])");
     ConfiguredTarget target = getConfiguredTarget("//a:bin");
     CppLinkAction action =
-        (CppLinkAction) getGeneratingAction(getOnlyElement(getFilesToBuild(target)));
-    Iterable<Artifact> linkInputs = action.getInputs();
+        (CppLinkAction) getGeneratingAction(getFilesToBuild(target).getSingleton());
+    NestedSet<Artifact> linkInputs = action.getInputs();
     assertThat(ActionsTestUtil.baseArtifactNames(linkInputs)).contains("a.lds");
   }
 
@@ -843,7 +844,7 @@ public class CcCommonTest extends BuildViewTestCase {
     assertThat(ccCompilationContext.getIncludeDirs())
         .containsExactly(
             getTargetConfiguration()
-                .getBinFragment()
+                .getBinFragment(RepositoryName.MAIN)
                 .getRelative("third_party/a/_virtual_includes/a"));
   }
 
@@ -1056,7 +1057,128 @@ public class CcCommonTest extends BuildViewTestCase {
         .containsExactly("/usr/bin/mock-gcc", "@/k8-fastbuild/bin/a/_objs/foo/foo.o.params");
   }
 
+  @Test
+  public void testClangClParameters() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.TARGETS_WINDOWS,
+                    CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY));
+    scratch.file(
+        "a/BUILD",
+        "cc_library(",
+        "    name='foo',",
+        "    srcs=['foo.cc'],",
+        "    copts=[",
+        "        '/imsvc', 'SYSTEM_INCLUDE_1',",
+        "        '-imsvcSYSTEM_INCLUDE_2',",
+        "        '/ISTANDARD_INCLUDE',",
+        "        '/FI', 'forced_include_1',",
+        "        '-FIforced_include_2',",
+        "    ],",
+        ")");
+    CppCompileAction cppCompileAction = getCppCompileAction("//a:foo");
+
+    PathFragment systemInclude1 = PathFragment.create("SYSTEM_INCLUDE_1");
+    PathFragment systemInclude2 = PathFragment.create("SYSTEM_INCLUDE_2");
+    PathFragment standardInclude = PathFragment.create("STANDARD_INCLUDE");
+
+    assertThat(cppCompileAction.getSystemIncludeDirs()).contains(systemInclude1);
+    assertThat(cppCompileAction.getSystemIncludeDirs()).contains(systemInclude2);
+    assertThat(cppCompileAction.getSystemIncludeDirs()).doesNotContain(standardInclude);
+
+    assertThat(cppCompileAction.getIncludeDirs()).doesNotContain(systemInclude1);
+    assertThat(cppCompileAction.getIncludeDirs()).doesNotContain(systemInclude2);
+    assertThat(cppCompileAction.getIncludeDirs()).contains(standardInclude);
+  }
+
+  @Test
+  public void testCcLibraryLoadedThroughMacro() throws Exception {
+    setupTestCcLibraryLoadedThroughMacro(/* loadMacro= */ true);
+    assertThat(getConfiguredTarget("//a:a")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void testCcLibraryNotLoadedThroughMacro() throws Exception {
+    setupTestCcLibraryLoadedThroughMacro(/* loadMacro= */ false);
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:a");
+    assertContainsEvent("rules are deprecated");
+  }
+
+  private void setupTestCcLibraryLoadedThroughMacro(boolean loadMacro) throws Exception {
+    useConfiguration("--incompatible_load_cc_rules_from_bzl");
+    scratch.file(
+        "a/BUILD",
+        getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "cc_library"),
+        "cc_library(name='a', srcs=['a.cc'])");
+  }
+
+  @Test
+  public void testFdoProfileLoadedThroughMacro() throws Exception {
+    setuptestFdoProfileLoadedThroughMacro(/* loadMacro= */ true);
+    assertThat(getConfiguredTarget("//a:a")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void testFdoProfileNotLoadedThroughMacro() throws Exception {
+    setuptestFdoProfileLoadedThroughMacro(/* loadMacro= */ false);
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:a");
+    assertContainsEvent("rules are deprecated");
+  }
+
+  private void setuptestFdoProfileLoadedThroughMacro(boolean loadMacro) throws Exception {
+    useConfiguration("--incompatible_load_cc_rules_from_bzl");
+    scratch.file(
+        "a/BUILD",
+        getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "fdo_profile"),
+        "fdo_profile(name='a', profile='profile.xfdo')");
+  }
+
+  @Test
+  public void testFdoPrefetchHintsLoadedThroughMacro() throws Exception {
+    setupTestFdoPrefetchHintsLoadedThroughMacro(/* loadMacro= */ true);
+    assertThat(getConfiguredTarget("//a:a")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void testFdoPrefetchHintsNotLoadedThroughMacro() throws Exception {
+    setupTestFdoPrefetchHintsLoadedThroughMacro(/* loadMacro= */ false);
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:a");
+    assertContainsEvent("rules are deprecated");
+  }
+
+  private void setupTestFdoPrefetchHintsLoadedThroughMacro(boolean loadMacro) throws Exception {
+    useConfiguration("--incompatible_load_cc_rules_from_bzl");
+    scratch.file(
+        "a/BUILD",
+        getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "fdo_prefetch_hints"),
+        "fdo_prefetch_hints(",
+        "    name = 'a',",
+        "    profile = 'profile.afdo',",
+        ")");
+  }
+
   private String removeOutDirectory(String s) {
     return s.replace("blaze-out", "").replace("bazel-out", "");
+  }
+
+  @Test
+  public void testNoCoptsDisabled() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'], nocopts = 'abc')");
+    useConfiguration("--incompatible_disable_nocopts");
+    getConfiguredTarget("//x:foo");
+    assertContainsEvent(
+        "This attribute was removed. See https://github.com/bazelbuild/bazel/issues/8706 for"
+            + " details.");
   }
 }

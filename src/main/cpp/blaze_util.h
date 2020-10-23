@@ -26,6 +26,8 @@
 #include <string>
 #include <vector>
 
+#include "src/main/cpp/util/path.h"
+
 namespace blaze {
 
 extern const char kServerPidFile[];
@@ -44,10 +46,12 @@ bool GetNullaryOption(const char *arg, const char *key);
 
 // Searches for 'key' in 'args' using GetUnaryOption. Arguments found after '--'
 // are omitted from the search.
+// When 'warn_if_dupe' is true, the method checks if 'key' is specified more
+// than once and prints a warning if so.
 // Returns the value of the 'key' flag iff it occurs in args.
 // Returns NULL otherwise.
 const char* SearchUnaryOption(const std::vector<std::string>& args,
-                              const char* key);
+                              const char* key, bool warn_if_dupe);
 
 // Searches for '--flag_name' and '--noflag_name' in 'args' using
 // GetNullaryOption. Arguments found after '--' are omitted from the search.
@@ -72,7 +76,7 @@ std::string AbsolutePathFromFlag(const std::string& value);
 // wait_seconds elapses or the server process terminates. Returns true if a
 // check sees that the server process terminated. Logs to stderr after 5, 10,
 // and 30 seconds if the wait lasts that long.
-bool AwaitServerProcessTermination(int pid, const std::string& output_base,
+bool AwaitServerProcessTermination(int pid, const blaze_util::Path& output_base,
                                    unsigned int wait_seconds);
 
 // The number of seconds the client will wait for the server process to
@@ -85,20 +89,6 @@ extern const unsigned int kPostShutdownGracePeriodSeconds;
 // terminate after the client forcibly kills the server. After waiting this
 // time, if the server process remains, the client will die.
 extern const unsigned int kPostKillGracePeriodSeconds;
-
-// Returns the string representation of `value`.
-// Workaround for mingw where std::to_string is not implemented.
-// See https://gcc.gnu.org/bugzilla/show_bug.cgi?id=52015.
-template <typename T>
-std::string ToString(const T &value) {
-#if defined(__CYGWIN__) || defined(__MINGW32__)
-  std::ostringstream oss;
-  oss << value;
-  return oss.str();
-#else
-  return std::to_string(value);
-#endif
-}
 
 // Control the output of debug information by debug_log.
 // Revisit once client logging is fixed (b/32939567).

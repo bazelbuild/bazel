@@ -17,7 +17,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.Serializable;
 
@@ -49,37 +48,6 @@ public interface BuildInfoFactory extends Serializable {
   interface BuildInfoContext {
     Artifact getBuildInfoArtifact(
         PathFragment rootRelativePath, ArtifactRoot root, BuildInfoType type);
-  }
-
-  /**
-   * Build-info key for lookup from the {@link
-   * com.google.devtools.build.lib.analysis.AnalysisEnvironment}.
-   */
-  @AutoCodec
-  final class BuildInfoKey {
-    private final String name;
-
-    public BuildInfoKey(String name) {
-      this.name = name;
-    }
-
-    @Override
-    public String toString() {
-      return name;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (!(o instanceof BuildInfoKey)) {
-        return false;
-      }
-      return name.equals(((BuildInfoKey) o).name);
-    }
-
-    @Override
-    public int hashCode() {
-      return name.hashCode();
-    }
   }
 
   /**

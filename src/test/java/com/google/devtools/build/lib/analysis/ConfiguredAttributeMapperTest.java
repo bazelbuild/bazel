@@ -22,8 +22,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.syntax.Type;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -184,7 +184,7 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
                 .getRuleClassObject()
                 .getAttributeByName("tools")
                 .getTransitionFactory()
-                .isHost())
+                .isTool())
         .isTrue();
     assertThat(getHostConfiguration().getCompilationMode()).isEqualTo(CompilationMode.OPT);
   }
@@ -272,6 +272,14 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
     useConfiguration();
     assertThat(getMapper("//a:lib").isAttributeValueExplicitlySpecified("linkstamp")).isFalse();
     assertThat(getMapper("//a:lib").get("linkstamp", BuildType.LABEL)).isNull();
+  }
+
+  @Test
+  public void testNoneValueOnMandatoryAttribute() throws Exception {
+    scratch.file("a/BUILD", "alias(name='a', actual=select({'//conditions:default': None}))");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:a");
+    assertContainsEvent("Mandatory attribute 'actual' resolved to 'None'");
   }
 
   @Test

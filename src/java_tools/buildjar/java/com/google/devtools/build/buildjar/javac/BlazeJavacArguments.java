@@ -16,10 +16,10 @@ package com.google.devtools.build.buildjar.javac;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import java.nio.file.Path;
 import javax.annotation.Nullable;
-import javax.annotation.processing.Processor;
 
 /**
  * Arguments to a single compilation performed by {@link BlazeJavacMain}.
@@ -36,27 +36,28 @@ public abstract class BlazeJavacArguments {
   /** Javac options, not including location settings. */
   public abstract ImmutableList<String> javacOptions();
 
+  /** Blaze-specific Javac options. */
+  public abstract ImmutableList<String> blazeJavacOptions();
+
   /** The compilation classpath. */
   public abstract ImmutableList<Path> classPath();
 
   /** The compilation bootclasspath. */
   public abstract ImmutableList<Path> bootClassPath();
 
+  @Nullable
+  public abstract Path system();
+
   /** The compilation source path. */
   public abstract ImmutableList<Path> sourcePath();
+
+  public abstract ImmutableSet<String> builtinProcessors();
 
   /** The classpath to load processors from. */
   public abstract ImmutableList<Path> processorPath();
 
   /** The compiler plugins. */
   public abstract ImmutableList<BlazeJavaCompilerPlugin> plugins();
-
-  /**
-   * Annotation processor classes. In production builds, processors are specified by string class
-   * name in {@link javacOptions}; this is used for tests that instantate processors directly.
-   */
-  @Nullable
-  public abstract ImmutableList<Processor> processors();
 
   /** The class output directory (-d). */
   public abstract Path classOutput();
@@ -69,17 +70,22 @@ public abstract class BlazeJavacArguments {
   @Nullable
   public abstract Path sourceOutput();
 
+  /** Stop compiling after the first diagnostic that could cause transitive classpath fallback. */
+  public abstract boolean failFast();
+
   public static Builder builder() {
     return new AutoValue_BlazeJavacArguments.Builder()
         .classPath(ImmutableList.of())
         .bootClassPath(ImmutableList.of())
         .javacOptions(ImmutableList.of())
+        .blazeJavacOptions(ImmutableList.of())
         .sourceFiles(ImmutableList.of())
         .sourcePath(ImmutableList.of())
-        .processors(null)
         .sourceOutput(null)
+        .builtinProcessors(ImmutableSet.of())
         .processorPath(ImmutableList.of())
-        .plugins(ImmutableList.of());
+        .plugins(ImmutableList.of())
+        .failFast(false);
   }
 
   /** {@link BlazeJavacArguments}Builder. */
@@ -93,19 +99,25 @@ public abstract class BlazeJavacArguments {
 
     Builder bootClassPath(ImmutableList<Path> bootClassPath);
 
+    Builder system(Path system);
+
     Builder javacOptions(ImmutableList<String> javacOptions);
+
+    Builder blazeJavacOptions(ImmutableList<String> javacOptions);
 
     Builder sourcePath(ImmutableList<Path> sourcePath);
 
     Builder sourceFiles(ImmutableList<Path> sourceFiles);
 
-    Builder processors(ImmutableList<Processor> processors);
+    Builder builtinProcessors(ImmutableSet<String> builtinProcessors);
 
     Builder sourceOutput(Path sourceOutput);
 
     Builder processorPath(ImmutableList<Path> processorPath);
 
     Builder plugins(ImmutableList<BlazeJavaCompilerPlugin> plugins);
+
+    Builder failFast(boolean failFast);
 
     BlazeJavacArguments build();
   }

@@ -42,7 +42,7 @@ function set_up {
 }
 
 function test_network_namespace() {
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -N  -- /bin/ip link ls &> $TEST_log || fail
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -N  -- ip link ls &> $TEST_log || fail
   expect_log "LOOPBACK,UP"
 }
 
@@ -53,7 +53,7 @@ function test_ping_loopback() {
 }
 
 # The test shouldn't fail if the environment doesn't support running it.
-check_supported_platform || exit 0
+[[ "$(uname -s)" = Linux ]] || exit 0
 check_sandbox_allowed || exit 0
 
 run_suite "linux-sandbox-network"

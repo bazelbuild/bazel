@@ -87,7 +87,7 @@ public class AppleStaticLibraryRule implements RuleDefinition {
             attr(AVOID_DEPS_ATTR_NAME, LABEL_LIST)
                 .direct_compile_time_input()
                 .allowedRuleClasses(ObjcRuleClasses.CompilingRule.ALLOWED_CC_DEPS_RULE_CLASSES)
-                .mandatoryProviders(ObjcProvider.SKYLARK_CONSTRUCTOR.id())
+                .mandatoryProviders(ObjcProvider.STARLARK_CONSTRUCTOR.id())
                 .cfg(splitTransitionProvider)
                 .allowedFileTypes()
                 .aspect(objcProtoAspect))
@@ -111,6 +111,7 @@ public class AppleStaticLibraryRule implements RuleDefinition {
                 (rule) -> AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION,
                 new ConfigFeatureFlagTransitionFactory("feature_flags")))
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
+        .useToolchainTransition(true)
         .build();
   }
 

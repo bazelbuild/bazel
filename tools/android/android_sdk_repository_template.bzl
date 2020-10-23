@@ -13,6 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@rules_java//java:defs.bzl", "java_binary", "java_import")
+load("@local_config_platform//:constraints.bzl", "HOST_CONSTRAINTS")
+
 def create_config_setting_rule():
     """Create config_setting rule for windows.
 
@@ -24,6 +27,16 @@ def create_config_setting_rule():
             name = name,
             values = {"host_cpu": "x64_" + name},
         )
+
+    native.config_setting(
+        name = "d8_standalone_dexer",
+        values = {"define": "android_standalone_dexing_tool=d8_compat_dx"},
+    )
+
+    native.config_setting(
+        name = "dx_standalone_dexer",
+        values = {"define": "android_standalone_dexing_tool=dx_compat_dx"},
+    )
 
 def create_android_sdk_rules(
         name,
@@ -51,7 +64,10 @@ def create_android_sdk_rules(
         "build-tools/%s/aidl.exe" % build_tools_directory,
         "build-tools/%s/zipalign.exe" % build_tools_directory,
         "platform-tools/adb.exe",
-    ] + native.glob(["build-tools/%s/aapt2.exe" % build_tools_directory])
+    ] + native.glob(
+        ["build-tools/%s/aapt2.exe" % build_tools_directory],
+        allow_empty = True,
+    )
 
     linux_only_files = [
         "build-tools/%s/aapt" % build_tools_directory,
@@ -61,6 +77,7 @@ def create_android_sdk_rules(
     ] + native.glob(
         ["extras", "build-tools/%s/aapt2" % build_tools_directory],
         exclude_directories = 0,
+        allow_empty = True,
     )
 
     # This filegroup is used to pass the minimal contents of the SDK to the
@@ -86,7 +103,7 @@ def create_android_sdk_rules(
         if api_level >= 23:
             # Android 23 removed most of org.apache.http from android.jar and moved it
             # to a separate jar.
-            native.java_import(
+            java_import(
                 name = "org_apache_http_legacy-%d" % api_level,
                 jars = ["platforms/android-%d/optional/org.apache.http.legacy.jar" % api_level],
             )
@@ -94,7 +111,7 @@ def create_android_sdk_rules(
         if api_level >= 28:
             # Android 28 removed most of android.test from android.jar and moved it
             # to separate jars.
-            native.java_import(
+            java_import(
                 name = "legacy_test-%d" % api_level,
                 jars = [
                     "platforms/android-%d/optional/android.test.base.jar" % api_level,
@@ -107,7 +124,7 @@ def create_android_sdk_rules(
         native.android_sdk(
             name = "sdk-%d" % api_level,
             build_tools_version = build_tools_version,
-            proguard = "@bazel_tools//third_party/java/proguard",
+            proguard = "@bazel_tools//tools/jdk:proguard",
             aapt = select({
                 ":windows": "build-tools/%s/aapt.exe" % build_tools_directory,
                 "//conditions:default": ":aapt_binary",
@@ -116,7 +133,11 @@ def create_android_sdk_rules(
                 ":windows": "build-tools/%s/aapt2.exe" % build_tools_directory,
                 "//conditions:default": ":aapt2_binary",
             }),
-            dx = ":dx_binary",
+            dx = select({
+                "d8_standalone_dexer": ":d8_compat_dx",
+                "dx_standalone_dexer": ":dx_binary",
+                "//conditions:default": ":dx_binary",
+            }),
             main_dex_list_creator = ":main_dex_list_creator",
             adb = select({
                 ":windows": "platform-tools/adb.exe",
@@ -135,7 +156,21 @@ def create_android_sdk_rules(
                 ":windows": "build-tools/%s/zipalign.exe" % build_tools_directory,
                 "//conditions:default": ":zipalign_binary",
             }),
+            # See https://github.com/bazelbuild/bazel/issues/8757
+            tags = ["__ANDROID_RULES_MIGRATION__"],
         )
+
+        native.toolchain(
+            name = "sdk-%d-toolchain" % api_level,
+            toolchain_type = "@bazel_tools//tools/android:sdk_toolchain_type",
+            exec_compatible_with = HOST_CONSTRAINTS,
+            target_compatible_with = [
+                "@bazel_tools//platforms:android",
+            ],
+            toolchain = ":sdk-%d" % api_level,
+        )
+
+    create_dummy_sdk_toolchain()
 
     native.alias(
         name = "org_apache_http_legacy",
@@ -146,8 +181,7 @@ def create_android_sdk_rules(
         name = "sdk",
         actual = ":sdk-%d" % default_api_level,
     )
-
-    native.java_binary(
+    java_binary(
         name = "apksigner",
         main_class = "com.android.apksigner.ApkSignerTool",
         runtime_deps = ["build-tools/%s/lib/apksigner.jar" % build_tools_directory],
@@ -246,25 +280,32 @@ def create_android_sdk_rules(
         srcs = ["main_dex_list_creator.sh"],
         data = [":main_dex_list_creator_java"],
     )
-
-    native.java_binary(
+    java_binary(
         name = "main_dex_list_creator_java",
         main_class = "com.android.multidex.ClassReferenceListBuilder",
         runtime_deps = [":dx_jar_import"],
     )
-
-    native.java_binary(
+    java_binary(
         name = "dx_binary",
         main_class = "com.android.dx.command.Main",
         runtime_deps = [":dx_jar_import"],
     )
-
-    native.java_import(
+    java_import(
         name = "dx_jar_import",
         jars = ["build-tools/%s/lib/dx.jar" % build_tools_directory],
     )
+    java_binary(
+        name = "d8_compat_dx",
+        main_class = "com.android.tools.r8.compatdx.CompatDx",
+        runtime_deps = [":d8_jar_import"],
+    )
+    java_import(
+        name = "d8_jar_import",
+        jars = ["build-tools/%s/lib/d8.jar" % build_tools_directory],
+    )
 
 TAGDIR_TO_TAG_MAP = {
+    "google_apis_playstore": "playstore",
     "google_apis": "google",
     "default": "android",
     "android-tv": "tv",
@@ -275,6 +316,43 @@ ARCHDIR_TO_ARCH_MAP = {
     "x86": "x86",
     "armeabi-v7a": "arm",
 }
+
+# This is a dummy sdk toolchain that matches any platform. It will
+# fail if actually resolved to and used.
+def create_dummy_sdk_toolchain():
+    native.toolchain(
+        name = "sdk-dummy-toolchain",
+        toolchain_type = "@bazel_tools//tools/android:sdk_toolchain_type",
+        toolchain = ":sdk-dummy",
+    )
+
+    native.filegroup(name = "jar-filegroup", srcs = ["dummy.jar"])
+
+    native.genrule(
+        name = "genrule",
+        srcs = [],
+        outs = ["empty.sh"],
+        cmd = "echo '' >> \"$@\"",
+        executable = 1,
+    )
+
+    native.sh_binary(name = "empty-binary", srcs = [":genrule"])
+
+    native.android_sdk(
+        name = "sdk-dummy",
+        aapt = ":empty-binary",
+        adb = ":empty-binary",
+        aidl = ":empty-binary",
+        android_jar = ":jar-filegroup",
+        apksigner = ":empty-binary",
+        dx = ":empty-binary",
+        framework_aidl = "dummy.jar",
+        main_dex_classes = "dummy.jar",
+        main_dex_list_creator = ":empty-binary",
+        proguard = ":empty-binary",
+        shrinked_android_jar = "dummy.jar",
+        zipalign = ":empty-binary",
+    )
 
 def create_system_images_filegroups(system_image_dirs):
     """Generate filegroups for the system images in the Android SDK.
@@ -292,20 +370,25 @@ def create_system_images_filegroups(system_image_dirs):
     system_images = [
         (tag, str(api), arch)
         for tag in ["android", "google"]
-        for api in [10] + list(range(15, 20)) + list(range(21, 29))
+        for api in [10] + list(range(15, 20)) + list(range(21, 30))
         for arch in ("x86", "arm")
+    ] + [
+        ("playstore", str(api), "x86")
+        for api in list(range(24, 30))
     ]
     tv_images = [
-        ("tv", str(api), arch)
-        for api in range(21, 25)
-        for arch in ("x86", "arm")
+        ("tv", str(api), "x86")
+        for api in range(21, 30)
+    ] + [
+        ("tv", "21", "arm"),
+        ("tv", "23", "arm"),
     ]
     wear_images = [
         ("wear", str(api), "x86")
-        for api in range(20, 26)
+        for api in [23, 25, 26, 28]
     ] + [
         ("wear", str(api), "arm")
-        for api in range(24, 26)
+        for api in [23, 25]
     ]
     supported_system_images = system_images + tv_images + wear_images
 

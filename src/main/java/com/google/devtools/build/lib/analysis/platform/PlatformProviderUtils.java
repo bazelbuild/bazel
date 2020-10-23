@@ -70,6 +70,20 @@ public class PlatformProviderUtils {
     return Iterables.transform(targets, PlatformProviderUtils::constraintValue);
   }
 
+  /**
+   * Retrieves and casts the {@link DeclaredToolchainInfo} from {@link
+   * com.google.devtools.build.lib.rules.platform.Toolchain} rule.
+   *
+   * <p>Returns null if the rule isn't a toolchain.
+   */
+  @Nullable
+  public static DeclaredToolchainInfo declaredToolchainInfo(@Nullable ProviderCollection target) {
+    if (target == null) {
+      return null;
+    }
+    return target.getProvider(DeclaredToolchainInfo.class);
+  }
+
   /** Retrieves and casts the {@link ToolchainInfo} provider from the given target. */
   @Nullable
   public static ToolchainInfo toolchain(@Nullable ProviderCollection target) {

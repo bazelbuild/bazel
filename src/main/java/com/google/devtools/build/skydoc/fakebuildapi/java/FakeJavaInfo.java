@@ -14,19 +14,16 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.java;
 
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaAnnotationProcessingApi;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCompilationInfoProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaRuleOutputJarsProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaAnnotationProcessingApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCompilationInfoProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaRuleOutputJarsProviderApi;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * Fake implementation of {@link JavaInfoApi}.
@@ -34,27 +31,27 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 public class FakeJavaInfo implements JavaInfoApi<FileApi> {
 
   @Override
-  public SkylarkNestedSet getTransitiveRuntimeJars() {
+  public Depset /*<File>*/ getTransitiveRuntimeJars() {
     return null;
   }
 
   @Override
-  public SkylarkNestedSet getTransitiveCompileTimeJars() {
+  public Depset getTransitiveCompileTimeJars() {
     return null;
   }
 
   @Override
-  public SkylarkNestedSet getCompileTimeJars() {
+  public Depset getCompileTimeJars() {
     return null;
   }
 
   @Override
-  public SkylarkNestedSet getFullCompileTimeJars() {
+  public Depset getFullCompileTimeJars() {
     return null;
   }
 
   @Override
-  public SkylarkList<FileApi> getSourceJars() {
+  public Sequence<FileApi> getSourceJars() {
     return null;
   }
 
@@ -74,42 +71,42 @@ public class FakeJavaInfo implements JavaInfoApi<FileApi> {
   }
 
   @Override
-  public SkylarkList<FileApi> getRuntimeOutputJars() {
+  public Sequence<FileApi> getRuntimeOutputJars() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> getTransitiveDeps() {
+  public Depset /*<File>*/ getTransitiveDeps() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> getTransitiveRuntimeDeps() {
+  public Depset /*<File>*/ getTransitiveRuntimeDeps() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> getTransitiveSourceJars() {
+  public Depset /*<File>*/ getTransitiveSourceJars() {
     return null;
   }
 
   @Override
-  public NestedSet<Label> getTransitiveExports() {
+  public Depset /*<Label>*/ getTransitiveExports() {
     return null;
   }
 
   @Override
-  public String toProto(Location loc) throws EvalException {
+  public String toProto() throws EvalException {
     return "";
   }
 
   @Override
-  public String toJson(Location loc) throws EvalException {
+  public String toJson() throws EvalException {
     return "";
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 
   /**
    * Fake implementation of {@link JavaInfoProviderApi}.
@@ -117,15 +114,21 @@ public class FakeJavaInfo implements JavaInfoApi<FileApi> {
   public static class FakeJavaInfoProvider implements JavaInfoProviderApi {
 
     @Override
-    public JavaInfoApi<?> javaInfo(FileApi outputJarApi, Object compileJarApi, Object sourceJarApi,
-        Boolean neverlink, SkylarkList<?> deps, SkylarkList<?> runtimeDeps, SkylarkList<?> exports,
-        Object actionsApi, Object sourcesApi, Object sourceJarsApi, Object useIjarApi,
-        Object javaToolchainApi, Object hostJavabaseApi, Object jdepsApi, Location loc,
-        Environment env) throws EvalException {
+    public JavaInfoApi<?> javaInfo(
+        FileApi outputJarApi,
+        Object compileJarApi,
+        Object sourceJarApi,
+        Boolean neverlink,
+        Sequence<?> deps,
+        Sequence<?> runtimeDeps,
+        Sequence<?> exports,
+        Object jdepsApi,
+        StarlarkThread thread)
+        throws EvalException {
       return new FakeJavaInfo();
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {}
+    public void repr(Printer printer) {}
   }
 }

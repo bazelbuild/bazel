@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.vfs.Path;
@@ -23,13 +21,9 @@ import com.google.devtools.build.lib.vfs.Path;
  * Strategy that uses a distributed cache for sharing action input and output files. Optionally this
  * strategy also support offloading the work to a remote worker.
  */
-@ExecutionStrategy(
-  name = {"remote"},
-  contextType = SpawnActionContext.class
-)
 final class RemoteSpawnStrategy extends AbstractSpawnStrategy {
-  RemoteSpawnStrategy(Path execRoot, SpawnRunner spawnRunner) {
-    super(execRoot, spawnRunner);
+  RemoteSpawnStrategy(Path execRoot, SpawnRunner spawnRunner, boolean verboseFailures) {
+    super(execRoot, spawnRunner, verboseFailures);
   }
 
   @Override

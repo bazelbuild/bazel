@@ -16,15 +16,16 @@ package com.google.devtools.build.lib.testutil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.packages.BuilderFactoryForTesting;
-import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.skyframe.packages.PackageFactoryBuilderWithSkyframeForTesting;
 import com.google.devtools.build.lib.vfs.FileSystem;
 
 /**
  * A {@link BuilderFactoryForTesting} implementation that injects a {@link
- * BazelPackageBuilderHelperForTesting}.
+ * BazelPackageLoadingListenerForTesting}.
  */
 class PackageFactoryBuilderFactoryForBazelUnitTests implements BuilderFactoryForTesting {
   static final PackageFactoryBuilderFactoryForBazelUnitTests INSTANCE =
@@ -49,17 +50,17 @@ class PackageFactoryBuilderFactoryForBazelUnitTests implements BuilderFactoryFor
 
     @Override
     public PackageFactory build(RuleClassProvider ruleClassProvider, FileSystem fs) {
-      Package.Builder.Helper packageBuilderHelperForTesting =
-          doChecksForTesting
-              ? new BazelPackageBuilderHelperForTesting(
-                  (ConfiguredRuleClassProvider) ruleClassProvider, directories)
-              : Package.Builder.DefaultHelper.INSTANCE;
       return new PackageFactory(
           ruleClassProvider,
-          attributeContainerFactory,
+          PackageFactory.makeDefaultSizedForkJoinPoolForGlobbing(),
           environmentExtensions,
           version,
-          packageBuilderHelperForTesting);
+          DefaultPackageSettings.INSTANCE,
+          packageValidator,
+          doChecksForTesting
+              ? new BazelPackageLoadingListenerForTesting(
+                  (ConfiguredRuleClassProvider) ruleClassProvider, directories)
+              : PackageLoadingListener.NOOP_LISTENER);
     }
   }
 }

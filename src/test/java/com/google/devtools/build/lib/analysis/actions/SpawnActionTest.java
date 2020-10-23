@@ -13,11 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.Arrays.asList;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -28,10 +27,12 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
+import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
@@ -49,7 +50,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.StreamSupport;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -102,7 +102,7 @@ public class SpawnActionTest extends BuildViewTestCase {
   public void testWelcomeArtifactIsInput() {
     SpawnAction copyFromWelcomeToDestination =
         createCopyFromWelcomeToDestination(ImmutableMap.<String, String>of());
-    Iterable<Artifact> inputs = copyFromWelcomeToDestination.getInputs();
+    Iterable<Artifact> inputs = copyFromWelcomeToDestination.getInputs().toList();
     assertThat(inputs).containsExactly(welcomeArtifact);
   }
 
@@ -112,6 +112,14 @@ public class SpawnActionTest extends BuildViewTestCase {
         createCopyFromWelcomeToDestination(ImmutableMap.<String, String>of());
     Collection<Artifact> outputs = copyFromWelcomeToDestination.getOutputs();
     assertThat(outputs).containsExactly(destinationArtifact);
+  }
+
+  @Test
+  public void testExecutionInfoCopied() {
+    SpawnAction copyFromWelcomeToDestination =
+        createCopyFromWelcomeToDestination(ImmutableMap.of());
+    Map<String, String> executionInfo = copyFromWelcomeToDestination.getExecutionInfo();
+    assertThat(executionInfo).containsExactly("local", "");
   }
 
   @Test
@@ -128,7 +136,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     SpawnAction action = (SpawnAction) actions[0];
     assertThat(action.getOwner().getLabel())
         .isEqualTo(ActionsTestUtil.NULL_ACTION_OWNER.getLabel());
-    assertThat(action.getInputs()).containsExactly(input);
+    assertThat(action.getInputs().toList()).containsExactly(input);
     assertThat(action.getOutputs()).containsExactly(output);
     assertThat(action.getSpawn().getLocalResources())
         .isEqualTo(AbstractAction.DEFAULT_RESOURCE_SET);
@@ -207,7 +215,7 @@ public class SpawnActionTest extends BuildViewTestCase {
 
     // Asserts that the inputs contain the param file virtual input
     Optional<? extends ActionInput> input =
-        StreamSupport.stream(spawn.getInputFiles().spliterator(), false)
+        spawn.getInputFiles().toList().stream()
             .filter(i -> i instanceof VirtualActionInput)
             .findFirst();
     assertThat(input.isPresent()).isTrue();
@@ -288,15 +296,13 @@ public class SpawnActionTest extends BuildViewTestCase {
     assertThat(info.getMnemonic()).isEqualTo("Dummy");
 
     SpawnInfo spawnInfo = info.getExtension(SpawnInfo.spawnInfo);
-    assertThat(spawnInfo).isNotNull();
+    assertThat(info.hasExtension(SpawnInfo.spawnInfo)).isTrue();
 
     assertThat(spawnInfo.getArgumentList())
         .containsExactlyElementsIn(action.getArguments());
 
-    Iterable<String> inputPaths = Artifact.toExecPaths(
-        action.getInputs());
-    Iterable<String> outputPaths = Artifact.toExecPaths(
-        action.getOutputs());
+    Iterable<String> inputPaths = Artifact.asExecPaths(action.getInputs());
+    Iterable<String> outputPaths = Artifact.asExecPaths(action.getOutputs());
 
     assertThat(spawnInfo.getInputFileList()).containsExactlyElementsIn(inputPaths);
     assertThat(spawnInfo.getOutputFileList()).containsExactlyElementsIn(outputPaths);
@@ -335,14 +341,20 @@ public class SpawnActionTest extends BuildViewTestCase {
   @Test
   public void testInputManifestsRemovedIfSupplied() throws Exception {
     Artifact manifest = getSourceArtifact("MANIFEST");
-    Action[] actions = builder()
-        .addInput(manifest)
-        .addRunfilesSupplier(
-            new RunfilesSupplierImpl(PathFragment.create("destination"), Runfiles.EMPTY, manifest))
-        .addOutput(getBinArtifactWithNoOwner("output"))
-        .setExecutable(scratch.file("/bin/xxx").asFragment())
-        .setProgressMessage("Test")
-        .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
+    Action[] actions =
+        builder()
+            .addInput(manifest)
+            .addRunfilesSupplier(
+                new RunfilesSupplierImpl(
+                    PathFragment.create("destination"),
+                    Runfiles.EMPTY,
+                    manifest,
+                    /* buildRunfileLinks= */ false,
+                    /* runfileLinksEnabled= */ false))
+            .addOutput(getBinArtifactWithNoOwner("output"))
+            .setExecutable(scratch.file("/bin/xxx").asFragment())
+            .setProgressMessage("Test")
+            .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
     collectingAnalysisEnvironment.registerAction(actions);
     SpawnAction action = (SpawnAction) actions[0];
     List<String> inputFiles = actionInputsToPaths(action.getSpawn().getInputFiles());
@@ -454,7 +466,7 @@ public class SpawnActionTest extends BuildViewTestCase {
         /* doAnalysis= */ true,
         new EventBus());
 
-    Artifact artifact = getOnlyElement(getFilesToBuild(getConfiguredTarget("//a:a")));
+    Artifact artifact = getFilesToBuild(getConfiguredTarget("//a:a")).getSingleton();
     ExtraActionInfo.Builder extraActionInfo =
         getGeneratingAction(artifact).getExtraActionInfo(actionKeyContext);
     assertThat(extraActionInfo.getAspectName()).isEqualTo("//a:def.bzl%aspect1");
@@ -463,7 +475,87 @@ public class SpawnActionTest extends BuildViewTestCase {
             "parameter", ExtraActionInfo.StringList.newBuilder().addValue("param_value").build());
   }
 
+  private SpawnAction createWorkerSupportSpawn(Map<String, String> executionInfoVariables)
+      throws Exception {
+    Artifact input = getSourceArtifact("input");
+    Artifact output = getBinArtifactWithNoOwner("output");
+    Action[] actions =
+        builder()
+            .addInput(input)
+            .addOutput(output)
+            .setMnemonic("ActionToolMnemonic")
+            .setExecutionInfo(executionInfoVariables)
+            .setExecutable(scratch.file("/bin/xxx").asFragment())
+            .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
+    return (SpawnAction) actions[0];
+  }
+
+  @Test
+  public void testWorkerSupport() throws Exception {
+    SpawnAction workerSupportSpawn =
+        createWorkerSupportSpawn(ImmutableMap.<String, String>of("supports-workers", "1"));
+    assertThat(Spawns.supportsWorkers(workerSupportSpawn.getSpawn())).isEqualTo(true);
+  }
+
+  @Test
+  public void testMultiplexWorkerSupport() throws Exception {
+    SpawnAction multiplexWorkerSupportSpawn =
+        createWorkerSupportSpawn(
+            ImmutableMap.<String, String>of("supports-multiplex-workers", "1"));
+    assertThat(Spawns.supportsMultiplexWorkers(multiplexWorkerSupportSpawn.getSpawn()))
+        .isEqualTo(true);
+  }
+
+  @Test
+  public void testWorkerProtocolFormat_defaultIsProto() throws Exception {
+    SpawnAction spawn =
+        createWorkerSupportSpawn(ImmutableMap.<String, String>of("supports-workers", "1"));
+    assertThat(Spawns.getWorkerProtocolFormat(spawn.getSpawn()))
+        .isEqualTo(WorkerProtocolFormat.PROTO);
+  }
+
+  @Test
+  public void testWorkerProtocolFormat_explicitProto() throws Exception {
+    SpawnAction spawn =
+        createWorkerSupportSpawn(
+            ImmutableMap.<String, String>of(
+                "supports-workers", "1", "requires-worker-protocol", "proto"));
+    assertThat(Spawns.getWorkerProtocolFormat(spawn.getSpawn()))
+        .isEqualTo(WorkerProtocolFormat.PROTO);
+  }
+
+  @Test
+  public void testWorkerProtocolFormat_explicitJson() throws Exception {
+    SpawnAction spawn =
+        createWorkerSupportSpawn(
+            ImmutableMap.<String, String>of(
+                "supports-workers", "1", "requires-worker-protocol", "json"));
+    assertThat(Spawns.getWorkerProtocolFormat(spawn.getSpawn()))
+        .isEqualTo(WorkerProtocolFormat.JSON);
+  }
+
+  @Test
+  public void testWorkerMnemonicDefault() throws Exception {
+    SpawnAction defaultMnemonicSpawn = createWorkerSupportSpawn(ImmutableMap.<String, String>of());
+    assertThat(Spawns.getWorkerKeyMnemonic(defaultMnemonicSpawn.getSpawn()))
+        .isEqualTo("ActionToolMnemonic");
+  }
+
+  @Test
+  public void testWorkerMnemonicOverride() throws Exception {
+    SpawnAction customMnemonicSpawn =
+        createWorkerSupportSpawn(
+            ImmutableMap.<String, String>of("worker-key-mnemonic", "ToolPoolMnemonic"));
+    assertThat(Spawns.getWorkerKeyMnemonic(customMnemonicSpawn.getSpawn()))
+        .isEqualTo("ToolPoolMnemonic");
+  }
+
   private static RunfilesSupplier runfilesSupplier(Artifact manifest, PathFragment dir) {
-    return new RunfilesSupplierImpl(dir, Runfiles.EMPTY, manifest);
+    return new RunfilesSupplierImpl(
+        dir,
+        Runfiles.EMPTY,
+        manifest,
+        /* buildRunfileLinks= */ false,
+        /* runfileLinksEnabled= */ false);
   }
 }

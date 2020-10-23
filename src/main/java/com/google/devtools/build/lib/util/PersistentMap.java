@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.util;
 
 import com.google.common.collect.ForwardingMap;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -29,7 +30,6 @@ import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.logging.Logger;
 
 /**
  * A map that is backed by persistent storage. It uses two files on disk for
@@ -71,7 +71,7 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
   private static final int ENTRY_MAGIC = 0xfe;
   private static final int MIN_MAPFILE_SIZE = 16;
   private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
-  private static final Logger logger = Logger.getLogger(PersistentMap.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final int version;
   private final Path mapFile;
@@ -388,7 +388,7 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
       in.close();
     }
 
-    logger.info(String.format("Loaded cache '%s' [%s bytes]", mapFile, fileSize));
+    logger.atInfo().log("Loaded cache '%s' [%d bytes]", mapFile, fileSize);
   }
 
   /**

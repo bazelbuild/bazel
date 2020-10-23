@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Debugging Remote Cache Hits for Local Execution
+title: Debugging remote cache hits for local execution
 ---
 
-# Debugging Remote Cache Hits for Local Execution
+# Debugging remote cache hits for local execution
 
 This page describes how to investigate cache misses in the context of local
 execution.
@@ -17,12 +17,6 @@ logs between two Bazel invocations, see [Debugging Remote Cache Hits for Remote
 Execution](/remote-execution-caching-debug.html). Everything presented in that
 guide also applies to remote caching with local execution. However, local
 execution presents some additional challenges which we will discuss here.
-
-## Contents
-
-* [Checking your cache hit rate](#checking-your-cache-hit-rate)
-* [Troubleshooting cache hits](#troubleshooting-cache-hits)
-* [Comparing the execution logs](#comparing-the-execution-logs)
 
 ## Checking your cache hit rate
 

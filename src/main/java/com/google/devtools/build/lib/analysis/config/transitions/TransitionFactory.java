@@ -41,6 +41,19 @@ public interface TransitionFactory<T> {
     return false;
   }
 
+  /**
+   * Returns {@code true} if the result of this {@link TransitionFactory} should be considered as
+   * part of the tooling rather than a dependency of the original target.
+   */
+  default boolean isTool() {
+    if (isHost()) {
+      // Every host dependency is also a tool dependency.
+      return true;
+    }
+
+    return false;
+  }
+
   /** Returns {@code true} if the result of this {@link TransitionFactory} is a split transition. */
   default boolean isSplit() {
     return false;

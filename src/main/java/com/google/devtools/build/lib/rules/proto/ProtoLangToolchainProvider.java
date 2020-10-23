@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
 
-// Note: AutoValue v1.4-rc1 has AutoValue.CopyAnnotations which makes it work with Skylark. No need
-// to un-AutoValue this class to expose it to Skylark.
+// Note: AutoValue v1.4-rc1 has AutoValue.CopyAnnotations which makes it work with Starlark. No need
+// to un-AutoValue this class to expose it to Starlark.
 /**
  * Specifies how to generate language-specific code from .proto files. Used by LANG_proto_library
  * rules.

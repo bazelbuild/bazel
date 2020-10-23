@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.PrintingEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.io.OutErr;
 import java.util.ArrayList;
@@ -66,7 +65,7 @@ public final class EventCollectionApparatus {
       reporter.addHandler(handler);
     }
     if (failFast) {
-      reporter.addHandler(Environment.FAIL_FAST_HANDLER);
+      reporter.addHandler(FAIL_FAST_HANDLER);
     }
   }
 
@@ -79,9 +78,9 @@ public final class EventCollectionApparatus {
   public void setFailFast(boolean failFast) {
     this.failFast = failFast;
     if (failFast) {
-      reporter.addHandler(Environment.FAIL_FAST_HANDLER);
+      reporter.addHandler(FAIL_FAST_HANDLER);
     } else {
-      reporter.removeHandler(Environment.FAIL_FAST_HANDLER);
+      reporter.removeHandler(FAIL_FAST_HANDLER);
     }
   }
 
@@ -89,6 +88,32 @@ public final class EventCollectionApparatus {
     reporter.addHandler(eventHandler);
     handlers.add(eventHandler);
   }
+
+  /** An exception thrown by {@link #FAIL_FAST_HANDLER}. */
+  // TODO(bazel-team): Possibly extend RuntimeException instead of IllegalArgumentException.
+  public static class FailFastException extends IllegalArgumentException {
+    public FailFastException(String s) {
+      super(s);
+    }
+  }
+
+  /**
+   * A handler that immediately throws {@link FailFastException} whenever an error or warning
+   * occurs.
+   *
+   * <p>We do not reuse an existing unchecked exception type, because callers (e.g., test
+   * assertions) need to be able to distinguish between organically occurring exceptions and
+   * exceptions thrown by this handler.
+   */
+  private static final EventHandler FAIL_FAST_HANDLER =
+      new EventHandler() {
+        @Override
+        public void handle(Event event) {
+          if (EventKind.ERRORS_AND_WARNINGS.contains(event.getKind())) {
+            throw new FailFastException(event.toString());
+          }
+        }
+      };
 
   /**
    * @return the event reporter for this apparatus
@@ -191,5 +216,9 @@ public final class EventCollectionApparatus {
 
   public void assertDoesNotContainEvent(String unexpectedEvent) {
     MoreAsserts.assertDoesNotContainEvent(eventCollector, unexpectedEvent);
+  }
+
+  public void assertContainsEventsInOrder(String... expectedMessages) {
+    MoreAsserts.assertContainsEventsInOrder(eventCollector, expectedMessages);
   }
 }

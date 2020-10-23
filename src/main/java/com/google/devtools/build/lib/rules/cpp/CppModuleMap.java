@@ -63,6 +63,28 @@ public final class CppModuleMap {
   }
 
   @Override
+  public int hashCode() {
+    // It would be incorrect for two CppModuleMap instances in the same build graph to have the same
+    // artifact but different names or umbrella headers. Since Artifacts' hash codes are cached, use
+    // only it for efficiency.
+    return artifact.hashCode();
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (this == other) {
+      return true;
+    }
+    if (other instanceof CppModuleMap) {
+      CppModuleMap that = (CppModuleMap) other;
+      return artifact.equals(that.artifact)
+          && umbrellaHeader.equals(that.umbrellaHeader)
+          && name.equals(that.name);
+    }
+    return false;
+  }
+
+  @Override
   public String toString() {
     return name + "@" + artifact;
   }
@@ -74,6 +96,6 @@ public final class CppModuleMap {
     /** Generate an umbrella header. */
     GENERATE,
     /** Do not generate an umbrella header. */
-    DO_NOT_GENERATE 
+    DO_NOT_GENERATE
   }
 }

@@ -25,13 +25,13 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetNotFoundException;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryVisibility;
-import com.google.devtools.build.lib.syntax.Type;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -64,7 +64,7 @@ public final class BlazeTargetAccessor implements TargetAccessor<Target> {
   }
 
   @Override
-  public Iterable<Target> getLabelListAttr(
+  public Iterable<Target> getPrerequisites(
       QueryExpression caller, Target target, String attrName, String errorMsgPrefix)
       throws QueryException, InterruptedException {
     Preconditions.checkArgument(target instanceof Rule);
@@ -91,7 +91,8 @@ public final class BlazeTargetAccessor implements TargetAccessor<Target> {
           try {
             queryEnvironment.getTarget(label);
           } catch (TargetNotFoundException e) {
-            queryEnvironment.reportBuildFileError(caller, errorMsgPrefix + e.getMessage());
+            queryEnvironment.handleError(
+                caller, errorMsgPrefix + e.getMessage(), e.getDetailedExitCode());
           }
         }
       }
@@ -131,24 +132,25 @@ public final class BlazeTargetAccessor implements TargetAccessor<Target> {
   }
 
   @Override
-  public Set<QueryVisibility<Target>> getVisibility(Target target)
+  public ImmutableSet<QueryVisibility<Target>> getVisibility(QueryExpression caller, Target target)
       throws QueryException, InterruptedException {
     ImmutableSet.Builder<QueryVisibility<Target>> result = ImmutableSet.builder();
     result.add(QueryVisibility.samePackage(target, this));
-    convertVisibility(result, target);
+    convertVisibility(caller, result, target);
     return result.build();
   }
 
   // CAUTION: keep in sync with ConfiguredTargetFactory#convertVisibility()
   private void convertVisibility(
-      ImmutableSet.Builder<QueryVisibility<Target>> packageSpecifications, Target target)
+      QueryExpression caller,
+      ImmutableSet.Builder<QueryVisibility<Target>> packageSpecifications,
+      Target target)
       throws QueryException, InterruptedException {
    RuleVisibility ruleVisibility = target.getVisibility();
    if (ruleVisibility instanceof ConstantRuleVisibility) {
      if (((ConstantRuleVisibility) ruleVisibility).isPubliclyVisible()) {
-       packageSpecifications.add(QueryVisibility.<Target>everything());
+        packageSpecifications.add(QueryVisibility.everything());
      }
-     return;
    } else if (ruleVisibility instanceof PackageGroupsRuleVisibility) {
      PackageGroupsRuleVisibility packageGroupsVisibility =
          (PackageGroupsRuleVisibility) ruleVisibility;
@@ -156,12 +158,14 @@ public final class BlazeTargetAccessor implements TargetAccessor<Target> {
        try {
           maybeConvertGroupVisibility(groupLabel, packageSpecifications);
        } catch (TargetNotFoundException e) {
-         throw new QueryException(e.getMessage());
+          queryEnvironment.handleError(
+              caller,
+              "Invalid visibility label '" + groupLabel.getCanonicalForm() + "': " + e.getMessage(),
+              e.getDetailedExitCode());
        }
      }
       packageSpecifications.add(
           new BlazeQueryVisibility(packageGroupsVisibility.getDirectPackages()));
-     return;
    } else {
      throw new IllegalStateException("unknown visibility: " + ruleVisibility.getClass());
    }

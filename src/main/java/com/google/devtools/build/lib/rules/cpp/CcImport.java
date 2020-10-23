@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -24,14 +23,12 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
-import com.google.devtools.build.lib.syntax.Type;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -72,19 +69,18 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
+    CcCommon.checkRuleLoadedThroughMacro(ruleContext);
 
     boolean systemProvided = ruleContext.attributes().get("system_provided", Type.BOOLEAN);
     CcToolchainProvider ccToolchain =
         CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(ruleContext, ccToolchain);
-    boolean targetWindows = featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS);
+        CcCommon.configureFeaturesOrReportRuleError(ruleContext, ccToolchain, semantics);
 
-    Artifact staticLibrary = ruleContext.getPrerequisiteArtifact("static_library", Mode.TARGET);
-    Artifact sharedLibrary = ruleContext.getPrerequisiteArtifact("shared_library", Mode.TARGET);
-    Artifact interfaceLibrary =
-        ruleContext.getPrerequisiteArtifact("interface_library", Mode.TARGET);
-    performErrorChecks(ruleContext, systemProvided, sharedLibrary, interfaceLibrary, targetWindows);
+    Artifact staticLibrary = ruleContext.getPrerequisiteArtifact("static_library");
+    Artifact sharedLibrary = ruleContext.getPrerequisiteArtifact("shared_library");
+    Artifact interfaceLibrary = ruleContext.getPrerequisiteArtifact("interface_library");
+    performErrorChecks(ruleContext, systemProvided, sharedLibrary, interfaceLibrary);
 
     Artifact resolvedSymlinkDynamicLibrary = null;
     Artifact resolvedSymlinkInterfaceLibrary = null;
@@ -147,7 +143,8 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
               .build();
       ccLinkingContext =
           CcLinkingContext.builder()
-              .addLibraries(NestedSetBuilder.<LibraryToLink>linkOrder().add(libraryToLink).build())
+              .setOwner(ruleContext.getLabel())
+              .addLibrary(libraryToLink)
               .build();
     }
 
@@ -162,29 +159,31 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
                 semantics,
                 featureConfiguration,
                 ccToolchain,
-                ccToolchain.getFdoContext())
+                ccToolchain.getFdoContext(),
+                TargetUtils.getExecutionInfo(
+                    ruleContext.getRule(), ruleContext.isAllowTagsPropagation()),
+                /* shouldProcessHeaders= */ true)
             .addPublicHeaders(common.getHeaders())
             .setHeadersCheckingMode(HeadersCheckingMode.STRICT)
             .setCodeCoverageEnabled(CcCompilationHelper.isCodeCoverageEnabled(ruleContext))
-            .compile();
+            .setPurpose(common.getPurpose(semantics))
+            .compile(ruleContext);
 
-    CppDebugFileProvider cppDebugFileProvider =
-        CcCompilationHelper.buildCppDebugFileProvider(
-            compilationInfo.getCcCompilationOutputs(), ImmutableList.of());
     Map<String, NestedSet<Artifact>> outputGroups =
         CcCompilationHelper.buildOutputGroups(compilationInfo.getCcCompilationOutputs());
     RuleConfiguredTargetBuilder result =
         new RuleConfiguredTargetBuilder(ruleContext)
-            .addProvider(cppDebugFileProvider)
             .addNativeDeclaredProvider(
                 CcInfo.builder()
                     .setCcCompilationContext(compilationInfo.getCcCompilationContext())
                     .setCcLinkingContext(ccLinkingContext)
+                    .setCcDebugInfoContext(
+                        CcDebugInfoContext.from(compilationInfo.getCcCompilationOutputs()))
                     .build())
             .addOutputGroups(outputGroups)
             .addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
 
-    CcSkylarkApiProvider.maybeAdd(ruleContext, result);
+    CcStarlarkApiProvider.maybeAdd(ruleContext, result);
     return result.build();
   }
 
@@ -192,8 +191,7 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
       RuleContext ruleContext,
       boolean systemProvided,
       Artifact sharedLibrary,
-      Artifact interfaceLibrary,
-      boolean targetsWindows) {
+      Artifact interfaceLibrary) {
     // If the shared library will be provided by system during runtime, users are not supposed to
     // specify shared_library.
     if (systemProvided && sharedLibrary != null) {
@@ -205,12 +203,6 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
     if (!systemProvided && sharedLibrary == null && interfaceLibrary != null) {
       ruleContext.ruleError(
           "'shared_library' should be specified when 'system_provided' is false");
-    }
-
-    if (targetsWindows && sharedLibrary != null && interfaceLibrary == null) {
-      ruleContext.ruleError(
-          "'interface library' must be specified when using cc_import for shared library on"
-              + " Windows");
     }
   }
 }

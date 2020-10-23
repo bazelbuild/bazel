@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Implementations of Maven rules in Skylark:
+# Implementations of Maven rules in Starlark:
 # 1) maven_jar(name, artifact, repository, sha1, settings)
 #    The API of this is largely the same as the native maven_jar rule,
 #    except for the server attribute, which is not implemented. The optional
@@ -180,9 +180,6 @@ def _generate_build_file(ctx, template, paths):
         deps_string = deps_string,
     )
     ctx.file("%s/BUILD" % paths.symlink_dir, contents, False)
-
-def _file_exists(ctx, filename):
-    return _execute(ctx, "[[ -f %s ]] && exit 0 || exit 1" % filename).return_code == 0
 
 # Constructs the maven command to retrieve the dependencies from remote
 # repositories using the dependency plugin, and executes it.

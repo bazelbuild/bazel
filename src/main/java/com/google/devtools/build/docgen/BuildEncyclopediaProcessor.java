@@ -62,15 +62,16 @@ public abstract class BuildEncyclopediaProcessor {
   }
 
   /**
-   * Collects and processes all the rule and attribute documentation in inputDirs and
-   * generates the Build Encyclopedia into the outputDir.
+   * Collects and processes all the rule and attribute documentation in inputDirs and generates the
+   * Build Encyclopedia into the outputDir.
    *
    * @param inputDirs list of directory to scan for document in the source code
    * @param outputRootDir output directory where to write the build encyclopedia
-   * @param blackList optional path to a file listing rules to not document
+   * @param denyList optional path to a file listing rules to not document
    */
-  public abstract void generateDocumentation(List<String> inputDirs, String outputDir,
-      String blackList) throws BuildEncyclopediaDocException, IOException;
+  public abstract void generateDocumentation(
+      List<String> inputDirs, String outputDir, String denyList)
+      throws BuildEncyclopediaDocException, IOException;
 
   /**
    * POD class for containing lists of rule families separated into language-specific and generic as

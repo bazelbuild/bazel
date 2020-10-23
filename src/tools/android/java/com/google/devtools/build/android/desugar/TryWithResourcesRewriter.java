@@ -131,7 +131,7 @@ public class TryWithResourcesRewriter extends ClassVisitor {
       Set<String> visitedExceptionTypes,
       AtomicInteger numOfTryWithResourcesInvoked,
       boolean hasCloseResourceMethod) {
-    super(Opcodes.ASM7, classVisitor);
+    super(Opcodes.ASM8, classVisitor);
     this.classLoader = classLoader;
     this.visitedExceptionTypes = visitedExceptionTypes;
     this.numOfTryWithResourcesInvoked = numOfTryWithResourcesInvoked;
@@ -185,7 +185,7 @@ public class TryWithResourcesRewriter extends ClassVisitor {
     }
     if (isSyntheticCloseResourceMethod(access, name, desc)) {
       checkState(closeResourceMethod == null, "The TWR rewriter has been used.");
-      closeResourceMethod = new MethodNode(Opcodes.ASM7, access, name, desc, signature, exceptions);
+      closeResourceMethod = new MethodNode(Opcodes.ASM8, access, name, desc, signature, exceptions);
       // Run the TWR desugar pass over the $closeResource(Throwable, AutoCloseable) first, for
       // example, to rewrite calls to AutoCloseable.close()..
       TryWithResourceVisitor twrVisitor =
@@ -223,6 +223,10 @@ public class TryWithResourcesRewriter extends ClassVisitor {
   }
 
   private boolean isInterface(String className) {
+    // A generated class from desugaring a lambda expression or member reference isn't an interface.
+    if (isDesugaredLambdaClass(className)) {
+      return false;
+    }
     try {
       Class<?> klass = classLoader.loadClass(className);
       return klass.isInterface();
@@ -263,7 +267,7 @@ public class TryWithResourcesRewriter extends ClassVisitor {
         MethodVisitor methodVisitor,
         ClassLoader classLoader,
         @Nullable BytecodeTypeInference typeInference) {
-      super(Opcodes.ASM7, methodVisitor);
+      super(Opcodes.ASM8, methodVisitor);
       this.classLoader = classLoader;
       this.internalName = internalName;
       this.methodSignature = methodSignature;
@@ -320,7 +324,9 @@ public class TryWithResourcesRewriter extends ClassVisitor {
               methodSignature);
           String resourceClassName = resourceClassInternalName.get().replace('/', '.');
           checkState(
-              hasCloseMethod(resourceClassName),
+              // For a resource class initialized from a lambda expression or an member reference,
+              // it can implicitly be resolved with a close method.
+              isDesugaredLambdaClass(resourceClassName) || hasCloseMethod(resourceClassName),
               "The resource class %s should have a close() method.",
               resourceClassName);
         }
@@ -432,7 +438,7 @@ public class TryWithResourcesRewriter extends ClassVisitor {
     public MethodVisitor visitMethod(
         int access, String name, String desc, String signature, String[] exceptions) {
       MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
-      return new MethodVisitor(Opcodes.ASM7, mv) {
+      return new MethodVisitor(Opcodes.ASM8, mv) {
         @Override
         public void visitMethodInsn(
             int opcode, String owner, String name, String desc, boolean itf) {
@@ -449,5 +455,9 @@ public class TryWithResourcesRewriter extends ClassVisitor {
         }
       };
     }
+  }
+
+  private static boolean isDesugaredLambdaClass(String qualifiedClassName) {
+    return qualifiedClassName.contains("$$Lambda$");
   }
 }

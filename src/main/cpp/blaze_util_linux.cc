@@ -66,22 +66,23 @@ string GetOutputRoot() {
   return "/tmp";
 }
 
-void WarnFilesystemType(const string& output_base) {
+void WarnFilesystemType(const blaze_util::Path &output_base) {
   struct statfs buf = {};
-  if (statfs(output_base.c_str(), &buf) < 0) {
+  if (statfs(output_base.AsNativePath().c_str(), &buf) < 0) {
     BAZEL_LOG(WARNING) << "couldn't get file system type information for '"
-                       << output_base << "': " << strerror(errno);
+                       << output_base.AsPrintablePath()
+                       << "': " << strerror(errno);
     return;
   }
 
   if (buf.f_type == NFS_SUPER_MAGIC) {
-    BAZEL_LOG(WARNING) << "Output base '" << output_base
+    BAZEL_LOG(WARNING) << "Output base '" << output_base.AsPrintablePath()
                        << "' is on NFS. This may lead to surprising failures "
                           "and undetermined behavior.";
   }
 }
 
-string GetSelfPath() {
+string GetSelfPath(const char* argv0) {
   // The file to which this symlink points could change contents or go missing
   // concurrent with execution of the Bazel client, so we don't eagerly resolve
   // it.
@@ -115,42 +116,20 @@ void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
   }
 }
 
-string GetProcessCWD(int pid) {
+std::unique_ptr<blaze_util::Path> GetProcessCWD(int pid) {
   char server_cwd[PATH_MAX] = {};
   if (readlink(
-          ("/proc/" + ToString(pid) + "/cwd").c_str(),
+          ("/proc/" + blaze_util::ToString(pid) + "/cwd").c_str(),
           server_cwd, sizeof(server_cwd)) < 0) {
-    return "";
+    return nullptr;
   }
 
-  return string(server_cwd);
+  return std::unique_ptr<blaze_util::Path>(
+      new blaze_util::Path(string(server_cwd)));
 }
 
 bool IsSharedLibrary(const string &filename) {
   return blaze_util::ends_with(filename, ".so");
-}
-
-static string Which(const string &executable) {
-  string path(GetPathEnv("PATH"));
-  if (path.empty()) {
-    return "";
-  }
-
-  vector<string> pieces = blaze_util::Split(path, ':');
-  for (auto piece : pieces) {
-    if (piece.empty()) {
-      piece = ".";
-    }
-
-    struct stat file_stat;
-    string candidate = blaze_util::JoinPath(piece, executable);
-    if (access(candidate.c_str(), X_OK) == 0 &&
-        stat(candidate.c_str(), &file_stat) == 0 &&
-        S_ISREG(file_stat.st_mode)) {
-      return candidate;
-    }
-  }
-  return "";
 }
 
 string GetSystemJavabase() {
@@ -205,14 +184,14 @@ static bool GetStartTime(const string& pid, string* start_time) {
 }
 
 int ConfigureDaemonProcess(posix_spawnattr_t* attrp,
-                           const StartupOptions* options) {
+                           const StartupOptions &options) {
   // No interesting platform-specific details to configure on this platform.
   return 0;
 }
 
-void WriteSystemSpecificProcessIdentifier(
-    const string& server_dir, pid_t server_pid) {
-  string pid_string = ToString(server_pid);
+void WriteSystemSpecificProcessIdentifier(const blaze_util::Path &server_dir,
+                                          pid_t server_pid) {
+  string pid_string = blaze_util::ToString(server_pid);
 
   string start_time;
   if (!GetStartTime(pid_string, &start_time)) {
@@ -221,20 +200,20 @@ void WriteSystemSpecificProcessIdentifier(
         << GetLastErrorString();
   }
 
-  string start_time_file = blaze_util::JoinPath(server_dir, "server.starttime");
+  blaze_util::Path start_time_file = server_dir.GetRelative("server.starttime");
   if (!blaze_util::WriteFile(start_time, start_time_file)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Cannot write start time in server dir " << server_dir << ": "
-        << GetLastErrorString();
+        << "Cannot write start time in server dir "
+        << server_dir.AsPrintablePath() << ": " << GetLastErrorString();
   }
 }
 
 // On Linux we use a combination of PID and start time to identify the server
 // process. That is supposed to be unique unless one can start more processes
 // than there are PIDs available within a single jiffy.
-bool VerifyServerProcess(int pid, const string& output_base) {
+bool VerifyServerProcess(int pid, const blaze_util::Path &output_base) {
   string start_time;
-  if (!GetStartTime(ToString(pid), &start_time)) {
+  if (!GetStartTime(blaze_util::ToString(pid), &start_time)) {
     // Cannot read PID file from /proc . Process died meantime, all is good. No
     // stale server is present.
     return false;
@@ -242,8 +221,7 @@ bool VerifyServerProcess(int pid, const string& output_base) {
 
   string recorded_start_time;
   bool file_present = blaze_util::ReadFile(
-      blaze_util::JoinPath(output_base, "server/server.starttime"),
-      &recorded_start_time);
+      output_base.GetRelative("server/server.starttime"), &recorded_start_time);
 
   // If start time file got deleted, but PID file didn't, assume that this is an
   // old Blaze process that doesn't know how to write start time files yet.
@@ -251,8 +229,7 @@ bool VerifyServerProcess(int pid, const string& output_base) {
 }
 
 // Not supported.
-void ExcludePathFromBackup(const string &path) {
-}
+void ExcludePathFromBackup(const blaze_util::Path &path) {}
 
 int32_t GetExplicitSystemLimit(const int resource) {
   return -1;

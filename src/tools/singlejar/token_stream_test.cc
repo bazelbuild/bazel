@@ -12,12 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "src/tools/singlejar/token_stream.h"
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <wchar.h>
+
 #include <string>
 
+#include "src/main/cpp/util/path_platform.h"
 #include "src/tools/singlejar/test_util.h"
-#include "src/tools/singlejar/token_stream.h"
 #include "googletest/include/gtest/gtest.h"
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
@@ -78,6 +82,61 @@ TEST(TokenStreamTest, CommandFile) {
   EXPECT_TRUE(flag);
   EXPECT_TRUE(token_stream.AtEnd());
 }
+
+#ifdef _WIN32
+// '-foo @commandfile -bar' command line.
+TEST(TokenStreamTest, CommandFileLongPath) {
+  const char *tempdir = getenv("TEST_TMPDIR");
+  ASSERT_NE(nullptr, tempdir);
+
+  std::wstring wpath;
+  std::string error;
+  std::string command_file_path =
+      singlejar_test_util::OutputFilePath(std::string(251, 'a'));
+  command_file_path += ".aaa\\";
+  ASSERT_TRUE(
+      blaze_util::AsAbsoluteWindowsPath(command_file_path, &wpath, &error))
+      << error;
+  ASSERT_EQ(0, _wmkdir(wpath.c_str()));
+
+  command_file_path += std::string(251, 'b');
+  command_file_path += ".bbb\\";
+  ASSERT_TRUE(
+      blaze_util::AsAbsoluteWindowsPath(command_file_path, &wpath, &error))
+      << error;
+  ASSERT_EQ(0, _wmkdir(wpath.c_str()));
+
+  command_file_path += std::string(251, 'c');
+  command_file_path += ".ccc";
+
+  ASSERT_TRUE(
+      blaze_util::AsAbsoluteWindowsPath(command_file_path, &wpath, &error))
+      << error;
+
+  FILE *fp = _wfopen(wpath.c_str(), L"w");
+  ASSERT_NE(nullptr, fp);
+  for (size_t i = 0; i < ARRAY_SIZE(lines); ++i) {
+    fprintf(fp, "%s\n", lines[i]);
+  }
+  fclose(fp);
+
+  std::string command_file_arg = std::string("@") + command_file_path;
+  const char *args[] = {"-before_file", "", "-after_file"};
+  args[1] = command_file_arg.c_str();
+  ArgTokenStream token_stream(ARRAY_SIZE(args), args);
+  bool flag = false;
+  ASSERT_TRUE(token_stream.MatchAndSet("-before_file", &flag));
+  EXPECT_TRUE(flag);
+  for (size_t i = 0; i < ARRAY_SIZE(expected_tokens); ++i) {
+    flag = false;
+    ASSERT_TRUE(token_stream.MatchAndSet(expected_tokens[i], &flag));
+    EXPECT_TRUE(flag);
+  }
+  ASSERT_TRUE(token_stream.MatchAndSet("-after_file", &flag));
+  EXPECT_TRUE(flag);
+  EXPECT_TRUE(token_stream.AtEnd());
+}
+#endif
 
 // '--arg1 optval1 --arg2' command line.
 TEST(TokenStreamTest, OptargOne) {

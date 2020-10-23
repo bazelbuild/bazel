@@ -22,9 +22,7 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.skylarkbuildapi.FilesetEntryApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.starlarkbuildapi.FilesetEntryApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.Collections;
@@ -33,13 +31,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * FilesetEntry is a value object used to represent a "FilesetEntry" inside a "Fileset" BUILD rule.
  */
 @Immutable
 @ThreadSafe
-public final class FilesetEntry implements SkylarkValue, FilesetEntryApi {
+public final class FilesetEntry implements StarlarkValue, FilesetEntryApi {
 
   public static final SymlinkBehavior DEFAULT_SYMLINK_BEHAVIOR = SymlinkBehavior.COPY;
   public static final String DEFAULT_STRIP_PREFIX = ".";
@@ -47,10 +47,7 @@ public final class FilesetEntry implements SkylarkValue, FilesetEntryApi {
 
   @Override
   public boolean isImmutable() {
-    // TODO(laszlocsomor): set this to true. I think we could do this right now, but am not sure.
-    // Maybe we have to verify that Skylark recognizes every member's type to be recursively
-    // immutable; as of 15/01/2016 this is not true for enum types in general, to name an example.
-    return false;
+    return true;
   }
 
   public static List<String> makeStringList(List<Label> labels) {
@@ -69,7 +66,7 @@ public final class FilesetEntry implements SkylarkValue, FilesetEntryApi {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("FilesetEntry(srcdir = ");
     printer.repr(getSrcLabel().toString());
     printer.append(", files = ");

@@ -1,17 +1,10 @@
-#if (!$singlePage)
 ---
 layout: documentation
 title: Build Encyclopedia
 ---
-#end
-#if (!$singlePage)
-#parse("com/google/devtools/build/docgen/templates/be/header.vm")
-#end
 
 <h1>Bazel BUILD Encyclopedia of Functions</h1>
-<h2>Contents</h2>
-
-<h3>Concepts and terminology</h3>
+<h2>Concepts and terminology</h2>
 
 <ul>
   <li>
@@ -35,7 +28,7 @@ title: Build Encyclopedia
   </li>
 </ul>
 
-<h3>Functions</h3>
+<h2>Functions</h2>
 
 <ul class="be-toc">
   <li><a href="$expander.expandRef("package")">package</a></li>
@@ -45,75 +38,25 @@ title: Build Encyclopedia
   <li><a href="$expander.expandRef("exports_files")">exports_files</a></li>
   <li><a href="$expander.expandRef("glob")">glob</a></li>
   <li><a href="$expander.expandRef("select")">select</a></li>
-  <li><a href="$expander.expandRef("workspace")">workspace</a></li>
+  <li><a href="../skylark/lib/globals.html#workspace">workspace</a></li>
 </ul>
 
-<h3>Rules</h3>
+<h2>Rules</h2>
 
 Native rules ship with the Bazel binary and do not require a <code>load</code> statement.
 Native rules are available globally in BUILD files. In .bzl files, you can find them in
 the <code>native</code> module.
 
-<h4>Language-specific native rules</h4>
+For non-native Starlark rules that ship separately from Bazel, see the list of
+<a href="../rules.html#recommended-rules">Recommended Rules</a>.
 
-#macro(summaryLink $page $heading)
-  #if ($singlePage)#${heading}#else${page}.html#${heading}#end
-#end
+<h3>Language-specific native rules</h3>
 
-#macro(summaryTable $ruleFamilies)
-  <tbody>
-  #foreach($ruleFamily in $ruleFamilies)
-    #if($ruleFamily.size() > 0)
-      <tr>
-        <td class="lang">${ruleFamily.name}</td>
-        <td>
-      #foreach($ruleDoc in $ruleFamily.binaryRules)
-          <a href="#summaryLink(${ruleFamily.id}, ${ruleDoc.ruleName})"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
-            ${ruleDoc.ruleName}
-          </a>
-          <br />
-      #end
-        </td>
-        <td>
-      #foreach($ruleDoc in $ruleFamily.libraryRules)
-          <a href="#summaryLink(${ruleFamily.id}, ${ruleDoc.ruleName})"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
-            ${ruleDoc.ruleName}
-          </a>
-          <br />
-      #end
-        </td>
-        <td>
-      #foreach($ruleDoc in $ruleFamily.testRules)
-          <a href="#summaryLink(${ruleFamily.id}, ${ruleDoc.ruleName})"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
-            ${ruleDoc.ruleName}
-          </a>
-          <br />
-      #end
-        </td>
-        <td>
-      #foreach($ruleDoc in $ruleFamily.otherRules1)
-          <a href="#summaryLink(${ruleFamily.id}, ${ruleDoc.ruleName})"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
-            ${ruleDoc.ruleName}
-          </a>
-          <br />
-      #end
-        </td>
-        <td>
-      #foreach($ruleDoc in $ruleFamily.otherRules2)
-          <a href="#summaryLink(${ruleFamily.id}, ${ruleDoc.ruleName})"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
-            ${ruleDoc.ruleName}
-          </a>
-          <br />
-      #end
-        </td>
-      </tr>
-    #end
-  #end
-  </tbody>
+#macro(ruleLink $ruleFamily $rule)
+  <a href="#if($singlePage)#${rule.ruleName}#else${ruleFamily.id}.html#${rule.ruleName}#end"#if($rule.isDeprecated()) class="deprecated"#end>${rule.ruleName}</a>
 #end
 
 <table class="table table-condensed table-striped" summary="Table of rules sorted by language">
-  <colgroup span="6" width="20%"></colgroup>
   <thead>
     <tr>
       <th>Language</th>
@@ -121,71 +64,52 @@ the <code>native</code> module.
       <th>Library rules</th>
       <th>Test rules</th>
       <th>Other rules</th>
-      <th></th>
     </tr>
   </thead>
-#summaryTable($langSpecificRuleFamilies)
+  <tbody>
+  #foreach($ruleFamily in $langSpecificRuleFamilies)
+    #if($ruleFamily.size() > 0)
+      <tr>
+        <td class="lang">${ruleFamily.name}</td>
+      #set( $ruleTypes = [$ruleFamily.binaryRules, $ruleFamily.libraryRules, $ruleFamily.testRules, $ruleFamily.otherRules] )
+      #foreach($ruleType in $ruleTypes)
+        <td>
+        #foreach($rule in $ruleType)
+          #ruleLink($ruleFamily, $rule)
+          <br />
+        #end
+        </td>
+      #end
+      </tr>
+    #end
+  #end
+  </tbody>
 
 </table>
-<h4>Native rules that do not apply to a specific programming language</h4>
+<h3>Language-agnostic native rules</h3>
 
 <table class="table table-condensed table-striped" summary="Table of rules not specific to a programming language">
-  <colgroup span="6" width="20%"></colgroup>
-#summaryTable($genericRuleFamilies)
+  <thead>
+    <tr>
+      <th>Family</th>
+      <th>Rules</th>
+    </tr>
+  </thead>
+  <tbody>
+  #foreach($ruleFamily in $genericRuleFamilies)
+    #if($ruleFamily.size() > 0)
+      <tr>
+        <td class="lang">${ruleFamily.name}</td>
+        <td>
+          <ul class="hlist">
+          #foreach($rule in $ruleFamily.rules)
+            <li>#ruleLink($ruleFamily, $rule)
+          #end
+          </ul>
+        </td>
+      </tr>
+    #end
+  #end
+  </tbody>
 
 </table>
-
-
-<h4>Embedded non-native rules</h4>
-
-Bazel also embeds additional rules written in Starlark. Those can be loaded
-from the <tt>@bazel_tools</tt> built-in external repository.
-
-<ul>
-  <li><a href="../repo/index.html">repository rules</a>
-  <li><a href="pkg.html">package rules</a>
-</ul>
-
-
-<h4>Additional rules</h4>
-
-<p>Non-native rules extend Bazel's capabilities. Rules for many popular languages
-have been created and are being maintained outside of Bazel. Contact the respective
-rule set's maintainers regarding issues and feature requests.</p>
-
-<p>To find more Bazel rules, use a search engine or look on
-<a href="https://github.com/search?o=desc&q=bazel+rules&s=stars&type=Repositories">GitHub</a>.
-</p>
-
-<p>Here is a selection of popular rules:</p>
-
-<ul>
-  <li><a href="https://github.com/bazelbuild/rules_android">Android</a></li>
-  <li><a href="https://github.com/bazelbuild/rules_apple">Apple platforms</a></li>
-  <li><a href="https://github.com/nelhage/rules_boost">Boost</a></li>
-  <li><a href="https://github.com/bazelbuild/rules_dotnet">C#</a></li>
-  <li><a href="https://github.com/bazelbuild/rules_closure">Closure</a></li>
-  <li><a href="https://github.com/bazelbuild/rules_docker">Docker</a></li>
-  <li><a href="https://github.com/bazelbuild/rules_go">Go</a></li>
-  <li><a href="https://github.com/tweag/rules_haskell">Haskell</a></li>
-  <li><a href="https://github.com/bazelbuild/rules_jsonnet">Jsonnet</a></li>
-  <li><a href="https://github.com/bazelbuild/rules_kotlin">Kotlin</a></li>
-  <li><a href="https://github.com/bazelbuild/rules_k8s">Kubernetes</a></li>
-  <li><a href="https://github.com/bazelbuild/rules_nodejs">NodeJS</a></li>
-  <li><a href="https://github.com/pubref/rules_protobuf">Protobuf</a></li>
-  <li><a href="https://github.com/bazelbuild/rules_python">Python</a></li>
-  <li><a href="https://github.com/bazelbuild/rules_rust">Rust</a></li>
-  <li><a href="https://github.com/bazelbuild/rules_scala">Scala</a></li>
-  <li><a href="https://github.com/bazelbuild/rules_swift">Swift</a></li>
-  <li><a href="https://github.com/bazelbuild/rules_typescript">Typescript</a></li>
-  <li><a href="https://github.com/bazelbuild/rules_webtesting">Webtesting</a> (Webdriver)</li>
-</ul>
-
-<p>The repository
-<a href="https://github.com/bazelbuild/bazel-skylib">Skylib</a>
-contains additional functions that can be useful when writing new rules
-and new macros.</p>
-
-#if (!$singlePage)
-#parse("com/google/devtools/build/docgen/templates/be/footer.vm")
-#end

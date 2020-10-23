@@ -20,7 +20,7 @@ from src.test.py.bazel import test_base
 class BazelWindowsTest(test_base.TestBase):
 
   def createProjectFiles(self):
-    self.ScratchFile('WORKSPACE')
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', ['cc_binary(name="x", srcs=["x.cc"])'])
     self.ScratchFile('foo/x.cc', [
         '#include <stdio.h>',
@@ -63,7 +63,7 @@ class BazelWindowsTest(test_base.TestBase):
         os.path.exists(os.path.join(bazel_bin, 'foo\\_objs\\x\\x.obj.params')))
 
   def testWindowsCompilesAssembly(self):
-    self.ScratchFile('WORKSPACE')
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
     self.AssertExitCode(exit_code, 0, stderr)
     bazel_bin = stdout[0]
@@ -121,10 +121,13 @@ class BazelWindowsTest(test_base.TestBase):
 
   def testWindowsEnvironmentVariablesSetting(self):
     self.ScratchFile('BUILD')
-    self.ScratchFile('WORKSPACE', [
+    rule_definition = [
+        'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")',
         'load(":repo.bzl", "my_repo")',
         'my_repo(name = "env_test")',
-    ])
+    ]
+    rule_definition.extend(self.GetDefaultRepoRules())
+    self.ScratchFile('WORKSPACE', rule_definition)
     self.ScratchFile('repo.bzl', [
         'def my_repo_impl(repository_ctx):',
         '  repository_ctx.file("env.bat", "set FOO\\n")',
@@ -152,7 +155,7 @@ class BazelWindowsTest(test_base.TestBase):
     self.assertIn('foo=bar3', result_in_lower_case)
 
   def testRunPowershellInAction(self):
-    self.ScratchFile('WORKSPACE')
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
         'load(":execute.bzl", "run_powershell")',
         'run_powershell(name = "powershell_test", out = "out.txt")',
@@ -190,7 +193,7 @@ class BazelWindowsTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
 
   def testAnalyzeCcRuleWithoutVCInstalled(self):
-    self.ScratchFile('WORKSPACE')
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
         'cc_binary(',
         '  name = "bin",',
@@ -215,7 +218,7 @@ class BazelWindowsTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
 
   def testBuildNonCcRuleWithoutVCInstalled(self):
-    self.ScratchFile('WORKSPACE')
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
         'genrule(',
         '  name="gen",',
@@ -262,6 +265,28 @@ class BazelWindowsTest(test_base.TestBase):
         # require cc toolchain.
         env_add={'BAZEL_VC': 'C:/not/exists/VC'},
     )
+    self.AssertExitCode(exit_code, 0, stderr)
+
+  def testDeleteReadOnlyFileAndDirectory(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile('BUILD', [
+        'genrule(',
+        '  name = "gen_read_only_dir",',
+        '  cmd_bat = "mkdir $@ && attrib +r $@",',
+        '  outs = ["dir_foo"],',
+        ')',
+        '',
+        'genrule(',
+        '  name = "gen_read_only_file",',
+        '  cmd_bat = "echo hello > $@ && attrib +r $@",',
+        '  outs = ["file_foo"],',
+        ')',
+    ])
+
+    exit_code, _, stderr = self.RunBazel(['build', '//...'])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    exit_code, _, stderr = self.RunBazel(['clean'])
     self.AssertExitCode(exit_code, 0, stderr)
 
 

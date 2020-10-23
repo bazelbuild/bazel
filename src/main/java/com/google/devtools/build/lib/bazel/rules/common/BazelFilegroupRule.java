@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.bazel.rules.common;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -37,10 +37,7 @@ public final class BazelFilegroupRule implements RuleDefinition {
         The list of targets that are members of the file group.
         <p>
           It is common to use the result of a <a href="${link glob}">glob</a> expression for
-          the value
-          of the <code>srcs</code> attribute. If a rule and a source file with the same name both
-          exist in the package, the glob will return the outputs of the rule instead of the source
-          file.
+          the value of the <code>srcs</code> attribute.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("srcs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
@@ -65,10 +62,7 @@ public final class BazelFilegroupRule implements RuleDefinition {
           <code>data</code></a> for more information about how to depend on and use data files.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(
-            attr("data", LABEL_LIST)
-                .allowedFileTypes(FileTypeSet.ANY_FILE)
-                .dontCheckConstraints())
+        .add(attr("data", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE).dontCheckConstraints())
         .add(attr("output_licenses", LICENSE))
         /*<!-- #BLAZE_RULE(filegroup).ATTRIBUTE(path) -->
         An optional string to set a path to the files in the group, relative to the package path.
@@ -81,7 +75,7 @@ public final class BazelFilegroupRule implements RuleDefinition {
             attr("path", STRING)
                 .undocumented(
                     "only used to expose FilegroupPathProvider, which is not currently used"))
-        .supportsPlatforms(false)
+        .useToolchainResolution(false)
         .build();
   }
 
@@ -95,7 +89,7 @@ public final class BazelFilegroupRule implements RuleDefinition {
   }
 }
 
-/*<!-- #BLAZE_RULE (NAME = filegroup, TYPE = BINARY, FAMILY = General)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = filegroup, FAMILY = General)[GENERIC_RULE] -->
 
 <p>
   Use <code>filegroup</code> to give a convenient name to a collection of targets.

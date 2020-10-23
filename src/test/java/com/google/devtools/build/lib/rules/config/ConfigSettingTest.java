@@ -18,10 +18,10 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -74,15 +74,15 @@ public class ConfigSettingTest extends BuildViewTestCase {
         OptionsParser.getOptionDefinitionByName(DummyTestOptions.class, "nonselectable_option");
 
     @Option(
-        name = "nonselectable_whitelisted_option",
+        name = "nonselectable_allowlisted_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "true")
-    public boolean nonselectableWhitelistedOption;
+    public boolean nonselectableAllowlistedOption;
 
-    private static final OptionDefinition NONSELECTABLE_WHITELISTED_OPTION_DEFINITION =
+    private static final OptionDefinition NONSELECTABLE_ALLOWLISTED_OPTION_DEFINITION =
         OptionsParser.getOptionDefinitionByName(
-            DummyTestOptions.class, "nonselectable_whitelisted_option");
+            DummyTestOptions.class, "nonselectable_allowlisted_option");
 
     @Option(
         name = "nonselectable_custom_message_option",
@@ -100,7 +100,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
       return ImmutableMap.of(
           NONSELECTABLE_OPTION_DEFINITION,
           new SelectRestriction(/*visibleWithinToolsPackage=*/ false, /*errorMessage=*/ null),
-          NONSELECTABLE_WHITELISTED_OPTION_DEFINITION,
+          NONSELECTABLE_ALLOWLISTED_OPTION_DEFINITION,
           new SelectRestriction(/*visibleWithinToolsPackage=*/ true, /*errorMessage=*/ null),
           NONSELECTABLE_CUSTOM_MESSAGE_OPTION_DEFINITION,
           new SelectRestriction(
@@ -110,16 +110,16 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @AutoCodec
-  static class DummyTestOptionsFragment extends BuildConfiguration.Fragment {}
+  static class DummyTestOptionsFragment extends Fragment {}
 
   private static class DummyTestOptionsLoader implements ConfigurationFragmentFactory {
     @Override
-    public BuildConfiguration.Fragment create(BuildOptions buildOptions) {
+    public Fragment create(BuildOptions buildOptions) {
       return new DummyTestOptionsFragment();
     }
 
     @Override
-    public Class<? extends BuildConfiguration.Fragment> creates() {
+    public Class<? extends Fragment> creates() {
       return DummyTestOptionsFragment.class;
     }
 
@@ -130,7 +130,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Override
-  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
     builder.addRuleDefinition(new FeatureFlagSetterRule());
@@ -287,34 +287,34 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   /**
-   * Tests that whitelisted non-selectable options can't be accessed outside of the tools package.
+   * Tests that allowlisted non-selectable options can't be accessed outside of the tools package.
    */
   @Test
-  public void nonselectableWhitelistedOption_OutOfToolsPackage() throws Exception {
+  public void nonselectableAllowlistedOption_OutOfToolsPackage() throws Exception {
     checkError(
         "foo",
         "badoption",
         String.format(
-            "option 'nonselectable_whitelisted_option' cannot be used in a config_setting (it is "
-                + "whitelisted to %s//tools/... only)",
+            "option 'nonselectable_allowlisted_option' cannot be used in a config_setting (it is "
+                + "allowlisted to %s//tools/... only)",
             RepositoryName.create(TestConstants.TOOLS_REPOSITORY).getDefaultCanonicalForm()),
         "config_setting(",
         "    name = 'badoption',",
         "    values = {",
-        "        'nonselectable_whitelisted_option': 'true',",
+        "        'nonselectable_allowlisted_option': 'true',",
         "    },",
         ")");
   }
 
-  /** Tests that whitelisted non-selectable options can be accessed within the tools package. */
+  /** Tests that allowlisted non-selectable options can be accessed within the tools package. */
   @Test
-  public void nonselectableWhitelistedOption_InToolsPackage() throws Exception {
+  public void nonselectableAllowlistedOption_InToolsPackage() throws Exception {
     scratch.file(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/pkg/BUILD",
         "config_setting(",
         "    name = 'foo',",
         "    values = {",
-        "        'nonselectable_whitelisted_option': 'true',",
+        "        'nonselectable_allowlisted_option': 'true',",
         "    })");
     String fooLabel = TestConstants.TOOLS_REPOSITORY + "//tools/pkg:foo";
     assertThat(getConfigMatchingProvider(fooLabel).matches()).isTrue();
@@ -334,6 +334,19 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "        'nonselectable_custom_message_option': 'true',",
         "    },",
         ")");
+  }
+
+  /** Tests that None is not specifiable for a key's value. */
+  @Test
+  public void noneValueInSetting() throws Exception {
+    checkError(
+        "foo",
+        "none",
+        "ERROR /workspace/foo/BUILD:1:15: //foo:none: "
+            + "expected value of type 'string' for dict value element, but got None (NoneType)",
+        "config_setting(",
+        "    name = 'none',",
+        "    values = {\"none_value\": None})");
   }
 
   /**
@@ -378,6 +391,20 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
+  public void invalidDefineProducesError() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    values = {",
+        "        'define': 'foo',", // Value should be "foo=<something>".
+        "    })");
+
+    checkError(
+        "//test:match", "Variable definitions must be in the form of a 'name=value' assignment");
+  }
+
+  @Test
   public void multipleDefines() throws Exception {
     scratch.file("test/BUILD",
         "config_setting(",
@@ -394,6 +421,36 @@ public class ConfigSettingTest extends BuildViewTestCase {
     useConfiguration("--define", "foo2=baz");
     assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
     useConfiguration("--define", "foo1=bar", "--define", "foo2=baz");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+  }
+
+  /**
+   * Tests that for a multi-value dictionary, <code>values = { 'key': 'value' }</code> always refers
+   * to a single map entry. Fancy syntax like <code>values = { 'key': 'value=1,key2=value2' }</code>
+   * doesn't get around that.
+   *
+   * <p>This just verifies existing behavior, not explicitly desired behavior. We could enhance
+   * options parsing to support multi-value settings if anyone ever wanted that.
+   */
+  @Test
+  public void multiValueDictSettingAlwaysSingleEntry() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    values = {",
+        "        'define': 'foo=bar,baz=bat',",
+        "    })");
+
+    useConfiguration("");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--define", "foo=bar");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--define", "foo=bar", "--define", "baz=bat");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--define", "foo=bar,baz=bat");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    useConfiguration("--define", "makethis=a_superset", "--define", "foo=bar,baz=bat");
     assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
   }
 
@@ -420,10 +477,11 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   /**
-   * Tests matching on multi-value attributes with primitive values.
+   * Tests matching on multi-value attributes against single expected values: the actual list must
+   * contain the expected value.
    */
   @Test
-  public void multiValueList() throws Exception {
+  public void multiValueListSingleExpectedValue() throws Exception {
     scratch.file("test/BUILD",
         "config_setting(",
         "    name = 'match',",
@@ -441,6 +499,78 @@ public class ConfigSettingTest extends BuildViewTestCase {
     assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
     useConfiguration("--copt", "-Dbar", "--copt", "-Dfoo");
     assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+  }
+
+  /**
+   * Tests matching on multi-value flags against multiple expected values: the actual list must
+   * contain all expected values (and possibly more).
+   *
+   * <p>This only works for flags that can parse multiple values in the same entry. Not all flags do
+   * this: this varies according to each flag's definition. For example "--copt=a,b" produces a
+   * single entry ["a,b"], while "--extra_platforms=a,b" produces ["a", "b"].
+   */
+  @Test
+  public void multiValueListMultipleExpectedValues() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    values = {",
+        "        'extra_toolchains': 'one,two',", // This produces ["one", "two"]
+        "    })");
+
+    useConfiguration("");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--extra_toolchains", "one");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--extra_toolchains", "two");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--extra_toolchains", "one", "--extra_toolchains", "two");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    useConfiguration("--extra_toolchains", "two", "--extra_toolchains", "one");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    useConfiguration("--extra_toolchains", "one,two");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    useConfiguration("--extra_toolchains", "two,one");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    useConfiguration(
+        "--extra_toolchains",
+        "ten",
+        "--extra_toolchains",
+        "two",
+        "--extra_toolchains",
+        "three",
+        "--extra_toolchains",
+        "one");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+  }
+
+  /**
+   * Tests multi-value flags that don't support multiple values <b></b>in the same instance<b>. See
+   * comments on {@link #multiValueListMultipleExpectedValues()} for details.
+   */
+  @Test
+  public void multiValueListSingleValueThatLooksLikeMultiple() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    values = {",
+        "        'copt': 'one,two',", // This produces ["one,two"]
+        "    })");
+
+    useConfiguration("");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--copt", "one");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--copt", "two");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--copt", "one", "--copt", "two");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--copt", "one,two", "--copt", "one");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    useConfiguration("--copt", "two,one", "--copt", "one");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
   }
 
   @Test
@@ -1227,23 +1357,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void forbidsNonConfigFeatureFlagRulesForFlagValues() throws Exception {
-    checkError("test", "invalid_flag",
-        "in flag_values attribute of config_setting rule //test:invalid_flag: "
-        + "'//test:genrule' does not have mandatory providers: 'FeatureFlagInfo'",
-        "config_setting(",
-        "    name = 'invalid_flag',",
-        "    flag_values = {",
-        "        ':genrule': 'lolz',",
-        "    })",
-        "genrule(",
-        "    name = 'genrule',",
-        "    outs = ['output'],",
-        "    cmd = 'echo >$@',",
-        "    )");
-  }
-
-  @Test
   public void requiresValidValueForFlagValues() throws Exception {
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     checkError(
@@ -1290,6 +1403,228 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    allowed_values = ['right', 'valid'],",
         "    default_value = 'valid',",
         ")");
+  }
+
+  @Test
+  public void buildsettings_matchesFromDefault() throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':cheese': 'parmesan',",
+        "    },",
+        ")",
+        "string_flag(name = 'cheese', build_setting_default = 'parmesan')");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+  }
+
+  @Test
+  public void buildsettings_matchesFromCommandLine() throws Exception {
+    useConfiguration(ImmutableMap.of("//test:cheese", "gouda"));
+
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':cheese': 'gouda',",
+        "    },",
+        ")",
+        "string_flag(name = 'cheese', build_setting_default = 'parmesan')");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+  }
+
+  /**
+   * Regression test to ensure that non-String typed build setting values are being properly
+   * converted from Strings to their real type.
+   */
+  @Test
+  public void buildsettings_convertedType() throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "bool_flag = rule(implementation = _impl, build_setting = config.bool(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_settings.bzl', 'bool_flag')",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':cheese': 'True',",
+        "    },",
+        ")",
+        "bool_flag(name = 'cheese', build_setting_default = True)");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+  }
+
+  @Test
+  public void buildsettings_doesntMatch() throws Exception {
+    useConfiguration(ImmutableMap.of("//test:cheese", "gouda"));
+
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':cheese': 'parmesan',",
+        "    },",
+        ")",
+        "string_flag(name = 'cheese', build_setting_default = 'parmesan')");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+  }
+
+  @Test
+  public void buildsettings_badType() throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "int_flag = rule(implementation = _impl, build_setting = config.int(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_settings.bzl', 'int_flag')",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':wishes': 'gouda',",
+        "    },",
+        ")",
+        "int_flag(name = 'wishes', build_setting_default = 3)");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:match");
+    assertContainsEvent("'gouda' cannot be converted to //test:wishes type int");
+  }
+
+  @Test
+  public void notBuildSettingOrFeatureFlag() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        "def _impl(ctx):",
+        "  return DefaultInfo()",
+        "default_info_rule = rule(implementation = _impl)");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'default_info_rule')",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':cheese': 'gouda',",
+        "    },",
+        ")",
+        "default_info_rule(name = 'cheese')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:match");
+    assertContainsEvent(
+        "flag_values keys must be build settings or feature flags and //test:cheese is not");
+  }
+
+  @Test
+  public void buildsettingsMatch_featureFlagsMatch() throws Exception {
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
+
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':cheese': 'parmesan',",
+        "        ':flag': 'right',",
+        "    },",
+        "    transitive_configs = [':flag'],",
+        ")",
+        "string_flag(name = 'cheese', build_setting_default = 'parmesan')",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right'],",
+        "    default_value = 'right',",
+        ")");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+  }
+
+  @Test
+  public void buildsettingsMatch_featureFlagsDontMatch() throws Exception {
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
+
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':cheese': 'parmesan',",
+        "        ':flag': 'wrong',",
+        "    },",
+        "    transitive_configs = [':flag'],",
+        ")",
+        "string_flag(name = 'cheese', build_setting_default = 'parmesan')",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right', 'wrong'],",
+        "    default_value = 'right',",
+        ")");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+  }
+
+  @Test
+  public void buildsettingsDontMatch_featureFlagsMatch() throws Exception {
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
+
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':cheese': 'gouda',",
+        "        ':flag': 'right',",
+        "    },",
+        "    transitive_configs = [':flag'],",
+        ")",
+        "string_flag(name = 'cheese', build_setting_default = 'parmesan')",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right'],",
+        "    default_value = 'right',",
+        ")");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
   }
 
   @Test
@@ -1520,5 +1855,163 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
     useConfiguration("--copt", "-Dfoo");
     assertThat(getLicenses("//test:match")).containsExactly(LicenseType.NONE);
+  }
+
+  @Test
+  public void simpleStarlarkFlag() throws Exception {
+    scratch.file(
+        "test/flagdef.bzl",
+        "def _impl(ctx):",
+        "    return []",
+        "my_flag = rule(",
+        "    implementation = _impl,",
+        "    build_setting = config.string(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:flagdef.bzl', 'my_flag')",
+        "my_flag(",
+        "    name = 'flag',",
+        "    build_setting_default = 'actual_flag_value')",
+        "config_setting(",
+        "    name = 'matches',",
+        "    flag_values = {",
+        "        ':flag': 'actual_flag_value',",
+        "    })",
+        "config_setting(",
+        "    name = 'doesntmatch',",
+        "    flag_values = {",
+        "        ':flag': 'other_flag_value',",
+        "    })");
+    assertThat(getConfigMatchingProvider("//test:matches").matches()).isTrue();
+    assertThat(getConfigMatchingProvider("//test:doesntmatch").matches()).isFalse();
+  }
+
+  @Test
+  public void starlarkListFlagSingleValue() throws Exception {
+    // When a list-typed Starlark flag has value ["foo"], the config_setting's expected value "foo"
+    // must match exactly.
+    scratch.file(
+        "test/flagdef.bzl",
+        "def _impl(ctx):",
+        "    return []",
+        "my_flag = rule(",
+        "    implementation = _impl,",
+        "    build_setting = config.string_list(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:flagdef.bzl', 'my_flag')",
+        "my_flag(",
+        "    name = 'one_value_flag',",
+        "    build_setting_default = ['one'])",
+        "config_setting(",
+        "    name = 'matches',",
+        "    flag_values = {",
+        "        ':one_value_flag': 'one',",
+        "    })",
+        "config_setting(",
+        "    name = 'doesntmatch',",
+        "    flag_values = {",
+        "        ':one_value_flag': 'other',",
+        "    })");
+    assertThat(getConfigMatchingProvider("//test:matches").matches()).isTrue();
+    assertThat(getConfigMatchingProvider("//test:doesntmatch").matches()).isFalse();
+  }
+
+  @Test
+  public void starlarkListFlagMultiValue() throws Exception {
+    // When a list-typed Starlark flag has value ["foo", "bar"], the config_setting's expected
+    // value "foo" must match *any* entry in the list.
+    scratch.file(
+        "test/flagdef.bzl",
+        "def _impl(ctx):",
+        "    return []",
+        "my_flag = rule(",
+        "    implementation = _impl,",
+        "    build_setting = config.string_list(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:flagdef.bzl', 'my_flag')",
+        "my_flag(",
+        "    name = 'two_value_flag',",
+        "    build_setting_default = ['one', 'two'])",
+        "config_setting(",
+        "    name = 'matches_one',",
+        "    flag_values = {",
+        "        ':two_value_flag': 'one',",
+        "    })",
+        "config_setting(",
+        "    name = 'matches_two',",
+        "    flag_values = {",
+        "        ':two_value_flag': 'two',",
+        "    })",
+        "config_setting(",
+        "    name = 'doesntmatch',",
+        "    flag_values = {",
+        "        ':two_value_flag': 'other',",
+        "    })");
+    assertThat(getConfigMatchingProvider("//test:matches_one").matches()).isTrue();
+    assertThat(getConfigMatchingProvider("//test:matches_two").matches()).isTrue();
+    assertThat(getConfigMatchingProvider("//test:doesntmatch").matches()).isFalse();
+  }
+
+  @Test
+  public void canOnlyMatchSingleValueInMultiValueFlags() throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_list_flag = rule(",
+        "  implementation = _impl,",
+        "  build_setting = config.string_list(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_settings.bzl', 'string_list_flag')",
+        "string_list_flag(name = 'gouda', build_setting_default = ['smoked'])",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':gouda': 'smoked,fresh',",
+        "    },",
+        ")",
+        "filegroup(",
+        "  name = 'fg',",
+        "  srcs = select({",
+        "      ':match': []",
+        "  }),",
+        ")");
+    reporter.removeHandler(failFastHandler); // expect errors
+    assertThat(getConfiguredTarget("//test:fg")).isNull();
+    assertContainsEvent(
+        "\"smoked,fresh\" not a valid value for flag //test:gouda. "
+            + "Only single, exact values are allowed");
+  }
+
+  @Test
+  public void singleValueThatLooksLikeMultiValueIsOkay() throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_flag = rule(",
+        "  implementation = _impl,",
+        "  build_setting = config.string(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "string_flag(name = 'gouda', build_setting_default = 'smoked,fresh')",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':gouda': 'smoked,fresh',",
+        "    },",
+        ")",
+        "filegroup(",
+        "  name = 'fg',",
+        "  srcs = select({",
+        "      ':match': []",
+        "  }),",
+        ")");
+    assertThat(getConfiguredTarget("//test:fg")).isNotNull();
+    assertNoEvents();
   }
 }

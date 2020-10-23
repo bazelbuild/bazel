@@ -17,17 +17,17 @@ package com.google.devtools.build.lib.rules.apple;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.ApplePlatformApi;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.ApplePlatformTypeApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.ApplePlatformApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.ApplePlatformTypeApi;
 import java.util.HashMap;
 import java.util.Locale;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.syntax.Location;
 
 /** An enum that can be used to distinguish between various apple platforms. */
 @Immutable
@@ -38,7 +38,8 @@ public enum ApplePlatform implements ApplePlatformApi {
   TVOS_DEVICE("tvos_device", "AppleTVOS", PlatformType.TVOS, true),
   TVOS_SIMULATOR("tvos_simulator", "AppleTVSimulator", PlatformType.TVOS, false),
   WATCHOS_DEVICE("watchos_device", "WatchOS", PlatformType.WATCHOS, true),
-  WATCHOS_SIMULATOR("watchos_simulator", "WatchSimulator", PlatformType.WATCHOS, false);
+  WATCHOS_SIMULATOR("watchos_simulator", "WatchSimulator", PlatformType.WATCHOS, false),
+  CATALYST("catalyst", "MacOSX", PlatformType.CATALYST, true);
 
   private static final ImmutableSet<String> IOS_SIMULATOR_TARGET_CPUS =
       ImmutableSet.of("ios_x86_64", "ios_i386");
@@ -52,26 +53,33 @@ public enum ApplePlatform implements ApplePlatformApi {
       ImmutableSet.of("tvos_x86_64");
   private static final ImmutableSet<String> TVOS_DEVICE_TARGET_CPUS =
       ImmutableSet.of("tvos_arm64");
+  private static final ImmutableSet<String> CATALYST_TARGET_CPUS =
+      ImmutableSet.of("catalyst_x86_64");
   // "darwin" is included because that's currently the default when on macOS, and
   // migrating it would be a breaking change more details:
   // https://github.com/bazelbuild/bazel/pull/7062
   private static final ImmutableSet<String> MACOS_TARGET_CPUS =
-      ImmutableSet.of("darwin_x86_64", "darwin");
+      ImmutableSet.of("darwin_x86_64", "darwin_arm64", "darwin_arm64e", "darwin");
 
   private static final ImmutableSet<String> BIT_32_TARGET_CPUS =
       ImmutableSet.of("ios_i386", "ios_armv7", "ios_armv7s", "watchos_i386", "watchos_armv7k");
 
-  private final String skylarkKey;
+  private final String starlarkKey;
   private final String nameInPlist;
   private final PlatformType platformType;
   private final boolean isDevice;
 
   ApplePlatform(
-      String skylarkKey, String nameInPlist, PlatformType platformType, boolean isDevice) {
-    this.skylarkKey = skylarkKey;
+      String starlarkKey, String nameInPlist, PlatformType platformType, boolean isDevice) {
+    this.starlarkKey = starlarkKey;
     this.nameInPlist = Preconditions.checkNotNull(nameInPlist);
     this.platformType = platformType;
     this.isDevice = isDevice;
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
   }
 
   @Override
@@ -110,6 +118,8 @@ public enum ApplePlatform implements ApplePlatformApi {
       return TVOS_SIMULATOR;
     } else if (TVOS_DEVICE_TARGET_CPUS.contains(targetCpu)) {
       return TVOS_DEVICE;
+    } else if (CATALYST_TARGET_CPUS.contains(targetCpu)) {
+      return CATALYST;
     } else if (MACOS_TARGET_CPUS.contains(targetCpu)) {
       return MACOS;
     } else {
@@ -177,19 +187,26 @@ public enum ApplePlatform implements ApplePlatformApi {
     return forTargetCpuNullable(targetCpu) != null;
   }
 
-  /** Returns a Skylark struct that contains the instances of this enum. */
-  public static StructImpl getSkylarkStruct() {
+  /** Returns a Starlark struct that contains the instances of this enum. */
+  public static StructImpl getStarlarkStruct() {
     Provider constructor = new NativeProvider<StructImpl>(StructImpl.class, "platforms") {};
     HashMap<String, Object> fields = new HashMap<>();
     for (ApplePlatform type : values()) {
-      fields.put(type.skylarkKey, type);
+      fields.put(type.starlarkKey, type);
     }
-    return SkylarkInfo.createSchemaless(constructor, fields, Location.BUILTIN);
+    return StarlarkInfo.create(constructor, fields, Location.BUILTIN);
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append(toString());
+  }
+
+  /** Exception indicating an unknown or unsupported Apple platform type. */
+  public static class UnsupportedPlatformTypeException extends Exception {
+    public UnsupportedPlatformTypeException(String msg) {
+      super(msg);
+    }
   }
 
   /**
@@ -202,16 +219,22 @@ public enum ApplePlatform implements ApplePlatformApi {
     IOS("ios"),
     WATCHOS("watchos"),
     TVOS("tvos"),
-    MACOS("macos");
+    MACOS("macos"),
+    CATALYST("catalyst");
 
     /**
-     * The key used to access the enum value as a field in the Skylark apple_common.platform_type
+     * The key used to access the enum value as a field in the Starlark apple_common.platform_type
      * struct.
      */
-    private final String skylarkKey;
+    private final String starlarkKey;
 
-    PlatformType(String skylarkKey) {
-      this.skylarkKey = skylarkKey;
+    PlatformType(String starlarkKey) {
+      this.starlarkKey = starlarkKey;
+    }
+
+    @Override
+    public boolean isImmutable() {
+      return true; // immutable and Starlark-hashable
     }
 
     @Override
@@ -222,29 +245,30 @@ public enum ApplePlatform implements ApplePlatformApi {
     /**
      * Returns the {@link PlatformType} with given name (case insensitive).
      *
-     * @throws IllegalArgumentException if the name does not match a valid platform type.
+     * @throws UnsupportedPlatformTypeException if the name does not match a valid platform type.
      */
-    public static PlatformType fromString(String name) {
+    public static PlatformType fromString(String name) throws UnsupportedPlatformTypeException {
       for (PlatformType platformType : PlatformType.values()) {
         if (name.equalsIgnoreCase(platformType.toString())) {
           return platformType;
         }
       }
-      throw new IllegalArgumentException(String.format("Unsupported platform type \"%s\"", name));
+      throw new UnsupportedPlatformTypeException(
+          String.format("Unsupported platform type \"%s\"", name));
     }
 
-    /** Returns a Skylark struct that contains the instances of this enum. */
-    public static StructImpl getSkylarkStruct() {
+    /** Returns a Starlark struct that contains the instances of this enum. */
+    public static StructImpl getStarlarkStruct() {
       Provider constructor = new NativeProvider<StructImpl>(StructImpl.class, "platform_types") {};
       HashMap<String, Object> fields = new HashMap<>();
       for (PlatformType type : values()) {
-        fields.put(type.skylarkKey, type);
+        fields.put(type.starlarkKey, type);
       }
-      return SkylarkInfo.createSchemaless(constructor, fields, Location.BUILTIN);
+      return StarlarkInfo.create(constructor, fields, Location.BUILTIN);
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {
+    public void repr(Printer printer) {
       printer.append(toString());
     }
   }

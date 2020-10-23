@@ -1,6 +1,0 @@
-ibtoolwrapper runs ibtool, which compiles storyboards and xibs etc.
-ibtoolwrapper then zips up the output,
-because ibtool returns an unpredictable number of output files.
-
-ibtool only runs on Darwin, so ibtoolwrapper only runs on Darwin.
-

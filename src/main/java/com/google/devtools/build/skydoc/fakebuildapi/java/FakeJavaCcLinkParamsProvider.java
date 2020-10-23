@@ -14,28 +14,32 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.java;
 
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCcLinkParamsProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCcLinkParamsProviderApi;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
 
 /** Fake implementation of {@link JavaCcLinkParamsProvider}. */
-public class FakeJavaCcLinkParamsProvider implements JavaCcLinkParamsProviderApi<CcInfoApi> {
+public class FakeJavaCcLinkParamsProvider
+    implements JavaCcLinkParamsProviderApi<FileApi, CcInfoApi<FileApi>> {
 
   @Override
-  public CcInfoApi getCcInfo() {
+  public CcInfoApi<FileApi> getCcInfo() {
     return null;
   }
 
   /** Fake implementation of {@link JavaCcLinkParamsProvider#Provider}. */
-  public static class Provider implements JavaCcLinkParamsProviderApi.Provider<CcInfoApi> {
+  public static class Provider
+      implements JavaCcLinkParamsProviderApi.Provider<FileApi, CcInfoApi<FileApi>> {
 
     @Override
-    public FakeJavaCcLinkParamsProvider createInfo(CcInfoApi ccInfoApi) throws EvalException {
+    public FakeJavaCcLinkParamsProvider createInfo(CcInfoApi<FileApi> ccInfoApi)
+        throws EvalException {
       return new FakeJavaCcLinkParamsProvider();
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {}
+    public void repr(Printer printer) {}
   }
 }

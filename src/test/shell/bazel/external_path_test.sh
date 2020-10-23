@@ -29,7 +29,7 @@ repo_with_local_include() {
   # Generate a repository, in the current working directory, with a target
   # //src:hello that includes a file via a local path.
 
-  touch WORKSPACE
+  create_workspace_with_default_repos WORKSPACE
   mkdir src
   cat > src/main.c <<'EOF'
 #include <stdio.h>
@@ -57,7 +57,7 @@ library_with_local_include() {
   # is a library with headers that include via paths relative to the root of
   # that repository
 
-  touch WORKSPACE
+  create_workspace_with_default_repos WORKSPACE
   mkdir lib
   cat > lib/lib.h <<'EOF'
 #include "lib/constants.h"
@@ -113,7 +113,7 @@ test_local_paths_remote() {
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="remote",
@@ -140,7 +140,7 @@ test_lib_paths_main() {
   cd main
   library_with_local_include
 
-  touch WORKSPACE
+  create_workspace_with_default_repos WORKSPACE
   cat > main.c <<'EOF'
 #include "lib/lib.h"
 
@@ -178,7 +178,7 @@ test_lib_paths_remote() {
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="remote",
@@ -244,7 +244,7 @@ EOF
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="remotelib",
@@ -293,7 +293,7 @@ test_fixed_path_local() {
 
   mkdir main
   cd main
-  touch WORKSPACE
+  create_workspace_with_default_repos WORKSPACE
   repo_with_local_path_reference
 
   bazel build //withpath:it || fail "Expected success"
@@ -312,7 +312,7 @@ DISABLED_test_fixed_path_remote() {
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="remote",
@@ -337,8 +337,8 @@ cat $1 | tr 'a-z' 'A-Z' > $2
 EOF
   cat > rule/to_upper.bzl <<'EOF'
 def _to_upper_impl(ctx):
-  output = ctx.new_file(ctx.label.name + ".txt")
-  ctx.action(
+  output = ctx.actions.declare_file(ctx.label.name + ".txt")
+  ctx.actions.run_shell(
     inputs = ctx.files.src + ctx.files._toupper_sh,
     outputs = [output],
     command = ["/bin/sh"] + [f.path for f in ctx.files._toupper_sh] \
@@ -366,7 +366,7 @@ test_local_rules() {
 
   mkdir main
   cd main
-  touch WORKSPACE
+  create_workspace_with_default_repos WORKSPACE
   repo_with_local_implicit_dependencies
   mkdir call
   echo hello world > call/hello.txt
@@ -395,7 +395,7 @@ test_remote_rules() {
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="r",
@@ -444,7 +444,7 @@ EOF
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="a",
@@ -489,8 +489,8 @@ genrule(
 EOF
   cat > rule/to_html.bzl <<'EOF'
 def _to_html_impl(ctx):
-  output = ctx.new_file(ctx.label.name + ".html")
-  ctx.action(
+  output = ctx.actions.declare_file(ctx.label.name + ".html")
+  ctx.actions.run_shell(
     inputs = ctx.files.src + ctx.files._to_html + ctx.files._preamb + ctx.files._postamb,
     outputs = [output],
     command = ["/bin/sh"] + [f.path for f in ctx.files._to_html] \
@@ -524,7 +524,7 @@ test_embedded_local() {
   cd "${WRKDIR}"
 
   mkdir main
-  touch WORKSPACE
+  create_workspace_with_default_repos WORKSPACE
   repo_with_embedded_paths
   mkdir call
   cat > call/plain.txt <<'EOF'
@@ -556,7 +556,7 @@ test_embedded_remote() {
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="r",
@@ -609,7 +609,7 @@ EOF
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="r",
@@ -642,8 +642,8 @@ genrule(
 EOF
   cat > rule/add_preamb.bzl <<'EOF'
 def _add_preamb_impl(ctx):
-  output = ctx.new_file(ctx.label.name + ".txt")
-  ctx.action(
+  output = ctx.actions.declare_file(ctx.label.name + ".txt")
+  ctx.actions.run_shell(
     inputs = ctx.files.src + ctx.files._add_preamb + ctx.files._preamb,
     outputs = [output],
     command = ["/bin/sh"] + [f.path for f in ctx.files._add_preamb] \

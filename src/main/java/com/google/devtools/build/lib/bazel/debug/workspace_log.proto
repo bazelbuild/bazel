@@ -44,10 +44,12 @@ message DownloadEvent {
   repeated string url = 1;
   // Output file
   string output = 2;
-  // sha256, if speficied
+  // sha256, if specified
   string sha256 = 3;
   // whether to make the resulting file executable
   bool executable = 4;
+  // checksum in Subresource Integrity format, if specified
+  string integrity = 5;
 }
 
 message ExtractEvent {
@@ -70,6 +72,8 @@ message DownloadAndExtractEvent {
   string type = 4;
   // A directory prefix to strip from extracted files.
   string strip_prefix = 5;
+  // checksum in Subresource Integrity format, if specified
+  string integrity = 6;
 }
 
 // Information on "file" event in repository_ctx.
@@ -92,6 +96,14 @@ message ReadEvent {
 message DeleteEvent {
   // Path to the file to delete
   string path = 1;
+}
+
+// Information on "patch" event in repository_ctx.
+message PatchEvent {
+  // Path to the patch file
+  string patch_file = 1;
+  // Number of leading components to strip from file names
+  int32 strip = 2;
 }
 
 // Information on "os" event in repository_ctx.
@@ -144,5 +156,6 @@ message WorkspaceEvent {
     ExtractEvent extract_event = 11;
     ReadEvent read_event = 12;
     DeleteEvent delete_event = 13;
+    PatchEvent patch_event = 14;
   }
 }

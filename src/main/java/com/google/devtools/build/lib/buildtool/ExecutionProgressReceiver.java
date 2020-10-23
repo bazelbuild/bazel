@@ -15,12 +15,12 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue;
-import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor;
@@ -108,12 +108,11 @@ public final class ExecutionProgressReceiver
     SkyFunctionName type = skyKey.functionName();
     if (type.equals(SkyFunctions.TARGET_COMPLETION)) {
       if (evaluationSuccessState.get().succeeded()) {
-        builtTargets.add(
-            ((TargetCompletionValue.TargetCompletionKey) skyKey).configuredTargetKey());
+        builtTargets.add(((TargetCompletionValue.TargetCompletionKey) skyKey).actionLookupKey());
       }
     } else if (type.equals(SkyFunctions.ASPECT_COMPLETION)) {
       if (evaluationSuccessState.get().succeeded()) {
-        builtAspects.add(((AspectCompletionValue.AspectCompletionKey) skyKey).aspectKey());
+        builtAspects.add(((AspectCompletionValue.AspectCompletionKey) skyKey).actionLookupKey());
       }
     } else if (type.equals(SkyFunctions.ACTION_EXECUTION)) {
       // Remember all completed actions, even those in error, regardless of having been cached or

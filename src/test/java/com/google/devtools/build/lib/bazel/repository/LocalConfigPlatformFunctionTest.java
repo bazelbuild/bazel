@@ -26,7 +26,9 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.build.lib.util.OS;
+import java.io.IOException;
 import java.util.Collection;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
@@ -42,15 +44,15 @@ public class LocalConfigPlatformFunctionTest {
   @RunWith(Parameterized.class)
   public static class CpuConstraintTest {
     @Parameters
-    public static Collection createInputValues() {
+    public static Collection<Object[]> createInputValues() {
       return ImmutableList.of(
           // CPU value tests.
-          new Object[] {CPU.X86_64, "@bazel_tools//platforms:x86_64"},
-          new Object[] {CPU.X86_32, "@bazel_tools//platforms:x86_32"},
-          new Object[] {CPU.PPC, "@bazel_tools//platforms:ppc"},
-          new Object[] {CPU.ARM, "@bazel_tools//platforms:arm"},
-          new Object[] {CPU.AARCH64, "@bazel_tools//platforms:aarch64"},
-          new Object[] {CPU.S390X, "@bazel_tools//platforms:s390x"});
+          new Object[] {CPU.X86_64, "@platforms//cpu:x86_64"},
+          new Object[] {CPU.X86_32, "@platforms//cpu:x86_32"},
+          new Object[] {CPU.PPC, "@platforms//cpu:ppc"},
+          new Object[] {CPU.ARM, "@platforms//cpu:arm"},
+          new Object[] {CPU.AARCH64, "@platforms//cpu:aarch64"},
+          new Object[] {CPU.S390X, "@platforms//cpu:s390x"});
     }
 
     private final CPU testCpu;
@@ -78,13 +80,14 @@ public class LocalConfigPlatformFunctionTest {
   @RunWith(Parameterized.class)
   public static class OsConstraintTest {
     @Parameters
-    public static Collection createInputValues() {
+    public static Collection<Object[]> createInputValues() {
       return ImmutableList.of(
           // OS value tests.
-          new Object[] {OS.LINUX, "@bazel_tools//platforms:linux"},
-          new Object[] {OS.DARWIN, "@bazel_tools//platforms:osx"},
-          new Object[] {OS.FREEBSD, "@bazel_tools//platforms:freebsd"},
-          new Object[] {OS.WINDOWS, "@bazel_tools//platforms:windows"});
+          new Object[] {OS.LINUX, "@platforms//os:linux"},
+          new Object[] {OS.DARWIN, "@platforms//os:osx"},
+          new Object[] {OS.FREEBSD, "@platforms//os:freebsd"},
+          new Object[] {OS.OPENBSD, "@platforms//os:openbsd"},
+          new Object[] {OS.WINDOWS, "@platforms//os:windows"});
     }
 
     private final OS testOs;
@@ -112,15 +115,18 @@ public class LocalConfigPlatformFunctionTest {
   @RunWith(JUnit4.class)
   public static class FunctionTest extends BuildViewTestCase {
     private static final ConstraintSettingInfo CPU_CONSTRAINT =
-        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("@bazel_tools//platforms:cpu"));
+        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("@platforms//cpu:cpu"));
     private static final ConstraintSettingInfo OS_CONSTRAINT =
-        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("@bazel_tools//platforms:os"));
+        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("@platforms//os:os"));
+
+    @Before
+    public void addLocalConfigPlatform() throws InterruptedException, IOException {
+      scratch.appendFile("WORKSPACE", "local_config_platform(name='local_config_platform_test')");
+      invalidatePackages();
+    }
 
     @Test
     public void generateConfigRepository() throws Exception {
-      scratch.appendFile("WORKSPACE", "local_config_platform(name='local_config_platform_test')");
-      invalidatePackages();
-
       // Verify the package was created as expected.
       ConfiguredTarget hostPlatform = getConfiguredTarget("@local_config_platform_test//:host");
       assertThat(hostPlatform).isNotNull();
@@ -146,6 +152,38 @@ public class LocalConfigPlatformFunctionTest {
       assertThat(hostPlatformProvider.constraints().has(OS_CONSTRAINT)).isTrue();
       assertThat(hostPlatformProvider.constraints().get(OS_CONSTRAINT))
           .isEqualTo(expectedOsConstraint);
+    }
+
+    @Test
+    public void testHostConstraints() throws Exception {
+      scratch.file(
+          "test/platform/my_platform.bzl",
+          "def _impl(ctx):",
+          "  constraints = [val[platform_common.ConstraintValueInfo] "
+              + "for val in ctx.attr.constraints]",
+          "  platform = platform_common.PlatformInfo(",
+          "      label = ctx.label, constraint_values = constraints)",
+          "  return [platform]",
+          "my_platform = rule(",
+          "  implementation = _impl,",
+          "  attrs = {",
+          "    'constraints': attr.label_list(providers = [platform_common.ConstraintValueInfo])",
+          "  }",
+          ")");
+      scratch.file(
+          "test/platform/BUILD",
+          "load('//test/platform:my_platform.bzl', 'my_platform')",
+          "load('@local_config_platform_test//:constraints.bzl', 'HOST_CONSTRAINTS')",
+          "my_platform(name = 'custom',",
+          "    constraints = HOST_CONSTRAINTS,",
+          ")");
+
+      setBuildLanguageOptions("--experimental_platforms_api");
+      ConfiguredTarget platform = getConfiguredTarget("//test/platform:custom");
+      assertThat(platform).isNotNull();
+
+      PlatformInfo provider = PlatformProviderUtils.platform(platform);
+      assertThat(provider.constraints()).isNotNull();
     }
   }
 }

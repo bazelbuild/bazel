@@ -17,11 +17,15 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.regex.Pattern;
@@ -42,9 +46,9 @@ public class CppLinkstampCompileHelper {
       BuildConfiguration configuration,
       Artifact sourceFile,
       Artifact outputFile,
-      Iterable<Artifact> compilationInputs,
-      Iterable<Artifact> nonCodeInputs,
-      Iterable<Artifact> inputsForInvalidation,
+      NestedSet<Artifact> compilationInputs,
+      NestedSet<Artifact> nonCodeInputs,
+      NestedSet<Artifact> inputsForInvalidation,
       ImmutableList<Artifact> buildInfoHeaderArtifacts,
       Iterable<String> additionalLinkstampDefines,
       CcToolchainProvider ccToolchainProvider,
@@ -86,11 +90,12 @@ public class CppLinkstampCompileHelper {
             .setShareable(true)
             .setShouldScanIncludes(false)
             .setActionName(CppActionNames.LINKSTAMP_COMPILE);
-    semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
+    semantics.finalizeCompileActionBuilder(
+        configuration, featureConfiguration, builder, ruleErrorConsumer);
     return builder.buildOrThrowIllegalStateException();
   }
 
-  private static ImmutableList<String> computeAllLinkstampDefines(
+  private static NestedSet<String> computeAllLinkstampDefines(
       String labelReplacement,
       String outputReplacement,
       Iterable<String> additionalLinkstampDefines,
@@ -121,15 +126,14 @@ public class CppLinkstampCompileHelper {
       defines.add(CppConfiguration.FDO_STAMP_MACRO + "=\"" + fdoBuildStamp + "\"");
     }
 
-    return defines
-        .build()
-        .stream()
-        .map(
+    return NestedSetBuilder.wrap(
+        Order.STABLE_ORDER,
+        Iterables.transform(
+            defines.build(),
             define ->
                 define
                     .replaceAll(labelPattern, labelReplacement)
-                    .replaceAll(outputPathPattern, outputReplacement))
-        .collect(ImmutableList.toImmutableList());
+                    .replaceAll(outputPathPattern, outputReplacement)));
   }
 
   private static CcToolchainVariables getVariables(
@@ -169,21 +173,22 @@ public class CppLinkstampCompileHelper {
         CcCompilationHelper.getCoptsFromOptions(cppConfiguration, sourceFile.getExecPathString()),
         /* cppModuleMap= */ null,
         needsPic,
-        /* fakeOutputFile= */ null,
         fdoBuildStamp,
         /* dotdFileExecPath= */ null,
         /* variablesExtensions= */ ImmutableList.of(),
         /* additionalBuildVariables= */ ImmutableMap.of(),
         /* directModuleMaps= */ ImmutableList.of(),
-        /* includeDirs= */ ImmutableList.of(PathFragment.create(".")),
-        /* quoteIncludeDirs= */ ImmutableList.of(),
-        /* systemIncludeDirs= */ ImmutableList.of(),
+        /* includeDirs= */ NestedSetBuilder.create(Order.STABLE_ORDER, PathFragment.create(".")),
+        /* quoteIncludeDirs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /* systemIncludeDirs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /* frameworkIncludeDirs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         computeAllLinkstampDefines(
             labelReplacement,
             outputReplacement,
             additionalLinkstampDefines,
             ccToolchainProvider,
             fdoBuildStamp,
-            codeCoverageEnabled));
+            codeCoverageEnabled),
+        /* localDefines= */ ImmutableList.of());
   }
 }

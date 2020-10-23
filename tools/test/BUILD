@@ -1,5 +1,7 @@
 package(default_visibility = ["//visibility:public"])
 
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_test")
+
 # Members of this filegroup shouldn't have duplicate basenames, otherwise
 # TestRunnerAction#getRuntimeArtifact() will get confused.
 # Deprecated, do not use.
@@ -31,11 +33,6 @@ filegroup(
 filegroup(
     name = "collect_cc_coverage",
     srcs = ["collect_cc_coverage.sh"],
-)
-
-filegroup(
-    name = "coverage_report_generator",
-    srcs = ["@bazel_tools//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main"],
 )
 
 # Test wrapper binary to run tests on Windows.
@@ -80,8 +77,6 @@ cc_library(
             "//src/main/cpp/util:strings",
             "//src/main/native/windows:lib-file",
             "//src/main/native/windows:lib-process",
-            "//src/main/native/windows:lib-util",
-            "//src/tools/launcher/util",
             "//third_party/ijar:zip",
             "@bazel_tools//tools/cpp/runfiles",
         ],
@@ -103,7 +98,6 @@ cc_test(
     ] + select({
         "@bazel_tools//src/conditions:windows": [
             "//src/main/native/windows:lib-file",
-            "//src/main/native/windows:lib-util",
             "//third_party/ijar:zip",
         ],
         "//conditions:default": [],

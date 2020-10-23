@@ -16,19 +16,14 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.cmdline.Label;
 
-/**
- * Encapsulates the services available for implementors of the {@link RuleDefinition}
- * interface.
- */
-public interface RuleDefinitionEnvironment {
+/** Encapsulates the services available for implementors of the {@link RuleDefinition} interface. */
+public interface RuleDefinitionEnvironment extends RuleDefinitionContext {
   /**
    * Prepends the tools repository path to the given string and parses the result using {@link
    * Label#parseAbsoluteUnchecked}.
    */
   Label getToolsLabel(String labelValue);
 
-  /**
-   * Returns the tools repository prefix.
-   */
-  String getToolsRepository();
+  /** Returns whether the execution transition should be enabled. */
+  boolean enableExecutionTransition();
 }

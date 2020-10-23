@@ -14,14 +14,13 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
-import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
+import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
 
 /**
  * Support for registering actions using the Apple tool "lipo", which combines artifacts of
@@ -48,7 +47,7 @@ public class LipoSupport {
     if (inputBinaries.toList().size() > 1) {
       ruleContext.registerAction(
           ObjcRuleClasses.spawnAppleEnvActionBuilder(
-                  XcodeConfigProvider.fromRuleContext(ruleContext), platform)
+                  XcodeConfigInfo.fromRuleContext(ruleContext), platform)
               .setMnemonic("ObjcCombiningArchitectures")
               .addTransitiveInputs(inputBinaries)
               .addOutput(outputBinary)
@@ -61,11 +60,12 @@ public class LipoSupport {
                       .build())
               .build(ruleContext));
     } else {
-      ruleContext.registerAction(SymlinkAction.toArtifact(
-          ruleContext.getActionOwner(),
-          Iterables.getOnlyElement(inputBinaries),
-          outputBinary,
-          "Symlinking single-architecture binary"));
+      ruleContext.registerAction(
+          SymlinkAction.toArtifact(
+              ruleContext.getActionOwner(),
+              inputBinaries.getSingleton(),
+              outputBinary,
+              "Symlinking single-architecture binary"));
     }
     return this;
   }

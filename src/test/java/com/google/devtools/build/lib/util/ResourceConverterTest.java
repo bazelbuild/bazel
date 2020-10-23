@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -81,7 +81,7 @@ public class ResourceConverterTest {
 
   @Test
   public void convertHostCpus_returnsCpuSetting() throws Exception {
-    LocalHostCapacity.setLocalHostCapacity(ResourceSet.createWithRamCpu(0, 15));
+    LocalHostCapacity.setLocalHostCapacity(ResourceSet.createWithRamCpu(1, 15));
     resourceConverter = new ResourceConverter(() -> 5);
     assertThat(resourceConverter.convert("HOST_CPUS")).isEqualTo(15);
   }

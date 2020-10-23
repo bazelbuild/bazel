@@ -14,72 +14,69 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.MethodDescriptor;
-import java.util.Map;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.syntax.Location;
 
-/** Base class for native implementations of {@link StructImpl}. */
-// todo(vladmos,dslomov): make abstract once DefaultInfo stops instantiating it.
-public class NativeInfo extends StructImpl {
-  protected final ImmutableSortedMap<String, Object> values;
+/**
+ * Abstract base class for implementations of {@link StructImpl} that expose
+ * StarlarkCallable-annotated fields (not just methods) to Starlark code. Subclasses must be
+ * immutable.
+ */
+@Immutable
+public abstract class NativeInfo extends StructImpl {
 
-  // Initialized lazily.
-  private ImmutableSet<String> fieldNames;
+  protected NativeInfo(Provider provider) {
+    this(provider, Location.BUILTIN);
+  }
+
+  protected NativeInfo(Provider provider, Location loc) {
+    super(provider, loc);
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
+  // TODO(adonovan): logically this should be a parameter of getValue
+  // and getFieldNames or an instance field of this object.
+  private static final StarlarkSemantics SEMANTICS = StarlarkSemantics.DEFAULT;
 
   @Override
   public Object getValue(String name) throws EvalException {
-    if (values.containsKey(name)) {
-      return values.get(name);
-    } else if (hasField(name)) {
-      MethodDescriptor methodDescriptor = FuncallExpression.getStructField(this.getClass(), name);
+    // TODO(adonovan): this seems unnecessarily complicated:
+    // Starlark's x.name and getattr(x, name) already check the
+    // annotated fields/methods first, so there's no need to handle them here.
+    // Similarly, Starlark.dir checks annotated fields/methods first, so
+    // there's no need for getFieldNames to report them.
+    // The only code that would notice any difference is direct Java
+    // calls to getValue/getField names; they should instead
+    // use getattr and dir. However, dir does report methods,
+    // not just fields.
+
+    // @StarlarkMethod(structField=true) -- Java field
+    if (getFieldNames().contains(name)) {
       try {
-        return FuncallExpression.invokeStructField(methodDescriptor, name, this);
+        return Starlark.getAnnotatedField(SEMANTICS, this, name);
       } catch (InterruptedException exception) {
         // Struct fields on NativeInfo objects are supposed to behave well and not throw
         // exceptions, as they should be logicless field accessors. If this occurs, it's
         // indicative of a bad NativeInfo implementation.
         throw new IllegalStateException(
-            String.format("Access of field %s was unexpectedly interrupted, but should be "
-                + "uninterruptible. This is indicative of a bad provider implementation.", name));
+            String.format(
+                "Access of field %s was unexpectedly interrupted, but should be "
+                    + "uninterruptible. This is indicative of a bad provider implementation.",
+                name));
       }
-    } else {
-      return null;
     }
-  }
-
-  @Override
-  public boolean hasField(String name) {
-    return getFieldNames().contains(name);
+    return null;
   }
 
   @Override
   public ImmutableCollection<String> getFieldNames() {
-    if (fieldNames == null) {
-      fieldNames = ImmutableSet.<String>builder()
-          .addAll(values.keySet())
-          .addAll(FuncallExpression.getStructFieldNames(this.getClass()))
-          .build();
-    }
-    return fieldNames;
-  }
-
-  public NativeInfo(Provider provider) {
-    this(provider, Location.BUILTIN);
-  }
-
-  public NativeInfo(Provider provider, Location loc) {
-    this(provider, ImmutableMap.of(), loc);
-  }
-
-  // TODO(cparsons): Remove this constructor once ToolchainInfo stops using it.
-  @Deprecated
-  public NativeInfo(Provider provider, Map<String, Object> values, Location loc) {
-    super(provider, loc);
-    this.values = copyValues(values);
+    return Starlark.getAnnotatedFieldNames(SEMANTICS, this);
   }
 }

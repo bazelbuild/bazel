@@ -1,4 +1,4 @@
-#! /usr/bin/env bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -17,7 +17,7 @@
 # Prints a github URL for all bugs sheriff needs to look at
 # (open, no category assigned)
 
-NO_LABELS=$(curl https://api.github.com/repos/bazelbuild/bazel/labels 2>/dev/null | grep "url" | awk -f <(cat - <<-'EOD'
+NO_LABELS=$(curl -f https://api.github.com/repos/bazelbuild/bazel/labels 2>/dev/null | grep "url" | awk -f <(cat - <<-'EOD'
   BEGIN {
     ORS = ""
   }

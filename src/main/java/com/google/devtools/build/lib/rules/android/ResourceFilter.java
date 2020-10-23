@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -75,7 +75,7 @@ public class ResourceFilter {
     NestedSetBuilder<ValidatedAndroidResources> builder =
         new NestedSetBuilder<>(resourceContainers.getOrder());
 
-    for (ValidatedAndroidResources container : resourceContainers) {
+    for (ValidatedAndroidResources container : resourceContainers.toList()) {
       builder.add(container.filter(errorConsumer, this, /* isDependency = */ true));
     }
 

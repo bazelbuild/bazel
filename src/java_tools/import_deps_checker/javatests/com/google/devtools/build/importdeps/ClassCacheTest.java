@@ -15,7 +15,7 @@ package com.google.devtools.build.importdeps;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -192,7 +192,7 @@ public class ClassCacheTest extends AbstractClassCacheTest {
                   .getClassState("com/google/devtools/build/importdeps/testdata/Library$Class9")
                   .isIncompleteState())
           .isTrue();
-      assertThat(cache.collectUsedJarsInRegularClasspath()).containsExactly(libraryJar);
+      assertThat(cache.collectUsedJarsInRegularClasspath()).containsExactly(libraryJar, true);
 
       assertThat(
               cache
@@ -200,7 +200,7 @@ public class ClassCacheTest extends AbstractClassCacheTest {
                   .isIncompleteState())
           .isTrue();
       assertThat(cache.collectUsedJarsInRegularClasspath())
-          .containsExactly(libraryJar, libraryAnnotationsJar);
+          .containsExactly(libraryJar, true, libraryAnnotationsJar, true);
 
       assertThat(
               cache
@@ -208,7 +208,28 @@ public class ClassCacheTest extends AbstractClassCacheTest {
                   .isIncompleteState())
           .isTrue();
       assertThat(cache.collectUsedJarsInRegularClasspath())
-          .containsExactly(libraryJar, libraryAnnotationsJar, libraryInterfaceJar);
+          .containsExactly(
+              libraryJar, true, libraryAnnotationsJar, true, libraryInterfaceJar, true);
+    }
+  }
+
+  @Test
+  public void testJdepsOutput_withSuperclasses_hasImplicitDeps() throws IOException {
+    try (ClassCache cache =
+        new ClassCache(
+            ImmutableSet.of(bootclasspath),
+            ImmutableSet.of(libraryJar, libraryInterfaceJar),
+            ImmutableSet.of(libraryJar, libraryInterfaceJar),
+            ImmutableSet.of(clientJar),
+            /*populateMembers=*/ true)) {
+
+      assertThat(
+              cache
+                  .getClassState("com/google/devtools/build/importdeps/testdata/Client")
+                  .isExistingState())
+          .isTrue();
+      assertThat(cache.collectUsedJarsInRegularClasspath())
+          .containsExactly(libraryJar, false, libraryInterfaceJar, false);
     }
   }
 

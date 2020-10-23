@@ -36,10 +36,8 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
 
-/**
- * A testing utility that allows .java/.class related assertions against Paths.
- */
-public class ClassPathsSubject extends Subject<ClassPathsSubject, Path> {
+/** A testing utility that allows .java/.class related assertions against Paths. */
+public class ClassPathsSubject extends Subject {
 
   private final Path actual;
 
@@ -78,7 +76,7 @@ public class ClassPathsSubject extends Subject<ClassPathsSubject, Path> {
       failWithoutActual(
           fact("expected to have contents", asList(contents)),
           fact("but failed to read file with", e),
-          fact("path was", actual()));
+          fact("path was", actual));
     }
   }
 
@@ -124,7 +122,7 @@ public class ClassPathsSubject extends Subject<ClassPathsSubject, Path> {
     return check("class(%s)", className).about(ClassNameSubject.classNames(actual)).that(className);
   }
 
-  static final class ClassNameSubject extends Subject<ClassNameSubject, String> {
+  static final class ClassNameSubject extends Subject {
 
     private final String actual;
     private final Path basePath;

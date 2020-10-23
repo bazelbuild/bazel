@@ -28,18 +28,30 @@ def _bat_test_impl(ctx):
         content = "\r\n".join(ctx.attr.content),
         is_executable = True,
     )
-    return [DefaultInfo(executable = out)]
+    return [
+        DefaultInfo(
+            executable = out,
+            runfiles = ctx.runfiles(
+                files = [out],
+                collect_data = True,
+                collect_default = True,
+            ),
+        ),
+    ]
 
 bat_test = rule(
     implementation = _bat_test_impl,
     test = True,
-    attrs = {"content": attr.string_list()},
+    attrs = {
+        "content": attr.string_list(),
+        "data": attr.label_list(allow_files = True),
+    },
 )
 
 def _exe_test_impl(ctx):
     out = ctx.actions.declare_file(ctx.label.name + "." + ctx.file.src.extension)
     ctx.actions.run(
-        inputs = [ctx.file.src],
+        tools = [ctx.file.src],
         outputs = [out],
         executable = "cmd.exe",
         arguments = ["/C", "copy /Y %IN% %OUT%"],

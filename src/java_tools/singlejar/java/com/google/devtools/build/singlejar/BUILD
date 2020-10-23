@@ -1,3 +1,6 @@
+load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_binary", "bootstrap_java_library")
+
 # Description:
 #   SingleJar combines multiple zip files and additional files
 #   into a single zip file.
@@ -6,6 +9,7 @@ package(default_visibility = ["//src/java_tools/singlejar:singlejar_package_grou
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 # This is used as a library outside of Bazel.
@@ -66,13 +70,11 @@ java_binary(
 )
 
 #
-# Bootstrapping using Skylark rules
+# Bootstrapping using Starlark rules
 #
 
-load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library", "bootstrap_java_binary")
-
 bootstrap_java_library(
-    name = "skylark-deps",
+    name = "starlark-deps",
     jars = [
         "//third_party:jsr305-jars",
     ],
@@ -94,7 +96,7 @@ bootstrap_java_binary(
     tags = ["manual"],
     visibility = ["//visibility:public"],
     deps = [
-        ":skylark-deps",
-        "//src/main/java/com/google/devtools/build/lib/shell:shell-skylark",
+        ":starlark-deps",
+        "//src/main/java/com/google/devtools/build/lib/shell:shell-starlark",
     ],
 )

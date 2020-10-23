@@ -4,12 +4,12 @@ title: One-Page Overview
 ---
 <h1>One-Page Overview</h1>
 
-A list of all modules and globals that are available in Skylark:
+A list of all modules and globals that are available:
 
 <h2>
 
 
-  <a href="/versions/{{ site.version }}/skylark/lib/${global_name}.html">Global Functions & Constants</a>
+  <a href="${global_name}.html">Global Functions</a>
 
 
 </h2>
@@ -21,7 +21,31 @@ A list of all modules and globals that are available in Skylark:
     <li>
 
 
-      <a href="/versions/{{ site.version }}/skylark/lib/${global_name}.html#${name}">${name}</a>
+      <a href="${global_name}.html#${name}">${name}</a>
+
+
+    </li>
+
+#end
+
+  </ul>
+</div>
+<h2>
+
+
+  <a href="${global_name}.html">Global Constants</a>
+
+
+</h2>
+<div class="toc">
+  <ul>
+
+#foreach ($name in $global_constants)
+
+    <li>
+
+
+      <a href="${global_name}.html#${name}">${name}</a>
 
 
     </li>
@@ -36,13 +60,12 @@ A list of all modules and globals that are available in Skylark:
 <div class="toc">
   <ul>
 
-#foreach ($name in $global_modules)
+#foreach ($module in $global_modules)
 
     <li>
 
 
-      <a href="/versions/{{ site.version }}/skylark/lib/${name}.html">${name}</a>
-
+      <a href="${module.name}.html">${module.name}</a>
 
     </li>
 
@@ -54,7 +77,7 @@ A list of all modules and globals that are available in Skylark:
 <h2>
 
 
-  <a href="/versions/{{ site.version }}/skylark/lib/skylark-${entry.key.templateIdentifier}.html">${entry.key.title}</a>
+  <a href="skylark-${entry.key.templateIdentifier}.html">${entry.key.title}</a>
 
 
 </h2>
@@ -65,8 +88,7 @@ A list of all modules and globals that are available in Skylark:
     <li>
 
 
-      <a href="/versions/{{ site.version }}/skylark/lib/${module.name}.html">${module.title}</a>
-
+      <a href="${module.name}.html">${module.title}</a>
 
     </li>
 

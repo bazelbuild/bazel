@@ -60,6 +60,27 @@ public class ClassUsingTryWithResources {
     }
   }
 
+  /** A simple resource type for testing try-with-resources with multiple resources. */
+  public static class SimpleCloseable implements Closeable {
+
+    /** This method tests a method with method reference as resources. */
+    public void multipleTryWithResources() throws Exception {
+      try (Closeable resource1 = new SimpleResource();
+          Closeable resource2 = this::close;
+          Closeable resource3 = new SimpleResource()) {}
+    }
+
+    @Override
+    public void close() throws IOException {
+      throw new IOException("exception in close().");
+    }
+  }
+
+  public static void multipleTryWithResources() throws Exception {
+    SimpleCloseable resource = new SimpleCloseable();
+    resource.multipleTryWithResources();
+  }
+
   /**
    * This method useds {@link InheritanceResource}, which inherits all methods from {@link
    * SimpleResource}.

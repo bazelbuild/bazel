@@ -11,14 +11,19 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 
 package com.google.devtools.build.lib.rules.repository;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
@@ -31,15 +36,17 @@ import javax.annotation.Nullable;
  *   <li>Only dirties {@link RepositoryDirectoryValue}s, if they were produced in a {@code
  *       --nofetch} build, so that they are re-created on subsequent {@code --fetch} builds. The
  *       alternative solution would be to reify the value of the flag as a Skyframe value.
- *   <li>Dirties repositories, if their managed directories were changed.
+ *   <li>Dirties repositories, if their managed directories were changed or do not exist.
  * </ul>
  */
 @VisibleForTesting
 public class RepositoryDirectoryDirtinessChecker extends SkyValueDirtinessChecker {
+  private final Path workspaceRoot;
   private final ManagedDirectoriesKnowledge managedDirectoriesKnowledge;
 
   public RepositoryDirectoryDirtinessChecker(
-      ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
+      Path workspaceRoot, ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
+    this.workspaceRoot = workspaceRoot;
     this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;
   }
 
@@ -71,6 +78,15 @@ public class RepositoryDirectoryDirtinessChecker extends SkyValueDirtinessChecke
         repositoryValue.getManagedDirectories())) {
       return DirtyResult.dirty(skyValue);
     }
+
+    if (!managedDirectoriesExist(workspaceRoot, repositoryValue.getManagedDirectories())) {
+      return DirtyResult.dirty(skyValue);
+    }
     return DirtyResult.notDirty(skyValue);
+  }
+
+  static boolean managedDirectoriesExist(
+      Path workspaceRoot, ImmutableSet<PathFragment> managedDirectories) {
+    return managedDirectories.stream().allMatch(pf -> workspaceRoot.getRelative(pf).exists());
   }
 }

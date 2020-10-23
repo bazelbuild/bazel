@@ -17,35 +17,35 @@
 # Android
 
 # android/ directory anywhere in the repository
-android/ @ahumesky @jin
+android/ @ahumesky
 
-/src/tools/android/java/com/google/devtools/build/android/desugar/ @ahumesky @jin @kevin1e100
+/src/tools/android/java/com/google/devtools/build/android/desugar/ @ahumesky @kevin1e100
 
-/src/test/java/com/google/devtools/build/android/desugar/ @ahumesky @jin @kevin1e100
+/src/test/java/com/google/devtools/build/android/desugar/ @ahumesky @kevin1e100
 
-/src/tools/android/java/com/google/devtools/build/android/dexer/ @ahumesky @jin @kevin1e100
+/src/tools/android/java/com/google/devtools/build/android/dexer/ @ahumesky @kevin1e100
 
-/src/test/java/com/google/devtools/build/android/dexer/ @ahumesky @jin @kevin1e100
+/src/test/java/com/google/devtools/build/android/dexer/ @ahumesky @kevin1e100
 
 # Apple
 
-/src/objc_tools/ @allevato @davidgoldman @dmaclach @sergiocampama @kelvinchan-google @reinhillman @thomasvl
+/src/objc_tools/ @allevato @davidgoldman @dmaclach @kelvinchan-google @reinhillman @thomasvl
 
-/src/test/shell/bazel/apple/ @allevato @davidgoldman @dmaclach @sergiocampama @kelvinchan-google @reinhillman @thomasvl
+/src/test/shell/bazel/apple/ @allevato @davidgoldman @dmaclach @kelvinchan-google @reinhillman @thomasvl
 
 # Documentation
 
-/site @spomorski
+/site @aiuto @gregestren @jin @floriographygoth
 
 # C++
 
-/src/tools/cpp @hlopko @scentini @oquenchil
+/src/tools/cpp @oquenchil
 
-/src/test/shell/bazel/cpp @hlopko @scentini @oquenchil
+/src/test/shell/bazel/cpp @oquenchil
 
-/src/test/java/com/google/devtools/build/lib/rules/cpp/ @hlopko @scentini @oquenchil
+/src/test/java/com/google/devtools/build/lib/rules/cpp/ @oquenchil
 
-/src/main/java/com/google/devtools/build/lib/rules/cpp/ @hlopko @scentini @oquenchil
+/src/main/java/com/google/devtools/build/lib/rules/cpp/ @oquenchil
 
 # Java
 
@@ -55,29 +55,15 @@ android/ @ahumesky @jin
 
 /src/tools/singlejar/ @asmundak
 
-# Remote caching and execution
-
-/src/main/java/com/google/devtools/build/lib/remote/ @buchgr @ishikhman @ola-rozenfeld
-
-/src/test/shell/bazel/remote/ @buchgr @ishikhman @ola-rozenfeld
-
-/src/tools/execlog/ @buchgr @ola-rozenfeld
-/src/tools/remote/ @buchgr @ishikhman @ola-rozenfeld
-
 # Execution and I/O related code
 
-/src/main/java/com/google/devtools/build/lib/sandbox/ @philwo
-/src/main/java/com/google/devtools/build/lib/ssd/ @philwo
-/src/main/java/com/google/devtools/build/lib/standalone/ @philwo
-/src/main/java/com/google/devtools/build/lib/worker/ @philwo
-/src/main/java/com/google/devtools/build/lib/rules/java/ @iirina
 /src/main/java/com/google/devtools/build/lib/rules/ @lberki
 
-# Skylark
+# Starlark
 
-/src/main/java/com/google/devtools/build/lib/syntax/ @brandjon @c-parsons @dkelmer @dslomov @laurentlb @vladmos
+/src/main/java/net/starlark/java/ @alandonovan @brandjon
 
-/tools/coverage/ @iirina
-/tools/test/collect_coverage.sh @iirina
-/tools/test/collect_cc_coverage.sh @iirina
-/tools/test/CoverageOutputGenerator/ @iirina
+/tools/coverage/ @lberki
+/tools/test/collect_coverage.sh @lberki
+/tools/test/collect_cc_coverage.sh @lberki
+/tools/test/CoverageOutputGenerator/ @lberki

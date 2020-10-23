@@ -14,10 +14,52 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load(":test_rules_private.bzl", "BASH_RUNFILES_DEP", "INIT_BASH_RUNFILES")
+
+_SH_STUB = "\n".join(["#!/bin/bash"] + INIT_BASH_RUNFILES + [
+    "function add_ws_name() {",
+    '  [[ "$1" =~ external/* ]] && echo "${1#external/}" || echo "$TEST_WORKSPACE/$1"',
+    "}",
+    "",
+])
+
+def _bash_rlocation(f):
+    return '"$(rlocation "$(add_ws_name "%s")")"' % f.short_path
+
+def _make_sh_test(name, **kwargs):
+    native.sh_test(
+        name = name,
+        srcs = [name + "_impl"],
+        data = [name + "_impl"],
+        deps = [BASH_RUNFILES_DEP],
+        **kwargs
+    )
+
+_TEST_ATTRS = {
+    "args": None,
+    "size": None,
+    "timeout": None,
+    "flaky": None,
+    "local": None,
+    "shard_count": None,
+}
+
+def _helper_rule_attrs(test_attrs, own_attrs):
+    r = {}
+    r.update({k: v for k, v in test_attrs.items() if k not in _TEST_ATTRS})
+    r.update(own_attrs)
+    r.update(
+        dict(
+            testonly = 1,
+            visibility = ["//visibility:private"],
+        ),
+    )
+    return r
+
 ### First, trivial tests that either always pass, always fail,
 ### or sometimes pass depending on a trivial computation.
 
-def success_target(ctx, msg):
+def success_target(ctx, msg, exe = None):
     """Return a success for an analysis test.
 
     The test rule must have an executable output.
@@ -25,71 +67,95 @@ def success_target(ctx, msg):
     Args:
       ctx: the Bazel rule context
       msg: an informative message to display
+      exe: the output artifact (must have been created with
+           ctx.actions.declare_file or declared in ctx.output), or None meaning
+           ctx.outputs.executable
 
     Returns:
-      a suitable rule implementation struct(),
-      with actions that always succeed at execution time.
+      DefaultInfo that can be added to a sh_test's srcs AND data. The test will
+      always pass.
     """
-    exe = ctx.outputs.executable
-    dat = ctx.actions.declare_file(exe.basename + ".dat")
-    ctx.actions.write(
-        output = dat,
-        content = msg,
-    )
+    exe = exe or ctx.outputs.executable
     ctx.actions.write(
         output = exe,
-        content = "cat " + dat.path + " ; echo",
+        content = "#!/bin/bash\ncat <<'__eof__'\n" + msg + "\n__eof__\necho",
         is_executable = True,
     )
-    return [DefaultInfo(runfiles = ctx.runfiles([exe, dat]))]
+    return [DefaultInfo(files = depset([exe]))]
 
 def _successful_test_impl(ctx):
-    return success_target(ctx, ctx.attr.msg)
+    return success_target(ctx, ctx.attr.msg, exe = ctx.outputs.out)
 
-successful_test = rule(
-    attrs = {"msg": attr.string(mandatory = True)},
-    executable = True,
-    test = True,
+_successful_rule = rule(
+    attrs = {
+        "msg": attr.string(mandatory = True),
+        "out": attr.output(),
+    },
     implementation = _successful_test_impl,
 )
 
-def failure_target(ctx, msg):
-    """Return a failure for an analysis test.
+def successful_test(name, msg, **kwargs):
+    _successful_rule(
+        **_helper_rule_attrs(
+            kwargs,
+            dict(
+                name = name + "_impl",
+                msg = msg,
+                out = name + "_impl.sh",
+            ),
+        )
+    )
 
-    The test rule must have an executable output.
+    _make_sh_test(name, **kwargs)
+
+def failure_target(ctx, msg, exe = None):
+    """Return a failure for an analysis test.
 
     Args:
       ctx: the Bazel rule context
       msg: an informative message to display
+      exe: the output artifact (must have been created with
+           ctx.actions.declare_file or declared in ctx.output), or None meaning
+           ctx.outputs.executable
 
     Returns:
-      a suitable rule implementation struct(),
-      with actions that always fail at execution time.
+      DefaultInfo that can be added to a sh_test's srcs AND data. The test will
+      always fail.
     """
 
     ### fail(msg) ### <--- This would fail at analysis time.
-    exe = ctx.outputs.executable
-    dat = ctx.actions.declare_file(exe.basename + ".dat")
-    ctx.actions.write(
-        output = dat,
-        content = msg,
-    )
+    exe = exe or ctx.outputs.executable
     ctx.actions.write(
         output = exe,
-        content = "(cat " + dat.short_path + " ; echo ) >&2 ; exit 1",
+        content = "#!/bin/bash\ncat >&2 <<'__eof__'\n" + msg + "\n__eof__\nexit 1",
         is_executable = True,
     )
-    return [DefaultInfo(runfiles = ctx.runfiles([exe, dat]))]
+    return [DefaultInfo(files = depset([exe]))]
 
 def _failed_test_impl(ctx):
-    return failure_target(ctx, ctx.attr.msg)
+    return failure_target(ctx, ctx.attr.msg, exe = ctx.outputs.out)
 
-failed_test = rule(
-    attrs = {"msg": attr.string(mandatory = True)},
-    executable = True,
-    test = True,
+_failed_rule = rule(
+    attrs = {
+        "msg": attr.string(mandatory = True),
+        "out": attr.output(),
+    },
     implementation = _failed_test_impl,
 )
+
+def failed_test(name, msg, **kwargs):
+    _failed_rule(
+        **_helper_rule_attrs(
+            kwargs,
+            dict(
+                name = name + "_impl",
+                msg = msg,
+                out = name + "_impl.sh",
+            ),
+        )
+    )
+
+    _make_sh_test(name, **kwargs)
 
 ### Second, general purpose utilities
 
@@ -185,8 +251,8 @@ def analysis_results(
       expect_failure: the expected failure message for the test, if any
 
     Returns:
-      a suitable rule implementation struct(),
-      with actions that succeed at execution time if expectation were met,
+      DefaultInfo that can be added to a sh_test's srcs AND data. The test will
+      always succeed at execution time if expectation were met,
       or fail at execution time if they didn't.
     """
     (is_success, msg) = check_results(result, failure, expect, expect_failure)
@@ -195,11 +261,11 @@ def analysis_results(
 
 ### Simple tests
 
-def _rule_test_impl(ctx):
+def _rule_test_rule_impl(ctx):
     """check that a rule generates the desired outputs and providers."""
     rule_ = ctx.attr.rule
     rule_name = str(rule_.label)
-    exe = ctx.outputs.executable
+    exe = ctx.outputs.out
     if ctx.attr.generates:
         # Generate the proper prefix to remove from generated files.
         prefix_parts = []
@@ -244,30 +310,46 @@ def _rule_test_impl(ctx):
             files += [file_]
             regexp = provides[k]
             commands += [
-                "if ! grep %s %s ; then echo 'bad %s:' ; cat %s ; echo ; exit 1 ; fi" %
-                (repr(regexp), file_.short_path, k, file_.short_path),
+                "file_=%s" % _bash_rlocation(file_),
+                "if ! grep %s \"$file_\" ; then echo 'bad %s:' ; cat \"$file_\" ; echo ; exit 1 ; fi" %
+                (repr(regexp), k),
             ]
             ctx.actions.write(output = file_, content = v)
-        script = "\n".join(commands + ["true"])
+        script = _SH_STUB + "\n".join(commands)
         ctx.actions.write(output = exe, content = script, is_executable = True)
-        return [DefaultInfo(runfiles = ctx.runfiles([exe] + files))]
+        return [DefaultInfo(files = depset([exe]), runfiles = ctx.runfiles([exe] + files))]
     else:
-        return success_target(ctx, "success")
+        return success_target(ctx, "success", exe = exe)
 
-rule_test = rule(
+_rule_test_rule = rule(
     attrs = {
         "rule": attr.label(mandatory = True),
         "generates": attr.string_list(),
         "provides": attr.string_dict(),
+        "out": attr.output(),
     },
-    executable = True,
-    test = True,
-    implementation = _rule_test_impl,
+    implementation = _rule_test_rule_impl,
 )
 
-def _file_test_impl(ctx):
+def rule_test(name, rule, generates = None, provides = None, **kwargs):
+    _rule_test_rule(
+        **_helper_rule_attrs(
+            kwargs,
+            dict(
+                name = name + "_impl",
+                rule = rule,
+                generates = generates,
+                provides = provides,
+                out = name + ".sh",
+            ),
+        )
+    )
+
+    _make_sh_test(name, **kwargs)
+
+def _file_test_rule_impl(ctx):
     """check that a file has a given content."""
-    exe = ctx.outputs.executable
+    exe = ctx.outputs.out
     file_ = ctx.file.file
     content = ctx.attr.content
     regexp = ctx.attr.regexp
@@ -282,28 +364,29 @@ def _file_test_impl(ctx):
             output = dat,
             content = content,
         )
+        script = "diff -u %s %s" % (_bash_rlocation(dat), _bash_rlocation(file_))
         ctx.actions.write(
             output = exe,
-            content = "diff -u %s %s" % (dat.short_path, file_.short_path),
+            content = _SH_STUB + script,
             is_executable = True,
         )
-        return [DefaultInfo(runfiles = ctx.runfiles([exe, dat, file_]))]
+        return [DefaultInfo(files = depset([exe]), runfiles = ctx.runfiles([exe, dat, file_]))]
     if matches != -1:
         script = "[ %s == $(grep -c %s %s) ]" % (
             matches,
             repr(regexp),
-            file_.short_path,
+            _bash_rlocation(file_),
         )
     else:
-        script = "grep %s %s" % (repr(regexp), file_.short_path)
+        script = "grep %s %s" % (repr(regexp), _bash_rlocation(file_))
     ctx.actions.write(
         output = exe,
-        content = script,
+        content = _SH_STUB + script,
         is_executable = True,
     )
-    return [DefaultInfo(runfiles = ctx.runfiles([exe, file_]))]
+    return [DefaultInfo(files = depset([exe]), runfiles = ctx.runfiles([exe, file_]))]
 
-file_test = rule(
+_file_test_rule = rule(
     attrs = {
         "file": attr.label(
             mandatory = True,
@@ -312,8 +395,23 @@ file_test = rule(
         "content": attr.string(default = ""),
         "regexp": attr.string(default = ""),
         "matches": attr.int(default = -1),
+        "out": attr.output(),
     },
-    executable = True,
-    test = True,
-    implementation = _file_test_impl,
+    implementation = _file_test_rule_impl,
 )
+
+def file_test(name, file, content = None, regexp = None, matches = None, **kwargs):
+    _file_test_rule(
+        **_helper_rule_attrs(
+            kwargs,
+            dict(
+                name = name + "_impl",
+                file = file,
+                content = content or "",
+                regexp = regexp or "",
+                matches = matches if (matches != None) else -1,
+                out = name + "_impl.sh",
+            ),
+        )
+    )
+    _make_sh_test(name, **kwargs)

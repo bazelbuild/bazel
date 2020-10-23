@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_import")
+
 # Description:
 #   Tests for the extension classes for desugaring try-with-resources for Android.
 package(

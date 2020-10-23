@@ -11,6 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+#if defined(_WIN32) || defined(__CYGWIN__)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#endif  // defined(_WIN32) || defined(__CYGWIN__)
+
 #include "src/main/cpp/util/strings.h"
 
 #if defined(_WIN32) || defined(__CYGWIN__)
@@ -282,40 +289,6 @@ string AsLower(const string &str) {
   return string(result.get());
 }
 
-template <typename U, typename V>
-static unique_ptr<V[]> UstringToVstring(
-    const U *input, size_t (*convert)(V *output, const U *input, size_t len),
-    const char *fmtStringU) {
-  size_t size = convert(nullptr, input, 0) + 1;
-  if (size == (size_t)-1) {
-    fprintf(stderr, "UstringToVstring: invalid input \"");
-    fprintf(stderr, fmtStringU, input);
-    fprintf(stderr, "\"\n");
-    exit(blaze_exit_code::INTERNAL_ERROR);
-    return unique_ptr<V[]>(nullptr);  // formally return, though unreachable
-  }
-  unique_ptr<V[]> result(new V[size]);
-  convert(result.get(), input, size);
-  result.get()[size - 1] = 0;
-  return std::move(result);
-}
-
-unique_ptr<char[]> WstringToCstring(const wchar_t *input) {
-  return UstringToVstring<wchar_t, char>(input, wcstombs, "%ls");
-}
-
-std::string WstringToString(const std::wstring &input) {
-  return string(WstringToCstring(input.c_str()).get());
-}
-
-unique_ptr<wchar_t[]> CstringToWstring(const char *input) {
-  return UstringToVstring<char, wchar_t>(input, mbstowcs, "%s");
-}
-
-std::wstring CstringToWstring(const std::string &input) {
-  return wstring(CstringToWstring(input.c_str()).get());
-}
-
 #if defined(_WIN32) || defined(__CYGWIN__)
 
 template <typename U, typename V>
@@ -365,10 +338,10 @@ static int ConvertWcsToMbs(const bool use_utf8, const std::wstring &input,
                              output, output_size, NULL, NULL);
 }
 
-static int ConvertMbsToWcs(const bool use_utf8, const std::string &input,
+static int ConvertMbsToWcs(const bool /* unused */, const std::string &input,
                            wchar_t *output, const size_t output_size) {
-  return MultiByteToWideChar(use_utf8 ? CP_UTF8 : CP_ACP, 0, input.c_str(), -1,
-                             output, output_size);
+  return MultiByteToWideChar(CP_UTF8, 0, input.c_str(), -1, output,
+                             output_size);
 }
 
 bool WcsToAcp(const std::wstring &input, std::string *output,
@@ -381,14 +354,36 @@ bool WcsToUtf8(const std::wstring &input, std::string *output,
   return UStrToVStr(input, output, true, ConvertWcsToMbs, win32_error);
 }
 
-bool AcpToWcs(const std::string &input, std::wstring *output,
-              uint32_t *win32_error) {
-  return UStrToVStr(input, output, false, ConvertMbsToWcs, win32_error);
-}
-
 bool Utf8ToWcs(const std::string &input, std::wstring *output,
                uint32_t *win32_error) {
-  return UStrToVStr(input, output, true, ConvertMbsToWcs, win32_error);
+  return UStrToVStr(input, output, /* unused */ true, ConvertMbsToWcs,
+                    win32_error);
+}
+
+std::string WstringToCstring(const std::wstring &input) {
+  std::string result;
+  uint32_t err;
+  if (!WcsToUtf8(input, &result, &err)) {
+    fprintf(stderr,
+            "WstringToCstring: failed with error %d (0x%08x), "
+            "invalid input \"%ls\"\n",
+            err, err, input.c_str());
+    exit(blaze_exit_code::INTERNAL_ERROR);
+  }
+  return result;
+}
+
+std::wstring CstringToWstring(const std::string &input) {
+  std::wstring result;
+  uint32_t err;
+  if (!Utf8ToWcs(input, &result, &err)) {
+    fprintf(stderr,
+            "CstringToWstring: failed with error %d (0x%08x), "
+            "invalid input \"%s\"\n",
+            err, err, input.c_str());
+    exit(blaze_exit_code::INTERNAL_ERROR);
+  }
+  return result;
 }
 
 #endif  // defined(_WIN32) || defined(__CYGWIN__)

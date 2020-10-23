@@ -16,8 +16,8 @@
 
 #include <deque>
 #include <memory>
-#include <unordered_map>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "src/main/cpp/workspace_layout.h"
@@ -26,9 +26,10 @@ namespace blaze {
 
 // Single option in an rc file.
 struct RcOption {
-  // Keep a pointer to the path string to avoid copying it over and over.
-  std::string* source_path;
   std::string option;
+  // Only keep the index of the source file to avoid copying the paths all over.
+  // This index points into the RcFile's canonical_source_paths() vector.
+  int source_index;
 };
 
 // Reads and parses a single rc file with all its imports.
@@ -41,8 +42,14 @@ class RcFile {
       std::string filename, const WorkspaceLayout* workspace_layout,
       std::string workspace, ParseError* error, std::string* error_text);
 
+  // Movable and copyable.
+  RcFile(const RcFile&) = default;
+  RcFile(RcFile&&) = default;
+  RcFile& operator=(const RcFile&) = default;
+  RcFile& operator=(RcFile&&) = default;
+
   // Returns all relevant rc sources for this file (including itself).
-  const std::deque<std::string>& canonical_source_paths() const {
+  const std::vector<std::string>& canonical_source_paths() const {
     return canonical_rcfile_paths_;
   }
 
@@ -53,29 +60,22 @@ class RcFile {
  private:
   RcFile(std::string filename, const WorkspaceLayout* workspace_layout,
          std::string workspace);
-  // Don't allow copying or moving because it can be tricky with the RcOption
-  // string pointers.
-  RcFile(const RcFile&) = delete;
-  RcFile& operator=(const RcFile&) = delete;
 
   // Recursive call to parse a file and its imports.
   ParseError ParseFile(const std::string& filename,
                        std::deque<std::string>* import_stack,
                        std::string* error_text);
 
-  const std::string filename_;
+  std::string filename_;
 
   // Workspace definition.
-  const WorkspaceLayout* const workspace_layout_;
-  const std::string workspace_;
+  const WorkspaceLayout* workspace_layout_;
+  std::string workspace_;
 
   // Full closure of rcfile paths imported from this file (including itself).
   // These are all canonical paths, created with blaze_util::MakeCanonical.
   // This also means all of these paths should exist.
-  //
-  // The RcOption structs point to the strings in here so they need to be stored
-  // in a container that offers stable pointers, like a deque (and not vector).
-  std::deque<std::string> canonical_rcfile_paths_;
+  std::vector<std::string> canonical_rcfile_paths_;
   // All options parsed from the file.
   OptionMap options_;
 };

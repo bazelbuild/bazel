@@ -5,7 +5,7 @@ title: Migrating from Maven to Bazel
 
 # Migrating from Maven to Bazel
 
-When migrating from any build tool to Bazel, it’s best to have both build
+When migrating from any build tool to Bazel, it's best to have both build
 tools running in parallel until you have fully migrated your development team,
 CI system, and any other relevant systems. You can run Maven and Bazel in the
 same repository.
@@ -25,10 +25,10 @@ same repository.
 
 ## Before you begin
 
-*  [Install Bazel](install.md) if it’s not yet installed.
-*  If you’re new to Bazel, go through the tutorial
+*  [Install Bazel](install.md) if it's not yet installed.
+*  If you're new to Bazel, go through the tutorial
    [Introduction to Bazel: Build Java](tutorial/java.md) before you start
-   migrating. The tutorial explains Bazel’s concepts, structure, and label
+   migrating. The tutorial explains Bazel's concepts, structure, and label
    syntax.
 
 ## Differences between Maven and Bazel
@@ -63,7 +63,7 @@ Create a file named `WORKSPACE` at the root of your project. If your project
 has no external dependencies, the workspace file can be empty.
 
 If your project depends on files or packages that are not in one of the
-project’s directories, specify these external dependencies in the workspace
+project's directories, specify these external dependencies in the workspace
 file. To automate the listing of external dependencies for the workspace file,
 use `rules_jvm_external`. For instructions about using this ruleset, see
 [the README](https://github.com/bazelbuild/rules_jvm_external/#rules_jvm_external).
@@ -73,16 +73,18 @@ maintained by the Bazel team.
 
 #### <a name="guava-1"></a>Guava project example: external dependencies
 
-Using the `rules_jvm_external` ruleset, we can list the external dependencies of
-the [Guava project](https://github.com/google/guava)
+Using the
+[`rules_jvm_external`](https://github.com/bazelbuild/rules_jvm_external)
+ruleset, we can list the external dependencies of the
+[Guava project](https://github.com/google/guava).
 
 Add the following snippet to the `WORKSPACE` file:
 
 ```python
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-RULES_JVM_EXTERNAL_TAG = "2.0.1"
-RULES_JVM_EXTERNAL_SHA = "55e8d3951647ae3dffde22b4f7f8dee11b3f70f3f89424713debd7076197eaca"
+RULES_JVM_EXTERNAL_TAG = "2.8"
+RULES_JVM_EXTERNAL_SHA = "79c9850690d7614ecdb72d68394f994fef7534b292c4867ce5e7dec0aa7bdfad"
 
 http_archive(
     name = "rules_jvm_external",
@@ -168,7 +170,7 @@ targets.
           ```
     *  Specify the attributes:
        *  `name`: Give the target a meaningful name. In the examples above
-          we call the target “everything.”
+          we call the target "everything."
        *  `srcs`: Use globbing to list all .java files in your project.
        *  `resources`: Use globbing to list all resources in your project.
        *  `deps`: You need to determine which external dependencies your
@@ -240,7 +242,7 @@ Tips for adding more BUILD files:
 
 ### <a name="4-build"></a>4. Build using Bazel
 
-You’ve been building using Bazel as you add BUILD files to validate the setup
+You've been building using Bazel as you add BUILD files to validate the setup
 of the build.
 
 When you have BUILD files at the desired granularity, you can use Bazel

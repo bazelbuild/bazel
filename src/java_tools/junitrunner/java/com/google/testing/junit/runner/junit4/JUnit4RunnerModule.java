@@ -20,8 +20,8 @@ import com.google.testing.junit.runner.internal.junit4.JUnit4TestNameListener;
 import com.google.testing.junit.runner.internal.junit4.JUnit4TestStackTraceListener;
 import com.google.testing.junit.runner.internal.junit4.JUnit4TestXmlListener;
 import com.google.testing.junit.runner.internal.junit4.SettableCurrentRunningTest;
+import com.google.testing.junit.runner.util.TestClock;
 import com.google.testing.junit.runner.util.TestNameProvider;
-import com.google.testing.junit.runner.util.Ticker;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
@@ -34,8 +34,8 @@ import org.junit.runner.notification.RunListener;
  * Utility class for real test runs. This is a legacy Dagger module.
  */
 public final class JUnit4RunnerModule {
-  static Ticker ticker() {
-    return Ticker.systemTicker();
+  static TestClock clock() {
+    return TestClock.systemClock();
   }
 
   static SignalHandlers.HandlerInstaller signalHandlerInstaller() {

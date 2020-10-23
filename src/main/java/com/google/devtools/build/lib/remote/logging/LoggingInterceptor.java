@@ -58,21 +58,21 @@ public class LoggingInterceptor implements ClientInterceptor {
   protected <ReqT, RespT> @Nullable LoggingHandler selectHandler(
       MethodDescriptor<ReqT, RespT> method) {
     if (method == ExecutionGrpc.getExecuteMethod()) {
-      return new ExecuteHandler();
+      return new ExecuteHandler(); // <ExecuteRequest, Operation>
     } else if (method == ExecutionGrpc.getWaitExecutionMethod()) {
-      return new WaitExecutionHandler();
+      return new WaitExecutionHandler(); // <WaitExecutionRequest, Operation>
     } else if (method == ActionCacheGrpc.getGetActionResultMethod()) {
-      return new GetActionResultHandler();
+      return new GetActionResultHandler(); // <GetActionResultRequest, ActionResult>
     } else if (method == ActionCacheGrpc.getUpdateActionResultMethod()) {
-      return new UpdateActionResultHandler();
+      return new UpdateActionResultHandler(); // <UpdateActionResultRequest, ActionResult>
     } else if (method == ContentAddressableStorageGrpc.getFindMissingBlobsMethod()) {
-      return new FindMissingBlobsHandler();
+      return new FindMissingBlobsHandler(); // <FindMissingBlobsRequest, FindMissingBlobsResponse>
     } else if (method == ByteStreamGrpc.getReadMethod()) {
-      return new ReadHandler();
+      return new ReadHandler(); // <ReadRequest, ReadResponse>
     } else if (method == ByteStreamGrpc.getWriteMethod()) {
-      return new WriteHandler();
+      return new WriteHandler(); // <WriteRequest, WriteResponse>
     } else if (method == CapabilitiesGrpc.getGetCapabilitiesMethod()) {
-      return new GetCapabilitiesHandler();
+      return new GetCapabilitiesHandler(); // <GetCapabilitiesRequest, ServerCapabilities>
     }
     return null;
   }
@@ -81,6 +81,7 @@ public class LoggingInterceptor implements ClientInterceptor {
   public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(
       MethodDescriptor<ReqT, RespT> method, CallOptions callOptions, Channel next) {
     ClientCall<ReqT, RespT> call = next.newCall(method, callOptions);
+    @SuppressWarnings("unchecked") // handler matches method, but that type is inexpressible
     LoggingHandler<ReqT, RespT> handler = selectHandler(method);
     if (handler != null) {
       return new LoggingForwardingCall<>(call, handler, method);

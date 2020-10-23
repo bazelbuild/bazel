@@ -49,6 +49,7 @@ public class PredefinedAttributes {
           "templates/attributes/common/deps.html",
           "templates/attributes/common/distribs.html",
           "templates/attributes/common/exec_compatible_with.html",
+          "templates/attributes/common/exec_properties.html",
           "templates/attributes/common/features.html",
           "templates/attributes/common/licenses.html",
           "templates/attributes/common/restricted_to.html",

@@ -16,9 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -130,8 +129,9 @@ public class TransitiveTargetFunction
   }
 
   @Override
-  public SkyValue computeSkyValue(TargetAndErrorIfAny targetAndErrorIfAny,
-      TransitiveTargetValueBuilder builder) {
+  @SuppressWarnings("unchecked")
+  public SkyValue computeSkyValue(
+      TargetAndErrorIfAny targetAndErrorIfAny, TransitiveTargetValueBuilder builder) {
     Target target = targetAndErrorIfAny.getTarget();
     NoSuchTargetException errorLoadingTarget = targetAndErrorIfAny.getErrorLoadingTarget();
 
@@ -144,10 +144,10 @@ public class TransitiveTargetFunction
           rule.getRuleClassObject().getConfigurationFragmentPolicy();
       for (ConfigurationFragmentFactory factory : ruleClassProvider.getConfigurationFragments()) {
         Class<? extends Fragment> fragment = factory.creates();
-        // isLegalConfigurationFragment considers both natively declared fragments and Skylark
+        // isLegalConfigurationFragment considers both natively declared fragments and Starlark
         // (named) fragments.
         if (configurationFragmentPolicy.isLegalConfigurationFragment(fragment)) {
-          addFragmentIfNew(builder, fragment.asSubclass(BuildConfiguration.Fragment.class));
+          addFragmentIfNew(builder, fragment.asSubclass(Fragment.class));
         }
       }
 
@@ -155,11 +155,10 @@ public class TransitiveTargetFunction
       for (Attribute attr : rule.getAttributes()) {
         if (attr.isLateBound()
             && attr.getLateBoundDefault().getFragmentClass() != null
-            && BuildConfiguration.Fragment.class.isAssignableFrom(
-                attr.getLateBoundDefault().getFragmentClass())) {
+            && Fragment.class.isAssignableFrom(attr.getLateBoundDefault().getFragmentClass())) {
           addFragmentIfNew(
               builder,
-              (Class<? extends BuildConfiguration.Fragment>)
+              (Class<? extends Fragment>) // unchecked cast
                   attr.getLateBoundDefault().getFragmentClass());
         }
       }
@@ -169,7 +168,7 @@ public class TransitiveTargetFunction
       addFragmentsIfNew(builder, getFragmentsFromRequiredOptions(rule));
 
       // Fragments to unconditionally include:
-      for (Class<? extends BuildConfiguration.Fragment> universalFragment :
+      for (Class<? extends Fragment> universalFragment :
           ruleClassProvider.getUniversalFragments()) {
         addFragmentIfNew(builder, universalFragment);
       }
@@ -181,10 +180,9 @@ public class TransitiveTargetFunction
   private Set<Class<? extends Fragment>> getFragmentsFromRequiredOptions(Rule rule) {
     Set<String> requiredOptions =
       rule.getRuleClassObject().getOptionReferenceFunction().apply(rule);
-    ImmutableSet.Builder<Class<? extends BuildConfiguration.Fragment>> optionsFragments =
-        new ImmutableSet.Builder<>();
+    ImmutableSet.Builder<Class<? extends Fragment>> optionsFragments = new ImmutableSet.Builder<>();
     for (String requiredOption : requiredOptions) {
-      Class<? extends BuildConfiguration.Fragment> fragment =
+      Class<? extends Fragment> fragment =
           ruleClassProvider.getConfigurationFragmentForOption(requiredOption);
       // Null values come from CoreOptions, which is implicitly included.
       if (fragment != null) {
@@ -247,14 +245,6 @@ public class TransitiveTargetFunction
       return null;
     }
     return ((Rule) toTarget).getRuleClassObject().getAdvertisedProviders();
-  }
-
-  @Override
-  TargetMarkerValue getTargetMarkerValue(SkyKey targetMarkerKey, Environment env)
-      throws NoSuchTargetException, NoSuchPackageException, InterruptedException {
-    return (TargetMarkerValue)
-        env.getValueOrThrow(
-            targetMarkerKey, NoSuchTargetException.class, NoSuchPackageException.class);
   }
 
   private static void maybeReportErrorAboutMissingEdge(

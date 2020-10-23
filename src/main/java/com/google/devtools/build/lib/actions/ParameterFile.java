@@ -13,11 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.GccParamFileEscaper;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -41,10 +47,8 @@ import java.nio.charset.StandardCharsets;
  */
 public class ParameterFile {
 
-  /**
-   * Different styles of parameter files.
-   */
-  public static enum ParameterFileType {
+  /** Different styles of parameter files. */
+  public enum ParameterFileType {
     /**
      * A parameter file with every parameter on a separate line. This format
      * cannot handle newlines in parameters. It is currently used for most
@@ -55,13 +59,18 @@ public class ParameterFile {
     UNQUOTED,
 
     /**
-     * A parameter file where each parameter is correctly quoted for shell
-     * use, and separated by white space (space, tab, newline). This format is
-     * safe for all characters, but must be specially supported by the tool. In
-     * particular, it must not be used with gcc and related tools, which do not
-     * support this format as it is.
+     * A parameter file where each parameter is correctly quoted for shell use, and separated by
+     * white space (space, tab, newline). This format is safe for all characters, but must be
+     * specially supported by the tool. In particular, it must not be used with gcc and related
+     * tools, which do not support this format as it is.
      */
-    SHELL_QUOTED;
+    SHELL_QUOTED,
+
+    /**
+     * A parameter file where each parameter is correctly quoted for gcc or clang use, and separated
+     * by white space (space, tab, newline).
+     */
+    GCC_QUOTED;
   }
 
   @VisibleForTesting
@@ -90,13 +99,16 @@ public class ParameterFile {
   public static void writeParameterFile(
       OutputStream out, Iterable<String> arguments, ParameterFileType type, Charset charset)
       throws IOException {
+    OutputStream bufferedOut = new BufferedOutputStream(out);
     switch (type) {
       case SHELL_QUOTED:
-        Iterable<String> quotedContent = ShellEscaper.escapeAll(arguments);
-        writeContent(out, quotedContent, charset);
+        writeContent(bufferedOut, ShellEscaper.escapeAll(arguments), charset);
+        break;
+      case GCC_QUOTED:
+        writeContent(bufferedOut, GccParamFileEscaper.escapeAll(arguments), charset);
         break;
       case UNQUOTED:
-        writeContent(out, arguments, charset);
+        writeContent(bufferedOut, arguments, charset);
         break;
     }
   }
@@ -176,5 +188,28 @@ public class ParameterFile {
       hiBitSet |= ((latin1Bytes[i] & 0x80) != 0);
     }
     return !hiBitSet;
+  }
+
+  /** Criterion shared by {@link #flagsOnly} and {@link #nonFlags}. */
+  private static boolean isFlag(String arg) {
+    return arg.startsWith("--");
+  }
+
+  /**
+   * Extracts the args from the given list that are flags (i.e. start with "--"). Note, this makes
+   * sense only if flags with values have previously been joined, e.g."--foo=bar" rather than
+   * "--foo", "bar".
+   */
+  public static ImmutableList<String> flagsOnly(Iterable<String> args) {
+    return Streams.stream(args).filter(ParameterFile::isFlag).collect(toImmutableList());
+  }
+
+  /**
+   * Extracts the args from the given list that are not flags (i.e. do not start with "--"). Note,
+   * this makes sense only if flags with values have previously been joined, e.g."--foo=bar" rather
+   * than "--foo", "bar".
+   */
+  public static ImmutableList<String> nonFlags(Iterable<String> args) {
+    return Streams.stream(args).filter(arg -> !isFlag(arg)).collect(toImmutableList());
   }
 }

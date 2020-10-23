@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
-import com.google.devtools.build.lib.query2.CommonQueryOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnumConverter;
+import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -43,8 +45,8 @@ public class CqueryOptions extends CommonQueryOptions {
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
           "The format in which the cquery results should be printed. Allowed values for cquery "
-              + "are: label, textproto, transitions, proto. If you select 'transitions', you also "
-              + "have to specify the --transitions=(lite|full) option.")
+              + "are: label, label_kind, textproto, transitions, proto, jsonproto. If you select "
+              + "'transitions', you also have to specify the --transitions=(lite|full) option.")
   public String outputFormat;
 
   @Option(
@@ -58,13 +60,51 @@ public class CqueryOptions extends CommonQueryOptions {
   public Transitions transitions;
 
   @Option(
-    name = "proto:include_configurations",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.QUERY,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help =
-        "if enabled, proto output will include information about configurations. When disabled,"
-            + "cquery proto output format resembles query output format"
-  )
+      name = "show_config_fragments",
+      defaultValue = "off",
+      converter = IncludeConfigFragmentsEnumConverter.class,
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Shows the configuration fragments required by a rule and its transitive "
+              + "dependencies. This can be useful for evaluating how much a configured target "
+              + "graph can be trimmed.")
+  // This implicitly sets the BuildConfiguration option --include_config_fragments_provider, which
+  //  makes configured targets compute the data cquery needs to enable this feature.
+  public IncludeConfigFragmentsEnum showRequiredConfigFragments;
+
+  @Option(
+      name = "proto:include_configurations",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "if enabled, proto output will include information about configurations. When disabled,"
+              + "cquery proto output format resembles query output format.")
   public boolean protoIncludeConfigurations;
+
+  @Option(
+      name = "starlark:expr",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "A Starlark expression to format each configured target in cquery's"
+              + " --output=starlark mode. The configured target is bound to 'target'."
+              + " If neither --starlark:expr nor --starlark:file is specified, this option will"
+              + " default to 'str(target.label)'. It is an error to specify both --starlark:expr"
+              + " and --starlark:file.")
+  public String expr;
+
+  @Option(
+      name = "starlark:file",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "The name of a file that defines a Starlark function called 'format', of one argument,"
+              + " that is applied to each configured target to format it as a string. It is an"
+              + " error to specify both --starlark:expr and --starlark:file. See help for"
+              + " --output=starlark for additional detail.")
+  public String file;
 }

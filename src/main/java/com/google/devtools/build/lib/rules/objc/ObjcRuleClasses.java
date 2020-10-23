@@ -19,15 +19,14 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -38,46 +37,28 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain.RequiresXcodeConfigRule;
-import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
+import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import java.io.Serializable;
 
 /**
  * Shared rule classes and associated utility code for Objective-C rules.
  */
 public class ObjcRuleClasses {
-
-  /**
-   * Name of the attribute used for implicit dependency on the libtool wrapper.
-   */
-  public static final String LIBTOOL_ATTRIBUTE = "$libtool";
-  /** Name of the attribute used for implicit dependency on the header_scanner tool. */
-  public static final String HEADER_SCANNER_ATTRIBUTE = ":header_scanner";
-  /** Name of attribute used for implicit dependency on the apple SDKs. */
-  public static final String APPLE_SDK_ATTRIBUTE = ":apple_sdk";
-
-  static final String CLANG = "clang";
-  static final String CLANG_PLUSPLUS = "clang++";
-  static final String DSYMUTIL = "dsymutil";
   static final String LIPO = "lipo";
   static final String STRIP = "strip";
 
@@ -149,45 +130,25 @@ public class ObjcRuleClasses {
    * which contain information about the target and host architectures.
    */
   static SpawnAction.Builder spawnAppleEnvActionBuilder(
-      XcodeConfigProvider xcodeConfigProvider, ApplePlatform targetPlatform) {
-    return spawnOnDarwinActionBuilder()
-        .setEnvironment(appleToolchainEnvironment(xcodeConfigProvider, targetPlatform));
+      XcodeConfigInfo xcodeConfigInfo, ApplePlatform targetPlatform) {
+    return spawnOnDarwinActionBuilder(xcodeConfigInfo)
+        .setEnvironment(appleToolchainEnvironment(xcodeConfigInfo, targetPlatform));
   }
 
   /** Returns apple environment variables that are typically needed by the apple toolchain. */
-  static ImmutableMap<String, String> appleToolchainEnvironment(
-      XcodeConfigProvider xcodeConfigProvider, ApplePlatform targetPlatform) {
+  private static ImmutableMap<String, String> appleToolchainEnvironment(
+      XcodeConfigInfo xcodeConfigInfo, ApplePlatform targetPlatform) {
     return ImmutableMap.<String, String>builder()
-        .putAll(AppleConfiguration.appleTargetPlatformEnv(
-            targetPlatform, xcodeConfigProvider.getSdkVersionForPlatform(targetPlatform)))
-        .putAll(AppleConfiguration.getXcodeVersionEnv(xcodeConfigProvider.getXcodeVersion()))
+        .putAll(
+            AppleConfiguration.appleTargetPlatformEnv(
+                targetPlatform, xcodeConfigInfo.getSdkVersionForPlatform(targetPlatform)))
+        .putAll(AppleConfiguration.getXcodeVersionEnv(xcodeConfigInfo.getXcodeVersion()))
         .build();
   }
 
-  /**
-   * Creates a new spawn action builder that requires a darwin architecture to run.
-   */
-  static SpawnAction.Builder spawnOnDarwinActionBuilder() {
-    return new SpawnAction.Builder().setExecutionInfo(darwinActionExecutionRequirement());
-  }
-
-  /**
-   * Returns action requirement information for darwin architecture.
-   */
-  static ImmutableMap<String, String> darwinActionExecutionRequirement() {
-    return ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, "");
-  }
-
-  /**
-   * Creates a new spawn action builder that requires a darwin architecture to run and calls bash
-   * to execute cmd.
-   * Once we have a fix for b/21874752  we should be able to call setShellCommand(cmd)
-   * directly, but right now we don't have a buildhelpers package on Macs so we must specify
-   * the path to /bin/bash explicitly.
-   */
-  static SpawnAction.Builder spawnBashOnDarwinActionBuilder(String cmd) {
-    return spawnOnDarwinActionBuilder()
-        .setShellCommand(ImmutableList.of("/bin/bash", "-c", cmd));
+  /** Creates a new spawn action builder that requires a darwin architecture to run. */
+  private static SpawnAction.Builder spawnOnDarwinActionBuilder(XcodeConfigInfo xcodeConfigInfo) {
+    return new SpawnAction.Builder().setExecutionInfo(xcodeConfigInfo.getExecutionRequirements());
   }
 
   /**
@@ -306,7 +267,7 @@ public class ObjcRuleClasses {
   /**
    * Header files, which are not compiled directly, but may be included/imported from source files.
    */
-  static final FileType HEADERS = FileType.of(".h", ".inc");
+  static final FileType HEADERS = FileType.of(".h", ".inc", ".hpp", ".hh");
 
   /**
    * Files allowed in the srcs attribute. This includes private headers.
@@ -354,6 +315,7 @@ public class ObjcRuleClasses {
               attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
                   .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
           .addRequiredToolchains(ImmutableList.of(CppRuleClasses.ccToolchainTypeAttribute(env)))
+          .useToolchainTransition(true)
           .build();
     }
 
@@ -361,6 +323,7 @@ public class ObjcRuleClasses {
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
           .name("$objc_crosstool_rule")
+          .ancestors(CppRuleClasses.CcLinkingRule.class)
           .type(RuleClassType.ABSTRACT)
           .build();
     }
@@ -429,7 +392,7 @@ public class ObjcRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$objc_compile_dependency_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(SdkFrameworksDependerRule.class)
+          .ancestors(CppRuleClasses.CcIncludeScanningRule.class, SdkFrameworksDependerRule.class)
           .build();
     }
   }
@@ -446,21 +409,13 @@ public class ObjcRuleClasses {
     static final ImmutableSet<String> ALLOWED_CC_DEPS_RULE_CLASSES =
         ImmutableSet.of("cc_library", "cc_inc_library");
 
-    @AutoCodec @AutoCodec.VisibleForSerialization
-    static final Attribute.LateBoundDefault<ObjcConfiguration, Label> SDK_LATE_BOUND_DEFAULT =
-        LabelLateBoundDefault.fromTargetConfiguration(
-            ObjcConfiguration.class,
-            null,
-            // Apple SDKs are currently only used by ObjC header thinning feature
-            (rule, attributes, objcConfig) ->
-                objcConfig.useExperimentalHeaderThinning() ? objcConfig.getAppleSdk() : null);
-
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(srcs) -->
           The list of C, C++, Objective-C, and Objective-C++ source and header
-          files that are processed to create the library target.
+          files, and/or (`.s`, `.S`, or `.asm`) assembly source files, that are processed to create
+          the library target.
           These are your checked-in files, plus any generated files.
           Source files are compiled into .o files with Clang. Header files
           may be included/imported by any source or header in the srcs attribute
@@ -498,7 +453,7 @@ public class ObjcRuleClasses {
               attr("deps", LABEL_LIST)
                   .direct_compile_time_input()
                   .allowedRuleClasses(ALLOWED_CC_DEPS_RULE_CLASSES)
-                  .mandatoryProviders(ObjcProvider.SKYLARK_CONSTRUCTOR.id())
+                  .mandatoryProviders(ObjcProvider.STARLARK_CONSTRUCTOR.id())
                   .allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(runtime_deps) -->
           The list of framework targets that are late loaded at runtime.  They are included in the
@@ -507,7 +462,7 @@ public class ObjcRuleClasses {
           .add(
               attr("runtime_deps", LABEL_LIST)
                   .direct_compile_time_input()
-                  .mandatoryProviders(AppleDynamicFrameworkInfo.SKYLARK_CONSTRUCTOR.id())
+                  .mandatoryProviders(AppleDynamicFrameworkInfo.STARLARK_CONSTRUCTOR.id())
                   .allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(defines) -->
           Extra <code>-D</code> flags to pass to the compiler. They should be in
@@ -537,25 +492,6 @@ public class ObjcRuleClasses {
           all special symbols replaced by _, e.g. //foo/baz:bar can be imported as foo_baz_bar.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("module_name", STRING))
-          /* Provides the label for header_scanner tool that is used to scan inclusions for ObjC
-          sources and provide a list of required headers via a .header_list file.
-
-          Either points to a label for a binary which can be executed for header scanning or an
-          empty filegroup to indicate that the tool is unavailable. Due to the possibility of this
-          being an empty filegroup and executable prerequisites validating that they contain at
-          least one artifact this attribute cannot be #exec(). */
-          .add(
-              attr(HEADER_SCANNER_ATTRIBUTE, LABEL)
-                  .cfg(HostTransition.createFactory())
-                  .value(
-                      LabelLateBoundDefault.fromTargetConfiguration(
-                          ObjcConfiguration.class,
-                          env.getToolsLabel("//tools/objc:header_scanner"),
-                          (Attribute.LateBoundDefault.Resolver<ObjcConfiguration, Label>
-                                  & Serializable)
-                              (rule, attributes, objcConfig) ->
-                                  objcConfig.getObjcHeaderScannerTool())))
-          .add(attr(APPLE_SDK_ATTRIBUTE, LABEL).value(SDK_LATE_BOUND_DEFAULT))
           .build();
     }
     @Override
@@ -567,33 +503,8 @@ public class ObjcRuleClasses {
               BaseRuleClasses.RuleBase.class,
               CompileDependencyRule.class,
               CoptsRule.class,
-              LibtoolRule.class,
               XcrunRule.class,
               CrosstoolRule.class)
-          .build();
-    }
-  }
-
-  /**
-   * Common attributes for {@code objc_*} rules that need to call libtool.
-   */
-  public static class LibtoolRule implements RuleDefinition {
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .add(
-              attr(LIBTOOL_ATTRIBUTE, LABEL)
-                  .cfg(HostTransition.createFactory())
-                  .exec()
-                  .value(env.getToolsLabel("//tools/objc:libtool")))
-          .build();
-    }
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$objc_libtool_rule")
-          .type(RuleClassType.ABSTRACT)
-          .ancestors(XcrunRule.class)
           .build();
     }
   }
@@ -798,7 +709,7 @@ public class ObjcRuleClasses {
               attr("deps", LABEL_LIST)
                   .direct_compile_time_input()
                   .allowedRuleClasses(ALLOWED_CC_DEPS_RULE_CLASSES)
-                  .mandatoryProviders(ObjcProvider.SKYLARK_CONSTRUCTOR.id())
+                  .mandatoryProviders(ObjcProvider.STARLARK_CONSTRUCTOR.id())
                   .cfg(splitTransitionProvider)
                   .aspect(objcProtoAspect)
                   .allowedFileTypes())
@@ -837,8 +748,13 @@ public class ObjcRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$apple_multiarch_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(PlatformRule.class, CrosstoolRule.class, BaseRuleClasses.RuleBase.class,
-              XcrunRule.class, SdkFrameworksDependerRule.class, LibtoolRule.class)
+          .ancestors(
+              PlatformRule.class,
+              CrosstoolRule.class,
+              BaseRuleClasses.RuleBase.class,
+              CppRuleClasses.CcIncludeScanningRule.class,
+              XcrunRule.class,
+              SdkFrameworksDependerRule.class)
           .build();
     }
   }
@@ -868,13 +784,15 @@ public class ObjcRuleClasses {
           not be statically linked in this target (even if they are otherwise
           transitively depended on via the <code>deps</code> attribute) to avoid duplicate symbols.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr(DYLIBS_ATTR_NAME, LABEL_LIST)
-              .direct_compile_time_input()
-              .mandatoryProviders(ImmutableList.of(
-                  SkylarkProviderIdentifier.forKey(
-                      AppleDynamicFrameworkInfo.SKYLARK_CONSTRUCTOR.getKey())))
-              .allowedFileTypes()
-              .aspect(objcProtoAspect))
+          .add(
+              attr(DYLIBS_ATTR_NAME, LABEL_LIST)
+                  .direct_compile_time_input()
+                  .mandatoryProviders(
+                      ImmutableList.of(
+                          StarlarkProviderIdentifier.forKey(
+                              AppleDynamicFrameworkInfo.STARLARK_CONSTRUCTOR.getKey())))
+                  .allowedFileTypes()
+                  .aspect(objcProtoAspect))
           .build();
     }
 

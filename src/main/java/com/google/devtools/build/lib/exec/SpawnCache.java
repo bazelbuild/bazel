@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
@@ -88,10 +87,6 @@ public interface SpawnCache extends ActionContext {
   }
 
   /** A no-op spawn cache. */
-  @ExecutionStrategy(
-      name = {"no-cache"},
-      contextType = SpawnCache.class
-  )
   public static class NoSpawnCache implements SpawnCache {
     @Override
     public CacheHandle lookup(Spawn spawn, SpawnExecutionContext context) {
@@ -162,7 +157,8 @@ public interface SpawnCache extends ActionContext {
    * object is for the cache to store expensive intermediate values (such as the cache key) that are
    * needed both for the lookup and the subsequent store operation.
    *
-   * <p>The lookup must not succeed for non-cachable spawns. See {@link Spawns#mayBeCached()}.
+   * <p>The lookup must not succeed for non-cachable spawns. See {@link Spawns#mayBeCached()} and
+   * {@link Spawns#mayBeCachedRemotely}.
    *
    * <p>Note that cache stores may be disabled, in which case the returned {@link CacheHandle}
    * instance's {@link CacheHandle#store} is a no-op.

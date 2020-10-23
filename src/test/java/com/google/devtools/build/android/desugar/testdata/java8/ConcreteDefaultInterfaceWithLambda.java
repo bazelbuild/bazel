@@ -22,8 +22,7 @@ public class ConcreteDefaultInterfaceWithLambda implements DefaultInterfaceWithL
 
   @Override
   public List<String> digits() {
-    return ImmutableList.of(0, 2)
-        .stream()
+    return ImmutableList.of(0, 2).stream()
         .map(i -> i == 0 ? ONE : String.valueOf(i))
         .collect(Collectors.toList());
   }

@@ -1,19 +1,19 @@
+load("//tools/build_rules:utilities.bzl", "java_library_srcs")
+load("@rules_java//java:defs.bzl", "java_library")
+load("@rules_java//java:defs.bzl", "java_proto_library")
+load("@rules_proto//proto:defs.bzl", "proto_library")
+
 # Description:
 #   Debugging helpers and modules
 package(
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility =
+        ["//src:__subpackages__"],
 )
-
-load("//tools/build_rules:utilities.bzl", "java_library_srcs")
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = [
-        "//src:__pkg__",
-        "//src/main/java/com/google/devtools/build/lib:__pkg__",
-        "//src/test/shell/bazel:__pkg__",
-    ],
+    visibility = ["//src:__subpackages__"],
 )
 
 proto_library(
@@ -42,7 +42,8 @@ java_library(
     srcs = ["WorkspaceRuleEvent.java"],
     deps = [
         ":workspace_log_java_proto",
-        "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/net/starlark/java/syntax",
     ],
 )
 
@@ -52,13 +53,15 @@ java_library(
     deps = [
         ":debugging-options",
         ":workspace-rule-event",
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:exitcode-external",
-        "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
     ],
 )
@@ -67,7 +70,7 @@ java_library(
     name = "debugging-options",
     srcs = ["DebuggingOptions.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
     ],

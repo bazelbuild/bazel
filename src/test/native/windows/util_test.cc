@@ -11,6 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include "src/main/native/windows/util.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <windows.h>
@@ -21,7 +26,6 @@
 #include <string>
 
 #include "gtest/gtest.h"
-#include "src/main/native/windows/util.h"
 
 #if !defined(_WIN32) && !defined(__CYGWIN__)
 #error("This test should only be run on Windows")
@@ -252,7 +256,6 @@ TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessBadInputs) {
   ASSERT_SHORTENING_FAILS(L"\"cmd.exe\"", L"path should not be quoted");
   ASSERT_SHORTENING_FAILS(L"/dev/null", L"path is absolute without a drive");
   ASSERT_SHORTENING_FAILS(L"/usr/bin/bash", L"path is absolute without a");
-  ASSERT_SHORTENING_FAILS(L"foo\\bar.exe", L"path is not absolute");
   ASSERT_SHORTENING_FAILS(L"foo\\..\\bar.exe", L"path is not normalized");
   ASSERT_SHORTENING_FAILS(L"\\bar.exe", L"path is absolute");
 
@@ -262,6 +265,13 @@ TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessBadInputs) {
   }
   dummy += L".exe";
   ASSERT_SHORTENING_FAILS(dummy.c_str(), L"a file name but too long");
+
+  // Relative paths are fine, they are absolutized.
+  std::wstring rel(L"foo\\bar.exe");
+  std::wstring actual;
+  EXPECT_EQ(AsExecutablePathForCreateProcess(rel, &actual), L"");
+  EXPECT_GT(actual.size(), rel.size());
+  EXPECT_EQ(actual.rfind(rel), actual.size() - rel.size() - 1);
 }
 
 TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessConversions) {

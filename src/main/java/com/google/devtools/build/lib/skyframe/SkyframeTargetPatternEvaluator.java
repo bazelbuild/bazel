@@ -14,35 +14,38 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
-import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
-import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
+import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider.PackageBackedRecursivePackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
+import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
-import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 
-/**
- * Skyframe-based target pattern parsing.
- */
-final class SkyframeTargetPatternEvaluator
-    implements TargetPatternEvaluator, TargetPatternPreloader {
+/** Skyframe-based target pattern parsing. */
+final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
   private final SkyframeExecutor skyframeExecutor;
 
   SkyframeTargetPatternEvaluator(SkyframeExecutor skyframeExecutor) {
@@ -50,208 +53,218 @@ final class SkyframeTargetPatternEvaluator
   }
 
   @Override
-  public ResolvedTargets<Target> parseTargetPatternList(
-      PathFragment relativeWorkingDirectory,
-      ExtendedEventHandler eventHandler,
-      List<String> targetPatterns,
-      FilteringPolicy policy,
-      boolean keepGoing)
-      throws TargetParsingException, InterruptedException {
-    return parseTargetPatternList(
-        relativeWorkingDirectory.getPathString(),
-        eventHandler,
-        ImmutableList.copyOf(targetPatterns),
-        policy,
-        keepGoing);
-  }
-
-  @Override
-  public Map<String, ResolvedTargets<Target>> preloadTargetPatterns(
+  public Map<String, Collection<Target>> preloadTargetPatterns(
       ExtendedEventHandler eventHandler,
       PathFragment relativeWorkingDirectory,
       Collection<String> patterns,
       boolean keepGoing)
-          throws TargetParsingException, InterruptedException {
-    // TODO(bazel-team): This is used only in "blaze query". There are plans to dramatically change
-    // how query works on Skyframe, in which case this method is likely to go away.
-    ImmutableList.Builder<TargetPatternsAndKeysAndResultBuilder>
-        targetPatternsAndKeysAndResultListBuilder = ImmutableList.builder();
-    FilteringPolicy policy = DEFAULT_FILTERING_POLICY;
+      throws TargetParsingException, InterruptedException {
+    ImmutableMap.Builder<String, Collection<Target>> resultBuilder = ImmutableMap.builder();
+    List<PatternLookup> patternLookups = new ArrayList<>();
+    List<SkyKey> allKeys = new ArrayList<>();
     for (String pattern : patterns) {
-      ImmutableList<String> singletonPatternList = ImmutableList.of(pattern);
-      targetPatternsAndKeysAndResultListBuilder.add(new TargetPatternsAndKeysAndResultBuilder(
-          singletonPatternList,
-          getTargetPatternKeys(
-              relativeWorkingDirectory.getPathString(),
-              eventHandler,
-              singletonPatternList,
-              policy,
-              keepGoing),
-          createTargetPatternEvaluatorUtil(policy, eventHandler, keepGoing)));
-
+      Preconditions.checkArgument(!pattern.startsWith("-"));
+      PatternLookup patternLookup =
+          createPatternLookup(relativeWorkingDirectory, eventHandler, pattern, keepGoing);
+      if (patternLookup == null) {
+        resultBuilder.put(pattern, ImmutableSet.of());
+      } else {
+        patternLookups.add(patternLookup);
+        allKeys.add(patternLookup.skyKey);
+      }
     }
-    ImmutableList<ResolvedTargets<Target>> batchResult = parseTargetPatternKeysBatch(
-        targetPatternsAndKeysAndResultListBuilder.build(),
-        SkyframeExecutor.DEFAULT_THREAD_COUNT,
-        keepGoing,
-        eventHandler);
-    Preconditions.checkState(patterns.size() == batchResult.size(), patterns);
-    ImmutableMap.Builder<String, ResolvedTargets<Target>> resultBuilder = ImmutableMap.builder();
-    int i = 0;
-    for (String pattern : patterns) {
-      resultBuilder.put(pattern, batchResult.get(i++));
+
+    EvaluationResult<SkyValue> result =
+        skyframeExecutor.targetPatterns(
+            allKeys, SkyframeExecutor.DEFAULT_THREAD_COUNT, keepGoing, eventHandler);
+    WalkableGraph walkableGraph = Preconditions.checkNotNull(result.getWalkableGraph(), result);
+    for (PatternLookup patternLookup : patternLookups) {
+      SkyKey key = patternLookup.skyKey;
+      SkyValue resultValue = result.get(key);
+      if (resultValue != null) {
+        try {
+          Collection<Target> resolvedTargets =
+              patternLookup.process(eventHandler, resultValue, walkableGraph, keepGoing);
+          resultBuilder.put(patternLookup.pattern, resolvedTargets);
+        } catch (TargetParsingException e) {
+          if (!keepGoing) {
+            throw e;
+          }
+          eventHandler.handle(createPatternParsingError(e, patternLookup.pattern));
+          eventHandler.post(PatternExpandingError.skipped(patternLookup.pattern, e.getMessage()));
+          resultBuilder.put(patternLookup.pattern, ImmutableSet.of());
+        }
+      } else {
+        String rawPattern = patternLookup.pattern;
+        ErrorInfo error = result.errorMap().get(key);
+        if (error == null) {
+          Preconditions.checkState(!keepGoing);
+          continue;
+        }
+        String errorMessage;
+        TargetParsingException targetParsingException;
+        if (error.getException() != null) {
+          // This exception could be a TargetParsingException, a NoSuchPackageException, or
+          // potentially a lower-level exception. If the exception is the former two, then the
+          // DetailedExitCode can be extracted from the exception.
+          Exception exception = error.getException();
+          errorMessage = exception.getMessage();
+          targetParsingException =
+              DetailedException.getDetailedExitCode(exception) != null
+                  ? new TargetParsingException(
+                      errorMessage, exception, DetailedException.getDetailedExitCode(exception))
+                  : new TargetParsingException(
+                      errorMessage, TargetPatterns.Code.CANNOT_PRELOAD_TARGET);
+        } else if (!error.getCycleInfo().isEmpty()) {
+          errorMessage = "cycles detected during target parsing";
+          targetParsingException =
+              new TargetParsingException(errorMessage, TargetPatterns.Code.CYCLE);
+          skyframeExecutor
+              .getCyclesReporter()
+              .reportCycles(error.getCycleInfo(), key, eventHandler);
+        } else {
+          throw new IllegalStateException(error.toString());
+        }
+        if (keepGoing) {
+          eventHandler.handle(createPatternParsingError(targetParsingException, rawPattern));
+          eventHandler.post(PatternExpandingError.skipped(rawPattern, errorMessage));
+        } else {
+          eventHandler.post(PatternExpandingError.failed(patternLookup.pattern, errorMessage));
+          throw targetParsingException;
+        }
+        resultBuilder.put(patternLookup.pattern, ImmutableSet.of());
+      }
     }
     return resultBuilder.build();
   }
 
-  private Iterable<TargetPatternKey> getTargetPatternKeys(
-      String offset,
+  private PatternLookup createPatternLookup(
+      PathFragment offset,
       ExtendedEventHandler eventHandler,
-      ImmutableList<String> targetPatterns,
-      FilteringPolicy policy,
-      boolean keepGoing) throws TargetParsingException {
-    Iterable<TargetPatternSkyKeyOrException> keysMaybe =
-        TargetPatternValue.keys(targetPatterns, policy, offset);
-    ImmutableList.Builder<TargetPatternKey> builder = ImmutableList.builder();
-    for (TargetPatternSkyKeyOrException skyKeyOrException : keysMaybe) {
-      try {
-        builder.add(skyKeyOrException.getSkyKey());
-      } catch (TargetParsingException e) {
-        // We report a parsing failed exception to the event bus here in case the pattern did not
-        // successfully parse (which happens before the SkyKey is created). Otherwise the
-        // TargetPatternFunction posts the event.
-        eventHandler.post(
-            new ParsingFailedEvent(skyKeyOrException.getOriginalPattern(),  e.getMessage()));
-        if (!keepGoing) {
-          throw e;
-        }
-        String pattern = skyKeyOrException.getOriginalPattern();
-        eventHandler.handle(Event.error("Skipping '" + pattern + "': " + e.getMessage()));
-      }
-    }
-    return builder.build();
-  }
-
-  /**
-   * Loads a list of target patterns (eg, "foo/..."). When policy is set to FILTER_TESTS,
-   * test_suites are going to be expanded.
-   */
-  private ResolvedTargets<Target> parseTargetPatternList(
-      String offset,
-      ExtendedEventHandler eventHandler,
-      ImmutableList<String> targetPatterns,
-      FilteringPolicy policy,
+      String targetPattern,
       boolean keepGoing)
-      throws InterruptedException, TargetParsingException {
-    return Iterables.getOnlyElement(
-        parseTargetPatternKeysBatch(
-            ImmutableList.of(
-                new TargetPatternsAndKeysAndResultBuilder(
-                    targetPatterns,
-                    getTargetPatternKeys(offset, eventHandler, targetPatterns, policy, keepGoing),
-                    createTargetPatternEvaluatorUtil(policy, eventHandler, keepGoing))),
-            SkyframeExecutor.DEFAULT_THREAD_COUNT,
-            keepGoing,
-            eventHandler));
+      throws TargetParsingException {
+    try {
+      TargetPatternKey key =
+          TargetPatternValue.key(targetPattern, FilteringPolicies.NO_FILTER, offset);
+      return isSimple(key.getParsedPattern())
+          ? new SimpleLookup(targetPattern, key)
+          : new NormalLookup(targetPattern, key);
+    } catch (TargetParsingException e) {
+      // We report a parsing failed exception to the event bus here in case the pattern did not
+      // successfully parse (which happens before the SkyKey is created). Otherwise the
+      // TargetPatternFunction posts the event.
+      eventHandler.post(new ParsingFailedEvent(targetPattern, e.getMessage()));
+      if (!keepGoing) {
+        throw e;
+      }
+      eventHandler.handle(createPatternParsingError(e, targetPattern));
+      return null;
+    }
   }
 
-  private TargetPatternsResultBuilder createTargetPatternEvaluatorUtil(
-      FilteringPolicy policy, ExtendedEventHandler eventHandler, boolean keepGoing) {
-    return policy == FilteringPolicies.FILTER_TESTS
-        ? new TestTargetPatternsResultBuilder(
-            skyframeExecutor.getPackageManager(), eventHandler, keepGoing)
-        : new BuildTargetPatternsResultBuilder();
+  /** Returns true for patterns that can be resolved from a single PackageValue. */
+  private static boolean isSimple(TargetPattern targetPattern) {
+    switch (targetPattern.getType()) {
+      case SINGLE_TARGET:
+      case TARGETS_IN_PACKAGE:
+        return true;
+      case PATH_AS_TARGET:
+      case TARGETS_BELOW_DIRECTORY:
+        // Both of these require multiple package lookups. PATH_AS_TARGET needs to find the
+        // enclosing package, and TARGETS_BELOW_DIRECTORY recursively looks for all packages under a
+        // specified directory.
+        return false;
+    }
+    throw new AssertionError();
   }
 
-  private class TargetPatternsAndKeysAndResultBuilder {
-    private final ImmutableList<String> targetPatterns;
-    private final Iterable<TargetPatternKey> patternSkyKeys;
+  private static Event createPatternParsingError(TargetParsingException e, String pattern) {
+    return Event.error("Skipping '" + pattern + "': " + e.getMessage())
+        .withProperty(DetailedExitCode.class, e.getDetailedExitCode());
+  }
+
+  private abstract static class PatternLookup {
+    protected final String pattern;
+    @Nullable private final SkyKey skyKey;
+
+    private PatternLookup(String pattern, SkyKey skyKey) {
+      this.pattern = pattern;
+      this.skyKey = skyKey;
+    }
+
+    public abstract Collection<Target> process(
+        ExtendedEventHandler eventHandler,
+        SkyValue value,
+        WalkableGraph walkableGraph,
+        boolean keepGoing)
+        throws InterruptedException, TargetParsingException;
+  }
+
+  private static class NormalLookup extends PatternLookup {
     private final TargetPatternsResultBuilder resultBuilder;
 
-    private TargetPatternsAndKeysAndResultBuilder(
-        ImmutableList<String> targetPatterns,
-        Iterable<TargetPatternKey> patternSkyKeys,
-        TargetPatternsResultBuilder resultBuilder) {
-      this.targetPatterns = targetPatterns;
-      this.patternSkyKeys = patternSkyKeys;
-      this.resultBuilder = resultBuilder;
+    private NormalLookup(String targetPattern, TargetPatternKey key) {
+      super(targetPattern, key);
+      this.resultBuilder = new TargetPatternsResultBuilder();
+    }
+
+    @Override
+    public Collection<Target> process(
+        ExtendedEventHandler eventHandler,
+        SkyValue value,
+        WalkableGraph walkableGraph,
+        boolean keepGoing)
+        throws InterruptedException {
+      TargetPatternValue resultValue = (TargetPatternValue) value;
+      ResolvedTargets<Label> results = resultValue.getTargets();
+      resultBuilder.addLabelsOfPositivePattern(results);
+      return resultBuilder.build(walkableGraph);
     }
   }
 
-  private ImmutableList<ResolvedTargets<Target>> parseTargetPatternKeysBatch(
-      ImmutableList<TargetPatternsAndKeysAndResultBuilder> targetPatternsAndKeysAndResultBuilders,
-      int numThreads,
-      boolean keepGoing,
-      ExtendedEventHandler eventHandler)
-      throws InterruptedException, TargetParsingException {
-    ImmutableList.Builder<TargetPatternKey> allKeysBuilder = ImmutableList.builder();
-    for (TargetPatternsAndKeysAndResultBuilder targetPatternsAndKeysAndResultBuilder
-        : targetPatternsAndKeysAndResultBuilders) {
-      allKeysBuilder.addAll(targetPatternsAndKeysAndResultBuilder.patternSkyKeys);
-    }
-    EvaluationResult<TargetPatternValue> result = skyframeExecutor.targetPatterns(
-        allKeysBuilder.build(), numThreads, keepGoing, eventHandler);
-    WalkableGraph walkableGraph = Preconditions.checkNotNull(result.getWalkableGraph(), result);
-    ImmutableList.Builder<ResolvedTargets<Target>> resolvedTargetsListBuilder =
-        ImmutableList.builder();
-    for (TargetPatternsAndKeysAndResultBuilder targetPatternsAndKeysAndResultBuilder
-        : targetPatternsAndKeysAndResultBuilders) {
-      ImmutableList<String> targetPatterns = targetPatternsAndKeysAndResultBuilder.targetPatterns;
-      Iterable<TargetPatternKey> patternSkyKeys =
-          targetPatternsAndKeysAndResultBuilder.patternSkyKeys;
-      TargetPatternsResultBuilder resultBuilder =
-          targetPatternsAndKeysAndResultBuilder.resultBuilder;
-      String errorMessage = null;
-      boolean hasError = false;
-      for (TargetPatternKey key : patternSkyKeys) {
-        TargetPatternValue resultValue = result.get(key);
-        if (resultValue != null) {
-          ResolvedTargets<Label> results = resultValue.getTargets();
-          if (key.isNegative()) {
-            resultBuilder.addLabelsOfNegativePattern(results);
-          } else {
-            resultBuilder.addLabelsOfPositivePattern(results);
-          }
-        } else {
-          String rawPattern = key.getPattern();
-          ErrorInfo error = result.errorMap().get(key);
-          if (error == null) {
-            Preconditions.checkState(!keepGoing);
-            continue;
-          }
-          hasError = true;
-          if (error.getException() != null) {
-            // This exception may not be a TargetParsingException because in a nokeep_going build,
-            // the target pattern parser may swallow a NoSuchPackageException but the framework will
-            // bubble it up anyway.
-            Preconditions.checkArgument(!keepGoing
-                || error.getException() instanceof TargetParsingException, error);
-            errorMessage = error.getException().getMessage();
-          } else if (!Iterables.isEmpty(error.getCycleInfo())) {
-            errorMessage = "cycles detected during target parsing";
-            skyframeExecutor.getCyclesReporter().reportCycles(
-                error.getCycleInfo(), key, eventHandler);
-          } else {
-            throw new IllegalStateException(error.toString());
-          }
-          if (keepGoing) {
-            eventHandler.handle(Event.error("Skipping '" + rawPattern + "': " + errorMessage));
-            eventHandler.post(PatternExpandingError.skipped(rawPattern, errorMessage));
-          }
-          resultBuilder.setError();
-        }
-      }
+  private static class SimpleLookup extends PatternLookup {
+    private final TargetPattern targetPattern;
 
-      if (hasError) {
-        Preconditions.checkState(errorMessage != null, "unexpected errors: %s", result.errorMap());
-        resultBuilder.setError();
-        if (!keepGoing) {
-          eventHandler.post(PatternExpandingError.failed(targetPatterns, errorMessage));
-          throw new TargetParsingException(errorMessage);
-        }
-      }
-      resolvedTargetsListBuilder.add(resultBuilder.build(walkableGraph));
+    private SimpleLookup(String pattern, TargetPatternKey key) {
+      this(
+          pattern,
+          PackageValue.key(key.getParsedPattern().getDirectoryForTargetOrTargetsInPackage()),
+          key.getParsedPattern());
     }
-    return resolvedTargetsListBuilder.build();
+
+    private SimpleLookup(String pattern, PackageValue.Key key, TargetPattern targetPattern) {
+      super(pattern, key);
+      this.targetPattern = targetPattern;
+    }
+
+    @Override
+    public Collection<Target> process(
+        ExtendedEventHandler eventHandler,
+        SkyValue value,
+        WalkableGraph walkableGraph,
+        boolean keepGoing)
+        throws InterruptedException, TargetParsingException {
+      Package pkg = ((PackageValue) value).getPackage();
+      RecursivePackageProviderBackedTargetPatternResolver resolver =
+          new RecursivePackageProviderBackedTargetPatternResolver(
+              new PackageBackedRecursivePackageProvider(
+                  ImmutableMap.of(pkg.getPackageIdentifier(), pkg)),
+              eventHandler,
+              FilteringPolicies.NO_FILTER,
+              /* packageSemaphore= */ null);
+      AtomicReference<Collection<Target>> result = new AtomicReference<>();
+      targetPattern.eval(
+          resolver,
+          /*ignoredSubdirectories=*/ ImmutableSet.<PathFragment>of(),
+          /*excludedSubdirectories=*/ ImmutableSet.<PathFragment>of(),
+          partialResult ->
+              result.set(
+                  partialResult instanceof Collection
+                      ? (Collection<Target>) partialResult
+                      : ImmutableSet.copyOf(partialResult)),
+          TargetParsingException.class);
+      return result.get();
+    }
   }
 }

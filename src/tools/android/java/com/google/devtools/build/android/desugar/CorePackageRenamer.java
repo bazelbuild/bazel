@@ -22,7 +22,9 @@ import org.objectweb.asm.commons.MethodRemapper;
 import org.objectweb.asm.commons.Remapper;
 
 /**
- * A visitor that renames packages so configured using {@link CoreLibrarySupport}.
+ * A visitor that renames packages so configured using {@link CoreLibrarySupport}. Additionally
+ * generate bridge-like methods for core library overrides that should be preserved that call the
+ * renamed variants.
  */
 class CorePackageRenamer extends ClassRemapper {
 
@@ -33,8 +35,14 @@ class CorePackageRenamer extends ClassRemapper {
   }
 
   @Override
-  public void visit(int version, int access, String name, String signature, String superName,
+  public void visit(
+      int version,
+      int access,
+      String name,
+      String signature,
+      String superName,
       String[] interfaces) {
+    checkState(internalName == null || internalName.equals(name), "Instance already used.");
     internalName = name;
     super.visit(version, access, name, signature, superName, interfaces);
   }
@@ -46,14 +54,13 @@ class CorePackageRenamer extends ClassRemapper {
 
   private class CoreMethodRemapper extends MethodRemapper {
 
-    public CoreMethodRemapper(MethodVisitor methodVisitor,
-        Remapper remapper) {
+    public CoreMethodRemapper(MethodVisitor methodVisitor, Remapper remapper) {
       super(methodVisitor, remapper);
     }
 
     @Override
-    public void visitMethodInsn(int opcode, String owner, String name, String descriptor,
-        boolean isInterface) {
+    public void visitMethodInsn(
+        int opcode, String owner, String name, String descriptor, boolean isInterface) {
       CorePackageRemapper remapper = (CorePackageRemapper) this.remapper;
       remapper.didSomething = false;
       super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);

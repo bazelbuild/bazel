@@ -34,7 +34,9 @@ import java.util.Objects;
  * or from an array of command-line arguments:
  *
  * <pre>
- *   OptionsParser parser = OptionsParser.newOptionsParser(X.class);
+ *   OptionsParser parser = OptionsParser.builder()
+ *       .optionsClasses(X.class)
+ *       .build();
  *   parser.parse("--host", "localhost", "--port", "80");
  *   X x = parser.getOptions(X.class);
  * </pre>
@@ -49,11 +51,9 @@ public abstract class OptionsBase {
   private static final Escaper ESCAPER = new CharEscaperBuilder()
       .addEscape('\\', "\\\\").addEscape('"', "\\\"").toEscaper();
 
-  /**
-   * Subclasses must provide a default (no argument) constructor.
-   */
+  /** Subclasses must provide a default (no argument) constructor. */
   protected OptionsBase() {
-    // There used to be a sanity check here that checks the stack trace of this constructor
+    // There used to be a validation here that checks the stack trace of this constructor
     // invocation; unfortunately, that makes the options construction about 10x slower. So be
     // careful with how you construct options classes.
   }

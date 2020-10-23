@@ -124,6 +124,72 @@ static bool MakeDirectories(const string &path, mode_t mode, bool childmost) {
   return stat_succeeded;
 }
 
+
+string CreateTempDir(const std::string &prefix) {
+  std::string parent = Dirname(prefix);
+  // Need parent to exist first.
+  if (!blaze_util::PathExists(parent) &&
+      !blaze_util::MakeDirectories(parent, 0777)) {
+    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+        << "couldn't create '" << parent << "': "
+        << blaze_util::GetLastErrorString();
+  }
+
+  std::string result(prefix + "XXXXXX");
+  if (mkdtemp(&result[0]) == nullptr) {
+    std::string err = GetLastErrorString();
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "could not create temporary directory under " << parent
+        << " to extract install base into (" << err << ")";
+  }
+
+  // There's no better way to get the current umask than to set and reset it.
+  const mode_t um = umask(0);
+  umask(um);
+  chmod(result.c_str(), 0777 & ~um);
+
+  return result;
+}
+
+static bool RemoveDirRecursively(const std::string &path) {
+  DIR *dir;
+  if ((dir = opendir(path.c_str())) == NULL) {
+    return false;
+  }
+
+  struct dirent *ent;
+  while ((ent = readdir(dir)) != NULL) {
+    if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..")) {
+      continue;
+    }
+
+    if (!RemoveRecursively(blaze_util::JoinPath(path, ent->d_name))) {
+      closedir(dir);
+      return false;
+    }
+  }
+
+  if (closedir(dir) != 0) {
+    return false;
+  }
+
+  return rmdir(path.c_str()) == 0;
+}
+
+bool RemoveRecursively(const std::string &path) {
+  struct stat stat_buf;
+  if (lstat(path.c_str(), &stat_buf) == -1) {
+    // Non-existent is good enough.
+    return errno == ENOENT;
+  }
+
+  if (S_ISDIR(stat_buf.st_mode) && !S_ISLNK(stat_buf.st_mode)) {
+    return RemoveDirRecursively(path);
+  } else {
+    return UnlinkPath(path);
+  }
+}
+
 class PosixPipe : public IPipe {
  public:
   PosixPipe(int recv_socket, int send_socket)
@@ -207,12 +273,20 @@ bool ReadFile(const string &filename, string *content, int max_size) {
   return result;
 }
 
+bool ReadFile(const Path &path, std::string *content, int max_size) {
+  return ReadFile(path.AsNativePath(), content, max_size);
+}
+
 bool ReadFile(const string &filename, void *data, size_t size) {
   int fd = open(filename.c_str(), O_RDONLY);
   if (fd == -1) return false;
   bool result = ReadFrom(fd, data, size);
   close(fd);
   return result;
+}
+
+bool ReadFile(const Path &filename, void *data, size_t size) {
+  return ReadFile(filename.AsNativePath(), data, size);
 }
 
 bool WriteFile(const void *data, size_t size, const string &filename,
@@ -227,6 +301,11 @@ bool WriteFile(const void *data, size_t size, const string &filename,
     return false;  // Can fail on NFS.
   }
   return result == static_cast<int>(size);
+}
+
+bool WriteFile(const void *data, size_t size, const Path &path,
+               unsigned int perm) {
+  return WriteFile(data, size, path.AsNativePath(), perm);
 }
 
 int WriteToStdOutErr(const void *data, size_t size, bool to_stdout) {
@@ -248,9 +327,9 @@ int RenameDirectory(const std::string &old_name, const std::string &new_name) {
   }
 }
 
-bool ReadDirectorySymlink(const string &name, string *result) {
+bool ReadDirectorySymlink(const blaze_util::Path &name, string *result) {
   char buf[PATH_MAX + 1];
-  int len = readlink(name.c_str(), buf, PATH_MAX);
+  int len = readlink(name.AsNativePath().c_str(), buf, PATH_MAX);
   if (len < 0) {
     return false;
   }
@@ -264,9 +343,15 @@ bool UnlinkPath(const string &file_path) {
   return unlink(file_path.c_str()) == 0;
 }
 
+bool UnlinkPath(const Path &file_path) {
+  return UnlinkPath(file_path.AsNativePath());
+}
+
 bool PathExists(const string& path) {
   return access(path.c_str(), F_OK) == 0;
 }
+
+bool PathExists(const Path &path) { return PathExists(path.AsNativePath()); }
 
 string MakeCanonical(const char *path) {
   char *resolved_path = realpath(path, NULL);
@@ -297,18 +382,32 @@ bool CanReadFile(const std::string &path) {
   return !IsDirectory(path) && CanAccess(path, true, false, false);
 }
 
+bool CanReadFile(const Path &path) {
+  return CanReadFile(path.AsNativePath());
+}
+
 bool CanExecuteFile(const std::string &path) {
   return !IsDirectory(path) && CanAccess(path, false, false, true);
+}
+
+bool CanExecuteFile(const Path &path) {
+  return CanExecuteFile(path.AsNativePath());
 }
 
 bool CanAccessDirectory(const std::string &path) {
   return IsDirectory(path) && CanAccess(path, true, true, true);
 }
 
+bool CanAccessDirectory(const Path &path) {
+  return CanAccessDirectory(path.AsNativePath());
+}
+
 bool IsDirectory(const string& path) {
   struct stat buf;
   return stat(path.c_str(), &buf) == 0 && S_ISDIR(buf.st_mode);
 }
+
+bool IsDirectory(const Path &path) { return IsDirectory(path.AsNativePath()); }
 
 void SyncFile(const string& path) {
   const char* file_path = path.c_str();
@@ -325,15 +424,17 @@ void SyncFile(const string& path) {
   close(fd);
 }
 
+void SyncFile(const Path &path) { SyncFile(path.AsNativePath()); }
+
 class PosixFileMtime : public IFileMtime {
  public:
   PosixFileMtime()
       : near_future_(GetFuture(9)),
         distant_future_({GetFuture(10), GetFuture(10)}) {}
 
-  bool IsUntampered(const string &path) override;
-  bool SetToNow(const string &path) override;
-  bool SetToDistantFuture(const string &path) override;
+  bool IsUntampered(const Path &path) override;
+  bool SetToNow(const Path &path) override;
+  bool SetToDistantFuture(const Path &path) override;
 
  private:
   // 9 years in the future.
@@ -341,14 +442,14 @@ class PosixFileMtime : public IFileMtime {
   // 10 years in the future.
   const struct utimbuf distant_future_;
 
-  static bool Set(const string &path, const struct utimbuf &mtime);
+  static bool Set(const Path &path, const struct utimbuf &mtime);
   static time_t GetNow();
   static time_t GetFuture(unsigned int years);
 };
 
-bool PosixFileMtime::IsUntampered(const string &path) {
+bool PosixFileMtime::IsUntampered(const Path &path) {
   struct stat buf;
-  if (stat(path.c_str(), &buf)) {
+  if (stat(path.AsNativePath().c_str(), &buf)) {
     return false;
   }
 
@@ -360,18 +461,18 @@ bool PosixFileMtime::IsUntampered(const string &path) {
   return S_ISDIR(buf.st_mode) || (buf.st_mtime > near_future_);
 }
 
-bool PosixFileMtime::SetToNow(const string &path) {
+bool PosixFileMtime::SetToNow(const Path &path) {
   time_t now(GetNow());
   struct utimbuf times = {now, now};
   return Set(path, times);
 }
 
-bool PosixFileMtime::SetToDistantFuture(const string &path) {
+bool PosixFileMtime::SetToDistantFuture(const Path &path) {
   return Set(path, distant_future_);
 }
 
-bool PosixFileMtime::Set(const string &path, const struct utimbuf &mtime) {
-  return utime(path.c_str(), &mtime) == 0;
+bool PosixFileMtime::Set(const Path &path, const struct utimbuf &mtime) {
+  return utime(path.AsNativePath().c_str(), &mtime) == 0;
 }
 
 time_t PosixFileMtime::GetNow() {
@@ -397,6 +498,10 @@ IFileMtime *CreateFileMtime() { return new PosixFileMtime(); }
 // On failure, this returns false and sets errno.
 bool MakeDirectories(const string &path, unsigned int mode) {
   return MakeDirectories(path, mode, true);
+}
+
+bool MakeDirectories(const Path &path, unsigned int mode) {
+  return MakeDirectories(path.AsNativePath(), mode);
 }
 
 string GetCwd() {

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -35,10 +36,8 @@ import java.io.IOException;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/**
- * A class that groups services in the scope of the action. Like the FileOutErr object.
- */
-public class ActionExecutionContext implements Closeable {
+/** A class that groups services in the scope of the action. Like the FileOutErr object. */
+public class ActionExecutionContext implements Closeable, ActionContext.ActionContextRegistry {
 
   /** Enum for --subcommands flag */
   public enum ShowSubcommands {
@@ -58,6 +57,8 @@ public class ActionExecutionContext implements Closeable {
   private final ActionInputPrefetcher actionInputPrefetcher;
   private final ActionKeyContext actionKeyContext;
   private final MetadataHandler metadataHandler;
+  private final boolean rewindingEnabled;
+  private final LostInputsCheck lostInputsCheck;
   private final FileOutErr fileOutErr;
   private final ExtendedEventHandler eventHandler;
   private final ImmutableMap<String, String> clientEnv;
@@ -71,6 +72,7 @@ public class ActionExecutionContext implements Closeable {
   @Nullable private ImmutableList<FilesetOutputSymlink> outputSymlinks;
 
   private final ArtifactPathResolver pathResolver;
+  private final NestedSetExpander nestedSetExpander;
 
   private ActionExecutionContext(
       Executor executor,
@@ -78,6 +80,8 @@ public class ActionExecutionContext implements Closeable {
       ActionInputPrefetcher actionInputPrefetcher,
       ActionKeyContext actionKeyContext,
       MetadataHandler metadataHandler,
+      boolean rewindingEnabled,
+      LostInputsCheck lostInputsCheck,
       FileOutErr fileOutErr,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
@@ -85,11 +89,14 @@ public class ActionExecutionContext implements Closeable {
       @Nullable ArtifactExpander artifactExpander,
       @Nullable Environment env,
       @Nullable FileSystem actionFileSystem,
-      @Nullable Object skyframeDepsResult) {
+      @Nullable Object skyframeDepsResult,
+      NestedSetExpander nestedSetExpander) {
     this.actionInputFileCache = actionInputFileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
     this.actionKeyContext = actionKeyContext;
     this.metadataHandler = metadataHandler;
+    this.rewindingEnabled = rewindingEnabled;
+    this.lostInputsCheck = lostInputsCheck;
     this.fileOutErr = fileOutErr;
     this.eventHandler = eventHandler;
     this.clientEnv = ImmutableMap.copyOf(clientEnv);
@@ -102,6 +109,7 @@ public class ActionExecutionContext implements Closeable {
     this.pathResolver = ArtifactPathResolver.createPathResolver(actionFileSystem,
         // executor is only ever null in testing.
         executor == null ? null : executor.getExecRoot());
+    this.nestedSetExpander = nestedSetExpander;
   }
 
   public ActionExecutionContext(
@@ -110,19 +118,24 @@ public class ActionExecutionContext implements Closeable {
       ActionInputPrefetcher actionInputPrefetcher,
       ActionKeyContext actionKeyContext,
       MetadataHandler metadataHandler,
+      boolean rewindingEnabled,
+      LostInputsCheck lostInputsCheck,
       FileOutErr fileOutErr,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
       ArtifactExpander artifactExpander,
       @Nullable FileSystem actionFileSystem,
-      @Nullable Object skyframeDepsResult) {
+      @Nullable Object skyframeDepsResult,
+      NestedSetExpander nestedSetExpander) {
     this(
         executor,
         actionInputFileCache,
         actionInputPrefetcher,
         actionKeyContext,
         metadataHandler,
+        rewindingEnabled,
+        lostInputsCheck,
         fileOutErr,
         eventHandler,
         clientEnv,
@@ -130,7 +143,8 @@ public class ActionExecutionContext implements Closeable {
         artifactExpander,
         /*env=*/ null,
         actionFileSystem,
-        skyframeDepsResult);
+        skyframeDepsResult,
+        nestedSetExpander);
   }
 
   public static ActionExecutionContext forInputDiscovery(
@@ -139,17 +153,22 @@ public class ActionExecutionContext implements Closeable {
       ActionInputPrefetcher actionInputPrefetcher,
       ActionKeyContext actionKeyContext,
       MetadataHandler metadataHandler,
+      boolean rewindingEnabled,
+      LostInputsCheck lostInputsCheck,
       FileOutErr fileOutErr,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
       Environment env,
-      @Nullable FileSystem actionFileSystem) {
+      @Nullable FileSystem actionFileSystem,
+      NestedSetExpander nestedSetExpander) {
     return new ActionExecutionContext(
         executor,
         actionInputFileCache,
         actionInputPrefetcher,
         actionKeyContext,
         metadataHandler,
+        rewindingEnabled,
+        lostInputsCheck,
         fileOutErr,
         eventHandler,
         clientEnv,
@@ -157,7 +176,8 @@ public class ActionExecutionContext implements Closeable {
         /*artifactExpander=*/ null,
         env,
         actionFileSystem,
-        /*skyframeDepsResult=*/ null);
+        /*skyframeDepsResult=*/ null,
+        nestedSetExpander);
   }
 
   public ActionInputPrefetcher getActionInputPrefetcher() {
@@ -185,6 +205,19 @@ public class ActionExecutionContext implements Closeable {
         : executor.getExecRoot();
   }
 
+  @Nullable
+  public FileSystem getActionFileSystem() {
+    return actionFileSystem;
+  }
+
+  public boolean isRewindingEnabled() {
+    return rewindingEnabled;
+  }
+
+  public void checkForLostInputs() throws LostInputsActionExecutionException {
+    lostInputsCheck.checkForLostInputs();
+  }
+
   /**
    * Returns the path for an ActionInput.
    *
@@ -204,13 +237,6 @@ public class ActionExecutionContext implements Closeable {
 
   public ArtifactPathResolver getPathResolver() {
     return pathResolver;
-  }
-
-  /**
-   * Returns whether failures should have verbose error messages.
-   */
-  public boolean getVerboseFailures() {
-    return executor.getVerboseFailures();
   }
 
   /**
@@ -246,10 +272,9 @@ public class ActionExecutionContext implements Closeable {
     this.outputSymlinks = outputSymlinks;
   }
 
-  /**
-   * Looks up and returns an action context implementation of the given interface type.
-   */
-  public <T extends ActionContext> T getContext(Class<? extends T> type) {
+  @Override
+  @Nullable
+  public <T extends ActionContext> T getContext(Class<T> type) {
     return executor.getContext(type);
   }
 
@@ -263,13 +288,21 @@ public class ActionExecutionContext implements Closeable {
       return;
     }
 
-    String reason;
+    StringBuilder reason = new StringBuilder();
     ActionOwner owner = spawn.getResourceOwner().getOwner();
     if (owner == null) {
-      reason = spawn.getResourceOwner().prettyPrint();
+      reason.append(spawn.getResourceOwner().prettyPrint());
     } else {
-      reason = Label.print(owner.getLabel())
-          + " [" + spawn.getResourceOwner().prettyPrint() + "]";
+      reason.append(Label.print(owner.getLabel()));
+      reason.append(" [");
+      reason.append(spawn.getResourceOwner().prettyPrint());
+      reason.append(", configuration: ");
+      reason.append(owner.getConfigurationChecksum());
+      if (owner.getExecutionPlatform() != null) {
+        reason.append(", execution platform: ");
+        reason.append(owner.getExecutionPlatform().label());
+      }
+      reason.append("]");
     }
     String message = Spawns.asShellCommand(spawn, getExecRoot(), showSubcommands.prettyPrintArgs);
     getEventHandler().handle(Event.of(EventKind.SUBCOMMAND, null, "# " + reason + "\n" + message));
@@ -307,9 +340,20 @@ public class ActionExecutionContext implements Closeable {
     return actionKeyContext;
   }
 
+  public NestedSetExpander getNestedSetExpander() {
+    return nestedSetExpander;
+  }
+
   @Override
   public void close() throws IOException {
-    fileOutErr.close();
+    // Ensure that we close both fileOutErr and actionFileSystem even if one throws.
+    try {
+      fileOutErr.close();
+    } finally {
+      if (actionFileSystem instanceof Closeable) {
+        ((Closeable) actionFileSystem).close();
+      }
+    }
   }
 
   /**
@@ -323,6 +367,8 @@ public class ActionExecutionContext implements Closeable {
         actionInputPrefetcher,
         actionKeyContext,
         metadataHandler,
+        rewindingEnabled,
+        lostInputsCheck,
         fileOutErr,
         eventHandler,
         clientEnv,
@@ -330,6 +376,19 @@ public class ActionExecutionContext implements Closeable {
         artifactExpander,
         env,
         actionFileSystem,
-        skyframeDepsResult);
+        skyframeDepsResult,
+        nestedSetExpander);
+  }
+
+  /**
+   * A way of checking whether any lost inputs have been detected during the execution of this
+   * action.
+   */
+  public interface LostInputsCheck {
+
+    LostInputsCheck NONE = () -> {};
+
+    /** Throws if inputs have been lost. */
+    void checkForLostInputs() throws LostInputsActionExecutionException;
   }
 }
