@@ -223,6 +223,7 @@ int main(int argc, char *argv[]) {
     if (arg.compare("OSO_PREFIX_MAP_PWD") == 0) {
       arg = "-Wl,-oso_prefix," + std::string(cwd.get()) + "/";
     }
+    FindAndReplace("__BAZEL_EXECUTION_ROOT__", std::string(cwd.get()), &arg);
     FindAndReplace("__BAZEL_XCODE_DEVELOPER_DIR__", developer_dir, &arg);
     FindAndReplace("__BAZEL_XCODE_SDKROOT__", sdk_root, &arg);
 
