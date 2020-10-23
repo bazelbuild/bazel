@@ -34,6 +34,7 @@ import net.starlark.java.syntax.DictExpression;
 import net.starlark.java.syntax.DotExpression;
 import net.starlark.java.syntax.Expression;
 import net.starlark.java.syntax.ExpressionStatement;
+import net.starlark.java.syntax.FloatLiteral;
 import net.starlark.java.syntax.FlowStatement;
 import net.starlark.java.syntax.ForStatement;
 import net.starlark.java.syntax.Identifier;
@@ -462,6 +463,8 @@ final class Eval {
         } else {
           return StarlarkInt.of((BigInteger) n);
         }
+      case FLOAT_LITERAL:
+        return StarlarkFloat.of(((FloatLiteral) expr).getValue());
       case LIST_EXPR:
         return evalList(fr, (ListExpression) expr);
       case SLICE:

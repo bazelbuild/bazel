@@ -83,6 +83,10 @@ final class EvalUtils {
           if (y instanceof StarlarkInt) {
             // int + int
             return StarlarkInt.add((StarlarkInt) x, (StarlarkInt) y);
+          } else if (y instanceof StarlarkFloat) {
+            // int + float
+            double z = ((StarlarkInt) x).toFiniteDouble() + ((StarlarkFloat) y).toDouble();
+            return StarlarkFloat.of(z);
           }
 
         } else if (x instanceof String) {
@@ -103,6 +107,17 @@ final class EvalUtils {
             return StarlarkList.concat((StarlarkList<?>) x, (StarlarkList<?>) y, mu);
           }
 
+        } else if (x instanceof StarlarkFloat) {
+          double xf = ((StarlarkFloat) x).toDouble();
+          if (y instanceof StarlarkFloat) {
+            // float + float
+            double z = xf + ((StarlarkFloat) y).toDouble();
+            return StarlarkFloat.of(z);
+          } else if (y instanceof StarlarkInt) {
+            // float + int
+            double z = xf + ((StarlarkInt) y).toFiniteDouble();
+            return StarlarkFloat.of(z);
+          }
         }
         break;
 
@@ -144,9 +159,27 @@ final class EvalUtils {
         break;
 
       case MINUS:
-        if (x instanceof StarlarkInt && y instanceof StarlarkInt) {
-          // x - y
-          return StarlarkInt.subtract((StarlarkInt) x, (StarlarkInt) y);
+        if (x instanceof StarlarkInt) {
+          if (y instanceof StarlarkInt) {
+            // int - int
+            return StarlarkInt.subtract((StarlarkInt) x, (StarlarkInt) y);
+          } else if (y instanceof StarlarkFloat) {
+            // int - float
+            double z = ((StarlarkInt) x).toFiniteDouble() - ((StarlarkFloat) y).toDouble();
+            return StarlarkFloat.of(z);
+          }
+
+        } else if (x instanceof StarlarkFloat) {
+          double xf = ((StarlarkFloat) x).toDouble();
+          if (y instanceof StarlarkFloat) {
+            // float - float
+            double z = xf - ((StarlarkFloat) y).toDouble();
+            return StarlarkFloat.of(z);
+          } else if (y instanceof StarlarkInt) {
+            // float - int
+            double z = xf - ((StarlarkInt) y).toFiniteDouble();
+            return StarlarkFloat.of(z);
+          }
         }
         break;
 
@@ -155,7 +188,7 @@ final class EvalUtils {
           StarlarkInt xi = (StarlarkInt) x;
           if (y instanceof StarlarkInt) {
             // int * int
-            return StarlarkInt.multiply((StarlarkInt) x, (StarlarkInt) y);
+            return StarlarkInt.multiply(xi, (StarlarkInt) y);
           } else if (y instanceof String) {
             // int * string
             return repeatString((String) y, xi);
@@ -165,6 +198,10 @@ final class EvalUtils {
           } else if (y instanceof StarlarkList) {
             // int * list
             return ((StarlarkList<?>) y).repeat(xi, mu);
+          } else if (y instanceof StarlarkFloat) {
+            // int * float
+            double z = xi.toFiniteDouble() * ((StarlarkFloat) y).toDouble();
+            return StarlarkFloat.of(z);
           }
 
         } else if (x instanceof String) {
@@ -184,24 +221,77 @@ final class EvalUtils {
             // list * int
             return ((StarlarkList<?>) x).repeat((StarlarkInt) y, mu);
           }
+
+        } else if (x instanceof StarlarkFloat) {
+          double xf = ((StarlarkFloat) x).toDouble();
+          if (y instanceof StarlarkFloat) {
+            // float * float
+            return StarlarkFloat.of(xf * ((StarlarkFloat) y).toDouble());
+          } else if (y instanceof StarlarkInt) {
+            // float * int
+            return StarlarkFloat.of(xf * ((StarlarkInt) y).toFiniteDouble());
+          }
         }
         break;
 
-      case SLASH:
-        throw Starlark.errorf("The `/` operator is not allowed. For integer division, use `//`.");
+      case SLASH: // real division
+        if (x instanceof StarlarkInt) {
+          double xf = ((StarlarkInt) x).toFiniteDouble();
+          if (y instanceof StarlarkInt) {
+            // int / int
+            return StarlarkFloat.div(xf, ((StarlarkInt) y).toFiniteDouble());
+          } else if (y instanceof StarlarkFloat) {
+            // int / float
+            return StarlarkFloat.div(xf, ((StarlarkFloat) y).toDouble());
+          }
+
+        } else if (x instanceof StarlarkFloat) {
+          double xf = ((StarlarkFloat) x).toDouble();
+          if (y instanceof StarlarkFloat) {
+            // float / float
+            return StarlarkFloat.div(xf, ((StarlarkFloat) y).toDouble());
+          } else if (y instanceof StarlarkInt) {
+            // float / int
+            return StarlarkFloat.div(xf, ((StarlarkInt) y).toFiniteDouble());
+          }
+        }
+        break;
 
       case SLASH_SLASH:
-        if (x instanceof StarlarkInt && y instanceof StarlarkInt) {
-          // x // y
-          return StarlarkInt.floordiv((StarlarkInt) x, (StarlarkInt) y);
+        if (x instanceof StarlarkInt) {
+          if (y instanceof StarlarkInt) {
+            // int // int
+            return StarlarkInt.floordiv((StarlarkInt) x, (StarlarkInt) y);
+          } else if (y instanceof StarlarkFloat) {
+            // int // float
+            double xf = ((StarlarkInt) x).toFiniteDouble();
+            double yf = ((StarlarkFloat) y).toDouble();
+            return StarlarkFloat.floordiv(xf, yf);
+          }
+
+        } else if (x instanceof StarlarkFloat) {
+          double xf = ((StarlarkFloat) x).toDouble();
+          if (y instanceof StarlarkFloat) {
+            // float // float
+            return StarlarkFloat.floordiv(xf, ((StarlarkFloat) y).toDouble());
+          } else if (y instanceof StarlarkInt) {
+            // float // int
+            return StarlarkFloat.floordiv(xf, ((StarlarkInt) y).toFiniteDouble());
+          }
         }
         break;
 
       case PERCENT:
         if (x instanceof StarlarkInt) {
           if (y instanceof StarlarkInt) {
-            // x % y
+            // int % int
             return StarlarkInt.mod((StarlarkInt) x, (StarlarkInt) y);
+
+          } else if (y instanceof StarlarkFloat) {
+            // int % float
+            double xf = ((StarlarkInt) x).toFiniteDouble();
+            double yf = ((StarlarkFloat) y).toDouble();
+            return StarlarkFloat.mod(xf, yf);
           }
 
         } else if (x instanceof String) {
@@ -215,6 +305,16 @@ final class EvalUtils {
             }
           } catch (IllegalFormatException ex) {
             throw new EvalException(ex);
+          }
+
+        } else if (x instanceof StarlarkFloat) {
+          double xf = ((StarlarkFloat) x).toDouble();
+          if (y instanceof StarlarkFloat) {
+            // float % float
+            return StarlarkFloat.mod(xf, ((StarlarkFloat) y).toDouble());
+          } else if (y instanceof StarlarkInt) {
+            // float % int
+            return StarlarkFloat.mod(xf, ((StarlarkInt) y).toFiniteDouble());
           }
         }
         break;
@@ -302,12 +402,16 @@ final class EvalUtils {
       case MINUS:
         if (x instanceof StarlarkInt) {
           return StarlarkInt.uminus((StarlarkInt) x); // -int
+        } else if (x instanceof StarlarkFloat) {
+          return StarlarkFloat.of(-((StarlarkFloat) x).toDouble()); // -float
         }
         break;
 
       case PLUS:
         if (x instanceof StarlarkInt) {
           return x; // +int
+        } else if (x instanceof StarlarkFloat) {
+          return x; // +float
         }
         break;
 

@@ -31,13 +31,13 @@ final class Lexer {
   final FileLocations locs;
 
   // Information about current token. Updated by nextToken.
-  // raw and value are defined only for STRING, INT, IDENTIFIER, and COMMENT.
+  // raw and value are defined only for STRING, INT, FLOAT, IDENTIFIER, and COMMENT.
   // TODO(adonovan): rename s/xyz/tokenXyz/
   TokenKind kind;
   int start; // start offset
   int end; // end offset
   String raw; // source text of token
-  Object value; // String or Integer/Long/BigInteger value of token
+  Object value; // String, Integer/Long/BigInteger, or Double value of token
 
   // --- end of parser-visible fields ---
 
@@ -229,7 +229,7 @@ final class Lexer {
    * delimiter (3 x quot), and advances 'pos' by two if so.
    */
   private boolean skipTripleQuote(char quot) {
-    if (lookaheadIs(0, quot) && lookaheadIs(1, quot)) {
+    if (peek(0) == quot && peek(1) == quot) {
       pos += 2;
       return true;
     } else {
@@ -273,7 +273,7 @@ final class Lexer {
             // Insert \ and the following character.
             // As in Python, it means that a raw string can never end with a single \.
             literal.append('\\');
-            if (lookaheadIs(0, '\r') && lookaheadIs(1, '\n')) {
+            if (peek(0) == '\r' && peek(1) == '\n') {
               literal.append("\n");
               pos += 2;
             } else if (buffer[pos] == '\r' || buffer[pos] == '\n') {
@@ -289,7 +289,7 @@ final class Lexer {
           pos++;
           switch (c) {
             case '\r':
-              if (lookaheadIs(0, '\n')) {
+              if (peek(0) == '\n') {
                 pos += 1;
                 break;
               } else {
@@ -426,7 +426,7 @@ final class Lexer {
           return;
         case '\\':
           if (isRaw) {
-            if (lookaheadIs(0, '\r') && lookaheadIs(1, '\n')) {
+            if (peek(0) == '\r' && peek(1) == '\n') {
               // There was a CRLF after the newline. No shortcut possible, since it needs to be
               // transformed into a single LF.
               pos = contentStartPos;
@@ -547,62 +547,6 @@ final class Lexer {
     return bufferSlice(oldPos, pos);
   }
 
-  private String scanInteger() {
-    int oldPos = pos - 1;
-    loop:
-    while (pos < buffer.length) {
-      char c = buffer[pos];
-      switch (c) {
-        case 'X': case 'x': // for hexadecimal prefix
-        case 'O': case 'o': // for octal prefix
-        case 'a': case 'A':
-        case 'b': case 'B':
-        case 'c': case 'C':
-        case 'd': case 'D':
-        case 'e': case 'E':
-        case 'f': case 'F':
-          if (buffer[oldPos] != '0') {
-            // A number not starting with zero must be decimal and can only contain decimal digits.
-            break loop;
-          }
-          pos++;
-          break;
-        case '0': case '1':
-        case '2': case '3':
-        case '4': case '5':
-        case '6': case '7':
-        case '8': case '9':
-          pos++;
-          break;
-        default:
-          break loop;
-      }
-    }
-    return bufferSlice(oldPos, pos);
-  }
-
-  /**
-   * Scans an integer literal.
-   *
-   * <p>ON ENTRY: 'pos' is 1 + the index of the first char in the literal.
-   * ON EXIT: 'pos' is 1 + the index of the last char in the literal.
-   */
-  private void integer() {
-    int oldPos = pos - 1;
-    String literal = scanInteger();
-
-    Number value;
-    try {
-      value = IntLiteral.scan(literal);
-    } catch (NumberFormatException ex) {
-      error(ex.getMessage(), oldPos);
-      value = 0;
-    }
-
-    setToken(TokenKind.INT, oldPos, pos);
-    setValue(value);
-  }
-
   /**
    * Tokenizes a two-char operator.
    * @return true if it tokenized an operator
@@ -627,9 +571,15 @@ final class Lexer {
     }
   }
 
-  /** Test if the character at pos+p is c. */
-  private boolean lookaheadIs(int p, char c) {
-    return pos + p < buffer.length && buffer[pos + p] == c;
+  // Returns the ith unconsumed char, or -1 for EOF.
+  private int peek(int i) {
+    return pos + i < buffer.length ? buffer[pos + i] : -1;
+  }
+
+  // Consumes a char and returns the next unconsumed char, or -1 for EOF.
+  private int next() {
+    pos++;
+    return peek(0);
   }
 
   /**
@@ -690,10 +640,10 @@ final class Lexer {
           popParen();
           break;
         case '>':
-          if (lookaheadIs(0, '>') && lookaheadIs(1, '=')) {
+          if (peek(0) == '>' && peek(1) == '=') {
             setToken(TokenKind.GREATER_GREATER_EQUALS, pos - 1, pos + 2);
             pos += 2;
-          } else if (lookaheadIs(0, '>')) {
+          } else if (peek(0) == '>') {
             setToken(TokenKind.GREATER_GREATER, pos - 1, pos + 1);
             pos += 1;
           } else {
@@ -701,10 +651,10 @@ final class Lexer {
           }
           break;
         case '<':
-          if (lookaheadIs(0, '<') && lookaheadIs(1, '=')) {
+          if (peek(0) == '<' && peek(1) == '=') {
             setToken(TokenKind.LESS_LESS_EQUALS, pos - 1, pos + 2);
             pos += 2;
-          } else if (lookaheadIs(0, '<')) {
+          } else if (peek(0) == '<') {
             setToken(TokenKind.LESS_LESS, pos - 1, pos + 1);
             pos += 1;
           } else {
@@ -742,10 +692,10 @@ final class Lexer {
           setToken(TokenKind.CARET, pos - 1, pos);
           break;
         case '/':
-          if (lookaheadIs(0, '/') && lookaheadIs(1, '=')) {
+          if (peek(0) == '/' && peek(1) == '=') {
             setToken(TokenKind.SLASH_SLASH_EQUALS, pos - 1, pos + 2);
             pos += 2;
-          } else if (lookaheadIs(0, '/')) {
+          } else if (peek(0) == '/') {
             setToken(TokenKind.SLASH_SLASH, pos - 1, pos + 1);
             pos += 1;
           } else {
@@ -755,9 +705,6 @@ final class Lexer {
           break;
         case ';':
           setToken(TokenKind.SEMI, pos - 1, pos);
-          break;
-        case '.':
-          setToken(TokenKind.DOT, pos - 1, pos);
           break;
         case '*':
           setToken(TokenKind.STAR, pos - 1, pos);
@@ -769,9 +716,9 @@ final class Lexer {
           break;
         case '\\':
           // Backslash character is valid only at the end of a line (or in a string)
-          if (lookaheadIs(0, '\n')) {
+          if (peek(0) == '\n') {
             pos += 1; // skip the end of line character
-          } else if (lookaheadIs(0, '\r') && lookaheadIs(1, '\n')) {
+          } else if (peek(0) == '\r' && peek(1) == '\n') {
             pos += 2; // skip the CRLF at the end of line
           } else {
             setToken(TokenKind.ILLEGAL, pos - 1, pos);
@@ -799,16 +746,23 @@ final class Lexer {
           break;
         default:
           // detect raw strings, e.g. r"str"
-          if (c == 'r' && pos < buffer.length && (buffer[pos] == '\'' || buffer[pos] == '\"')) {
-            c = buffer[pos];
-            pos++;
-            stringLiteral(c, true);
+          if (c == 'r') {
+            int c0 = peek(0);
+            if (c0 == '\'' || c0 == '\"') {
+              pos++;
+              stringLiteral((char) c0, true);
+              break;
+            }
+          }
+
+          // int or float literal, or dot
+          if (c == '.' || isdigit(c)) {
+            pos--; // unconsume
+            scanNumberOrDot(c);
             break;
           }
 
-          if (c >= '0' && c <= '9') {
-            integer();
-          } else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
+          if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
             identifierOrKeyword();
           } else {
             error("invalid character: '" + c + "'", pos - 1);
@@ -830,6 +784,143 @@ final class Lexer {
     }
 
     setToken(TokenKind.EOF, pos, pos);
+  }
+
+  // Scans a number (INT or FLOAT) or DOT.
+  // Precondition: c == peek(0) (a dot or digit)
+  //
+  // TODO(adonovan): make this the precondition for all scan functions;
+  // currenly most assume their argument c has been consumed already.
+  private void scanNumberOrDot(int c) {
+    int start = this.pos;
+    boolean fraction = false;
+    boolean exponent = false;
+
+    if (c == '.') {
+      // dot or start of fraction
+      if (!isdigit(peek(1))) {
+        pos++; // consume '.'
+        setToken(TokenKind.DOT, start, pos);
+        return;
+      }
+      fraction = true;
+
+    } else if (c == '0') {
+      // hex, octal, binary or float
+      c = next();
+      if (c == '.') {
+        fraction = true;
+
+      } else if (c == 'x' || c == 'X') {
+        // hex
+        c = next();
+        if (!isxdigit(c)) {
+          error("invalid hex literal", start);
+        }
+        while (isxdigit(c)) {
+          c = next();
+        }
+
+      } else if (c == 'o' || c == 'O') {
+        // octal
+        c = next();
+        while (isdigit(c)) {
+          c = next();
+        }
+
+      } else if (c == 'b' || c == 'B') {
+        // binary
+        c = next();
+        if (!isbdigit(c)) {
+          error("invalid binary literal", start);
+        }
+        while (isbdigit(c)) {
+          c = next();
+        }
+
+      } else {
+        // "0" or float or obsolete octal "0755"
+        while (isdigit(c)) {
+          c = next();
+        }
+        if (c == '.') {
+          fraction = true;
+        } else if (c == 'e' || c == 'E') {
+          exponent = true;
+        }
+      }
+
+    } else {
+      // decimal
+      while (isdigit(c)) {
+        c = next();
+      }
+      if (c == '.') {
+        fraction = true;
+      } else if (c == 'e' || c == 'E') {
+        exponent = true;
+      }
+    }
+
+    if (fraction) {
+      c = next(); // consume '.'
+      while (isdigit(c)) {
+        c = next();
+      }
+
+      if (c == 'e' || c == 'E') {
+        exponent = true;
+      }
+    }
+
+    if (exponent) {
+      c = next(); // consume [eE]
+      if (c == '+' || c == '-') {
+        c = next();
+      }
+      while (isdigit(c)) {
+        c = next();
+      }
+    }
+
+    // float?
+    if (fraction || exponent) {
+      setToken(TokenKind.FLOAT, start, pos);
+      double value = 0.0;
+      try {
+        value = Double.parseDouble(bufferSlice(start, pos));
+        if (!Double.isFinite(value)) {
+          error("floating-point literal too large", start);
+        }
+      } catch (NumberFormatException ex) {
+        error("invalid float literal", start);
+      }
+      setValue(value);
+      return;
+    }
+
+    // int
+    setToken(TokenKind.INT, start, pos);
+    String literal = bufferSlice(start, pos);
+    Number value = 0;
+    try {
+      value = IntLiteral.scan(literal);
+    } catch (NumberFormatException ex) {
+      error(ex.getMessage(), start);
+    }
+    setValue(value);
+  }
+
+  private static boolean isdigit(int c) {
+    return '0' <= c && c <= '9';
+  }
+
+  private static boolean isxdigit(int c) {
+    return isdigit(c) || ('A' <= c && c <= 'F') || ('a' <= c && c <= 'f');
+  }
+
+  private static boolean isbdigit(int c) {
+    return c == '0' || c == '1';
   }
 
   /**

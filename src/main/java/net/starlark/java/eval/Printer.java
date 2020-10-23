@@ -309,51 +309,84 @@ public class Printer {
         throw new MissingFormatWidthException(
             "incomplete format pattern ends with %: " + Starlark.repr(pattern));
       }
-      char directive = pattern.charAt(p + 1);
+      char conv = pattern.charAt(p + 1);
       i = p + 2;
-      switch (directive) {
-        case '%':
-          printer.append('%');
-          continue;
+
+      // %%: literal %
+      if (conv == '%') {
+        printer.append('%');
+        continue;
+      }
+
+      // valid?
+      if ("drsefgEFG".indexOf(conv) < 0) {
+        throw new MissingFormatWidthException(
+            // The call to Starlark.repr doesn't cause an infinite recursion because it's
+            // only used to format a string properly.
+            String.format(
+                "unsupported format character \"%s\" at index %s in %s",
+                String.valueOf(conv), p + 1, Starlark.repr(pattern)));
+      }
+
+      // get argument
+      if (a >= argLength) {
+        throw new MissingFormatWidthException(
+            "not enough arguments for format pattern "
+                + Starlark.repr(pattern)
+                + ": "
+                + Starlark.repr(Tuple.copyOf(arguments)));
+      }
+      Object arg = arguments.get(a++);
+
+      switch (conv) {
         case 'd':
-        case 'r':
-        case 's':
-          if (a >= argLength) {
+          if (arg instanceof StarlarkInt || arg instanceof Integer) {
+            printer.repr(arg);
+          } else if (arg instanceof StarlarkFloat) {
+            double d = ((StarlarkFloat) arg).toDouble();
+            StarlarkInt rounded;
+            try {
+              rounded = StarlarkInt.ofFiniteDouble(d);
+            } catch (IllegalArgumentException unused) {
+              throw new MissingFormatWidthException("got " + arg + ", want a finite number");
+            }
+            printer.repr(rounded);
+          } else {
             throw new MissingFormatWidthException(
-                "not enough arguments for format pattern "
-                    + Starlark.repr(pattern)
-                    + ": "
-                    + Starlark.repr(Tuple.copyOf(arguments)));
+                "invalid argument " + Starlark.repr(arg) + " for format pattern %d");
           }
-          Object argument = arguments.get(a++);
-          switch (directive) {
-            case 'd':
-              if (!(argument instanceof StarlarkInt || argument instanceof Integer)) {
-                throw new MissingFormatWidthException(
-                    "invalid argument " + Starlark.repr(argument) + " for format pattern %d");
-              }
-              printer.repr(argument);
-              continue;
+          continue;
 
-            case 'r':
-              printer.repr(argument);
-              continue;
-
-            case 's':
-              printer.str(argument);
-              continue;
-
-            default:
-              // no-op
+        case 'e':
+        case 'f':
+        case 'g':
+        case 'E':
+        case 'F':
+        case 'G':
+          double v;
+          if (arg instanceof Integer) {
+            v = (double) (Integer) arg;
+          } else if (arg instanceof StarlarkInt) {
+            v = ((StarlarkInt) arg).toDouble();
+          } else if (arg instanceof StarlarkFloat) {
+            v = ((StarlarkFloat) arg).toDouble();
+          } else {
+            throw new MissingFormatWidthException(
+                "invalid argument " + Starlark.repr(arg) + " for format pattern %d");
           }
-          // fall through
+          printer.str(StarlarkFloat.format(v, conv));
+          continue;
+
+        case 'r':
+          printer.repr(arg);
+          continue;
+
+        case 's':
+          printer.str(arg);
+          continue;
+
         default:
-          throw new MissingFormatWidthException(
-              // The call to Starlark.repr doesn't cause an infinite recursion because it's
-              // only used to format a string properly
-              String.format(
-                  "unsupported format character \"%s\" at index %s in %s",
-                  String.valueOf(directive), p + 1, Starlark.repr(pattern)));
+          throw new IllegalStateException("unreachable");
       }
     }
     if (a < argLength) {

@@ -315,6 +315,87 @@ class MethodLibrary {
     return Starlark.truth(x);
   }
 
+  @StarlarkMethod(
+      name = "float",
+      doc =
+          "Returns x as a float value. " //
+              + "<ul><li>If <code>x</code> is already a float, <code>float</code> returns it"
+              + " unchanged. " //
+              + "<li>If <code>x</code> is a bool, <code>float</code> returns 1.0 for True and 0.0"
+              + " for False. " //
+              + "<li>If <code>x</code> is an int, <code>float</code> returns the nearest"
+              + " finite floating-point value to x, or an error if the magnitude is too large. " //
+              + "<li>If <code>x</code> is a string, it must be a valid floating-point literal, or"
+              + " be equal (ignoring case) to <code>NaN</code>, <code>Inf</code>, or"
+              + " <code>Infinity</code>, optionally preceded by a <code>+</code> or <code>-</code>"
+              + " sign. " //
+              + "</ul>" //
+              + "Any other value causes an error. With no argument, <code>float()</code> returns"
+              + " 0.0.",
+      parameters = {
+        @Param(name = "x", doc = "The value to convert.", defaultValue = "unbound"),
+      })
+  public StarlarkFloat floatForStarlark(Object x) throws EvalException {
+    if (x instanceof String) {
+      String s = (String) x;
+      if (s.isEmpty()) {
+        throw Starlark.errorf("empty string");
+      }
+
+      double d;
+      switch (Ascii.toLowerCase(s.charAt(s.length() - 1))) {
+        case 'n':
+        case 'f':
+        case 'y': // {,+,-}{NaN,Inf,Infinity}
+          // non-finite
+          if (Ascii.equalsIgnoreCase(s, "nan")
+              || Ascii.equalsIgnoreCase(s, "+nan")
+              || Ascii.equalsIgnoreCase(s, "-nan")) {
+            d = Double.NaN;
+          } else if (Ascii.equalsIgnoreCase(s, "inf")
+              || Ascii.equalsIgnoreCase(s, "+inf")
+              || Ascii.equalsIgnoreCase(s, "+infinity")) {
+            d = Double.POSITIVE_INFINITY;
+          } else if (Ascii.equalsIgnoreCase(s, "-inf") || Ascii.equalsIgnoreCase(s, "-infinity")) {
+            d = Double.NEGATIVE_INFINITY;
+          } else {
+            throw Starlark.errorf("invalid float literal: %s", s);
+          }
+          break;
+        default:
+          // finite
+          try {
+            d = Double.parseDouble(s);
+            if (!Double.isFinite(d)) {
+              // parseDouble accepts signed "NaN" and "Infinity" (case sensitive)
+              // but we already handled those cases, so this indicates
+              // a large number rounded to infinity.
+              throw Starlark.errorf("floating-point number too large");
+            }
+          } catch (NumberFormatException unused) {
+            throw Starlark.errorf("invalid float literal: %s", s);
+          }
+          break;
+      } // switch
+      return StarlarkFloat.of(d);
+
+    } else if (x instanceof Boolean) {
+      return StarlarkFloat.of(((Boolean) x).booleanValue() ? 1 : 0);
+
+    } else if (x instanceof StarlarkInt) {
+      return StarlarkFloat.of(((StarlarkInt) x).toFiniteDouble());
+
+    } else if (x instanceof StarlarkFloat) {
+      return (StarlarkFloat) x;
+
+    } else if (x == Starlark.UNBOUND) {
+      return StarlarkFloat.of(0.0);
+
+    } else {
+      throw Starlark.errorf("got %s, want string, int, float, or bool", Starlark.type(x));
+    }
+  }
+
   private static final ImmutableMap<String, Integer> INT_PREFIXES =
       ImmutableMap.of("0b", 2, "0o", 8, "0x", 16);
 
@@ -342,6 +423,9 @@ class MethodLibrary {
               + "    the leading digit cannot be 0; this is to avoid confusion between octal and "
               + "    decimal. The magnitude of the number represented by the string must be within "
               + "    the allowed range for the int type." //
+              + "<li>If <code>x</code> is a float, <code>int</code> returns the integer value of"
+              + "    the float, rounding towards zero. It is an error if x is non-finite (NaN or"
+              + "    infinity)."
               + "</ul>" //
               + "This function fails if <code>x</code> is any other type, or if the value is a "
               + "string not satisfying the above format. Unlike Python's <code>int</code> "
@@ -354,6 +438,8 @@ class MethodLibrary {
               + "int(\"0xFF\", 16) == 255\n"
               + "int(\"10\", 0) == 10\n"
               + "int(\"-0x10\", 0) == -16\n"
+              + "int(\"-0x10\", 0) == -16\n"
+              + "int(\"123.456\") == 123\n"
               + "</pre>",
       parameters = {
         @Param(name = "x", doc = "The string to convert."),
@@ -384,8 +470,14 @@ class MethodLibrary {
       return StarlarkInt.of(((Boolean) x).booleanValue() ? 1 : 0);
     } else if (x instanceof StarlarkInt) {
       return (StarlarkInt) x;
+    } else if (x instanceof StarlarkFloat) {
+      try {
+        return StarlarkInt.ofFiniteDouble(((StarlarkFloat) x).toDouble());
+      } catch (IllegalArgumentException unused) {
+        throw Starlark.errorf("can't convert float %s to int", x);
+      }
     }
-    throw Starlark.errorf("got %s, want string, int, or bool", Starlark.type(x));
+    throw Starlark.errorf("got %s, want string, int, float, or bool", Starlark.type(x));
   }
 
   // TODO(adonovan): move into StarlarkInt.parse in a follow-up.

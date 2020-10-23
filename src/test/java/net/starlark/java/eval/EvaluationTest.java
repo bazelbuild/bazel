@@ -316,11 +316,6 @@ public final class EvaluationTest {
   }
 
   @Test
-  public void testSlashOperatorIsForbidden() throws Exception {
-    ev.new Scenario().testIfErrorContains("The `/` operator is not allowed.", "5 / 2");
-  }
-
-  @Test
   public void testFloorDivision() throws Exception {
     ev.new Scenario()
         .testExpression("6 // 2", StarlarkInt.of(3))

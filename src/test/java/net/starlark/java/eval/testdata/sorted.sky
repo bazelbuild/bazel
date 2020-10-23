@@ -43,6 +43,16 @@ assert_eq(sorted(["a", "B", "c"], reverse=True), ["c", "a", "B"])
 assert_eq(sorted(["a", "B", "c"], key=lower), ["a", "B", "c"])
 assert_eq(sorted(["a", "B", "c"], key=lower, reverse=True), ["c", "B", "a"])
 
+# NaN values compare greater even than +Inf.
+# (By contrast, Python's 'sorted' sorts the numbers between the NaN values,
+# producing a pairwise but not transitively nondescending result.)
+# See for example https://bugs.python.org/issue36095.
+n=float('nan')
+assert_eq(str(sorted([7, 4, n, 19, 2, 6, 3, 87, 17, n, 5, 31, 12, 6, 4, 4, 2, n, 2, 1])),
+          "[1, 2, 2, 2, 3, 4, 4, 4, 5, 6, 6, 7, 12, 17, 19, 31, 87, nan, nan, nan]")
+assert_eq(str(sorted([7, 3, n, 1, 9])), "[1, 3, 7, 9, nan]")
+assert_eq(str(sorted([7, 3, n, 1, 9], reverse=True)), "[nan, 9, 7, 3, 1]")
+
 # The key function is called once per array element, in order
 acc = []
 def keyfn(k):
@@ -69,6 +79,10 @@ assert_([None] <= [None])
 # The first compares greater than the second.
 assert_eq(sorted(["�", "🌿"]), ["🌿", "�"])
 
+
+assert_(False < True)
+
+False < 1 ### unsupported comparison: bool <=> int
 ---
 [{1: None}] <= [{2:None}] ### unsupported comparison: dict <=> dict
 ---

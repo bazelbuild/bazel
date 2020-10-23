@@ -14,7 +14,7 @@ assert_eq(int(True), 1)
 assert_eq(int(False), 0)
 
 # from other
-int(None) ### got NoneType, want string, int, or bool
+int(None) ### got NoneType, want string, int, float, or bool
 ---
 
 # from string

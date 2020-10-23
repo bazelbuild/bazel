@@ -1,8 +1,5 @@
 # tests of JSON encoding/decoding
 
-# TODO(adonovan):
-# - implement indent, float, assert.fails
-
 assert_eq(dir(json), ["decode", "encode", "encode_indent", "indent"])
 
 # Some of these cases were inspired by github.com/nst/JSONTestSuite.
@@ -14,8 +11,8 @@ assert_eq(json.encode(True), "true")
 assert_eq(json.encode(False), "false")
 assert_eq(json.encode(-123), "-123")
 assert_eq(json.encode(12345 * 12345 * 12345 * 12345 * 12345 * 12345), "3539537889086624823140625")
-# assert_eq(json.encode(float(12345*12345*12345*12345*12345*12345)), "3.539537889086625e+24")
-# assert_eq(json.encode(12.345e67), "1.2345e+68")
+assert_eq(json.encode(float(12345*12345*12345*12345*12345*12345)), "3.539537889086625e+24")
+assert_eq(json.encode(12.345e67), "1.2345e+68")
 
 assert_eq(json.encode("hello"), '"hello"')
 # TODO(adonovan): test more control codes when Starlark/Java has string escapes
@@ -38,7 +35,7 @@ assert_eq(json.encode(struct(x = 1, y = "two")), '{"x":1,"y":"two"}')  # a value
 assert_eq(json.encode(struct(y = "two", x = 1, )), '{"x":1,"y":"two"}')  # field name order
 assert_eq(json.encode(struct(**{'\t': 0})), '{"\\t":0}') # struct keys are escaped too
 
-# json.encode(float("NaN")) ## cannot encode non-finite float NaN
+json.encode(float("NaN")) ### cannot encode non-finite float nan
 ---
 json.encode({1: "two"})  ### dict has int key, want string
 ---
@@ -62,14 +59,18 @@ assert_eq(json.decode("false"), False)
 assert_eq(json.decode("-123"), -123)
 assert_eq(json.decode("-0"), 0)
 assert_eq(json.decode("3539537889086624823140625"), 3539537889086624823140625)
-#assert_eq(json.decode("3539537889086624823140625.0"), float(3539537889086624823140625))
-#assert_eq(json.decode("3.539537889086625e+24"), 3.539537889086625e+24)
-#assert_eq(json.decode("0e+1"), 0)
-#assert_eq(json.decode("-0.0"), -0.0)
-#assert_eq(json.decode(
-#    "-0.000000000000000000000000000000000000000000000000000000000000000000000000000001"),
-#    -0.000000000000000000000000000000000000000000000000000000000000000000000000000001)
-# TODO(adonovan): test "5e-1" "5e1" "5.0e1" ".5e1"
+assert_eq(json.decode("3539537889086624823140625.0"), float(3539537889086624823140625))
+assert_eq(json.decode("3.539537889086625e+24"), 3.539537889086625e+24)
+assert_eq(json.decode("0e+1"), 0)
+assert_eq(json.decode("-0.0"), -0.0)
+assert_eq(json.decode(
+    "-0.000000000000000000000000000000000000000000000000000000000000000000000000000001"),
+    -0.000000000000000000000000000000000000000000000000000000000000000000000000000001)
+assert_eq(json.decode("1e999"), float("+Inf"))
+assert_eq(json.decode("-1e999"), float("-Inf"))
+assert_eq(json.decode("5e-1"), 0.5)
+assert_eq(json.decode("5e1"), 50.0)
+assert_eq(json.decode("5.0e1"), 50.0)
 assert_eq(json.decode('[]'), [])
 assert_eq(json.decode('[1]'), [1])
 assert_eq(json.decode('[1,2,3]'), [1, 2, 3])
@@ -92,11 +93,6 @@ mutable.append(3)
 mutable[0][1] = 2
 assert_eq(str(mutable), "[{1: 2}, 3]")
 
-# def decode_error(expr, error):
-#     assert.fails(lambda: json.decode(expr), error)
-
-# decode_error('truefalse',
-#              "json.decode: at offset 4, unexpected character "f" after value")
 json.decode('truefalse') ### at offset 4, unexpected character "f" after value
 ---
 json.decode('"abc') ### unclosed string literal
@@ -106,6 +102,8 @@ json.decode('"ab\\gc"') ### invalid escape '\\g'
 json.decode("'abc'") ### unexpected character "'"
 ---
 json.decode("1.2.3") ### invalid number: 1.2.3
+---
+json.decode(".5e1") ### unexpected character "\."
 ---
 json.decode("+1") ### unexpected character "\+"
 ---
@@ -205,9 +203,9 @@ assert_eq(codec(strings), strings)
 # number round-tripping
 numbers = [
      0, 1, -1, +1,
-      # 0.0, -0.0, 1.0, -1.0, +1.0, 1e6, -1e6, 1.23e45, -1.23e-45,
+     0.0, -0.0, 1.0, -1.0, +1.0, 1e6, -1e6, 1.23e45, -1.23e-45,
      3539537889086624823140625,
-#     float(3539537889086624823140625),
+     float(3539537889086624823140625),
 ]
 assert_eq(codec(numbers), numbers)
 

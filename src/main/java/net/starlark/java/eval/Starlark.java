@@ -157,9 +157,10 @@ public final class Starlark {
 
   /**
    * Converts a Java value {@code x} to a Starlark one, if x is not already a valid Starlark value.
-   * An Integer, Long, or BigInteger is converted to a Starlark int, a Java List or Map is converted
-   * to a Starlark list or dict, respectively, and null becomes {@link #NONE}. Any other
-   * non-Starlark value causes the function to throw IllegalArgumentException.
+   * An Integer, Long, or BigInteger is converted to a Starlark int, a double is converted to a
+   * Starlark float, a Java List or Map is converted to a Starlark list or dict, respectively, and
+   * null becomes {@link #NONE}. Any other non-Starlark value causes the function to throw
+   * IllegalArgumentException.
    *
    * <p>This function is applied to the results of StarlarkMethod-annotated Java methods.
    */
@@ -175,6 +176,8 @@ public final class Starlark {
         return StarlarkInt.of((Long) x);
       } else if (x instanceof BigInteger) {
         return StarlarkInt.of((BigInteger) x);
+      } else if (x instanceof Double) {
+        return StarlarkFloat.of((double) x);
       }
     } else if (x instanceof List) {
       return StarlarkList.copyOf(mutability, (List<?>) x);
@@ -287,6 +290,8 @@ public final class Starlark {
       return "int";
     } else if (c.equals(Boolean.class)) {
       return "bool";
+    } else if (c.equals(StarlarkFloat.class)) {
+      return "float";
     }
 
     // Shortcut for the most common types.
@@ -366,10 +371,17 @@ public final class Starlark {
    * <ul>
    *   <li>{@code False < True}.
    *   <li>int values are ordered according to mathematical tradition.
+   *   <li>float values are ordered according to IEEE 754, with the exception of NaN values: all NaN
+   *       values compare equal to each other and greater than +Inf. The zero values 0.0 and -0.0
+   *       compare equal.
+   *   <li>int and float values may be compared. The comparison is mathematically exact, even if
+   *       neither argument may be exactly converted to the type of the other. This is the only
+   *       permitted case of comparisons between values of different types. NaN values compare
+   *       greater than all integers.
    *   <li>Strings are ordered lexicographically by their elements (chars). So too are lists and
    *       tuples, though lists are not comparable with tuples.
    *   <li>If x implements Comparable, its {@code compareTo(y)} method may be called to determine
-   *       the comparison if x and y have the same Starlark type, though not necessary the same Java
+   *       the comparison if x and y have the same {@link #type}, though not necessary the same Java
    *       class.
    *   <li>Ordered comparison of any other values is an error (ClassCastException).
    * </ul>
@@ -390,11 +402,24 @@ public final class Starlark {
    */
   static int compareUnchecked(Object x, Object y) {
     if (sameType(x, y)) {
-      // Ordered? e.g. string, int, bool.
+      // Ordered? e.g. string, int, bool, float.
       if (x instanceof Comparable) {
         @SuppressWarnings("unchecked")
         Comparable<Object> xcomp = (Comparable<Object>) x;
         return xcomp.compareTo(y);
+      }
+
+    } else {
+      // different types
+
+      if (x instanceof StarlarkFloat && y instanceof StarlarkInt) {
+        // float < int
+        double xf = ((StarlarkFloat) x).toDouble();
+        return Double.isNaN(xf) ? +1 : -StarlarkInt.compareIntAndDouble((StarlarkInt) y, xf);
+      } else if (x instanceof StarlarkInt && y instanceof StarlarkFloat) {
+        // int < float
+        double yf = ((StarlarkFloat) y).toDouble();
+        return Double.isNaN(yf) ? -1 : StarlarkInt.compareIntAndDouble((StarlarkInt) x, yf);
       }
     }
 
