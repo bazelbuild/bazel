@@ -349,21 +349,20 @@ public class JacocoCoverageRunner {
   private static URL[] getUrls(ClassLoader classLoader, boolean wasWrappedJar) {
     URL[] urls = getClassLoaderUrls(classLoader);
     // If the classpath was too long then a temporary top-level jar is created containing nothing but a manifest with
-    // the original classpath. For the moment, we just assume it's made up of URLs to other jars and extract them.
-    if (urls != null) {
-      if (wasWrappedJar && urls.length == 1) {
-        try {
-          String jarClassPath =
-              new JarInputStream(urls[0].openStream()).getManifest().getMainAttributes().getValue("Class-Path");
-          String[] urlStrings = jarClassPath.split(" ");
-          URL[] newUrls = new URL[urlStrings.length];
-          for (int i = 0; i < urlStrings.length; i++) {
-            newUrls[i] = new URL(urlStrings[i]);
-          }
-          return newUrls;
-        } catch (Exception e) {
-         return null;
+    // the original classpath. Those are the URLs we are looking for.
+    if (wasWrappedJar && urls != null && urls.length == 1) {
+      try {
+        String jarClassPath =
+            new JarInputStream(urls[0].openStream()).getManifest().getMainAttributes().getValue("Class-Path");
+        String[] urlStrings = jarClassPath.split(" ");
+        URL[] newUrls = new URL[urlStrings.length];
+        for (int i = 0; i < urlStrings.length; i++) {
+          newUrls[i] = new URL(urlStrings[i]);
         }
+        return newUrls;
+      } catch (Exception e) {
+        e.printStackTrace();
+        return null;
       }
     }
     return urls;
