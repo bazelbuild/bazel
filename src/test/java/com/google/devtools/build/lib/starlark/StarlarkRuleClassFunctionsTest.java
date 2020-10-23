@@ -1199,6 +1199,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     ClassObject x = (ClassObject) ev.lookup("x");
     assertThat(x.getValue("a")).isEqualTo(StarlarkInt.of(1));
     assertThat(x.getValue("b")).isEqualTo(StarlarkInt.of(2));
+
+    // Update is prohibited.
+    ev.checkEvalErrorContains(
+        "struct value does not support field assignment", "x = struct(a = 1); x.a = 2");
   }
 
   @Test

@@ -302,6 +302,17 @@ final class Eval {
       ListExpression list = (ListExpression) lhs;
       assignSequence(fr, list.getElements(), value);
 
+    } else if (lhs instanceof DotExpression) {
+      // x.f = ...
+      DotExpression dot = (DotExpression) lhs;
+      Object object = eval(fr, dot.getObject());
+      String field = dot.getField().getName();
+      try {
+        EvalUtils.setField(object, field, value);
+      } catch (EvalException ex) {
+        fr.setErrorLocation(dot.getDotLocation());
+        throw ex;
+      }
     } else {
       // Not possible for resolved ASTs.
       throw Starlark.errorf("cannot assign to '%s'", lhs);
