@@ -474,10 +474,10 @@ There are other options for exposing the results as well. </p>
   The cquery Starlark environment differs from a BUILD or .bzl file. It includes all core Starlark
   <a href="https://github.com/bazelbuild/starlark/blob/master/spec.md#built-in-constants-and-functions">
   built-in constants and functions</a>, plus a few cquery-specific ones described below,
-  but not (for example) <code>glob</code> or <code>rule</code>, and it does not support load
-  statements.
+  but not (for example) <code>glob</code>, <code>native</code>, or <code>rule</code>, and it does
+  not support load statements.
 </p>
-<h4 id='build_options'>build_options(target)</h4>
+<h5 id='build_options'>build_options(target)</h5>
 <p>
   <code>build_options(target)</code> returns a map whose keys are build option identifiers (see
   <a href="https://docs.bazel.build/versions/master/skylark/config.html">Configurations</a>)
@@ -487,6 +487,14 @@ There are other options for exposing the results as well. </p>
   If the target is an input file, <code>build_options(target)</code> returns None, as input file
   targets have a null configuration.
 </p>
+<h5 id='providers'>providers(target)</h5>
+<p>
+  <code>providers(target)</code> returns a map whose keys are names of
+  <a href="https://docs.bazel.build/versions/master/skylark/rules.html#providers">providers</a>
+  (for example, <code>"DefaultInfo"</code>) and whose values are their Starlark values. Providers
+  whose values are not legal Starlark values are omitted from this map.
+</p>
+
 <h4>Examples</h4>
 
 <p>
@@ -544,6 +552,55 @@ Print the value of the command line option <code>--javacopt</code> when building
 
   $ bazel cquery //baz --output=starlark --starlark:file=example.cquery
 </pre>
+<p>
+  Print the label of each target which is strictly Python 3. This example uses Starlark functions
+  defined in a file.
+</p>
+<pre>
+  $ cat example.cquery
+
+  def format(target):
+    p = providers(target)
+    py_info = p.get("PyInfo")
+    if py_info and py_info.has_py3_only_sources:
+      return target.label
+    else:
+      return ""
+
+
+  $ bazel cquery //baz --output=starlark --starlark:file=example.cquery
+</pre>
+
+<p>
+  Extract a value from a user defined Provider.
+</p>
+<pre>
+  $ cat some_package/my_rule.bzl
+
+  MyRuleInfo = provider(fields={"color": "the name of a color"})
+
+  def _my_rule_impl(ctx):
+      ...
+      return [MyRuleInfo(color="red")]
+
+  my_rule = rule(
+      implementation = _my_rule_impl,
+      attrs = {...},
+  )
+
+  $ cat example.cquery
+
+  def format(target):
+    p = providers(target)
+    my_rule_info = p.get("//some_package:my_rule.bzl%MyRuleInfo'")
+    if my_rule_info:
+      return my_rule_info.color
+    return ""
+
+
+  $ bazel cquery //baz --output=starlark --starlark:file=example.cquery
+</pre>
+
 
 <h2 id='compare'>cquery vs. query</h2>
 

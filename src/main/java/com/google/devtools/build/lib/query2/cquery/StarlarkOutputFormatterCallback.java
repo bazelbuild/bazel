@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -37,6 +38,7 @@ import java.lang.reflect.Field;
 import java.util.Map;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
@@ -102,6 +104,23 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
       }
       return result.build();
     }
+
+    @StarlarkMethod(
+        name = "providers",
+        documented = false,
+        parameters = {
+          @Param(name = "target"),
+        })
+    public Object providers(ConfiguredTarget target) {
+      if (!(target instanceof AbstractConfiguredTarget)) {
+        return Starlark.NONE;
+      }
+      Dict<String, Object> ret = ((AbstractConfiguredTarget) target).getProvidersDict();
+      if (ret == null) {
+        return Starlark.NONE;
+      }
+      return ret;
+    }
   }
 
   private static final Object[] NO_ARGS = new Object[0];
@@ -146,8 +165,9 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
         throw new QueryException(
             exceptionMessagePrefix + ex.getMessage(), ConfigurableQuery.Code.STARLARK_SYNTAX_ERROR);
       }
+
       // Create a synthetic file that defines a function with single parameter "target",
-      // whose body is provided by the user's expression. Dynamic error will have the wrong column.
+      // whose body is provided by the user's expression. Dynamic errors will have the wrong column.
       String fileBody = "def format(target): return (" + expr + ")";
       input = ParserInput.fromString(fileBody, "--starlark:expr");
     }

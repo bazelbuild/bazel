@@ -1142,4 +1142,75 @@ EOF
   assert_contains "^path=$pkg/foo$" output
 }
 
+function test_starlark_output_providers_function() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+py_library(
+    name = "pylib",
+    srcs = ["pylib.py"],
+    srcs_version = "PY3",
+)
+EOF
+  cat > $pkg/pylib.py <<'EOF'
+pylib=1
+EOF
+  cat > $pkg/outfunc.bzl <<'EOF'
+def format(target):
+    p = providers(target)
+    if not p:
+        return str(target.label) + ':no providers'
+    ret = str(target.label) + ':providers=' + str(sorted(p.keys()))
+    vis_info = p.get('VisibilityProvider')
+    if vis_info:
+        ret += '\n\tVisbilityProvider.label:' + str(vis_info.label)
+    py_info = p.get('PyInfo')
+    if py_info:
+        ret += '\n\tPyInfo:py3_only=' + str(py_info.has_py3_only_sources)
+    return ret
+EOF
+  bazel cquery "//$pkg:pylib" --output=starlark --starlark:file="$pkg/outfunc.bzl" >output \
+    2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:pylib:providers=.*PyInfo" output
+  assert_contains "PyInfo:py3_only=True" output
+
+  # A file
+  bazel cquery "//$pkg:pylib.py" --output=starlark --starlark:file="$pkg/outfunc.bzl" >output \
+    2>"$TEST_log" || fail "Expected success"
+  assert_contains "//$pkg:pylib.py:providers=.*FileProvider.*FilesToRunProvider.*LicensesProvider.*VisibilityProvider" \
+    output
+  assert_contains "VisbilityProvider.label://$pkg:pylib.py" output
+}
+
+function test_starlark_output_providers_starlark_provider() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+load(":my_rule.bzl", "my_rule")
+my_rule(name="myrule")
+EOF
+  cat > $pkg/my_rule.bzl <<'EOF'
+# A no-op rule that manifests a provider
+MyRuleInfo = provider(fields={"label": "a_rule_label"})
+
+def _my_rule_impl(ctx):
+    return [MyRuleInfo(label="some_value")]
+
+my_rule = rule(
+    implementation = _my_rule_impl,
+    attrs = {},
+)
+EOF
+  cat > $pkg/outfunc.bzl <<EOF
+def format(target):
+    p = providers(target)
+    return p["//$pkg:my_rule.bzl%MyRuleInfo"].label
+EOF
+  bazel cquery "//$pkg:myrule" --output=starlark --starlark:file="$pkg/outfunc.bzl" >output \
+    2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "some_value" output
+}
+
 run_suite "${PRODUCT_NAME} configured query tests"
