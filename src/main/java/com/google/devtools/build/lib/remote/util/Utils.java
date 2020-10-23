@@ -177,7 +177,7 @@ public final class Utils {
     if (!expectedHash.equals(actualHash)) {
       String msg =
           String.format(
-              "An output download failed, because the expected hash"
+              "An output download failed, because the expected hash "
                   + "'%s' did not match the received hash '%s'.",
               expectedHash, actualHash);
       throw new IOException(msg);
