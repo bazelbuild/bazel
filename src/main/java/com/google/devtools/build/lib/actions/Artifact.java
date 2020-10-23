@@ -23,6 +23,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -198,8 +199,9 @@ public abstract class Artifact
     return ((DerivedArtifact) artifact).getGeneratingActionKey();
   }
 
-  public static Iterable<SkyKey> keys(Iterable<Artifact> artifacts) {
-    return Iterables.transform(artifacts, Artifact::key);
+  public static Iterable<SkyKey> keys(Collection<Artifact> artifacts) {
+    // Use Collections2 instead of Iterables#transform to ensure O(1) size().
+    return Collections2.transform(artifacts, Artifact::key);
   }
 
   @Override
