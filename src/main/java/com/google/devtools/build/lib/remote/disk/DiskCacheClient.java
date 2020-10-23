@@ -16,13 +16,13 @@ package com.google.devtools.build.lib.remote.disk;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.hash.HashingOutputStream;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -82,14 +82,13 @@ public class DiskCacheClient implements RemoteCacheClient {
   @Override
   public ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
     @Nullable
-    HashingOutputStream hashOut = verifyDownloads ? digestUtil.newHashingOutputStream(out) : null;
+    DigestOutputStream digestOut = verifyDownloads ? digestUtil.newDigestOutputStream(out) : null;
     return Futures.transformAsync(
-        download(digest, hashOut != null ? hashOut : out, /* isActionCache= */ false),
+        download(digest, digestOut != null ? digestOut : out, /* isActionCache= */ false),
         (v) -> {
           try {
-            if (hashOut != null) {
-              Utils.verifyBlobContents(
-                  digest.getHash(), DigestUtil.hashCodeToString(hashOut.hash()));
+            if (digestOut != null) {
+              Utils.verifyBlobContents(digest, digestOut.hash());
             }
             out.flush();
             return Futures.immediateFuture(null);
