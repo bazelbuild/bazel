@@ -19,7 +19,6 @@ load(
     "@bazel_tools//tools/cpp:lib_cc_configure.bzl",
     "escape_string",
     "resolve_labels",
-    "write_builtin_include_directory_paths",
 )
 load(
     "@bazel_tools//tools/cpp:unix_cc_configure.bzl",
@@ -158,7 +157,6 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
             tool_paths["gcov"] = gcov_path
 
         escaped_include_paths = _get_escaped_xcode_cxx_inc_directories(repository_ctx, cc, xcode_toolchains)
-        write_builtin_include_directory_paths(repository_ctx, cc, escaped_include_paths)
         escaped_cxx_include_directories = []
         for path in escaped_include_paths:
             escaped_cxx_include_directories.append(("            \"%s\"," % path))
