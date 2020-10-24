@@ -141,7 +141,7 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
     // differ. (See also #11954, which aims to make even the symbol definitions the same.)
     NORMAL,
 
-    /** A .bzl file loaded during evaluation of the {@code @builtins} pseudo-repository. */
+    /** A .bzl file loaded during evaluation of the {@code @_builtins} pseudo-repository. */
     BUILTINS,
 
     /** The prelude file, whose declarations are implicitly loaded by all BUILD files. */
@@ -182,7 +182,7 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
       return keyInterner.intern(new Key(root, label, kind));
     }
 
-    boolean isPrelude() {
+    boolean isBuildPrelude() {
       return kind == Kind.PRELUDE || kind == Kind.EMPTY_PRELUDE;
     }
 
@@ -227,7 +227,7 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
   }
 
   /** Constructs a key for loading the prelude .bzl. */
-  static Key keyForPrelude(Root root, Label label) {
+  static Key keyForBuildPrelude(Root root, Label label) {
     return Key.create(root, label, Kind.PRELUDE);
   }
 

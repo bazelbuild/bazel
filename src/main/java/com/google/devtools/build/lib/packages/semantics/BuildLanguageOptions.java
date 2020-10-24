@@ -83,9 +83,9 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
-          "This flag tells Bazel how to find the \"@builtins\" .bzl files that govern how "
+          "This flag tells Bazel how to find the \"@_builtins\" .bzl files that govern how "
               + "predeclared symbols for BUILD and .bzl files are defined. This flag is only "
-              + "intended for Bazel developers, to help when writing @builtins .bzl code. "
+              + "intended for Bazel developers, to help when writing @_builtins .bzl code. "
               + "Ordinarily this value is set to \"%install_base%\", which means to use the "
               + "builtins_bzl/ directory located in the install base. However, it can be set to "
               + "the path to the root of a Bazel source tree workspace, in which case the bzl "

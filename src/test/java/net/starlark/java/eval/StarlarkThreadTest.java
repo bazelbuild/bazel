@@ -81,7 +81,7 @@ public final class StarlarkThreadTest {
   }
 
   @Test
-  public void testBuiltinsCanBeShadowed() throws Exception {
+  public void testUniverseCanBeShadowed() throws Exception {
     Module module = Module.create();
     try (Mutability mu = Mutability.create("test")) {
       StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);

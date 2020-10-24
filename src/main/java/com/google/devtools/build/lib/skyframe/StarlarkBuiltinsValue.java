@@ -20,10 +20,10 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /**
- * A Skyframe value representing the Starlark symbols defined by the {@code @builtins}
+ * A Skyframe value representing the Starlark symbols defined by the {@code @_builtins}
  * pseudo-repository.
  *
- * <p>These are parsed from {@code @builtins//:exports.bzl}.
+ * <p>These are parsed from {@code @_builtins//:exports.bzl}.
  */
 public final class StarlarkBuiltinsValue implements SkyValue {
 
@@ -37,7 +37,7 @@ public final class StarlarkBuiltinsValue implements SkyValue {
   /** Contents of the {@code exported_to_java} dict. */
   public final ImmutableMap<String, Object> exportedToJava;
 
-  /** Transitive digest of all .bzl files in {@code @builtins}. */
+  /** Transitive digest of all .bzl files in {@code @_builtins}. */
   public final byte[] transitiveDigest;
 
   public StarlarkBuiltinsValue(
@@ -55,7 +55,7 @@ public final class StarlarkBuiltinsValue implements SkyValue {
   }
 
   /**
-   * Skyframe key for retrieving the {@code @builtins} definitions.
+   * Skyframe key for retrieving the {@code @_builtins} definitions.
    *
    * <p>This has no fields since there is only one {@code StarlarkBuiltinsValue} at a time.
    */
@@ -72,7 +72,7 @@ public final class StarlarkBuiltinsValue implements SkyValue {
 
     @Override
     public String toString() {
-      return "Starlark @builtins";
+      return "Starlark @_builtins";
     }
 
     @Override

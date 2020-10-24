@@ -66,9 +66,9 @@ public class BzlLoadValue implements SkyValue {
     /**
      * Returns the label of the .bzl file to be loaded.
      *
-     * <p>For {@link KeyForBuiltins}, it usually begins with {@code @builtins//:}. Other values are
-     * possible but indicate a bug in the {@code @builtins} .bzl files and will fail during
-     * evaluation.
+     * <p>For {@link KeyForBuiltins}, it must begin with {@code @_builtins//:}. (It is legal for
+     * other keys to use {@code @_builtins}, but since no real repo by that name may be defined,
+     * they won't evaluate to a successful result.)
      */
     abstract Label getLabel();
 
@@ -140,7 +140,7 @@ public class BzlLoadValue implements SkyValue {
     @Override
     BzlCompileValue.Key getCompileKey(Root root) {
       if (isBuildPrelude) {
-        return BzlCompileValue.keyForPrelude(root, label);
+        return BzlCompileValue.keyForBuildPrelude(root, label);
       } else {
         return BzlCompileValue.key(root, label);
       }
@@ -244,13 +244,12 @@ public class BzlLoadValue implements SkyValue {
   }
 
   /**
-   * A key for loading a .bzl during {@code @builtins} evaluation.
+   * A key for loading a .bzl during {@code @_builtins} evaluation.
    *
    * <p>This kind of key is only requested by {@link StarlarkBuiltinsFunction} and its transitively
    * loaded {@link BzlLoadFunction} calls.
    *
-   * <p>The label begins with {@code @builtins//:}, but it is distinct from any .bzl in an external
-   * repository named {@code "@builtins"}.
+   * <p>The label begins with {@code @_builtins//:}, but there is no actual repo by that name.
    */
   @Immutable
   @AutoCodec.VisibleForSerialization
@@ -316,7 +315,7 @@ public class BzlLoadValue implements SkyValue {
     return keyInterner.intern(new KeyForWorkspace(label, workspaceChunk, workspacePath));
   }
 
-  /** Constructs a key for loading a .bzl file within the {@code @builtins} pseudo-repository. */
+  /** Constructs a key for loading a .bzl file within the {@code @_builtins} pseudo-repository. */
   static Key keyForBuiltins(Label label) {
     return keyInterner.intern(new KeyForBuiltins(label));
   }

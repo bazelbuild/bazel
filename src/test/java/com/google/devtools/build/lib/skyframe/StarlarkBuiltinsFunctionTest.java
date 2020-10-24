@@ -43,7 +43,8 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
     ConfiguredRuleClassProvider.Builder builder =
         new ConfiguredRuleClassProvider.Builder()
             .addRuleDefinition(OVERRIDABLE_RULE)
-            .addStarlarkAccessibleTopLevels("overridable_symbol", "original_value");
+            .addStarlarkAccessibleTopLevels("overridable_symbol", "original_value")
+            .addStarlarkAccessibleTopLevels("just_a_symbol", "another_value");
     TestRuleClassProvider.addStandardRules(builder);
     return builder.build();
   }
@@ -51,7 +52,7 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
   // TODO(#11437): Add tests for predeclared env of BUILD (and WORKSPACE?) files, once
   // StarlarkBuiltinsFunction manages that functionality.
 
-  /** Sets up exports.bzl with the given contents and evaluates the {@code @builtins}. */
+  /** Sets up exports.bzl with the given contents and evaluates the {@code @_builtins}. */
   private EvaluationResult<StarlarkBuiltinsValue> evalBuiltins(String... lines) throws Exception {
     scratch.file("tools/builtins_staging/BUILD");
     scratch.file("tools/builtins_staging/exports.bzl", lines);
@@ -62,7 +63,7 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
   }
 
   /**
-   * Sets up exports.bzl with the given contents, evaluates the {@code @builtins}, and returns an
+   * Sets up exports.bzl with the given contents, evaluates the {@code @_builtins}, and returns an
    * expected non-transient Exception.
    */
   private Exception evalBuiltinsToException(String... lines) throws Exception {
@@ -75,7 +76,7 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void evalExportsSuccess() throws Exception {
+  public void basicExportsFunctionality() throws Exception {
     EvaluationResult<StarlarkBuiltinsValue> result =
         evalBuiltins(
             "exported_toplevels = {'overridable_symbol': 'new_value'}",
@@ -88,10 +89,10 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
 
     // Universe symbols are omitted (they're added by the interpreter).
     assertThat(value.predeclaredForBuildBzl).doesNotContainKey("print");
-    // Generic Bazel symbols are present.
+    // General Bazel symbols are present.
     assertThat(value.predeclaredForBuildBzl).containsKey("rule");
-    // Non-overridden symbols are present.
-    assertThat(value.predeclaredForBuildBzl).containsKey("CcInfo");
+    // Non-overridden rule-specific symbols are present.
+    assertThat(value.predeclaredForBuildBzl).containsKey("just_a_symbol");
     // Overridden symbol.
     assertThat(value.predeclaredForBuildBzl).containsEntry("overridable_symbol", "new_value");
     // Overridden native field.
@@ -101,11 +102,12 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
     // Stuff for native rules.
     assertThat(value.exportedToJava).containsExactly("for_native_code", "secret_sauce").inOrder();
     // No test of the digest.
+    // TODO(#11437): Add a digest test here.
   }
 
   @Test
-  public void evalExportsSuccess_withLoad() throws Exception {
-    // TODO(#11437): Use @builtins//:... syntax, once supported. Don't create a real package.
+  public void exportsCanHaveLoad() throws Exception {
+    // TODO(#11437): Use @_builtins//:... syntax, once supported. Don't create a real package.
     scratch.file("builtins_helper/BUILD");
     scratch.file(
         "builtins_helper/dummy.bzl", //
@@ -125,7 +127,30 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void evalExportsFails_missingDictSymbol() throws Exception {
+  public void exportsDependenciesAreLoadedAsBuiltinsBzls() throws Exception {
+    // Ensure that any bzls loaded by exports.bzl also have access to the special @_builtins
+    // features.
+    // TODO(#11437): Use @_builtins//:... syntax, once supported. Don't create a real package.
+    scratch.file("builtins_helper/BUILD");
+    scratch.file(
+        "builtins_helper/dummy.bzl", //
+        "_internal", // symbol only exists for @_builtins bzls
+        "unused = 123");
+
+    EvaluationResult<StarlarkBuiltinsValue> result =
+        evalBuiltins(
+            "load('//builtins_helper:dummy.bzl', 'unused')",
+            "exported_toplevels = {}",
+            "exported_rules = {}",
+            "exported_to_java = {}");
+
+    assertThatEvaluationResult(result).hasNoError();
+  }
+
+  // TODO(#11437): Add test of relative load labels within @_builtins.
+
+  @Test
+  public void exportsDictMustExist() throws Exception {
     Exception ex =
         evalBuiltinsToException(
             "exported_toplevels = {}", //
@@ -140,7 +165,7 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void evalExportsFails_badSymbolType() throws Exception {
+  public void exportsDictMustBeDict() throws Exception {
     Exception ex =
         evalBuiltinsToException(
             "exported_toplevels = {}", //
@@ -154,7 +179,7 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void evalExportsFails_badDictKey() throws Exception {
+  public void exportsDictKeyMustBeString() throws Exception {
     Exception ex =
         evalBuiltinsToException(
             "exported_toplevels = {}", //
@@ -169,7 +194,7 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void evalExportsFails_overrideNotAllowed() throws Exception {
+  public void cannotOverrideGeneralSymbol() throws Exception {
     Exception ex =
         evalBuiltinsToException(
             "exported_toplevels = {}", //
@@ -184,7 +209,7 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void evalExportsFails_parseError() throws Exception {
+  public void parseErrorInExportsHandledGracefully() throws Exception {
     reporter.removeHandler(failFastHandler);
     Exception ex =
         evalBuiltinsToException(
@@ -201,7 +226,7 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void evalExportsFails_evalError() throws Exception {
+  public void evalErrorInExportsHandledGracefully() throws Exception {
     reporter.removeHandler(failFastHandler);
     Exception ex =
         evalBuiltinsToException(
@@ -218,9 +243,9 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void evalExportsFails_errorInDependency() throws Exception {
+  public void evalErrorInDependencyHandledGracefully() throws Exception {
     reporter.removeHandler(failFastHandler);
-    // TODO(#11437): Use @builtins//:... syntax, once supported. Don't create a real package.
+    // TODO(#11437): Use @_builtins//:... syntax, once supported. Don't create a real package.
     scratch.file("builtins_helper/BUILD");
     scratch.file(
         "builtins_helper/dummy.bzl", //

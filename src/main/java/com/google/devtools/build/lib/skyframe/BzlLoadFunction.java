@@ -367,9 +367,9 @@ public class BzlLoadFunction implements SkyFunction {
    * <p>When a Skyfunction that is called by {@code BzlLoadFunction}'s inlining code path in turn
    * calls back into {@code computeInline}, it should forward along the same {@code InliningState}
    * that it received. In particular, {@link StarlarkBuiltinsFunction} forwards the inlining state
-   * to ensure that 1) the .bzls that get loaded from the {@code @builtins} pseudo-repository are
+   * to ensure that 1) the .bzls that get loaded from the {@code @_builtins} pseudo-repository are
    * properly recorded as dependencies of all .bzl files that use builtins injection, and 2) the
-   * {@code @builtins} .bzls are not reevaluated.
+   * builtins .bzls are not reevaluated.
    */
   static class InliningState {
     /**
@@ -382,7 +382,7 @@ public class BzlLoadFunction implements SkyFunction {
      * <p>This is local to current calling context. See {@link #computeInline}.
      */
     // Keyed on the SkyKey, not the label, since label could theoretically be ambiguous, even though
-    // in practice keys from BUILD / WORKSPACE / @builtins don't call each other. (Not sure if
+    // in practice keys from BUILD / WORKSPACE / builtins don't call each other. (Not sure if
     // WORKSPACE chunking can cause duplicate labels to appear, but we're robust regardless.)
     private final LinkedHashSet<BzlLoadValue.Key> loadStack;
 
@@ -601,7 +601,7 @@ public class BzlLoadFunction implements SkyFunction {
     }
 
     // Accumulate a transitive digest of the bzl file, the digests of its direct loads, and the
-    // digest of the @builtins pseudo-repository (if applicable).
+    // digest of the @_builtins pseudo-repository (if applicable).
     Fingerprint fp = new Fingerprint();
     fp.addBytes(compileValue.getDigest());
 
@@ -840,7 +840,7 @@ public class BzlLoadFunction implements SkyFunction {
    * <p>Returns null if there was a missing Skyframe dep or unspecified exception.
    *
    * <p>In the case that injected builtins are used, updates the given fingerprint with the digest
-   * of the {@code @builtins} pseudo-repository.
+   * of the {@code @_builtins} pseudo-repository.
    */
   @Nullable
   private ImmutableMap<String, Object> getAndDigestPredeclaredEnvironment(
