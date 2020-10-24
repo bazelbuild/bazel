@@ -1075,5 +1075,5 @@ these messages.
 
 ## Troubleshooting performance by profiling
 
-See the [Performance Profiling](performance.md#performance-profiling) section.
+See the [Performance Profiling](skylark/performance.md#performance-profiling) section.
 
