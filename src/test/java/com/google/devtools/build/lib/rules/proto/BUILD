@@ -99,6 +99,7 @@ java_test(
     name = "SharedProtoLibraryTest",
     srcs = ["SharedProtoLibraryTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
         "//src/main/java/com/google/devtools/build/lib/rules/proto",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",

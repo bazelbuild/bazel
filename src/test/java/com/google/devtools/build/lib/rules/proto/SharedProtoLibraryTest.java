@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import org.junit.Before;
 import org.junit.Test;
@@ -109,7 +110,7 @@ public class SharedProtoLibraryTest extends BuildViewTestCase {
         "load('//proto:defs.bzl', 'proto_library')",
         "proto_library(name='foo', srcs=['a.proto'], import_prefix='foo')");
 
-    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
+    String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
     ProtoInfo provider = getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
     assertThat(
             Iterables.transform(
@@ -140,7 +141,7 @@ public class SharedProtoLibraryTest extends BuildViewTestCase {
         "genrule(name='g', srcs=[], outs=['generated.proto'], cmd='')",
         "proto_library(name='foo', srcs=['generated.proto'])");
 
-    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
+    String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
     ProtoInfo provider = getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
     assertThat(
             Iterables.transform(
@@ -171,7 +172,7 @@ public class SharedProtoLibraryTest extends BuildViewTestCase {
         "genrule(name='g', srcs=[], outs=['generated.proto'], cmd='')",
         "proto_library(name='foo', srcs=['generated.proto'])");
 
-    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
+    String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
     ProtoInfo provider = getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
     assertThat(
             Iterables.transform(
@@ -202,7 +203,7 @@ public class SharedProtoLibraryTest extends BuildViewTestCase {
         "genrule(name='g', srcs=[], outs=['generated.proto'], cmd='')",
         "proto_library(name='foo', srcs=['generated.proto', 'a.proto'])");
 
-    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
+    String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
     ProtoInfo provider = getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
     assertThat(
             Iterables.transform(
@@ -236,7 +237,7 @@ public class SharedProtoLibraryTest extends BuildViewTestCase {
         "genrule(name='g', srcs=[], outs=['generated.proto'], cmd='')",
         "proto_library(name='foo', srcs=['generated.proto', 'a.proto'])");
 
-    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
+    String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
     ProtoInfo provider = getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
     assertThat(
             Iterables.transform(

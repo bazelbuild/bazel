@@ -1058,7 +1058,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "proto_library(name='p', srcs=['s.proto', 'g.proto'])");
 
     Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a:p"));
-    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
+    String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
     assertThat(commandLine)
         .containsAtLeast(
             "-Ia/s.proto=" + genfiles + "/a/_virtual_imports/p/a/s.proto",
@@ -1081,7 +1081,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "proto_library(name='p', srcs=['s.proto', 'g.proto'])");
 
     Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a:p"));
-    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
+    String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
     assertThat(commandLine)
         .containsAtLeast("-Ia/s.proto=a/s.proto", "-Ia/g.proto=" + genfiles + "/a/g.proto");
   }
@@ -1114,14 +1114,14 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
     {
       Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//x:a"));
-      String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
+      String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
       assertThat(commandLine)
           .containsAtLeast("-Ix/a.proto=x/a.proto", "-Ia.proto=external/foo/a.proto");
     }
 
     {
       Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//x:c"));
-      String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
+      String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
       assertThat(commandLine)
           .containsAtLeast("-Ix/c.proto=x/c.proto", "-Ia/b/c.proto=external/foo/a/b/c.proto");
     }
