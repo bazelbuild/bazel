@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcomma
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.ResourceConverter;
@@ -39,7 +38,6 @@ import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Predicate;
 
 /**
  * Options affecting the execution phase of a build.
@@ -128,9 +126,9 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "Writes intermediate parameter files to output tree even when using remote action"
-              + " execution. Useful when debugging actions. This is implied by --subcommands,"
-              + " --verbose_failures, and --experimental_verbose_failures_filter.")
+          "Writes intermediate parameter files to output tree even when using "
+              + "remote action execution. Useful when debugging actions. "
+              + "This is implied by --subcommands and --verbose_failures.")
   public boolean materializeParamFiles;
 
   @Option(
@@ -142,13 +140,10 @@ public class ExecutionOptions extends OptionsBase {
   public boolean materializeParamFilesDirectly;
 
   public boolean shouldMaterializeParamFiles() {
-    // Implied by --subcommands and verbose_failures
+    // Implied by --subcommands and --verbose_failures
     return materializeParamFiles
         || showSubcommands != ActionExecutionContext.ShowSubcommands.FALSE
-        // Conservatively materialize params files if any failures may be verbose.
-        // TODO(janakr): Could try to thread action label through to here and only materialize for
-        //  those actions, but seems pretty gnarly.
-        || hasSomeVerboseFailures();
+        || verboseFailures;
   }
 
   @Option(
@@ -156,31 +151,8 @@ public class ExecutionOptions extends OptionsBase {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help = "If any command fails, print out the full command line.")
+      help = "If a command fails, print out the full command line.")
   public boolean verboseFailures;
-
-  @Option(
-      name = "experimental_verbose_failures_filter",
-      defaultValue = "null",
-      converter = RegexFilter.RegexFilterConverter.class,
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help =
-          "If a command fails, print out the full command line if its label matches the given"
-              + " regex filter.")
-  public RegexFilter verboseFailuresFilter;
-
-  public boolean hasSomeVerboseFailures() {
-    return verboseFailures || verboseFailuresFilter != null;
-  }
-
-  public Predicate<Label> getVerboseFailuresPredicate() {
-    return verboseFailures
-        ? l -> true
-        : verboseFailuresFilter == null
-            ? l -> false
-            : l -> l == null || verboseFailuresFilter.isIncluded(l.getCanonicalForm());
-  }
 
   @Option(
       name = "subcommands",
@@ -283,6 +255,22 @@ public class ExecutionOptions extends OptionsBase {
               + "(this will force tests to be executed locally one at a time regardless of "
               + "--test_strategy value).")
   public TestOutputFormat testOutput;
+
+  @Option(
+      name = "max_test_output_bytes",
+      defaultValue = "-1",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {
+        OptionEffectTag.TEST_RUNNER,
+        OptionEffectTag.TERMINAL_OUTPUT,
+        OptionEffectTag.EXECUTION
+      },
+      help =
+          "Specifies maximum per-test-log size that can be emitted when --test_summary is 'errors' "
+              + "or 'all'. Useful for avoiding overwhelming the output with excessively noisy test "
+              + "output. The test header is included in the log size. Negative values imply no "
+              + "limit. Output is all or nothing.")
+  public int maxTestOutputBytes;
 
   @Option(
       name = "test_summary",

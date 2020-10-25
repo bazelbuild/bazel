@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
@@ -65,15 +64,27 @@ public class Filegroup implements RuleConfiguredTargetFactory {
 
     NestedSet<Artifact> filesToBuild =
         outputGroupName.isEmpty()
-            ? PrerequisiteArtifacts.nestedSet(ruleContext, "srcs", TransitionMode.TARGET)
-            : getArtifactsForOutputGroup(
-                outputGroupName, ruleContext.getPrerequisites("srcs", TransitionMode.TARGET));
+            ? PrerequisiteArtifacts.nestedSet(ruleContext, "srcs")
+            : getArtifactsForOutputGroup(outputGroupName, ruleContext.getPrerequisites("srcs"));
 
     InstrumentedFilesInfo instrumentedFilesProvider =
         InstrumentedFilesCollector.collectTransitive(
             ruleContext,
-            // what do *we* know about whether this is a source file or not
-            new InstrumentationSpec(FileTypeSet.ANY_FILE, "srcs", "deps", "data"),
+            // Seems strange to have "srcs" in "dependency attributes" instead of "source
+            // attributes", but that's correct behavior here because this rule just forwards
+            // files, it doesn't process them. It doesn't know if the dependencies of the stuff
+            // in srcs is a runtime dependency of its consumers or not. Consumers decide which
+            // of the following is the case about a filegroup it depends on based on whether the
+            // attribute the dependency is via is in the consumer's source attributes or
+            // dependency attributes:
+            // * If the filegroup contains coverage-relevant source files, it should be depended
+            //   on via something in source attributes. The dependencies for actions which generate
+            //   source files are generally not runtime dependencies.
+            // * If the dependencies of the filegroup might be coverage-relevant source files (e.g.
+            //   a binary target is included in filegroup's srcs and the filegroup target is
+            //   included in some other target's data), it should be depended on via something in
+            //   dependency attributes.
+            new InstrumentationSpec(FileTypeSet.ANY_FILE).withDependencyAttributes("srcs", "data"),
             /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
 
     RunfilesProvider runfilesProvider =

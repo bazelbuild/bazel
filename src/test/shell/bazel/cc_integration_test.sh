@@ -703,7 +703,7 @@ EOF
 
   bazel build "${package}:x" \
       --aspects="//${package}:lib.bzl%actions_test_aspect" \
-      --output_groups=out --experimental_action_args
+      --output_groups=out
 
   cat "bazel-bin/${package}/aspect_out" | grep "\(ar\|libtool\)" \
       || fail "args didn't contain the tool path"
@@ -741,7 +741,7 @@ EOF
 
   bazel build "${package}:x" \
       --aspects="//${package}:lib.bzl%actions_test_aspect" \
-      --output_groups=out --experimental_action_args
+      --output_groups=out
 
   cat "bazel-bin/${package}/aspect_out" | \
       grep "\(gcc\|clang\|clanc-cl.exe\|cl.exe\)" \
@@ -898,14 +898,14 @@ EOF
   # Test that actions are reconstructible under default configuration
   bazel build "${package}:a" \
       --aspects="//${package}:lib.bzl%actions_test_aspect" \
-      --output_groups=out --experimental_action_args || \
+      --output_groups=out || \
       fail "bazel build should've passed"
 
-   # Test that compile actions are reconstructible when using param files
-   bazel build "${package}:a" \
+  # Test that compile actions are reconstructible when using param files
+  bazel build "${package}:a" \
       --features=compiler_param_file \
       --aspects="//${package}:lib.bzl%actions_test_aspect" \
-      --output_groups=out --experimental_action_args || \
+      --output_groups=out || \
       fail "bazel build should've passed with --features=compiler_param_file"
 }
 
@@ -1010,7 +1010,7 @@ EOF
 function test_execroot_subdir_layout_fails_for_external_subpackages() {
   setup_workspace_layout_with_external_directory
 
-  bazel build --experimental_sibling_repository_layout=false //baz:binary &> $TEST_log \
+  bazel build --experimental_sibling_repository_layout=false //baz:binary &> "$TEST_log" \
     && fail "build should have failed with sources in the external directory" || true
   expect_log "error:.*external/foo/lib.*"
   expect_log "Target //baz:binary failed to build"
@@ -1018,11 +1018,13 @@ function test_execroot_subdir_layout_fails_for_external_subpackages() {
 
 function test_execroot_sibling_layout_null_build_for_external_subpackages() {
   setup_workspace_layout_with_external_directory
-  bazel build --experimental_sibling_repository_layout //baz:binary || fail "expected build success"
+  bazel build --experimental_sibling_repository_layout //baz:binary \
+    || fail "expected build success"
 
   # Null build.
-  bazel build --experimental_sibling_repository_layout //baz:binary &> $TEST_log || fail "expected build success"
-  expect_log "INFO: 0 processes"
+  bazel build --experimental_sibling_repository_layout //baz:binary &> "$TEST_log" \
+    || fail "expected build success"
+  expect_log "INFO: 1 process: 1 internal"
 }
 
 function test_execroot_sibling_layout_header_scanning_in_external_subpackage() {
@@ -1036,7 +1038,7 @@ cc_library(
 )
 EOF
 
-  bazel build --experimental_sibling_repository_layout --spawn_strategy=standalone //external/foo:lib &> $TEST_log \
+  bazel build --experimental_sibling_repository_layout --spawn_strategy=standalone //external/foo:lib &> "$TEST_log" \
     && fail "build should not have succeeded with missing header file"
 
   expect_log "undeclared inclusion(s) in rule '//external/foo:lib'" \
@@ -1063,15 +1065,36 @@ EOF
 
   bazel build --incompatible_linkopts_to_linklibs //foo \
     || fail "Build failed but should have succeeded"
-  tr -d '\n' < bazel-bin/foo/libfoo.so-2.params > $TEST_log
+  tr -d '\n' < bazel-bin/foo/libfoo.so-2.params > "$TEST_log"
 
   expect_log "$object_file$stdcpp$lm"
 
   bazel build //foo \
     || fail "Build failed but should have succeeded"
-  tr -d '\n' < bazel-bin/foo/libfoo.so-2.params > $TEST_log
+  tr -d '\n' < bazel-bin/foo/libfoo.so-2.params > "$TEST_log"
 
   expect_log "$stdcpp$lm$object_file"
+}
+
+function test_sibling_repository_layout_include_external_repo_output() {
+  mkdir test
+  cat > test/BUILD <<'EOF'
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  deps = ["@bazel_tools//tools/jdk:jni"],
+)
+EOF
+  cat > test/foo.cc <<'EOF'
+#include <jni.h>
+#include <stdio.h>
+
+extern "C" JNIEXPORT void JNICALL Java_foo_App_f(JNIEnv *env, jclass clazz, jint x) {
+  printf("hello %d\n", x);
+}
+EOF
+  bazel build --experimental_sibling_repository_layout //test:foo > "$TEST_log" \
+    || fail "expected build success"
 }
 
 run_suite "cc_integration_test"

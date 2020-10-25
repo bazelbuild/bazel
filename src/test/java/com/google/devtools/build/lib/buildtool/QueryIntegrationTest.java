@@ -24,9 +24,11 @@ import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
@@ -43,6 +45,7 @@ import com.google.devtools.build.lib.runtime.GotOptionsEvent;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.commands.QueryCommand;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.ByteArrayInputStream;
@@ -75,7 +78,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   private boolean keepGoing;
 
   @Before
-  public final void setQueryOptions() throws Exception  {
+  public final void setQueryOptions() {
     queryOptions = Options.getDefaults(QueryOptions.class);
     keepGoing = Options.getDefaults(KeepGoingOption.class).keepGoing;
     queryOptions.universeScope = ImmutableList.of("//...:*");
@@ -290,13 +293,14 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
             env,
             keepGoing,
             !QueryOutputUtils.shouldStreamResults(queryOptions, formatter),
-            /*universeScope=*/ ImmutableList.of(),
+            UniverseScope.EMPTY,
             /*loadingPhaseThreads=*/ 1,
             settings,
             /*useGraphlessQuery=*/ false);
     AggregateAllOutputFormatterCallback<Target, ?> callback =
         QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnv);
-    QueryEvalResult result = queryEnv.evaluateQuery(queryString, callback);
+    QueryEvalResult result =
+        queryEnv.evaluateQuery(QueryExpression.parse(queryString, queryEnv), callback);
 
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
@@ -308,7 +312,8 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         formatter,
         outputStream,
         queryOptions.aspectDeps.createResolver(env.getPackageManager(), reporter),
-        reporter);
+        reporter,
+        DigestHashFunction.SHA256.getHashFunction());
     return outputStream.toByteArray();
   }
 

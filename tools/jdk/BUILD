@@ -55,16 +55,21 @@ toolchain(
 
 java_runtime(name = "dummy_java_runtime")
 
+# Points to toolchain[":runtime_toolchain_type"] (was :legacy_current_java_runtime)
 java_runtime_alias(name = "current_java_runtime")
 
+# Host configuration of ":current_java_runtime"
 java_host_runtime_alias(name = "current_host_java_runtime")
 
+# Points to toolchain[":toolchain_type"] (was :legacy_current_java_toolchain)
 java_toolchain_alias(name = "current_java_toolchain")
 
 # This exists to support the migration to toolchain resolution.
 # TODO(cushon): delete once the migration is complete.
+# Points to --javabase/--host_javabase, defaults ":jdk"/":remote_jdk11"
 legacy_java_runtime_alias(name = "legacy_current_java_runtime")
 
+# Points to --java_toolchain/--host_java_toolchain, defaults ":toolchain"/":remote_toolchain"
 legacy_java_toolchain_alias(name = "legacy_current_java_toolchain")
 
 # Used to set --host_javabase or --javabase to a local JDK without having to define
@@ -129,13 +134,15 @@ java_runtime_files(
 # See test_jni in third_party/bazel/src/test/shell/bazel/bazel_java_test.sh for
 # an example of using Bazel to build a Java program that calls a C function.
 #
-# TODO(adonovan): add cases for //src/conditions:linux_{ppc,s390x} when released in Bazel.
+# TODO(adonovan): add cases for //src/conditions:linux_arm when released in Bazel.
 # TODO(adonovan): why is there no //src/conditions target meaning "just linux"?
 cc_library(
     name = "jni",
     hdrs = [":jni_header"] + select({
-        "//src/conditions:linux_x86_64": [":jni_md_header-linux"],
         "//src/conditions:linux_aarch64": [":jni_md_header-linux"],
+        "//src/conditions:linux_ppc64le": [":jni_md_header-linux"],
+        "//src/conditions:linux_s390x": [":jni_md_header-linux"],
+        "//src/conditions:linux_x86_64": [":jni_md_header-linux"],
         "//src/conditions:darwin": [":jni_md_header-darwin"],
         "//src/conditions:freebsd": [":jni_md_header-freebsd"],
         "//src/conditions:openbsd": [":jni_md_header-openbsd"],
@@ -143,8 +150,10 @@ cc_library(
         "//conditions:default": [],
     }),
     includes = ["include"] + select({
-        "//src/conditions:linux_x86_64": ["include/linux"],
         "//src/conditions:linux_aarch64": ["include/linux"],
+        "//src/conditions:linux_ppc64le": ["include/linux"],
+        "//src/conditions:linux_s390x": ["include/linux"],
+        "//src/conditions:linux_x86_64": ["include/linux"],
         "//src/conditions:darwin": ["include/darwin"],
         "//src/conditions:freebsd": ["include/freebsd"],
         "//src/conditions:openbsd": ["include/openbsd"],
@@ -429,7 +438,12 @@ filegroup(
         "BUILD-jdk",  # Tools are build from the workspace for tests.
         "DumpPlatformClassPath.java",
         "default_java_toolchain.bzl",
+        "fail_rule.bzl",
         "java_toolchain_alias.bzl",
+        "java_toolchain_default.bzl",
+        "jdk.BUILD",
+        "local_java_repository.bzl",
+        "nosystemjdk/README",
         "proguard_whitelister.py",
         "proguard_whitelister_test.py",
         "proguard_whitelister_test_input.pgcfg",
@@ -498,6 +512,8 @@ alias(
             "//src/conditions:windows": "@remotejdk11_win//:jdk",
             "//src/conditions:linux_aarch64": "@remotejdk11_linux_aarch64//:jdk",
             "//src/conditions:linux_x86_64": "@remotejdk11_linux//:jdk",
+            "//src/conditions:linux_ppc64le": "@remotejdk11_linux_ppc64le//:jdk",
+            "//src/conditions:linux_s390x": "@remotejdk11_linux_s390x//:jdk",
         },
         no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
                          " provide one using `--host_javabase.`",

@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionCacheAwareAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -37,6 +39,9 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.StarlarkAction.Code;
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -49,7 +54,7 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** A Starlark specific SpawnAction. */
-public final class StarlarkAction extends SpawnAction {
+public final class StarlarkAction extends SpawnAction implements ActionCacheAwareAction {
 
   private final Optional<Artifact> unusedInputsList;
   private final NestedSet<Artifact> allInputs;
@@ -165,17 +170,18 @@ public final class StarlarkAction extends SpawnAction {
           .toPath(unusedInputsListArtifact)
           .getInputStream();
     } catch (FileNotFoundException e) {
-      throw new UserExecException(
+      String message =
           "Action did not create expected output file listing unused inputs: "
-              + unusedInputsListArtifact.getExecPathString(),
-          e);
+              + unusedInputsListArtifact.getExecPathString();
+      throw new UserExecException(
+          e, createFailureDetail(message, Code.UNUSED_INPUT_LIST_FILE_NOT_FOUND));
     }
   }
 
   @Override
   protected void afterExecute(
       ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults)
-      throws IOException, ExecException {
+      throws ExecException {
     if (!unusedInputsList.isPresent()) {
       return;
     }
@@ -195,6 +201,10 @@ public final class StarlarkAction extends SpawnAction {
         }
         usedInputs.remove(line);
       }
+    } catch (IOException e) {
+      throw new EnvironmentalExecException(
+          e,
+          createFailureDetail("Unused inputs read failure", Code.UNUSED_INPUT_LIST_READ_FAILURE));
     }
     updateInputs(NestedSetBuilder.wrap(Order.STABLE_ORDER, usedInputs.values()));
   }
@@ -210,6 +220,23 @@ public final class StarlarkAction extends SpawnAction {
     return allInputs;
   }
 
+  private static FailureDetail createFailureDetail(String message, Code detailedCode) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setStarlarkAction(FailureDetails.StarlarkAction.newBuilder().setCode(detailedCode))
+        .build();
+  }
+
+  /**
+   * StarlarkAction can contain `unused_input_list`, which rely on the action cache entry's file
+   * list to determine the list of inputs for a subsequent run, taking into account
+   * unused_input_list. Hence we need to store the inputs' execPaths in the action cache.
+   */
+  @Override
+  public boolean storeInputsExecPathsInActionCache() {
+    return unusedInputsList.isPresent();
+  }
+
   /** Builder class to construct {@link StarlarkAction} instances. */
   public static class Builder extends SpawnAction.Builder {
 
@@ -218,11 +245,6 @@ public final class StarlarkAction extends SpawnAction {
     public Builder setUnusedInputsList(Optional<Artifact> unusedInputsList) {
       this.unusedInputsList = unusedInputsList;
       return this;
-    }
-
-    private static boolean getInMemoryUnusedInputsListFileFlag(
-        @Nullable BuildConfiguration configuration) {
-      return configuration == null ? false : configuration.inmemoryUnusedInputsList();
     }
 
     /** Creates a SpawnAction. */
@@ -243,7 +265,8 @@ public final class StarlarkAction extends SpawnAction {
         CharSequence progressMessage,
         RunfilesSupplier runfilesSupplier,
         String mnemonic) {
-      if (unusedInputsList.isPresent() && getInMemoryUnusedInputsListFileFlag(configuration)) {
+      if (unusedInputsList.isPresent()) {
+        // Always download unused_inputs_list file from remote cache.
         executionInfo =
             ImmutableMap.<String, String>builderWithExpectedSize(executionInfo.size() + 1)
                 .putAll(executionInfo)

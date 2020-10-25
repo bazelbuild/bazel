@@ -18,13 +18,16 @@ import static com.google.devtools.build.lib.rules.objc.CompilationSupport.Includ
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionBuilder;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery.DotdPruningMode;
@@ -73,7 +76,8 @@ public class ObjcCppSemantics implements CppSemantics {
   public void finalizeCompileActionBuilder(
       BuildConfiguration configuration,
       FeatureConfiguration featureConfiguration,
-      CppCompileActionBuilder actionBuilder) {
+      CppCompileActionBuilder actionBuilder,
+      RuleErrorConsumer ruleErrorConsumer) {
     actionBuilder
         // Without include scanning, we need the entire crosstool filegroup, including header files,
         // as opposed to just the "compile" filegroup.  Even with include scanning, we need the
@@ -89,12 +93,21 @@ public class ObjcCppSemantics implements CppSemantics {
   }
 
   @Override
+  public HeadersCheckingMode determineStarlarkHeadersCheckingMode(
+      RuleContext context, CppConfiguration cppConfig, CcToolchainProvider toolchain) {
+    if (cppConfig.strictHeaderCheckingFromStarlark()) {
+      return HeadersCheckingMode.STRICT;
+    }
+    return HeadersCheckingMode.LOOSE;
+  }
+
+  @Override
   public IncludeProcessing getIncludeProcessing() {
     return includeProcessing;
   }
 
   @Override
-  public boolean needsDotdInputPruning() {
+  public boolean needsDotdInputPruning(BuildConfiguration configuration) {
     return config.getDotdPruningPlan() == DotdPruningMode.USE;
   }
 
@@ -134,6 +147,7 @@ public class ObjcCppSemantics implements CppSemantics {
   @Override
   public void validateLayeringCheckFeatures(
       RuleContext ruleContext,
+      AspectDescriptor aspectDescriptor,
       CcToolchainProvider ccToolchain,
       ImmutableSet<String> unsupportedFeatures) {}
 }

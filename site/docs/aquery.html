@@ -136,11 +136,11 @@ $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
 
 <h3 id="aquery-options">Aquery options</h3>
 
-<h4><code class='flag'>--output=(text|proto|textproto), default=text</code></h4>
+<h4><code class='flag'>--output=(text|proto|textproto|jsonproto), default=text</code></h4>
 
 <p>
   The default output format (<code>text</code>) is human-readable,
-  use <code>proto</code> or <code>textproto</code> for machine-readable format.
+  use <code>proto</code>, <code>textproto</code>, or <code>jsonproto</code> for machine-readable format.
 </p>
 
 <h4><code class='flag'>--include_commandline, default=true</code></h4>
@@ -389,6 +389,41 @@ $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
   The list of aquery issues/planned features can be found on
   <a href="https://github.com/bazelbuild/bazel/labels/team-Performance">GitHub</a>.
 </p>
+<h2 id='faqs'>FAQs</h2>
+
+<h3 id='action-key'>The ActionKey remains the same even though the content of an input file changed.</h3>
+
+
+<p>
+  In the context of aquery, the <code>ActionKey</code> refers to the <code>String</code> gotten from
+  <code><a href="https://cs.opensource.google/bazel/bazel/+/master:src/main/java/com/google/devtools/build/lib/actions/ActionAnalysisMetadata.java;l=89;drc=8b856f5484f0117b2aebc302f849c2a15f273310">ActionAnalysisMetadata#getKey</a></code>:
+</p>
+
+<pre>
+  Returns a string encoding all of the significant behaviour of this Action that might affect the
+  output. The general contract of <code>getKey</code> is this: if the work to be performed by the
+  execution of this action changes, the key must change.
+
+  ...
+
+  Examples of changes that should affect the key are:
+
+  - Changes to the BUILD file that materially affect the rule which gave rise to this Action.
+  - Changes to the command-line options, environment, or other global configuration resources
+      which affect the behaviour of this kind of Action (other than changes to the names of the
+      input/output files, which are handled externally).
+  - An upgrade to the build tools which changes the program logic of this kind of Action
+      (typically this is achieved by incorporating a UUID into the key, which is changed each
+      time the program logic of this action changes).
+  Note the following exception: for actions that discover inputs, the key must change if any
+  input names change or else action validation may falsely validate.
+</pre>
+
+<p>
+  This excludes the changes to the content of the input files, and is not to be confused with
+  <code><a href="https://cs.opensource.google/bazel/bazel/+/master:src/main/java/com/google/devtools/build/lib/remote/common/RemoteCacheClient.java;l=38;drc=21577f202eb90ce94a337ebd2ede824d609537b6">RemoteCacheClient#ActionKey</a></code>.
+</p>
+
 <h2 id='updates'>Updates</h2>
 
 <p>

@@ -2,6 +2,18 @@
 layout: documentation
 title: Visibility
 ---
+# Visibility
+
+Visibility controls whether a target can be used (depended on) by targets in
+other packages. This helps other people distinguish between your library's
+public API and its implementation details, and is an important tool to help
+enforce structure as your workspace grows.
+
+If you need to disable the visibility check (for example when experimenting),
+use `--check_visibility=false`.
+
+## Visibility specifications
+
 All rule targets have a `visibility` attribute that takes a list of labels. One
 target is visible to another if they are in the same package, or if they are
 granted visibility by one of the labels.
@@ -23,8 +35,12 @@ Each label has one of the following forms:
     `__subpackages__` is special syntax.
 
 *   `"//foo/bar:my_package_group"`: Grants access to all of the packages named
-    by the given [package group](be/functions.html#package_group). This can be
-    used to allow access to an entire subtree, such as `//myproj/...`.
+    by the given [package group](be/functions.html#package_group).
+
+    *   Package groups do not support the special `__pkg__` and
+        `__subpackages__` syntax. Within a package group, `"//foo/bar"` is
+        equivalent to `"//foo/bar:__pkg__"` and `"//foo/bar/..."` is equivalent
+        to `"//foo/bar:__subpackages__"`.
 
 For example, if `//some/package:mytarget` has its `visibility` set to
 `[":__subpackages__", "//tests:__pkg__"]`, then it could be used by any target
@@ -39,9 +55,9 @@ attribute; they are always publicly visible.
 If a rule target does not set the `visibility` attribute, its visibility is
 given by the
 [`default_visibility`](be/functions.html#package.default_visibility) that was
-specified in the [`package`](functions.html#package) statement of the target's
-BUILD file. If there is no such `default_visibility` declaration, the visibility
-is `//visibility:private`.
+specified in the [`package`](be/functions.html#package) statement of the
+target's BUILD file. If there is no such `default_visibility` declaration, the
+visibility is `//visibility:private`.
 
 ### Example
 

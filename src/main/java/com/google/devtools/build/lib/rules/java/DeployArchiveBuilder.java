@@ -68,7 +68,7 @@ public class DeployArchiveBuilder {
   @Nullable private Function<Artifact, Artifact> derivedJars = null;
   private boolean checkDesugarDeps;
   private OneVersionEnforcementLevel oneVersionEnforcementLevel = OneVersionEnforcementLevel.OFF;
-  @Nullable private Artifact oneVersionWhitelistArtifact;
+  @Nullable private Artifact oneVersionAllowlistArtifact;
   @Nullable private Artifact sharedArchive;
 
   /** Type of compression to apply to output archive. */
@@ -164,9 +164,9 @@ public class DeployArchiveBuilder {
   /** Whether or not singlejar would attempt to enforce one version of java classes in the jar */
   public DeployArchiveBuilder setOneVersionEnforcementLevel(
       OneVersionEnforcementLevel oneVersionEnforcementLevel,
-      @Nullable Artifact oneVersionWhitelistArtifact) {
+      @Nullable Artifact oneVersionAllowlistArtifact) {
     this.oneVersionEnforcementLevel = oneVersionEnforcementLevel;
-    this.oneVersionWhitelistArtifact = oneVersionWhitelistArtifact;
+    this.oneVersionAllowlistArtifact = oneVersionAllowlistArtifact;
     return this;
   }
 
@@ -213,7 +213,7 @@ public class DeployArchiveBuilder {
       Artifact launcher,
       boolean usingNativeSinglejar,
       OneVersionEnforcementLevel oneVersionEnforcementLevel,
-      @Nullable Artifact oneVersionWhitelistArtifact) {
+      @Nullable Artifact oneVersionAllowlistArtifact) {
 
     CustomCommandLine.Builder args = CustomCommandLine.builder();
     args.addExecPath("--output", outputJar);
@@ -255,8 +255,8 @@ public class DeployArchiveBuilder {
       args.add("--enforce_one_version");
       // RuleErrors should have been added in Builder.build() before this command
       // line is invoked.
-      Preconditions.checkNotNull(oneVersionWhitelistArtifact);
-      args.addExecPath("--one_version_whitelist", oneVersionWhitelistArtifact);
+      Preconditions.checkNotNull(oneVersionAllowlistArtifact);
+      args.addExecPath("--one_version_whitelist", oneVersionAllowlistArtifact);
       if (oneVersionEnforcementLevel == OneVersionEnforcementLevel.WARNING) {
         args.add("--succeed_on_found_violations");
       }
@@ -333,12 +333,12 @@ public class DeployArchiveBuilder {
     }
 
     if (oneVersionEnforcementLevel != OneVersionEnforcementLevel.OFF) {
-      if (oneVersionWhitelistArtifact == null) {
+      if (oneVersionAllowlistArtifact == null) {
         OneVersionCheckActionBuilder.addRuleErrorForMissingArtifacts(
             ruleContext, JavaToolchainProvider.from(ruleContext));
         return;
       }
-      inputs.add(oneVersionWhitelistArtifact);
+      inputs.add(oneVersionAllowlistArtifact);
     }
     if (sharedArchive != null) {
       inputs.add(sharedArchive);
@@ -364,7 +364,7 @@ public class DeployArchiveBuilder {
             launcher,
             usingNativeSinglejar,
             oneVersionEnforcementLevel,
-            oneVersionWhitelistArtifact,
+            oneVersionAllowlistArtifact,
             sharedArchive);
     if (checkDesugarDeps) {
       commandLine = CommandLine.concat(commandLine, ImmutableList.of("--check_desugar_deps"));
@@ -375,6 +375,7 @@ public class DeployArchiveBuilder {
     if (!usingNativeSinglejar) {
       ruleContext.registerAction(
           new SpawnAction.Builder()
+              .useDefaultShellEnvironment()
               .addTransitiveInputs(inputs.build())
               .addTransitiveInputs(JavaRuntimeInfo.forHost(ruleContext).javaBaseInputsMiddleman())
               .addOutput(outputJar)
@@ -390,6 +391,7 @@ public class DeployArchiveBuilder {
     } else {
       ruleContext.registerAction(
           new SpawnAction.Builder()
+              .useDefaultShellEnvironment()
               .addTransitiveInputs(inputs.build())
               .addOutput(outputJar)
               .setResources(DEPLOY_ACTION_RESOURCE_SET)

@@ -1076,7 +1076,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testResourcesDoesNotMatchDirectoryLayout_BadFile() throws Exception {
+  public void testResourcesDoesNotMatchDirectoryLayout_badFile() throws Exception {
     checkError(
         "java/android",
         "r",
@@ -1095,7 +1095,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testResourcesDoesNotMatchDirectoryLayout_BadDirectory() throws Exception {
+  public void testResourcesDoesNotMatchDirectoryLayout_badDirectory() throws Exception {
     checkError(
         "java/android",
         "r",
@@ -1228,7 +1228,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testNeverlinkResources_AndroidResourcesInfo() throws Exception {
+  public void testNeverlinkResources_androidResourcesInfo() throws Exception {
     scratch.file(
         "java/apps/android/BUILD",
         "android_library(",
@@ -2087,7 +2087,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testAndroidLibrary_SrcsLessDepsHostConfigurationNoOverride() throws Exception {
+  public void testAndroidLibrary_srcsLessDepsHostConfigurationNoOverride() throws Exception {
     scratch.file(
         "java/srclessdeps/BUILD",
         "android_library(",
@@ -2300,7 +2300,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testAarGeneration_LocalResources() throws Exception {
+  public void testAarGeneration_localResources() throws Exception {
     scratch.file(
         "java/android/aartest/BUILD",
         "android_library(",
@@ -2334,7 +2334,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testAarGeneration_NoResources() throws Exception {
+  public void testAarGeneration_noResources() throws Exception {
     scratch.file(
         "java/android/aartest/BUILD",
         "android_library(",
@@ -2465,7 +2465,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void skylarkJavaInfoToAndroidLibraryAttributes() throws Exception {
+  public void starlarkJavaInfoToAndroidLibraryAttributes() throws Exception {
     scratch.file(
         "foo/extension.bzl",
         "def _impl(ctx):",

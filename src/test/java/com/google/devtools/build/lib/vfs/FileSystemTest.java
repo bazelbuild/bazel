@@ -1657,7 +1657,7 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testCreateHardLink_Success() throws Exception {
+  public void testCreateHardLink_success() throws Exception {
     if (!testFS.supportsHardLinksNatively(xFile)) {
       return;
     }
@@ -1670,7 +1670,7 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testCreateHardLink_NeitherOriginalNorLinkExists() throws Exception {
+  public void testCreateHardLink_neitherOriginalNorLinkExists() throws Exception {
     if (!testFS.supportsHardLinksNatively(xFile)) {
       return;
     }
@@ -1687,7 +1687,7 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testCreateHardLink_OriginalDoesNotExistAndLinkExists() throws Exception {
+  public void testCreateHardLink_originalDoesNotExistAndLinkExists() throws Exception {
 
     if (!testFS.supportsHardLinksNatively(xFile)) {
       return;
@@ -1707,7 +1707,7 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testCreateHardLink_BothOriginalAndLinkExist() throws Exception {
+  public void testCreateHardLink_bothOriginalAndLinkExist() throws Exception {
 
     if (!testFS.supportsHardLinksNatively(xFile)) {
       return;

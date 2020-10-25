@@ -21,7 +21,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.Action;
@@ -30,7 +29,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -39,6 +38,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -52,9 +52,16 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.server.FailureDetails.Crash;
+import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.util.CrashFailureDetails;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -87,6 +94,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
         .addDependency(
             Root.RootCodecDependencies.class,
             new Root.RootCodecDependencies(Root.absoluteRoot(scratch.getFileSystem())))
+        .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
         .runTests();
   }
 
@@ -557,15 +565,8 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
   }
 
-  // This is more a smoke test than anything, because it turns out that:
-  // 1) there is no easy way to turn fast digests on/off for these test cases, and
-  // 2) injectDigest() doesn't really complain if you inject bad digests or digests
-  // for nonexistent files. Instead some weird error shows up down the line.
-  // In fact, there are no tests for injectDigest anywhere in the codebase.
-  // So all we're really testing here is that injectDigest() doesn't throw a weird exception.
-  // TODO(bazel-team): write real tests for injectDigest, here and elsewhere.
   @Test
-  public void digestInjection() throws Exception {
+  public void constructMetadataForDigest() throws Exception {
     SpecialArtifact out = createTreeArtifact("output");
     Action action =
         new SimpleTestAction(out) {
@@ -578,10 +579,30 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
             MetadataHandler md = actionExecutionContext.getMetadataHandler();
             FileStatus stat = child1.getPath().stat(Symlinks.NOFOLLOW);
-            md.injectDigest(child1, stat, Hashing.sha256().hashString("one", UTF_8).asBytes());
+            FileArtifactValue metadata1 =
+                md.constructMetadataForDigest(
+                    child1,
+                    stat,
+                    DigestHashFunction.SHA256.getHashFunction().hashString("one", UTF_8).asBytes());
 
             stat = child2.getPath().stat(Symlinks.NOFOLLOW);
-            md.injectDigest(child2, stat, Hashing.sha256().hashString("two", UTF_8).asBytes());
+            FileArtifactValue metadata2 =
+                md.constructMetadataForDigest(
+                    child2,
+                    stat,
+                    DigestHashFunction.SHA256.getHashFunction().hashString("two", UTF_8).asBytes());
+
+            // The metadata will not be equal to reading from the filesystem since the filesystem
+            // won't have the digest. However, we should be able to detect that nothing could have
+            // been modified.
+            assertThat(
+                    metadata1.couldBeModifiedSince(
+                        FileArtifactValue.createForTesting(child1.getPath())))
+                .isFalse();
+            assertThat(
+                    metadata2.couldBeModifiedSince(
+                        FileArtifactValue.createForTesting(child2.getPath())))
+                .isFalse();
           }
         };
 
@@ -610,8 +631,12 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
             actionExecutionContext
                 .getMetadataHandler()
-                .injectRemoteDirectory(
-                    out, ImmutableMap.of(child1, remoteFile1, child2, remoteFile2));
+                .injectTree(
+                    out,
+                    TreeArtifactValue.newBuilder(out)
+                        .putChild(child1, remoteFile1)
+                        .putChild(child2, remoteFile2)
+                        .build());
           }
         };
 
@@ -817,6 +842,28 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     assertThat(artifact2.getPath().getDirectoryEntries()).isEmpty();
   }
 
+  // This happens in the wild. See https://github.com/bazelbuild/bazel/issues/11813.
+  @Test
+  public void treeArtifactContainsSymlinkToDirectory() throws Exception {
+    SpecialArtifact treeArtifact = createTreeArtifact("tree");
+    registerAction(
+        new SimpleTestAction(/*output=*/ treeArtifact) {
+          @Override
+          void run(ActionExecutionContext context) throws IOException {
+            PathFragment subdir = PathFragment.create("subdir");
+            touchFile(treeArtifact.getPath().getRelative(subdir).getRelative("file"));
+            treeArtifact.getPath().getRelative("link").createSymbolicLink(subdir);
+          }
+        });
+
+    TreeArtifactValue tree = buildArtifact(treeArtifact);
+
+    assertThat(tree.getChildren())
+        .containsExactly(
+            TreeFileArtifact.createTreeOutput(treeArtifact, "subdir/file"),
+            TreeFileArtifact.createTreeOutput(treeArtifact, "link"));
+  }
+
   private abstract static class SimpleTestAction extends TestAction {
     private final Button button;
 
@@ -840,7 +887,8 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
       try {
         run(context);
       } catch (IOException e) {
-        throw new ActionExecutionException(e, this, /*catastrophe=*/ false);
+        throw new ActionExecutionException(
+            e, this, /*catastrophe=*/ false, CrashFailureDetails.detailedExitCodeForThrowable(e));
       }
       return ActionResult.EMPTY;
     }
@@ -996,7 +1044,10 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
       try {
         return new ActionTemplateExpansionValue(
             Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-                actionKeyContext, actions, (ActionLookupKey) skyKey, /*outputFiles=*/ null));
+                actionKeyContext,
+                actions,
+                (ActionLookupKey) skyKey,
+                /*outputFiles=*/ null));
       } catch (ActionConflictException e) {
         throw new IllegalStateException(e);
       }
@@ -1039,7 +1090,13 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     @Override
     public ActionResult execute(ActionExecutionContext actionExecutionContext)
         throws ActionExecutionException {
-      throw new ActionExecutionException("Throwing dummy action", this, /*catastrophe=*/ true);
+      DetailedExitCode code =
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setCrash(Crash.newBuilder().setCode(Code.CRASH_UNKNOWN))
+                  .build());
+      throw new ActionExecutionException(
+          "Throwing dummy action", this, /*catastrophe=*/ true, code);
     }
   }
 }

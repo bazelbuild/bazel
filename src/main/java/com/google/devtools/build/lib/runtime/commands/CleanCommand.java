@@ -14,7 +14,9 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
@@ -26,6 +28,7 @@ import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.runtime.commands.events.CleanStartingEvent;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.CleanCommand.Code;
@@ -34,6 +37,7 @@ import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.Path;
@@ -45,19 +49,20 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.UUID;
 import java.util.logging.LogManager;
 
 /** Implements 'blaze clean'. */
 @Command(
-  name = "clean",
-  builds = true, // Does not, but people expect build options to be there
-  writeCommandLog = false, // Do not create a command.log, otherwise we couldn't delete it.
-  options = {CleanCommand.Options.class},
-  help = "resource:clean.txt",
-  shortDescription = "Removes output files and optionally stops the server.",
-  // TODO(bazel-team): Remove this - we inherit a huge number of unused options.
-  inherits = {BuildCommand.class}
-)
+    name = "clean",
+    builds = true, // Does not, but people expect build options to be there
+    allowResidue = true, // Does not, but need to allow so we can ignore Starlark options.
+    writeCommandLog = false, // Do not create a command.log, otherwise we couldn't delete it.
+    options = {CleanCommand.Options.class},
+    help = "resource:clean.txt",
+    shortDescription = "Removes output files and optionally stops the server.",
+    // TODO(bazel-team): Remove this - we inherit a huge number of unused options.
+    inherits = {BuildCommand.class})
 public final class CleanCommand implements BlazeCommand {
   /** An interface for special options for the clean command. */
   public static class Options extends OptionsBase {
@@ -116,6 +121,25 @@ public final class CleanCommand implements BlazeCommand {
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
+    // Assert that the only residue is starlark options and ignore them.
+    Pair<ImmutableList<String>, ImmutableList<String>> starlarkOptionsAndResidue =
+        StarlarkOptionsParser.removeStarlarkOptions(options.getResidue());
+    ImmutableList<String> removedStarlarkOptions = starlarkOptionsAndResidue.getFirst();
+    ImmutableList<String> residue = starlarkOptionsAndResidue.getSecond();
+    if (!removedStarlarkOptions.isEmpty()) {
+      env.getReporter()
+          .handle(
+              Event.warn(
+                  "Blaze clean does not support starlark options. Ignoring options: "
+                      + removedStarlarkOptions));
+    }
+    if (!residue.isEmpty()) {
+      String message = "Unrecognized arguments: " + Joiner.on(' ').join(residue);
+      env.getReporter().handle(Event.error(message));
+      return BlazeCommandResult.failureDetail(
+          createFailureDetail(message, Code.ARGUMENTS_NOT_RECOGNIZED));
+    }
+
     Options cleanOptions = options.getOptions(Options.class);
     boolean async = cleanOptions.async;
     env.getEventBus().post(new NoBuildEvent());
@@ -165,8 +189,9 @@ public final class CleanCommand implements BlazeCommand {
   }
 
   private static void asyncClean(CommandEnvironment env, Path path, String pathItemName)
-      throws IOException, CommandException {
-    String tempBaseName = path.getBaseName() + "_tmp_" + ProcessUtils.getpid();
+      throws IOException, CommandException, InterruptedException {
+    String tempBaseName =
+        path.getBaseName() + "_tmp_" + ProcessUtils.getpid() + "_" + UUID.randomUUID();
 
     // Keeping tempOutputBase in the same directory ensures it remains in the
     // same file system, and therefore the mv will be atomic and fast.
@@ -299,10 +324,14 @@ public final class CleanCommand implements BlazeCommand {
     }
 
     private FailureDetail getFailureDetail() {
-      return FailureDetail.newBuilder()
-          .setMessage(getMessage())
-          .setCleanCommand(FailureDetails.CleanCommand.newBuilder().setCode(detailedCode))
-          .build();
+      return createFailureDetail(getMessage(), detailedCode);
     }
+  }
+
+  private static FailureDetail createFailureDetail(String message, Code detailedCode) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setCleanCommand(FailureDetails.CleanCommand.newBuilder().setCode(detailedCode))
+        .build();
   }
 }

@@ -38,6 +38,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
     scratch.file(
         "bazel_tools_workspace/tools/android/android_sdk_repository_template.bzl",
         ResourceLoader.readFromResources("tools/android/android_sdk_repository_template.bzl"));
+    scratch.appendFile("WORKSPACE", "local_config_platform(name='local_config_platform')");
   }
 
   private void scratchPlatformsDirectories(int... apiLevels) throws Exception {
@@ -171,19 +172,19 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
         getConfiguredTarget("@androidsdk//:emulator_images_android_25_arm");
     assertThat(android25ArmFilegroup).isNotNull();
     assertThat(
-        artifactsToStrings(
-            android25ArmFilegroup.getProvider(FilesToRunProvider.class).getFilesToRun()))
+            artifactsToStrings(
+                android25ArmFilegroup.getProvider(FilesToRunProvider.class).getFilesToRun()))
         .containsExactly(
-            "src external/androidsdk/system-images/android-25/default/armeabi-v7a/system.img");
+            "src(external) androidsdk/system-images/android-25/default/armeabi-v7a/system.img");
 
     ConfiguredTarget android24X86Filegroup =
         getConfiguredTarget("@androidsdk//:emulator_images_google_24_x86");
     assertThat(android24X86Filegroup).isNotNull();
     assertThat(
-        artifactsToStrings(
-            android24X86Filegroup.getProvider(FilesToRunProvider.class).getFilesToRun()))
+            artifactsToStrings(
+                android24X86Filegroup.getProvider(FilesToRunProvider.class).getFilesToRun()))
         .containsExactly(
-            "src external/androidsdk/system-images/android-24/google_apis/x86/system.img");
+            "src(external) androidsdk/system-images/android-24/google_apis/x86/system.img");
   }
 
   // Regression test for https://github.com/bazelbuild/bazel/issues/3672.

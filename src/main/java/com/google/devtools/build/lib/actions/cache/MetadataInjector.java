@@ -14,42 +14,23 @@
 package com.google.devtools.build.lib.actions.cache;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
-import com.google.devtools.build.lib.vfs.FileStatus;
-import java.util.Map;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.skyframe.TreeArtifactInjector;
 
 /** Supports metadata injection of action outputs into skyframe. */
-public interface MetadataInjector {
+public interface MetadataInjector extends TreeArtifactInjector {
 
   /**
-   * Injects metadata of a file that is stored remotely.
+   * Injects the metadata of a file.
+   *
+   * <p>This can be used to save filesystem operations when the metadata is already known.
+   *
+   * <p>{@linkplain Artifact#isTreeArtifact Tree artifacts} and their {@linkplain
+   * Artifact#isChildOfDeclaredDirectory children} must not be passed here. Instead, they should be
+   * passed to {@link #injectTree}.
    *
    * @param output a regular output file
-   * @param metadata the remote file metadata
+   * @param metadata the file metadata
    */
-  void injectRemoteFile(Artifact output, RemoteFileArtifactValue metadata);
-
-  /**
-   * Injects the metadata of a tree artifact whose contents are stored remotely.
-   *
-   * @param output an output directory {@linkplain Artifact#isTreeArtifact tree artifact}
-   * @param children the metadata of the files stored in the directory
-   */
-  void injectRemoteDirectory(
-      SpecialArtifact output, Map<TreeFileArtifact, RemoteFileArtifactValue> children);
-
-  /**
-   * Marks an {@link Artifact} as intentionally omitted.
-   *
-   * <p>This is used as an optimization to not download "orphaned artifacts" (=artifacts that no
-   * action depends on) from a remote system.
-   */
-  void markOmitted(Artifact output);
-
-  /**
-   * Injects provided digest into the metadata handler, simultaneously caching lstat() data as well.
-   */
-  void injectDigest(Artifact output, FileStatus statNoFollow, byte[] digest);
+  void injectFile(Artifact output, FileArtifactValue metadata);
 }

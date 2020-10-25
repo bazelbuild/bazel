@@ -29,8 +29,6 @@ import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.Writer;
@@ -38,6 +36,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.function.BiPredicate;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * An output formatter that prints the generating rules using the syntax of the BUILD files. If
@@ -185,7 +185,13 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
       } else if (value instanceof TriState) {
         value = ((TriState) value).toInt();
       }
-      return new LabelPrinter().repr(value).toString();
+      return new Printer() {
+        // Print labels in their canonical form.
+        @Override
+        public Printer repr(Object o) {
+          return super.repr(o instanceof Label ? ((Label) o).getCanonicalForm() : o);
+        }
+      }.repr(value).toString();
     }
 
     /**
@@ -247,18 +253,5 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
   @Override
   public String getName() {
     return "build";
-  }
-
-  /** Prints labels in their canonical form. */
-  private static class LabelPrinter extends Printer.BasePrinter {
-    @Override
-    public LabelPrinter repr(Object o) {
-      if (o instanceof Label) {
-        writeString(((Label) o).getCanonicalForm());
-      } else {
-        super.repr(o);
-      }
-      return this;
-    }
   }
 }

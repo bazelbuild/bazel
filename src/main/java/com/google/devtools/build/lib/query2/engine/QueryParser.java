@@ -52,10 +52,9 @@ public final class QueryParser {
   private final Iterator<Lexer.Token> tokenIterator;
   private final Map<String, QueryFunction> functions;
 
-  /**
-   * Scan and parse the specified query expression.
-   */
-  public static QueryExpression parse(String query, QueryEnvironment<?> env) throws QueryException {
+  /** Scan and parse the specified query expression. */
+  public static QueryExpression parse(String query, QueryEnvironment<?> env)
+      throws QuerySyntaxException {
     HashMap<String, QueryFunction> functions = new HashMap<>();
     for (QueryFunction queryFunction : env.getFunctions()) {
       functions.put(queryFunction.getName(), queryFunction);
@@ -64,12 +63,14 @@ public final class QueryParser {
   }
 
   public static QueryExpression parse(String query, Map<String, QueryFunction> functions)
-      throws QueryException {
+      throws QuerySyntaxException {
     QueryParser parser = new QueryParser(Lexer.scan(query), functions);
     QueryExpression expr = parser.parseExpression();
     if (parser.token.kind != TokenKind.EOF) {
-      throw new QueryException("unexpected token '" + parser.token
-          + "' after query expression '" + expr +  "'");
+      throw new QuerySyntaxException(
+          String.format(
+              "unexpected token '%s' after query expression '%s'",
+              parser.token, expr.toTrunctatedString()));
     }
     return expr;
   }
@@ -81,10 +82,8 @@ public final class QueryParser {
     nextToken();
   }
 
-  /**
-   * Returns an exception.  Don't forget to throw it.
-   */
-  private QueryException syntaxError(Lexer.Token token) {
+  /** Returns an exception. Don't forget to throw it. */
+  private QuerySyntaxException syntaxError(Lexer.Token token) {
     String message = "premature end of input";
     if (token.kind != TokenKind.EOF) {
       StringBuilder buf = new StringBuilder("syntax error at '");
@@ -98,15 +97,14 @@ public final class QueryParser {
       buf.append("'");
       message = buf.toString();
     }
-    return new QueryException(message);
+    return new QuerySyntaxException(message);
   }
 
   /**
-   * Consumes the current token.  If it is not of the specified (expected)
-   * kind, throws QueryException.  Returns the value associated with the
-   * consumed token, if any.
+   * Consumes the current token. If it is not of the specified (expected) kind, throws {@link
+   * QuerySyntaxException}. Returns the value associated with the consumed token, if any.
    */
-  private String consume(TokenKind kind) throws QueryException {
+  private String consume(TokenKind kind) throws QuerySyntaxException {
     if (token.kind != kind) {
       throw syntaxError(token);
     }
@@ -116,15 +114,15 @@ public final class QueryParser {
   }
 
   /**
-   * Consumes the current token, which must be a WORD containing an integer
-   * literal.  Returns that integer, or throws a QueryException otherwise.
+   * Consumes the current token, which must be a WORD containing an integer literal. Returns that
+   * integer, or throws a {@link QuerySyntaxException} otherwise.
    */
-  private int consumeIntLiteral() throws QueryException {
+  private int consumeIntLiteral() throws QuerySyntaxException {
     String intString = consume(TokenKind.WORD);
     try {
       return Integer.parseInt(intString);
     } catch (NumberFormatException e) {
-      throw new QueryException("expected an integer literal: '" + intString + "'");
+      throw new QuerySyntaxException("expected an integer literal: '" + intString + "'");
     }
   }
 
@@ -135,6 +133,9 @@ public final class QueryParser {
   }
 
   /**
+   *
+   *
+   * <pre>
    * expr ::= primary
    *        | expr INTERSECT expr
    *        | expr '^' expr
@@ -142,18 +143,24 @@ public final class QueryParser {
    *        | expr '+' expr
    *        | expr EXCEPT expr
    *        | expr '-' expr
+   * </pre>
    */
-  private QueryExpression parseExpression() throws QueryException {
+  private QueryExpression parseExpression() throws QuerySyntaxException {
     // All operators are left-associative and of equal precedence.
     return parseBinaryOperatorTail(parsePrimary());
   }
 
   /**
+   *
+   *
+   * <pre>
    * tail ::= ( <op> <primary> )*
-   * All operators have equal precedence.
-   * This factoring is required for left-associative binary operators in LL(1).
+   * </pre>
+   *
+   * <p>All operators have equal precedence. This factoring is required for left-associative binary
+   * operators in LL(1).
    */
-  private QueryExpression parseBinaryOperatorTail(QueryExpression lhs) throws QueryException {
+  private QueryExpression parseBinaryOperatorTail(QueryExpression lhs) throws QuerySyntaxException {
     if (!BINARY_OPERATORS.contains(token.kind)) {
       return lhs;
     }
@@ -178,14 +185,19 @@ public final class QueryParser {
   }
 
   /**
+   *
+   *
+   * <pre>
    * primary ::= WORD
    *           | WORD '(' arg ( ',' arg ) * ')'
    *           | LET WORD = expr IN expr
    *           | '(' expr ')'
-   *           | SET '(' WORD * ')'
-   * arg ::= expr | WORD | INT
+   *           | SET '(' WORD * ')' arg ::= expr
+   *           | WORD
+   *           | INT
+   * </pre>
    */
-  private QueryExpression parsePrimary() throws QueryException {
+  private QueryExpression parsePrimary() throws QuerySyntaxException {
     switch (token.kind) {
       case WORD: {
         String word = consume(TokenKind.WORD);
@@ -264,9 +276,9 @@ public final class QueryParser {
    * Unquoted words may not start with a hyphen or asterisk, even though relative target names may
    * start with those characters.
    */
-  private static TargetLiteral validateTargetLiteral(String word) throws QueryException {
+  private static TargetLiteral validateTargetLiteral(String word) throws QuerySyntaxException {
     if (word.startsWith("-") || word.startsWith("*")) {
-      throw new QueryException(
+      throw new QuerySyntaxException(
           "target literal must not begin with " + "(" + word.charAt(0) + "): " + word);
     }
     return new TargetLiteral(word);

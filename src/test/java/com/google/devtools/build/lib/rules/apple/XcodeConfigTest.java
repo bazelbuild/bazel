@@ -408,7 +408,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     scratch.file("foo/BUILD", "load(':extension.bzl', 'my_rule')", "my_rule(name='test')");
     assertNoEvents();
     assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:test"));
-    assertContainsEvent("Dotted version components must all be of the form");
+    assertContainsEvent("Dotted version components must all start with the form");
     assertContainsEvent("got 'not a valid dotted version'");
   }
 
@@ -446,9 +446,9 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
   @Test
   public void testConfigAlias_configSetting() throws Exception {
-    scratch.file("skylark/BUILD");
+    scratch.file("starlark/BUILD");
     scratch.file(
-        "skylark/version_retriever.bzl",
+        "starlark/version_retriever.bzl",
         "def _version_retriever_impl(ctx):",
         "  xcode_properties = ctx.attr.dep[apple_common.XcodeProperties]",
         "  version = xcode_properties.xcode_version",
@@ -461,7 +461,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
     scratch.file(
         "xcode/BUILD",
-        "load('//skylark:version_retriever.bzl', 'version_retriever')",
+        "load('//starlark:version_retriever.bzl', 'version_retriever')",
         "version_retriever(",
         "    name = 'flag_propagator',",
         "    dep = ':alias',",
@@ -522,9 +522,9 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
   @Test
   public void testDefaultVersion_configSetting() throws Exception {
-    scratch.file("skylark/BUILD");
+    scratch.file("starlark/BUILD");
     scratch.file(
-        "skylark/version_retriever.bzl",
+        "starlark/version_retriever.bzl",
         "def _version_retriever_impl(ctx):",
         "  xcode_properties = ctx.attr.dep[apple_common.XcodeProperties]",
         "  version = xcode_properties.xcode_version",
@@ -537,7 +537,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
     scratch.file(
         "xcode/BUILD",
-        "load('//skylark:version_retriever.bzl', 'version_retriever')",
+        "load('//starlark:version_retriever.bzl', 'version_retriever')",
         "version_retriever(",
         "    name = 'flag_propagator',",
         "    dep = ':alias',",
@@ -1297,6 +1297,31 @@ public class XcodeConfigTest extends BuildViewTestCase {
             .addMutualVersions(XcodeVersionInfo.newBuilder().setVersion("8.4"))
             .build();
     assertThat(eventRecorder.xcodeConfigEvent.xcodeConfigInfo).isEqualTo(expected);
+  }
+
+  @Test
+  public void testAvailableXcodeModesDifferentAlias() throws Exception {
+    new BuildFileBuilder()
+        .addRemoteVersion("version5", "5.1", true, "5")
+        .addLocalVersion("version5.1.2", "5.1.2", true, "5")
+        .write(scratch, "xcode/BUILD");
+    useConfiguration("--xcode_version=5");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//xcode:foo");
+    assertContainsEvent("Xcode version 5 was selected");
+    assertContainsEvent("This corresponds to local Xcode version 5.1.2");
+  }
+
+  @Test
+  public void testAvailableXcodeModesDifferentAliasFullySpecified() throws Exception {
+    new BuildFileBuilder()
+        .addRemoteVersion("version5", "5.1", true, "5")
+        .addLocalVersion("version5.1.2", "5.1.2", true, "5")
+        .write(scratch, "xcode/BUILD");
+    useConfiguration("--xcode_version=5.1.2");
+    getConfiguredTarget("//xcode:foo");
+    assertXcodeVersion("5.1.2");
+    assertAvailability(XcodeConfigInfo.Availability.LOCAL);
   }
 
   @Test

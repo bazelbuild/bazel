@@ -17,6 +17,7 @@ import com.google.caliper.BeforeExperiment;
 import com.google.caliper.Benchmark;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.util.UUID;
 
@@ -31,7 +32,7 @@ public class AutoProfilerBenchmark {
     Profiler.instance()
         .start(
             ImmutableSet.copyOf(ProfilerTask.values()),
-            new InMemoryFileSystem().getPath("/out.dat").getOutputStream(),
+            new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/out.dat").getOutputStream(),
             Profiler.Format.JSON_TRACE_FILE_FORMAT,
             "dummy_output_base",
             UUID.randomUUID(),
@@ -40,7 +41,8 @@ public class AutoProfilerBenchmark {
             BlazeClock.instance().nanoTime(),
             /* enabledCpuUsageProfiling= */ false,
             /* slimProfile= */ false,
-            /* includePrimaryOutput= */ false);
+            /* includePrimaryOutput= */ false,
+            /* includeTargetLabel= */ false);
   }
 
   @BeforeExperiment

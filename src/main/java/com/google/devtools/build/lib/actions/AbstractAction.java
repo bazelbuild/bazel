@@ -30,13 +30,11 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkbuildapi.ActionApi;
-import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.starlarkbuildapi.ActionApi;
+import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
+import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -45,6 +43,10 @@ import java.util.Collection;
 import java.util.Map;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Sequence;
 
 /**
  * Abstract implementation of Action which implements basic functionality: the inputs, outputs, and
@@ -349,8 +351,15 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    * directory recursively removes the contents of the directory.
    *
    * @param execRoot the exec root in which this action is executed
+   * @param bulkDeleter a helper to bulk delete outputs to avoid delegating to the filesystem
    */
-  protected void deleteOutputs(Path execRoot) throws IOException {
+  protected void deleteOutputs(Path execRoot, @Nullable BulkDeleter bulkDeleter)
+      throws IOException, InterruptedException {
+    if (bulkDeleter != null) {
+      bulkDeleter.bulkDelete(Artifact.asPathFragments(getOutputs()));
+      return;
+    }
+
     for (Artifact output : getOutputs()) {
       deleteOutput(output.getPath(), output.getRoot());
     }
@@ -362,7 +371,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    * <p>If the path refers to a directory, recursively removes the contents of the directory.
    *
    * @param path the output to remove
-   * @param root the root containing the output. This is used to sanity-check that we don't delete
+   * @param root the root containing the output. This is used to check that we don't delete
    *     arbitrary files in the file system.
    */
   public static void deleteOutput(Path path, @Nullable ArtifactRoot root) throws IOException {
@@ -398,20 +407,25 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    * checking, this method must be called.
    */
   protected void checkInputsForDirectories(
-      EventHandler eventHandler, MetadataProvider metadataProvider) throws IOException {
+      EventHandler eventHandler, MetadataProvider metadataProvider) throws ExecException {
     // Report "directory dependency checking" warning only for non-generated directories (generated
     // ones will be reported earlier).
     for (Artifact input : getMandatoryInputs().toList()) {
       // Assume that if the file did not exist, we would not have gotten here.
-      if (input.isSourceArtifact() && metadataProvider.getMetadata(input).getType().isDirectory()) {
-        // TODO(ulfjack): What about dependency checking of special files?
-        eventHandler.handle(
-            Event.warn(
-                getOwner().getLocation(),
-                String.format(
-                    "input '%s' to %s is a directory; "
-                        + "dependency checking of directories is unsound",
-                    input.prettyPrint(), getOwner().getLabel())));
+      try {
+        if (input.isSourceArtifact()
+            && metadataProvider.getMetadata(input).getType().isDirectory()) {
+          // TODO(ulfjack): What about dependency checking of special files?
+          eventHandler.handle(
+              Event.warn(
+                  getOwner().getLocation(),
+                  String.format(
+                      "input '%s' to %s is a directory; "
+                          + "dependency checking of directories is unsound",
+                      input.prettyPrint(), getOwner().getLabel())));
+        }
+      } catch (IOException e) {
+        throw new EnvironmentalExecException(e, Code.INPUT_DIRECTORY_CHECK_IO_EXCEPTION);
       }
     }
   }
@@ -443,12 +457,13 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public void prepare(Path execRoot) throws IOException {
-    deleteOutputs(execRoot);
+  public void prepare(Path execRoot, @Nullable BulkDeleter bulkDeleter)
+      throws IOException, InterruptedException {
+    deleteOutputs(execRoot, bulkDeleter);
   }
 
   @Override
-  public String describe() {
+  public final String describe() {
     String progressMessage = getProgressMessage();
     return progressMessage != null ? progressMessage : defaultProgressMessage();
   }
@@ -465,7 +480,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
     ExtraActionInfo.Builder result =
         ExtraActionInfo.newBuilder()
             .setOwner(owner.getLabel().toString())
-            .setId(getKey(actionKeyContext))
+            .setId(getKey(actionKeyContext, /*artifactExpander=*/ null))
             .setMnemonic(getMnemonic());
     Iterable<AspectDescriptor> aspectDescriptors = owner.getAspectDescriptors();
     AspectDescriptor lastAspect = null;

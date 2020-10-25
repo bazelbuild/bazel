@@ -42,11 +42,6 @@ public interface LinkerInput {
    */
   boolean containsObjectFiles();
 
-  /**
-   * Returns whether the input artifact is a fake object file or not.
-   */
-  boolean isFake();
-
   default boolean isLinkstamp() {
     return false;
   }
@@ -64,4 +59,11 @@ public interface LinkerInput {
 
   /** If true, Bazel will not wrap this input in whole-archive block. */
   boolean disableWholeArchive();
+
+  /**
+   * Return the identifier for the library. This is used for de-duplication of linker inputs: two
+   * libraries should have the same identifier iff they are in fact the same library but linked in a
+   * different way (e.g. static/dynamic, PIC/no-PIC)
+   */
+  String getLibraryIdentifier();
 }

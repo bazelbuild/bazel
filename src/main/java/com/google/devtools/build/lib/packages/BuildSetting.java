@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.skylarkbuildapi.StarlarkConfigApi.BuildSettingApi;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkConfigApi.BuildSettingApi;
+import net.starlark.java.eval.Printer;
 
 /**
  * Metadata of a build setting rule's properties. This describes the build setting's type (for

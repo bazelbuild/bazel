@@ -17,17 +17,20 @@
 # site files with generated documentation, such as the Build Encyclopedia and
 # Starlark Library. It then constructs the site directory structure for
 # Bazel documentation at HEAD by moving all documentation into the
-# /versions/master directory and adding redirects from the root of the site.
-# This way, URLs of the form https://docs.bazel.build/foo.html will be
-# redirected to https://docs.bazel.build/versions/master/foo.html.
+# /versions/$VERSION directory and adding redirects from the root of the site to
+# the latest released version. This way, URLs of the form
+# https://docs.bazel.build/foo.html will be redirected to
+# https://docs.bazel.build/versions/$LATEST_RELEASE_VERSION/foo.html.
 
 set -eu
 
 readonly OUTPUT=${PWD}/$1
 shift
+readonly LATEST_RELEASE_VERSION=$1
+shift
 readonly JEKYLL_BASE=${PWD}/$1
 shift
-readonly SKYLARK_RULE_DOCS=${PWD}/$1
+readonly STARLARK_RULE_DOCS=${PWD}/$1
 shift
 readonly BE_ZIP=${PWD}/$1
 shift
@@ -55,19 +58,19 @@ function setup {
   mv "$OUT_DIR"/docs/* "$VERSION_DIR"
   rm -r "$OUT_DIR"/docs
 
-  # Unpack the Build Encyclopedia into versions/master/be
+  # Unpack the Build Encyclopedia into versions/$VERSION/be
   local be_dir="$VERSION_DIR/be"
   mkdir -p "$be_dir"
   unzip -qq "$BE_ZIP" -d "$be_dir"
   mv "$be_dir/be-nav.html" "$OUT_DIR/_includes"
 
-  # Unpack the Starlark Library into versions/master/skylark/lib
+  # Unpack the Starlark Library into versions/$VERSION/skylark/lib
   local sl_dir="$VERSION_DIR/skylark/lib"
   mkdir -p "$sl_dir"
   unzip -qq "$SL_ZIP" -d "$sl_dir"
   mv "$sl_dir/skylark-nav.html" "$OUT_DIR/_includes"
 
-  # Unpack the documentation for the repository rules to repo subdirectory
+  # Unpack the documentation for the repository rules to versions/$VERSION/repo
   local repo_dir="${VERSION_DIR}/repo"
   mkdir -p "${repo_dir}"
   tar -C "${repo_dir}" -xf "${REPO_TAR}"
@@ -96,7 +99,7 @@ function unpack_skylark_rule_docs {
   local tmp_dir=$TMP/skylark
   mkdir -p $tmp_dir
   cd "$tmp_dir"
-  tar -xf "${SKYLARK_RULE_DOCS}"
+  tar -xf "${STARLARK_RULE_DOCS}"
   copy_skylark_rule_doc pkg "Packaging"
 }
 
@@ -106,7 +109,18 @@ function process_doc {
   local tempf=$(mktemp -t bazel-doc-XXXXXX)
 
   chmod +w $f
-  cat "$f" | sed 's,\.md,.html,g;s,Blaze,Bazel,g;s,blaze,bazel,g' > "$tempf"
+  # Replace .md with .html only in relative links to other Bazel docs.
+  # sed regexp explanation:
+  # \( and \)         delimits a capturing group
+  # \1                inserts the capture
+  # [( "'\'']         character preceding a url in markdown syntax (open paren
+  #                   or space) or html syntax (a quote); note that '\'' embeds
+  #                   a single quote in a bash single-quoted string.
+  # [a-zA-Z0-9/._-]*  zero or more legal url characters but not ':' - meaning
+  #                   that the url is not absolute.
+  cat "$f" | \
+    sed -e 's,\([( "'\''][a-zA-Z0-9/._-]*\)\.md,\1.html,g' \
+        -e 's,Blaze,Bazel,g;s,blaze,bazel,g' > "$tempf"
   cat "$tempf" > "$f"
 }
 
@@ -121,7 +135,8 @@ function process_docs {
   done
 }
 
-# Generates a redirect for a documentation page under /versions/master.
+# Generates a redirect for a documentation page under
+# /versions/$LATEST_RELEASE_VERSION.
 function gen_redirect {
   local output_dir=$OUT_DIR/$(dirname $f)
   if [[ ! -d "$output_dir" ]]; then
@@ -139,26 +154,30 @@ function gen_redirect {
   cat > "$redirect_file" <<EOF
 ---
 layout: redirect
-redirect: /versions/$VERSION/$html_file
+redirect: /versions/$LATEST_RELEASE_VERSION/$html_file
 ---
 EOF
 }
 
-# During setup, all documentation under docs are moved to the /versions/master
-# directory as the documentation from HEAD.
+# During setup, all documentation under docs are moved to the /versions/$VERSION
+# directory. This leaves nothing in the root directory.
 #
-# This function henerates a redirect from the root of the site for the given
-# doc page under /versions/master so that https://docs.bazel.build/foo.html
-# will be redirected to https://docs.bazel.build/versions/master/foo.html
+# As a fix, when generating the master tarball, this function generates a
+# redirect from the root of the site for the given doc page under
+# /versions/$LATEST_RELEASE_VERSION so that
+# https://docs.bazel.build/foo.html will be redirected to
+# https://docs.bazel.build/versions/$LATEST_RELEASE_VERSION/foo.html
 function gen_redirects {
-  pushd "$VERSION_DIR" > /dev/null
-  for f in $(find . -name "*.html" -type f); do
-    gen_redirect $f
-  done
-  for f in $(find . -name "*.md" -type f); do
-    gen_redirect $f
-  done
-  popd > /dev/null
+  if [[ "$VERSION" == "master" ]]; then
+    pushd "$VERSION_DIR" > /dev/null
+    for f in $(find . -name "*.html" -type f); do
+      gen_redirect $f
+    done
+    for f in $(find . -name "*.md" -type f); do
+      gen_redirect $f
+    done
+    popd > /dev/null
+  fi
 }
 
 # Creates a tar archive containing the final Jekyll tree.

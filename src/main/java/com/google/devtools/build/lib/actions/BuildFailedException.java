@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 
@@ -39,24 +39,11 @@ import com.google.devtools.build.lib.util.ExitCode;
  * propagated by specifying the exit code to the constructor using a {@link DetailedExitCode}.
  */
 @ThreadSafe
-public class BuildFailedException extends Exception {
+public class BuildFailedException extends Exception implements DetailedException {
   private final boolean catastrophic;
   private final NestedSet<Cause> rootCauses;
   private final boolean errorAlreadyShown;
   private final DetailedExitCode detailedExitCode;
-
-  public BuildFailedException() {
-    this(null);
-  }
-
-  public BuildFailedException(String message) {
-    this(
-        message,
-        /*catastrophic=*/ false,
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /*errorAlreadyShown=*/ false,
-        DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE));
-  }
 
   public BuildFailedException(String message, DetailedExitCode detailedExitCode) {
     this(
@@ -65,15 +52,6 @@ public class BuildFailedException extends Exception {
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /*errorAlreadyShown=*/ false,
         detailedExitCode);
-  }
-
-  public BuildFailedException(String message, boolean catastrophic) {
-    this(
-        message,
-        catastrophic,
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /*errorAlreadyShown=*/ false,
-        DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE));
   }
 
   public BuildFailedException(
@@ -101,10 +79,7 @@ public class BuildFailedException extends Exception {
     return errorAlreadyShown || getMessage() == null;
   }
 
-  /**
-   * Returns the pair of {@link ExitCode} and optional {@link FailureDetail} to return from this
-   * Bazel invocation.
-   */
+  @Override
   public DetailedExitCode getDetailedExitCode() {
     return detailedExitCode;
   }

@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import org.junit.Test;
@@ -85,7 +86,8 @@ public class StripPrefixedPathTest {
 
   @Test
   public void testDeprefixSymlink() {
-    InMemoryFileSystem fileSystem = new InMemoryFileSystem(BlazeClock.instance());
+    InMemoryFileSystem fileSystem =
+        new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
 
     PathFragment relativeNoPrefix =
         StripPrefixedPath.maybeDeprefixSymlink(

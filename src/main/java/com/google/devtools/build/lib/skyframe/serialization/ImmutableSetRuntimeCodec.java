@@ -24,12 +24,11 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Set;
 
 /** {@link ObjectCodec} for {@link ImmutableSet} and other sets that should be immutable. */
 @SuppressWarnings("rawtypes") // Intentional erasure of ImmutableSet.
-class ImmutableSetRuntimeCodec implements ObjectCodec<Set> {
+final class ImmutableSetRuntimeCodec implements ObjectCodec<Set> {
   @SuppressWarnings("unchecked")
   private static final Class<Set> LINKED_HASH_MULTIMAP_CLASS =
       (Class<Set>) LinkedHashMultimap.create(ImmutableMultimap.of("a", "b")).get("a").getClass();
@@ -53,11 +52,7 @@ class ImmutableSetRuntimeCodec implements ObjectCodec<Set> {
   @Override
   public ImmutableList<Class<? extends Set>> additionalEncodedClasses() {
     return ImmutableList.of(
-        LINKED_HASH_MULTIMAP_CLASS,
-        SINGLETON_SET_CLASS,
-        EMPTY_SET_CLASS,
-        SUBSET_CLASS,
-        HashSet.class);
+        LINKED_HASH_MULTIMAP_CLASS, SINGLETON_SET_CLASS, EMPTY_SET_CLASS, SUBSET_CLASS);
   }
 
   @Override

@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 /**
  * Cache to store file existence status for include paths. Only paths that are considered immutable
@@ -32,10 +33,16 @@ class PathExistenceCache {
 
   private final Map<PathFragment, Boolean> fileExistenceCache = new ConcurrentHashMap<>();
   private final Map<PathFragment, Boolean> directoryExistenceCache = new ConcurrentHashMap<>();
+  private final Function<PathFragment, Boolean> directoryStatFunction;
 
   PathExistenceCache(Path execRoot, ArtifactFactory artifactFactory) {
     this.execRoot = execRoot;
     this.artifactFactory = artifactFactory;
+    directoryStatFunction =
+        execPath -> {
+          Path path = artifactFactory.getPathFromSourceExecPath(execRoot, execPath);
+          return path.isDirectory();
+        };
   }
 
   /** Returns true if given path exists and is a file, false otherwise. */
@@ -60,18 +67,6 @@ class PathExistenceCache {
 
   /** Returns true if given path exists and is a directory, false otherwise. */
   boolean directoryExists(PathFragment execPath) {
-    Boolean exists = directoryExistenceCache.get(execPath);
-    if (exists == null) {
-      // We do a second lookup on failure to avoid generating garbage in the cache hit case.
-      // The closure captures at least execPath, so the lambda will turn into a heap allocation.
-      exists =
-          directoryExistenceCache.computeIfAbsent(
-              execPath,
-              k -> {
-                Path path = artifactFactory.getPathFromSourceExecPath(execRoot, execPath);
-                return path.isDirectory();
-              });
-    }
-    return exists;
+    return directoryExistenceCache.computeIfAbsent(execPath, directoryStatFunction);
   }
 }

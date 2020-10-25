@@ -15,13 +15,12 @@ package com.google.devtools.build.android.ziputils;
 
 import static com.google.devtools.build.android.ziputils.DirectoryEntry.CENTIM;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Unit tests for {@link ZipOut}.
@@ -37,11 +36,13 @@ public class ZipOutTest {
       String filename = "out.zip";
       ZipOut instance = new ZipOut(fileSystem.getOutputChannel(filename, false), filename);
 
-      instance.nextEntry(DirectoryEntry.allocate("pgk/a.class", null, null))
-          .set(CENTIM, DosTime.EPOCH.time);
+      instance
+          .nextEntry(DirectoryEntry.allocate("pgk/a.class", null, null))
+          .set(CENTIM, DosTime.EPOCHISH.time);
 
-      instance.nextEntry(DirectoryEntry.allocate("pgk/b.class", null, null))
-          .set(CENTIM, DosTime.EPOCH.time);
+      instance
+          .nextEntry(DirectoryEntry.allocate("pgk/b.class", null, null))
+          .set(CENTIM, DosTime.EPOCHISH.time);
 
       instance.close();
     } catch (IOException ex) {

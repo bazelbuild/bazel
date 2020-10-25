@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -54,7 +54,7 @@ public abstract class UnloadedToolchainContextImpl implements SkyValue, Unloaded
      * used.
      */
     Builder setToolchainTypeToResolved(
-        ImmutableBiMap<ToolchainTypeInfo, Label> toolchainTypeToResolved);
+        ImmutableSetMultimap<ToolchainTypeInfo, Label> toolchainTypeToResolved);
 
     /**
      * Maps from the actual requested {@link Label} to the discovered {@link ToolchainTypeInfo}.
@@ -70,6 +70,13 @@ public abstract class UnloadedToolchainContextImpl implements SkyValue, Unloaded
 
   @Override
   public ImmutableSet<Label> resolvedToolchainLabels() {
-    return toolchainTypeToResolved().values();
+    return toolchainTypeToResolved().inverse().keySet();
+  }
+
+  protected abstract Builder toBuilder();
+
+  @Override
+  public UnloadedToolchainContext withoutResolvedToolchains() {
+    return this.toBuilder().setToolchainTypeToResolved(ImmutableSetMultimap.of()).build();
   }
 }

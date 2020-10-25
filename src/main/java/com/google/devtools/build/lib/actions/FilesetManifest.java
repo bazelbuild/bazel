@@ -16,7 +16,11 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -30,6 +34,7 @@ import javax.annotation.Nullable;
  * Representation of a Fileset manifest.
  */
 public final class FilesetManifest {
+  private static final int MAX_SYMLINK_TRAVERSALS = 256;
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
@@ -43,7 +48,10 @@ public final class FilesetManifest {
     ERROR,
 
     /** Resolve all relative target paths. */
-    RESOLVE;
+    RESOLVE,
+
+    /** Fully resolve all relative paths, even those pointing to internal directories. */
+    RESOLVE_FULLY;
   }
 
   public static FilesetManifest constructFilesetManifest(
@@ -66,7 +74,7 @@ public final class FilesetManifest {
         artifactValues.put(artifact, (FileArtifactValue) outputSymlink.getMetadata());
       }
     }
-    resolveRelativeSymlinks(entries, relativeLinks);
+    resolveRelativeSymlinks(entries, relativeLinks, targetPrefix.isAbsolute(), relSymlinkBehavior);
     return new FilesetManifest(entries, artifactValues);
   }
 
@@ -87,6 +95,7 @@ public final class FilesetManifest {
       case ERROR:
         throw new IOException("runfiles target is not absolute: " + artifact);
       case RESOLVE:
+      case RESOLVE_FULLY:
         if (!relativeLinks.containsKey(fullLocation)) { // Keep consistent behavior: no overwriting.
           relativeLinks.put(fullLocation, artifact);
         }
@@ -96,51 +105,107 @@ public final class FilesetManifest {
     }
   }
 
-  private static final int MAX_SYMLINK_TRAVERSALS = 256;
+  /** Fully resolve relative symlinks including internal directory symlinks. */
+  private static void fullyResolveRelativeSymlinks(
+      Map<PathFragment, String> entries, Map<PathFragment, String> relativeLinks, boolean absolute)
+      throws IOException {
+    // Construct an in-memory Filesystem containing all the non-relative-symlink entries in the
+    // Fileset. Treat these as regular files in the filesystem whose contents are the "real" symlink
+    // pointing out of the Fileset. For relative symlinks, we encode these as symlinks in the
+    // in-memory Filesystem. This allows us to then crawl the filesystem for files. Any readable
+    // file is a valid part of the FilesetManifest. Dangling internal links or symlink cycles will
+    // be discovered by the in-memory filesystem.
+    // (Choice of digest function is irrelevant).
+    InMemoryFileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Path root = fs.getPath("/");
+    for (Map.Entry<PathFragment, String> e : entries.entrySet()) {
+      PathFragment location = e.getKey();
+      Path locationPath = root.getRelative(location);
+      locationPath.getParentDirectory().createDirectoryAndParents();
+      FileSystemUtils.writeContentAsLatin1(locationPath, Strings.nullToEmpty(e.getValue()));
+    }
+    for (Map.Entry<PathFragment, String> e : relativeLinks.entrySet()) {
+      PathFragment location = e.getKey();
+      Path locationPath = fs.getPath("/").getRelative(location);
+      PathFragment value = PathFragment.create(Preconditions.checkNotNull(e.getValue(), e));
+      Preconditions.checkState(!value.isAbsolute(), e);
+
+      locationPath.getParentDirectory().createDirectoryAndParents();
+      locationPath.createSymbolicLink(value);
+    }
+
+    addSymlinks(root, entries, absolute);
+  }
+
+  private static void addSymlinks(Path root, Map<PathFragment, String> entries, boolean absolute)
+      throws IOException {
+    for (Path path : root.getDirectoryEntries()) {
+      try {
+        if (path.isDirectory()) {
+          addSymlinks(path, entries, absolute);
+        } else {
+          String contents = new String(FileSystemUtils.readContentAsLatin1(path));
+          entries.put(
+              absolute ? path.asFragment() : path.asFragment().toRelative(),
+              Strings.emptyToNull(contents));
+        }
+      } catch (IOException e) {
+        logger.atWarning().log("Symlink %s is dangling or cyclic: %s", path, e.getMessage());
+      }
+    }
+  }
 
   /**
    * Resolves relative symlinks and puts them in the {@code entries} map.
    *
    * <p>Note that {@code relativeLinks} should only contain entries in {@link
-   * RelativeSymlinkBehavior#RESOLVE} mode.
+   * RelativeSymlinkBehavior#RESOLVE} or {@link RelativeSymlinkBehavior#RESOLVE_FULLY} mode.
    */
   private static void resolveRelativeSymlinks(
-      Map<PathFragment, String> entries, Map<PathFragment, String> relativeLinks) {
-    for (Map.Entry<PathFragment, String> e : relativeLinks.entrySet()) {
-      PathFragment location = e.getKey();
-      String value = e.getValue();
-      String actual = Preconditions.checkNotNull(value, e);
-      Preconditions.checkState(!actual.startsWith("/"), e);
-      PathFragment actualLocation = location;
+      Map<PathFragment, String> entries,
+      Map<PathFragment, String> relativeLinks,
+      boolean absolute,
+      RelativeSymlinkBehavior relSymlinkBehavior)
+      throws IOException {
+    if (relSymlinkBehavior == RelativeSymlinkBehavior.RESOLVE_FULLY && !relativeLinks.isEmpty()) {
+      fullyResolveRelativeSymlinks(entries, relativeLinks, absolute);
+    } else if (relSymlinkBehavior == RelativeSymlinkBehavior.RESOLVE) {
+      for (Map.Entry<PathFragment, String> e : relativeLinks.entrySet()) {
+        PathFragment location = e.getKey();
+        String value = e.getValue();
+        String actual = Preconditions.checkNotNull(value, e);
+        Preconditions.checkState(!actual.startsWith("/"), e);
+        PathFragment actualLocation = location;
 
-      // Recursively resolve relative symlinks.
-      LinkedHashSet<String> seen = new LinkedHashSet<>();
-      int traversals = 0;
-      do {
-        actualLocation = actualLocation.getParentDirectory().getRelative(actual);
-        actual = relativeLinks.get(actualLocation);
-      } while (++traversals <= MAX_SYMLINK_TRAVERSALS && actual != null && seen.add(actual));
+        // Recursively resolve relative symlinks.
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        int traversals = 0;
+        do {
+          actualLocation = actualLocation.getParentDirectory().getRelative(actual);
+          actual = relativeLinks.get(actualLocation);
+        } while (++traversals <= MAX_SYMLINK_TRAVERSALS && actual != null && seen.add(actual));
 
-      if (traversals >= MAX_SYMLINK_TRAVERSALS) {
-        logger.atWarning().log(
-            "Symlink %s is part of a chain of length at least %d"
-                + " which exceeds Blaze's maximum allowable symlink chain length",
-            location, traversals);
-      } else if (actual != null) {
-        // TODO(b/113128395): throw here.
-        logger.atWarning().log("Symlink %s forms a symlink cycle: %s", location, seen);
-      } else if (!entries.containsKey(actualLocation)) {
-        // We've found a relative symlink that points out of the fileset. We should really always
-        // throw here, but current behavior is that we tolerate such symlinks when they occur in
-        // runfiles, which is the only time this code is hit.
-        // TODO(b/113128395): throw here.
-        logger.atWarning().log(
-            "Symlink %s (transitively) points to %s"
-                + " that is not in this fileset (or was pruned because of a cycle)",
-            location, actualLocation);
-      } else {
-        // We have successfully resolved the symlink.
-        entries.put(location, entries.get(actualLocation));
+        if (traversals >= MAX_SYMLINK_TRAVERSALS) {
+          logger.atWarning().log(
+              "Symlink %s is part of a chain of length at least %d"
+                  + " which exceeds Blaze's maximum allowable symlink chain length",
+              location, traversals);
+        } else if (actual != null) {
+          // TODO(b/113128395): throw here.
+          logger.atWarning().log("Symlink %s forms a symlink cycle: %s", location, seen);
+        } else if (!entries.containsKey(actualLocation)) {
+          // We've found a relative symlink that points out of the fileset. We should really always
+          // throw here, but current behavior is that we tolerate such symlinks when they occur in
+          // runfiles, which is the only time this code is hit.
+          // TODO(b/113128395): throw here.
+          logger.atWarning().log(
+              "Symlink %s (transitively) points to %s"
+                  + " that is not in this fileset (or was pruned because of a cycle)",
+              location, actualLocation);
+        } else {
+          // We have successfully resolved the symlink.
+          entries.put(location, entries.get(actualLocation));
+        }
       }
     }
   }

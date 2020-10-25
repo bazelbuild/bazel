@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.runtime.events.GotProjectFileEvent;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -49,7 +50,7 @@ public final class ProjectFileSupport {
       Path workingDir,
       OptionsParser optionsParser,
       String command)
-      throws OptionsParsingException {
+      throws OptionsParsingException, InterruptedException, AbruptExitException {
     List<String> targets = optionsParser.getResidue();
     if (projectFileProvider != null
         && !targets.isEmpty()
@@ -84,7 +85,9 @@ public final class ProjectFileSupport {
       eventHandler.handle(Event.info("Using " + projectFile.getName()));
 
       optionsParser.parse(
-          PriorityCategory.RC_FILE, projectFile.getName(), projectFile.getCommandLineFor(command));
+          PriorityCategory.RC_FILE,
+          projectFile.getName(),
+          projectFile.getCommandLineFor(command, eventHandler));
       eventHandler.post(new GotProjectFileEvent(projectFile.getName()));
     }
   }

@@ -25,7 +25,7 @@ other_rule = rule(
     },
 )
 
-whitelisted_dep_rule = dep_rule
+allowlisted_dep_rule = dep_rule
 
 yet_another_rule = rule(
     implementation = my_rule_impl,

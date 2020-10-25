@@ -18,13 +18,14 @@ import static com.google.devtools.build.lib.analysis.ToolchainCollection.DEFAULT
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
-import com.google.devtools.build.lib.skylarkbuildapi.StarlarkConfigApi.ExecTransitionFactoryApi;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkConfigApi.ExecTransitionFactoryApi;
 import javax.annotation.Nullable;
 
 /**
@@ -99,10 +100,15 @@ public class ExecutionTransitionFactory
     private static final BuildOptionsCache<Label> cache = new BuildOptionsCache<>();
 
     @Override
-    public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
+    public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+      return ImmutableSet.of(CoreOptions.class, PlatformOptions.class);
+    }
+
+    @Override
+    public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
       if (executionPlatform == null) {
         // No execution platform is known, so don't change anything.
-        return options;
+        return options.underlying();
       }
       return cache.applyTransition(
           options,
@@ -110,11 +116,13 @@ public class ExecutionTransitionFactory
           executionPlatform,
           () -> {
             // Start by converting to host options.
-            BuildOptions execConfiguration = options.createHostOptions();
+            BuildOptionsView execOptions =
+                new BuildOptionsView(
+                    options.underlying().createHostOptions(), requiresOptionFragments());
 
             // Then unset isHost, if CoreOptions is available.
             CoreOptions coreOptions =
-                Preconditions.checkNotNull(execConfiguration.get(CoreOptions.class));
+                Preconditions.checkNotNull(execOptions.get(CoreOptions.class));
             coreOptions.isHost = false;
             coreOptions.isExec = true;
             coreOptions.outputDirectoryName = null;
@@ -122,12 +130,12 @@ public class ExecutionTransitionFactory
                 String.format("-exec-%X", executionPlatform.getCanonicalForm().hashCode());
 
             // Then set the target to the saved execution platform if there is one.
-            if (execConfiguration.get(PlatformOptions.class) != null) {
-              execConfiguration.get(PlatformOptions.class).platforms =
+            if (execOptions.get(PlatformOptions.class) != null) {
+              execOptions.get(PlatformOptions.class).platforms =
                   ImmutableList.of(executionPlatform);
             }
 
-            return execConfiguration;
+            return execOptions.underlying();
           });
     }
   }

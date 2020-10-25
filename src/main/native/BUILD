@@ -52,7 +52,7 @@ cc_library(
 )
 
 cc_binary(
-    name = "libunix.so",
+    name = "libunix_jni.so",
     srcs = [
         "macros.h",
         "process.cc",
@@ -73,8 +73,7 @@ cc_binary(
         "//conditions:default": [],
     }),
     linkshared = 1,
-    # :target-os-unix-native-lib should be used outside of this package
-    visibility = ["//visibility:private"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib/jni:__pkg__"],
     deps = [
         ":latin1_jni_path",
         "//src/main/cpp/util",
@@ -86,28 +85,11 @@ cc_binary(
 # library extensions.  This is issue #914.
 genrule(
     name = "mac-compat",
-    srcs = ["libunix.so"],
-    outs = ["libunix.dylib"],
+    srcs = ["libunix_jni.so"],
+    outs = ["libunix_jni.dylib"],
     cmd = "cp $< $@",
     output_to_bindir = 1,
-    # :target-os-unix-native-lib should be used outside of this package
-    visibility = ["//visibility:private"],
-)
-
-# Platform-independent holder for native JNI libraries (empty for non-UNIX systems).
-# Targets should depend on this filegroup rather then on Platform-dependent libraries directly!
-filegroup(
-    name = "target-os-unix-native-lib",
-    srcs = select({
-        "//src/conditions:darwin": ["//src/main/native:libunix.dylib"],
-        "//src/conditions:darwin_x86_64": ["//src/main/native:libunix.dylib"],
-        "//src/conditions:windows": [],
-        "//conditions:default": ["//src/main/native:libunix.so"],
-    }),
-    visibility = [
-        "//src:__pkg__",
-        "//src/main/java/com/google/devtools/build/lib/unix/jni:__pkg__",
-    ],
+    visibility = ["//src/main/java/com/google/devtools/build/lib/jni:__pkg__"],
 )
 
 filegroup(

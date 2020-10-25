@@ -131,11 +131,15 @@ public class OutputDirectories {
 
   private final boolean mergeGenfilesDirectory;
 
+  @SuppressWarnings("unused")
+  private final boolean siblingRepositoryLayout;
+
   OutputDirectories(
       BlazeDirectories directories,
       CoreOptions options,
       ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments,
-      RepositoryName mainRepositoryName) {
+      RepositoryName mainRepositoryName,
+      boolean siblingRepositoryLayout) {
     this.directories = directories;
     this.mnemonic = buildMnemonic(options, fragments);
     this.outputDirName =
@@ -156,6 +160,7 @@ public class OutputDirectories {
         OutputDirectory.MIDDLEMAN.getRoot(outputDirName, directories, mainRepositoryName);
 
     this.mergeGenfilesDirectory = options.mergeGenfilesDirectory;
+    this.siblingRepositoryLayout = siblingRepositoryLayout;
   }
 
   private String buildMnemonic(
@@ -179,18 +184,18 @@ public class OutputDirectories {
   }
 
   /** Returns the bin directory for this build configuration. */
-  ArtifactRoot getBinDirectory() {
+  ArtifactRoot getBinDirectory(RepositoryName repositoryName) {
     return binDirectory;
   }
 
   /** Returns the include directory for this build configuration. */
-  ArtifactRoot getIncludeDirectory() {
+  ArtifactRoot getIncludeDirectory(RepositoryName repositoryName) {
     return includeDirectory;
   }
 
   /** Returns the genfiles directory for this build configuration. */
-  ArtifactRoot getGenfilesDirectory() {
-    return mergeGenfilesDirectory ? binDirectory : genfilesDirectory;
+  ArtifactRoot getGenfilesDirectory(RepositoryName repositoryName) {
+    return mergeGenfilesDirectory ? getBinDirectory(repositoryName) : genfilesDirectory;
   }
 
   /**
@@ -198,18 +203,18 @@ public class OutputDirectories {
    * This includes for example uninstrumented class files needed for Jacoco's coverage reporting
    * tools.
    */
-  ArtifactRoot getCoverageMetadataDirectory() {
+  ArtifactRoot getCoverageMetadataDirectory(RepositoryName repositoryName) {
     return coverageDirectory;
   }
 
   /** Returns the testlogs directory for this build configuration. */
-  ArtifactRoot getTestLogsDirectory() {
+  ArtifactRoot getTestLogsDirectory(RepositoryName repositoryName) {
     return testlogsDirectory;
   }
 
   /** Returns a relative path to the genfiles directory at execution time. */
-  PathFragment getGenfilesFragment() {
-    return getGenfilesDirectory().getExecPath();
+  PathFragment getGenfilesFragment(RepositoryName repositoryName) {
+    return getGenfilesDirectory(repositoryName).getExecPath();
   }
 
   /**
@@ -224,7 +229,7 @@ public class OutputDirectories {
   }
 
   /** Returns the internal directory (used for middlemen) for this build configuration. */
-  ArtifactRoot getMiddlemanDirectory() {
+  ArtifactRoot getMiddlemanDirectory(RepositoryName repositoryName) {
     return middlemanDirectory;
   }
 

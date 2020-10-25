@@ -76,8 +76,8 @@ public final class OneVersionCheckActionBuilder {
     Preconditions.checkNotNull(jarsToCheck);
 
     Artifact oneVersionTool = javaToolchain.getOneVersionBinary();
-    Artifact oneVersionWhitelist = javaToolchain.getOneVersionWhitelist();
-    if (oneVersionTool == null || oneVersionWhitelist == null) {
+    Artifact oneVersionAllowlist = javaToolchain.getOneVersionAllowlist();
+    if (oneVersionTool == null || oneVersionAllowlist == null) {
       addRuleErrorForMissingArtifacts(ruleContext, javaToolchain);
       return outputArtifact;
     }
@@ -85,7 +85,7 @@ public final class OneVersionCheckActionBuilder {
     CustomCommandLine.Builder oneVersionArgsBuilder =
         CustomCommandLine.builder()
             .addExecPath("--output", outputArtifact)
-            .addExecPath("--whitelist", oneVersionWhitelist);
+            .addExecPath("--whitelist", oneVersionAllowlist);
     if (enforcementLevel == OneVersionEnforcementLevel.WARNING) {
       oneVersionArgsBuilder.add("--succeed_on_found_violations");
     }
@@ -94,7 +94,7 @@ public final class OneVersionCheckActionBuilder {
     ruleContext.registerAction(
         new SpawnAction.Builder()
             .addOutput(outputArtifact)
-            .addInput(oneVersionWhitelist)
+            .addInput(oneVersionAllowlist)
             .addTransitiveInputs(jarsToCheck)
             .setExecutable(oneVersionTool)
             .addCommandLine(
@@ -112,7 +112,7 @@ public final class OneVersionCheckActionBuilder {
         String.format(
             "one version enforcement was requested but it is not supported by the current "
                 + "Java toolchain '%s'; see the "
-                + "java_toolchain.oneversion and java_toolchain.oneversion_whitelist "
+                + "java_toolchain.oneversion and java_toolchain.oneversion_allowlist "
                 + "attributes",
             javaToolchain.getToolchainLabel()));
   }
@@ -128,8 +128,7 @@ public final class OneVersionCheckActionBuilder {
 
   private static String getArtifactOwnerGeneralizedLabel(Artifact artifact) {
     Label label = checkNotNull(artifact.getOwnerLabel(), artifact);
-    return label.getPackageIdentifier().getRepository().isDefault()
-            || label.getPackageIdentifier().getRepository().isMain()
+    return label.getRepository().isDefault() || label.getRepository().isMain()
         ? label.toString()
         // Escape '@' prefix for .params file.
         : "@" + label;

@@ -1,5 +1,6 @@
-load("@rules_java//java:defs.bzl", "java_library", "java_proto_library")
 load("//tools/build_rules:utilities.bzl", "java_library_srcs")
+load("@rules_java//java:defs.bzl", "java_library")
+load("@rules_java//java:defs.bzl", "java_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
 
 # Description:
@@ -42,7 +43,7 @@ java_library(
     deps = [
         ":workspace_log_java_proto",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
+        "//src/main/java/net/starlark/java/syntax",
     ],
 )
 

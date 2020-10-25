@@ -419,7 +419,8 @@ public final class CommandInterruptionTest {
                 })
             .build();
     snooze = new WaitForCompletionCommand(isTestShuttingDown);
-    dispatcher = new BlazeCommandDispatcher(runtime, snooze);
+    runtime.overrideCommands(ImmutableList.of(snooze));
+    dispatcher = new BlazeCommandDispatcher(runtime);
     BlazeDirectories blazeDirectories =
         new BlazeDirectories(
             serverDirectories,

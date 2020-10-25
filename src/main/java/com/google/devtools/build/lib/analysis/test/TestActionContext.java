@@ -194,5 +194,14 @@ public interface TestActionContext extends ActionContext {
     default TestRunnerSpawn getFallbackRunner() throws ExecException {
       return null;
     }
+
+    /**
+     * Return a {@link TestRunnerSpawn} object that is used on flaky retries. Flaky retry runner
+     * allows a test to run with a different strategy on flaky retries (for example, enabling test
+     * fail-fast mode to save up resources).
+     */
+    default TestRunnerSpawn getFlakyRetryRunner() throws ExecException {
+      return this;
+    }
   }
 }

@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
-import com.google.devtools.build.lib.skylarkbuildapi.StarlarkAspectApi;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.StarlarkCallable;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectApi;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkCallable;
 
 /** Fake implementation of {@link StarlarkAspectApi}. */
 public class FakeStarlarkAspect implements StarlarkCallable, StarlarkAspectApi {

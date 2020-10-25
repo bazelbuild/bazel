@@ -21,17 +21,17 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.syntax.Location;
+import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
+import net.starlark.java.syntax.Location;
 
 /**
  * This exception gets thrown if {@link Action#execute(ActionExecutionContext)} is unsuccessful.
  * Typically these are re-raised ExecException throwables.
  */
 @ThreadSafe
-public class ActionExecutionException extends Exception {
+public class ActionExecutionException extends Exception implements DetailedException {
 
   private final ActionAnalysisMetadata action;
   private final NestedSet<Cause> rootCauses;
@@ -39,21 +39,15 @@ public class ActionExecutionException extends Exception {
   private final DetailedExitCode detailedExitCode;
 
   public ActionExecutionException(
-      Throwable cause, ActionAnalysisMetadata action, boolean catastrophe) {
+      Throwable cause,
+      ActionAnalysisMetadata action,
+      boolean catastrophe,
+      DetailedExitCode detailedExitCode) {
     super(cause.getMessage(), cause);
     this.action = action;
-    this.detailedExitCode = DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE);
+    this.detailedExitCode = detailedExitCode;
     this.rootCauses = rootCausesFromAction(action, detailedExitCode);
     this.catastrophe = catastrophe;
-  }
-
-  public ActionExecutionException(
-      String message, Throwable cause, ActionAnalysisMetadata action, boolean catastrophe) {
-    super(message, cause);
-    this.action = action;
-    this.catastrophe = catastrophe;
-    this.detailedExitCode = DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE);
-    this.rootCauses = rootCausesFromAction(action, detailedExitCode);
   }
 
   public ActionExecutionException(
@@ -70,33 +64,28 @@ public class ActionExecutionException extends Exception {
   }
 
   public ActionExecutionException(
-      String message, ActionAnalysisMetadata action, boolean catastrophe) {
+      String message,
+      ActionAnalysisMetadata action,
+      boolean catastrophe,
+      DetailedExitCode detailedExitCode) {
     super(message);
     this.action = action;
     this.catastrophe = catastrophe;
-    this.detailedExitCode = DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE);
-    this.rootCauses = rootCausesFromAction(action, detailedExitCode);
-  }
-
-  public ActionExecutionException(
-      String message, ActionAnalysisMetadata action, boolean catastrophe, ExitCode exitCode) {
-    super(message);
-    this.action = action;
-    this.catastrophe = catastrophe;
-    this.detailedExitCode = DetailedExitCode.justExitCode(exitCode);
-    this.rootCauses = rootCausesFromAction(action, detailedExitCode);
+    this.detailedExitCode = detailedExitCode;
+    this.rootCauses = rootCausesFromAction(action, this.detailedExitCode);
   }
 
   public ActionExecutionException(
       String message,
       ActionAnalysisMetadata action,
       NestedSet<Cause> rootCauses,
-      boolean catastrophe) {
+      boolean catastrophe,
+      DetailedExitCode detailedExitCode) {
     super(message);
     this.action = action;
     this.rootCauses = rootCauses;
     this.catastrophe = catastrophe;
-    this.detailedExitCode = DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE);
+    this.detailedExitCode = detailedExitCode;
   }
 
   public ActionExecutionException(
@@ -161,10 +150,7 @@ public class ActionExecutionException extends Exception {
     return detailedExitCode.getExitCode();
   }
 
-  /**
-   * Returns the pair of {@link ExitCode} and optional {@link FailureDetail} to return from this
-   * Bazel invocation because of this action execution failure.
-   */
+  @Override
   public DetailedExitCode getDetailedExitCode() {
     return detailedExitCode;
   }

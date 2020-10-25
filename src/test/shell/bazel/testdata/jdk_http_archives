@@ -2,49 +2,25 @@
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
     name = "remote_java_tools_javac11_test_linux",
-    sha256 = "c24aef916cc5a8e9f6d53db1f93c54fe5790a58996a1099592e1dfe992acc81e",
+    sha256 = "01e6912f7638c2ada1149fcf52979102c06982732a82044d925fc454d31998d8",
     urls = [
-         "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v8.0/java_tools_javac11_linux-v8.0.zip",
+         "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.1/java_tools_javac11_linux-v10.1.zip",
     ],
 )
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
     name = "remote_java_tools_javac11_test_windows",
-    sha256 = "444c391977e50af4e10549a28d021069d2ca7745a0e7b9b968a7b153fe3ea430",
+    sha256 = "48bda6ed98762de16cc25bb5d104fd1eacefc2b7c4470c72609a745c12b8870b",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v8.0/java_tools_javac11_windows-v8.0.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.1/java_tools_javac11_windows-v10.1.zip",
     ],
 )
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
     name = "remote_java_tools_javac11_test_darwin",
-    sha256 = "e0291e8956ac295143da4a673ca50727f7376665ee82b649a4ee810b64ff76c1",
+    sha256 = "6a258df035a756eb721855980d6dbdb11ef818d9d293740dd9327f9e2b018bcf",
     urls = [
-         "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v8.0/java_tools_javac11_darwin-v8.0.zip",
-    ],
-)
-
-################### Remote java_tools with embedded javac 12 ###################
-# This must be kept in sync with the top-level WORKSPACE file.
-http_archive(
-    name = "remote_java_tools_javac12_test_linux",
-    sha256 = "3997ee9a57b095748f1c0d084839fab2fbc72504aeb7b37b1f71c31738d330e3",
-    urls = ["https://mirror.bazel.build/bazel_java_tools/releases/javac12/v3.0/java_tools_javac12_linux-v3.0.zip"],
-)
-# This must be kept in sync with the top-level WORKSPACE file.
-http_archive(
-    name = "remote_java_tools_javac12_test_windows",
-    sha256 = "cfad1718dad1fed12816748eed27ab30b9ea1268c8ce9940acf3b5b7d82d483d",
-    urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac12/v3.0/java_tools_javac12_windows-v3.0.zip",
-    ],
-)
-# This must be kept in sync with the top-level WORKSPACE file.
-http_archive(
-    name = "remote_java_tools_javac12_test_darwin",
-    sha256 = "54df966e7583bafe659e39b4103a4ce934201d969de638d071ada07d8e0c1a3a",
-    urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac12/v3.0/java_tools_javac12_darwin-v3.0.zip",
+         "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.1/java_tools_javac11_darwin-v10.1.zip",
     ],
 )
 
@@ -74,28 +50,73 @@ http_archive(
     urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-win_x64.zip"],
 )
 
-#################################### JDK 12 ####################################
+#################################### JDK 14 ####################################
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
-    name = "openjdk12_linux_archive",
+    name = "openjdk14_linux_archive",
     build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
-    sha256 = "529c99841d69e11a85aea967ccfb9d0fd40b98c5b68dbe1d059002655e0a9c13",
-    strip_prefix = "zulu12.2.3-ca-jdk12.0.1-linux_x64",
-    urls = ["https://mirror.bazel.build/openjdk/azul-zulu12.2.3-ca-jdk12.0.1/zulu12.2.3-ca-jdk12.0.1-linux_x64.tar.gz"],
+    sha256 = "48bb8947034cd079ad1ef83335e7634db4b12a26743a0dc314b6b861480777aa",
+    strip_prefix = "zulu14.28.21-ca-jdk14.0.1-linux_x64",
+    urls = ["https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu14.28.21-ca-jdk14.0.1-linux_x64.tar.gz"],
 )
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
-    name = "openjdk12_darwin_archive",
+    name = "openjdk14_darwin_archive",
     build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
-    sha256 = "67ca9d285056132ebb19fa237a14affda52132142e1171fe1c20e18974b3b8a5",
-    strip_prefix = "zulu12.2.3-ca-jdk12.0.1-macosx_x64",
-    urls = ["https://mirror.bazel.build/openjdk/azul-zulu12.2.3-ca-jdk12.0.1/zulu12.2.3-ca-jdk12.0.1-macosx_x64.tar.gz"],
+    sha256 = "088bd4d0890acc9f032b738283bf0f26b2a55c50b02d1c8a12c451d8ddf080dd",
+    strip_prefix = "zulu14.28.21-ca-jdk14.0.1-macosx_x64",
+    urls = ["https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu14.28.21-ca-jdk14.0.1-macosx_x64.tar.gz"],
 )
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
-    name = "openjdk12_windows_archive",
+    name = "openjdk14_windows_archive",
     build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
-    sha256 = "cf28404c23c3aa1115363ba6e796c30580a768e1d7d6681a7d053e516008e00d",
-    strip_prefix = "zulu12.2.3-ca-jdk12.0.1-win_x64",
-    urls = ["https://mirror.bazel.build/openjdk/azul-zulu12.2.3-ca-jdk12.0.1/zulu12.2.3-ca-jdk12.0.1-win_x64.zip"],
+    sha256 = "9cb078b5026a900d61239c866161f0d9558ec759aa15c5b4c7e905370e868284",
+    strip_prefix = "zulu14.28.21-ca-jdk14.0.1-win_x64",
+    urls = ["https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu14.28.21-ca-jdk14.0.1-win_x64.zip"],
 )
+
+#################################### JDK 15 ####################################
+# This must be kept in sync with the top-level WORKSPACE file.
+http_archive(
+    name = "openjdk15_linux_archive",
+    build_file_content = """
+java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
+exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
+""",
+    strip_prefix = "zulu15.27.17-ca-jdk15.0.0-linux_x64",
+    sha256 = "0a38f1138c15a4f243b75eb82f8ef40855afcc402e3c2a6de97ce8235011b1ad",
+    urls = [
+        "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu15.27.17-ca-jdk15.0.0-linux_x64.tar.gz",
+        "https://cdn.azul.com/zulu/bin/zulu15.27.17-ca-jdk15.0.0-linux_x64.tar.gz",
+    ],
+)
+# This must be kept in sync with the top-level WORKSPACE file.
+http_archive(
+    name = "openjdk15_darwin_archive",
+    build_file_content = """
+java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
+exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
+""",
+    strip_prefix = "zulu15.27.17-ca-jdk15.0.0-macosx_x64",
+    sha256 = "f80b2e0512d9d8a92be24497334c974bfecc8c898fc215ce0e76594f00437482",
+    urls = [
+        "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu15.27.17-ca-jdk15.0.0-macosx_x64.tar.gz",
+        "https://cdn.azul.com/zulu/bin/zulu15.27.17-ca-jdk15.0.0-macosx_x64.tar.gz",
+    ],
+)
+# This must be kept in sync with the top-level WORKSPACE file.
+http_archive(
+    name = "openjdk15_windows_archive",
+    build_file_content = """
+java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
+exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
+""",
+    strip_prefix = "zulu15.27.17-ca-jdk15.0.0-win_x64",
+    sha256 = "f535a530151e6c20de8a3078057e332b08887cb3ba1a4735717357e72765cad6",
+    urls = [
+        "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu15.27.17-ca-jdk15.0.0-win_x64.zip",
+        "https://cdn.azul.com/zulu/bin/zulu15.27.17-ca-jdk15.0.0-win_x64.zip",
+    ],
+)
+

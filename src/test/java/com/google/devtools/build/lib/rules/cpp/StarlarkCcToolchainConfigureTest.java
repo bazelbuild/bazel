@@ -14,18 +14,20 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
-import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.StarlarkList;
-import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
+import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.StarlarkList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for cc autoconfiguration. */
 @RunWith(JUnit4.class)
-public class StarlarkCcToolchainConfigureTest extends EvaluationTestCase {
+public class StarlarkCcToolchainConfigureTest {
+
+  private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
 
   @Test
   public void testSplitEscaped() throws Exception {
@@ -50,12 +52,8 @@ public class StarlarkCcToolchainConfigureTest extends EvaluationTestCase {
         .testExpression("split_escaped('a%:', ':')", StarlarkList.of(mu, "a:"));
   }
 
-  private Scenario newTest(String... starlarkOptions) throws IOException {
-    return new Scenario(starlarkOptions)
-        // A mock implementation of Label to be able to parse lib_cc_configure under default
-        // Starlark environment (lib_cc_configure is meant to be used from the repository
-        // environment).
-        .setUp("def Label(arg):\n  return 42")
+  private BazelEvaluationTestCase.Scenario newTest(String... starlarkOptions) throws IOException {
+    return ev.new Scenario(starlarkOptions)
         .setUp(
             ResourceLoader.readFromResources(
                 TestConstants.RULES_CC_REPOSITORY_EXECROOT

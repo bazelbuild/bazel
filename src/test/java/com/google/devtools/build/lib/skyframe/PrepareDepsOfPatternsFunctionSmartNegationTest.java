@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.WalkableGraphUtils.exists;
 
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -29,10 +28,9 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.DefaultBuildOptionsForTesting;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
@@ -41,7 +39,6 @@ import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -49,6 +46,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.Options;
 import java.io.IOException;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.Before;
 import org.junit.Test;
@@ -59,8 +57,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTestCase {
   private SkyframeExecutor skyframeExecutor;
-  private static final String ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING =
-      "config/blacklist.txt";
+  private static final String ADDITIONAL_IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING =
+      "config/ignored.txt";
 
   private static SkyKey getKeyForLabel(Label label) {
     // Note that these tests used to look for TargetMarker SkyKeys before TargetMarker was
@@ -95,9 +93,9 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
             .setDefaultBuildOptions(
                 DefaultBuildOptionsForTesting.getDefaultBuildOptionsForTest(ruleClassProvider))
             .setExtraSkyFunctions(AnalysisMock.get().getSkyFunctions(directories))
-            .setBlacklistedPackagePrefixesFunction(
-                new BlacklistedPackagePrefixesFunction(
-                    PathFragment.create(ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING)))
+            .setIgnoredPackagePrefixesFunction(
+                new IgnoredPackagePrefixesFunction(
+                    PathFragment.create(ADDITIONAL_IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING)))
             .build();
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     skyframeExecutor.preparePackageLoading(
@@ -106,23 +104,21 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
             ImmutableList.of(Root.fromPath(rootDirectory)),
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
         Options.getDefaults(PackageOptions.class),
-        Options.getDefaults(StarlarkSemanticsOptions.class),
+        Options.getDefaults(BuildLanguageOptions.class),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(null));
-    skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
+    skyframeExecutor.setActionEnv(ImmutableMap.of());
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
-                Optional.<RootedPath>absent()),
+                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.REPOSITORY_OVERRIDES,
-                ImmutableMap.<RepositoryName, PathFragment>of()),
+                RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
                 RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY)));
-    scratch.file(ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING);
+    scratch.file(ADDITIONAL_IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING);
   }
 
   @Test
@@ -162,15 +158,15 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
   }
 
   @Test
-  public void testBlacklistPatternBlocksPatternEvaluation() throws Exception {
+  public void testIgnoredPatternBlocksPatternEvaluation() throws Exception {
     // Given a well-formed package "//foo" and a malformed package "//foo/foo",
     createFooAndFooFoo();
 
     // Given a target pattern sequence consisting of a recursive pattern for "//foo/...",
     ImmutableList<String> patternSequence = ImmutableList.of("//foo/...");
 
-    // and a blacklist for the malformed package,
-    scratch.overwriteFile(ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING, "foo/foo");
+    // and an ignored entry for the malformed package,
+    scratch.overwriteFile(ADDITIONAL_IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING, "foo/foo");
 
     assertSkipsFoo(patternSequence);
   }
@@ -214,7 +210,8 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
   private WalkableGraph getGraphFromPatternsEvaluation(
       ImmutableList<String> patternSequence, boolean successExpected, boolean keepGoing)
       throws InterruptedException {
-    SkyKey independentTarget = PrepareDepsOfPatternsValue.key(patternSequence, "");
+    SkyKey independentTarget =
+        PrepareDepsOfPatternsValue.key(patternSequence, PathFragment.EMPTY_FRAGMENT);
     ImmutableList<SkyKey> singletonTargetPattern = ImmutableList.of(independentTarget);
 
     // When PrepareDepsOfPatternsFunction completes evaluation,
@@ -222,7 +219,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
         EvaluationContext.newBuilder()
             .setKeepGoing(keepGoing)
             .setNumThreads(100)
-            .setEventHander(new Reporter(new EventBus(), eventCollector))
+            .setEventHandler(new Reporter(new EventBus(), eventCollector))
             .build();
     EvaluationResult<SkyValue> evaluationResult =
         skyframeExecutor.getDriver().evaluate(singletonTargetPattern, evaluationContext);

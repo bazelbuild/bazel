@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -122,7 +123,7 @@ public class FingerprintTest {
     PathFragment pf = PathFragment.create("/etc/pwd");
     assertThat(new Fingerprint().addPath(pf).hexDigestAndReset())
         .isEqualTo("0b229115c2da46773ff38528420b922488dd564ddb3c0c861fb1c77ae8525f9b");
-    Path p = new InMemoryFileSystem(BlazeClock.instance()).getPath(pf);
+    Path p = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256).getPath(pf);
     assertThat(new Fingerprint().addPath(p).hexDigestAndReset())
         .isEqualTo("0b229115c2da46773ff38528420b922488dd564ddb3c0c861fb1c77ae8525f9b");
   }

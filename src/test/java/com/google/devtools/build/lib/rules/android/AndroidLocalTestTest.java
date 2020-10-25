@@ -282,7 +282,7 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
   public void featureFlagsSetByAndroidLocalTestAreInRequiredFragments() throws Exception {
     useConfiguration("--include_config_fragments_provider=direct");
     scratch.overwriteFile(
-        "tools/whitelists/config_feature_flag/BUILD",
+        "tools/allowlists/config_feature_flag/BUILD",
         "package_group(",
         "    name = 'config_feature_flag',",
         "    packages = ['//java/com/google/android/foo'])");

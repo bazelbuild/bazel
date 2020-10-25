@@ -21,6 +21,8 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 
 /** Configuration options for Starlark debugging. */
+// TODO(laurentlb): Rename the flags (remove 'experimental' and replace 'skylark' with 'starlark')
+// when the interpreter code is more stable.
 public final class StarlarkDebuggerOptions extends OptionsBase {
   @Option(
       name = "experimental_skylark_debug",

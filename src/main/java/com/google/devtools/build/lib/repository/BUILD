@@ -13,8 +13,8 @@ java_library(
     srcs = ["ExternalPackageException.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
         "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/net/starlark/java/eval",
     ],
 )
 
@@ -24,9 +24,8 @@ java_library(
     deps = [
         ":external_package_exception",
         ":external_rule_not_found_exception",
-        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",

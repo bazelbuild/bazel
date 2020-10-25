@@ -35,29 +35,31 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class AppleBinaryStarlarkApiTest extends AppleBinaryTest {
 
-  static final RuleType RULE_TYPE = new RuleType("apple_binary_skylark") {
-    @Override
-    Iterable<String> requiredAttributes(Scratch scratch, String packageDir,
-        Set<String> alreadyAdded) throws IOException {
-      return Iterables.concat(ImmutableList.of(),
-          AppleBinaryTest.RULE_TYPE.requiredAttributes(scratch, packageDir, alreadyAdded));
-    }
+  static final RuleType RULE_TYPE =
+      new RuleType("apple_binary_starlark") {
+        @Override
+        Iterable<String> requiredAttributes(
+            Scratch scratch, String packageDir, Set<String> alreadyAdded) throws IOException {
+          return Iterables.concat(
+              ImmutableList.of(),
+              AppleBinaryTest.RULE_TYPE.requiredAttributes(scratch, packageDir, alreadyAdded));
+        }
 
-    @Override
-    public String starlarkLoadPrerequisites() {
-       return "load('//test_skylark:apple_binary_skylark.bzl', 'apple_binary_skylark')";
-    }
-  };
+        @Override
+        public String starlarkLoadPrerequisites() {
+          return "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')";
+        }
+      };
 
   @Before
   public final void setup() throws Exception  {
-    scratch.file("test_skylark/BUILD");
+    scratch.file("test_starlark/BUILD");
     String toolsRepo = TestConstants.TOOLS_REPOSITORY;
     String toolsLoc = toolsRepo + "//tools/objc";
 
     scratch.file(
-        "test_skylark/apple_binary_skylark.bzl",
-        "def apple_binary_skylark_impl(ctx):",
+        "test_starlark/apple_binary_starlark.bzl",
+        "def apple_binary_starlark_impl(ctx):",
         "  binary_output = apple_common.link_multi_arch_binary(ctx=ctx)",
         "  return [",
         "      DefaultInfo(",
@@ -66,8 +68,8 @@ public class AppleBinaryStarlarkApiTest extends AppleBinaryTest {
         "      binary_output.binary_provider,",
         "      binary_output.debug_outputs_provider",
         "  ]",
-        "apple_binary_skylark = rule(",
-        "    apple_binary_skylark_impl,",
+        "apple_binary_starlark = rule(",
+        "    apple_binary_starlark_impl,",
         "    attrs = {",
         "        '_child_configuration_dummy': attr.label(",
         "            cfg=apple_common.multi_arch_split,",
@@ -102,6 +104,7 @@ public class AppleBinaryStarlarkApiTest extends AppleBinaryTest {
         "        'linkopts': attr.string_list(),",
         "        'platform_type': attr.string(),",
         "        'minimum_os_version': attr.string(),",
+        "        'stamp': attr.int(values=[-1,0,1],default=-1),",
         "    },",
         "    fragments = ['apple', 'objc', 'cpp',],",
         ")");

@@ -38,9 +38,7 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * An example implementation of a worker process that is used for integration tests.
- */
+/** An example implementation of a worker process that is used for integration tests. */
 public class ExampleWorker {
 
   static final Pattern FLAG_FILE_PATTERN = Pattern.compile("(?:@|--?flagfile=)(.+)");
@@ -67,7 +65,6 @@ public class ExampleWorker {
       parser.parse(args);
       ExampleWorkerOptions workerOptions = parser.getOptions(ExampleWorkerOptions.class);
       Preconditions.checkState(workerOptions.persistentWorker);
-
       runPersistentWorker(workerOptions);
     } else {
       // This is a single invocation of the example that exits after it processed the request.
@@ -79,9 +76,18 @@ public class ExampleWorker {
     PrintStream originalStdOut = System.out;
     PrintStream originalStdErr = System.err;
 
+    ExampleWorkerProtocol workerProtocol = null;
+    switch (workerOptions.workerProtocol) {
+      case JSON:
+        workerProtocol = new JsonExampleWorkerProtocolImpl(System.in, System.out);
+        break;
+      case PROTO:
+        workerProtocol = new ProtoExampleWorkerProtocolImpl(System.in, System.out);
+    }
+    Preconditions.checkNotNull(workerProtocol);
     while (true) {
       try {
-        WorkRequest request = WorkRequest.parseDelimitedFrom(System.in);
+        WorkRequest request = workerProtocol.readRequest();
         if (request == null) {
           break;
         }
@@ -123,16 +129,18 @@ public class ExampleWorker {
           System.setErr(originalStdErr);
         }
 
+        if (workerOptions.exitDuring > 0 && workUnitCounter > workerOptions.exitDuring) {
+          return;
+        }
+
         if (poisoned) {
           baos.writeTo(System.out);
+          System.out.flush();
         } else {
-          WorkResponse.newBuilder()
-              .setOutput(baos.toString())
-              .setExitCode(exitCode)
-              .build()
-              .writeDelimitedTo(System.out);
+          WorkResponse response =
+              WorkResponse.newBuilder().setOutput(baos.toString()).setExitCode(exitCode).build();
+          workerProtocol.writeResponse(response);
         }
-        System.out.flush();
 
         if (workerOptions.exitAfter > 0 && workUnitCounter > workerOptions.exitAfter) {
           return;

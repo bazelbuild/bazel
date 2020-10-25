@@ -239,11 +239,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     return pathResolver;
   }
 
-  /** Returns whether failures for {@code failedLabel} should have verbose error messages. */
-  public boolean showVerboseFailures(Label failedLabel) {
-    return executor.getVerboseFailuresPredicate().test(failedLabel);
-  }
-
   /**
    * Returns the command line options of the Blaze command being executed.
    */
@@ -293,18 +288,21 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       return;
     }
 
-    String reason;
+    StringBuilder reason = new StringBuilder();
     ActionOwner owner = spawn.getResourceOwner().getOwner();
     if (owner == null) {
-      reason = spawn.getResourceOwner().prettyPrint();
+      reason.append(spawn.getResourceOwner().prettyPrint());
     } else {
-      reason =
-          Label.print(owner.getLabel())
-              + " ["
-              + spawn.getResourceOwner().prettyPrint()
-              + ", configuration: "
-              + owner.getConfigurationChecksum()
-              + "]";
+      reason.append(Label.print(owner.getLabel()));
+      reason.append(" [");
+      reason.append(spawn.getResourceOwner().prettyPrint());
+      reason.append(", configuration: ");
+      reason.append(owner.getConfigurationChecksum());
+      if (owner.getExecutionPlatform() != null) {
+        reason.append(", execution platform: ");
+        reason.append(owner.getExecutionPlatform().label());
+      }
+      reason.append("]");
     }
     String message = Spawns.asShellCommand(spawn, getExecRoot(), showSubcommands.prettyPrintArgs);
     getEventHandler().handle(Event.of(EventKind.SUBCOMMAND, null, "# " + reason + "\n" + message));
@@ -348,9 +346,13 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
   @Override
   public void close() throws IOException {
-    fileOutErr.close();
-    if (actionFileSystem instanceof Closeable) {
-      ((Closeable) actionFileSystem).close();
+    // Ensure that we close both fileOutErr and actionFileSystem even if one throws.
+    try {
+      fileOutErr.close();
+    } finally {
+      if (actionFileSystem instanceof Closeable) {
+        ((Closeable) actionFileSystem).close();
+      }
     }
   }
 

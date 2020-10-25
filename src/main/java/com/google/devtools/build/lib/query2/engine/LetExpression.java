@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.engine;
 import com.google.common.base.Function;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
+import com.google.devtools.build.lib.server.FailureDetails.Query;
 import java.util.Collection;
 import java.util.regex.Pattern;
 
@@ -72,7 +73,10 @@ public class LetExpression extends QueryExpression {
       final Callback<T> callback) {
     if (!NAME_PATTERN.matcher(varName).matches()) {
       return env.immediateFailedFuture(
-          new QueryException(this, "invalid variable name '" + varName + "' in let expression"));
+          new QueryException(
+              this,
+              "invalid variable name '" + varName + "' in let expression",
+              Query.Code.VARIABLE_NAME_INVALID));
     }
     QueryTaskFuture<ThreadSafeMutableSet<T>> varValueFuture =
         QueryUtil.evalAll(env, context, varExpr);

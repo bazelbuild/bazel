@@ -80,9 +80,8 @@ public final class Digraph<T> implements Cloneable {
   public Digraph() {}
 
   /**
-   * Sanity-check: assert that a node is indeed a member of this graph and not
-   * another one.  Perform this check whenever a function is supplied a node by
-   * the user.
+   * Check that a node is indeed a member of this graph and not another one. Perform this check
+   * whenever a function is supplied a node by the user.
    */
   private final void checkNode(Node<T> node) {
     if (getNode(node.getLabel()) != node) {
@@ -844,7 +843,7 @@ public final class Digraph<T> implements Cloneable {
    * connected component with this one, then send a passed-in {@link Digraph.NodeSetReceiver} this
    * component.
    */
-  private class SccVisitor<T2> {
+  private static class SccVisitor<T2> {
     // Nodes already assigned to a strongly connected component.
     private final Set<Node<T2>> assigned = new HashSet<>();
 

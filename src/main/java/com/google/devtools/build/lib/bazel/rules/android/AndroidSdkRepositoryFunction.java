@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.Dirents;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -49,6 +48,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
 import java.util.Properties;
+import net.starlark.java.eval.EvalException;
 
 /** Implementation of the {@code android_sdk_repository} rule. */
 public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
@@ -106,12 +106,10 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
       androidSdkPath =
           fs.getPath(getAndroidHomeEnvironmentVar(directories.getWorkspace(), environ));
     } else {
-      throw new RepositoryFunctionException(
-          new EvalException(
-              rule.getLocation(),
-              "Either the path attribute of android_sdk_repository or the ANDROID_HOME environment "
-                  + "variable must be set."),
-          Transience.PERSISTENT);
+      // Write an empty BUILD file that declares errors when referred to.
+      String buildFile = getStringResource("android_sdk_repository_empty_template.txt");
+      writeBuildFile(outputDirectory, buildFile);
+      return RepositoryDirectoryValue.builder().setPath(outputDirectory);
     }
 
     if (!symlinkLocalRepositoryContents(outputDirectory, androidSdkPath, userDefinedPath)) {
@@ -138,7 +136,7 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
     Integer defaultApiLevel;
     if (attributes.isAttributeValueExplicitlySpecified("api_level")) {
       try {
-        defaultApiLevel = attributes.get("api_level", Type.INTEGER);
+        defaultApiLevel = attributes.get("api_level", Type.INTEGER).toIntUnchecked();
       } catch (EvalException e) {
         throw new RepositoryFunctionException(e, Transience.PERSISTENT);
       }

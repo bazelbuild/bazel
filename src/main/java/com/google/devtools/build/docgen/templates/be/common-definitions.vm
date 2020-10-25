@@ -150,24 +150,20 @@ config_setting(
 <p>
   The <a href="$expander.expandRef("select")"><code>select()</code></a> function
   chooses among different alternative values for a configurable attribute based
-  on which <a href="$expander.expandRef("config_setting")">
-  <code>config_setting</code></a> criteria is satisfied in the current
-  configuration.
+  on which <a href="$expander.expandRef("config_setting")"> or
+  <a href="$expander.expandRef("constraint_value")"> criteria the target's
+  configuration satisfies.
 </p>
 
 <p>
-  Configurable attributes are evaluated after the processing of macros and
-  before the processing of rules (technically, between the
+  Bazel evaluates configurable attributes after processing macros and before
+  processing rules (technically, between the
   <a href="https://docs.bazel.build/versions/master/skylark/concepts.html#evaluation-model">
-  loading and analysis phases</a>.
-  Any processing that Bazel does before the <code>select()</code> is evaluated
-  will not know which branch will be chosen. In particular, macros can't change
+  loading and analysis phases</a>).
+  Any processing before <code>select()</code> evaluation doesn't know which
+  branch the <code>select()</code> chooses. Macros, for example, can't change
   their behavior based on the chosen branch, and <code>bazel query</code> can
-  only make conservative guesses about the configurable dependencies of a
-  target. Conversely, when authoring a new type of rule, you do not need to
-  worry about the ambiguity of configurable attributes because all
-  <code>select()</code> expressions have already been replaced by their resolved
-  values. See
+  only make conservative guesses about a target's configurable dependencies. See
   <a href="https://docs.bazel.build/versions/master/configurable-attributes.html#faq">
   this FAQ</a>
   for more on using <code>select()</code> with rules and macros.
@@ -176,16 +172,22 @@ config_setting(
 <p>
   Attributes marked <code>nonconfigurable</code> in their documentation cannot
   use this feature. Usually an attribute is nonconfigurable because Bazel
-  internally needs to know its value before it can determine how to choose the
-  <code>select()</code> branch.
+  internally needs to know its value before it can determine how to resolve a
+  <code>select()</code>.
 </p>
 
 <p>
   See <a href="https://docs.bazel.build/versions/master/configurable-attributes.html">
-  Configurable Build Attributes</a> for more information.
+  Configurable Build Attributes</a> for a detailed overview.
 </p>
 
 <h2 id="implicit-outputs">Implicit output targets</h2>
+
+<p>
+  <i>Implicit outputs in C++ are deprecated. Please refrain from using it
+  in other languages where possible. We don't have a deprecation path yet
+  but they will eventually be deprecated too.</i>
+</p>
 
 <p>When you define a build rule in a BUILD file, you are explicitly
   declaring a new, named rule target in a package.  Many build rule

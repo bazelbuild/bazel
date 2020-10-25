@@ -21,10 +21,12 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
@@ -37,6 +39,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery.Code;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Collection;
@@ -161,7 +164,9 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     String targetConfiguration = myRule.getConfigurationChecksum();
 
     // Test that the proper error is thrown when requesting an attribute that doesn't exist.
-    assertThat(evalThrows("labels('fake_attr', //test:my_rule)", true))
+    EvalThrowsResult evalThrowsResult = evalThrows("labels('fake_attr', //test:my_rule)", true);
+    assertConfigurableQueryCode(evalThrowsResult.getFailureDetail(), Code.ATTRIBUTE_MISSING);
+    assertThat(evalThrowsResult.getMessage())
         .isEqualTo(
             String.format(
                 "in 'fake_attr' of rule //test:my_rule:  ConfiguredTarget(//test:my_rule, %s) "
@@ -173,6 +178,28 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   public void testLabelsFunction_nonLabelAttribute() throws Exception {
     setUpLabelsFunctionTests();
     assertThat(eval("labels('string_dep', //test:my_rule)")).isEmpty();
+  }
+
+  /**
+   * Regression test for b/162431514. the {@code labels} query operator uses {@link
+   * ConfiguredTargetAccessor#getPrerequisites} which is the actual logic being tested here.
+   */
+  @Test
+  public void testGetPrerequisitesFromAliasReturnsActualPrerequisites() throws Exception {
+    MockRule ruleWithDep =
+        () ->
+            MockRule.define(
+                "rule_with_dep", attr("dep", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE));
+
+    helper.useRuleClassProvider(setRuleClassProviders(ruleWithDep).build());
+    writeFile(
+        "test/BUILD",
+        "alias(name = 'alias', actual = ':actual')",
+        "rule_with_dep(name = 'actual', dep = ':dep')",
+        "rule_with_dep(name = 'dep')");
+
+    ConfiguredTarget dep = Iterables.getOnlyElement(eval("labels('dep', '//test:alias')"));
+    assertThat(dep.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:dep"));
   }
 
   @Test
@@ -266,9 +293,9 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
 
   private void createConfigTransitioningRuleClass() throws Exception {
     writeFile(
-        "tools/whitelists/function_transition_whitelist/BUILD",
+        "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
-        "    name = 'function_transition_whitelist',",
+        "    name = 'function_transition_allowlist',",
         "    packages = [",
         "        '//test/...',",
         "    ],",
@@ -292,8 +319,8 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
         "    implementation = _rule_impl,",
         "    attrs = {",
         "        'deps': attr.label_list(cfg = my_transition),",
-        "        '_whitelist_function_transition': attr.label(",
-        "            default = '//tools/whitelists/function_transition_whitelist',",
+        "        '_allowlist_function_transition': attr.label(",
+        "            default = '//tools/allowlists/function_transition_allowlist',",
         "        ),",
         "    }",
         ")",
@@ -312,10 +339,14 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     getHelper().setWholeTestUniverseScope("test:my_rule");
 
     assertThat(eval("config(//test:target_dep, target)")).isEqualTo(eval("//test:target_dep"));
-    assertThat(evalThrows("config(//test:host_dep, target)", true))
+    EvalThrowsResult hostResult = evalThrows("config(//test:host_dep, target)", true);
+    assertThat(hostResult.getMessage())
         .isEqualTo("No target (in) //test:host_dep could be found in the 'target' configuration");
-    assertThat(evalThrows("config(//test:exec_dep, target)", true))
+    assertConfigurableQueryCode(hostResult.getFailureDetail(), Code.TARGET_MISSING);
+    EvalThrowsResult execResult = evalThrows("config(//test:exec_dep, target)", true);
+    assertThat(execResult.getMessage())
         .isEqualTo("No target (in) //test:exec_dep could be found in the 'target' configuration");
+    assertConfigurableQueryCode(execResult.getFailureDetail(), Code.TARGET_MISSING);
 
     BuildConfiguration configuration =
         getConfiguration(Iterables.getOnlyElement(eval("config(//test:dep, target)")));
@@ -332,11 +363,15 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
 
     getHelper().setWholeTestUniverseScope("test:my_rule");
 
-    assertThat(evalThrows("config(//test:target_dep, host)", true))
+    EvalThrowsResult targetResult = evalThrows("config(//test:target_dep, host)", true);
+    assertThat(targetResult.getMessage())
         .isEqualTo("No target (in) //test:target_dep could be found in the 'host' configuration");
+    assertConfigurableQueryCode(targetResult.getFailureDetail(), Code.TARGET_MISSING);
     assertThat(eval("config(//test:host_dep, host)")).isEqualTo(eval("//test:host_dep"));
-    assertThat(evalThrows("config(//test:exec_dep, host)", true))
+    EvalThrowsResult hostResult = evalThrows("config(//test:exec_dep, host)", true);
+    assertThat(hostResult.getMessage())
         .isEqualTo("No target (in) //test:exec_dep could be found in the 'host' configuration");
+    assertConfigurableQueryCode(hostResult.getFailureDetail(), Code.TARGET_MISSING);
 
     BuildConfiguration configuration =
         getConfiguration(Iterables.getOnlyElement(eval("config(//test:dep, host)")));
@@ -398,13 +433,36 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   }
 
   @Test
-  public void testConfig_badConfig() throws Exception {
+  public void testConfig_configHashPrefix() throws Exception {
     createConfigRulesAndBuild();
-    assertThat(evalThrows("config(//test:my_rule,foo)", true))
-        .isEqualTo(
-            "Unknown value 'foo'. The second argument of config() must be 'target', 'host', "
-                + "'null', or a valid configuration hash (i.e. one of the outputs of "
-                + "'blaze config')");
+    writeFile("mytest/BUILD", "simple_rule(name = 'mytarget')");
+
+    Set<ConfiguredTarget> result = eval("//mytest:mytarget");
+    String configHash = getConfiguration(Iterables.getOnlyElement(result)).checksum();
+    String hashPrefix = configHash.substring(0, configHash.length() / 2);
+
+    Set<ConfiguredTarget> resultFromPrefix = eval("config(//mytest:mytarget," + hashPrefix + ")");
+    assertThat(resultFromPrefix).containsExactlyElementsIn(result);
+  }
+
+  @Test
+  public void testConfig_configHashUnknownPrefix() throws Exception {
+    createConfigRulesAndBuild();
+    writeFile("mytest/BUILD", "simple_rule(name = 'mytarget')");
+
+    Set<ConfiguredTarget> result = eval("//mytest:mytarget");
+    String configHash = getConfiguration(Iterables.getOnlyElement(result)).checksum();
+    String rightPrefix = configHash.substring(0, configHash.length() / 2);
+    char lastChar = rightPrefix.charAt(rightPrefix.length() - 1);
+    String wrongPrefix = rightPrefix.substring(0, rightPrefix.length() - 1) + (lastChar + 1);
+
+    QueryException e =
+        assertThrows(
+            QueryException.class, () -> eval("config(//mytest:mytarget," + wrongPrefix + ")"));
+    assertConfigurableQueryCode(e.getFailureDetail(), Code.INCORRECT_CONFIG_ARGUMENT_ERROR);
+    assertThat(e)
+        .hasMessageThat()
+        .contains("config()'s second argument must identify a unique configuration");
   }
 
   @Test
@@ -432,7 +490,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
 
     helper.setKeepGoing(false);
     getHelper().turnOffFailFast();
-    assertThat(evalThrows("//parent/...", true))
+    assertThat(evalThrows("//parent/...", true).getMessage())
         .isEqualTo(
             "no such package 'parent/child': Symlink cycle detected while trying to "
                 + "find BUILD file /workspace/parent/child/BUILD");
@@ -459,7 +517,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   }
 
   @Test
-  public void testSomePath_DepInCustomConfiguration() throws Exception {
+  public void testSomePath_depInCustomConfiguration() throws Exception {
     createConfigTransitioningRuleClass();
     writeFile(
         "test/BUILD",
@@ -486,9 +544,14 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   /** Return an empty BuildOptions for testing fragment dropping. * */
   public static class RemoveTestOptionsTransition implements PatchTransition {
     @Override
-    public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
+    public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+      return ImmutableSet.of(TestOptions.class);
+    }
+
+    @Override
+    public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
       BuildOptions.Builder builder = BuildOptions.builder();
-      for (FragmentOptions option : options.getNativeOptions()) {
+      for (FragmentOptions option : options.underlying().getNativeOptions()) {
         if (!(option instanceof TestOptions)) {
           builder.addFragmentOptions(option);
         }

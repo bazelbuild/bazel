@@ -23,14 +23,14 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkbuildapi.LicenseApi;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.starlarkbuildapi.LicenseApi;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import net.starlark.java.eval.Printer;
 
 /** Support for license and distribution checking. */
 @Immutable

@@ -20,6 +20,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -37,7 +38,7 @@ public final class LinuxSandboxUtilTest {
 
   @Before
   public final void createFileSystem() {
-    testFS = new InMemoryFileSystem();
+    testFS = new InMemoryFileSystem(DigestHashFunction.SHA256);
   }
 
   @Test
@@ -57,7 +58,7 @@ public final class LinuxSandboxUtilTest {
   }
 
   @Test
-  public void testLinuxSandboxCommandLineBuilder_BuildsWithoutOptionalArguments() {
+  public void testLinuxSandboxCommandLineBuilder_buildsWithoutOptionalArguments() {
     Path linuxSandboxPath = testFS.getPath("/linux-sandbox");
 
     ImmutableList<String> commandArguments = ImmutableList.of("echo", "hello, max");
@@ -76,7 +77,7 @@ public final class LinuxSandboxUtilTest {
   }
 
   @Test
-  public void testLinuxSandboxCommandLineBuilder_BuildsWithOptionalArguments() {
+  public void testLinuxSandboxCommandLineBuilder_buildsWithOptionalArguments() {
     Path linuxSandboxPath = testFS.getPath("/linux-sandbox");
 
     ImmutableList<String> commandArguments = ImmutableList.of("echo", "hello, tom");
@@ -97,7 +98,7 @@ public final class LinuxSandboxUtilTest {
     boolean useFakeHostname = true;
     boolean useDebugMode = true;
 
-    FileSystem fileSystem = new InMemoryFileSystem();
+    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
     Path workDir = fileSystem.getPath("/work");
     Path concreteDir = workDir.getRelative("concrete");
     Path sandboxDir = workDir.getRelative("sandbox");

@@ -23,19 +23,18 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
-import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Map;
+import net.starlark.java.eval.Starlark;
 
 /**
  * Create a repository from a directory on the local filesystem.
@@ -55,7 +54,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
       Environment env,
       Map<String, String> markerData,
       SkyKey key)
-      throws SkyFunctionException, InterruptedException {
+      throws InterruptedException, RepositoryFunctionException {
 
     NewRepositoryFileHandler fileHandler = new NewRepositoryFileHandler(directories.getWorkspace());
     if (!fileHandler.prepareFile(rule, env)) {
@@ -160,18 +159,18 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
 
   private static ResolvedEvent resolve(Rule rule, BlazeDirectories directories) {
     String name = rule.getName();
-    Object pathObj = rule.getAttributeContainer().getAttr("path");
+    Object pathObj = rule.getAttr("path");
     ImmutableMap.Builder<String, Object> origAttr =
         ImmutableMap.<String, Object>builder().put("name", name).put("path", pathObj);
 
     StringBuilder repr =
         new StringBuilder()
             .append("new_local_repository(name = ")
-            .append(Printer.getPrinter().repr(name))
+            .append(Starlark.repr(name))
             .append(", path = ")
-            .append(Printer.getPrinter().repr(pathObj));
+            .append(Starlark.repr(pathObj));
 
-    Object buildFileObj = rule.getAttributeContainer().getAttr("build_file");
+    Object buildFileObj = rule.getAttr("build_file");
     if ((buildFileObj instanceof String) && ((String) buildFileObj).length() > 0) {
       // Build fiels might refer to an embedded file (as they to for "local_jdk"),
       // so we have to describe the argument in a portable way.
@@ -182,17 +181,16 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
       if (pathFragment.isAbsolute() && pathFragment.startsWith(embeddedDir)) {
         buildFileArg =
             "__embedded_dir__ + \"/\" + "
-                + Printer.getPrinter().repr(pathFragment.relativeTo(embeddedDir).toString());
+                + Starlark.repr(pathFragment.relativeTo(embeddedDir).toString());
       } else {
-        buildFileArg = Printer.getPrinter().repr(buildFileObj).toString();
+        buildFileArg = Starlark.repr(buildFileObj.toString()).toString();
       }
       repr.append(", build_file = ").append(buildFileArg);
     } else {
-      Object buildFileContentObj = rule.getAttributeContainer().getAttr("build_file_content");
+      Object buildFileContentObj = rule.getAttr("build_file_content");
       if (buildFileContentObj != null) {
         origAttr.put("build_file_content", buildFileContentObj);
-        repr.append(", build_file_content = ")
-            .append(Printer.getPrinter().repr(buildFileContentObj));
+        repr.append(", build_file_content = ").append(Starlark.repr(buildFileContentObj));
       }
     }
 

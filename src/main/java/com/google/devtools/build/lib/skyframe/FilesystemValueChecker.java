@@ -21,11 +21,13 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
@@ -36,10 +38,12 @@ import com.google.devtools.build.lib.profiler.AutoProfiler.ElapsedTimeReceiver;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker.DirtyResult;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
@@ -283,9 +287,25 @@ public class FilesystemValueChecker {
               }
             }
 
-            for (Artifact artifact : actionValue.getAllTreeArtifactValues().keySet()) {
-              if (shouldCheckTreeArtifact(sortedKnownModifiedOutputFiles.get(), artifact)) {
-                treeArtifactsToKeyAndValue.put(artifact, keyAndValue);
+            for (Map.Entry<Artifact, TreeArtifactValue> entry :
+                actionValue.getAllTreeArtifactValues().entrySet()) {
+              Artifact treeArtifact = entry.getKey();
+              TreeArtifactValue tree = entry.getValue();
+              for (TreeFileArtifact child : tree.getChildren()) {
+                if (shouldCheckFile(knownModifiedOutputFiles, child)) {
+                  fileToKeyAndValue.put(child, keyAndValue);
+                }
+              }
+              tree.getArchivedRepresentation()
+                  .map(ArchivedRepresentation::archivedTreeFileArtifact)
+                  .filter(
+                      archivedTreeArtifact ->
+                          shouldCheckFile(knownModifiedOutputFiles, archivedTreeArtifact))
+                  .ifPresent(
+                      archivedTreeArtifact ->
+                          fileToKeyAndValue.put(archivedTreeArtifact, keyAndValue));
+              if (shouldCheckTreeArtifact(sortedKnownModifiedOutputFiles.get(), treeArtifact)) {
+                treeArtifactsToKeyAndValue.put(treeArtifact, keyAndValue);
               }
             }
           }
@@ -327,7 +347,7 @@ public class FilesystemValueChecker {
           Pair<SkyKey, ActionExecutionValue> keyAndValue = fileToKeyAndValue.get(artifact);
           ActionExecutionValue actionValue = keyAndValue.getSecond();
           SkyKey key = keyAndValue.getFirst();
-          FileArtifactValue lastKnownData = actionValue.getAllFileValues().get(artifact);
+          FileArtifactValue lastKnownData = actionValue.getExistingFileArtifactValue(artifact);
           try {
             FileArtifactValue newData =
                 ActionMetadataHandler.fileArtifactValueFromArtifact(artifact, stat, tsgm);
@@ -410,19 +430,57 @@ public class FilesystemValueChecker {
   }
 
   private boolean treeArtifactIsDirty(Artifact artifact, TreeArtifactValue value) {
-    if (artifact.getPath().isSymbolicLink()) {
-      // TreeArtifacts may not be symbolic links.
-      return true;
+    Path path = artifact.getPath();
+    if (path.isSymbolicLink()) {
+      return true; // TreeArtifacts may not be symbolic links.
     }
 
-    // There doesn't appear to be any facility to batch list directories... we must
-    // do things the 'slow' way.
+    // This could be improved by short-circuiting as soon as we see a child that is not present in
+    // the TreeArtifactValue, but it doesn't seem to be a major source of overhead.
+    Set<PathFragment> currentChildren = new HashSet<>();
     try {
-      Set<PathFragment> currentDirectoryValue =
-          TreeArtifactValue.explodeDirectory(artifact.getPath());
-      return !(currentDirectoryValue.isEmpty() && value.isRemote())
-          && !currentDirectoryValue.equals(value.getChildPaths());
+      TreeArtifactValue.visitTree(
+          path,
+          (child, type) -> {
+            if (type != Dirent.Type.DIRECTORY) {
+              currentChildren.add(child);
+            }
+          });
     } catch (IOException e) {
+      return true;
+    }
+    return !(currentChildren.isEmpty() && value.isEntirelyRemote())
+        && !currentChildren.equals(value.getChildPaths());
+  }
+
+  private boolean artifactIsDirtyWithDirectSystemCalls(
+      ImmutableSet<PathFragment> knownModifiedOutputFiles,
+      boolean trustRemoteArtifacts,
+      Map.Entry<? extends Artifact, FileArtifactValue> entry) {
+    Artifact file = entry.getKey();
+    FileArtifactValue lastKnownData = entry.getValue();
+    if (file.isMiddlemanArtifact() || !shouldCheckFile(knownModifiedOutputFiles, file)) {
+      return false;
+    }
+    try {
+      FileArtifactValue fileMetadata =
+          ActionMetadataHandler.fileArtifactValueFromArtifact(file, null, tsgm);
+      boolean trustRemoteValue =
+          fileMetadata.getType() == FileStateType.NONEXISTENT
+              && lastKnownData.isRemote()
+              && trustRemoteArtifacts;
+      if (!trustRemoteValue && fileMetadata.couldBeModifiedSince(lastKnownData)) {
+        updateIntraBuildModifiedCounter(
+            fileMetadata.getType() != FileStateType.NONEXISTENT
+                ? file.getPath().getLastModifiedTime(Symlinks.FOLLOW)
+                : -1);
+        modifiedOutputFilesCounter.getAndIncrement();
+        return true;
+      }
+      return false;
+    } catch (IOException e) {
+      // This is an unexpected failure getting a digest or symlink target.
+      modifiedOutputFilesCounter.getAndIncrement();
       return true;
     }
   }
@@ -434,41 +492,43 @@ public class FilesystemValueChecker {
       boolean trustRemoteArtifacts) {
     boolean isDirty = false;
     for (Map.Entry<Artifact, FileArtifactValue> entry : actionValue.getAllFileValues().entrySet()) {
-      Artifact file = entry.getKey();
-      FileArtifactValue lastKnownData = entry.getValue();
-      if (!file.isMiddlemanArtifact() && shouldCheckFile(knownModifiedOutputFiles, file)) {
-        try {
-          FileArtifactValue fileMetadata =
-              ActionMetadataHandler.fileArtifactValueFromArtifact(file, null, tsgm);
-          FileArtifactValue fileValue = actionValue.getArtifactValue(file);
-          boolean lastSeenRemotely = (fileValue != null) && fileValue.isRemote();
-          boolean trustRemoteValue =
-              fileMetadata.getType() == FileStateType.NONEXISTENT
-                  && lastSeenRemotely
-                  && trustRemoteArtifacts;
-          if (!trustRemoteValue && fileMetadata.couldBeModifiedSince(lastKnownData)) {
-            updateIntraBuildModifiedCounter(
-                fileMetadata.getType() != FileStateType.NONEXISTENT
-                    ? file.getPath().getLastModifiedTime(Symlinks.FOLLOW)
-                    : -1);
-            modifiedOutputFilesCounter.getAndIncrement();
-            isDirty = true;
-          }
-        } catch (IOException e) {
-          // This is an unexpected failure getting a digest or symlink target.
-          modifiedOutputFilesCounter.getAndIncrement();
-          isDirty = true;
-        }
+      if (artifactIsDirtyWithDirectSystemCalls(
+          knownModifiedOutputFiles, trustRemoteArtifacts, entry)) {
+        isDirty = true;
       }
     }
 
     for (Map.Entry<Artifact, TreeArtifactValue> entry :
         actionValue.getAllTreeArtifactValues().entrySet()) {
-      Artifact artifact = entry.getKey();
+      TreeArtifactValue tree = entry.getValue();
 
-      if (shouldCheckTreeArtifact(sortedKnownModifiedOutputFiles.get(), artifact)
-          && treeArtifactIsDirty(artifact, entry.getValue())) {
-        Path path = artifact.getPath();
+      if (!tree.isEntirelyRemote()) {
+        for (Map.Entry<TreeFileArtifact, FileArtifactValue> childEntry :
+            tree.getChildValues().entrySet()) {
+          if (artifactIsDirtyWithDirectSystemCalls(
+              knownModifiedOutputFiles, trustRemoteArtifacts, childEntry)) {
+            isDirty = true;
+          }
+        }
+        isDirty =
+            isDirty
+                || tree.getArchivedRepresentation()
+                    .map(
+                        archivedRepresentation ->
+                            artifactIsDirtyWithDirectSystemCalls(
+                                knownModifiedOutputFiles,
+                                trustRemoteArtifacts,
+                                Maps.immutableEntry(
+                                    archivedRepresentation.archivedTreeFileArtifact(),
+                                    archivedRepresentation.archivedFileValue())))
+                    .orElse(false);
+      }
+
+      Artifact treeArtifact = entry.getKey();
+
+      if (shouldCheckTreeArtifact(sortedKnownModifiedOutputFiles.get(), treeArtifact)
+          && treeArtifactIsDirty(treeArtifact, entry.getValue())) {
+        Path path = treeArtifact.getPath();
         // Count the changed directory as one "file".
         try {
           updateIntraBuildModifiedCounter(path.exists() ? path.getLastModifiedTime() : -1);

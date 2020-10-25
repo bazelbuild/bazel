@@ -16,9 +16,12 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -40,8 +43,14 @@ public class AppleCrosstoolTransition implements PatchTransition {
   public static final PatchTransition APPLE_CROSSTOOL_TRANSITION = new AppleCrosstoolTransition();
 
   @Override
-  public BuildOptions patch(BuildOptions buildOptions, EventHandler eventHandler) {
-    BuildOptions result = buildOptions.clone();
+  public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+    return ImmutableSet.of(
+        AppleCommandLineOptions.class, CoreOptions.class, CppOptions.class, PlatformOptions.class);
+  }
+
+  @Override
+  public BuildOptions patch(BuildOptionsView buildOptions, EventHandler eventHandler) {
+    BuildOptionsView result = buildOptions.clone();
 
     AppleCommandLineOptions appleOptions = buildOptions.get(AppleCommandLineOptions.class);
     CoreOptions configOptions = buildOptions.get(CoreOptions.class);
@@ -50,7 +59,7 @@ public class AppleCrosstoolTransition implements PatchTransition {
       // The configuration distinguisher is only set by AppleCrosstoolTransition and
       // AppleBinaryTransition, both of which also set the Crosstool and the CPU to Apple ones.
       // So we are fine not doing anything.
-      return buildOptions;
+      return buildOptions.underlying();
     }
 
     String cpu =
@@ -58,20 +67,20 @@ public class AppleCrosstoolTransition implements PatchTransition {
             appleOptions.applePlatformType,
             determineSingleArchitecture(appleOptions, configOptions));
     setAppleCrosstoolTransitionConfiguration(buildOptions, result, cpu);
-    return result;
+    return result.underlying();
   }
-  
+
   /**
    * Sets configuration fields required for a transition that uses apple_crosstool_top in place of
    * the default CROSSTOOL.
    *
    * @param from options from the originating configuration
-   * @param to options for the destination configuration. This instance will be modified
-   *     to so the destination configuration uses the apple crosstool
+   * @param to options for the destination configuration. This instance will be modified to so the
+   *     destination configuration uses the apple crosstool
    * @param cpu {@code --cpu} value for toolchain selection in the destination configuration
    */
-  public static void setAppleCrosstoolTransitionConfiguration(BuildOptions from,
-      BuildOptions to, String cpu) {
+  public static void setAppleCrosstoolTransitionConfiguration(
+      BuildOptionsView from, BuildOptionsView to, String cpu) {
     Label crosstoolTop = from.get(AppleCommandLineOptions.class).appleCrosstoolTop;
     Label libcTop = from.get(AppleCommandLineOptions.class).appleLibcTop;
     String cppCompiler = from.get(AppleCommandLineOptions.class).cppCompiler;
@@ -131,6 +140,11 @@ public class AppleCrosstoolTransition implements PatchTransition {
           return AppleCommandLineOptions.DEFAULT_MACOS_CPU;
         }
         return appleOptions.macosCpus.get(0);
+      case CATALYST:
+        if (appleOptions.catalystCpus.isEmpty()) {
+          return AppleCommandLineOptions.DEFAULT_CATALYST_CPU;
+        }
+        return appleOptions.catalystCpus.get(0);
       default:
         throw new IllegalArgumentException(
             "Unhandled platform type " + appleOptions.applePlatformType);

@@ -23,12 +23,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkList;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.LibraryToLinkApi;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
 
 /**
  * Encapsulates information for linking a library.
@@ -83,6 +83,15 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
   }
 
   @Nullable
+  @Override
+  public Sequence<Artifact> getLtoBitcodeFilesForStarlark() {
+    if (getLtoCompilationContext() == null) {
+      return StarlarkList.empty();
+    }
+    return StarlarkList.immutableCopyOf(getLtoCompilationContext().getBitcodeFiles());
+  }
+
+  @Nullable
   public abstract ImmutableMap<Artifact, LtoBackendArtifacts> getSharedNonLtoBackends();
 
   @Nullable
@@ -102,6 +111,15 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
       return StarlarkList.empty();
     }
     return StarlarkList.immutableCopyOf(getPicObjectFiles());
+  }
+
+  @Nullable
+  @Override
+  public Sequence<Artifact> getPicLtoBitcodeFilesForStarlark() {
+    if (getPicLtoCompilationContext() == null) {
+      return StarlarkList.empty();
+    }
+    return StarlarkList.immutableCopyOf(getPicLtoCompilationContext().getBitcodeFiles());
   }
 
   @Nullable

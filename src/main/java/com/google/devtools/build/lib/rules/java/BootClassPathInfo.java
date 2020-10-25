@@ -22,18 +22,20 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.syntax.Location;
 
 /** Information about the system APIs for a Java compilation. */
 @AutoCodec
@@ -57,24 +59,16 @@ public class BootClassPathInfo extends NativeInfo implements StarlarkValue {
         doc = "The <code>BootClassPathInfo</code> constructor.",
         documented = false,
         parameters = {
-          @Param(
-              name = "bootclasspath",
-              positional = false,
-              named = true,
-              type = Sequence.class,
-              defaultValue = "[]"),
-          @Param(
-              name = "auxiliary",
-              positional = false,
-              named = true,
-              type = Sequence.class,
-              defaultValue = "[]"),
+          @Param(name = "bootclasspath", positional = false, named = true, defaultValue = "[]"),
+          @Param(name = "auxiliary", positional = false, named = true, defaultValue = "[]"),
           @Param(
               name = "system",
               positional = false,
               named = true,
-              type = FileApi.class,
-              noneable = true,
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
               defaultValue = "None"),
         },
         selfCall = true,

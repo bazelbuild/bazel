@@ -23,8 +23,11 @@ import java.net.Proxy;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.util.Map;
+import java.util.Objects;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -44,8 +47,9 @@ public class ProxyHelper {
   }
 
   /**
-   * This method takes a String for the resource being requested and sets up a proxy to make
-   * the request if HTTP_PROXY and/or HTTPS_PROXY environment variables are set.
+   * This method takes a String for the resource being requested and sets up a proxy to make the
+   * request if HTTP_PROXY and/or HTTPS_PROXY environment variables are set, or if the standard
+   * `https_proxy` and `http_proxy` system properties are set.
    *
    * @param requestedUrl remote resource that may need to be retrieved through a proxy
    */
@@ -56,7 +60,7 @@ public class ProxyHelper {
       noProxyUrl = env.get("NO_PROXY");
     }
     if (!Strings.isNullOrEmpty(noProxyUrl)) {
-      String[] noProxyUrlArray = noProxyUrl.split(",");
+      String[] noProxyUrlArray = noProxyUrl.split("\\s*,\\s*");
       String requestedHost = requestedUrl.getHost();
       for (int i = 0; i < noProxyUrlArray.length; i++) {
         if (noProxyUrlArray[i].startsWith(".")) {
@@ -74,15 +78,41 @@ public class ProxyHelper {
       }
     }
     if (HttpUtils.isProtocol(requestedUrl, "https")) {
-      proxyAddress = env.get("https_proxy");
-      if (Strings.isNullOrEmpty(proxyAddress)) {
-        proxyAddress = env.get("HTTPS_PROXY");
-      }
+      proxyAddress =
+          Stream.of(
+                  (Supplier<String>) () -> env.get("https_proxy"),
+                  () -> env.get("HTTPS_PROXY"),
+                  () -> {
+                    String host = System.getProperty("https.proxyHost");
+                    if (host == null) {
+                      return null;
+                    }
+                    String port = System.getProperty("https.proxyPort");
+
+                    return String.format("%s%s", host, port == null ? "" : ":" + port);
+                  })
+              .map(Supplier::get)
+              .filter(Objects::nonNull)
+              .findFirst()
+              .orElse(null);
     } else if (HttpUtils.isProtocol(requestedUrl, "http")) {
-      proxyAddress = env.get("http_proxy");
-      if (Strings.isNullOrEmpty(proxyAddress)) {
-        proxyAddress = env.get("HTTP_PROXY");
-      }
+      proxyAddress =
+          Stream.of(
+                  (Supplier<String>) () -> env.get("http_proxy"),
+                  () -> env.get("HTTP_PROXY"),
+                  () -> {
+                    String host = System.getProperty("http.proxyHost");
+                    if (host == null) {
+                      return null;
+                    }
+                    String port = System.getProperty("http.proxyPort");
+
+                    return String.format("%s%s", host, port == null ? "" : ":" + port);
+                  })
+              .map(Supplier::get)
+              .filter(Objects::nonNull)
+              .findFirst()
+              .orElse(null);
     }
     return createProxy(proxyAddress);
   }

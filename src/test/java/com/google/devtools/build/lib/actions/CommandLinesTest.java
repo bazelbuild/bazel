@@ -145,4 +145,24 @@ public class CommandLinesTest {
     assertThat(expanded.getParamFiles()).hasSize(1);
     assertThat(expanded.getParamFiles().get(0).arguments).containsExactly("c", "d");
   }
+
+  /** Filtering of flag and positional arguments with flagsOnly. */
+  @Test
+  public void flagsOnly() throws Exception {
+    CommandLines commandLines =
+        CommandLines.builder()
+            .addCommandLine(
+                CommandLine.of(ImmutableList.of("--a", "1", "--b=c", "2")),
+                ParamFileInfo.builder(ParameterFileType.UNQUOTED)
+                    .setUseAlways(true)
+                    .setFlagsOnly(true)
+                    .build())
+            .build();
+    ExpandedCommandLines expanded =
+        commandLines.expand(artifactExpander, execPath, new CommandLineLimits(4), 0);
+    assertThat(commandLines.allArguments()).containsExactly("--a", "1", "--b=c", "2");
+    assertThat(expanded.arguments()).containsExactly("1", "2", "@output.txt-0.params");
+    assertThat(expanded.getParamFiles()).hasSize(1);
+    assertThat(expanded.getParamFiles().get(0).arguments).containsExactly("--a", "--b=c");
+  }
 }

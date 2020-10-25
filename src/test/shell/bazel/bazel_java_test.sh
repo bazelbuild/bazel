@@ -1445,9 +1445,9 @@ function test_java_info_constructor_e2e() {
   cat > java/com/google/foo/BUILD << EOF
 load(":my_rule.bzl", "my_rule")
 my_rule(
-  name = 'my_skylark_rule',
-  output_jar = 'my_skylark_rule_lib.jar',
-  source_jars = ['my_skylark_rule_src.jar'],
+  name = 'my_starlark_rule',
+  output_jar = 'my_starlark_rule_lib.jar',
+  source_jars = ['my_starlark_rule_src.jar'],
 )
 EOF
 
@@ -1485,7 +1485,7 @@ my_rule = rule(
 )
 EOF
 
-  bazel build java/com/google/foo:my_skylark_rule >& "$TEST_log" || fail "Expected success"
+  bazel build java/com/google/foo:my_starlark_rule >& "$TEST_log" || fail "Expected success"
 }
 
 # This test builds a simple java deploy jar using remote singlejar and ijar

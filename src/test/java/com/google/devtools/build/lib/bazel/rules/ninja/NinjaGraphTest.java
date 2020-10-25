@@ -42,7 +42,7 @@ import org.junit.runners.JUnit4;
 public class NinjaGraphTest extends BuildViewTestCase {
 
   @Override
-  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
     builder.addRuleDefinition(new NinjaGraphRule());
@@ -51,7 +51,7 @@ public class NinjaGraphTest extends BuildViewTestCase {
 
   @Before
   public void setUp() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_ninja_actions");
+    setBuildLanguageOptions("--experimental_ninja_actions");
   }
 
   @Test

@@ -20,13 +20,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcConfigurationApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.ObjcConfigurationApi;
 import javax.annotation.Nullable;
 
 /** A compiler configuration containing flags required for Objective-C compilation. */
@@ -66,8 +65,8 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   private final boolean enableAppleBinaryNativeProtos;
   private final HeaderDiscovery.DotdPruningMode dotdPruningPlan;
   private final boolean shouldScanIncludes;
-  private final Label appleSdk;
   private final boolean compileInfoMigration;
+  private final boolean avoidHardcodedCompilationFlags;
 
   ObjcConfiguration(
       CppOptions cppOptions, ObjcCommandLineOptions objcOptions, CoreOptions options) {
@@ -96,8 +95,9 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
             ? HeaderDiscovery.DotdPruningMode.USE
             : HeaderDiscovery.DotdPruningMode.DO_NOT_USE;
     this.shouldScanIncludes = objcOptions.scanIncludes;
-    this.appleSdk = objcOptions.appleSdk;
     this.compileInfoMigration = objcOptions.incompatibleObjcCompileInfoMigration;
+    this.avoidHardcodedCompilationFlags =
+        objcOptions.incompatibleAvoidHardcodedObjcCompilationFlags;
   }
 
   /**
@@ -180,18 +180,18 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   public ImmutableList<String> getCoptsForCompilationMode() {
     switch (compilationMode) {
       case DBG:
-        if (this.debugWithGlibcxx) {
-          return ImmutableList.<String>builder()
-              .addAll(DBG_COPTS)
-              .addAll(GLIBCXX_DBG_COPTS)
-              .build();
-        } else {
-          return DBG_COPTS;
+        ImmutableList.Builder<String> opts = ImmutableList.builder();
+        if (!this.avoidHardcodedCompilationFlags) {
+          opts.addAll(DBG_COPTS);
         }
+        if (this.debugWithGlibcxx) {
+          opts.addAll(GLIBCXX_DBG_COPTS);
+        }
+        return opts.build();
       case FASTBUILD:
         return fastbuildOptions;
       case OPT:
-        return OPT_COPTS;
+        return this.avoidHardcodedCompilationFlags ? ImmutableList.of() : OPT_COPTS;
       default:
         throw new AssertionError();
     }
@@ -255,11 +255,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   /** Returns true iff we should do "include scanning" during this build. */
   public boolean shouldScanIncludes() {
     return shouldScanIncludes;
-  }
-
-  /** Returns the label for the Apple SDK for current build configuration. */
-  public Label getAppleSdk() {
-    return appleSdk;
   }
 
   /** Whether native rules can assume compile info has been migrated to CcInfo. */

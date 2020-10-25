@@ -25,11 +25,14 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
@@ -654,27 +657,27 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
-        "def skylark_static_lib_impl(ctx):",
+        "def starlark_static_lib_impl(ctx):",
         "   dep_provider = ctx.attr.proxy[apple_common.AppleStaticLibrary]",
         "   my_provider = apple_common.AppleStaticLibrary(archive = dep_provider.archive,",
         "       objc = dep_provider.objc)",
         "   return [my_provider]",
         "",
-        "skylark_static_lib = rule(",
-        "  implementation = skylark_static_lib_impl,",
+        "starlark_static_lib = rule(",
+        "  implementation = starlark_static_lib_impl,",
         "  attrs = {'proxy': attr.label()},",
         ")");
 
     scratch.file(
-        "examples/apple_skylark/BUILD",
+        "examples/apple_starlark/BUILD",
         "package(default_visibility = ['//visibility:public'])",
-        "load('//examples/rule:apple_rules.bzl', 'skylark_static_lib')",
-        "skylark_static_lib(",
+        "load('//examples/rule:apple_rules.bzl', 'starlark_static_lib')",
+        "starlark_static_lib(",
         "   name='my_target',",
         "   proxy='//x:x'",
         ")");
 
-    ConfiguredTarget binTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    ConfiguredTarget binTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
 
     AppleStaticLibraryInfo provider = binTarget.get(AppleStaticLibraryInfo.STARLARK_CONSTRUCTOR);
     assertThat(provider).isNotNull();
@@ -694,29 +697,29 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
-        "def skylark_static_lib_impl(ctx):",
+        "def starlark_static_lib_impl(ctx):",
         "   dep_provider = ctx.attr.proxy[apple_common.AppleStaticLibrary]",
         "   my_provider = apple_common.AppleStaticLibrary(archive = dep_provider.archive,",
         "       objc = dep_provider.objc, foo = 'bar')",
         "   return [my_provider]",
         "",
-        "skylark_static_lib = rule(",
-        "  implementation = skylark_static_lib_impl,",
+        "starlark_static_lib = rule(",
+        "  implementation = starlark_static_lib_impl,",
         "  attrs = {'proxy': attr.label()},",
         ")");
 
     scratch.file(
-        "examples/apple_skylark/BUILD",
+        "examples/apple_starlark/BUILD",
         "package(default_visibility = ['//visibility:public'])",
-        "load('//examples/rule:apple_rules.bzl', 'skylark_static_lib')",
-        "skylark_static_lib(",
+        "load('//examples/rule:apple_rules.bzl', 'starlark_static_lib')",
+        "starlark_static_lib(",
         "   name='my_target',",
         "   proxy='//x:x'",
         ")");
 
     AssertionError expected =
-        assertThrows(AssertionError.class, () ->
-            getConfiguredTarget("//examples/apple_skylark:my_target"));
+        assertThrows(
+            AssertionError.class, () -> getConfiguredTarget("//examples/apple_starlark:my_target"));
     assertThat(expected).hasMessageThat().contains("unexpected keyword argument 'foo'");
   }
 
@@ -729,5 +732,22 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
   public void testProtoBundlingDoesNotHappen() throws Exception {
     useConfiguration("--noenable_apple_binary_native_protos");
     checkProtoBundlingDoesNotHappen(RULE_TYPE);
+  }
+
+  @Test
+  public void testProcessHeadersInDependencies() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
+    ConfiguredTarget x =
+        scratchConfiguredTarget(
+            "foo",
+            "x",
+            "apple_static_library(name = 'x', platform_type = 'macos', deps = [':y', ':z'])",
+            "cc_library(name = 'y', hdrs = ['y.h'])",
+            "objc_library(name = 'z', hdrs = ['z.h'])");
+    String validation = ActionsTestUtil.baseNamesOf(getOutputGroup(x, OutputGroupInfo.VALIDATION));
+    assertThat(validation).contains("y.h.processed");
+    assertThat(validation).contains("z.h.processed");
   }
 }

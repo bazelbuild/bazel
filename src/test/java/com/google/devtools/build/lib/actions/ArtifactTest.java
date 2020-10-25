@@ -15,25 +15,32 @@ package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
+import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.LabelArtifactOwner;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -47,6 +54,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+/** Test for {@link Artifact} class. */
 @RunWith(JUnit4.class)
 public class ArtifactTest {
   private Scratch scratch;
@@ -142,6 +150,24 @@ public class ArtifactTest {
   }
 
   @Test
+  public void testIsFileType() throws Exception {
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/foo")));
+    Artifact javaFile = ActionsTestUtil.createArtifact(root, scratch.file("/foo/Bar.java"));
+    assertThat(javaFile.isFileType(FileType.of("java"))).isTrue();
+    assertThat(javaFile.isFileType(FileType.of("cc"))).isFalse();
+  }
+
+  @Test
+  public void testIsFileTypeSet() throws Exception {
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/foo")));
+    Artifact javaFile = ActionsTestUtil.createArtifact(root, scratch.file("/foo/Bar.java"));
+    assertThat(javaFile.isFileType(FileTypeSet.of(FileType.of("cc"), FileType.of("java"))))
+        .isTrue();
+    assertThat(javaFile.isFileType(FileTypeSet.of(FileType.of("py"), FileType.of("js")))).isFalse();
+    assertThat(javaFile.isFileType(FileTypeSet.of())).isFalse();
+  }
+
+  @Test
   public void testMangledPath() {
     String path = "dir/sub_dir/name:end";
     assertThat(Actions.escapedPath(path)).isEqualTo("dir_Ssub_Udir_Sname_Cend");
@@ -170,7 +196,7 @@ public class ArtifactTest {
           }
 
           @Override
-          public ActionLookupValue.ActionLookupKey getOwner() {
+          public ActionLookupKey getOwner() {
             throw new UnsupportedOperationException();
           }
         },
@@ -261,6 +287,7 @@ public class ArtifactTest {
         .addDependency(FileSystem.class, scratch.getFileSystem())
         .addDependency(
             Root.RootCodecDependencies.class, new Root.RootCodecDependencies(anotherRoot.getRoot()))
+        .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
         .runTests();
   }
 
@@ -271,7 +298,18 @@ public class ArtifactTest {
     ArtifactFactory artifactFactory =
         new ArtifactFactory(execDir.getParentDirectory(), "blaze-out");
     artifactFactory.setSourceArtifactRoots(ImmutableMap.of(root, artifactRoot));
-    ArtifactResolverSupplier artifactResolverSupplierForTest = () -> artifactFactory;
+    ArtifactResolverSupplier artifactResolverSupplierForTest =
+        new ArtifactResolverSupplier() {
+          @Override
+          public Artifact.DerivedArtifact intern(Artifact.DerivedArtifact original) {
+            return original;
+          }
+
+          @Override
+          public ArtifactResolver get() {
+            return artifactFactory;
+          }
+        };
 
     ObjectCodecs objectCodecs =
         new ObjectCodecs(
@@ -336,7 +374,7 @@ public class ArtifactTest {
             new Artifact.SourceArtifact(
                     ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/"))),
                     PathFragment.create("src/foo.cc"),
-                    ArtifactOwner.NullArtifactOwner.INSTANCE)
+                    ArtifactOwner.NULL_OWNER)
                 .isSourceArtifact())
         .isTrue();
     assertThat(
@@ -356,18 +394,28 @@ public class ArtifactTest {
   }
 
   @Test
-  public void hashCodeAndEquals() throws IOException {
+  public void hashCodeAndEquals() {
     Path execRoot = scratch.getFileSystem().getPath("/");
     ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, "newRoot");
-    ActionLookupValue.ActionLookupKey firstOwner =
-        new ActionLookupValue.ActionLookupKey() {
+    ActionLookupKey firstOwner =
+        new ActionLookupKey() {
+          @Override
+          public Label getLabel() {
+            return null;
+          }
+
           @Override
           public SkyFunctionName functionName() {
             return null;
           }
         };
-    ActionLookupValue.ActionLookupKey secondOwner =
-        new ActionLookupValue.ActionLookupKey() {
+    ActionLookupKey secondOwner =
+        new ActionLookupKey() {
+          @Override
+          public Label getLabel() {
+            return null;
+          }
+
           @Override
           public SkyFunctionName functionName() {
             return null;
@@ -423,5 +471,161 @@ public class ArtifactTest {
                     /*contentBasedPath=*/ true)
                 .contentBasedPath())
         .isTrue();
+  }
+
+  @Test
+  public void testGetRepositoryRelativePathExternalSourceArtifacts() throws IOException {
+    ArtifactRoot externalRoot =
+        ArtifactRoot.asExternalSourceRoot(
+            Root.fromPath(
+                scratch
+                    .dir("/output_base")
+                    .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION)));
+
+    // --experimental_sibling_repository_layout not set
+    assertThat(
+            new Artifact.SourceArtifact(
+                    externalRoot,
+                    LabelConstants.EXTERNAL_PATH_PREFIX.getRelative("foo/bar/baz.cc"),
+                    ArtifactOwner.NULL_OWNER)
+                .getRepositoryRelativePath())
+        .isEqualTo(PathFragment.create("bar/baz.cc"));
+
+    // --experimental_sibling_repository_layout set
+    assertThat(
+            new Artifact.SourceArtifact(
+                    externalRoot,
+                    LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative("foo/bar/baz.cc"),
+                    ArtifactOwner.NULL_OWNER)
+                .getRepositoryRelativePath())
+        .isEqualTo(PathFragment.create("bar/baz.cc"));
+  }
+
+  @Test
+  public void archivedTreeArtifact_create_returnsArtifactInArchivedRoot() {
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execDir, "blaze-out", "fastbuild");
+    SpecialArtifact tree = createTreeArtifact(root, "tree");
+
+    ArchivedTreeArtifact archivedTreeArtifact =
+        ArchivedTreeArtifact.create(tree, PathFragment.create("blaze-out"));
+
+    assertThat(archivedTreeArtifact.getParent()).isSameInstanceAs(tree);
+    assertThat(archivedTreeArtifact.getArtifactOwner())
+        .isSameInstanceAs(ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    assertThat(archivedTreeArtifact.getExecPathString())
+        .isEqualTo("blaze-out/:archived_tree_artifacts/fastbuild/tree.zip");
+    assertThat(archivedTreeArtifact.getRoot().getExecPathString())
+        .isEqualTo("blaze-out/:archived_tree_artifacts/fastbuild");
+  }
+
+  @Test
+  public void archivedTreeArtifact_create_returnsArtifactWithGeneratingActionFromParent() {
+    ActionLookupKey actionLookupKey = mock(ActionLookupKey.class);
+    ActionLookupData actionLookupData = ActionLookupData.create(actionLookupKey, 0);
+    SpecialArtifact tree = createTreeArtifact(rootDir, "tree", actionLookupData);
+
+    ArchivedTreeArtifact archivedTreeArtifact =
+        ArchivedTreeArtifact.create(tree, PathFragment.create("root"));
+
+    assertThat(archivedTreeArtifact.getExecPathString())
+        .isEqualTo("root/:archived_tree_artifacts/tree.zip");
+    assertThat(archivedTreeArtifact.getArtifactOwner()).isSameInstanceAs(actionLookupKey);
+    assertThat(archivedTreeArtifact.getGeneratingActionKey()).isSameInstanceAs(actionLookupData);
+  }
+
+  @Test
+  public void archivedTreeArtifact_createWithLongerDerivedPrefix_returnsArtifactWithCorrectPath() {
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execDir, "dir1", "dir2", "dir3");
+    SpecialArtifact tree = createTreeArtifact(root, "tree");
+
+    ArchivedTreeArtifact archivedTreeArtifact =
+        ArchivedTreeArtifact.create(tree, PathFragment.create("dir1/dir2"));
+
+    assertThat(archivedTreeArtifact.getExecPathString())
+        .isEqualTo("dir1/dir2/:archived_tree_artifacts/dir3/tree.zip");
+    assertThat(archivedTreeArtifact.getRoot().getExecPathString())
+        .isEqualTo("dir1/dir2/:archived_tree_artifacts/dir3");
+  }
+
+  @Test
+  public void archivedTreeArtifact_create_failsForWrongDerivedPrefix() {
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execDir, "blaze-out", "fastbuild");
+    SpecialArtifact tree = createTreeArtifact(root, "tree");
+    PathFragment wrongPrefix = PathFragment.create("notAPrefix");
+
+    assertThrows(
+        IllegalArgumentException.class, () -> ArchivedTreeArtifact.create(tree, wrongPrefix));
+  }
+
+  @Test
+  public void archivedTreeArtifact_create_failsForDerivedPrefixOutsideOfArtifactRoot() {
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execDir, "dir1", "dir2");
+    SpecialArtifact tree = createTreeArtifact(root, "dir3/tree");
+    PathFragment prefixOutsideOfRoot = PathFragment.create("dir1/dir2/dir3");
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> ArchivedTreeArtifact.create(tree, prefixOutsideOfRoot));
+  }
+
+  @Test
+  public void archivedTreeArtifact_createWithCustomDerivedTreeRoot_returnsArtifactWithCustomRoot() {
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execDir, "blaze-out", "fastbuild");
+    SpecialArtifact tree = createTreeArtifact(root, "dir/tree");
+
+    ArchivedTreeArtifact archivedTreeArtifact =
+        ArchivedTreeArtifact.createWithCustomDerivedTreeRoot(
+            tree,
+            PathFragment.create("blaze-out"),
+            PathFragment.create("custom/custom2"),
+            PathFragment.create("treePath/file.xyz"));
+
+    assertThat(archivedTreeArtifact.getParent()).isSameInstanceAs(tree);
+    assertThat(archivedTreeArtifact.getExecPathString())
+        .isEqualTo("blaze-out/custom/custom2/fastbuild/treePath/file.xyz");
+    assertThat(archivedTreeArtifact.getRoot().getExecPathString())
+        .isEqualTo("blaze-out/custom/custom2/fastbuild");
+  }
+
+  @Test
+  public void archivedTreeArtifact_codec_roundTripsArchivedArtifact() throws Exception {
+    ArchivedTreeArtifact artifact1 = createArchivedTreeArtifact(rootDir, "tree1");
+    ArtifactRoot anotherRoot =
+        ArtifactRoot.asDerivedRoot(scratch.getFileSystem().getPath("/"), "src");
+    ArchivedTreeArtifact artifact2 = createArchivedTreeArtifact(anotherRoot, "tree2");
+    new SerializationTester(artifact1, artifact2)
+        .addDependency(FileSystem.class, scratch.getFileSystem())
+        .addDependency(
+            Root.RootCodecDependencies.class, new Root.RootCodecDependencies(anotherRoot.getRoot()))
+        .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
+        .<ArchivedTreeArtifact>setVerificationFunction(
+            (original, deserialized) -> {
+              assertThat(original).isEqualTo(deserialized);
+              assertThat(original.getGeneratingActionKey())
+                  .isEqualTo(deserialized.getGeneratingActionKey());
+            })
+        .runTests();
+  }
+
+  private static SpecialArtifact createTreeArtifact(ArtifactRoot root, String relativePath) {
+    return createTreeArtifact(root, relativePath, ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+  }
+
+  private static SpecialArtifact createTreeArtifact(
+      ArtifactRoot root, String relativePath, ActionLookupData actionLookupData) {
+    SpecialArtifact treeArtifact =
+        new SpecialArtifact(
+            root,
+            root.getExecPath().getRelative(relativePath),
+            actionLookupData.getActionLookupKey(),
+            SpecialArtifactType.TREE);
+    treeArtifact.setGeneratingActionKey(actionLookupData);
+    return treeArtifact;
+  }
+
+  private static ArchivedTreeArtifact createArchivedTreeArtifact(
+      ArtifactRoot root, String treeRelativePath) {
+    return ArchivedTreeArtifact.create(
+        createTreeArtifact(root, treeRelativePath), root.getExecPath().subFragment(0, 1));
   }
 }

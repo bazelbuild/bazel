@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -104,7 +105,7 @@ public final class CoverageReportActionBuilder {
     private final String locationMessage;
     private final RunfilesSupplier runfilesSupplier;
 
-    protected CoverageReportAction(
+    CoverageReportAction(
         ActionOwner owner,
         NestedSet<Artifact> inputs,
         ImmutableSet<Artifact> outputs,
@@ -146,10 +147,7 @@ public final class CoverageReportActionBuilder {
         actionExecutionContext.getEventHandler().handle(Event.info(locationMessage));
         return ActionResult.create(spawnResults);
       } catch (ExecException e) {
-        throw e.toActionExecutionException(
-            "Coverage report generation failed: ",
-            actionExecutionContext.showVerboseFailures(getOwner().getLabel()),
-            this);
+        throw e.toActionExecutionException(this);
       }
     }
 
@@ -159,7 +157,15 @@ public final class CoverageReportActionBuilder {
     }
 
     @Override
-    protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    protected String getRawProgressMessage() {
+      return "Coverage report generation";
+    }
+
+    @Override
+    protected void computeKey(
+        ActionKeyContext actionKeyContext,
+        @Nullable ArtifactExpander artifactExpander,
+        Fingerprint fp) {
       fp.addStrings(command);
     }
 

@@ -13,15 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
-import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -58,7 +60,6 @@ import com.google.devtools.build.lib.runtime.commands.info.UsedHeapSizeAfterGcIn
 import com.google.devtools.build.lib.runtime.commands.info.UsedHeapSizeInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.WorkspaceInfoItem;
 import com.google.devtools.build.lib.server.FailureDetails;
-import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -78,6 +79,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 /**
  * Implementation of 'blaze info'.
@@ -153,7 +155,7 @@ public class InfoCommand implements BlazeCommand {
     Supplier<BuildConfiguration> configurationSupplier =
         Suppliers.memoize(
             () -> {
-              try {
+              try (SilentCloseable c = Profiler.instance().profile("Creating BuildConfiguration")) {
                 // In order to be able to answer configuration-specific queries, we need to set up
                 // the package path. Since info inherits all the build options, all the necessary
                 // information is available here.
@@ -166,18 +168,7 @@ public class InfoCommand implements BlazeCommand {
                         /*keepGoing=*/ true);
               } catch (InvalidConfigurationException e) {
                 env.getReporter().handle(Event.error(e.getMessage()));
-                throw new AbruptExitRuntimeException(
-                    DetailedExitCode.of(
-                        ExitCode.COMMAND_LINE_ERROR,
-                        FailureDetail.newBuilder()
-                            .setMessage(Strings.nullToEmpty(e.getMessage()))
-                            .setBuildConfiguration(
-                                FailureDetails.BuildConfiguration.newBuilder()
-                                    .setCode(
-                                        e.getDetailedCode() == null
-                                            ? Code.BUILD_CONFIGURATION_UNKNOWN
-                                            : e.getDetailedCode()))
-                            .build()));
+                throw new AbruptExitRuntimeException(e.getDetailedExitCode());
               } catch (AbruptExitException e) {
                 throw new AbruptExitRuntimeException(e.getDetailedExitCode());
               } catch (InterruptedException e) {
@@ -208,40 +199,39 @@ public class InfoCommand implements BlazeCommand {
         env.getReporter()
             .handle(
                 Event.warn(
-                    "Blaze info does not support starlark options. Ignoring options: "
+                    "info command does not support starlark options. Ignoring options: "
                         + removedStarlarkOptions));
       }
-      if (residue.size() > 1) {
-        String message = "at most one key may be specified";
-        env.getReporter().handle(Event.error(message));
-        return createFailureResult(
-            message, ExitCode.COMMAND_LINE_ERROR, FailureDetails.InfoCommand.Code.TOO_MANY_KEYS);
-      }
 
-      String key = residue.size() == 1 ? residue.get(0) : null;
       env.getEventBus().post(new NoBuildEvent());
-      if (key != null) { // print just the value for the specified key:
-        byte[] value;
-        if (items.containsKey(key)) {
-          value = items.get(key).get(configurationSupplier, env);
-        } else {
-          String message = "unknown key: '" + key + "'";
+      if (!residue.isEmpty()) {
+        ImmutableSet.Builder<String> unknownKeysBuilder = ImmutableSet.builder();
+        for (String key : residue) {
+          byte[] value;
+          if (items.containsKey(key)) {
+            try (SilentCloseable c = Profiler.instance().profile(key + ".infoItem")) {
+              value = items.get(key).get(configurationSupplier, env);
+              if (residue.size() > 1) {
+                outErr.getOutputStream().write((key + ": ").getBytes(StandardCharsets.UTF_8));
+              }
+              outErr.getOutputStream().write(value);
+            }
+          } else {
+            unknownKeysBuilder.add(key);
+          }
+        }
+        ImmutableSet<String> unknownKeys = unknownKeysBuilder.build();
+        if (!unknownKeys.isEmpty()) {
+          String message =
+              "unknown key(s): "
+                  + unknownKeys.stream()
+                      .map(key -> "'" + key + "'")
+                      .collect(Collectors.joining(", "));
           env.getReporter().handle(Event.error(message));
           return createFailureResult(
               message,
               ExitCode.COMMAND_LINE_ERROR,
               FailureDetails.InfoCommand.Code.KEY_NOT_RECOGNIZED);
-        }
-        try {
-          outErr.getOutputStream().write(value);
-          outErr.getOutputStream().flush();
-        } catch (IOException e) {
-          String message = "Cannot write info block: " + e.getMessage();
-          env.getReporter().handle(Event.error(message));
-          return createFailureResult(
-              message,
-              ExitCode.ANALYSIS_FAILURE,
-              FailureDetails.InfoCommand.Code.INFO_BLOCK_WRITE_FAILURE);
         }
       } else { // print them all
         configurationSupplier.get();  // We'll need this later anyway
@@ -251,9 +241,12 @@ public class InfoCommand implements BlazeCommand {
           }
           outErr.getOutputStream().write(
               (infoItem.getName() + ": ").getBytes(StandardCharsets.UTF_8));
-          outErr.getOutputStream().write(infoItem.get(configurationSupplier, env));
+          try (SilentCloseable c = Profiler.instance().profile(infoItem.getName() + ".infoItem")) {
+            outErr.getOutputStream().write(infoItem.get(configurationSupplier, env));
+          }
         }
       }
+      outErr.getOutputStream().flush();
     } catch (AbruptExitException e) {
       return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
     } catch (AbruptExitRuntimeException e) {

@@ -42,6 +42,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ProgressiveBackoff;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
@@ -53,7 +54,6 @@ import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
-import io.grpc.CallCredentials;
 import io.grpc.Context;
 import io.grpc.Status;
 import io.grpc.Status.Code;
@@ -72,7 +72,7 @@ import javax.annotation.Nullable;
 /** A RemoteActionCache implementation that uses gRPC calls to a remote cache server. */
 @ThreadSafe
 public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder {
-  private final CallCredentials credentials;
+  private final CallCredentialsProvider callCredentialsProvider;
   private final ReferenceCountedChannel channel;
   private final RemoteOptions options;
   private final DigestUtil digestUtil;
@@ -85,12 +85,12 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   @VisibleForTesting
   public GrpcCacheClient(
       ReferenceCountedChannel channel,
-      CallCredentials credentials,
+      CallCredentialsProvider callCredentialsProvider,
       RemoteOptions options,
       RemoteRetrier retrier,
       DigestUtil digestUtil,
       ByteStreamUploader uploader) {
-    this.credentials = credentials;
+    this.callCredentialsProvider = callCredentialsProvider;
     this.channel = channel;
     this.options = options;
     this.digestUtil = digestUtil;
@@ -121,29 +121,29 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   private ContentAddressableStorageFutureStub casFutureStub() {
     return ContentAddressableStorageGrpc.newFutureStub(channel)
         .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
-        .withCallCredentials(credentials)
-        .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS);
+        .withCallCredentials(callCredentialsProvider.getCallCredentials())
+        .withDeadlineAfter(options.remoteTimeout.getSeconds(), TimeUnit.SECONDS);
   }
 
   private ByteStreamStub bsAsyncStub() {
     return ByteStreamGrpc.newStub(channel)
         .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
-        .withCallCredentials(credentials)
-        .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS);
+        .withCallCredentials(callCredentialsProvider.getCallCredentials())
+        .withDeadlineAfter(options.remoteTimeout.getSeconds(), TimeUnit.SECONDS);
   }
 
   private ActionCacheBlockingStub acBlockingStub() {
     return ActionCacheGrpc.newBlockingStub(channel)
         .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
-        .withCallCredentials(credentials)
-        .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS);
+        .withCallCredentials(callCredentialsProvider.getCallCredentials())
+        .withDeadlineAfter(options.remoteTimeout.getSeconds(), TimeUnit.SECONDS);
   }
 
   private ActionCacheFutureStub acFutureStub() {
     return ActionCacheGrpc.newFutureStub(channel)
         .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
-        .withCallCredentials(credentials)
-        .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS);
+        .withCallCredentials(callCredentialsProvider.getCallCredentials())
+        .withDeadlineAfter(options.remoteTimeout.getSeconds(), TimeUnit.SECONDS);
   }
 
   @Override
@@ -216,7 +216,9 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   private ListenableFuture<FindMissingBlobsResponse> getMissingDigests(
       FindMissingBlobsRequest request) {
     Context ctx = Context.current();
-    return retrier.executeAsync(() -> ctx.call(() -> casFutureStub().findMissingBlobs(request)));
+    return Utils.refreshIfUnauthenticatedAsync(
+        () -> retrier.executeAsync(() -> ctx.call(() -> casFutureStub().findMissingBlobs(request))),
+        callCredentialsProvider);
   }
 
   private ListenableFuture<ActionResult> handleStatus(ListenableFuture<ActionResult> download) {
@@ -242,23 +244,29 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
             .setInlineStdout(inlineOutErr)
             .build();
     Context ctx = Context.current();
-    return retrier.executeAsync(
-        () -> ctx.call(() -> handleStatus(acFutureStub().getActionResult(request))));
+    return Utils.refreshIfUnauthenticatedAsync(
+        () ->
+            retrier.executeAsync(
+                () -> ctx.call(() -> handleStatus(acFutureStub().getActionResult(request)))),
+        callCredentialsProvider);
   }
 
   @Override
   public void uploadActionResult(ActionKey actionKey, ActionResult actionResult)
       throws IOException, InterruptedException {
     try {
-      retrier.execute(
+      Utils.refreshIfUnauthenticated(
           () ->
-              acBlockingStub()
-                  .updateActionResult(
-                      UpdateActionResultRequest.newBuilder()
-                          .setInstanceName(options.remoteInstanceName)
-                          .setActionDigest(actionKey.getDigest())
-                          .setActionResult(actionResult)
-                          .build()));
+              retrier.execute(
+                  () ->
+                      acBlockingStub()
+                          .updateActionResult(
+                              UpdateActionResultRequest.newBuilder()
+                                  .setInstanceName(options.remoteInstanceName)
+                                  .setActionDigest(actionKey.getDigest())
+                                  .setActionResult(actionResult)
+                                  .build())),
+          callCredentialsProvider);
     } catch (StatusRuntimeException e) {
       throw new IOException(e);
     }
@@ -287,11 +295,19 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
     Context ctx = Context.current();
     AtomicLong offset = new AtomicLong(0);
     ProgressiveBackoff progressiveBackoff = new ProgressiveBackoff(retrier::newBackoff);
-    return Futures.catchingAsync(
-        retrier.executeAsync(
+    ListenableFuture<Void> downloadFuture =
+        Utils.refreshIfUnauthenticatedAsync(
             () ->
-                ctx.call(() -> requestRead(offset, progressiveBackoff, digest, out, hashSupplier)),
-            progressiveBackoff),
+                retrier.executeAsync(
+                    () ->
+                        ctx.call(
+                            () ->
+                                requestRead(offset, progressiveBackoff, digest, out, hashSupplier)),
+                    progressiveBackoff),
+            callCredentialsProvider);
+
+    return Futures.catchingAsync(
+        downloadFuture,
         StatusRuntimeException.class,
         (e) -> Futures.immediateFailedFuture(new IOException(e)),
         MoreExecutors.directExecutor());

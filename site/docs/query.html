@@ -258,12 +258,46 @@ title: Query language
 <p>
   Query has two different implementations, with slightly different features. The alternative one is
   called "Sky Query", and is activated by passing the following two flags:
-  <code>--universe_scope</code> and <code>--order_output=no</code>.
+  (<code>--universe_scope</code> or <code>--infer_universe_scope</code>) and
+  <code>--order_output=no</code>.
   <code>--universe_scope=&lt;target_pattern1&gt;,...,&lt;target_patternN&gt;</code> tells query to
   preload the transitive closure of the target pattern specified by the target patterns, which can
   be both additive and subtractive. All queries are then evaluated in this "scope". In particular,
   the <a href='#allrdeps'><code>allrdeps</code></a> and
   <a href='#rbuildfiles'><code>rbuildfiles</code></a> operators only return results from this scope.
+  <code>--infer_universe_scope</code> tells Bazel to infer a value for <code>--universe_scope</code>
+  from the query expression. This inferred value is simply the list of unique target patterns in the
+  query expression, but this might not be what you want. For example:
+</p>
+<pre>
+   bazel query --infer_universe_scope --order_output=no "allrdeps(//my:target)"
+</pre>
+<p>
+  The list of unique target patterns in this query expression is <code>["//my:target"]</code>, so
+  Bazel will treat this the same as the invocation
+</p>
+<pre>
+   bazel query --universe_scope=//my:target --order_output=no "allrdeps(//my:target)"
+</pre>
+<p>
+  But the result of that query with that --universe_scope will just be <code>//my:target</code>;
+  none of the rdeps of <code>//my:target</code> will be in the universe, by construction! On the
+  other hand, consider:
+<pre>
+   bazel query --infer_universe_scope --order_output=no "tests(//a/... + b/...) intersect allrdeps(siblings(rbuildfiles(my/starlark/file.bzl)))"
+</pre>
+<p>
+  This is a meaningful query invocation that is trying to compute the test targets in the
+  <a href='#tests'><code>tests</code></a> expansion of the targets under some directories that
+  transitively depend on targets whose definition uses a certain bzl file. Here,
+  <code>--infer_universe_scope</code> is a convenience, especially in the case where the choice of
+  <code>--universe_scope</code> would otherwise require you to parse the query expression yourself.
+</p>
+<p>
+  So, for query expressions that use universe-scoped operators like
+  <a href='#allrdeps'><code>allrdeps</code></a> and
+  <a href='#rbuildfiles'><code>rbuildfiles</code></a> be sure to use
+  <code>--infer_universe_scope</code> only if its behavior is what you want.
 </p>
 
 <p>
@@ -1508,9 +1542,9 @@ maxrank
 
 <h3 id="regex">Regular expressions</h3>
 
-Regular expressions in the query language are implemented using the Java
-regex library, so they support the full syntax documented
-for <a href="https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html"><code>java.util.regex.Pattern</code></a>.
+Regular expressions in the query language use the Java regex library, so you can use the
+full syntax for <a href="https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html"><code>java.util.regex.Pattern</code></a>.
+
 
 <h3 id="external-repos">Querying with external repositories</h3>
 
@@ -1534,10 +1568,10 @@ for <a href="https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.h
 
 <pre>
   # Querying over all members of //external returns the repository.
-  bazel query 'kind(maven_jar, //external:*)'
+  bazel query 'kind(http_archive, //external:*)'
   //external:other-repo
 
   # ...but the repository is not a dependency.
-  bazel query 'kind(maven_jar, deps(//foo:bar))'
+  bazel query 'kind(http_archive, deps(//foo:bar))'
   INFO: Empty results
 </pre>

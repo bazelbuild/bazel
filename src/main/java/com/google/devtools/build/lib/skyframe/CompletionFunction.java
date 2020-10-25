@@ -13,13 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputMap;
-import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
@@ -39,6 +42,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingFileArtifactValue;
+import com.google.devtools.build.lib.skyframe.CompletionFunction.TopLevelActionLookupKey;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -46,7 +50,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -56,11 +59,13 @@ import javax.annotation.Nullable;
 public final class CompletionFunction<
         ValueT extends ConfiguredObjectValue,
         ResultT extends SkyValue,
-        KeyT extends CompletionFunction.TopLevelActionLookupKey>
+        KeyT extends TopLevelActionLookupKey,
+        FailureT>
     implements SkyFunction {
 
   /** A strategy for completing the build. */
-  interface Completor<ValueT, ResultT extends SkyValue, KeyT extends TopLevelActionLookupKey> {
+  interface Completor<
+      ValueT, ResultT extends SkyValue, KeyT extends TopLevelActionLookupKey, FailureT> {
 
     /**
      * Returns the options which determine the artifacts to build for the top-level targets.
@@ -86,16 +91,24 @@ public final class CompletionFunction<
     /** Provides a successful completion value. */
     ResultT getResult();
 
+    /**
+     * Creates supplementary data needed to call {@link #createFailed(Object, NestedSet,
+     * CompletionContext, NestedSet, Object)}; returns null if skyframe found missing values.
+     */
+    @Nullable
+    FailureT getFailureData(KeyT key, ValueT value, Environment env) throws InterruptedException;
+
     /** Creates a failed completion value. */
     ExtendedEventHandler.Postable createFailed(
         ValueT value,
         NestedSet<Cause> rootCauses,
+        CompletionContext ctx,
         NestedSet<ArtifactsInOutputGroup> outputs,
-        Environment env,
-        KeyT key)
+        FailureT failureData)
         throws InterruptedException;
 
-    /** Creates a succeeded completion value. */
+    /** Creates a succeeded completion value; returns null if skyframe found missing values. */
+    @Nullable
     ExtendedEventHandler.Postable createSucceeded(
         KeyT skyKey,
         ValueT value,
@@ -141,12 +154,12 @@ public final class CompletionFunction<
   }
 
   private final PathResolverFactory pathResolverFactory;
-  private final Completor<ValueT, ResultT, KeyT> completor;
+  private final Completor<ValueT, ResultT, KeyT, FailureT> completor;
   private final SkyframeActionExecutor skyframeActionExecutor;
 
   CompletionFunction(
       PathResolverFactory pathResolverFactory,
-      Completor<ValueT, ResultT, KeyT> completor,
+      Completor<ValueT, ResultT, KeyT, FailureT> completor,
       SkyframeActionExecutor skyframeActionExecutor) {
     this.pathResolverFactory = pathResolverFactory;
     this.completor = completor;
@@ -179,8 +192,9 @@ public final class CompletionFunction<
             Artifact.keys(allArtifacts), ActionExecutionException.class, IOException.class);
 
     ActionInputMap inputMap = new ActionInputMap(inputDeps.size());
-    Map<Artifact, Collection<Artifact>> expandedArtifacts = new HashMap<>();
+    Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts = new HashMap<>();
     Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets = new HashMap<>();
+    Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts = new HashMap<>();
     Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets = new HashMap<>();
 
     int missingCount = 0;
@@ -206,6 +220,7 @@ public final class CompletionFunction<
             ActionInputMapHelper.addToMap(
                 inputMap,
                 expandedArtifacts,
+                archivedTreeArtifacts,
                 expandedFilesets,
                 topLevelFilesets,
                 input,
@@ -217,7 +232,7 @@ public final class CompletionFunction<
         rootCausesBuilder.addTransitive(e.getRootCauses());
         // Prefer a catastrophic exception as the one we propagate.
         if (firstActionExecutionException == null
-            || !firstActionExecutionException.isCatastrophe() && e.isCatastrophe()) {
+            || (!firstActionExecutionException.isCatastrophe() && e.isCatastrophe())) {
           firstActionExecutionException = e;
         }
       } catch (IOException e) {
@@ -229,7 +244,7 @@ public final class CompletionFunction<
         missingCount++;
         handleMissingFile(
             input,
-            ArtifactFunction.makeMissingInputFileValue(input, e),
+            ArtifactFunction.makeIOExceptionSourceInputFileValue(input, e),
             rootCausesBuilder,
             env,
             value,
@@ -246,17 +261,37 @@ public final class CompletionFunction<
     }
 
     NestedSet<Cause> rootCauses = rootCausesBuilder.build();
+    @Nullable FailureT failureData = null;
+    if (!rootCauses.isEmpty()) {
+      failureData = completor.getFailureData(key, value, env);
+      if (failureData == null) {
+        return null;
+      }
+    }
+
+    final CompletionContext ctx;
+    try {
+      ctx =
+          CompletionContext.create(
+              expandedArtifacts,
+              archivedTreeArtifacts,
+              expandedFilesets,
+              key.topLevelArtifactContext().expandFilesets(),
+              key.topLevelArtifactContext().fullyResolveFilesetSymlinks(),
+              inputMap,
+              pathResolverFactory,
+              skyframeActionExecutor.getExecRoot(),
+              workspaceNameValue.getName());
+    } catch (IOException e) {
+      throw new CompletionFunctionException(e);
+    }
+
     if (!rootCauses.isEmpty()) {
       NestedSet<ArtifactsInOutputGroup> builtOutputs =
           filterArtifactOutputGroupsToBuiltArtifacts(
               builtArtifactsBuilder.build(), artifactsToBuild);
-
-      ExtendedEventHandler.Postable postable =
-          completor.createFailed(value, rootCauses, builtOutputs, env, key);
-      if (postable == null) {
-        return null;
-      }
-      env.getListener().post(postable);
+      env.getListener()
+          .post(completor.createFailed(value, rootCauses, ctx, builtOutputs, failureData));
       if (firstActionExecutionException != null) {
         throw new CompletionFunctionException(firstActionExecutionException);
       } else {
@@ -269,21 +304,6 @@ public final class CompletionFunction<
     // to report the error.
     if (env.valuesMissing()) {
       return null;
-    }
-
-    final CompletionContext ctx;
-    try {
-      ctx =
-          CompletionContext.create(
-              expandedArtifacts,
-              expandedFilesets,
-              key.topLevelArtifactContext().expandFilesets(),
-              inputMap,
-              pathResolverFactory,
-              skyframeActionExecutor.getExecRoot(),
-              workspaceNameValue.getName());
-    } catch (IOException e) {
-      throw new CompletionFunctionException(e);
     }
 
     ExtendedEventHandler.Postable postable =
@@ -304,7 +324,7 @@ public final class CompletionFunction<
       KeyT key)
       throws InterruptedException {
     LabelCause cause =
-        ActionExecutionFunction.handleMissingFile(
+        ActionExecutionFunction.createLabelCause(
             input, artifactValue, key.actionLookupKey().getLabel());
     rootCausesBuilder.add(cause);
     env.getListener().handle(completor.getRootCauseError(value, key, cause, env));

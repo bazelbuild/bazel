@@ -5,8 +5,6 @@ package(
     default_visibility = ["//src:__subpackages__"],
 )
 
-exports_files(["LICENSE"])
-
 filegroup(
     name = "srcs",
     testonly = 0,
@@ -21,6 +19,7 @@ java_test(
     deps = [
         ":J2ObjcLibraryTest",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
@@ -46,6 +45,7 @@ java_library(
     deps = [
         ":ObjcRulesTests_lib",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
@@ -64,8 +64,9 @@ java_library(
         ],
     ),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/symlink_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
@@ -86,10 +87,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/net/starlark/java/eval",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
-        "//src/test/java/com/google/devtools/build/lib/rules/cpp:util",
+        "//src/test/java/com/google/devtools/build/lib/rules/cpp:LinkBuildVariablesTestCase",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:guava",

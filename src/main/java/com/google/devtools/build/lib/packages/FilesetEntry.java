@@ -22,9 +22,7 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.skylarkbuildapi.FilesetEntryApi;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.lib.starlarkbuildapi.FilesetEntryApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.Collections;
@@ -33,6 +31,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * FilesetEntry is a value object used to represent a "FilesetEntry" inside a "Fileset" BUILD rule.

@@ -19,13 +19,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.regex.Pattern;
@@ -90,7 +90,8 @@ public class CppLinkstampCompileHelper {
             .setShareable(true)
             .setShouldScanIncludes(false)
             .setActionName(CppActionNames.LINKSTAMP_COMPILE);
-    semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
+    semantics.finalizeCompileActionBuilder(
+        configuration, featureConfiguration, builder, ruleErrorConsumer);
     return builder.buildOrThrowIllegalStateException();
   }
 
@@ -172,7 +173,6 @@ public class CppLinkstampCompileHelper {
         CcCompilationHelper.getCoptsFromOptions(cppConfiguration, sourceFile.getExecPathString()),
         /* cppModuleMap= */ null,
         needsPic,
-        /* fakeOutputFile= */ null,
         fdoBuildStamp,
         /* dotdFileExecPath= */ null,
         /* variablesExtensions= */ ImmutableList.of(),

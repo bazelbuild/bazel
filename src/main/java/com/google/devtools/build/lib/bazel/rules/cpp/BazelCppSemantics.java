@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.bazel.rules.cpp;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -60,7 +62,8 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
   public void finalizeCompileActionBuilder(
       BuildConfiguration configuration,
       FeatureConfiguration featureConfiguration,
-      CppCompileActionBuilder actionBuilder) {
+      CppCompileActionBuilder actionBuilder,
+      RuleErrorConsumer ruleErrorConsumer) {
     CcToolchainProvider toolchain = actionBuilder.getToolchain();
     actionBuilder
         .addTransitiveMandatoryInputs(
@@ -78,12 +81,21 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
   }
 
   @Override
+  public HeadersCheckingMode determineStarlarkHeadersCheckingMode(
+      RuleContext ruleContext, CppConfiguration cppConfig, CcToolchainProvider toolchain) {
+    if (cppConfig.strictHeaderCheckingFromStarlark()) {
+      return HeadersCheckingMode.STRICT;
+    }
+    return HeadersCheckingMode.LOOSE;
+  }
+
+  @Override
   public IncludeProcessing getIncludeProcessing() {
     return includeProcessing;
   }
 
   @Override
-  public boolean needsDotdInputPruning() {
+  public boolean needsDotdInputPruning(BuildConfiguration configuration) {
     return true;
   }
 
@@ -112,6 +124,7 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
   @Override
   public void validateLayeringCheckFeatures(
       RuleContext ruleContext,
+      AspectDescriptor aspectDescriptor,
       CcToolchainProvider ccToolchain,
       ImmutableSet<String> unsupportedFeatures) {}
 }

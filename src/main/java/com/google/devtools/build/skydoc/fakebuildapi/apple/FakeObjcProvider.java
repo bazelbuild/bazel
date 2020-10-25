@@ -15,11 +15,11 @@
 package com.google.devtools.build.skydoc.fakebuildapi.apple;
 
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.ObjcProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcCompilationContextApi;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Sequence;
 
 /**
  * Fake implementation of {@link ObjcProviderApi}.

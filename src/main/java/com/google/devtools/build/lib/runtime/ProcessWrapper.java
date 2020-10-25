@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Tracks process-wrapper configuration and allows building command lines that rely on it. */
@@ -37,15 +38,15 @@ public final class ProcessWrapper {
   /** Grace delay between asking a process to stop and forcibly killing it, or null for none. */
   @Nullable private final Duration killDelay;
 
-  /** Optional list of extra flags to append to the process-wrapper invocations. */
-  private final List<String> extraFlags;
+  /** Whether to pass {@code --graceful_sigterm} or not to the process-wrapper. */
+  private final boolean gracefulSigterm;
 
   /** Creates a new process-wrapper instance from explicit values. */
   @VisibleForTesting
-  public ProcessWrapper(Path binPath, @Nullable Duration killDelay, List<String> extraFlags) {
+  public ProcessWrapper(Path binPath, @Nullable Duration killDelay, boolean gracefulSigterm) {
     this.binPath = binPath;
     this.killDelay = killDelay;
-    this.extraFlags = extraFlags;
+    this.gracefulSigterm = gracefulSigterm;
   }
 
   /**
@@ -58,12 +59,12 @@ public final class ProcessWrapper {
   public static ProcessWrapper fromCommandEnvironment(CommandEnvironment cmdEnv) {
     LocalExecutionOptions options = cmdEnv.getOptions().getOptions(LocalExecutionOptions.class);
     Duration killDelay = options == null ? null : options.getLocalSigkillGraceSeconds();
-    List<String> extraFlags =
-        options == null ? ImmutableList.of() : options.processWrapperExtraFlags;
+
+    boolean gracefulSigterm = options != null && options.processWrapperGracefulSigterm;
 
     Path path = cmdEnv.getBlazeWorkspace().getBinTools().getEmbeddedPath(BIN_BASENAME);
     if (OS.isPosixCompatible() && path != null && path.exists()) {
-      return new ProcessWrapper(path, killDelay, extraFlags);
+      return new ProcessWrapper(path, killDelay, gracefulSigterm);
     } else {
       return null;
     }
@@ -71,7 +72,8 @@ public final class ProcessWrapper {
 
   /** Returns a new {@link CommandLineBuilder} for the process-wrapper tool. */
   public CommandLineBuilder commandLineBuilder(List<String> commandArguments) {
-    return new CommandLineBuilder(binPath.getPathString(), commandArguments, killDelay, extraFlags);
+    return new CommandLineBuilder(
+        binPath.getPathString(), commandArguments, killDelay, gracefulSigterm);
   }
 
   /**
@@ -82,7 +84,7 @@ public final class ProcessWrapper {
     private final String processWrapperPath;
     private final List<String> commandArguments;
     @Nullable private final Duration killDelay;
-    private final List<String> extraFlags;
+    private boolean gracefulSigterm;
 
     private Path stdoutPath;
     private Path stderrPath;
@@ -93,11 +95,11 @@ public final class ProcessWrapper {
         String processWrapperPath,
         List<String> commandArguments,
         @Nullable Duration killDelay,
-        List<String> extraFlags) {
+        boolean gracefulSigterm) {
       this.processWrapperPath = processWrapperPath;
       this.commandArguments = commandArguments;
       this.killDelay = killDelay;
-      this.extraFlags = extraFlags;
+      this.gracefulSigterm = gracefulSigterm;
     }
 
     /** Sets the path to use for redirecting stdout, if any. */
@@ -124,6 +126,14 @@ public final class ProcessWrapper {
       return this;
     }
 
+    /** Incorporates settings from a spawn's execution info. */
+    public CommandLineBuilder addExecutionInfo(Map<String, String> executionInfo) {
+      if (executionInfo.containsKey(ExecutionRequirements.GRACEFUL_TERMINATION)) {
+        gracefulSigterm = true;
+      }
+      return this;
+    }
+
     /** Build the command line to invoke a specific command using the process wrapper tool. */
     public List<String> build() {
       List<String> fullCommandLine = new ArrayList<>();
@@ -144,8 +154,9 @@ public final class ProcessWrapper {
       if (statisticsPath != null) {
         fullCommandLine.add("--stats=" + statisticsPath);
       }
-
-      fullCommandLine.addAll(extraFlags);
+      if (gracefulSigterm) {
+        fullCommandLine.add("--graceful_sigterm");
+      }
 
       fullCommandLine.addAll(commandArguments);
 

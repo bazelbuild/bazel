@@ -35,21 +35,21 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkList;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.syntax.Location;
 
 /** A Starlark declared provider that encapsulates all providers that are needed by Java rules. */
 @Immutable
@@ -424,6 +424,14 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
       super(STARLARK_NAME, JavaInfo.class);
     }
 
+    private void checkSequenceOfJavaInfo(Sequence<?> seq, String field) throws EvalException {
+      for (Object v : seq) {
+        if (!(v instanceof JavaInfo)) {
+          throw Starlark.errorf("Expected 'sequence of JavaInfo' for '%s'", field);
+        }
+      }
+    }
+
     @Override
     @SuppressWarnings({"unchecked"})
     public JavaInfo javaInfo(
@@ -444,6 +452,9 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
       if (compileJar == null) {
         throw Starlark.errorf("Expected 'File' for 'compile_jar', found 'None'");
       }
+      checkSequenceOfJavaInfo(deps, "deps");
+      checkSequenceOfJavaInfo(runtimeDeps, "runtime_deps");
+      checkSequenceOfJavaInfo(exports, "exports");
       return JavaInfoBuildHelper.getInstance()
           .createJavaInfo(
               outputJar,

@@ -100,16 +100,22 @@ class ZipFileBuilder {
     static final short DEFLATED = 8;
 
     public FileInfo(String filename, String content) {
-      this(filename, DosTime.EPOCH.time, STORED, 0,
-          (content == null ? EMPTY : content.getBytes(CHARSET)), null, null);
+      this(
+          filename,
+          DosTime.EPOCHISH.time,
+          STORED,
+          0,
+          (content == null ? EMPTY : content.getBytes(CHARSET)),
+          null,
+          null);
     }
 
     public FileInfo(String filename, byte[] data) {
-      this(filename, DosTime.EPOCH.time, STORED, 0, data, null, null);
+      this(filename, DosTime.EPOCHISH.time, STORED, 0, data, null, null);
     }
 
     public FileInfo(String filename, byte[] data, int uncompressed) {
-      this(filename, DosTime.EPOCH.time, DEFLATED, uncompressed, data, null, null);
+      this(filename, DosTime.EPOCHISH.time, DEFLATED, uncompressed, data, null, null);
     }
 
     public FileInfo(String filename, int dosTime, String content) {

@@ -53,7 +53,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
       final JavaCommon common,
       boolean includeGeneratedExtensionRegistry,
       boolean isJavaPluginRule)
-      throws InterruptedException, RuleErrorException, ActionConflictException {
+      throws InterruptedException, ActionConflictException {
     semantics.checkDependencyRuleKinds(ruleContext);
     JavaTargetAttributes.Builder attributesBuilder = common.initCommon();
 
@@ -195,13 +195,11 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
             .build();
 
     builder
-        .addStarlarkTransitiveInfo(
-            JavaStarlarkApiProvider.NAME, JavaStarlarkApiProvider.fromRuleContext())
         .addProvider(
             RunfilesProvider.simple(
                 JavaCommon.getRunfiles(ruleContext, semantics, javaArtifacts, neverLink)))
         .setFilesToBuild(filesToBuild)
-        .addProvider(new JavaNativeLibraryProvider(transitiveJavaNativeLibraries))
+        .addNativeDeclaredProvider(new JavaNativeLibraryInfo(transitiveJavaNativeLibraries))
         .addProvider(JavaSourceInfoProvider.fromJavaTargetAttributes(attributes, semantics))
         .addNativeDeclaredProvider(new ProguardSpecProvider(proguardSpecs))
         .addNativeDeclaredProvider(javaInfo)

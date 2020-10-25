@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -21,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -355,9 +357,12 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
    */
   private Map<SkyKey, SkyValue> getValuesFromErrorOrDepsOrGraph(Iterable<? extends SkyKey> keys)
       throws InterruptedException {
-    // Uses a HashMap, not an ImmutableMap.Builder, because we have not yet deduplicated these keys
+    // Do not use an ImmutableMap.Builder, because we have not yet deduplicated these keys
     // and ImmutableMap.Builder does not tolerate duplicates.
-    Map<SkyKey, SkyValue> result = new HashMap<>();
+    Map<SkyKey, SkyValue> result =
+        keys instanceof Collection
+            ? CompactHashMap.createWithExpectedSize(((Collection<?>) keys).size())
+            : new HashMap<>();
     Set<SkyKey> missingKeys = new HashSet<>();
     newlyRequestedDeps.startGroup();
     for (SkyKey key : keys) {

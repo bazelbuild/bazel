@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
@@ -79,12 +78,12 @@ public class AspectCompleteEvent
    */
   public static AspectCompleteEvent createFailed(
       AspectValue value,
+      CompletionContext ctx,
       NestedSet<Cause> rootCauses,
       BuildEventId configurationEventId,
       NestedSet<ArtifactsInOutputGroup> outputs) {
     Preconditions.checkArgument(!rootCauses.isEmpty());
-    return new AspectCompleteEvent(
-        value, rootCauses, CompletionContext.FAILED_COMPLETION_CTX, outputs, configurationEventId);
+    return new AspectCompleteEvent(value, rootCauses, ctx, outputs, configurationEventId);
   }
 
   /**
@@ -146,9 +145,7 @@ public class AspectCompleteEvent
       for (ArtifactsInOutputGroup artifactsInGroup : artifactOutputGroups.toList()) {
         OutputGroup.Builder groupBuilder = OutputGroup.newBuilder();
         groupBuilder.setName(artifactsInGroup.getOutputGroup());
-        groupBuilder.addFileSets(
-            namer.apply(
-                (new NestedSetView<Artifact>(artifactsInGroup.getArtifacts())).identifier()));
+        groupBuilder.addFileSets(namer.apply(artifactsInGroup.getArtifacts().toNode()));
         builder.addOutputGroup(groupBuilder.build());
       }
     }

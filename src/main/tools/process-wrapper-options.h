@@ -20,6 +20,8 @@
 
 // Options parsing result.
 struct Options {
+  // Whether to gracefully terminate subprocesses on SIGTERM (-g)
+  bool graceful_sigterm;
   // How long to wait before killing the child (-t)
   double timeout_secs;
   // How long to wait before sending SIGKILL in case of timeout (-k)
@@ -30,8 +32,6 @@ struct Options {
   std::string stderr_path;
   // Whether to print debugging messages (-d)
   bool debug;
-  // Whether to apply the "wait fix" (-W)
-  bool wait_fix;
   // Where to write stats, in protobuf format (-s)
   std::string stats_path;
   // Command to run (--)

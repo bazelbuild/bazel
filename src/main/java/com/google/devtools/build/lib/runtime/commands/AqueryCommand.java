@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunctio
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
+import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -35,7 +36,6 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -71,13 +71,6 @@ public final class AqueryCommand implements BlazeCommand {
     // TODO(twerth): Reduce overlap with CqueryCommand.
     AqueryOptions aqueryOptions = options.getOptions(AqueryOptions.class);
     boolean queryCurrentSkyframeState = aqueryOptions.queryCurrentSkyframeState;
-    if (aqueryOptions.protoV2) {
-      env.getReporter()
-          .handle(
-              Event.warn(
-                  "Note that --incompatible_proto_output_v2 is still experimental "
-                      + "and its API will change in the future."));
-    }
 
     // When querying for the state of Skyframe, it's possible to omit the query expression.
     if (options.getResidue().isEmpty() && !queryCurrentSkyframeState) {
@@ -94,8 +87,10 @@ public final class AqueryCommand implements BlazeCommand {
     QueryExpression expr;
     try {
       expr = query.isEmpty() ? null : QueryParser.parse(query, functions);
-    } catch (QueryException e) {
-      String message = "Error while parsing '" + query + "': " + e.getMessage();
+    } catch (QuerySyntaxException e) {
+      String message =
+          String.format(
+              "Error while parsing '%s': %s", QueryExpression.truncate(query), e.getMessage());
       env.getReporter().handle(Event.error(message));
       return createFailureResult(message, Code.EXPRESSION_PARSE_FAILURE);
     }
@@ -104,7 +99,7 @@ public final class AqueryCommand implements BlazeCommand {
     try {
       topLevelTargets =
           AqueryCommandUtils.getTopLevelTargets(
-              aqueryOptions.universeScope, expr, queryCurrentSkyframeState, query);
+              aqueryOptions.universeScope, expr, queryCurrentSkyframeState);
     } catch (QueryException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
       return createFailureResult(
@@ -136,9 +131,14 @@ public final class AqueryCommand implements BlazeCommand {
     if (queryCurrentSkyframeState) {
       return aqueryBuildTool.dumpActionGraphFromSkyframe(request);
     }
-    DetailedExitCode detailedExitCode =
-        aqueryBuildTool.processRequest(request, null).getDetailedExitCode();
-    return BlazeCommandResult.detailedExitCode(detailedExitCode);
+    try {
+      return BlazeCommandResult.detailedExitCode(
+          aqueryBuildTool.processRequest(request, null).getDetailedExitCode());
+    } catch (StackOverflowError e) {
+      String message = "Aquery output was too large to handle: " + query;
+      env.getReporter().handle(Event.error(message));
+      return createFailureResult(message, Code.AQUERY_OUTPUT_TOO_BIG);
+    }
   }
 
   private static BlazeCommandResult createFailureResult(String message, Code detailedCode) {

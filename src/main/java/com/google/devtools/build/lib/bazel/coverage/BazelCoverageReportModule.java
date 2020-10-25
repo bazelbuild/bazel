@@ -18,7 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -87,7 +87,7 @@ public class BazelCoverageReportModule extends BlazeModule {
           NestedSet<Artifact> baselineCoverageArtifacts,
           ArtifactFactory artifactFactory,
           ActionKeyContext actionKeyContext,
-          ActionLookupValue.ActionLookupKey actionLookupKey,
+          ActionLookupKey actionLookupKey,
           String workspaceName) {
         if (options == null || options.combinedReport == ReportType.NONE) {
           return null;

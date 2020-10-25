@@ -203,8 +203,8 @@ my_rule = rule(
   implementation = _my_rule_impl,
   attrs = {
       "deps": attr.label_list(cfg = my_transition),
-      "_whitelist_function_transition": attr.label(
-          default = "@//tools/whitelists/function_transition_whitelist"),
+      "_allowlist_function_transition": attr.label(
+          default = "@//tools/allowlists/function_transition_allowlist"),
   }
 )
 EOF
@@ -276,8 +276,8 @@ transitioning_rule = rule(
   implementation = _transitioning_rule_impl,
   attrs = {
       "deps": attr.label_list(cfg = my_transition),
-      "_whitelist_function_transition": attr.label(
-          default = "@//tools/whitelists/function_transition_whitelist"),
+      "_allowlist_function_transition": attr.label(
+          default = "@//tools/allowlists/function_transition_allowlist"),
   }
 )
 

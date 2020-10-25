@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
@@ -46,7 +45,7 @@ public final class ActionInputHelper {
         // TODO(bazel-team): Consider expanding recursively or throwing an exception here.
         // Most likely, this code will cause silent errors if we ever have a middleman that
         // contains a middleman.
-        if (middlemanAction.getActionType() == Action.MiddlemanType.AGGREGATING_MIDDLEMAN) {
+        if (middlemanAction.getActionType() == MiddlemanType.AGGREGATING_MIDDLEMAN) {
           Artifact.addNonMiddlemanArtifacts(
               middlemanAction.getInputs().toList(), output, Functions.<Artifact>identity());
         }
@@ -147,12 +146,8 @@ public final class ActionInputHelper {
     return result;
   }
 
-  /** Formatter for execPath String output. Public because {@link Artifact} uses it directly. */
-  public static final Function<ActionInput, String> EXEC_PATH_STRING_FORMATTER =
-      ActionInput::getExecPathString;
-
   public static Iterable<String> toExecPaths(Iterable<? extends ActionInput> artifacts) {
-    return Iterables.transform(artifacts, EXEC_PATH_STRING_FORMATTER);
+    return Iterables.transform(artifacts, ActionInput::getExecPathString);
   }
 
   /** Returns the {@link Path} for an {@link ActionInput}. */

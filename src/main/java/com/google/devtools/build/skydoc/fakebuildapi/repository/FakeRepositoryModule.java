@@ -16,14 +16,7 @@ package com.google.devtools.build.skydoc.fakebuildapi.repository;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryModuleApi;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkCallable;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryModuleApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeDescriptor;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStarlarkRuleFunctionsApi.AttributeNameComparator;
 import com.google.devtools.build.skydoc.rendering.RuleInfoWrapper;
@@ -32,6 +25,13 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Attr
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 import java.util.List;
 import java.util.stream.Collectors;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 
 /**
  * Fake implementation of {@link RepositoryModuleApi}.

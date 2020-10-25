@@ -106,7 +106,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       String canonicalId,
       Path destination,
       ExtendedEventHandler eventHandler,
-      Map<String, String> clientEnv)
+      Map<String, String> clientEnv,
+      com.google.common.base.Optional<String> type)
       throws IOException, InterruptedException {
     final FetchBlobRequest request =
         newFetchBlobRequest(options.remoteInstanceName, urls, authHeaders, checksum, canonicalId);
@@ -168,7 +169,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
         .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
         .withInterceptors(TracingMetadataUtils.newDownloaderHeadersInterceptor(options))
         .withCallCredentials(credentials.orElse(null))
-        .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS);
+        .withDeadlineAfter(options.remoteTimeout.getSeconds(), TimeUnit.SECONDS);
   }
 
   private OutputStream newOutputStream(
@@ -196,6 +197,6 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       authHeadersJson.add(entry.getKey(), entry.getValue());
     }
 
-    return (new Gson()).toJson(authHeadersJson);
+    return new Gson().toJson(authHeadersJson);
   }
 }

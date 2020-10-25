@@ -39,7 +39,7 @@ public class ErrorInfo {
     Exception rootCauseException = skyFunctionException.getCause();
     return new ErrorInfo(
         NestedSetBuilder.create(Order.STABLE_ORDER, rootCauseSkyKey),
-        Preconditions.checkNotNull(rootCauseException, "Cause null %s", rootCauseException),
+        Preconditions.checkNotNull(rootCauseException, "Cause is null"),
         rootCauseSkyKey,
         /*cycles=*/ ImmutableList.<CycleInfo>of(),
         skyFunctionException.isTransient(),

@@ -26,13 +26,13 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
 import com.google.devtools.build.lib.packages.BuildType.Selector;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -140,7 +140,7 @@ public class BuildTypeTest {
             ConversionException.class,
             () ->
                 BuildType.LABEL_KEYED_STRING_DICT.convert(
-                    ImmutableMap.of(1, "OK"), null, currentRule));
+                    ImmutableMap.of(StarlarkInt.of(1), "OK"), null, currentRule));
     assertThat(expected)
         .hasMessageThat()
         .isEqualTo("expected value of type 'string' for dict key element, but got 1 (int)");
@@ -153,7 +153,7 @@ public class BuildTypeTest {
             ConversionException.class,
             () ->
                 BuildType.LABEL_KEYED_STRING_DICT.convert(
-                    ImmutableMap.of("//actually/a:label", 3), null, currentRule));
+                    ImmutableMap.of("//actually/a:label", StarlarkInt.of(3)), null, currentRule));
     assertThat(expected)
         .hasMessageThat()
         .isEqualTo("expected value of type 'string' for dict value element, but got 3 (int)");
@@ -496,10 +496,10 @@ public class BuildTypeTest {
   }
 
   /**
-   * Tests that {@link BuildType#selectableConvert} returns either the native type or a selector
-   * on that type, in accordance with the provided input.
+   * Tests that {@link BuildType#selectableConvert} returns either the native type or a selector on
+   * that type, in accordance with the provided input.
    */
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings({"unchecked", "TruthIncompatibleType"})
   @Test
   public void testSelectableConvert() throws Exception {
     Object nativeInput = Arrays.asList("//a:a1", "//a:a2");
@@ -524,7 +524,7 @@ public class BuildTypeTest {
     BuildType.SelectorList<?> selectorList = (BuildType.SelectorList<?>) converted;
     assertThat(((Selector<Label>) selectorList.getSelectors().get(0)).getEntries().entrySet())
         .containsExactlyElementsIn(
-            ImmutableMap.of(
+            /* expected: Entry<Label, Label>, actual: Entry<Label, List<Label>> */ ImmutableMap.of(
                     Label.parseAbsolute("//conditions:a", ImmutableMap.of()),
                     expectedLabels,
                     Label.parseAbsolute(
@@ -715,7 +715,7 @@ public class BuildTypeTest {
   @Test
   public void testFilesetTypeDefinition() throws Exception {
     assertThat(Starlark.type(makeFilesetEntry())).isEqualTo("FilesetEntry");
-    assertThat(EvalUtils.isImmutable(makeFilesetEntry())).isTrue();
+    assertThat(Starlark.isImmutable(makeFilesetEntry())).isTrue();
   }
 
   private static ImmutableList<Label> collectLabels(Type<?> type, Object value) {

@@ -85,7 +85,7 @@ when building your Java projects:
    *  [`java_proto_common`](skylark/lib/java_proto_common.html)
    *  [`JavaRuntimeClasspathProvider`](skylark/lib/JavaRuntimeClasspathProvider.html)
    *  [`JavaRuntimeInfo`](skylark/lib/JavaRuntimeInfo.html)
-   *  [`JavaToolchainSkylarkApiProvider`](skylark/lib/JavaToolchainSkylarkApiProvider.html)
+   *  [`JavaToolchainStarlarkApiProvider`](skylark/lib/JavaToolchainStarlarkApiProvider.html)
 
 *  Configuration fragments:
 
@@ -93,7 +93,6 @@ when building your Java projects:
 
 *  Providers:
 
-   *  [`java`](skylark/lib/JavaSkylarkApiProvider.html)
    *  [`JavaInfo`](skylark/lib/JavaInfo.html)
 
 ## Configuring the JDK

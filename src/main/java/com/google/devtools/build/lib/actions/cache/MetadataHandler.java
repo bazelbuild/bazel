@@ -14,48 +14,68 @@
 package com.google.devtools.build.lib.actions.cache;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.vfs.FileStatus;
+import java.io.IOException;
+import javax.annotation.Nullable;
 
-/**
- * Retrieves {@link FileArtifactValue} of {@link Artifact}s, and inserts virtual metadata as well.
- *
- * <p>Some methods on this interface may only be called after a call to {@link
- * #discardOutputMetadata}. Calling them before such a call results in an {@link
- * IllegalStateException}.
- *
- * <p>Note that implementations of this interface call chmod on output files if {@link
- * #discardOutputMetadata} has been called.
- */
+/** Handles metadata of inputs and outputs during the execution phase. */
 public interface MetadataHandler extends MetadataProvider, MetadataInjector {
+
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Freshly created output files (i.e. from an action that just executed) that require a stat to
+   * obtain the metadata will first be set read-only and executable during this call. This ensures
+   * that the returned metadata has an appropriate ctime, which is affected by chmod. Note that this
+   * does not apply to outputs injected via {@link #injectFile} or {@link #injectTree} since a stat
+   * is not required for them.
+   */
+  @Override
+  @Nullable
+  FileArtifactValue getMetadata(ActionInput input) throws IOException;
 
   /** Sets digest for virtual artifacts (e.g. middlemen). {@code digest} must not be null. */
   void setDigestForVirtualArtifact(Artifact artifact, byte[] digest);
 
-  /** Retrieves the artifacts inside the TreeArtifact, without injecting its digest. */
-  ImmutableSet<TreeFileArtifact> getExpandedOutputs(Artifact artifact);
+  /**
+   * Constructs a {@link FileArtifactValue} for the given output whose digest is known.
+   *
+   * <p>This call does not inject the returned metadata. It should be injected with a followup call
+   * to {@link #injectFile} or {@link #injectTree} as appropriate.
+   *
+   * <p>chmod will not be called on the output.
+   */
+  FileArtifactValue constructMetadataForDigest(
+      Artifact output, FileStatus statNoFollow, byte[] injectedDigest) throws IOException;
 
   /**
-   * Returns true iff artifact was intentionally omitted (not saved).
+   * Retrieves the children of a tree artifact, returning an empty set if there is no data
+   * available.
    */
-  // TODO(ulfjack): artifactOmitted always returns false unless we've just executed the action, and
-  // made calls to markOmitted. We either need to document that or change it so it works reliably.
+  ImmutableSet<TreeFileArtifact> getTreeArtifactChildren(SpecialArtifact treeArtifact);
+
+  /**
+   * Marks an {@link Artifact} as intentionally omitted.
+   *
+   * <p>This is used as an optimization to not download <em>orphaned</em> artifacts (artifacts that
+   * no action depends on) from a remote system.
+   */
+  void markOmitted(Artifact output);
+
+  /** Returns {@code true} if {@link #markOmitted} was called on the artifact. */
   boolean artifactOmitted(Artifact artifact);
 
   /**
-   * Discards all known output artifact metadata, presumably because outputs will be modified. May
-   * only be called before any metadata is injected using {@link #injectDigest} or {@link
-   * #markOmitted};
+   * Discards any cached metadata for the given outputs.
    *
-   * <p>Must be called at most once on any specific instance.
+   * <p>May be called if an action can make multiple attempts that are expected to create the same
+   * set of output files.
    */
-  void discardOutputMetadata();
-
-  /**
-   * Discards output artifact metadata and removes them from other data structures. Use this if an
-   * action can make multiple attempts that are expected to create the same set of output files.
-   */
-  void resetOutputs(Iterable<Artifact> outputs);
+  void resetOutputs(Iterable<? extends Artifact> outputs);
 }

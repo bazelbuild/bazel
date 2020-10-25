@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.FileProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.FileProviderApi;
 
 /**
  * A representation of the concept "this transitive info provider builds these files".

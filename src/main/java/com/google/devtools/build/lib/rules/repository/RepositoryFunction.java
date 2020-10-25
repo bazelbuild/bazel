@@ -19,7 +19,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
-import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -29,7 +28,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
@@ -40,8 +38,6 @@ import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -58,6 +54,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /**
  * Implementation of fetching various external repository types.
@@ -115,34 +113,21 @@ public abstract class RepositoryFunction {
     public RepositoryFunctionException(EvalException cause, Transience transience) {
       super(cause, transience);
     }
-  }
-  /**
-   * Exception thrown when something a repository rule cannot be found.
-   */
-  public static final class RepositoryNotFoundException extends RepositoryFunctionException {
 
-    public RepositoryNotFoundException(String repositoryName) {
-      super(
-          new BuildFileContainsErrorsException(
-              LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
-              "The repository named '" + repositoryName + "' could not be resolved"),
-          Transience.PERSISTENT);
+    public RepositoryFunctionException(ExternalPackageException e) {
+      super(e.getCause(), e.isTransient() ? Transience.TRANSIENT : Transience.PERSISTENT);
     }
   }
+
   /**
    * An exception thrown when a dependency is missing to notify the SkyFunction from an evaluation.
    */
   protected static class RepositoryMissingDependencyException extends EvalException {
-
     RepositoryMissingDependencyException() {
-      super(Location.BUILTIN, "Internal exception");
-    }
-
-    @Override
-    public boolean canBeAddedToStackTrace() {
-      return false;
+      super("Internal exception");
     }
   }
+
   /**
    * repository functions can throw the result of this function to notify the RepositoryFunction
    * that a dependency was missing and the evaluation of the function must be restarted.
@@ -185,12 +170,12 @@ public abstract class RepositoryFunction {
       Environment env,
       Map<String, String> markerData,
       SkyKey key)
-      throws SkyFunctionException, InterruptedException;
+      throws InterruptedException, RepositoryFunctionException;
 
   @SuppressWarnings("unchecked")
   private static Iterable<String> getEnviron(Rule rule) {
     if (rule.isAttrDefined("$environ", Type.STRING_LIST)) {
-      return (Iterable<String>) rule.getAttributeContainer().getAttr("$environ");
+      return (Iterable<String>) rule.getAttr("$environ");
     }
     return ImmutableList.of();
   }
@@ -255,8 +240,9 @@ public abstract class RepositoryFunction {
   public static String fileValueToMarkerValue(FileValue fileValue) throws IOException {
     Preconditions.checkArgument(fileValue.isFile() && !fileValue.isSpecialFile());
     // Return the file content digest in hex. fileValue may or may not have the digest available.
-    byte[] digest = ((RegularFileStateValue) fileValue.realFileStateValue()).getDigest();
+    byte[] digest = fileValue.realFileStateValue().getDigest();
     if (digest == null) {
+      // Fast digest not available, or it would have been in the FileValue.
       digest = fileValue.realRootedPath().asPath().getDigest();
     }
     return BaseEncoding.base16().lowerCase().encode(digest);
@@ -277,7 +263,7 @@ public abstract class RepositoryFunction {
   public static RootedPath getRootedPathFromLabel(Label label, Environment env)
       throws InterruptedException, EvalException {
     // Look for package.
-    if (label.getPackageIdentifier().getRepository().isDefault()) {
+    if (label.getRepository().isDefault()) {
       try {
         label = Label.create(label.getPackageIdentifier().makeAbsolute(), label.getName());
       } catch (LabelSyntaxException e) {
@@ -294,8 +280,7 @@ public abstract class RepositoryFunction {
       if (pkgLookupValue == PackageLookupValue.NO_BUILD_FILE_VALUE) {
         message = PackageLookupFunction.explainNoBuildFileValue(label.getPackageIdentifier(), env);
       }
-      throw new EvalException(
-          Location.BUILTIN, "Unable to load package for " + label + ": " + message);
+      throw Starlark.errorf("Unable to load package for %s: %s", label, message);
     }
 
     // And now for the file

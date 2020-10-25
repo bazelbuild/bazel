@@ -18,10 +18,11 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.regex.Pattern;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -54,19 +55,19 @@ public class LabelTest {
     }
     {
       Label l = Label.parseAbsolute("@foo", ImmutableMap.of());
-      assertThat(l.getPackageIdentifier().getRepository().getName()).isEqualTo("@foo");
+      assertThat(l.getRepository().getName()).isEqualTo("@foo");
       assertThat(l.getPackageName()).isEmpty();
       assertThat(l.getName()).isEqualTo("foo");
     }
     {
       Label l = Label.parseAbsolute("//@foo", ImmutableMap.of());
-      assertThat(l.getPackageIdentifier().getRepository().getName()).isEqualTo("@");
+      assertThat(l.getRepository().getName()).isEqualTo("@");
       assertThat(l.getPackageName()).isEqualTo("@foo");
       assertThat(l.getName()).isEqualTo("@foo");
     }
     {
       Label l = Label.parseAbsolute("//xyz/@foo:abc", ImmutableMap.of());
-      assertThat(l.getPackageIdentifier().getRepository().getName()).isEqualTo("@");
+      assertThat(l.getRepository().getName()).isEqualTo("@");
       assertThat(l.getPackageName()).isEqualTo("xyz/@foo");
       assertThat(l.getName()).isEqualTo("abc");
     }
@@ -138,8 +139,7 @@ public class LabelTest {
 
     Label relative = base.getRelativeWithRemapping("@remote//x:y", ImmutableMap.of());
 
-    assertThat(relative.getPackageIdentifier().getRepository())
-        .isEqualTo(RepositoryName.create("@remote"));
+    assertThat(relative.getRepository()).isEqualTo(RepositoryName.create("@remote"));
     assertThat(relative.getPackageFragment()).isEqualTo(PathFragment.create("x"));
     assertThat(relative.getName()).isEqualTo("y");
   }
@@ -177,8 +177,7 @@ public class LabelTest {
 
     Label relative = base.getRelativeWithRemapping("//x:y", ImmutableMap.of());
 
-    assertThat(relative.getPackageIdentifier().getRepository())
-        .isEqualTo(packageId.getRepository());
+    assertThat(relative.getRepository()).isEqualTo(packageId.getRepository());
     assertThat(relative.getPackageFragment()).isEqualTo(PathFragment.create("x"));
     assertThat(relative.getName()).isEqualTo("y");
   }
@@ -190,8 +189,7 @@ public class LabelTest {
 
     Label relative = base.getRelativeWithRemapping(":y", ImmutableMap.of());
 
-    assertThat(relative.getPackageIdentifier().getRepository())
-        .isEqualTo(packageId.getRepository());
+    assertThat(relative.getRepository()).isEqualTo(packageId.getRepository());
     assertThat(relative.getPackageFragment()).isEqualTo(PathFragment.create("foo"));
     assertThat(relative.getName()).isEqualTo("y");
   }
@@ -204,7 +202,7 @@ public class LabelTest {
     Label relative = base.getRelativeWithRemapping("//conditions:default", ImmutableMap.of());
 
     PackageIdentifier expected = PackageIdentifier.createInMainRepo("conditions");
-    assertThat(relative.getPackageIdentifier().getRepository()).isEqualTo(expected.getRepository());
+    assertThat(relative.getRepository()).isEqualTo(expected.getRepository());
     assertThat(relative.getPackageFragment()).isEqualTo(expected.getPackageFragment());
     assertThat(relative.getName()).isEqualTo("default");
   }
@@ -216,8 +214,7 @@ public class LabelTest {
 
     Label relative = base.getRelativeWithRemapping("@//x:y", ImmutableMap.of());
 
-    assertThat(relative.getPackageIdentifier().getRepository())
-        .isEqualTo(RepositoryName.create("@"));
+    assertThat(relative.getRepository()).isEqualTo(RepositoryName.create("@"));
     assertThat(relative.getPackageFragment()).isEqualTo(PathFragment.create("x"));
     assertThat(relative.getName()).isEqualTo("y");
   }
@@ -229,7 +226,7 @@ public class LabelTest {
     Label mainBase = Label.parseAbsolute("@//foo/bar:baz", ImmutableMap.of());
     Label externalTarget = Label.parseAbsolute("//external:target", ImmutableMap.of());
     Label l = defaultBase.resolveRepositoryRelative(externalTarget);
-    assertThat(l.getPackageIdentifier().getRepository().isMain()).isTrue();
+    assertThat(l.getRepository().isMain()).isTrue();
     assertThat(l.getPackageName()).isEqualTo("external");
     assertThat(l.getName()).isEqualTo("target");
     assertThat(repoBase.resolveRepositoryRelative(externalTarget)).isEqualTo(l);
@@ -466,9 +463,10 @@ public class LabelTest {
   @Test
   public void testGetWorkspaceRoot() throws Exception {
     Label label = Label.parseAbsolute("//bar/baz", ImmutableMap.of());
-    assertThat(label.getWorkspaceRoot(StarlarkSemantics.DEFAULT)).isEmpty();
+    assertThat(label.getWorkspaceRootForStarlarkOnly(StarlarkSemantics.DEFAULT)).isEmpty();
     label = Label.parseAbsolute("@repo//bar/baz", ImmutableMap.of());
-    assertThat(label.getWorkspaceRoot(StarlarkSemantics.DEFAULT)).isEqualTo("external/repo");
+    assertThat(label.getWorkspaceRootForStarlarkOnly(StarlarkSemantics.DEFAULT))
+        .isEqualTo("external/repo");
   }
 
   @Test
@@ -489,5 +487,12 @@ public class LabelTest {
         .isEqualTo("foo");
     assertThat(Label.parseAbsolute("//bar:baz", ImmutableMap.of()).getWorkspaceName()).isEmpty();
     assertThat(Label.parseAbsolute("@//bar:baz", ImmutableMap.of()).getWorkspaceName()).isEmpty();
+  }
+
+  @Test
+  public void testStarlarkStrAndRepr() throws Exception {
+    Label label = Label.parseAbsolute("//x", ImmutableMap.of());
+    assertThat(Starlark.str(label)).isEqualTo("//x:x");
+    assertThat(Starlark.repr(label)).isEqualTo("Label(\"//x:x\")");
   }
 }

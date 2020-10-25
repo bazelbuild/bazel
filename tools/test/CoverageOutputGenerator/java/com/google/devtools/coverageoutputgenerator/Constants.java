@@ -36,9 +36,10 @@ class Constants {
   static final String LH_MARKER = "LH:";
   static final String LF_MARKER = "LF:";
   static final String END_OF_RECORD_MARKER = "end_of_record";
-  static final String TAKEN = "-";
+  static final String NEVER_EVALUATED = "-";
   static final String TRACEFILE_EXTENSION = ".dat";
   static final String GCOV_EXTENSION = ".gcov";
+  static final String GCOV_JSON_EXTENSION = ".gcov.json.gz";
   static final String PROFDATA_EXTENSION = ".profdata";
   static final String DELIMITER = ",";
   static final String GCOV_VERSION_MARKER = "version:";
@@ -48,8 +49,8 @@ class Constants {
   static final String GCOV_LINE_MARKER = "lcount:";
   static final String GCOV_BRANCH_MARKER = "branch:";
   static final String GCOV_BRANCH_NOTEXEC = "notexec";
-  static final String GCOV_BRANCH_NOTTAKEN = "taken";
-  static final String GCOV_BRANCH_TAKEN = "nottaken";
+  static final String GCOV_BRANCH_NOTTAKEN = "nottaken";
+  static final String GCOV_BRANCH_TAKEN = "taken";
   // Please keep in sync with the extensions in CppFileTypes.
   static final ImmutableList<String> CC_EXTENSIONS =
       ImmutableList.of(

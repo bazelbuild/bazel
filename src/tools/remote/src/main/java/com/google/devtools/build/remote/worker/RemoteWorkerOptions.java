@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.remote.worker;
 
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.common.options.Option;
@@ -22,11 +23,10 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
-import java.util.logging.Logger;
 
 /** Options for remote worker. */
 public class RemoteWorkerOptions extends OptionsBase {
-  private static final Logger logger = Logger.getLogger(RemoteWorkerOptions.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   @Option(
     name = "listen_port",
@@ -197,12 +197,11 @@ public class RemoteWorkerOptions extends OptionsBase {
             String.format("Value '(%d)' must be at least %d.", value, minValue));
       }
       if (value > maxValue) {
-        logger.warning(
-            String.format(
-                "Flag remoteWorker \"jobs\" ('%d') was set too high. "
-                    + "This is a result of passing large values to --local_resources or --jobs. "
-                    + "Using '%d' jobs",
-                value, maxValue));
+        logger.atWarning().log(
+            "Flag remoteWorker \"jobs\" ('%d') was set too high. "
+                + "This is a result of passing large values to --local_resources or --jobs. "
+                + "Using '%d' jobs",
+            value, maxValue);
         value = maxValue;
       }
       return value;

@@ -14,19 +14,28 @@
 
 package com.google.devtools.build.lib.platform;
 
+import com.google.devtools.build.lib.jni.JniLoader;
+
 /** Native methods for dealing with memory pressure events. */
-public final class MemoryPressureCounter extends JniLoader {
+public final class MemoryPressureCounter {
+
+  static {
+    JniLoader.loadJni();
+  }
+
+  private MemoryPressureCounter() {}
+
   static native int warningCountJNI();
 
   static native int criticalCountJNI();
 
   /** The number of times that a memory pressure warning notification has been seen. */
   public static int warningCount() {
-    return JniLoader.jniEnabled() ? warningCountJNI() : 0;
+    return JniLoader.isJniAvailable() ? warningCountJNI() : 0;
   }
 
   /** The number of times that a memory pressure critical notification has been seen. */
   public static int criticalCount() {
-    return JniLoader.jniEnabled() ? criticalCountJNI() : 0;
+    return JniLoader.isJniAvailable() ? criticalCountJNI() : 0;
   }
 }

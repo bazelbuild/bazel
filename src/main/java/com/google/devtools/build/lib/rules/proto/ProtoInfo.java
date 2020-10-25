@@ -22,10 +22,10 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.ProtoInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoBootstrap;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.starlarkbuildapi.ProtoInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoBootstrap;
+import net.starlark.java.syntax.Location;
 
 /**
  * Configured target classes that implement this class can contribute .proto files to the

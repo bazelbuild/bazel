@@ -35,7 +35,7 @@ public abstract class CcTest implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext context)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     RuleConfiguredTargetBuilder ruleBuilder = new RuleConfiguredTargetBuilder(context);
-    CcBinary.init(semantics, ruleBuilder, context, /*fake =*/ false);
+    CcBinary.init(semantics, ruleBuilder, context);
     return ruleBuilder.build();
   }
 }

@@ -32,13 +32,14 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.License.DistributionType;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.util.BinaryPredicate;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.syntax.Location;
 
 /**
  * An instance of a build rule in the build language. A rule has a name, a package to which it
@@ -62,13 +63,16 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   /** Label predicate that allows every label. */
   public static final Predicate<Label> ALL_LABELS = Predicates.alwaysTrue();
 
+  private static final String GENERATOR_FUNCTION = "generator_function";
+  private static final String GENERATOR_LOCATION = "generator_location";
+
   private final Label label;
 
   private final Package pkg;
 
   private final RuleClass ruleClass;
 
-  private final AttributeContainer attributes;
+  private AttributeContainer attributes;
 
   private RuleVisibility visibility;
 
@@ -124,11 +128,10 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   void setAttributeValue(Attribute attribute, Object value, boolean explicit) {
-    attributes.setAttributeValue(attribute, value, explicit);
-  }
-
-  void setAttributeValueByName(String attrName, Object value) {
-    attributes.setAttributeValueByName(attrName, value);
+    Integer attrIndex = ruleClass.getAttributeIndex(attribute.getName());
+    Preconditions.checkArgument(
+        attrIndex != null, "attribute %s is not valid for this rule", attribute.getName());
+    attributes.setAttributeValue(attrIndex, value, explicit);
   }
 
   void setContainsErrors() {
@@ -222,6 +225,9 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    */
   public boolean isConfigurableAttribute(String attributeName) {
     Attribute attribute = ruleClass.getAttributeByNameMaybe(attributeName);
+    // TODO(murali): This method should be property of ruleclass not rule instance.
+    // Further, this call to AbstractAttributeMapper.isConfigurable is delegated right back
+    // to this instance!.
     return attribute != null
         ? AbstractAttributeMapper.isConfigurable(this, attributeName, attribute.getType())
         : false;
@@ -285,11 +291,10 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   /**
-   * Returns this rule's raw attribute info, suitable for being fed into an
-   * {@link AttributeMap} for user-level attribute access. Don't use this method
-   * for direct attribute access.
+   * Returns this rule's raw attribute info, suitable for being fed into an {@link AttributeMap} for
+   * user-level attribute access. Don't use this method for direct attribute access.
    */
-  public AttributeContainer getAttributeContainer() {
+  AttributeContainer getAttributeContainer() {
     return attributes;
   }
 
@@ -327,11 +332,125 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   /**
+   * Returns the value of the attribute with the given index. Returns null, if no such attribute
+   * exists OR no value was set.
+   */
+  @Nullable
+  private Object getAttrWithIndex(int attrIndex) {
+    Object value = attributes.getAttributeValue(attrIndex);
+    if (value != null) {
+      return value;
+    }
+    Attribute attr = ruleClass.getAttribute(attrIndex);
+    if (attr.hasComputedDefault()) {
+      // Attributes with computed defaults are explicitly populated during rule creation.
+      // However, computing those defaults could trigger reads of other attributes
+      // which have not yet been populated. In such a case control comes here, and we return null.
+      // NOTE: In this situation returning null does not result in a correctness issue, since
+      // the value for the attribute is actually a function to compute the value.
+      return null;
+    }
+    switch (attr.getName()) {
+      case GENERATOR_FUNCTION:
+        return callstack.size() > 1 ? callstack.getFrame(1).name : "";
+      case GENERATOR_LOCATION:
+        return callstack.size() > 1 ? relativeLocation(callstack.getFrame(0).location) : "";
+      default:
+        return attr.getDefaultValue(null);
+    }
+  }
+
+  @Nullable
+  private String relativeLocation(Location location) {
+    // Determining the workspace root only works reliably if both location and label point to files
+    // in the same package.
+    // It would be preferable to construct the path from the label itself, but this doesn't work for
+    // rules created from function calls in a subincluded file, even if both files share a path
+    // prefix (for example, when //a/package:BUILD subincludes //a/package/with/a/subpackage:BUILD).
+    // We can revert to that approach once subincludes aren't supported anymore.
+    //
+    // TODO(b/151165647): this logic has always been wrong:
+    // it spuriously matches occurrences of the package name earlier in the path.
+    String absolutePath = location.toString();
+    int pos = absolutePath.indexOf(getLabel().getPackageName());
+    return (pos < 0) ? null : absolutePath.substring(pos);
+  }
+
+  /**
+   * Returns the value of the given attribute for this rule. Returns null for invalid attributes and
+   * default value if attribute was not set.
+   *
+   * @param attrName the name of the attribute to lookup.
+   */
+  @Nullable
+  public Object getAttr(String attrName) {
+    Integer attrIndex = ruleClass.getAttributeIndex(attrName);
+    return attrIndex == null ? null : getAttrWithIndex(attrIndex);
+  }
+
+  /**
+   * Returns the value of the given attribute if it has the right type.
+   *
+   * @throws IllegalArgumentException if the attribute does not have the expected type.
+   */
+  @Nullable
+  public <T> Object getAttr(String attrName, Type<T> type) {
+    Integer index = ruleClass.getAttributeIndex(attrName);
+    if (index == null) {
+      throw new IllegalArgumentException(
+          "No such attribute " + attrName + " in " + ruleClass + " rule " + getLabel());
+    }
+    Attribute attr = ruleClass.getAttribute(index);
+    if (attr.getType() != type) {
+      throw new IllegalArgumentException(
+          "Attribute "
+              + attrName
+              + " is of type "
+              + attr.getType()
+              + " and not of type "
+              + type
+              + " in "
+              + ruleClass
+              + " rule "
+              + getLabel());
+    }
+    return getAttrWithIndex(index);
+  }
+
+  /**
+   * Returns a {@link BuildType.SelectorList} for the given attribute if the attribute is
+   * configurable for this rule, null otherwise.
+   */
+  @Nullable
+  @SuppressWarnings("unchecked")
+  public <T> BuildType.SelectorList<T> getSelectorList(String attributeName, Type<T> type) {
+    Integer index = ruleClass.getAttributeIndex(attributeName);
+    if (index == null) {
+      return null;
+    }
+    Object attrValue = attributes.getAttributeValue(index);
+    if (!(attrValue instanceof BuildType.SelectorList)) {
+      return null;
+    }
+    if (((BuildType.SelectorList<?>) attrValue).getOriginalType() != type) {
+      throw new IllegalArgumentException(
+          "Attribute "
+              + attributeName
+              + " is not of type "
+              + type
+              + " in "
+              + ruleClass
+              + " rule "
+              + getLabel());
+    }
+    return (BuildType.SelectorList<T>) attrValue;
+  }
+  /**
    * See {@link #isAttributeValueExplicitlySpecified(String)}
    */
   @Override
   public boolean isAttributeValueExplicitlySpecified(Attribute attribute) {
-    return attributes.isAttributeValueExplicitlySpecified(attribute);
+    return isAttributeValueExplicitlySpecified(attribute.getName());
   }
 
   /**
@@ -341,19 +460,23 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * with the given name.
    */
   public boolean isAttributeValueExplicitlySpecified(String attrName) {
-    return attributes.isAttributeValueExplicitlySpecified(attrName);
+    if (attrName.equals(GENERATOR_FUNCTION) || attrName.equals(GENERATOR_LOCATION)) {
+      return wasCreatedByMacro();
+    }
+    Integer attrIndex = ruleClass.getAttributeIndex(attrName);
+    return attrIndex != null && attributes.isAttributeValueExplicitlySpecified(attrIndex);
   }
 
   /**
    * Returns whether this rule was created by a macro.
    */
   public boolean wasCreatedByMacro() {
-    return hasStringAttribute("generator_name") || hasStringAttribute("generator_function");
+    return hasStringAttribute("generator_name") || hasStringAttribute(GENERATOR_FUNCTION);
   }
 
   /** Returns the macro that generated this rule, or an empty string. */
   public String getGeneratorFunction() {
-    Object value = attributes.getAttr("generator_function");
+    Object value = getAttr(GENERATOR_FUNCTION);
     if (value instanceof String) {
       return (String) value;
     }
@@ -361,8 +484,8 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   private boolean hasStringAttribute(String attrName) {
-    Object value = attributes.getAttr(attrName);
-    if (value != null && value instanceof String) {
+    Object value = getAttr(attrName);
+    if (value instanceof String) {
       return !((String) value).isEmpty();
     }
     return false;
@@ -413,6 +536,10 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
         .filter(depEdge -> predicate.apply(Rule.this, depEdge.getAttribute()))
         .forEach(depEdge -> transitions.put(depEdge.getAttribute(), depEdge.getLabel()));
     return transitions;
+  }
+
+  void freeze() {
+    attributes = attributes.freeze();
   }
 
   /**
@@ -530,7 +657,8 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
         addOutputFile(label, eventHandler, outputFilesBuilder);
       }
     } catch (EvalException e) {
-      reportError(String.format("In rule %s: %s", getLabel(), e.print()), eventHandler);
+      reportError(
+          String.format("In rule %s: %s", getLabel(), e.getMessageWithStack()), eventHandler);
     }
   }
 
@@ -602,10 +730,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   public RuleVisibility getVisibility() {
     if (visibility != null) {
       return visibility;
-    }
-
-    if (getRuleClassObject().isPublicByDefault()) {
-      return ConstantRuleVisibility.PUBLIC;
     }
 
     return pkg.getDefaultVisibility();

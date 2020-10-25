@@ -15,10 +15,10 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.syntax.CallUtils;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.syntax.Location;
 
 /**
  * Abstract base class for implementations of {@link StructImpl} that expose
@@ -47,10 +47,20 @@ public abstract class NativeInfo extends StructImpl {
 
   @Override
   public Object getValue(String name) throws EvalException {
+    // TODO(adonovan): this seems unnecessarily complicated:
+    // Starlark's x.name and getattr(x, name) already check the
+    // annotated fields/methods first, so there's no need to handle them here.
+    // Similarly, Starlark.dir checks annotated fields/methods first, so
+    // there's no need for getFieldNames to report them.
+    // The only code that would notice any difference is direct Java
+    // calls to getValue/getField names; they should instead
+    // use getattr and dir. However, dir does report methods,
+    // not just fields.
+
     // @StarlarkMethod(structField=true) -- Java field
     if (getFieldNames().contains(name)) {
       try {
-        return CallUtils.getField(SEMANTICS, this, name);
+        return Starlark.getAnnotatedField(SEMANTICS, this, name);
       } catch (InterruptedException exception) {
         // Struct fields on NativeInfo objects are supposed to behave well and not throw
         // exceptions, as they should be logicless field accessors. If this occurs, it's
@@ -67,6 +77,6 @@ public abstract class NativeInfo extends StructImpl {
 
   @Override
   public ImmutableCollection<String> getFieldNames() {
-    return CallUtils.getFieldNames(SEMANTICS, this);
+    return Starlark.getAnnotatedFieldNames(SEMANTICS, this);
   }
 }

@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -58,6 +57,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.eval.EvalException;
 
 /** Implementation of the {@code android_ndk_repository} rule. */
 public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {

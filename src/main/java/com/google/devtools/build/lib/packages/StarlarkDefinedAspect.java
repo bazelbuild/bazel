@@ -22,13 +22,13 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkCallable;
 
 /** A Starlark value that is a result of an 'aspect(..)' function call. */
 @AutoCodec
@@ -43,6 +43,7 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
   private final ConfigurationTransition hostTransition;
   private final ImmutableSet<String> hostFragments;
   private final ImmutableList<Label> requiredToolchains;
+  private final boolean useToolchainTransition;
   private final boolean applyToGeneratingRules;
 
   private StarlarkAspectClass aspectClass;
@@ -59,6 +60,7 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
       ConfigurationTransition hostTransition,
       ImmutableSet<String> hostFragments,
       ImmutableList<Label> requiredToolchains,
+      boolean useToolchainTransition,
       boolean applyToGeneratingRules) {
     this.implementation = implementation;
     this.attributeAspects = attributeAspects;
@@ -70,6 +72,7 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
     this.hostTransition = hostTransition;
     this.hostFragments = hostFragments;
     this.requiredToolchains = requiredToolchains;
+    this.useToolchainTransition = useToolchainTransition;
     this.applyToGeneratingRules = applyToGeneratingRules;
   }
 
@@ -88,6 +91,7 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
       ConfigurationTransition hostTransition,
       ImmutableSet<String> hostFragments,
       ImmutableList<Label> requiredToolchains,
+      boolean useToolchainTransition,
       boolean applyToGeneratingRules,
       StarlarkAspectClass aspectClass) {
     this(
@@ -101,6 +105,7 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
         hostTransition,
         hostFragments,
         requiredToolchains,
+        useToolchainTransition,
         applyToGeneratingRules);
     this.aspectClass = aspectClass;
   }
@@ -167,11 +172,12 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
         String value = aspectParams.getOnlyValueOfAttribute(attr.getName());
         Preconditions.checkState(!Attribute.isImplicit(attr.getName()));
         Preconditions.checkState(attr.getType() == Type.STRING);
-        Preconditions.checkArgument(aspectParams.getAttribute(attr.getName()).size() == 1,
-            String.format("Aspect %s parameter %s has %d values (must have exactly 1).",
-                          getName(),
-                          attr.getName(),
-                          aspectParams.getAttribute(attr.getName()).size()));
+        Preconditions.checkArgument(
+            aspectParams.getAttribute(attr.getName()).size() == 1,
+            "Aspect %s parameter %s has %s values (must have exactly 1).",
+            getName(),
+            attr.getName(),
+            aspectParams.getAttribute(attr.getName()).size());
         attr = attr.cloneBuilder(Type.STRING).value(value).build(attr.getName());
       }
       builder.add(attr);
@@ -186,6 +192,7 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
     builder.requiresConfigurationFragmentsByStarlarkBuiltinName(fragments);
     builder.requiresConfigurationFragmentsByStarlarkBuiltinName(hostTransition, hostFragments);
     builder.addRequiredToolchains(requiredToolchains);
+    builder.useToolchainTransition(useToolchainTransition);
     builder.applyToGeneratingRules(applyToGeneratingRules);
     return builder.build();
   }
@@ -200,29 +207,35 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
       AttributeMap ruleAttrs = RawAttributeMapper.of(rule);
       AspectParameters.Builder builder = new AspectParameters.Builder();
       for (Attribute aspectAttr : attributes) {
-        if (!Attribute.isImplicit(aspectAttr.getName())) {
-          String param = aspectAttr.getName();
-          Attribute ruleAttr = ruleAttrs.getAttributeDefinition(param);
-          if (paramAttributes.contains(aspectAttr.getName())) {
-            // These are preconditions because if they are false, RuleFunction.call() should
-            // already have generated an error.
-            Preconditions.checkArgument(
-                ruleAttr != null,
-                String.format(
-                    "Cannot apply aspect %s to %s that does not define attribute '%s'.",
-                    getName(), rule.getTargetKind(), param));
-            Preconditions.checkArgument(
-                ruleAttr.getType() == Type.STRING,
-                String.format(
-                    "Cannot apply aspect %s to %s with non-string attribute '%s'.",
-                    getName(), rule.getTargetKind(), param));
-          }
-          if (ruleAttr != null && ruleAttr.getType() == aspectAttr.getType()) {
-            // If the attribute has a select() (which aspect attributes don't yet support), the
-            // error gets reported in RuleClass.checkAspectAllowedValues.
-            if (!ruleAttrs.isConfigurable(param)) {
-              builder.addAttribute(param, (String) ruleAttrs.get(param, ruleAttr.getType()));
-            }
+        String param = aspectAttr.getName();
+        if (Attribute.isImplicit(param) || Attribute.isLateBound(param)) {
+          // These attributes are the private matters of the aspect
+          continue;
+        }
+
+        Attribute ruleAttr = ruleAttrs.getAttributeDefinition(param);
+        if (paramAttributes.contains(aspectAttr.getName())) {
+          // These are preconditions because if they are false, RuleFunction.call() should
+          // already have generated an error.
+          Preconditions.checkArgument(
+              ruleAttr != null,
+              "Cannot apply aspect %s to %s that does not define attribute '%s'.",
+              getName(),
+              rule.getTargetKind(),
+              param);
+          Preconditions.checkArgument(
+              ruleAttr.getType() == Type.STRING,
+              "Cannot apply aspect %s to %s with non-string attribute '%s'.",
+              getName(),
+              rule.getTargetKind(),
+              param);
+        }
+
+        if (ruleAttr != null && ruleAttr.getType() == aspectAttr.getType()) {
+          // If the attribute has a select() (which aspect attributes don't yet support), the
+          // error gets reported in RuleClass.checkAspectAllowedValues.
+          if (!ruleAttrs.isConfigurable(param)) {
+            builder.addAttribute(param, (String) ruleAttrs.get(param, ruleAttr.getType()));
           }
         }
       }
@@ -232,6 +245,10 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
 
   public ImmutableList<Label> getRequiredToolchains() {
     return requiredToolchains;
+  }
+
+  public boolean useToolchainTransition() {
+    return useToolchainTransition;
   }
 
   @Override
@@ -262,6 +279,7 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
         && Objects.equals(hostTransition, that.hostTransition)
         && Objects.equals(hostFragments, that.hostFragments)
         && Objects.equals(requiredToolchains, that.requiredToolchains)
+        && Objects.equals(useToolchainTransition, that.useToolchainTransition)
         && Objects.equals(aspectClass, that.aspectClass);
   }
 
@@ -278,6 +296,7 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
         hostTransition,
         hostFragments,
         requiredToolchains,
+        useToolchainTransition,
         aspectClass);
   }
 }

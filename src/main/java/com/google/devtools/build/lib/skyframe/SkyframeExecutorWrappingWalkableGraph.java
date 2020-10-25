@@ -34,7 +34,7 @@ public class SkyframeExecutorWrappingWalkableGraph extends DelegatingWalkableGra
           @Override
           public NodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey key)
               throws InterruptedException {
-            return evaluator.getExistingEntryAtLatestVersion(key);
+            return evaluator.getExistingEntryAtCurrentlyEvaluatingVersion(key);
           }
 
           @Override
@@ -50,7 +50,6 @@ public class SkyframeExecutorWrappingWalkableGraph extends DelegatingWalkableGra
             }
             return result;
           }
-
         });
   }
 

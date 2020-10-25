@@ -15,14 +15,14 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 
 /**
  * A CallStack is an opaque immutable stack of Starlark call frames, outermost call first. Its
@@ -84,12 +84,31 @@ public final class CallStack {
     StarlarkThread.CallStackEntry[] array = new StarlarkThread.CallStackEntry[size];
     int i = size;
     for (Node n = node; n != null; n = n.parent) {
-      String file = strings.get(n.file);
-      String name = strings.get(n.name);
-      Location loc = Location.fromFileLineColumn(file, n.line, n.col);
-      array[--i] = new StarlarkThread.CallStackEntry(name, loc);
+      array[--i] = nodeFrame(n);
     }
     return array;
+  }
+
+  /** Returns a single frame, like {@code toArray()[i]} but more efficient. */
+  public StarlarkThread.CallStackEntry getFrame(int i) {
+    for (Node n = node; n != null; n = n.parent) {
+      if (++i == size) {
+        return nodeFrame(n);
+      }
+    }
+    throw new IndexOutOfBoundsException(); // !(0 <= i < size)
+  }
+
+  /** Returns the number of frames in the call stack. */
+  public int size() {
+    return size;
+  }
+
+  private StarlarkThread.CallStackEntry nodeFrame(Node n) {
+    String file = strings.get(n.file);
+    String name = strings.get(n.name);
+    Location loc = Location.fromFileLineColumn(file, n.line, n.col);
+    return new StarlarkThread.CallStackEntry(name, loc);
   }
 
   // A Node is a node in a linked tree representing a prefix of the call stack.
@@ -143,6 +162,7 @@ public final class CallStack {
         int line = entry.location.line();
         int column = entry.location.column();
         if (i < depth
+            && parent == nodes[i].parent
             && name == nodes[i].name
             && file == nodes[i].file
             && line == nodes[i].line

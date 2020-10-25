@@ -37,9 +37,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringChunk;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -54,6 +51,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /**
  * Provides access to features supported by a specific toolchain.
@@ -82,7 +81,7 @@ public class CcToolchainFeatures {
    */
   public static class ExpansionException extends EvalException {
     ExpansionException(String message) {
-      super(Location.BUILTIN, message);
+      super(message);
     }
   }
 
@@ -1073,8 +1072,7 @@ public class CcToolchainFeatures {
       ImmutableList.Builder<FlagSet> flagSetBuilder = ImmutableList.builder();
       for (CToolchain.FlagSet flagSet : actionConfig.getFlagSetList()) {
         if (!flagSet.getActionList().isEmpty()) {
-          throw new EvalException(
-              Location.BUILTIN, String.format(FLAG_SET_WITH_ACTION_ERROR, configName));
+          throw Starlark.errorf(FLAG_SET_WITH_ACTION_ERROR, configName);
         }
 
         flagSetBuilder.add(new FlagSet(flagSet, ImmutableSet.of(actionName)));
@@ -1216,23 +1214,19 @@ public class CcToolchainFeatures {
         }
       }
       if (foundCategory == null) {
-        throw new EvalException(
-            Location.BUILTIN,
-            String.format(
-                "Invalid toolchain configuration: Artifact category %s not recognized",
-                artifactNamePattern.getCategoryName()));
+        throw Starlark.errorf(
+            "Invalid toolchain configuration: Artifact category %s not recognized",
+            artifactNamePattern.getCategoryName());
       }
 
       String extension = artifactNamePattern.getExtension();
       if (!foundCategory.getAllowedExtensions().contains(extension)) {
-        throw new EvalException(
-            Location.BUILTIN,
-            String.format(
-                "Unrecognized file extension '%s', allowed extensions are %s,"
-                    + " please check artifact_name_pattern configuration for %s in your CROSSTOOL.",
-                extension,
-                StringUtil.joinEnglishList(foundCategory.getAllowedExtensions(), "or", "'"),
-                foundCategory.getCategoryName()));
+        throw Starlark.errorf(
+            "Unrecognized file extension '%s', allowed extensions are %s,"
+                + " please check artifact_name_pattern configuration for %s in your CROSSTOOL.",
+            extension,
+            StringUtil.joinEnglishList(foundCategory.getAllowedExtensions(), "or", "'"),
+            foundCategory.getCategoryName());
       }
       this.artifactCategory = foundCategory;
       this.prefix = artifactNamePattern.getPrefix();
@@ -1639,12 +1633,10 @@ public class CcToolchainFeatures {
     Collection<String> names = new HashSet<>();
     for (CrosstoolSelectable selectable : selectables) {
       if (!names.add(selectable.getName())) {
-        throw new EvalException(
-            Location.BUILTIN,
-            "Invalid toolchain configuration: feature or "
-                + "action config '"
-                + selectable.getName()
-                + "' was specified multiple times.");
+        throw Starlark.errorf(
+            "Invalid toolchain configuration: feature or action config '%s' was specified multiple"
+                + " times.",
+            selectable.getName());
       }
     }
   }
@@ -1654,12 +1646,9 @@ public class CcToolchainFeatures {
     Collection<String> actionNames = new HashSet<>();
     for (ActionConfig actionConfig : actionConfigs) {
       if (!actionNames.add(actionConfig.getActionName())) {
-        throw new EvalException(
-            Location.BUILTIN,
-            "Invalid toolchain configuration: multiple action "
-                + "configs for action '"
-                + actionConfig.getActionName()
-                + "'");
+        throw Starlark.errorf(
+            "Invalid toolchain configuration: multiple action configs for action '%s'",
+            actionConfig.getActionName());
       }
     }
   }
@@ -1745,13 +1734,10 @@ public class CcToolchainFeatures {
   private CrosstoolSelectable getActivatableOrFail(String name, String reference)
       throws EvalException {
     if (!selectablesByName.containsKey(name)) {
-      throw new EvalException(
-          Location.BUILTIN,
-          "Invalid toolchain configuration: feature '"
-              + name
-              + "', which is referenced from feature '"
-              + reference
-              + "', is not defined.");
+      throw Starlark.errorf(
+          "Invalid toolchain configuration: feature '%s', which is referenced from feature '%s',"
+              + " is not defined.",
+          name, reference);
     }
     return selectablesByName.get(name);
   }
@@ -1777,10 +1763,8 @@ public class CcToolchainFeatures {
       }
     }
     if (patternForCategory == null) {
-      throw new EvalException(
-          Location.BUILTIN,
-          String.format(
-              MISSING_ARTIFACT_NAME_PATTERN_ERROR_TEMPLATE, artifactCategory.getCategoryName()));
+      throw Starlark.errorf(
+          MISSING_ARTIFACT_NAME_PATTERN_ERROR_TEMPLATE, artifactCategory.getCategoryName());
     }
 
     return output.getParentDirectory()
@@ -1801,10 +1785,8 @@ public class CcToolchainFeatures {
       }
     }
     if (patternForCategory == null) {
-      throw new EvalException(
-          Location.BUILTIN,
-          String.format(
-              MISSING_ARTIFACT_NAME_PATTERN_ERROR_TEMPLATE, artifactCategory.getCategoryName()));
+      throw Starlark.errorf(
+          MISSING_ARTIFACT_NAME_PATTERN_ERROR_TEMPLATE, artifactCategory.getCategoryName());
     }
     return patternForCategory.getExtension();
   }

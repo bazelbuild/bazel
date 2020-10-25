@@ -13,12 +13,14 @@ filegroup(
     srcs = glob(
         ["*"],
         exclude = [
+            "WORKSPACE",  # Needs to be filtered.
             "bazel-*",  # convenience symlinks
             "out",  # IntelliJ with setup-intellij.sh
             "output",  # output of compile.sh
             ".*",  # mainly .git* files
         ],
     ) + [
+        "//:WORKSPACE.filtered",
         "//examples:srcs",
         "//scripts:srcs",
         "//site:srcs",
@@ -61,11 +63,23 @@ filegroup(
     ],
 )
 
+genrule(
+    name = "filtered_WORKSPACE",
+    srcs = ["WORKSPACE"],
+    outs = ["WORKSPACE.filtered"],
+    cmd = "\n".join([
+        "cp $< $@",
+        # Comment out the android repos if they exist.
+        "sed -i.bak -e 's/^android_sdk_repository/# android_sdk_repository/' -e 's/^android_ndk_repository/# android_ndk_repository/' $@",
+    ]),
+)
+
 pkg_tar(
     name = "bootstrap-jars",
     srcs = [
         "@com_google_protobuf//:protobuf_java",
         "@com_google_protobuf//:protobuf_java_util",
+        "@com_google_protobuf//:protobuf_javalite",
     ],
     remap_paths = {
         "..": "derived/jars",
@@ -98,6 +112,7 @@ pkg_tar(
     name = "bazel-srcs",
     srcs = [":srcs"],
     remap_paths = {
+        "WORKSPACE.filtered": "WORKSPACE",
         # Rewrite paths coming from local repositories back into third_party.
         "../googleapis": "third_party/googleapis",
         "../remoteapis": "third_party/remoteapis",

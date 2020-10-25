@@ -20,15 +20,16 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -64,10 +65,12 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException;
@@ -79,6 +82,7 @@ import com.google.devtools.build.lib.query2.query.output.QueryOutputUtils;
 import com.google.devtools.build.lib.query2.query.output.StreamedFormatter;
 import com.google.devtools.build.lib.rules.genquery.GenQueryOutputStream.GenQueryResult;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
@@ -100,7 +104,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.channels.ClosedByInterruptException;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -124,7 +127,6 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     // The query string
     final String query = ruleContext.attributes().get("expression", Type.STRING);
 
-    @SuppressWarnings("unchecked")
     OptionsParser optionsParser =
         OptionsParser.builder()
             .optionsClasses(QueryOptions.class, KeepGoingOption.class)
@@ -186,7 +188,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
               ruleContext,
               queryOptions,
               ruleContext.attributes().get("scope", BuildType.LABEL_LIST),
-              query);
+              query,
+              outputArtifact.getPath().getFileSystem().getDigestFunction().getHashFunction());
     }
     if (result == null || ruleContext.hasErrors()) {
       return null;
@@ -286,7 +289,11 @@ public class GenQuery implements RuleConfiguredTargetFactory {
 
   @Nullable
   private GenQueryResult executeQuery(
-      RuleContext ruleContext, QueryOptions queryOptions, Collection<Label> scope, String query)
+      RuleContext ruleContext,
+      QueryOptions queryOptions,
+      Collection<Label> scope,
+      String query,
+      HashFunction hashFunction)
       throws InterruptedException {
     SkyFunction.Environment env = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
     Pair<ImmutableMap<PackageIdentifier, Package>, ImmutableMap<Label, Target>> closureInfo;
@@ -307,10 +314,10 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     TargetPatternPreloader preloader = new SkyframeEnvTargetPatternEvaluator(env);
     Predicate<Label> labelFilter = Predicates.in(validTargetsMap.keySet());
 
-    return doQuery(queryOptions, packageProvider, labelFilter, preloader, query, ruleContext);
+    return doQuery(
+        queryOptions, packageProvider, labelFilter, preloader, query, ruleContext, hashFunction);
   }
 
-  @SuppressWarnings("unchecked")
   @Nullable
   private GenQueryResult doQuery(
       QueryOptions queryOptions,
@@ -318,7 +325,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       Predicate<Label> labelFilter,
       TargetPatternPreloader preloader,
       String query,
-      RuleContext ruleContext)
+      RuleContext ruleContext,
+      HashFunction hashFunction)
       throws InterruptedException {
 
     QueryEvalResult queryResult;
@@ -360,7 +368,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
               /*keepGoing=*/ false,
               ruleContext.attributes().get("strict", Type.BOOLEAN),
               /*orderedResults=*/ !graphlessQuery,
-              /*universeScope=*/ ImmutableList.of(),
+              UniverseScope.EMPTY,
               // Use a single thread to prevent race conditions causing nondeterministic output
               // (b/127644784). All the packages are already loaded at this point, so there is
               // no need to start up multiple threads anyway.
@@ -374,11 +382,17 @@ public class GenQuery implements RuleConfiguredTargetFactory {
               /*useGraphlessQuery=*/ graphlessQuery);
       QueryExpression expr = QueryExpression.parse(query, queryEnvironment);
       formatter.verifyCompatible(queryEnvironment, expr);
-      targets = QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnvironment);
+      targets =
+          graphlessQuery && queryOptions.forceSortForGraphlessGenquery
+              ? QueryUtil.newLexicographicallySortedTargetAggregator()
+              : QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnvironment);
       queryResult = queryEnvironment.evaluateQuery(expr, targets);
     } catch (SkyframeRestartQueryException e) {
       // Do not emit errors for skyframe restarts. They make output of the ConfiguredTargetFunction
       // inconsistent from run to run, and make detecting legitimate errors more difficult.
+      return null;
+    } catch (QuerySyntaxException e) {
+      ruleContext.ruleError("query syntax error: " + e.getMessage());
       return null;
     } catch (QueryException e) {
       ruleContext.ruleError("query failed: " + e.getMessage());
@@ -391,13 +405,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
         ruleContext.getConfiguration().getFragment(GenQueryConfiguration.class);
     GenQueryOutputStream outputStream =
         new GenQueryOutputStream(genQueryConfig.inMemoryCompressionEnabled());
+    Set<Target> result = targets.getResult();
     try {
-      Set<Target> result = targets.getResult();
-      if (graphlessQuery) {
-        Comparator<Target> comparator =
-            (Target t1, Target t2) -> t1.getLabel().compareTo(t2.getLabel());
-        result = ImmutableSortedSet.copyOf(comparator, targets.getResult());
-      }
       QueryOutputUtils.output(
           queryOptions,
           queryResult,
@@ -405,7 +414,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
           formatter,
           outputStream,
           queryOptions.aspectDeps.createResolver(packageProvider, getEventHandler(ruleContext)),
-          getEventHandler(ruleContext));
+          getEventHandler(ruleContext),
+          hashFunction);
       outputStream.close();
     } catch (ClosedByInterruptException e) {
       throw new InterruptedException(e.getMessage());
@@ -432,7 +442,10 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     }
 
     @Override
-    protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    protected void computeKey(
+        ActionKeyContext actionKeyContext,
+        @Nullable ArtifactExpander artifactExpander,
+        Fingerprint fp) {
       result.fingerprint(fp);
     }
   }
@@ -473,7 +486,10 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       Map<TargetPatternKey, String> patternKeys = Maps.newHashMapWithExpectedSize(patterns.size());
       for (String pattern : patterns) {
         checkValidPatternType(pattern);
-        patternKeys.put(TargetPatternValue.key(pattern, FilteringPolicies.NO_FILTER, ""), pattern);
+        patternKeys.put(
+            TargetPatternValue.key(
+                pattern, FilteringPolicies.NO_FILTER, PathFragment.EMPTY_FRAGMENT),
+            pattern);
       }
       Set<SkyKey> packageKeys = new HashSet<>();
       Map<String, ResolvedTargets<Label>> resolvedLabelsMap =
@@ -535,13 +551,16 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     }
 
     private void checkValidPatternType(String pattern) throws TargetParsingException {
-      TargetPattern.Type type = new TargetPattern.Parser("").parse(pattern).getType();
+      TargetPattern.Type type =
+          new TargetPattern.Parser(PathFragment.EMPTY_FRAGMENT).parse(pattern).getType();
       if (type == TargetPattern.Type.PATH_AS_TARGET) {
         throw new TargetParsingException(
-            String.format("couldn't determine target from filename '%s'", pattern));
+            String.format("couldn't determine target from filename '%s'", pattern),
+            TargetPatterns.Code.CANNOT_DETERMINE_TARGET_FROM_FILENAME);
       } else if (type == TargetPattern.Type.TARGETS_BELOW_DIRECTORY) {
         throw new TargetParsingException(
-            String.format("recursive target patterns are not permitted: '%s'", pattern));
+            String.format("recursive target patterns are not permitted: '%s'", pattern),
+            TargetPatterns.Code.RECURSIVE_TARGET_PATTERNS_NOT_ALLOWED);
       }
     }
   }

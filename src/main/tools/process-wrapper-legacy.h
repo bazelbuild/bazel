@@ -39,8 +39,10 @@ class LegacyProcessWrapper {
 
  private:
   static void SpawnChild();
+  static void SetupSignalHandlers();
   static void WaitForChild();
-  static void OnSignal(int sig);
+  static void OnAbruptSignal(int sig);
+  static void OnGracefulSignal(int sig);
 
   static pid_t child_pid;
   static volatile sig_atomic_t last_signal;

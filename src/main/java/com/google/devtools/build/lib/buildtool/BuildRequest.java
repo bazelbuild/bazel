@@ -23,10 +23,9 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
@@ -76,7 +75,7 @@ public class BuildRequest implements OptionsProvider {
       ImmutableList.of(
           BuildRequestOptions.class,
           PackageOptions.class,
-          StarlarkSemanticsOptions.class,
+          BuildLanguageOptions.class,
           LoadingOptions.class,
           AnalysisOptions.class,
           ExecutionOptions.class,
@@ -269,7 +268,7 @@ public class BuildRequest implements OptionsProvider {
    *
    * @return list of warnings
    */
-  public List<String> validateOptions() throws InvalidConfigurationException {
+  public List<String> validateOptions() {
     List<String> warnings = new ArrayList<>();
 
     int localTestJobs = getExecutionOptions().localTestJobs;
@@ -294,6 +293,7 @@ public class BuildRequest implements OptionsProvider {
     return new TopLevelArtifactContext(
         getOptions(ExecutionOptions.class).testStrategy.equals("exclusive"),
         getOptions(BuildEventProtocolOptions.class).expandFilesets,
+        getOptions(BuildEventProtocolOptions.class).fullyResolveFilesetSymlinks,
         OutputGroupInfo.determineOutputGroups(
             buildOptions.outputGroups, buildOptions.runValidationActions));
   }

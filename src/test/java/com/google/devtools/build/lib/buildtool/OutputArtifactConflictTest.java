@@ -72,22 +72,22 @@ public class OutputArtifactConflictTest extends GoogleBuildIntegrationTestCase {
   }
 
   @Test
-  public void testArtifactPrefix_KeepGoing() throws Exception {
+  public void testArtifactPrefix_keepGoing() throws Exception {
     runArtifactPrefix(true, false);
   }
 
   @Test
-  public void testArtifactPrefix_NoKeepGoing() throws Exception {
+  public void testArtifactPrefix_noKeepGoing() throws Exception {
     runArtifactPrefix(false, false);
   }
 
   @Test
-  public void testArtifactPrefix_KeepGoing_ModifyBuildFile() throws Exception {
+  public void testArtifactPrefix_keepGoing_modifyBuildFile() throws Exception {
     runArtifactPrefix(true, true);
   }
 
   @Test
-  public void testArtifactPrefix_NoKeepGoing_ModifyBuildFile() throws Exception {
+  public void testArtifactPrefix_noKeepGoing_modifyBuildFile() throws Exception {
     runArtifactPrefix(false, true);
   }
 

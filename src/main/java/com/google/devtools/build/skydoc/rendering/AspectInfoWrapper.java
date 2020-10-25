@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.skydoc.rendering;
 
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
+import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.syntax.Location;
 
 /** Stores information about a Starlark aspect definition. */
 public class AspectInfoWrapper {

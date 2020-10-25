@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -200,7 +201,8 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
 
   private WalkableGraph getGraphFromPatternsEvaluation(
       ImmutableList<String> patternSequence, boolean keepGoing) throws InterruptedException {
-    SkyKey independentTarget = PrepareDepsOfPatternsValue.key(patternSequence, "");
+    SkyKey independentTarget =
+        PrepareDepsOfPatternsValue.key(patternSequence, PathFragment.EMPTY_FRAGMENT);
     ImmutableList<SkyKey> singletonTargetPattern = ImmutableList.of(independentTarget);
 
     // When PrepareDepsOfPatternsFunction completes evaluation,
@@ -208,7 +210,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
         EvaluationContext.newBuilder()
             .setKeepGoing(keepGoing)
             .setNumThreads(LOADING_PHASE_THREADS)
-            .setEventHander(new Reporter(new EventBus(), eventCollector))
+            .setEventHandler(new Reporter(new EventBus(), eventCollector))
             .build();
     EvaluationResult<SkyValue> evaluationResult =
         getSkyframeExecutor().getDriver().evaluate(singletonTargetPattern, evaluationContext);

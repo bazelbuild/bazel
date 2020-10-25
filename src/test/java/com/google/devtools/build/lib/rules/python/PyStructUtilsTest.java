@@ -28,11 +28,12 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkInt;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.function.ThrowingRunnable;
@@ -120,7 +121,8 @@ public class PyStructUtilsTest extends FoundationTestCase {
 
   @Test
   public void getTransitiveSources_WrongType() {
-    StructImpl info = makeStruct(ImmutableMap.of(PyStructUtils.TRANSITIVE_SOURCES, 123));
+    StructImpl info =
+        makeStruct(ImmutableMap.of(PyStructUtils.TRANSITIVE_SOURCES, StarlarkInt.of(123)));
     assertThrowsEvalExceptionContaining(
         () -> PyStructUtils.getTransitiveSources(info),
         "for transitive_sources, got int, want a depset of File");
@@ -151,7 +153,8 @@ public class PyStructUtilsTest extends FoundationTestCase {
 
   @Test
   public void getUsesSharedLibraries_WrongType() {
-    StructImpl info = makeStruct(ImmutableMap.of(PyStructUtils.USES_SHARED_LIBRARIES, 123));
+    StructImpl info =
+        makeStruct(ImmutableMap.of(PyStructUtils.USES_SHARED_LIBRARIES, StarlarkInt.of(123)));
     assertHasWrongTypeMessage(
         () -> PyStructUtils.getUsesSharedLibraries(info), "uses_shared_libraries", "bool");
   }
@@ -172,7 +175,7 @@ public class PyStructUtilsTest extends FoundationTestCase {
 
   @Test
   public void getImports_WrongType() {
-    StructImpl info = makeStruct(ImmutableMap.of(PyStructUtils.IMPORTS, 123));
+    StructImpl info = makeStruct(ImmutableMap.of(PyStructUtils.IMPORTS, StarlarkInt.of(123)));
     assertThrowsEvalExceptionContaining(
         () -> PyStructUtils.getImports(info), "for imports, got int, want a depset of string");
   }
@@ -190,7 +193,8 @@ public class PyStructUtilsTest extends FoundationTestCase {
 
   @Test
   public void getHasPy2OnlySources_WrongType() {
-    StructImpl info = makeStruct(ImmutableMap.of(PyStructUtils.HAS_PY2_ONLY_SOURCES, 123));
+    StructImpl info =
+        makeStruct(ImmutableMap.of(PyStructUtils.HAS_PY2_ONLY_SOURCES, StarlarkInt.of(123)));
     assertHasWrongTypeMessage(
         () -> PyStructUtils.getHasPy2OnlySources(info), "has_py2_only_sources", "bool");
   }
@@ -208,7 +212,8 @@ public class PyStructUtilsTest extends FoundationTestCase {
 
   @Test
   public void getHasPy3OnlySources_WrongType() {
-    StructImpl info = makeStruct(ImmutableMap.of(PyStructUtils.HAS_PY3_ONLY_SOURCES, 123));
+    StructImpl info =
+        makeStruct(ImmutableMap.of(PyStructUtils.HAS_PY3_ONLY_SOURCES, StarlarkInt.of(123)));
     assertHasWrongTypeMessage(
         () -> PyStructUtils.getHasPy3OnlySources(info), "has_py3_only_sources", "bool");
   }

@@ -277,7 +277,7 @@ public class OutputFilterTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void testPackagesAOF_JavaTestsA() throws Exception {
+  public void testPackagesAOF_javaTestsA() throws Exception {
     enableDeprecationWarnings();
     addOptions("--auto_output_filter=packages");
     CommandEnvironment env = runtimeWrapper.newCommand();
@@ -290,7 +290,7 @@ public class OutputFilterTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void testPackagesAOF_JavaTestsAB() throws Exception {
+  public void testPackagesAOF_javaTestsAB() throws Exception {
     enableDeprecationWarnings();
     addOptions("--auto_output_filter=packages");
     CommandEnvironment env = runtimeWrapper.newCommand();
@@ -303,7 +303,7 @@ public class OutputFilterTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void testPackagesAOF_JavaTestsD() throws Exception {
+  public void testPackagesAOF_javaTestsD() throws Exception {
     addOptions("--auto_output_filter=packages");
     CommandEnvironment env = runtimeWrapper.newCommand();
     env.getReporter().addHandler(stderr);

@@ -17,7 +17,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -33,7 +32,6 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.query2.aquery.AqueryActionFilter;
 import com.google.devtools.build.lib.query2.aquery.AqueryUtils;
@@ -44,6 +42,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Encapsulates necessary functionality to dump the current skyframe state of the action graph to
@@ -60,7 +59,7 @@ public class ActionGraphDump {
   private final KnownNestedSets knownNestedSets;
   private final KnownAspectDescriptors knownAspectDescriptors;
   private final KnownTargets knownTargets;
-  private final AqueryActionFilter actionFilters;
+  @Nullable private final AqueryActionFilter actionFilters;
   private final boolean includeActionCmdLine;
   private final boolean includeArtifacts;
   private final boolean includeParamFiles;
@@ -129,7 +128,7 @@ public class ActionGraphDump {
       getParamFileNameToContentMap().put(paramFileExecPath, fileContent);
     }
 
-    if (!AqueryUtils.matchesAqueryFilters(action, actionFilters)) {
+    if (actionFilters != null && !AqueryUtils.matchesAqueryFilters(action, actionFilters)) {
       return;
     }
 
@@ -149,7 +148,8 @@ public class ActionGraphDump {
     if (action instanceof ActionExecutionMetadata) {
       ActionExecutionMetadata actionExecutionMetadata = (ActionExecutionMetadata) action;
       actionBuilder
-          .setActionKey(actionExecutionMetadata.getKey(getActionKeyContext()))
+          .setActionKey(
+              actionExecutionMetadata.getKey(getActionKeyContext(), /*artifactExpander=*/ null))
           .setDiscoversInputs(actionExecutionMetadata.discoversInputs());
     }
 
@@ -218,11 +218,8 @@ public class ActionGraphDump {
     if (includeArtifacts) {
       // Store inputs
       NestedSet<Artifact> inputs = action.getInputs();
-      NestedSetView<Artifact> nestedSetView = new NestedSetView<>(inputs);
-
-      if (!nestedSetView.directs().isEmpty() || !nestedSetView.transitives().isEmpty()) {
-        actionBuilder.addInputDepSetIds(
-            knownNestedSets.dataToIdAndStreamOutputProto(nestedSetView));
+      if (!inputs.isEmpty()) {
+        actionBuilder.addInputDepSetIds(knownNestedSets.dataToIdAndStreamOutputProto(inputs));
       }
 
       // store outputs
@@ -243,8 +240,7 @@ public class ActionGraphDump {
     if (!includeInActionGraph(configuredTarget.getLabel().toString())) {
       return;
     }
-    for (int i = 0; i < aspectValue.getNumActions(); i++) {
-      Action action = aspectValue.getAction(i);
+    for (ActionAnalysisMetadata action : aspectValue.getActions()) {
       dumpSingleAction(configuredTarget, action);
     }
   }
@@ -255,8 +251,7 @@ public class ActionGraphDump {
     if (!includeInActionGraph(configuredTarget.getLabel().toString())) {
       return;
     }
-    List<ActionAnalysisMetadata> actions = configuredTargetValue.getActions();
-    for (ActionAnalysisMetadata action : actions) {
+    for (ActionAnalysisMetadata action : configuredTargetValue.getActions()) {
       dumpSingleAction(configuredTarget, action);
     }
   }

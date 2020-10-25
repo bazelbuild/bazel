@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skylarkbuildapi.java.ProguardSpecProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.starlarkbuildapi.java.ProguardSpecProviderApi;
+import net.starlark.java.eval.EvalException;
 
 /** A target that can provide proguard specifications to Android binaries. */
 @Immutable

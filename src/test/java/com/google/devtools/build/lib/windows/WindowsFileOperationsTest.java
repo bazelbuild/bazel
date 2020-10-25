@@ -20,7 +20,6 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.windows.jni.WindowsFileOperations;
 import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
 import java.io.File;
 import java.io.IOException;

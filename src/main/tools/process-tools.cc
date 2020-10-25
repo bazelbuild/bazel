@@ -33,6 +33,8 @@
 #include "src/main/protobuf/execution_statistics.pb.h"
 #include "src/main/tools/logging.h"
 
+static volatile sig_atomic_t child_pid_for_signal = 0;
+
 int SwitchToEuid() {
   int uid = getuid();
   int euid = geteuid();
@@ -80,20 +82,31 @@ void Redirect(const std::string &target_path, int fd) {
   }
 }
 
+static void ForciblyKillEverything(int signo) {
+  // We don't update the last_signal field tracked in process-wrapper-legacy.cc,
+  // which is used to report the signal back to the user, because we want to
+  // know (from the caller side) the original signal that caused us to stop.
+  kill(-child_pid_for_signal, SIGKILL);
+}
+
 void KillEverything(pid_t pgrp, bool gracefully, double graceful_kill_delay) {
   if (gracefully) {
+    // TODO(jmmv): If we truly want to offer graceful termination, we should
+    // probably only send SIGTERM to the process group leader and allow it to
+    // decide what to do. Terminating its subprocesses out of its control might
+    // not have the right effect.
     kill(-pgrp, SIGTERM);
 
-    // Round up fractional seconds in this polling implementation.
-    int kill_delay = static_cast<int>(ceil(graceful_kill_delay));
-
-    // If the process is still alive, give it some time to die gracefully.
-    while (kill_delay-- > 0 && kill(-pgrp, 0) == 0) {
-      sleep(1);
-    }
+    // Previous versions of this code used to loop testing if the process had
+    // already died by sending it a 0 signal... but that loop would never
+    // terminate early because sending a signal to a zombie process succeeds
+    // (and we cannot collect the child's exit status here).
+    child_pid_for_signal = pgrp;
+    InstallSignalHandler(SIGALRM, ForciblyKillEverything);
+    SetTimeout(graceful_kill_delay);
+  } else {
+    kill(-pgrp, SIGKILL);
   }
-
-  kill(-pgrp, SIGKILL);
 }
 
 void InstallSignalHandler(int signum, void (*handler)(int)) {
@@ -174,12 +187,12 @@ void SetTimeout(double timeout_secs) {
   }
 }
 
-int WaitChild(pid_t pid, bool wait_fix) {
+int WaitChild(pid_t pid, bool child_subreaper_enabled) {
   int err, status;
 
-  if (wait_fix) {
-    // Discard any zombies that we may get when Linux's child subreaper feature
-    // is enabled.
+  if (child_subreaper_enabled) {
+    // Discard any zombies that we may get when the child subreaper feature is
+    // enabled.
     do {
       err = wait(&status);
     } while (err != pid || (err == -1 && errno == EINTR));
@@ -196,12 +209,13 @@ int WaitChild(pid_t pid, bool wait_fix) {
   return status;
 }
 
-int WaitChildWithRusage(pid_t pid, struct rusage *rusage, bool wait_fix) {
+int WaitChildWithRusage(pid_t pid, struct rusage *rusage,
+                        bool child_subreaper_enabled) {
   int err, status;
 
-  if (wait_fix) {
-    // Discard any zombies that we may get when Linux's child subreaper feature
-    // is enabled.
+  if (child_subreaper_enabled) {
+    // Discard any zombies that we may get when the child subreaper feature is
+    // enabled.
     do {
       err = wait3(&status, 0, rusage);
     } while (err != pid || (err == -1 && errno == EINTR));

@@ -279,7 +279,7 @@ public class ConfigRuleClasses {
           .build();
     }
   }
-  /*<!-- #BLAZE_RULE (NAME = config_setting, TYPE = OTHER, FAMILY = General)[GENERIC_RULE] -->
+  /*<!-- #BLAZE_RULE (NAME = config_setting, FAMILY = General)[GENERIC_RULE] -->
 
   <p>
     Matches an expected configuration state (expressed as Bazel flags or platform constraints) for
@@ -395,7 +395,7 @@ public class ConfigRuleClasses {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .setUndocumented(/* the feature flag feature has not yet been launched */)
+          .setUndocumented(/* the feature flag feature has not yet been launched */ )
           .requiresConfigurationFragments(ConfigFeatureFlagConfiguration.class)
           .add(
               attr("allowed_values", STRING_LIST)
@@ -403,10 +403,8 @@ public class ConfigRuleClasses {
                   .nonEmpty()
                   .orderIndependent()
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
-          .add(
-              attr("default_value", STRING)
-                  .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
-          .add(ConfigFeatureFlag.getWhitelistAttribute(env))
+          .add(attr("default_value", STRING).nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
+          .add(ConfigFeatureFlag.getAllowlistAttribute(env))
           .removeAttribute(BaseRuleClasses.TAGGED_TRIMMING_ATTR)
           .build();
     }

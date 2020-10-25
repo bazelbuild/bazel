@@ -22,9 +22,9 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.syntax.Location;
 import java.util.Objects;
 import java.util.Set;
+import net.starlark.java.syntax.Location;
 
 /**
  * A fake Target - Use only so that "blaze query" can report Load files as Targets.

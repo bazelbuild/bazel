@@ -14,14 +14,11 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
-import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
@@ -32,7 +29,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue.BuildInfoKeyAndConfig;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -48,11 +44,9 @@ public class BuildInfoCollectionFunction implements SkyFunction {
       new Precomputed<>("build_info_factories");
 
   private final ActionKeyContext actionKeyContext;
-  // Supplier only because the artifact factory has not yet been created at constructor time.
-  private final Supplier<ArtifactFactory> artifactFactory;
+  private final ArtifactFactory artifactFactory;
 
-  BuildInfoCollectionFunction(
-      ActionKeyContext actionKeyContext, Supplier<ArtifactFactory> artifactFactory) {
+  BuildInfoCollectionFunction(ActionKeyContext actionKeyContext, ArtifactFactory artifactFactory) {
     this.actionKeyContext = actionKeyContext;
     this.artifactFactory = artifactFactory;
   }
@@ -81,17 +75,11 @@ public class BuildInfoCollectionFunction implements SkyFunction {
     BuildInfoFactory buildInfoFactory = buildInfoFactories.get(keyAndConfig.getInfoKey());
     Preconditions.checkState(buildInfoFactory.isEnabled(config));
 
-    final ArtifactFactory factory = artifactFactory.get();
     BuildInfoContext context =
-        new BuildInfoContext() {
-          @Override
-          public Artifact getBuildInfoArtifact(
-              PathFragment rootRelativePath, ArtifactRoot root, BuildInfoType type) {
-            return type == BuildInfoType.NO_REBUILD
-                ? factory.getConstantMetadataArtifact(rootRelativePath, root, keyAndConfig)
-                : factory.getDerivedArtifact(rootRelativePath, root, keyAndConfig);
-          }
-        };
+        (rootRelativePath, root, type) ->
+            type == BuildInfoType.NO_REBUILD
+                ? artifactFactory.getConstantMetadataArtifact(rootRelativePath, root, keyAndConfig)
+                : artifactFactory.getDerivedArtifact(rootRelativePath, root, keyAndConfig);
     BuildInfoCollection collection =
         buildInfoFactory.create(
             context,
@@ -103,7 +91,10 @@ public class BuildInfoCollectionFunction implements SkyFunction {
     try {
       generatingActions =
           Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-              actionKeyContext, collection.getActions(), keyAndConfig, /*outputFiles=*/ null);
+              actionKeyContext,
+              collection.getActions(),
+              keyAndConfig,
+              /*outputFiles=*/ null);
     } catch (ActionConflictException e) {
       throw new IllegalStateException("Action conflicts not expected in build info: " + skyKey, e);
     }

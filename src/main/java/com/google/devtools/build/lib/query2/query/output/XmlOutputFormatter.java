@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.query.output;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -78,8 +79,9 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   @Override
-  public void setOptions(CommonQueryOptions options, AspectResolver aspectResolver) {
-    super.setOptions(options, aspectResolver);
+  public void setOptions(
+      CommonQueryOptions options, AspectResolver aspectResolver, HashFunction hashFunction) {
+    super.setOptions(options, aspectResolver, hashFunction);
     this.aspectResolver = aspectResolver;
     this.dependencyFilter = FormatUtils.getDependencyFilter(options);
     this.relativeLocations = options.relativeLocations;

@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -31,6 +32,9 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScannerSupplier;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.IncludeScanning.Code;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -55,12 +59,6 @@ public class IncludeScanning implements IncludeProcessing {
       ActionExecutionContext actionExecutionContext,
       IncludeScanningHeaderData includeScanningHeaderData)
       throws ExecException, InterruptedException {
-    // Return null when no include scanning occurs, as opposed to an empty set, to distinguish from
-    // the case where includes are scanned but none are found.
-    if (!action.shouldScanIncludes()) {
-      return null;
-    }
-
     Preconditions.checkNotNull(includeScannerSupplier, action);
 
     Set<Artifact> includes = Sets.newConcurrentHashSet();
@@ -117,7 +115,8 @@ public class IncludeScanning implements IncludeProcessing {
           },
           MoreExecutors.directExecutor());
     } catch (IOException e) {
-      throw new EnvironmentalExecException(e);
+      throw new EnvironmentalExecException(
+          e, createFailureDetail("Include scanning IOException", Code.SCANNING_IO_EXCEPTION));
     }
   }
 
@@ -139,17 +138,28 @@ public class IncludeScanning implements IncludeProcessing {
           continue;
         }
         throw new UserExecException(
-            "illegal absolute path to include file: "
-                + actionExecutionContext.getInputPath(included));
+            createFailureDetail(
+                "illegal absolute path to include file: "
+                    + actionExecutionContext.getInputPath(included),
+                Code.ILLEGAL_ABSOLUTE_PATH));
       }
       if (included.hasParent() && included.getParent().isTreeArtifact()) {
         // Note that this means every file in the TreeArtifact becomes an input to the action, and
         // we have spurious rebuilds if non-included files change.
+        Preconditions.checkArgument(
+            included instanceof TreeFileArtifact, "Not a TreeFileArtifact: %s", included);
         inputs.add(included.getParent());
       } else {
         inputs.add(included);
       }
     }
     return inputs;
+  }
+
+  private static FailureDetail createFailureDetail(String message, Code detailedCode) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setIncludeScanning(FailureDetails.IncludeScanning.newBuilder().setCode(detailedCode))
+        .build();
   }
 }

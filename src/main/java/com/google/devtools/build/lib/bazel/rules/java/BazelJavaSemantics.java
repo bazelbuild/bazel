@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.Runfiles.Builder;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
@@ -184,7 +183,7 @@ public class BazelJavaSemantics implements JavaSemantics {
       return ImmutableList.of();
     }
 
-    return ruleContext.getPrerequisiteArtifacts("resources", TransitionMode.TARGET).list();
+    return ruleContext.getPrerequisiteArtifacts("resources").list();
   }
 
   /**
@@ -338,7 +337,7 @@ public class BazelJavaSemantics implements JavaSemantics {
                   + "\nexport TEST_RUNTIME_CLASSPATH_FILE=${JAVA_RUNFILES}"
                   + File.separator
                   + workspacePrefix
-                  + testRuntimeClasspathArtifact.getRootRelativePathString()));
+                  + testRuntimeClasspathArtifact.getRepositoryRelativePathString()));
     } else {
       arguments.add(
           new ComputedClasspathSubstitution(classpath, workspacePrefix, isRunfilesEnabled));
@@ -366,7 +365,7 @@ public class BazelJavaSemantics implements JavaSemantics {
                 "export JACOCO_METADATA_JAR=${JAVA_RUNFILES}/"
                     + workspacePrefix
                     + "/"
-                    + runtimeClassPathArtifact.getRootRelativePathString()));
+                    + runtimeClassPathArtifact.getRepositoryRelativePathString()));
       } else {
         // Remove the placeholder in the stub otherwise bazel coverage fails.
         arguments.add(Substitution.of(JavaSemantics.JACOCO_METADATA_PLACEHOLDER, ""));
@@ -437,7 +436,7 @@ public class BazelJavaSemantics implements JavaSemantics {
             .addJoinedValues(
                 "classpath",
                 ";",
-                Iterables.transform(classpath.toList(), Artifact.ROOT_RELATIVE_PATH_STRING))
+                Iterables.transform(classpath.toList(), Artifact.OUTPUT_DIR_RELATIVE_PATH_STRING))
             // TODO(laszlocsomor): Change the Launcher to accept multiple jvm_flags entries. As of
             // 2019-02-13 the Launcher accepts just one jvm_flags entry, which contains all the
             // flags, joined by TAB characters. The Launcher splits up the string to get the
@@ -617,7 +616,7 @@ public class BazelJavaSemantics implements JavaSemantics {
 
       // Add the coverage runner to the list of dependencies when compiling in coverage mode.
       TransitiveInfoCollection runnerTarget =
-          helper.getRuleContext().getPrerequisite("$jacocorunner", TransitionMode.TARGET);
+          helper.getRuleContext().getPrerequisite("$jacocorunner");
       if (JavaInfo.getProvider(JavaCompilationArgsProvider.class, runnerTarget) != null) {
         helper.addLibrariesToAttributes(ImmutableList.of(runnerTarget));
       } else {
@@ -650,7 +649,7 @@ public class BazelJavaSemantics implements JavaSemantics {
       boolean usingNativeSinglejar,
       // Explicitly ignoring params since Bazel doesn't yet support one version
       OneVersionEnforcementLevel oneVersionEnforcementLevel,
-      Artifact oneVersionWhitelistArtifact,
+      Artifact oneVersionAllowlistArtifact,
       Artifact sharedArchive) {
     return DeployArchiveBuilder.defaultSingleJarCommandLineWithoutOneVersion(
             output,
@@ -712,11 +711,11 @@ public class BazelJavaSemantics implements JavaSemantics {
       if (JavaSemantics.useLegacyJavaTest(ruleContext)) {
         TestConfiguration testConfiguration =
             ruleContext.getConfiguration().getFragment(TestConfiguration.class);
-        if (testConfiguration.getTestArguments().isEmpty()
+        if ((testConfiguration == null || testConfiguration.getTestArguments().isEmpty())
             && !ruleContext.attributes().isAttributeValueExplicitlySpecified("args")) {
           ImmutableList.Builder<String> builder = ImmutableList.builder();
           for (Artifact artifact : sources) {
-            PathFragment path = artifact.getRootRelativePath();
+            PathFragment path = artifact.getRepositoryRelativePath();
             String className = JavaUtil.getJavaFullClassname(FileSystemUtils.removeExtension(path));
             if (className != null) {
               builder.add(className);

@@ -23,6 +23,12 @@ config_setting(
 )
 
 config_setting(
+    name = "linux_ppc64le",
+    values = {"cpu": "ppc"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
     name = "linux_s390x",
     values = {"cpu": "s390x"},
     visibility = ["//visibility:public"],
@@ -43,6 +49,18 @@ config_setting(
 config_setting(
     name = "darwin_x86_64",
     values = {"cpu": "darwin_x86_64"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "darwin_arm64",
+    values = {"cpu": "darwin_arm64"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "darwin_arm64e",
+    values = {"cpu": "darwin_arm64e"},
     visibility = ["//visibility:public"],
 )
 

@@ -72,12 +72,26 @@ function get_coverage_file_path_from_test_log() {
   echo "$coverage_file_path"
 }
 
-function test_sh_test_coverage() {
+function set_up_sh_test_coverage() {
   cat <<EOF > BUILD
 sh_test(
     name = "orange-sh",
     srcs = ["orange-test.sh"],
-    data = ["//java/com/google/orange:orange-bin"]
+    data = ["//java/com/google/orange:orange-bin"],
+)
+
+sh_test(
+    name = "orange-sh-indirect",
+    srcs = ["orange-test.sh"],
+    deps = [":orange-sh-lib"],
+)
+
+# This doesn't test all the combinations, it only exercises
+# a deps dependency from sh_test and a data dependency from
+# sh_library, but they use the same InstrumentedFilesSpec.
+sh_library(
+    name = "orange-sh-lib",
+    data = ["//java/com/google/orange:orange-bin"],
 )
 EOF
   cat <<EOF > orange-test.sh
@@ -127,11 +141,7 @@ public class orangeBin {
 }
 EOF
 
-  bazel coverage --test_output=all //:orange-sh &>$TEST_log || fail "Coverage for //:orange-sh failed"
-
-  local coverage_file_path="$( get_coverage_file_path_from_test_log )"
-
-  cat <<EOF > result.dat
+  cat <<EOF > expected.dat
 SF:java/com/google/orange/orangeBin.java
 FN:3,com/google/orange/orangeBin::<init> ()V
 FN:5,com/google/orange/orangeBin::main ([Ljava/lang/String;)V
@@ -140,8 +150,8 @@ FNDA:1,com/google/orange/orangeBin::main ([Ljava/lang/String;)V
 FNF:2
 FNH:1
 DA:3,0
-DA:5,4
-DA:6,2
+DA:5,1
+DA:6,1
 DA:7,1
 LH:3
 LF:4
@@ -153,15 +163,29 @@ FNDA:1,com/google/orange/orangeLib::<init> ()V
 FNDA:1,com/google/orange/orangeLib::print ()V
 FNF:2
 FNH:2
-DA:3,3
-DA:6,3
+DA:3,1
+DA:6,1
 DA:7,1
 LH:3
 LF:3
 end_of_record
 EOF
-  diff result.dat "$coverage_file_path" >> $TEST_log
-  cmp result.dat "$coverage_file_path" || fail "Coverage output file is different than the expected file"
+}
+
+function test_sh_test_coverage() {
+  set_up_sh_test_coverage
+  bazel coverage --test_output=all //:orange-sh &>$TEST_log || fail "Coverage for //:orange-sh failed"
+  local coverage_file_path="$( get_coverage_file_path_from_test_log )"
+  diff expected.dat "$coverage_file_path" >> $TEST_log
+  cmp expected.dat "$coverage_file_path" || fail "Coverage output file is different than the expected file for data dep of sh_binary"
+}
+
+function test_sh_test_coverage_indirect() {
+  set_up_sh_test_coverage
+  bazel coverage --test_output=all //:orange-sh-indirect &>$TEST_log || fail "Coverage for //:orange-sh-indirect failed"
+  coverage_file_path="$( get_coverage_file_path_from_test_log )"
+  diff expected.dat "$coverage_file_path" >> $TEST_log
+  cmp expected.dat "$coverage_file_path" || fail "Coverage output file is different than the expected file for data dep of sh_library"
 }
 
 function test_sh_test_coverage_cc_binary() {
@@ -509,8 +533,8 @@ FNDA:1,com/google/orange/orangeBin::main ([Ljava/lang/String;)V
 FNF:2
 FNH:1
 DA:2,0
-DA:4,4
-DA:5,2
+DA:4,1
+DA:5,1
 DA:6,1
 LH:3
 LF:4
@@ -524,8 +548,8 @@ FNDA:1,com/google/orange/orangeLib::<init> ()V
 FNDA:1,com/google/orange/orangeLib::print ()V
 FNF:2
 FNH:2
-DA:2,3
-DA:4,3
+DA:2,1
+DA:4,1
 DA:5,1
 LH:3
 LF:3

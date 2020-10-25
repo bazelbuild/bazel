@@ -15,85 +15,39 @@ filegroup(
 )
 
 java_library(
-    name = "CppRulesTests_lib",
-    srcs = glob(
-        ["*.java"],
-        exclude = [
-            "CcBadDependenciesTest.java",
-            "LinkBuildVariablesTestCase.java",
-            "CcBinaryThinLtoTest.java",
-            "CcCompilationHelperTest.java",
-            "CcImportBaseConfiguredTargetTest.java",
-            "CppConfigurationStarlarkTest.java",
-            "CppSysrootTest.java",
-            "LinkCommandLineTest.java",
-            "StarlarkCcCommonTestHelper.java",
-            "NonWindowsCcBinaryThinLtoTest.java",
-            "SpawnGccStrategyTest.java",
-        ],
-    ),
-    resources = [
-        "@rules_cc//cc:srcs",
-    ],
+    name = "CcToolchainTestHelper",
+    srcs = ["CcToolchainTestHelper.java"],
     deps = [
-        ":CcImportBaseConfiguredTargetTest",
-        ":StarlarkCcCommonTestHelper",
-        ":util",
-        "//src/main/java/com/google/devtools/build/lib:syntax",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
-        "//src/main/java/com/google/devtools/build/lib/analysis:test/instrumented_files_info",
-        "//src/main/java/com/google/devtools/build/lib/analysis:transition_mode",
-        "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/exec:bin_tools",
-        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/util:filetype",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/util:string",
-        "//src/main/java/com/google/devtools/build/lib/util/io",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
-        "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:crosstool_config_java_proto",
-        "//src/main/protobuf:extra_actions_base_java_proto",
-        "//src/test/java/com/google/devtools/build/lib/actions/util",
-        "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//src/test/java/com/google/devtools/build/lib/exec/util",
-        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
-        "//src/test/java/com/google/devtools/build/lib/syntax/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
         "//third_party/protobuf:protobuf_java",
     ],
 )
 
 java_library(
-    name = "util",
+    name = "MockCppSemantics",
+    srcs = ["MockCppSemantics.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "LinkBuildVariablesTestCase",
     srcs = [
         "LinkBuildVariablesTestCase.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
@@ -111,6 +65,7 @@ java_library(
     deps = [
         ":StarlarkCcCommonTestHelper",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
@@ -128,23 +83,55 @@ java_library(
 )
 
 java_test(
-    name = "CppRulesTests",
-    timeout = "long",
-    shard_count = 5,
-    test_class = "com.google.devtools.build.lib.AllTests",
-    runtime_deps = [
-        ":CcImportBaseConfiguredTargetTest",
-        ":CppRulesTests_lib",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+    name = "CcBadDependenciesTest",
+    srcs = ["CcBadDependenciesTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party:junit4",
     ],
 )
 
 java_test(
-    name = "CppConfigurationStarlarkTest",
-    srcs = ["CppConfigurationStarlarkTest.java"],
+    name = "CcBinaryThinLtoTest",
+    srcs = ["CcBinaryThinLtoTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "CcCommonTest",
+    srcs = ["CcCommonTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],
@@ -154,8 +141,9 @@ java_test(
     name = "CcCompilationHelperTest",
     srcs = ["CcCompilationHelperTest.java"],
     deps = [
-        ":CppRulesTests_lib",
+        ":MockCppSemantics",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
@@ -170,13 +158,305 @@ java_test(
 )
 
 java_test(
+    name = "CcCompileOnlyTest",
+    srcs = ["CcCompileOnlyTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "CcHostToolchainAliasTest",
+    srcs = ["CcHostToolchainAliasTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "CcImportConfiguredTargetTest",
+    srcs = ["CcImportConfiguredTargetTest.java"],
+    deps = [
+        ":CcImportBaseConfiguredTargetTest",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
+    name = "CcLibcTopAliasTest",
+    srcs = ["CcLibcTopAliasTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "CcLibraryConfiguredTargetTest",
+    srcs = ["CcLibraryConfiguredTargetTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/instrumented_files_info",
+        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
+        "//src/main/java/com/google/devtools/build/lib/util:filetype",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/protobuf:extra_actions_base_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "CcStarlarkApiProviderTest",
+    srcs = ["CcStarlarkApiProviderTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "CcToolchainFeaturesTest",
+    srcs = ["CcToolchainFeaturesTest.java"],
+    deps = [
+        ":CcToolchainTestHelper",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/protobuf:crosstool_config_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_test(
     name = "CcToolchainProviderHelperTest",
     srcs = ["CcToolchainProviderHelperTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "CcToolchainProviderTest",
+    srcs = ["CcToolchainProviderTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "CcToolchainSelectionTest",
+    srcs = ["CcToolchainSelectionTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "CcToolchainSuiteTest",
+    srcs = ["CcToolchainSuiteTest.java"],
+    deps = [
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
+    name = "CcToolchainTest",
+    srcs = ["CcToolchainTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "CompileBuildVariablesTest",
+    srcs = ["CompileBuildVariablesTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "CompileCommandLineTest",
+    srcs = ["CompileCommandLineTest.java"],
+    deps = [
+        ":CcToolchainTestHelper",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "CppConfigurationStarlarkTest",
+    srcs = ["CppConfigurationStarlarkTest.java"],
+    deps = [
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "CppFileTypesTest",
+    srcs = ["CppFileTypesTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "CppLinkActionTest",
+    srcs = ["CppLinkActionTest.java"],
+    deps = [
+        ":CcToolchainTestHelper",
+        ":MockCppSemantics",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/protobuf:crosstool_config_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "CppLinkstampCompileHelperTest",
+    srcs = ["CppLinkstampCompileHelperTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "CppOutputGroupsTest",
+    srcs = ["CppOutputGroupsTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:junit4",
         "//third_party:truth",
@@ -201,18 +481,49 @@ java_test(
 )
 
 java_test(
-    name = "CcBinaryThinLtoTest",
-    srcs = ["CcBinaryThinLtoTest.java"],
+    name = "CreateIncSymlinkActionTest",
+    srcs = ["CreateIncSymlinkActionTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "HeaderDiscoveryTest",
+    srcs = ["HeaderDiscoveryTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:mockito",
+    ],
+)
+
+java_test(
+    name = "LibraryLinkingTest",
+    srcs = ["LibraryLinkingTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//third_party:guava",
@@ -222,30 +533,20 @@ java_test(
 )
 
 java_test(
-    name = "NonWindowsCcBinaryThinLtoTest",
-    srcs = ["NonWindowsCcBinaryThinLtoTest.java"],
-    tags = ["no_windows"],
+    name = "LinkBuildVariablesTest",
+    srcs = ["LinkBuildVariablesTest.java"],
     deps = [
+        ":LinkBuildVariablesTestCase",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-    ],
-)
-
-java_test(
-    name = "CcBadDependenciesTest",
-    srcs = ["CcBadDependenciesTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:junit4",
     ],
 )
 
@@ -253,8 +554,8 @@ java_test(
     name = "LinkCommandLineTest",
     srcs = ["LinkCommandLineTest.java"],
     deps = [
-        ":CppRulesTests_lib",
-        "//src/main/java/com/google/devtools/build/lib/actions",
+        ":CcToolchainTestHelper",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -270,10 +571,66 @@ java_test(
 )
 
 java_test(
+    name = "LtoBackendActionTest",
+    srcs = ["LtoBackendActionTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/exec:bin_tools",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/exec/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "NonWindowsCcBinaryThinLtoTest",
+    srcs = ["NonWindowsCcBinaryThinLtoTest.java"],
+    tags = ["no_windows"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "ShowIncludesFilterTest",
+    srcs = ["ShowIncludesFilterTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "SpawnGccStrategyTest",
     srcs = ["SpawnGccStrategyTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
@@ -284,6 +641,51 @@ java_test(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "StarlarkCcCommonTest",
+    size = "large",
+    srcs = ["StarlarkCcCommonTest.java"],
+    shard_count = 4,
+    deps = [
+        ":StarlarkCcCommonTestHelper",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/protobuf:crosstool_config_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_test(
+    name = "StarlarkCcToolchainConfigureTest",
+    srcs = ["StarlarkCcToolchainConfigureTest.java"],
+    resources = ["@rules_cc//cc:srcs"],
+    deps = [
+        "//src/main/java/net/starlark/java/eval",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//src/test/java/com/google/devtools/build/lib/starlark/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
+        "//third_party:junit4",
     ],
 )
 

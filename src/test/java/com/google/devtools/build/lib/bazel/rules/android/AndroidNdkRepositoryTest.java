@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.RepositoryFetchException;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.util.BazelMockCcSupport;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -39,7 +39,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class AndroidNdkRepositoryTest extends BuildViewTestCase {
   @Override
-  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
     return builder.addRuleDefinition(new AndroidNdkRepositoryRule()).build();
@@ -88,10 +88,10 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
             .getFilesToRun();
     assertThat(artifactsToStrings(x86ClangHighestApiLevelFilesToRun))
         .contains(
-            "src external/androidndk/ndk/platforms/android-24/arch-x86/usr/lib/libandroid.so");
+            "src(external) androidndk/ndk/platforms/android-24/arch-x86/usr/lib/libandroid.so");
     assertThat(artifactsToStrings(x86ClangHighestApiLevelFilesToRun))
         .doesNotContain(
-            "src external/androidndk/ndk/platforms/android-22/arch-x86/usr/lib/libandroid.so");
+            "src(external) androidndk/ndk/platforms/android-22/arch-x86/usr/lib/libandroid.so");
   }
 
   @Test
@@ -117,7 +117,7 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
         eventCollector,
         "The revision of the Android NDK referenced by android_ndk_repository rule 'androidndk' "
             + "could not be determined (the revision string found is 'not a valid release string')."
-            + " Bazel will attempt to treat the NDK as if it was r20.");
+            + " Bazel will attempt to treat the NDK as if it was r21.");
   }
 
   @Test
@@ -145,7 +145,7 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
         eventCollector,
         "The revision of the Android NDK referenced by android_ndk_repository rule 'androidndk' "
             + "could not be determined (the revision string found is 'invalid package revision'). "
-            + "Bazel will attempt to treat the NDK as if it was r20.");
+            + "Bazel will attempt to treat the NDK as if it was r21.");
   }
 
   @Test
@@ -162,16 +162,16 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
         ")");
 
     scratch.overwriteFile(
-        "/ndk/source.properties", "Pkg.Desc = Android NDK", "Pkg.Revision = 21.0.3675639-beta2");
+        "/ndk/source.properties", "Pkg.Desc = Android NDK", "Pkg.Revision = 22.0.3675639-beta2");
     invalidatePackages();
 
     assertThat(getConfiguredTarget("@androidndk//:files")).isNotNull();
     MoreAsserts.assertContainsEvent(
         eventCollector,
         "The major revision of the Android NDK referenced by android_ndk_repository rule "
-            + "'androidndk' is 21. The major revisions supported by Bazel are "
-            + "[10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]. "
-            + "Bazel will attempt to treat the NDK as if it was r20.");
+            + "'androidndk' is 22. The major revisions supported by Bazel are "
+            + "[10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]. "
+            + "Bazel will attempt to treat the NDK as if it was r21.");
   }
 
   @Test
@@ -191,13 +191,12 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
 
     ConfiguredTargetAndData cpufeatures = getConfiguredTargetAndData("@androidndk//:cpufeatures");
     assertThat(cpufeatures).isNotNull();
-    AttributeContainer attributes =
-        cpufeatures.getTarget().getAssociatedRule().getAttributeContainer();
-    assertThat(attributes.isAttributeValueExplicitlySpecified("srcs")).isTrue();
-    assertThat(attributes.getAttr("srcs").toString())
+    Rule rule = cpufeatures.getTarget().getAssociatedRule();
+    assertThat(rule.isAttributeValueExplicitlySpecified("srcs")).isTrue();
+    assertThat(rule.getAttr("srcs").toString())
         .isEqualTo("[@androidndk//:ndk/sources/android/cpufeatures/cpu-features.c]");
-    assertThat(attributes.isAttributeValueExplicitlySpecified("hdrs")).isTrue();
-    assertThat(attributes.getAttr("hdrs").toString())
+    assertThat(rule.isAttributeValueExplicitlySpecified("hdrs")).isTrue();
+    assertThat(rule.getAttr("hdrs").toString())
         .isEqualTo("[@androidndk//:ndk/sources/android/cpufeatures/cpu-features.h]");
   }
 

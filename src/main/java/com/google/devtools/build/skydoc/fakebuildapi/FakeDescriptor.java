@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
-import com.google.devtools.build.lib.skylarkbuildapi.StarlarkAttrModuleApi.Descriptor;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAttrModuleApi.Descriptor;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderNameGroup;
 import java.util.List;
+import net.starlark.java.eval.Printer;
 
 /**
  * Fake implementation of {@link Descriptor}.

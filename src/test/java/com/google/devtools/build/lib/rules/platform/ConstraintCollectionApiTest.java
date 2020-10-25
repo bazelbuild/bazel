@@ -25,11 +25,11 @@ import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.syntax.Sequence;
 import java.util.Collection;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Sequence;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -108,7 +108,7 @@ public class ConstraintCollectionApiTest extends PlatformTestCase {
 
   @Test
   public void testConstraintValue_starlark() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_platforms_api=true");
+    setBuildLanguageOptions("--experimental_platforms_api=true");
     constraintBuilder("//foo:s1").addConstraintValue("value1").write();
     constraintBuilder("//foo:s2").addConstraintValue("value2").write();
     platformBuilder("//foo:my_platform").addConstraint("value1").addConstraint("value2").write();

@@ -26,6 +26,7 @@ java_library(
         exclude = [
             "ExecutionStatusException.java",
             "ReferenceCountedChannel.java",
+            "ReferenceCountedChannelPool.java",
             "RemoteRetrier.java",
             "RemoteRetrierUtils.java",
             "Retrier.java",
@@ -40,8 +41,12 @@ java_library(
         ":ExecutionStatusException",
         ":ReferenceCountedChannel",
         ":Retrier",
+        "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:artifacts_to_owner_labels",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
@@ -51,7 +56,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/authandtls",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
@@ -75,7 +79,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/merkletree",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
+        "//src/main/java/com/google/devtools/build/lib/sandbox",
         "//src/main/java/com/google/devtools/build/lib/skyframe:mutable_supplier",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
@@ -118,8 +124,12 @@ java_library(
 
 java_library(
     name = "ReferenceCountedChannel",
-    srcs = ["ReferenceCountedChannel.java"],
+    srcs = [
+        "ReferenceCountedChannel.java",
+        "ReferenceCountedChannelPool.java",
+    ],
     deps = [
+        "//third_party:guava",
         "//third_party:netty",
         "//third_party/grpc:grpc-jar",
     ],

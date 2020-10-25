@@ -59,14 +59,6 @@ import com.google.devtools.build.lib.util.FileTypeSet;
  * Shared rule classes and associated utility code for Objective-C rules.
  */
 public class ObjcRuleClasses {
-
-  /**
-   * Name of the attribute used for implicit dependency on the libtool wrapper.
-   */
-  public static final String LIBTOOL_ATTRIBUTE = "$libtool";
-  /** Name of attribute used for implicit dependency on the apple SDKs. */
-  public static final String APPLE_SDK_ATTRIBUTE = ":apple_sdk";
-
   static final String LIPO = "lipo";
   static final String STRIP = "strip";
 
@@ -144,7 +136,7 @@ public class ObjcRuleClasses {
   }
 
   /** Returns apple environment variables that are typically needed by the apple toolchain. */
-  static ImmutableMap<String, String> appleToolchainEnvironment(
+  private static ImmutableMap<String, String> appleToolchainEnvironment(
       XcodeConfigInfo xcodeConfigInfo, ApplePlatform targetPlatform) {
     return ImmutableMap.<String, String>builder()
         .putAll(
@@ -155,7 +147,7 @@ public class ObjcRuleClasses {
   }
 
   /** Creates a new spawn action builder that requires a darwin architecture to run. */
-  static SpawnAction.Builder spawnOnDarwinActionBuilder(XcodeConfigInfo xcodeConfigInfo) {
+  private static SpawnAction.Builder spawnOnDarwinActionBuilder(XcodeConfigInfo xcodeConfigInfo) {
     return new SpawnAction.Builder().setExecutionInfo(xcodeConfigInfo.getExecutionRequirements());
   }
 
@@ -323,6 +315,7 @@ public class ObjcRuleClasses {
               attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
                   .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
           .addRequiredToolchains(ImmutableList.of(CppRuleClasses.ccToolchainTypeAttribute(env)))
+          .useToolchainTransition(true)
           .build();
     }
 
@@ -330,6 +323,7 @@ public class ObjcRuleClasses {
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
           .name("$objc_crosstool_rule")
+          .ancestors(CppRuleClasses.CcLinkingRule.class)
           .type(RuleClassType.ABSTRACT)
           .build();
     }
@@ -509,33 +503,8 @@ public class ObjcRuleClasses {
               BaseRuleClasses.RuleBase.class,
               CompileDependencyRule.class,
               CoptsRule.class,
-              LibtoolRule.class,
               XcrunRule.class,
               CrosstoolRule.class)
-          .build();
-    }
-  }
-
-  /**
-   * Common attributes for {@code objc_*} rules that need to call libtool.
-   */
-  public static class LibtoolRule implements RuleDefinition {
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .add(
-              attr(LIBTOOL_ATTRIBUTE, LABEL)
-                  .cfg(HostTransition.createFactory())
-                  .exec()
-                  .value(env.getToolsLabel("//tools/objc:libtool")))
-          .build();
-    }
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$objc_libtool_rule")
-          .type(RuleClassType.ABSTRACT)
-          .ancestors(XcrunRule.class)
           .build();
     }
   }
@@ -785,8 +754,7 @@ public class ObjcRuleClasses {
               BaseRuleClasses.RuleBase.class,
               CppRuleClasses.CcIncludeScanningRule.class,
               XcrunRule.class,
-              SdkFrameworksDependerRule.class,
-              LibtoolRule.class)
+              SdkFrameworksDependerRule.class)
           .build();
     }
   }

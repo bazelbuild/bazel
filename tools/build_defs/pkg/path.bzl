@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Helper functions that don't depend on Skylark, so can be unit tested."""
+"""Helper functions that don't depend on Starlark, so can be unit tested."""
 
 def _short_path_dirname(path):
     """Returns the directory's name of the short path of an artifact."""

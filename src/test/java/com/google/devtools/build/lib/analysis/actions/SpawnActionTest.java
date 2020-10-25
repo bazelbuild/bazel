@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
+import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
@@ -503,6 +504,34 @@ public class SpawnActionTest extends BuildViewTestCase {
             ImmutableMap.<String, String>of("supports-multiplex-workers", "1"));
     assertThat(Spawns.supportsMultiplexWorkers(multiplexWorkerSupportSpawn.getSpawn()))
         .isEqualTo(true);
+  }
+
+  @Test
+  public void testWorkerProtocolFormat_defaultIsProto() throws Exception {
+    SpawnAction spawn =
+        createWorkerSupportSpawn(ImmutableMap.<String, String>of("supports-workers", "1"));
+    assertThat(Spawns.getWorkerProtocolFormat(spawn.getSpawn()))
+        .isEqualTo(WorkerProtocolFormat.PROTO);
+  }
+
+  @Test
+  public void testWorkerProtocolFormat_explicitProto() throws Exception {
+    SpawnAction spawn =
+        createWorkerSupportSpawn(
+            ImmutableMap.<String, String>of(
+                "supports-workers", "1", "requires-worker-protocol", "proto"));
+    assertThat(Spawns.getWorkerProtocolFormat(spawn.getSpawn()))
+        .isEqualTo(WorkerProtocolFormat.PROTO);
+  }
+
+  @Test
+  public void testWorkerProtocolFormat_explicitJson() throws Exception {
+    SpawnAction spawn =
+        createWorkerSupportSpawn(
+            ImmutableMap.<String, String>of(
+                "supports-workers", "1", "requires-worker-protocol", "json"));
+    assertThat(Spawns.getWorkerProtocolFormat(spawn.getSpawn()))
+        .isEqualTo(WorkerProtocolFormat.JSON);
   }
 
   @Test

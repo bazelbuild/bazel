@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -21,13 +22,13 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
@@ -97,7 +98,9 @@ public final class LtoBackendArtifacts {
       List<String> userCompileFlags)
       throws RuleErrorException {
     this.bitcodeFile = bitcodeFile;
-    PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getRootRelativePath());
+    PathFragment obj =
+        ltoOutputRootPrefix.getRelative(
+            bitcodeFile.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout()));
 
     objectFile =
         linkArtifactFactory.create(actionConstructionContext, repositoryName, configuration, obj);
@@ -151,7 +154,9 @@ public final class LtoBackendArtifacts {
       throws RuleErrorException {
     this.bitcodeFile = bitcodeFile;
 
-    PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getRootRelativePath());
+    PathFragment obj =
+        ltoOutputRootPrefix.getRelative(
+            bitcodeFile.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout()));
     objectFile =
         linkArtifactFactory.create(actionConstructionContext, repositoryName, configuration, obj);
     imports = null;
@@ -265,7 +270,9 @@ public final class LtoBackendArtifacts {
               actionConstructionContext,
               repositoryName,
               configuration,
-              FileSystemUtils.replaceExtension(objectFile.getRootRelativePath(), ".dwo"));
+              FileSystemUtils.replaceExtension(
+                  objectFile.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout()),
+                  ".dwo"));
       builder.addOutput(dwoFile);
       buildVariablesBuilder.addStringVariable(
           CompileBuildVariables.PER_OBJECT_DEBUG_INFO_FILE.getVariableName(),
@@ -340,6 +347,20 @@ public final class LtoBackendArtifacts {
     if (prefetch != null) {
       buildVariables.addStringVariable("fdo_prefetch_hints_path", prefetch.getExecPathString());
       builder.addInput(fdoContext.getPrefetchHintsArtifact());
+    }
+    if (fdoContext.getPropellerOptimizeInputFile() != null
+        && fdoContext.getPropellerOptimizeInputFile().getCcArtifact() != null) {
+      buildVariables.addStringVariable(
+          "propeller_optimize_cc_path",
+          fdoContext.getPropellerOptimizeInputFile().getCcArtifact().getExecPathString());
+      builder.addInput(fdoContext.getPropellerOptimizeInputFile().getCcArtifact());
+    }
+    if (fdoContext.getPropellerOptimizeInputFile() != null
+        && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
+      buildVariables.addStringVariable(
+          "propeller_optimize_ld_path",
+          fdoContext.getPropellerOptimizeInputFile().getLdArtifact().getExecPathString());
+      builder.addInput(fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
     }
     if (!featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
         && !featureConfiguration.isEnabled(CppRuleClasses.CS_FDO_OPTIMIZE)

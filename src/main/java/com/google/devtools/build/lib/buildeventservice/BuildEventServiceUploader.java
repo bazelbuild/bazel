@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.buildeventservice;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.v1.BuildStatus.Result.COMMAND_FAILED;
 import static com.google.devtools.build.v1.BuildStatus.Result.COMMAND_SUCCEEDED;
 import static com.google.devtools.build.v1.BuildStatus.Result.UNKNOWN_STATUS;
@@ -272,18 +271,17 @@ public final class BuildEventServiceUploader implements Runnable {
     return halfCloseFuture;
   }
 
-  private void logAndExitAbruptly(
-      String message, ExitCode exitCode, BuildProgress.Code bpCode, Throwable cause) {
-    checkState(!exitCode.equals(ExitCode.SUCCESS));
+  private DetailedExitCode logAndSetException(
+      String message, BuildProgress.Code bpCode, Throwable cause) {
     logger.atSevere().log(message);
     DetailedExitCode detailedExitCode =
         DetailedExitCode.of(
-            exitCode,
             FailureDetail.newBuilder()
                 .setMessage(message + " " + besClient.userReadableError(cause))
                 .setBuildProgress(BuildProgress.newBuilder().setCode(bpCode).build())
                 .build());
     closeFuture.setException(new AbruptExitException(detailedExitCode, cause));
+    return detailedExitCode;
   }
 
   @Override
@@ -306,27 +304,32 @@ public final class BuildEventServiceUploader implements Runnable {
           publishLifecycleEvent(besProtoUtil.buildFinished(currentTime(), buildStatus));
         }
       }
+      eventBus.post(BuildEventServiceAvailabilityEvent.ofSuccess());
     } catch (InterruptedException e) {
-      logger.atInfo().log("Aborting the BES upload due to having received an interrupt");
       synchronized (lock) {
         Preconditions.checkState(
             interruptCausedByCancel, "Unexpected interrupt on BES uploader thread");
       }
     } catch (DetailedStatusException e) {
-      logAndExitAbruptly(
-          e.extendedMessage,
-          shouldRetryStatus(e.getStatus())
+      boolean isTransient = shouldRetryStatus(e.getStatus());
+      ExitCode exitCode =
+          isTransient
               ? ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR
-              : ExitCode.PERSISTENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
-          e.bpCode,
-          e);
+              : ExitCode.PERSISTENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR;
+      DetailedExitCode detailedExitCode = logAndSetException(e.extendedMessage, e.bpCode, e);
+      eventBus.post(
+          new BuildEventServiceAvailabilityEvent(exitCode, detailedExitCode.getFailureDetail()));
     } catch (LocalFileUploadException e) {
       Throwables.throwIfUnchecked(e.getCause());
-      logAndExitAbruptly(
-          "The Build Event Protocol local file upload failed:",
-          ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
-          BuildProgress.Code.BES_UPLOAD_LOCAL_FILE_ERROR,
-          e.getCause());
+      DetailedExitCode detailedExitCode =
+          logAndSetException(
+              "The Build Event Protocol local file upload failed:",
+              BuildProgress.Code.BES_UPLOAD_LOCAL_FILE_ERROR,
+              e.getCause());
+      eventBus.post(
+          new BuildEventServiceAvailabilityEvent(
+              ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
+              detailedExitCode.getFailureDetail()));
     } catch (Throwable e) {
       closeFuture.setException(e);
       logger.atSevere().log("BES upload failed due to a RuntimeException / Error. This is a bug.");

@@ -29,6 +29,7 @@ py_library(
         "//third_party/def_parser:__pkg__",
         "//tools/android:__pkg__",
         "//tools/build_rules:__pkg__",
+        "//tools/ctexplain:__pkg__",
         "//tools/python:__pkg__",
     ],
 )
@@ -76,7 +77,10 @@ py_test(
     tags = [
         "requires-network",
     ],
-    deps = [":test_base"],
+    deps = [
+        ":test_base",
+        "//third_party/py/six",
+    ],
 )
 
 py_test(

@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
-import com.google.devtools.build.lib.skylarkbuildapi.ActionsInfoProviderApi;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.starlarkbuildapi.ActionsInfoProviderApi;
+import net.starlark.java.eval.Printer;
 
 /**
  * Fake implementation of {@link ActionsInfoProviderApi}.

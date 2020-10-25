@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.StreamedOutputHandler;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.OutputStream;
@@ -80,7 +81,7 @@ public class ActionGraphQueryEnvironment
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
       BuildConfiguration hostConfiguration,
-      String parserPrefix,
+      PathFragment parserPrefix,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
       Set<Setting> settings) {
@@ -95,19 +96,10 @@ public class ActionGraphQueryEnvironment
         walkableGraphSupplier,
         settings);
     this.configuredTargetKeyExtractor =
-        configuredTargetValue -> {
-          try {
-            ConfiguredTarget element = configuredTargetValue.getConfiguredTarget();
-            return ConfiguredTargetKey.of(
-                element,
-                element.getConfigurationKey() == null
-                    ? null
-                    : ((BuildConfigurationValue) graph.getValue(element.getConfigurationKey()))
-                        .getConfiguration());
-          } catch (InterruptedException e) {
-            throw new IllegalStateException("Interruption unexpected in configured query", e);
-          }
-        };
+        configuredTargetValue ->
+            ConfiguredTargetKey.builder()
+                .setConfiguredTarget(configuredTargetValue.getConfiguredTarget())
+                .build();
     this.accessor =
         new ConfiguredTargetValueAccessor(
             walkableGraphSupplier.get(), this.configuredTargetKeyExtractor);
@@ -119,7 +111,7 @@ public class ActionGraphQueryEnvironment
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
       BuildConfiguration hostConfiguration,
-      String parserPrefix,
+      PathFragment parserPrefix,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
       AqueryOptions aqueryOptions) {
@@ -237,7 +229,8 @@ public class ActionGraphQueryEnvironment
   @Nullable
   @Override
   protected ConfiguredTargetValue getHostConfiguredTarget(Label label) throws InterruptedException {
-    return this.getConfiguredTargetValue(ConfiguredTargetKey.of(label, hostConfiguration));
+    return this.getConfiguredTargetValue(
+        ConfiguredTargetKey.builder().setLabel(label).setConfiguration(hostConfiguration).build());
   }
 
   @Nullable
@@ -246,12 +239,19 @@ public class ActionGraphQueryEnvironment
       throws InterruptedException {
     if (topLevelConfigurations.isTopLevelTarget(label)) {
       return this.getConfiguredTargetValue(
-          ConfiguredTargetKey.of(
-              label, topLevelConfigurations.getConfigurationForTopLevelTarget(label)));
+          ConfiguredTargetKey.builder()
+              .setLabel(label)
+              .setConfiguration(topLevelConfigurations.getConfigurationForTopLevelTarget(label))
+              .build());
     } else {
       ConfiguredTargetValue toReturn;
       for (BuildConfiguration configuration : topLevelConfigurations.getConfigurations()) {
-        toReturn = this.getConfiguredTargetValue(ConfiguredTargetKey.of(label, configuration));
+        toReturn =
+            this.getConfiguredTargetValue(
+                ConfiguredTargetKey.builder()
+                    .setLabel(label)
+                    .setConfiguration(configuration)
+                    .build());
         if (toReturn != null) {
           return toReturn;
         }
@@ -263,7 +263,7 @@ public class ActionGraphQueryEnvironment
   @Nullable
   @Override
   protected ConfiguredTargetValue getNullConfiguredTarget(Label label) throws InterruptedException {
-    return this.getConfiguredTargetValue(ConfiguredTargetKey.of(label, /* configuration= */ null));
+    return this.getConfiguredTargetValue(ConfiguredTargetKey.builder().setLabel(label).build());
   }
 
   @Nullable
@@ -300,7 +300,10 @@ public class ActionGraphQueryEnvironment
   @Override
   protected ConfiguredTargetKey getSkyKey(ConfiguredTargetValue configuredTargetValue) {
     ConfiguredTarget target = configuredTargetValue.getConfiguredTarget();
-    return ConfiguredTargetKey.of(target, getConfiguration(configuredTargetValue));
+    return ConfiguredTargetKey.builder()
+        .setConfiguredTarget(target)
+        .setConfiguration(getConfiguration(configuredTargetValue))
+        .build();
   }
 
   @Override
@@ -311,7 +314,7 @@ public class ActionGraphQueryEnvironment
       patternToEval = getPattern(pattern);
     } catch (TargetParsingException tpe) {
       try {
-        reportBuildFileError(owner, tpe.getMessage());
+        handleError(owner, tpe.getMessage(), tpe.getDetailedExitCode());
       } catch (QueryException qe) {
         return immediateFailedFuture(qe);
       }
@@ -320,7 +323,7 @@ public class ActionGraphQueryEnvironment
 
     AsyncFunction<TargetParsingException, Void> reportBuildFileErrorAsyncFunction =
         exn -> {
-          reportBuildFileError(owner, exn.getMessage());
+          handleError(owner, exn.getMessage(), exn.getDetailedExitCode());
           return Futures.immediateFuture(null);
         };
     try {
@@ -328,7 +331,7 @@ public class ActionGraphQueryEnvironment
           Futures.catchingAsync(
               patternToEval.evalAdaptedForAsync(
                   resolver,
-                  getBlacklistedPackagePrefixesPathFragments(),
+                  getIgnoredPackagePrefixesPathFragments(),
                   /* excludedSubdirectories= */ ImmutableSet.of(),
                   (Callback<Target>)
                       partialResult -> {

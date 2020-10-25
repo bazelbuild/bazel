@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.skylarkbuildapi.android.ParsedAndroidAssetsApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.ParsedAndroidAssetsApi;
 import java.util.Objects;
 import javax.annotation.Nullable;
 

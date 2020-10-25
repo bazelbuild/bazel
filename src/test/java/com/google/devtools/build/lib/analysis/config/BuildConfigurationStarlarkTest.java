@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.syntax.Dict;
+import net.starlark.java.eval.Dict;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -45,14 +45,14 @@ public final class BuildConfigurationStarlarkTest extends BuildViewTestCase {
         ")");
 
     scratch.file(
-        "examples/config_skylark/BUILD",
+        "examples/config_starlark/BUILD",
         "package(default_visibility = ['//visibility:public'])",
         "load('//examples/rule:config_test.bzl', 'test_rule')",
         "test_rule(",
         "    name = 'my_target',",
         ")");
 
-    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/config_skylark:my_target");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/config_starlark:my_target");
     Provider.Key key =
         new StarlarkProvider.Key(
             Label.parseAbsolute("//examples/rule:config_test.bzl", ImmutableMap.of()), "MyInfo");

@@ -21,19 +21,20 @@ import java.lang.annotation.RetentionPolicy;
 public @interface ParamType {
   /**
    * The Java class of the type, e.g. {@link String}.class or {@link
-   * com.google.devtools.build.lib.syntax.Sequence}.class.
+   * net.starlark.java.eval.Sequence}.class.
    */
-  Class<?> type() default Object.class;
+  Class<?> type();
 
   /**
-   * When {@link #type()} is a generic type (e.g., {@link
-   * com.google.devtools.build.lib.syntax.Sequence}), specify the type parameter (e.g. {@link
-   * String}.class} along with {@link com.google.devtools.build.lib.syntax.Sequence} for {@link
-   * #type()} to specify a list of strings).
+   * When {@link #type()} is a generic type (e.g., {@link net.starlark.java.eval.Sequence}), specify
+   * the type parameter (e.g. {@link String}.class} along with {@link
+   * net.starlark.java.eval.Sequence} for {@link #type()} to specify a list of strings).
    *
    * <p>This is only used for documentation generation. The actual generic type is not checked at
    * runtime, so the Java method signature should use a generic type of Object and cast
    * appropriately.
    */
+  // TODO(adonovan): make this an array---a non-breaking change for most clients---
+  // ideally of the same length as the number of type parameters of type().
   Class<?> generic1() default Object.class;
 }

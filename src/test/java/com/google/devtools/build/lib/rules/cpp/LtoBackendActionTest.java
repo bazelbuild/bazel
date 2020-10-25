@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -21,6 +22,7 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
@@ -38,6 +40,7 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -244,5 +247,26 @@ public class LtoBackendActionTest extends BuildViewTestCase {
           }
         },
         actionKeyContext);
+  }
+
+  @Test
+  public void discoverInputs_missingInputErrorMessage() throws Exception {
+    FileSystemUtils.writeIsoLatin1(imports1Artifact.getPath(), "file1.o", "file2.o", "file3.o");
+
+    Action[] actions =
+        new LtoBackendAction.Builder()
+            .addImportsInfo(
+                new BitcodeFiles(
+                    new NestedSetBuilder<Artifact>(Order.STABLE_ORDER)
+                        .add(getSourceArtifact("file2.o"))
+                        .build()),
+                imports1Artifact)
+            .setExecutable(scratch.file("/bin/clang").asFragment())
+            .addOutput(destinationArtifact)
+            .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
+    ActionExecutionException e =
+        assertThrows(ActionExecutionException.class, () -> actions[0].discoverInputs(context));
+
+    assertThat(e).hasMessageThat().endsWith("(first 10): file1.o, file3.o");
   }
 }

@@ -49,7 +49,7 @@ output="$1"; shift
 
 initial_pwd="$(pwd)"
 
-tmp_dir=$(mktemp -d -t 'tmp_bazel_zip_files_XXXXX')
+tmp_dir=$(mktemp -d -t 'tmp_bazel_zip_files_XXXXXX')
 trap "rm -fr $tmp_dir" EXIT
 tmp_zip="$tmp_dir/archive.zip"
 

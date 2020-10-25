@@ -14,9 +14,10 @@
 
 package net.starlark.java.annot.processor.testsources;
 
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Test case for a StarlarkMethod method which has a positional-only parameter specified after a
@@ -31,7 +32,7 @@ public class PositionalOnlyParamAfterNamed implements StarlarkValue {
         @Param(name = "one", named = true, positional = true),
         @Param(name = "two", named = false, positional = true)
       })
-  public Integer positionalOnlyAfterNamed(Integer one, Integer two) {
+  public Integer positionalOnlyAfterNamed(StarlarkInt one, StarlarkInt two) {
     return 42;
   }
 }

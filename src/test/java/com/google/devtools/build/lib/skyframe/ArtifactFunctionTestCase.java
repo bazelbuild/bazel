@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -118,9 +119,6 @@ abstract class ArtifactFunctionTestCase {
                         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
                         BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
                 .put(
-                    SkyFunctions.WORKSPACE_AST,
-                    new WorkspaceASTFunction(TestRuleClassProvider.getRuleClassProvider()))
-                .put(
                     WorkspaceFileValue.WORKSPACE_FILE,
                     new WorkspaceFileFunction(
                         TestRuleClassProvider.getRuleClassProvider(),
@@ -174,6 +172,10 @@ abstract class ArtifactFunctionTestCase {
 
   /** InMemoryFileSystem that can pretend to do a fast digest. */
   protected class CustomInMemoryFs extends InMemoryFileSystem {
+    CustomInMemoryFs() {
+      super(DigestHashFunction.SHA256);
+    }
+
     @Override
     protected byte[] getFastDigest(Path path) throws IOException {
       return fastDigest ? getDigest(path) : null;

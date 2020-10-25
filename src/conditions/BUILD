@@ -17,7 +17,25 @@ filegroup(
 # See https://github.com/bazelbuild/bazel/issues/11107
 
 config_setting(
+    name = "linux_aarch64",
+    values = {"cpu": "aarch64"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "linux_arm",
+    values = {"cpu": "arm"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
     name = "linux_ppc",
+    values = {"cpu": "ppc"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "linux_ppc64le",
     values = {"cpu": "ppc"},
     visibility = ["//visibility:public"],
 )
@@ -43,6 +61,18 @@ config_setting(
 config_setting(
     name = "darwin_x86_64",
     values = {"cpu": "darwin_x86_64"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "darwin_arm64",
+    values = {"cpu": "darwin_arm64"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "darwin_arm64e",
+    values = {"cpu": "darwin_arm64e"},
     visibility = ["//visibility:public"],
 )
 
@@ -73,12 +103,6 @@ config_setting(
 config_setting(
     name = "arm",
     values = {"cpu": "arm"},
-    visibility = ["//visibility:public"],
-)
-
-config_setting(
-    name = "linux_aarch64",
-    values = {"cpu": "aarch64"},
     visibility = ["//visibility:public"],
 )
 

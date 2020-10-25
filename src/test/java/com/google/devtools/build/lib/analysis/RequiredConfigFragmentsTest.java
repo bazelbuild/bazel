@@ -83,6 +83,26 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
     assertThat(configSettingDirectFragments).contains("CppOptions");
   }
 
+  @Test
+  public void provideDirectHostOnlyRequiredFragmentsMode() throws Exception {
+    useConfiguration("--include_config_fragments_provider=direct_host_only");
+    scratch.file(
+        "a/BUILD",
+        "py_library(name = 'pylib', srcs = ['pylib.py'])",
+        "cc_library(name = 'cclib', srcs = ['cclb.cc'], data = [':pylib'])");
+
+    RequiredConfigFragmentsProvider targetConfigProvider =
+        getConfiguredTarget("//a:cclib").getProvider(RequiredConfigFragmentsProvider.class);
+    RequiredConfigFragmentsProvider hostConfigProvider =
+        getHostConfiguredTarget("//a:cclib").getProvider(RequiredConfigFragmentsProvider.class);
+
+    assertThat(targetConfigProvider).isNull();
+    assertThat(hostConfigProvider).isNotNull();
+    assertThat(hostConfigProvider.getRequiredConfigFragments()).contains("CppConfiguration");
+    assertThat(hostConfigProvider.getRequiredConfigFragments())
+        .doesNotContain("PythonConfiguration");
+  }
+
   /**
    * Helper method that returns a combined set of the common fragments all genrules require plus
    * instance-specific requirements passed here.
@@ -141,9 +161,7 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
         getConfiguredTarget("//a:simple")
             .getProvider(RequiredConfigFragmentsProvider.class)
             .getRequiredConfigFragments();
-    assertThat(requiredFragments)
-        .containsExactlyElementsIn(genRuleFragments("--define:myvar"))
-        .inOrder();
+    assertThat(requiredFragments).contains("--define:myvar");
   }
 
   /**
@@ -211,7 +229,7 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
   }
 
   @Override
-  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder =
         new ConfiguredRuleClassProvider.Builder()
             .addRuleDefinition(new RuleThatAttachesAspect())
@@ -255,5 +273,133 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
             .getRequiredConfigFragments();
     assertThat(requiredFragments).contains("JavaConfiguration");
     assertThat(requiredFragments).contains("--define:myvar");
+  }
+
+  private void writeStarlarkTransitionsAndAllowList() throws Exception {
+    scratch.file(
+        "tools/allowlists/function_transition_allowlist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_allowlist',",
+        "    packages = [",
+        "        '//a/...',",
+        "    ],",
+        ")");
+    scratch.file(
+        "transitions/defs.bzl",
+        "def _java_write_transition_impl(settings, attr):",
+        "  return {'//command_line_option:javacopt': ['foo'] }",
+        "java_write_transition = transition(",
+        "  implementation = _java_write_transition_impl,",
+        "  inputs = [],",
+        "  outputs = ['//command_line_option:javacopt'],",
+        ")",
+        "def _cpp_read_transition_impl(settings, attr):",
+        "  return {}",
+        "cpp_read_transition = transition(",
+        "  implementation = _cpp_read_transition_impl,",
+        "  inputs = ['//command_line_option:copt'],",
+        "  outputs = [],",
+        ")");
+    scratch.file("transitions/BUILD");
+  }
+
+  @Test
+  public void starlarkRuleTransitionReadsFragment() throws Exception {
+    writeStarlarkTransitionsAndAllowList();
+    scratch.file(
+        "a/defs.bzl",
+        "load('//transitions:defs.bzl', 'cpp_read_transition')",
+        "def _impl(ctx):",
+        "  pass",
+        "has_cpp_aware_rule_transition = rule(",
+        "  implementation = _impl,",
+        "  cfg = cpp_read_transition,",
+        "  attrs = {",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  })");
+    scratch.file(
+        "a/BUILD",
+        "load('//a:defs.bzl', 'has_cpp_aware_rule_transition')",
+        "has_cpp_aware_rule_transition(name = 'cctarget')");
+    useConfiguration("--include_config_fragments_provider=direct");
+    ImmutableSet<String> requiredFragments =
+        getConfiguredTarget("//a:cctarget")
+            .getProvider(RequiredConfigFragmentsProvider.class)
+            .getRequiredConfigFragments();
+    assertThat(requiredFragments).contains("CppOptions");
+    assertThat(requiredFragments).doesNotContain("JavaOptions");
+  }
+
+  @Test
+  public void starlarkRuleTransitionWritesFragment() throws Exception {
+    writeStarlarkTransitionsAndAllowList();
+    scratch.file(
+        "a/defs.bzl",
+        "load('//transitions:defs.bzl', 'java_write_transition')",
+        "def _impl(ctx):",
+        "  pass",
+        "has_java_aware_rule_transition = rule(",
+        "  implementation = _impl,",
+        "  cfg = java_write_transition,",
+        "  attrs = {",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  })");
+    scratch.file(
+        "a/BUILD",
+        "load('//a:defs.bzl', 'has_java_aware_rule_transition')",
+        "has_java_aware_rule_transition(name = 'javatarget')");
+    useConfiguration("--include_config_fragments_provider=direct");
+    ImmutableSet<String> requiredFragments =
+        getConfiguredTarget("//a:javatarget")
+            .getProvider(RequiredConfigFragmentsProvider.class)
+            .getRequiredConfigFragments();
+    assertThat(requiredFragments).contains("JavaOptions");
+    assertThat(requiredFragments).doesNotContain("CppOptions");
+  }
+
+  @Test
+  public void starlarkAttrTransition() throws Exception {
+    writeStarlarkTransitionsAndAllowList();
+    scratch.file(
+        "a/defs.bzl",
+        "load('//transitions:defs.bzl', 'cpp_read_transition', 'java_write_transition')",
+        "def _impl(ctx):",
+        "  pass",
+        "has_java_aware_attr_transition = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(cfg = java_write_transition),",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  })",
+        "has_cpp_aware_rule_transition = rule(",
+        "  implementation = _impl,",
+        "  cfg = cpp_read_transition,",
+        "  attrs = {",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  })");
+    scratch.file(
+        "a/BUILD",
+        "load('//a:defs.bzl', 'has_cpp_aware_rule_transition', 'has_java_aware_attr_transition')",
+        "has_cpp_aware_rule_transition(name = 'ccchild')",
+        "has_java_aware_attr_transition(",
+        "  name = 'javaparent',",
+        "  deps = [':ccchild'])");
+    useConfiguration("--include_config_fragments_provider=direct");
+    ImmutableSet<String> requiredFragments =
+        getConfiguredTarget("//a:javaparent")
+            .getProvider(RequiredConfigFragmentsProvider.class)
+            .getRequiredConfigFragments();
+    // We consider the attribute transition over the parent -> child edge a property of the parent.
+    assertThat(requiredFragments).contains("JavaOptions");
+    // But not the child's rule transition.
+    assertThat(requiredFragments).doesNotContain("CppOptions");
   }
 }

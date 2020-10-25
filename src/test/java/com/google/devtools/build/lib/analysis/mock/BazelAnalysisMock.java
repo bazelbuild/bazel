@@ -87,6 +87,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
             "bind(name = 'android/sdk', actual='@bazel_tools//tools/android:sdk')",
             "register_toolchains('@bazel_tools//tools/cpp:all')",
             "register_toolchains('@bazel_tools//tools/jdk:all')",
+            "register_toolchains('@bazel_tools//tools/android:all')",
             "register_toolchains('@bazel_tools//tools/python:autodetecting_toolchain')",
             "local_repository(name = 'local_config_platform', path = '"
                 + localConfigPlatformWorkspace
@@ -192,7 +193,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "filegroup(name='java', srcs = ['jdk/jre/bin/java'])",
         "filegroup(name='JacocoCoverage', srcs = [])",
         "exports_files(['JavaBuilder_deploy.jar','SingleJar_deploy.jar','TestRunner_deploy.jar',",
-        "               'JavaBuilderCanary_deploy.jar', 'ijar', 'GenClass_deploy.jar',",
+        "               'ijar', 'GenClass_deploy.jar',",
         "               'turbine_deploy.jar', 'TurbineDirect_deploy.jar'])",
         "sh_binary(name = 'proguard_whitelister', srcs = ['empty.sh'])",
         "toolchain_type(name = 'toolchain_type')",
@@ -233,25 +234,26 @@ public final class BazelAnalysisMock extends AnalysisMock {
 
     // Use an alias package group to allow for modification at the simpler path
     config.create(
-        "bazel_tools_workspace/tools/whitelists/config_feature_flag/BUILD",
+        "bazel_tools_workspace/tools/allowlists/config_feature_flag/BUILD",
         "package_group(",
         "    name='config_feature_flag',",
-        "    includes=['@//tools/whitelists/config_feature_flag'],",
+        "    includes=['@//tools/allowlists/config_feature_flag'],",
         ")");
 
     config.create(
-        "tools/whitelists/config_feature_flag/BUILD",
+        "tools/allowlists/config_feature_flag/BUILD",
         "package_group(name='config_feature_flag', packages=['//...'])");
 
     config.create(
-        "tools/whitelists/config_feature_flag/BUILD",
+        "tools/allowlists/config_feature_flag/BUILD",
         "package_group(name='config_feature_flag', packages=['//...'])");
 
     config.create(
         "bazel_tools_workspace/tools/zip/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "exports_files(['precompile.py'])",
-        "cc_binary(name='zipper', srcs=['zip_main.cc'])");
+        "cc_binary(name='zipper', srcs=['zip_main.cc'])",
+        "alias(name='unzip_fdo', actual=':zipper')");
 
     config.create(
         "bazel_tools_workspace/tools/launcher/BUILD",
@@ -336,6 +338,12 @@ public final class BazelAnalysisMock extends AnalysisMock {
     ImmutableList.Builder<String> androidBuildContents = ImmutableList.builder();
 
     androidBuildContents.add(
+        "toolchain_type(name = 'sdk_toolchain_type')",
+        "toolchain(",
+        "  name = 'sdk_toolchain',",
+        "  toolchain = ':sdk',",
+        "  toolchain_type = ':sdk_toolchain_type',",
+        ")",
         "android_sdk(",
         "    name = 'sdk',",
         "    aapt = ':static_aapt_tool',",
@@ -401,9 +409,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("    processor_class = 'android.databinding.annotationprocessor.ProcessDataBinding')")
         .add("sh_binary(name = 'jarjar_bin', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'instrumentation_test_check', srcs = ['empty.sh'])")
-        .add("package_group(name = 'android_device_whitelist', packages = ['//...'])")
-        .add("package_group(name = 'export_deps_whitelist', packages = ['//...'])")
-        .add("package_group(name = 'allow_android_library_deps_without_srcs_whitelist',")
+        .add("package_group(name = 'android_device_allowlist', packages = ['//...'])")
+        .add("package_group(name = 'export_deps_allowlist', packages = ['//...'])")
+        .add("package_group(name = 'allow_android_library_deps_without_srcs_allowlist',")
         .add("    packages=['//...'])")
         .add("android_tools_defaults_jar(name = 'android_jar')")
         .add("sh_binary(name = 'dex_list_obfuscator', srcs = ['empty.sh'])");
@@ -433,6 +441,10 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "  pass",
         "",
         "def http_file(**kwargs):",
+        "  pass");
+    config.create(
+        "bazel_tools_workspace/tools/jdk/local_java_repository.bzl",
+        "def local_java_repository(**kwargs):",
         "  pass");
   }
 

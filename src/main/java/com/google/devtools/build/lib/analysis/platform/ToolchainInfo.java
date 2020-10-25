@@ -23,13 +23,13 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainInfoApi;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainInfoApi;
 import java.util.Map;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 
 /**
  * A provider that supplies information about a specific language toolchain, including what platform
@@ -66,6 +66,11 @@ public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
   /** Constructs a ToolchainInfo. The {@code values} map itself is not retained. */
   protected ToolchainInfo(Map<String, Object> values, Location location) {
     super(PROVIDER, location);
+    this.values = copyValues(values);
+  }
+
+  public ToolchainInfo(Map<String, Object> values) {
+    super(PROVIDER, Location.BUILTIN);
     this.values = copyValues(values);
   }
 

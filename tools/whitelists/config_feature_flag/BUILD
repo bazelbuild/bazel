@@ -4,7 +4,7 @@
 
 package_group(
     name = "config_feature_flag",
-    packages = ["//..."],
+    includes = ["//tools/allowlists/config_feature_flag"],
 )
 
 filegroup(

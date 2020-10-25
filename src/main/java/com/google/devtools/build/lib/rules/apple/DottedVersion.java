@@ -23,13 +23,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.DottedVersionApi;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.DottedVersionApi;
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Printer;
 
 /**
  * Represents Xcode versions and allows parsing them.
@@ -129,8 +129,11 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
   private static final Splitter DOT_SPLITTER = Splitter.on('.');
   private static final Pattern COMPONENT_PATTERN =
       Pattern.compile("(\\d+)([a-z0-9]*?)?(\\d+)?", Pattern.CASE_INSENSITIVE);
+  private static final Pattern DESCRIPTIVE_COMPONENT_PATTERN =
+      Pattern.compile("([a-z]\\w*)", Pattern.CASE_INSENSITIVE);
   private static final String ILLEGAL_VERSION =
-      "Dotted version components must all be of the form \\d+([a-z0-9]*?)?(\\d+)? but got '%s'";
+      "Dotted version components must all start with the form \\d+([a-z0-9]*?)?(\\d+)? "
+          + "but got '%s'";
   private static final String NO_ALPHA_SEQUENCE = null;
   private static final Component ZERO_COMPONENT = new Component(0, NO_ALPHA_SEQUENCE, 0, "0");
 
@@ -168,7 +171,14 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
     }
     ArrayList<Component> components = new ArrayList<>();
     for (String component : DOT_SPLITTER.split(version)) {
+      if (isDescriptiveComponent(component)) {
+        break;
+      }
       components.add(toComponent(component, version));
+    }
+
+    if (components.isEmpty()) {
+      throw new InvalidDottedVersionException(String.format(ILLEGAL_VERSION, version));
     }
 
     int numOriginalComponents = components.size();
@@ -184,6 +194,12 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
     }
 
     return new DottedVersion(ImmutableList.copyOf(components), version, numOriginalComponents);
+  }
+
+  // Some of special build versions contains descriptive components like "experimental" or
+  // "internal". These components are usually by the end of version number, and can be ignored.
+  private static boolean isDescriptiveComponent(String component) {
+    return DESCRIPTIVE_COMPONENT_PATTERN.matcher(component).matches();
   }
 
   private static Component toComponent(String component, String version)
@@ -252,7 +268,7 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
   }
 
   @Override
-  public int compareTo_skylark(DottedVersion other) {
+  public int compareTo_starlark(DottedVersion other) {
     return compareTo(other);
   }
 

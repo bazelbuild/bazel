@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.query2;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccess
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryVisibility;
+import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
@@ -127,10 +129,12 @@ public class ConfiguredTargetValueAccessor implements TargetAccessor<ConfiguredT
   }
 
   @Override
-  public Set<QueryVisibility<ConfiguredTargetValue>> getVisibility(ConfiguredTargetValue from)
-      throws QueryException, InterruptedException {
+  public ImmutableSet<QueryVisibility<ConfiguredTargetValue>> getVisibility(
+      QueryExpression caller, ConfiguredTargetValue from) throws QueryException {
     // TODO(bazel-team): implement this if needed.
-    throw new QueryException("visible() is not supported on configured targets");
+    throw new QueryException(
+        "visible() is not supported on configured targets",
+        ConfigurableQuery.Code.VISIBLE_FUNCTION_NOT_SUPPORTED);
   }
 
   private Target getTargetFromConfiguredTargetValue(ConfiguredTargetValue configuredTargetValue) {

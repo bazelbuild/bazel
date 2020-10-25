@@ -87,7 +87,7 @@ public interface ActionCache {
 
     public Entry(String key, Map<String, String> usedClientEnv, boolean discoversInputs) {
       actionKey = key;
-      this.usedClientEnvDigest = DigestUtils.fromEnv(usedClientEnv);
+      this.usedClientEnvDigest = MetadataDigestUtils.fromEnv(usedClientEnv);
       files = discoversInputs ? new ArrayList<String>() : null;
       mdMap = new HashMap<>();
     }
@@ -105,16 +105,20 @@ public interface ActionCache {
      * Adds the artifact, specified by the executable relative path and its metadata into the cache
      * entry.
      */
-    public void addFile(PathFragment relativePath, FileArtifactValue md) {
+    public void addFile(PathFragment relativePath, FileArtifactValue md, boolean saveExecPath) {
       Preconditions.checkState(mdMap != null);
       Preconditions.checkState(!isCorrupted());
       Preconditions.checkState(digest == null);
 
       String execPath = relativePath.getPathString();
-      if (discoversInputs()) {
+      if (discoversInputs() && saveExecPath) {
         files.add(execPath);
       }
       mdMap.put(execPath, md);
+    }
+
+    public void addFile(PathFragment relativePath, FileArtifactValue md) {
+      addFile(relativePath, md, /* saveExecPath= */ true);
     }
 
     /**
@@ -137,7 +141,7 @@ public interface ActionCache {
      */
     public byte[] getFileDigest() {
       if (digest == null) {
-        digest = DigestUtils.fromMetadata(mdMap);
+        digest = MetadataDigestUtils.fromMetadata(mdMap);
         mdMap = null;
       }
       return digest;
@@ -178,7 +182,9 @@ public interface ActionCache {
           .append("\n");
       builder.append("      digestKey = ");
       if (digest == null) {
-        builder.append(formatDigest(DigestUtils.fromMetadata(mdMap))).append(" (from mdMap)\n");
+        builder
+            .append(formatDigest(MetadataDigestUtils.fromMetadata(mdMap)))
+            .append(" (from mdMap)\n");
       } else {
         builder.append(formatDigest(digest)).append("\n");
       }

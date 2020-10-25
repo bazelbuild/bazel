@@ -189,8 +189,11 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
         (ConfiguredTargetValue)
             getSkyframeExecutor()
                 .getEvaluatorForTesting()
-                .getExistingEntryAtLatestVersion(
-                    ConfiguredTargetKey.of(pkg.getLabel(), getConfiguration(pkg)))
+                .getExistingEntryAtCurrentlyEvaluatingVersion(
+                    ConfiguredTargetKey.builder()
+                        .setLabel(pkg.getLabel())
+                        .setConfiguration(getConfiguration(pkg))
+                        .build())
                 .getValue();
     ImmutableList<ActionAnalysisMetadata> linkstampCompileActions =
         configuredTargetValue
@@ -201,7 +204,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     assertThat(linkstampCompileActions).hasSize(1);
     ActionAnalysisMetadata linkstampCompileAction = linkstampCompileActions.get(0);
     assertThat(indexAction.getInputs().toList())
-        .doesNotContain(linkstampCompileAction.getOutputs());
+        .containsNoneIn(linkstampCompileAction.getOutputs());
 
     assertThat(indexAction.getArguments())
         .containsAtLeast(
@@ -1854,6 +1857,74 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
         getGeneratingAction(artifactByPath(getFilesToBuild(pkg), "bin", "binfile.pic.o"));
     assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
     assertThat(backendAction.getArguments()).containsAtLeast("-fno-PIE", "-fPIC").inOrder();
+  }
+
+  private void testPropellerOptimizeOption(boolean label) throws Exception {
+    scratch.file(
+        "pkg/BUILD",
+        "package(features = ['thin_lto'])",
+        "",
+        "cc_binary(name = 'bin',",
+        "          srcs = ['binfile.cc', ])");
+
+    if (label) {
+      scratch.file(
+          "fdo/BUILD",
+          "propeller_optimize(name='test_propeller_optimize', cc_profile=':cc_profile.txt',"
+              + " ld_profile=':ld_profile.txt')");
+    } else {
+      scratch.file(
+          "fdo/BUILD",
+          "propeller_optimize(name='test_propeller_optimize',"
+              + "absolute_cc_profile='/tmp/cc_profile.txt',"
+              + "absolute_ld_profile='/tmp/ld_profile.txt')");
+    }
+
+    scratch.file("pkg/binfile.cc", "int main() {}");
+
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.THIN_LTO,
+                    CppRuleClasses.SUPPORTS_START_END_LIB,
+                    CppRuleClasses.SUPPORTS_PIC,
+                    MockCcSupport.HOST_AND_NONHOST_CONFIGURATION_FEATURES,
+                    CppRuleClasses.AUTOFDO));
+
+    useConfiguration(
+        "--propeller_optimize=//fdo:test_propeller_optimize", "--compilation_mode=opt");
+
+    Artifact binArtifact = getFilesToBuild(getConfiguredTarget("//pkg:bin")).getSingleton();
+
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
+
+    List<String> commandLine = linkAction.getLinkCommandLine().getRawLinkArgv();
+    assertThat(commandLine.toString())
+        .containsMatch("-Wl,--symbol-ordering-file=.*/ld_profile.txt");
+
+    LtoBackendAction backendAction =
+        (LtoBackendAction)
+            getPredecessorByInputName(linkAction, "pkg/bin.lto/pkg/_objs/bin/binfile.o");
+
+    String expectedCompilerFlag = "-fbasic-block-sections=list=.*/cc_profile.txt";
+    assertThat(Joiner.on(" ").join(backendAction.getArguments()))
+        .containsMatch(expectedCompilerFlag);
+    assertThat(ActionsTestUtil.baseArtifactNames(backendAction.getInputs()))
+        .contains("cc_profile.txt");
+  }
+
+  @Test
+  public void testPropellerOptimizeOptionFromAbsolutePath() throws Exception {
+    testPropellerOptimizeOption(false);
+  }
+
+  @Test
+  public void testPropellerOptimizeOptionFromLabel() throws Exception {
+    testPropellerOptimizeOption(true);
   }
 
   private void testLLVMCachePrefetchBackendOption(String extraOption, boolean asLabel)

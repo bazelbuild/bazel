@@ -4571,50 +4571,47 @@ public class MemoizingEvaluatorTest {
   public void shutDownBuildOnCachedError_Done() throws Exception {
     // errorKey will be invalidated due to its dependence on invalidatedKey, but later revalidated
     // since invalidatedKey re-evaluates to the same value on a subsequent build.
-    final SkyKey errorKey = GraphTester.toSkyKey("error");
+    SkyKey errorKey = GraphTester.toSkyKey("error");
     SkyKey invalidatedKey = GraphTester.nonHermeticKey("invalidated-leaf");
     tester.set(invalidatedKey, new StringValue("invalidated-leaf-value"));
     tester.getOrCreate(errorKey).addDependency(invalidatedKey).setHasError(true);
     // Names are alphabetized in reverse deps of errorKey.
-    final SkyKey fastToRequestSlowToSetValueKey = GraphTester.toSkyKey("A-slow-set-value-parent");
-    final SkyKey failingKey = GraphTester.toSkyKey("B-fast-fail-parent");
+    SkyKey fastToRequestSlowToSetValueKey = GraphTester.toSkyKey("A-slow-set-value-parent");
+    SkyKey failingKey = GraphTester.toSkyKey("B-fast-fail-parent");
     tester.getOrCreate(fastToRequestSlowToSetValueKey).addDependency(errorKey)
         .setComputedValue(CONCATENATE);
     tester.getOrCreate(failingKey).addDependency(errorKey).setComputedValue(CONCATENATE);
     // We only want to force a particular order of operations at some points during evaluation.
-    final AtomicBoolean synchronizeThreads = new AtomicBoolean(false);
+    AtomicBoolean synchronizeThreads = new AtomicBoolean(false);
     // We don't expect slow-set-value to actually be built, but if it is, we wait for it.
-    final CountDownLatch slowBuilt = new CountDownLatch(1);
+    CountDownLatch slowBuilt = new CountDownLatch(1);
     injectGraphListenerForTesting(
-        new Listener() {
-          @Override
-          public void accept(SkyKey key, EventType type, Order order, Object context) {
-            if (!synchronizeThreads.get()) {
-              return;
+        (key, type, order, context) -> {
+          if (!synchronizeThreads.get()) {
+            return;
+          }
+          if (type == EventType.GET_DIRTY_STATE && key.equals(failingKey)) {
+            // Wait for the build to abort or for the other node to incorrectly build.
+            try {
+              assertThat(slowBuilt.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                  .isTrue();
+            } catch (InterruptedException e) {
+              // This is ok, because it indicates the build is shutting down.
+              Thread.currentThread().interrupt();
             }
-            if (type == EventType.IS_DIRTY && key.equals(failingKey)) {
-              // Wait for the build to abort or for the other node to incorrectly build.
-              try {
-                assertThat(slowBuilt.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
-                    .isTrue();
-              } catch (InterruptedException e) {
-                // This is ok, because it indicates the build is shutting down.
-                Thread.currentThread().interrupt();
-              }
-            } else if (type == EventType.SET_VALUE
-                && key.equals(fastToRequestSlowToSetValueKey)
-                && order == Order.AFTER) {
-              // This indicates a problem -- this parent shouldn't be built since it depends on
-              // an error.
-              slowBuilt.countDown();
-              // Before this node actually sets its value (and then throws an exception) we wait
-              // for the other node to throw an exception.
-              try {
-                Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
-                throw new IllegalStateException("uninterrupted in " + key);
-              } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-              }
+          } else if (type == EventType.SET_VALUE
+              && key.equals(fastToRequestSlowToSetValueKey)
+              && order == Order.AFTER) {
+            // This indicates a problem -- this parent shouldn't be built since it depends on
+            // an error.
+            slowBuilt.countDown();
+            // Before this node actually sets its value (and then throws an exception) we wait
+            // for the other node to throw an exception.
+            try {
+              Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+              throw new IllegalStateException("uninterrupted in " + key);
+            } catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
             }
           }
         },
@@ -5375,7 +5372,7 @@ public class MemoizingEvaluatorTest {
           EvaluationContext.newBuilder()
               .setKeepGoing(keepGoing)
               .setNumThreads(numThreads)
-              .setEventHander(reporter)
+              .setEventHandler(reporter)
               .build();
       return driver.evaluate(ImmutableList.copyOf(keys), evaluationContext);
     }

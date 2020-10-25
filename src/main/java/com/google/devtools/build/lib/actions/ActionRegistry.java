@@ -24,5 +24,5 @@ public interface ActionRegistry {
   void registerAction(ActionAnalysisMetadata... actions);
 
   /** Get the key of the ConfiguredTarget/Aspect ultimately responsible for all these actions. */
-  ActionLookupValue.ActionLookupKey getOwner();
+  ActionLookupKey getOwner();
 }

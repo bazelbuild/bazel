@@ -20,7 +20,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/apple",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/apple",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
     ],

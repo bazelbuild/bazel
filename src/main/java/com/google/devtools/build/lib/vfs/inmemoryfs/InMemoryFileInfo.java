@@ -25,6 +25,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
+import java.util.function.Consumer;
 
 /**
  * InMemoryFileInfo manages file contents by storing them entirely in memory.
@@ -111,10 +112,10 @@ public class InMemoryFileInfo extends FileInfo {
    * A {@link ByteArrayOutputStream} which notifiers a callback when it has flushed its data.
    */
   public static class InMemoryOutputStream extends ByteArrayOutputStream {
-    private final IOByteReceiver receiver;
+    private final Consumer<byte[]> receiver;
     private boolean closed = false;
 
-    public InMemoryOutputStream(IOByteReceiver receiver) {
+    public InMemoryOutputStream(Consumer<byte[]> receiver) {
       this.receiver = receiver;
     }
 
@@ -137,22 +138,14 @@ public class InMemoryFileInfo extends FileInfo {
     }
 
     @Override
-    public synchronized void close() throws IOException {
+    public synchronized void close() {
       flush();
       closed = true;
     }
 
     @Override
-    public synchronized void flush() throws IOException {
+    public synchronized void flush() {
       receiver.accept(toByteArray().clone());
     }
-  }
-
-  /**
-   * Similar to {@link com.google.common.base.Receiver}, but allows implementations to throw
-   * {@link IOException}.
-   */
-  public interface IOByteReceiver {
-    void accept(byte[] bytes) throws IOException;
   }
 }

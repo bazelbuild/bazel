@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -39,6 +40,9 @@ import com.google.devtools.build.lib.exec.StreamedTestOutput;
 import com.google.devtools.build.lib.exec.TestLogHelper;
 import com.google.devtools.build.lib.exec.TestXmlOutputParser;
 import com.google.devtools.build.lib.exec.TestXmlOutputParserException;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.TestAction;
+import com.google.devtools.build.lib.server.FailureDetails.TestAction.Code;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -141,7 +145,12 @@ public abstract class TestStrategy implements TestActionContext {
     try {
       return expandedArgsFromAction(testAction);
     } catch (CommandLineExpansionException e) {
-      throw new UserExecException(e);
+      throw new UserExecException(
+          e,
+          FailureDetail.newBuilder()
+              .setMessage(Strings.nullToEmpty(e.getMessage()))
+              .setTestAction(TestAction.newBuilder().setCode(Code.COMMAND_LINE_EXPANSION_FAILURE))
+              .build());
     }
   }
 
@@ -321,7 +330,10 @@ public abstract class TestStrategy implements TestActionContext {
       if (testResultData.getStatus() != BlazeTestStatus.INCOMPLETE
           && TestLogHelper.shouldOutputTestLog(executionOptions.testOutput, isPassed)) {
         TestLogHelper.writeTestLog(
-            testLog, testName, actionExecutionContext.getFileOutErr().getOutputStream());
+            testLog,
+            testName,
+            actionExecutionContext.getFileOutErr().getOutputStream(),
+            executionOptions.maxTestOutputBytes);
       }
     } finally {
       if (isPassed) {

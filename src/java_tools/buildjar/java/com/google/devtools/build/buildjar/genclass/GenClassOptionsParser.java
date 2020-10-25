@@ -30,17 +30,11 @@ public class GenClassOptionsParser {
         case "--manifest_proto":
           builder.setManifest(readPath(it));
           break;
-        case "--generated_source_jar":
-          builder.addGeneratedSourceJar(readPath(it));
-          break;
         case "--class_jar":
           builder.setClassJar(readPath(it));
           break;
         case "--output_jar":
           builder.setOutputJar(readPath(it));
-          break;
-        case "--temp_dir":
-          builder.setTempDir(readPath(it));
           break;
         default:
           throw new IllegalArgumentException(

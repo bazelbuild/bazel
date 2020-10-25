@@ -181,6 +181,95 @@ replacements {
   source {
     opcode: 184
     method_id {
+      owner: "java/lang/Integer"
+      name: "divideUnsigned"
+      desc: "(II)I"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "com/google/devtools/build/android/desugar/runtime/UnsignedInts"
+      name: "divide"
+      desc: "(II)I"
+    }
+    is_interface: false
+  }
+  # TODO(deltazulu): adjust flag name to include INT_UNSIGNED
+  range: REPLACE_CALLS_TO_LONG_UNSIGNED
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Integer"
+      name: "remainderUnsigned"
+      desc: "(II)I"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "com/google/devtools/build/android/desugar/runtime/UnsignedInts"
+      name: "remainder"
+      desc: "(II)I"
+    }
+    is_interface: false
+  }
+  range: REPLACE_CALLS_TO_LONG_UNSIGNED
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Integer"
+      name: "toUnsignedString"
+      desc: "(I)Ljava/lang/String;"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "com/google/devtools/build/android/desugar/runtime/UnsignedInts"
+      name: "toString"
+      desc: "(I)Ljava/lang/String;"
+    }
+    is_interface: false
+  }
+  range: REPLACE_CALLS_TO_LONG_UNSIGNED
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Integer"
+      name: "toUnsignedString"
+      desc: "(II)Ljava/lang/String;"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "com/google/devtools/build/android/desugar/runtime/UnsignedInts"
+      name: "toString"
+      desc: "(II)Ljava/lang/String;"
+    }
+    is_interface: false
+  }
+  range: REPLACE_CALLS_TO_LONG_UNSIGNED
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
       owner: "java/lang/Long"
       name: "divideUnsigned"
       desc: "(JJ)J"
@@ -215,6 +304,50 @@ replacements {
       owner: "com/google/devtools/build/android/desugar/runtime/UnsignedLongs"
       name: "remainderUnsigned"
       desc: "(JJ)J"
+    }
+    is_interface: false
+  }
+  range: REPLACE_CALLS_TO_LONG_UNSIGNED
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Long"
+      name: "toUnsignedString"
+      desc: "(J)Ljava/lang/String;"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "com/google/devtools/build/android/desugar/runtime/UnsignedLongs"
+      name: "toString"
+      desc: "(J)Ljava/lang/String;"
+    }
+    is_interface: false
+  }
+  range: REPLACE_CALLS_TO_LONG_UNSIGNED
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Long"
+      name: "toUnsignedString"
+      desc: "(JI)Ljava/lang/String;"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "com/google/devtools/build/android/desugar/runtime/UnsignedLongs"
+      name: "toString"
+      desc: "(JI)Ljava/lang/String;"
     }
     is_interface: false
   }
@@ -391,6 +524,72 @@ replacements {
   }
   range: DESUGAR_JAVA8_LIBS
   auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Math"
+      name: "floorDiv"
+      desc: "(JI)J"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Math8"
+      name: "floorDiv"
+      desc: "(JI)J"
+    }
+    is_interface: false
+  }
+  range: DESUGAR_JAVA8_LIBS
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Math"
+      name: "floorMod"
+      desc: "(JI)J"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Math8"
+      name: "floorMod"
+      desc: "(JI)J"
+    }
+    is_interface: false
+  }
+  range: DESUGAR_JAVA8_LIBS
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Math"
+      name: "multiplyExact"
+      desc: "(JI)J"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Math8"
+      name: "multiplyExact"
+      desc: "(JI)J"
+    }
+    is_interface: false
+  }
+  range: DESUGAR_JAVA8_LIBS
 }
 
 replacements {

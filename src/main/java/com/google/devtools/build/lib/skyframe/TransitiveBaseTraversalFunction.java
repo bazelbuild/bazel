@@ -278,8 +278,7 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
       // a new BUILD file appearing in the hierarchy.
       PathFragment containingDirectory = getContainingDirectory(label);
       PackageIdentifier newPkgId =
-          PackageIdentifier.create(
-              label.getPackageIdentifier().getRepository(), containingDirectory);
+          PackageIdentifier.create(label.getRepository(), containingDirectory);
       ContainingPackageLookupValue containingPackageLookupValue;
       try {
         containingPackageLookupValue =

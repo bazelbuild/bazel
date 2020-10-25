@@ -26,12 +26,12 @@ import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.packages.BazelPackageLoader;
 import com.google.devtools.build.lib.skyframe.packages.PackageLoader;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.Root;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
- * A {@link PackageLoadingListener} for use in tests that a sanity check with {@link
- * BazelPackageLoader} for each loaded package, for the sake of getting pretty nice test coverage.
+ * A {@link PackageLoadingListener} for use in tests that a check with {@link BazelPackageLoader}
+ * for each loaded package, for the sake of getting pretty nice test coverage.
  */
 public class BazelPackageLoadingListenerForTesting implements PackageLoadingListener {
   private final ConfiguredRuleClassProvider ruleClassProvider;
@@ -49,21 +49,25 @@ public class BazelPackageLoadingListenerForTesting implements PackageLoadingList
     sanityCheckBazelPackageLoader(pkg, ruleClassProvider, starlarkSemantics);
   }
 
+  private PackageLoader makeFreshPackageLoader(
+      ConfiguredRuleClassProvider ruleClassProvider, StarlarkSemantics starlarkSemantics) {
+    return BazelPackageLoader.builder(
+            Root.fromPath(directories.getWorkspace()),
+            directories.getInstallBase(),
+            directories.getOutputBase())
+        .setStarlarkSemantics(starlarkSemantics)
+        .setRuleClassProvider(ruleClassProvider)
+        .build();
+  }
+
   private void sanityCheckBazelPackageLoader(
       Package pkg,
       ConfiguredRuleClassProvider ruleClassProvider,
       StarlarkSemantics starlarkSemantics) {
     PackageIdentifier pkgId = pkg.getPackageIdentifier();
-    PackageLoader packageLoader =
-        BazelPackageLoader.builder(
-                Root.fromPath(directories.getWorkspace()),
-                directories.getInstallBase(),
-                directories.getOutputBase())
-            .setStarlarkSemantics(starlarkSemantics)
-            .setRuleClassProvider(ruleClassProvider)
-            .build();
     Package newlyLoadedPkg;
-    try {
+    try (PackageLoader packageLoader =
+        makeFreshPackageLoader(ruleClassProvider, starlarkSemantics)) {
       newlyLoadedPkg = packageLoader.loadPackage(pkg.getPackageIdentifier());
     } catch (InterruptedException e) {
       return;

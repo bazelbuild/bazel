@@ -157,7 +157,8 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
   }
 
   private GeneratingActions checkActionAndArtifactConflicts(
-      ImmutableList<? extends Action> actions, ActionTemplateExpansionKey key)
+      ImmutableList<? extends Action> actions,
+      ActionTemplateExpansionKey key)
       throws ActionConflictException, ArtifactPrefixConflictException {
     GeneratingActions generatingActions =
         Actions.assignOwnersAndFindAndThrowActionConflict(
@@ -171,7 +172,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     return generatingActions;
   }
 
-  private static Map<Artifact, ActionAnalysisMetadata> getMapForConsistencyCheck(
+  private static ImmutableMap<Artifact, ActionAnalysisMetadata> getMapForConsistencyCheck(
       List<? extends ActionAnalysisMetadata> actions) {
     if (actions.isEmpty()) {
       return ImmutableMap.of();
@@ -183,7 +184,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
         result.put(output, action);
       }
     }
-    return result;
+    return ImmutableMap.copyOf(result);
   }
 
   /**

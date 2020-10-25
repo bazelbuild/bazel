@@ -63,10 +63,8 @@ RcFile::ParseError RcFile::ParseFile(const string& filename,
   const std::string canonical_filename =
       blaze_util::MakeCanonical(filename.c_str());
 
+  int rcfile_index = canonical_rcfile_paths_.size();
   canonical_rcfile_paths_.push_back(canonical_filename);
-  // Keep a pointer to the canonical_filename string in canonical_rcfile_paths_
-  // for the RcOptions.
-  string* filename_ptr = &canonical_rcfile_paths_.back();
 
   // A '\' at the end of a line continues the line.
   blaze_util::Replace("\\\r\n", "", &contents);
@@ -144,7 +142,7 @@ RcFile::ParseError RcFile::ParseFile(const string& filename,
       auto words_it = words.begin();
       words_it++;  // Advance past command.
       for (; words_it != words.end(); words_it++) {
-        options_[command].push_back({filename_ptr, *words_it});
+        options_[command].push_back({*words_it, rcfile_index});
       }
     }
   }

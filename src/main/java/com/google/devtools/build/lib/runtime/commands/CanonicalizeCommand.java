@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.InvocationPolicyParser;
@@ -152,7 +151,6 @@ public final class CanonicalizeCommand implements BlazeCommand {
       env.getReporter().handle(Event.error(message));
       return BlazeCommandResult.detailedExitCode(
           DetailedExitCode.of(
-              ExitCode.COMMAND_LINE_ERROR,
               FailureDetail.newBuilder()
                   .setMessage(message)
                   .setCanonicalizeFlags(
@@ -258,7 +256,6 @@ public final class CanonicalizeCommand implements BlazeCommand {
     env.getReporter().handle(Event.error(message));
     return BlazeCommandResult.detailedExitCode(
         DetailedExitCode.of(
-            ExitCode.COMMAND_LINE_ERROR,
             FailureDetail.newBuilder()
                 .setMessage(message)
                 .setCommand(FailureDetails.Command.newBuilder().setCode(detailedCode))

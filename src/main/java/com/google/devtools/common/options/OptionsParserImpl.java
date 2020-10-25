@@ -20,6 +20,7 @@ import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
@@ -49,6 +50,7 @@ class OptionsParserImpl {
     private ArgsPreProcessor argsPreProcessor = args -> args;
     private final ArrayList<String> skippedPrefixes = new ArrayList<>();
     private boolean ignoreInternalOptions = true;
+    @Nullable private String aliasFlag = null;
 
     /** Set the {@link OptionsData} to be used in this instance. */
     public Builder optionsData(OptionsData optionsData) {
@@ -74,13 +76,25 @@ class OptionsParserImpl {
       return this;
     }
 
+    /**
+     * Sets what flag the parser should use for flag aliasing. Defaults to null if not set,
+     * effectively disabling the aliasing functionality.
+     */
+    public Builder withAliasFlag(@Nullable String aliasFlag) {
+      if (aliasFlag != null) {
+        this.aliasFlag = "--" + aliasFlag;
+      }
+      return this;
+    }
+
     /** Returns a newly-initialized {@link OptionsParserImpl}. */
     public OptionsParserImpl build() {
       return new OptionsParserImpl(
           this.optionsData,
           this.argsPreProcessor,
           this.skippedPrefixes,
-          this.ignoreInternalOptions);
+          this.ignoreInternalOptions,
+          this.aliasFlag);
     }
   }
 
@@ -125,20 +139,24 @@ class OptionsParserImpl {
    */
   private final List<ParsedOptionDescription> parsedOptions = new ArrayList<>();
 
+  private final Map<String, String> flagAliasMappings = new HashMap<>();
   private final List<String> warnings = new ArrayList<>();
   private final ArgsPreProcessor argsPreProcessor;
   private final List<String> skippedPrefixes;
   private final boolean ignoreInternalOptions;
+  @Nullable private final String aliasFlag;
 
   OptionsParserImpl(
       OptionsData optionsData,
       ArgsPreProcessor argsPreProcessor,
       List<String> skippedPrefixes,
-      boolean ignoreInternalOptions) {
+      boolean ignoreInternalOptions,
+      @Nullable String aliasFlag) {
     this.optionsData = optionsData;
     this.argsPreProcessor = argsPreProcessor;
     this.skippedPrefixes = skippedPrefixes;
     this.ignoreInternalOptions = ignoreInternalOptions;
+    this.aliasFlag = aliasFlag;
   }
 
   /** Returns the {@link OptionsData} used in this instance. */
@@ -176,8 +194,7 @@ class OptionsParserImpl {
 
   /** Implements {@link OptionsParser#canonicalize}. */
   List<String> asCanonicalizedList() {
-    return asCanonicalizedListOfParsedOptions()
-        .stream()
+    return asCanonicalizedListOfParsedOptions().stream()
         .map(ParsedOptionDescription::getDeprecatedCanonicalForm)
         .collect(ImmutableList.toImmutableList());
   }
@@ -215,7 +232,7 @@ class OptionsParserImpl {
     }
     // Continue to support the old behavior for @Deprecated options.
     String warning = optionDefinition.getDeprecationWarning();
-    if (!warning.isEmpty() || (optionDefinition.getField().isAnnotationPresent(Deprecated.class))) {
+    if (!warning.isEmpty() || optionDefinition.getField().isAnnotationPresent(Deprecated.class)) {
       addDeprecationWarning(optionDefinition.getOptionName(), warning);
     }
   }
@@ -225,7 +242,6 @@ class OptionsParserImpl {
         String.format(
             "Option '%s' is deprecated%s", optionName, (warning.isEmpty() ? "" : ": " + warning)));
   }
-
 
   OptionValueDescription clearValue(OptionDefinition optionDefinition)
       throws OptionsParsingException {
@@ -354,7 +370,9 @@ class OptionsParserImpl {
         continue; // not an option arg
       }
 
-      if (skippedPrefixes.stream().anyMatch(prefix -> arg.startsWith(prefix))) {
+      arg = swapShorthandAlias(arg);
+
+      if (containsSkippedPrefix(arg)) {
         unparsedArgs.add(arg);
         continue;
       }
@@ -480,6 +498,13 @@ class OptionsParserImpl {
       // Log explicit options and expanded options in the order they are parsed (can be sorted
       // later). This information is needed to correctly canonicalize flags.
       parsedOptions.add(parsedOption);
+
+      if (aliasFlag != null && parsedOption.getCommandLineForm().startsWith(aliasFlag)) {
+        List<String> alias =
+            Splitter.on('=').limit(2).splitToList(parsedOption.getUnconvertedValue());
+
+        flagAliasMappings.put(alias.get(0), alias.get(1));
+      }
     }
 
     if (expansionBundle != null) {
@@ -551,8 +576,7 @@ class OptionsParserImpl {
                 "Illegal use of 'no' prefix on non-boolean option: " + arg, arg);
           }
           if (unconvertedValue != null) {
-            throw new OptionsParsingException(
-                "Unexpected value after boolean option: " + arg, arg);
+            throw new OptionsParsingException("Unexpected value after boolean option: " + arg, arg);
           }
           // "no<optionname>" signifies a boolean option w/ false value
           unconvertedValue = "0";
@@ -596,9 +620,7 @@ class OptionsParserImpl {
             .contains(OptionMetadataTag.INTERNAL);
   }
 
-  /**
-   * Gets the result of parsing the options.
-   */
+  /** Gets the result of parsing the options. */
   <O extends OptionsBase> O getParsedOptions(Class<O> optionsClass) {
     // Create the instance:
     O optionsInstance;
@@ -639,5 +661,46 @@ class OptionsParserImpl {
 
   List<String> getWarnings() {
     return ImmutableList.copyOf(warnings);
+  }
+
+  /**
+   * Takes a string with a leading "-" and swaps it with the matching alias mapping. Example case
+   * with --flag_alias=foo=bar mapped:
+   *
+   * <pre>
+   *   swapShorthandAlias("-c") returns "-c"
+   *   swapShorthandAlias("--foo") returns "--bar"
+   *   swapShorthandAlias("--baz") returns "--baz"
+   * </pre>
+   *
+   * This method returns immediately when aliasFlag is not set via the builder, which is an implicit
+   * disabling of the aliaising functionality.
+   */
+  private String swapShorthandAlias(String arg) {
+    if (aliasFlag == null) {
+      return arg;
+    }
+
+    int equalSign = arg.indexOf("=");
+
+    // Extracts the <arg> from '--<arg>=<value>' and '--<arg> <value>' formats on the command line
+    String actualArg = (equalSign != -1) ? arg.substring(2, equalSign) : arg.substring(2);
+
+    if (!flagAliasMappings.containsKey(actualArg)) {
+      return arg;
+    }
+
+    String alias = flagAliasMappings.get(actualArg);
+    actualArg = alias;
+
+    // Converts the arg back into a command line option, accounting for both '--<arg>=<value>' and
+    // '--<arg> <value>' formats
+    actualArg = (equalSign != -1) ? "--" + actualArg + arg.substring(equalSign) : "--" + actualArg;
+
+    return actualArg;
+  }
+
+  private boolean containsSkippedPrefix(String arg) {
+    return skippedPrefixes.stream().anyMatch(arg::startsWith);
   }
 }

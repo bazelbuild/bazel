@@ -15,6 +15,12 @@
 #ifndef SRC_MAIN_TOOLS_LOGGING_H_
 #define SRC_MAIN_TOOLS_LOGGING_H_
 
+#include <inttypes.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
 // see
 // http://stackoverflow.com/questions/5641427/how-to-make-preprocessor-generate-a-string-for-line-keyword
 #define S(x) #x
@@ -29,12 +35,16 @@
     exit(EXIT_FAILURE);                                         \
   }
 
-#define PRINT_DEBUG(...)                                        \
-  do {                                                          \
-    if (global_debug) {                                         \
-      fprintf(stderr, __FILE__ ":" S__LINE__ ": " __VA_ARGS__); \
-      fprintf(stderr, "\n");                                    \
-    }                                                           \
+#define PRINT_DEBUG(fmt, ...)                                       \
+  do {                                                              \
+    if (global_debug) {                                             \
+      struct timespec ts;                                           \
+      clock_gettime(CLOCK_REALTIME, &ts);                           \
+                                                                    \
+      fprintf(stderr, "%" PRId64 ".%09ld: %s:%d: " fmt "\n",        \
+              ((int64_t)ts.tv_sec), ts.tv_nsec, __FILE__, __LINE__, \
+              ##__VA_ARGS__);                                       \
+    }                                                               \
   } while (0)
 
 // Set to `true` to let PRINT_DEBUG() print messages.

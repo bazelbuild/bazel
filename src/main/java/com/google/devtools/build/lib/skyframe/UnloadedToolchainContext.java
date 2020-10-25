@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -28,7 +28,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 public interface UnloadedToolchainContext extends ToolchainContext, SkyValue {
 
   /** The map of toolchain type to resolved toolchain to be used. */
-  ImmutableBiMap<ToolchainTypeInfo, Label> toolchainTypeToResolved();
+  ImmutableSetMultimap<ToolchainTypeInfo, Label> toolchainTypeToResolved();
 
   /**
    * Maps from the actual requested {@link Label} to the discovered {@link ToolchainTypeInfo}.
@@ -41,4 +41,7 @@ public interface UnloadedToolchainContext extends ToolchainContext, SkyValue {
 
   @Override
   ImmutableSet<Label> resolvedToolchainLabels();
+
+  /** Returns a copy of this context, without the resolved toolchain data. */
+  UnloadedToolchainContext withoutResolvedToolchains();
 }

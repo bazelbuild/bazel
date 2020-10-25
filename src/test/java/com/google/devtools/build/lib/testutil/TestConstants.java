@@ -87,10 +87,9 @@ public class TestConstants {
       "com.google.devtools.build.lib.bazel.rules.BazelStrategyModule";
   public static final String TEST_REAL_UNIX_FILE_SYSTEM =
       "com.google.devtools.build.lib.unix.UnixFileSystem";
+  public static final String TEST_UNIX_HASH_ATTRIBUTE = "";
 
   public static final ImmutableList<String> IGNORED_MESSAGE_PREFIXES = ImmutableList.<String>of();
-
-  public static final String WORKSPACE_CONTENT = "";
 
   /** The path in which the mock cc crosstool resides. */
   public static final String MOCK_CC_CROSSTOOL_PATH = "tools/cpp";
@@ -103,11 +102,6 @@ public class TestConstants {
   /** The output file path prefix for tool file dependencies. */
   public static final String TOOLS_REPOSITORY_PATH_PREFIX = "external/bazel_tools/";
 
-  /** Repository label prefix for rules_cc. */
-  public static final String RULES_CC_REPOSITORY = "@rules_cc//";
-  /**
-   * The file path in which to create files so that they end up under {@link #RULES_CC_REPOSITORY}.
-   */
   public static final String RULES_CC_REPOSITORY_SCRATCH = "rules_cc_workspace/";
   /** The directory in which rules_cc repo resides in execroot. */
   public static final String RULES_CC_REPOSITORY_EXECROOT = "external/rules_cc/";
@@ -147,6 +141,10 @@ public class TestConstants {
 
   public static final String PLATFORM_LABEL =
       PLATFORM_PACKAGE_ROOT + ":default_host + " + PLATFORM_PACKAGE_ROOT + ":default_target";
+
+  /** What toolchain type do Android rules use for platform-based toolchain resolution? */
+  public static final String ANDROID_TOOLCHAIN_TYPE_LABEL =
+      TOOLS_REPOSITORY + "//tools/android:sdk_toolchain_type";
 
   /** A choice of test execution mode, only varies internally. */
   public enum InternalTestExecutionMode {

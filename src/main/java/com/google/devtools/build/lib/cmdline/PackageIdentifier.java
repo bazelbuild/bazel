@@ -170,11 +170,19 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
   }
 
   /**
-   * Returns a relative path to the source code for this package. Returns pkgName if this is in the
-   * main repository or external/[repository name]/[pkgName] if not.
+   * Returns a path to the source code for this package relative to the corresponding source root.
+   * Returns pkgName if this is in the main repository or [repository name]/[pkgName] if not.
    */
   public PathFragment getSourceRoot() {
     return repository.getSourceRoot().getRelative(pkgName);
+  }
+
+  /**
+   * Returns the package path to the source code for this package. Returns pkgName if this is in the
+   * main repository or external/[repository name]/[pkgName] if not.
+   */
+  public PathFragment getPackagePath() {
+    return repository.getPackagePath().getRelative(pkgName);
   }
 
   public PathFragment getExecPath(boolean siblingRepositoryLayout) {
@@ -228,7 +236,15 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
   }
 
   @Override
+  @SuppressWarnings("ReferenceEquality") // Performance optimization.
   public int compareTo(PackageIdentifier that) {
+    // Fast-paths for the common case of the same package or a package in the same repository.
+    if (this == that) {
+      return 0;
+    }
+    if (repository == that.repository) {
+      return pkgName.compareTo(that.pkgName);
+    }
     return ComparisonChain.start()
         .compare(repository.toString(), that.repository.toString())
         .compare(pkgName, that.pkgName)

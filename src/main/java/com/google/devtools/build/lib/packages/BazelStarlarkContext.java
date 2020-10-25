@@ -19,9 +19,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinitionContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 
 /** Contextual information associated with each Starlark thread created by Bazel. */
 // TODO(adonovan): rename BazelThreadContext, for symmetry with BazelModuleContext.
@@ -104,10 +105,10 @@ public final class BazelStarlarkContext implements RuleDefinitionContext, Label.
   }
 
   /**
-   * Returns a map of {@code RepositoryName}s where the keys are repository names that are
-   * written in the BUILD files and the values are new repository names chosen by the main
-   * repository.
+   * Returns a map of {@code RepositoryName}s where the keys are repository names that are written
+   * in the BUILD files and the values are new repository names chosen by the main repository.
    */
+  @Override
   public ImmutableMap<RepositoryName, RepositoryName> getRepoMapping() {
     return repoMapping;
   }
@@ -132,8 +133,7 @@ public final class BazelStarlarkContext implements RuleDefinitionContext, Label.
    */
   public void checkLoadingOrWorkspacePhase(String function) throws EvalException {
     if (phase == Phase.ANALYSIS) {
-      throw new EvalException(
-          null, "'" + function + "' cannot be called during the analysis phase");
+      throw Starlark.errorf("'%s' cannot be called during the analysis phase", function);
     }
   }
 
@@ -144,8 +144,18 @@ public final class BazelStarlarkContext implements RuleDefinitionContext, Label.
    */
   public void checkLoadingPhase(String function) throws EvalException {
     if (phase != Phase.LOADING) {
-      throw new EvalException(
-          null, "'" + function + "' can only be called during the loading phase");
+      throw Starlark.errorf("'%s' can only be called during the loading phase", function);
+    }
+  }
+
+  /**
+   * Checks that the current StarlarkThread is in the workspace phase.
+   *
+   * @param function name of a function that requires this check
+   */
+  public void checkWorkspacePhase(String function) throws EvalException {
+    if (phase != Phase.WORKSPACE) {
+      throw Starlark.errorf("'%s' can only be called during workspace loading", function);
     }
   }
 }

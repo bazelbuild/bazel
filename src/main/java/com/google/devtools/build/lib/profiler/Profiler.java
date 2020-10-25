@@ -36,7 +36,6 @@ import java.io.OutputStreamWriter;
 import java.lang.management.ManagementFactory;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -125,8 +124,7 @@ public final class Profiler {
   }
 
   /**
-   * Container for the single task record. Should never be instantiated directly - use
-   * TaskStack.create() instead.
+   * Container for the single task record.
    *
    * <p>Class itself is not thread safe, but all access to it from Profiler methods is.
    */
@@ -165,15 +163,18 @@ public final class Profiler {
 
   private static final class ActionTaskData extends TaskData {
     final String primaryOutputPath;
+    final String targetLabel;
 
     ActionTaskData(
         int id,
         long startTimeNanos,
         ProfilerTask eventType,
         String description,
-        String primaryOutputPath) {
+        String primaryOutputPath,
+        String targetLabel) {
       super(id, startTimeNanos, eventType, description);
       this.primaryOutputPath = primaryOutputPath;
+      this.targetLabel = targetLabel;
     }
   }
 
@@ -246,15 +247,6 @@ public final class Profiler {
    * are disabled. This can happen when slowest task recording is enabled.
    */
   private AtomicReference<FileWriter> writerRef = new AtomicReference<>();
-
-  /**
-   * This is a per-thread data structure that's used to track the current stack of open tasks, the
-   * purpose of which is to track the parent id of every task. This is also used to ensure that
-   * {@link #profile} and {@link #completeTask} calls always occur in pairs.
-   */
-  // TODO(ulfjack): We can infer the parent/child relationship after the fact instead of tracking it
-  // at runtime. That would allow us to remove this data structure entirely.
-  private ThreadLocal<ArrayDeque<TaskData>> taskStack;
 
   private final SlowestTaskAggregator[] slowestTasks =
       new SlowestTaskAggregator[ProfilerTask.values().length];
@@ -370,7 +362,8 @@ public final class Profiler {
       long execStartTimeNanos,
       boolean enabledCpuUsageProfiling,
       boolean slimProfile,
-      boolean includePrimaryOutput)
+      boolean includePrimaryOutput,
+      boolean includeTargetLabel)
       throws IOException {
     Preconditions.checkState(!isActive(), "Profiler already active");
     initHistograms();
@@ -381,15 +374,15 @@ public final class Profiler {
     this.actionCountTimeSeries =
         new TimeSeries(Duration.ofNanos(actionCountStartTime).toMillis(), ACTION_COUNT_BUCKET_MS);
 
-    // sanity check for current limitation on the number of supported types due
-    // to using enum.ordinal() to store them instead of EnumSet for performance reasons.
-    Preconditions.checkState(TASK_COUNT < 256,
+    // Check for current limitation on the number of supported types due to using enum.ordinal() to
+    // store them instead of EnumSet for performance reasons.
+    Preconditions.checkState(
+        TASK_COUNT < 256,
         "The profiler implementation supports only up to 255 different ProfilerTask values.");
 
     // reset state for the new profiling session
     taskId.set(0);
     this.recordAllDurations = recordAllDurations;
-    this.taskStack = ThreadLocal.withInitial(ArrayDeque::new);
     FileWriter writer = null;
     if (stream != null && format != null) {
       switch (format) {
@@ -401,7 +394,8 @@ public final class Profiler {
                   slimProfile,
                   outputBase,
                   buildID,
-                  includePrimaryOutput);
+                  includePrimaryOutput,
+                  includeTargetLabel);
           break;
         case JSON_TRACE_FILE_COMPRESSED_FORMAT:
           writer =
@@ -411,7 +405,8 @@ public final class Profiler {
                   slimProfile,
                   outputBase,
                   buildID,
-                  includePrimaryOutput);
+                  includePrimaryOutput,
+                  includeTargetLabel);
       }
       writer.start();
     }
@@ -492,7 +487,6 @@ public final class Profiler {
       writer.shutdown();
       writer = null;
     }
-    taskStack = null;
     initHistograms();
     profileStartTime = 0L;
     profileCpuStartTime = null;
@@ -656,10 +650,9 @@ public final class Profiler {
     // tasks that have a minimum duration.
     Preconditions.checkNotNull(description);
     if (isActive() && isProfiling(type)) {
-      taskStack
-          .get()
-          .push(new TaskData(taskId.incrementAndGet(), clock.nanoTime(), type, description));
-      return () -> completeTask(type);
+      TaskData taskData =
+          new TaskData(taskId.incrementAndGet(), clock.nanoTime(), type, description);
+      return () -> completeTask(taskData);
     } else {
       return NOP;
     }
@@ -670,15 +663,18 @@ public final class Profiler {
    * primaryOutput.
    */
   public SilentCloseable profileAction(
-      ProfilerTask type, String description, String primaryOutput) {
+      ProfilerTask type, String description, String primaryOutput, String targetLabel) {
     Preconditions.checkNotNull(description);
     if (isActive() && isProfiling(type)) {
-      taskStack
-          .get()
-          .push(
-              new ActionTaskData(
-                  taskId.incrementAndGet(), clock.nanoTime(), type, description, primaryOutput));
-      return () -> completeTask(type);
+      TaskData taskData =
+          new ActionTaskData(
+              taskId.incrementAndGet(),
+              clock.nanoTime(),
+              type,
+              description,
+              primaryOutput,
+              targetLabel);
+      return () -> completeTask(taskData);
     } else {
       return NOP;
     }
@@ -716,38 +712,24 @@ public final class Profiler {
         || (type == ProfilerTask.INFO && "discoverInputs".equals(taskData.description));
   }
 
-  /**
-   * Records the end of the task and moves tasks from the thread-local stack to
-   * the main queue. Will validate that given task type matches task at the top
-   * of the stack.
-   *
-   * @param type task type.
-   */
-  private void completeTask(ProfilerTask type) {
-    if (isActive() && isProfiling(type)) {
+  /** Records the end of the task. */
+  private void completeTask(TaskData data) {
+    if (isActive()) {
       long endTime = clock.nanoTime();
-      TaskData data = taskStack.get().pop();
-      Preconditions.checkState(
-          data.type == type,
-          "Inconsistent Profiler.completeTask() call: should have been %s but got %s (%s, %s)",
-          data.type,
-          type,
-          data,
-          taskStack.get());
       data.duration = endTime - data.startTimeNanos;
-      boolean shouldRecordTask = wasTaskSlowEnoughToRecord(type, data.duration);
+      boolean shouldRecordTask = wasTaskSlowEnoughToRecord(data.type, data.duration);
       FileWriter writer = writerRef.get();
       if (shouldRecordTask && writer != null) {
         writer.enqueue(data);
       }
 
       if (shouldRecordTask) {
-        if (actionCountTimeSeries != null && countAction(type, data)) {
+        if (actionCountTimeSeries != null && countAction(data.type, data)) {
           actionCountTimeSeries.addRange(
               Duration.ofNanos(data.startTimeNanos).toMillis(),
               Duration.ofNanos(endTime).toMillis());
         }
-        SlowestTaskAggregator aggregator = slowestTasks[type.ordinal()];
+        SlowestTaskAggregator aggregator = slowestTasks[data.type.ordinal()];
         if (aggregator != null) {
           aggregator.add(data);
         }
@@ -759,7 +741,6 @@ public final class Profiler {
   public void markPhase(ProfilePhase phase) throws InterruptedException {
     MemoryProfiler.instance().markPhase(phase);
     if (isActive() && isProfiling(ProfilerTask.PHASE)) {
-      Preconditions.checkState(taskStack.get().isEmpty(), "Phase tasks must not be nested");
       logEvent(ProfilerTask.PHASE, phase.description);
     }
   }
@@ -805,6 +786,7 @@ public final class Profiler {
         ThreadLocal.withInitial(() -> Boolean.FALSE);
     private final boolean slimProfile;
     private final boolean includePrimaryOutput;
+    private final boolean includeTargetLabel;
     private final UUID buildID;
     private final String outputBase;
 
@@ -821,13 +803,15 @@ public final class Profiler {
         boolean slimProfile,
         String outputBase,
         UUID buildID,
-        boolean includePrimaryOutput) {
+        boolean includePrimaryOutput,
+        boolean includeTargetLabel) {
       this.outStream = outStream;
       this.profileStartTimeNanos = profileStartTimeNanos;
       this.slimProfile = slimProfile;
       this.buildID = buildID;
       this.outputBase = outputBase;
       this.includePrimaryOutput = includePrimaryOutput;
+      this.includeTargetLabel = includeTargetLabel;
     }
 
     @Override
@@ -931,6 +915,12 @@ public final class Profiler {
       // Primary outputs are non-mergeable, thus incompatible with slim profiles.
       if (includePrimaryOutput && data instanceof ActionTaskData) {
         writer.name("out").value(((ActionTaskData) data).primaryOutputPath);
+      }
+      if (includeTargetLabel && data instanceof ActionTaskData) {
+        writer.name("args");
+        writer.beginObject();
+        writer.name("target").value(((ActionTaskData) data).targetLabel);
+        writer.endObject();
       }
       long threadId =
           data.type == ProfilerTask.CRITICAL_PATH_COMPONENT

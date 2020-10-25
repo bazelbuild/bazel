@@ -19,6 +19,9 @@ import static org.mockito.AdditionalMatchers.find;
 import static org.mockito.AdditionalMatchers.not;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -26,9 +29,16 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.test.TestProvider;
+import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
+import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestStatus;
+import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -64,7 +74,7 @@ public class TestSummaryTest {
 
   @Before
   public final void createFileSystem() throws Exception  {
-    fs = new InMemoryFileSystem(BlazeClock.instance());
+    fs = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
     stubTarget = stubTarget();
     basicBuilder = getTemplateBuilder();
   }
@@ -235,6 +245,45 @@ public class TestSummaryTest {
     TestSummary sixtyCached = basicBuilder.setNumCached(60).build();
     assertThat(sixtyCached.numCached()).isEqualTo(60);
     assertThat(fiftyCached.numCached()).isEqualTo(50);
+  }
+
+  @Test
+  public void testAsStreamProto() throws Exception {
+    TestParams testParams = mock(TestParams.class);
+    when(testParams.getRuns()).thenReturn(2);
+    when(testParams.getShards()).thenReturn(3);
+
+    TestProvider testProvider = new TestProvider(testParams);
+    when(stubTarget.getProvider(eq(TestProvider.class))).thenReturn(testProvider);
+
+    PathConverter pathConverter = mock(PathConverter.class);
+    when(pathConverter.apply(any(Path.class)))
+        .thenAnswer(
+            invocation -> "/path/to" + ((Path) invocation.getArguments()[0]).getPathString());
+
+    BuildEventContext converters = mock(BuildEventContext.class);
+    when(converters.pathConverter()).thenReturn(pathConverter);
+
+    TestSummary summary =
+        basicBuilder
+            .setStatus(BlazeTestStatus.FAILED)
+            .addPassedLogs(getPathList("/apple"))
+            .addFailedLogs(getPathList("/pear"))
+            .mergeTiming(1000, 300)
+            .build();
+
+    assertThat(summary.asStreamProto(converters).getTestSummary())
+        .isEqualTo(
+            BuildEventStreamProtos.TestSummary.newBuilder()
+                .setOverallStatus(TestStatus.FAILED)
+                .setFirstStartTimeMillis(1000)
+                .setLastStopTimeMillis(1300)
+                .setTotalRunDurationMillis(300)
+                .setRunCount(2)
+                .setShardCount(3)
+                .addPassed(BuildEventStreamProtos.File.newBuilder().setUri("/path/to/apple"))
+                .addFailed(BuildEventStreamProtos.File.newBuilder().setUri("/path/to/pear"))
+                .build());
   }
 
   @Test

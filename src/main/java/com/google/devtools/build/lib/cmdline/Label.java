@@ -18,16 +18,14 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -39,8 +37,11 @@ import java.util.Arrays;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * A class to identify a BUILD target. All targets belong to exactly one package. The name of a
@@ -50,10 +51,7 @@ import net.starlark.java.annot.StarlarkMethod;
  *
  * <p>Parsing is robust against bad input, for example, from the command line.
  */
-@StarlarkBuiltin(
-    name = "Label",
-    category = StarlarkDocumentationCategory.BUILTIN,
-    doc = "A BUILD target identifier.")
+@StarlarkBuiltin(name = "Label", category = DocCategory.BUILTIN, doc = "A BUILD target identifier.")
 @AutoCodec
 @Immutable
 @ThreadSafe
@@ -343,6 +341,10 @@ public final class Label
     return packageIdentifier;
   }
 
+  public RepositoryName getRepository() {
+    return packageIdentifier.getRepository();
+  }
+
   /**
    * Returns the name of the package in which this rule was declared (e.g. {@code
    * //file/base:fileutils_test} returns {@code file/base}).
@@ -362,6 +364,9 @@ public final class Label
    * Returns the execution root for the workspace, relative to the execroot (e.g., for label
    * {@code @repo//pkg:b}, it will returns {@code external/repo/pkg} and for label {@code //pkg:a},
    * it will returns an empty string.
+   *
+   * @deprecated The sole purpose of this method is to implement the workspace_root method. For
+   *     other purposes, use {@link RepositoryName#getExecPath} instead.
    */
   @StarlarkMethod(
       name = "workspace_root",
@@ -372,12 +377,12 @@ public final class Label
               + "<pre class=language-python>Label(\"@repo//pkg/foo:abc\").workspace_root =="
               + " \"external/repo\"</pre>",
       useStarlarkSemantics = true)
-  public String getWorkspaceRoot(StarlarkSemantics semantics) {
-    if (semantics.experimentalSiblingRepositoryLayout()) {
-      return packageIdentifier.getRepository().getExecPath(true).toString();
-    } else {
-      return packageIdentifier.getRepository().getSourceRoot().toString();
-    }
+  @Deprecated
+  public String getWorkspaceRootForStarlarkOnly(StarlarkSemantics semantics) {
+    return packageIdentifier
+        .getRepository()
+        .getExecPath(semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT))
+        .toString();
   }
 
   /**
@@ -534,10 +539,7 @@ public final class Label
               + "Label(\"@remapped//wiz:quux\")\n"
               + "</pre>",
       parameters = {
-        @Param(
-            name = "relName",
-            type = String.class,
-            doc = "The label that will be resolved relative to this one.")
+        @Param(name = "relName", doc = "The label that will be resolved relative to this one.")
       },
       useStarlarkThread = true)
   public Label getRelative(String relName, StarlarkThread thread) throws LabelSyntaxException {
@@ -628,6 +630,9 @@ public final class Label
   /** Two labels are equal iff both their name and their package name are equal. */
   @Override
   public boolean equals(Object other) {
+    if (this == other) {
+      return true;
+    }
     if (!(other instanceof Label)) {
       return false;
     }
@@ -645,6 +650,9 @@ public final class Label
    */
   @Override
   public int compareTo(Label other) {
+    if (this == other) {
+      return 0;
+    }
     return ComparisonChain.start()
         .compare(packageIdentifier, other.packageIdentifier)
         .compare(name, other.name)

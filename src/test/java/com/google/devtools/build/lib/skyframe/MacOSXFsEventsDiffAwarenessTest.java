@@ -18,15 +18,14 @@ import static org.junit.Assume.assumeFalse;
 
 import com.google.common.base.Charsets;
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
-import com.google.devtools.build.lib.skyframe.LocalDiffAwareness.Options;
+import com.google.devtools.build.lib.testing.common.FakeOptions;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
@@ -36,15 +35,14 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.logging.Logger;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -52,8 +50,7 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link MacOSXFsEventsDiffAwareness} */
 @RunWith(JUnit4.class)
 public class MacOSXFsEventsDiffAwarenessTest {
-
-  private static Logger logger = Logger.getLogger(MacOSXFsEventsDiffAwarenessTest.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static void rmdirs(Path directory) throws IOException {
     Files.walkFileTree(
@@ -84,7 +81,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
     underTest = new MacOSXFsEventsDiffAwareness(watchedPath.toString());
     LocalDiffAwareness.Options localDiffOptions = new LocalDiffAwareness.Options();
     localDiffOptions.watchFS = true;
-    watchFsEnabledProvider = new LocalDiffAwarenessOptionsProvider(localDiffOptions);
+    watchFsEnabledProvider = FakeOptions.of(localDiffOptions);
   }
 
   @After
@@ -154,7 +151,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
       if (attempts == 600) {
         throw new AssertionError("Paths " + pathsYetToBeSeen + " not found as modified");
       }
-      logger.info("Still have to see " + pathsYetToBeSeen.size() + " paths");
+      logger.atInfo().log("Still have to see %d paths", pathsYetToBeSeen.size());
       Thread.sleep(100);
       attempts++;
       view1 = view2; // getDiff requires views to be sequential if we want to get meaningful data.
@@ -162,6 +159,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
   }
 
   @Test
+  @Ignore("Test is flaky; see https://github.com/bazelbuild/bazel/issues/10776")
   public void testSimple() throws Exception {
     View view1 = underTest.getCurrentView(watchFsEnabledProvider);
 
@@ -177,6 +175,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
   }
 
   @Test
+  @Ignore("Test is flaky; see https://github.com/bazelbuild/bazel/issues/10776")
   public void testRenameDirectory() throws Exception {
     scratchDir("dir1");
     scratchFile("dir1/file.c", "first");
@@ -191,6 +190,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
   }
 
   @Test
+  @Ignore("Test is flaky; see https://github.com/bazelbuild/bazel/issues/10776")
   public void testStress() throws Exception {
     View view1 = underTest.getCurrentView(watchFsEnabledProvider);
 
@@ -198,7 +198,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
     // which then may result in our own callback in fsevents.cc not being able to keep up.
     // There is no guarantee that we'll trigger this condition, but on 2020-02-28 on a Mac Pro
     // 2013, this happened pretty predictably with the settings below.
-    logger.info("Starting file creation under " + watchedPath);
+    logger.atInfo().log("Starting file creation under %s", watchedPath);
     ExecutorService executor = Executors.newCachedThreadPool();
     int nThreads = 100;
     int nFilesPerThread = 100;
@@ -236,29 +236,5 @@ public class MacOSXFsEventsDiffAwarenessTest {
     }
 
     assertDiff(view1, Iterables.concat(dirToFilesToCreate.keySet(), dirToFilesToCreate.values()));
-  }
-
-  /**
-   * Only returns a fixed options class for {@link LocalDiffAwareness.Options}.
-   */
-  private static final class LocalDiffAwarenessOptionsProvider implements OptionsProvider {
-    private final Options localDiffOptions;
-
-    private LocalDiffAwarenessOptionsProvider(Options localDiffOptions) {
-      this.localDiffOptions = localDiffOptions;
-    }
-
-    @Override
-    public <O extends OptionsBase> O getOptions(Class<O> optionsClass) {
-      if (optionsClass.equals(LocalDiffAwareness.Options.class)) {
-        return optionsClass.cast(localDiffOptions);
-      }
-      return null;
-    }
-
-    @Override
-    public Map<String, Object> getStarlarkOptions() {
-      return ImmutableMap.of();
-    }
   }
 }

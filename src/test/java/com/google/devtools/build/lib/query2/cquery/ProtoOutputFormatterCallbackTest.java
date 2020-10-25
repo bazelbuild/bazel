@@ -57,10 +57,14 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   @Before
   public final void setUpCqueryOptions() {
     this.options = new CqueryOptions();
+    // TODO(bazel-team): reduce the confusion about these two seemingly similar settings.
+    // options.aspectDeps impacts how proto and similar output formatters output aspect results.
+    // Setting.INCLUDE_ASPECTS impacts whether or not aspect dependencies are included when
+    // following target deps. See CommonQueryOptions for further flag details.
     options.aspectDeps = Mode.OFF;
+    helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
     options.protoIncludeConfigurations = true;
     options.protoIncludeRuleInputsAndOutputs = true;
-
     this.reporter = new Reporter(new EventBus(), events::add);
   }
 

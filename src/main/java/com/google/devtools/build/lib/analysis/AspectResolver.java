@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.skyframe.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -68,7 +67,7 @@ public final class AspectResolver {
     for (Dependency dep : deps) {
       Map<AspectDescriptor, SkyKey> aspectToKeys = getAspectKeys(dep);
 
-      for (AspectCollection.AspectDeps depAspect : dep.getAspects().getVisibleAspects()) {
+      for (AspectCollection.AspectDeps depAspect : dep.getAspects().getUsedAspects()) {
         SkyKey aspectKey = aspectToKeys.get(depAspect.getAspect());
 
         AspectValue aspectValue;
@@ -81,7 +80,7 @@ public final class AspectResolver {
               String.format(
                   "Evaluation of aspect %s on %s failed: %s",
                   depAspect.getAspect().getAspectClass().getName(), dep.getLabel(), e),
-              new LabelCause(dep.getLabel(), e.getMessage()));
+              new LabelCause(dep.getLabel(), e.getDetailedExitCode()));
         }
 
         if (aspectValue == null) {
@@ -91,7 +90,7 @@ public final class AspectResolver {
 
         // Validate that aspect is applicable to "bare" configured target.
         ConfiguredTargetAndData associatedTarget =
-            configuredTargetMap.get(ConfiguredTargetKey.of(dep.getLabel(), dep.getConfiguration()));
+            configuredTargetMap.get(dep.getConfiguredTargetKey());
         if (!aspectMatchesConfiguredTarget(associatedTarget, aspectValue.getAspect())) {
           continue;
         }
@@ -124,7 +123,7 @@ public final class AspectResolver {
 
     for (Map.Entry<DependencyKind, Dependency> entry : depValueNames.entries()) {
       Dependency dep = entry.getValue();
-      SkyKey depKey = ConfiguredTargetKey.of(dep.getLabel(), dep.getConfiguration());
+      SkyKey depKey = dep.getConfiguredTargetKey();
       ConfiguredTargetAndData depConfiguredTarget = depConfiguredTargetMap.get(depKey);
 
       result.put(
@@ -140,7 +139,7 @@ public final class AspectResolver {
   private static Map<AspectDescriptor, SkyKey> getAspectKeys(Dependency dep) {
     HashMap<AspectDescriptor, SkyKey> result = new HashMap<>();
     AspectCollection aspects = dep.getAspects();
-    for (AspectCollection.AspectDeps aspectDeps : aspects.getVisibleAspects()) {
+    for (AspectCollection.AspectDeps aspectDeps : aspects.getUsedAspects()) {
       buildAspectKey(aspectDeps, result, dep);
     }
     return result;
@@ -155,7 +154,7 @@ public final class AspectResolver {
     }
 
     ImmutableList.Builder<AspectKey> dependentAspects = ImmutableList.builder();
-    for (AspectCollection.AspectDeps path : aspectDeps.getDependentAspects()) {
+    for (AspectCollection.AspectDeps path : aspectDeps.getUsedAspects()) {
       dependentAspects.add(buildAspectKey(path, result, dep));
     }
     AspectKey aspectKey =

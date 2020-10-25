@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 
@@ -53,11 +54,14 @@ public final class TargetPatternResolverUtil {
   public static PathFragment getPathFragment(String pathPrefix) throws TargetParsingException {
     PathFragment directory = PathFragment.create(pathPrefix);
     if (directory.containsUplevelReferences()) {
-      throw new TargetParsingException("up-level references are not permitted: '"
-          + directory.getPathString() + "'");
+      throw new TargetParsingException(
+          "up-level references are not permitted: '" + directory.getPathString() + "'",
+          TargetPatterns.Code.UP_LEVEL_REFERENCES_NOT_ALLOWED);
     }
     if (!pathPrefix.isEmpty() && (LabelValidator.validatePackageName(pathPrefix) != null)) {
-      throw new TargetParsingException("'" + pathPrefix + "' is not a valid package name");
+      throw new TargetParsingException(
+          "'" + pathPrefix + "' is not a valid package name",
+          TargetPatterns.Code.PACKAGE_NAME_INVALID);
     }
     return directory;
   }

@@ -69,7 +69,7 @@ import com.google.devtools.build.lib.exec.RemoteLocalFallbackRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
@@ -133,7 +133,8 @@ public class ExecutionTool {
   private final SpawnStrategyRegistry spawnStrategyRegistry;
   private final ModuleActionContextRegistry actionContextRegistry;
 
-  ExecutionTool(CommandEnvironment env, BuildRequest request) throws AbruptExitException {
+  ExecutionTool(CommandEnvironment env, BuildRequest request)
+      throws AbruptExitException, InterruptedException {
     this.env = env;
     this.runtime = env.getRuntime();
     this.request = request;
@@ -146,11 +147,9 @@ public class ExecutionTool {
 
     ExecutorBuilder executorBuilder = new ExecutorBuilder();
     ModuleActionContextRegistry.Builder actionContextRegistryBuilder =
-        executorBuilder.asModuleActionContextRegistryBuilder(ModuleActionContextRegistry.builder());
-    SpawnStrategyRegistry.Builder spawnStrategyRegistryBuilder =
-        executorBuilder.asSpawnStrategyRegistryBuilder(SpawnStrategyRegistry.builder());
+        ModuleActionContextRegistry.builder();
+    SpawnStrategyRegistry.Builder spawnStrategyRegistryBuilder = SpawnStrategyRegistry.builder();
     actionContextRegistryBuilder.register(SpawnStrategyResolver.class, new SpawnStrategyResolver());
-    executorBuilder.addStrategyByContext(SpawnStrategyResolver.class, "");
 
     for (BlazeModule module : runtime.getBlazeModules()) {
       try (SilentCloseable ignored = Profiler.instance().profile(module + ".executorInit")) {
@@ -193,13 +192,7 @@ public class ExecutionTool {
     actionContextRegistryBuilder.register(DynamicStrategyRegistry.class, spawnStrategyRegistry);
     actionContextRegistryBuilder.register(RemoteLocalFallbackRegistry.class, spawnStrategyRegistry);
 
-    executorBuilder.addActionContext(SpawnStrategyRegistry.class, spawnStrategyRegistry);
-    executorBuilder.addStrategyByContext(SpawnStrategyRegistry.class, "");
-
     ModuleActionContextRegistry moduleActionContextRegistry = actionContextRegistryBuilder.build();
-    executorBuilder.addActionContext(
-        ModuleActionContextRegistry.class, moduleActionContextRegistry);
-    executorBuilder.addStrategyByContext(ModuleActionContextRegistry.class, "");
 
     this.actionContextRegistry = moduleActionContextRegistry;
     this.spawnStrategyRegistry = spawnStrategyRegistry;
@@ -482,8 +475,7 @@ public class ExecutionTool {
                 getExecRoot(),
                 runtime.getProductName(),
                 nonSymlinkedDirectoriesUnderExecRoot,
-                request.getOptions(StarlarkSemanticsOptions.class)
-                    .experimentalSiblingRepositoryLayout);
+                request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout);
         symlinkForest.plantSymlinkForest();
       } catch (IOException e) {
         throw new AbruptExitException(
@@ -500,15 +492,42 @@ public class ExecutionTool {
     env.getEventBus().post(new ExecRootPreparedEvent(packageRootMap));
   }
 
+  private static void logDeleteTreeFailure(
+      Path directory, String description, IOException deleteTreeFailure) {
+    logger.atWarning().withCause(deleteTreeFailure).log(
+        "Failed to delete %s '%s'", description, directory);
+    if (directory.exists()) {
+      try {
+        Collection<Path> entries = directory.getDirectoryEntries();
+        StringBuilder directoryDetails =
+            new StringBuilder("'")
+                .append(directory)
+                .append("' contains ")
+                .append(entries.size())
+                .append(" entries:");
+        for (Path entry : entries) {
+          directoryDetails.append(" '").append(entry.getBaseName()).append("'");
+        }
+        logger.atWarning().log(directoryDetails.toString());
+      } catch (IOException e) {
+        logger.atWarning().withCause(e).log("'%s' exists but could not be read", directory);
+      }
+    } else {
+      logger.atWarning().log("'%s' does not exist", directory);
+    }
+  }
+
   private void createActionLogDirectory() throws AbruptExitException {
     Path directory = env.getActionTempsDirectory();
     if (directory.exists()) {
       try {
         directory.deleteTree();
       } catch (IOException e) {
+        // TODO(b/140567980): Remove when we determine the cause of occasional deleteTree() failure.
+        logDeleteTreeFailure(directory, "action output directory", e);
         throw createExitException(
             "Couldn't delete action output directory",
-            Code.ACTION_OUTPUT_DIRECTORY_DELETION_FAILURE,
+            Code.TEMP_ACTION_OUTPUT_DIRECTORY_DELETION_FAILURE,
             e);
       }
     }
@@ -518,7 +537,7 @@ public class ExecutionTool {
     } catch (IOException e) {
       throw createExitException(
           "Couldn't create action output directory",
-          Code.ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE,
+          Code.TEMP_ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE,
           e);
     }
 
@@ -713,7 +732,11 @@ public class ExecutionTool {
     // order as configuredTargets.
     Collection<ConfiguredTarget> successfulTargets = new LinkedHashSet<>();
     for (ConfiguredTarget target : configuredTargets) {
-      if (builtTargets.contains(ConfiguredTargetKey.inTargetConfig(target))) {
+      if (builtTargets.contains(
+          ConfiguredTargetKey.builder()
+              .setConfiguredTarget(target)
+              .setConfigurationKey(target.getConfigurationKey())
+              .build())) {
         successfulTargets.add(target);
       }
     }

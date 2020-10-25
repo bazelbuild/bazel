@@ -16,75 +16,55 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
-import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
-import com.google.devtools.build.lib.actions.util.InjectedActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.Mockito;
 
 /**
  * Tests for {@link SingleToolchainResolutionValue} and {@link SingleToolchainResolutionFunction}.
  */
 @RunWith(JUnit4.class)
 public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
-  @AutoCodec @AutoCodec.VisibleForSerialization
-  static final ConfiguredTargetKey LINUX_CTKEY = Mockito.mock(ConfiguredTargetKey.class);
-
-  @AutoCodec @AutoCodec.VisibleForSerialization
-  static final ConfiguredTargetKey MAC_CTKEY = Mockito.mock(ConfiguredTargetKey.class);
+  ConfiguredTargetKey linuxCtkey;
+  ConfiguredTargetKey macCtkey;
 
   @Before
   public void setUpKeys() {
-    when(LINUX_CTKEY.functionName()).thenReturn(InjectedActionLookupKey.INJECTED_ACTION_LOOKUP);
-    when(LINUX_CTKEY.getLabel()).thenReturn(Label.parseAbsoluteUnchecked("//platforms:linux"));
-    when(MAC_CTKEY.functionName()).thenReturn(InjectedActionLookupKey.INJECTED_ACTION_LOOKUP);
-    when(MAC_CTKEY.getLabel()).thenReturn(Label.parseAbsoluteUnchecked("//platforms:mac"));
-  }
-
-  private static ConfiguredTargetValue createConfiguredTargetValue(
-      ConfiguredTarget configuredTarget) {
-    return new NonRuleConfiguredTargetValue(
-        configuredTarget, GeneratingActions.EMPTY, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+    // This has to happen here so that targetConfiguration is populated.
+    linuxCtkey =
+        ConfiguredTargetKey.builder()
+            .setLabel(Label.parseAbsoluteUnchecked("//platforms:linux"))
+            .setConfiguration(getTargetConfiguration())
+            .build();
+    macCtkey =
+        ConfiguredTargetKey.builder()
+            .setLabel(Label.parseAbsoluteUnchecked("//platforms:mac"))
+            .setConfiguration(getTargetConfiguration())
+            .build();
   }
 
   private EvaluationResult<SingleToolchainResolutionValue> invokeToolchainResolution(SkyKey key)
       throws InterruptedException {
-    ConfiguredTarget mockLinuxTarget = new SerializableConfiguredTarget(linuxPlatform);
-    ConfiguredTarget mockMacTarget = new SerializableConfiguredTarget(macPlatform);
-    getSkyframeExecutor()
-        .getDifferencerForTesting()
-        .inject(
-            ImmutableMap.of(
-                LINUX_CTKEY,
-                createConfiguredTargetValue(mockLinuxTarget),
-                MAC_CTKEY,
-                createConfiguredTargetValue(mockMacTarget)));
-
     try {
       getSkyframeExecutor().getSkyframeBuildView().enableAnalysis(true);
       return SkyframeExecutorTestUtils.evaluate(
@@ -98,14 +78,14 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
   public void testResolution_singleExecutionPlatform() throws Exception {
     SkyKey key =
         SingleToolchainResolutionValue.key(
-            targetConfigKey, testToolchainTypeLabel, LINUX_CTKEY, ImmutableList.of(MAC_CTKEY));
+            targetConfigKey, testToolchainTypeLabel, linuxCtkey, ImmutableList.of(macCtkey));
     EvaluationResult<SingleToolchainResolutionValue> result = invokeToolchainResolution(key);
 
     assertThatEvaluationResult(result).hasNoError();
 
     SingleToolchainResolutionValue singleToolchainResolutionValue = result.get(key);
     assertThat(singleToolchainResolutionValue.availableToolchainLabels())
-        .containsExactly(MAC_CTKEY, makeLabel("//toolchain:toolchain_2_impl"));
+        .containsExactly(macCtkey, makeLabel("//toolchain:toolchain_2_impl"));
   }
 
   @Test
@@ -126,8 +106,8 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
         SingleToolchainResolutionValue.key(
             targetConfigKey,
             testToolchainTypeLabel,
-            LINUX_CTKEY,
-            ImmutableList.of(LINUX_CTKEY, MAC_CTKEY));
+            linuxCtkey,
+            ImmutableList.of(linuxCtkey, macCtkey));
     EvaluationResult<SingleToolchainResolutionValue> result = invokeToolchainResolution(key);
 
     assertThatEvaluationResult(result).hasNoError();
@@ -135,9 +115,9 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
     SingleToolchainResolutionValue singleToolchainResolutionValue = result.get(key);
     assertThat(singleToolchainResolutionValue.availableToolchainLabels())
         .containsExactly(
-            LINUX_CTKEY,
+            linuxCtkey,
             makeLabel("//extra:extra_toolchain_impl"),
-            MAC_CTKEY,
+            macCtkey,
             makeLabel("//toolchain:toolchain_2_impl"));
   }
 
@@ -148,7 +128,7 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
 
     SkyKey key =
         SingleToolchainResolutionValue.key(
-            targetConfigKey, testToolchainTypeLabel, LINUX_CTKEY, ImmutableList.of(MAC_CTKEY));
+            targetConfigKey, testToolchainTypeLabel, linuxCtkey, ImmutableList.of(macCtkey));
     EvaluationResult<SingleToolchainResolutionValue> result = invokeToolchainResolution(key);
 
     assertThatEvaluationResult(result)
@@ -164,32 +144,30 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
         .addEqualityGroup(
             SingleToolchainResolutionValue.create(
                 testToolchainType,
-                ImmutableMap.of(LINUX_CTKEY, makeLabel("//test:toolchain_impl_1"))),
+                ImmutableMap.of(linuxCtkey, makeLabel("//test:toolchain_impl_1"))),
             SingleToolchainResolutionValue.create(
                 testToolchainType,
-                ImmutableMap.of(LINUX_CTKEY, makeLabel("//test:toolchain_impl_1"))))
+                ImmutableMap.of(linuxCtkey, makeLabel("//test:toolchain_impl_1"))))
         // Different execution platform, same label.
         .addEqualityGroup(
             SingleToolchainResolutionValue.create(
-                testToolchainType,
-                ImmutableMap.of(MAC_CTKEY, makeLabel("//test:toolchain_impl_1"))))
+                testToolchainType, ImmutableMap.of(macCtkey, makeLabel("//test:toolchain_impl_1"))))
         // Same execution platform, different label.
         .addEqualityGroup(
             SingleToolchainResolutionValue.create(
                 testToolchainType,
-                ImmutableMap.of(LINUX_CTKEY, makeLabel("//test:toolchain_impl_2"))))
+                ImmutableMap.of(linuxCtkey, makeLabel("//test:toolchain_impl_2"))))
         // Different execution platform, different label.
         .addEqualityGroup(
             SingleToolchainResolutionValue.create(
-                testToolchainType,
-                ImmutableMap.of(MAC_CTKEY, makeLabel("//test:toolchain_impl_2"))))
+                testToolchainType, ImmutableMap.of(macCtkey, makeLabel("//test:toolchain_impl_2"))))
         // Multiple execution platforms.
         .addEqualityGroup(
             SingleToolchainResolutionValue.create(
                 testToolchainType,
                 ImmutableMap.<ConfiguredTargetKey, Label>builder()
-                    .put(LINUX_CTKEY, makeLabel("//test:toolchain_impl_1"))
-                    .put(MAC_CTKEY, makeLabel("//test:toolchain_impl_1"))
+                    .put(linuxCtkey, makeLabel("//test:toolchain_impl_1"))
+                    .put(macCtkey, makeLabel("//test:toolchain_impl_1"))
                     .build()))
         .testEquals();
   }

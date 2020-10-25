@@ -15,6 +15,7 @@ java_library(
     visibility = ["//src/tools/remote:__subpackages__"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/remote",
@@ -34,6 +35,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker/http",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:netty",
         "//third_party/grpc:grpc-jar",

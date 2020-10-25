@@ -81,6 +81,6 @@ bootstrap_java_library(
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:bootstrap_JarOwner",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:bootstrap_invalid_command_line_exception",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:skylark-deps",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:starlark-deps",
     ],
 )

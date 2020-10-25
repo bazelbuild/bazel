@@ -14,18 +14,19 @@
 package com.google.devtools.build.lib.analysis.test;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.test.InstrumentedFilesInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.test.InstrumentedFilesInfoApi;
 import com.google.devtools.build.lib.util.Pair;
 
 /** An implementation class for the InstrumentedFilesProvider interface. */
 @AutoCodec
-public final class InstrumentedFilesInfo implements Info, InstrumentedFilesInfoApi {
+public final class InstrumentedFilesInfo extends NativeInfo implements InstrumentedFilesInfoApi {
   /** Singleton provider instance for {@link InstrumentedFilesInfo}. */
   public static final InstrumentedFilesProvider STARLARK_CONSTRUCTOR =
       new InstrumentedFilesProvider();
@@ -56,6 +57,7 @@ public final class InstrumentedFilesInfo implements Info, InstrumentedFilesInfoA
       NestedSet<Artifact> coverageSupportFiles,
       NestedSet<Pair<String, String>> coverageEnvironment,
       NestedSet<Pair<String, String>> reportedToActualSources) {
+    super(STARLARK_CONSTRUCTOR);
     this.instrumentedFiles = instrumentedFiles;
     this.instrumentationMetadataFiles = instrumentationMetadataFiles;
     this.baselineCoverageFiles = baselineCoverageFiles;
@@ -75,9 +77,19 @@ public final class InstrumentedFilesInfo implements Info, InstrumentedFilesInfoA
     return instrumentedFiles;
   }
 
+  @Override
+  public Depset getInstrumentedFilesForStarlark() {
+    return Depset.of(Artifact.TYPE, getInstrumentedFiles());
+  }
+
   /** Returns a collection of instrumentation metadata files. */
   public NestedSet<Artifact> getInstrumentationMetadataFiles() {
     return instrumentationMetadataFiles;
+  }
+
+  @Override
+  public Depset getInstrumentationMetadataFilesForStarlark() {
+    return Depset.of(Artifact.TYPE, getInstrumentationMetadataFiles());
   }
 
   /**

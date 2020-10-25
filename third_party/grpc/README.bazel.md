@@ -1,32 +1,30 @@
 # How to update the C++ sources of gRPC:
 
-1. `git clone http://github.com/grpc/grpc.git` in a convenient directory
-2. `git checkout <tag>` (current is `v1.18.0`, commithash `007b721f`)
-3. `mkdir -p third_party/grpc/src`
-4. `cp -R <gRPC git tree>/src/{compiler,core,cpp} third_party/grpc/src`
-5. `cp -R <gRPC git tree>/include third_party/grpc`
-6. `rm -rf third_party/grpc/src/core/tsi/test_creds`
-7. Update BUILD files by copying the rules from the BUILD file of gRPC;
-   fix macros in third_party/grpc/build_defs.bzl if necessary
-8. In the `third_party/grpc` directory, apply local patches if necessary:
-   `patch -p3 < netinet_tcp_h.patch`, `patch -p1 < grpc-gettid.patch`
-9. Update //third_party/nanopb if necessary
+1. Update the gRPC definitions in WORKSPACE file, currently we use 
+   https://github.com/grpc/grpc/archive/v1.32.2.tar.gz
+2. Update the gRPC patch file if necessary, it mostly helps avoid unnecessary dependencies.
+3. Update third_party/grpc/BUILD to redirect targets to @com_github_grpc_grpc if necessary.
 
 # How to update the BUILD/bzl sources of gRPC:
 
-1. Unless you've done so while updating C++ sources,
-   `git clone http://github.com/grpc/grpc.git` in a convenient directory
-2. `git checkout <tag>` (current is `v1.26.0`, commithash `de893acb`)
+1. `git clone http://github.com/grpc/grpc.git` in a convenient directory
+2. `git checkout <tag>` (current is `v1.32.0`, commithash `414bb8322d`)
 3. `mkdir -p third_party/grpc/bazel`
 4. `cp <gRPC git tree>/bazel/{BUILD,cc_grpc_library.bzl,generate_cc.bzl,protobuf.bzl} third_party/grpc/bazel`
 5. In the `third_party/grpc` directory, apply local patches:
-   `patch -p3 < bazel.patch`
+   `patch -p3 < bazel_1.32.0.patch`
 
 # How to update the Java plugin:
 
-1. Checkout tag `v1.10.0` from https://github.com/grpc/grpc-java
+1. Checkout tag `v1.32.2` from https://github.com/grpc/grpc-java
 2. `cp -R <grpc-java git tree>/compiler/src/java_plugin third_party/grpc/compiler/src`
 
 # How to update the Java code:
 
-Download the necessary jars at version `1.20.0` from maven central.
+Download the necessary jars at version `1.32.2` from maven central.
+
+# Submitting the change needs 3 pull requests
+
+1. Update third_party/grpc to include files from new version
+2. Switch WORKSPACE, scripts/bootstrap/compile.sh and any other references to new version
+3. Remove older version from third_party/grpc

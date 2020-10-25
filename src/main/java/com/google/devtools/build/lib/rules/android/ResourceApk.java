@@ -53,8 +53,9 @@ public final class ResourceApk {
   @Nullable private final Artifact resourceProguardConfig;
   @Nullable private final Artifact mainDexProguardConfig;
   private final DataBindingContext dataBindingContext;
+  @Nullable private final Artifact resourcesZip;
 
-  private final boolean addResourcesClassJarToCompilationClasspath;
+  private final boolean isFromAndroidApplicationResourceInfo;
 
   public static ResourceApk of(
       ValidatedAndroidResources resources,
@@ -72,10 +73,11 @@ public final class ResourceApk {
         assets,
         resources.getProcessedManifest(),
         resources.getRTxt(),
+        resources.getMergedResources(),
         resourceProguardConfig,
         mainDexProguardConfig,
         resources.asDataBindingContext(),
-        /* addResourcesClassJarToCompilationClasspath= */ true);
+        /* isFromAndroidApplicationResourceInfo= */ false);
   }
 
   private ResourceApk(
@@ -89,10 +91,11 @@ public final class ResourceApk {
       AndroidAssets primaryAssets,
       ProcessedAndroidManifest manifest,
       Artifact rTxt,
+      @Nullable Artifact resourcesZip,
       @Nullable Artifact resourceProguardConfig,
       @Nullable Artifact mainDexProguardConfig,
       DataBindingContext dataBindingContext,
-      boolean addResourcesClassJarToCompilationClasspath) {
+      boolean isFromAndroidApplicationResourceInfo) {
     this.resourceApk = resourceApk;
     this.resourceJavaSrcJar = resourceJavaSrcJar;
     this.resourceJavaClassJar = resourceJavaClassJar;
@@ -103,10 +106,11 @@ public final class ResourceApk {
     this.primaryAssets = primaryAssets;
     this.manifest = manifest;
     this.rTxt = rTxt;
+    this.resourcesZip = resourcesZip;
     this.resourceProguardConfig = resourceProguardConfig;
     this.mainDexProguardConfig = mainDexProguardConfig;
     this.dataBindingContext = dataBindingContext;
-    this.addResourcesClassJarToCompilationClasspath = addResourcesClassJarToCompilationClasspath;
+    this.isFromAndroidApplicationResourceInfo = isFromAndroidApplicationResourceInfo;
   }
 
   public static ResourceApk fromAndroidApplicationResourceInfo(
@@ -122,11 +126,12 @@ public final class ResourceApk {
         /* primaryAssets= */ null,
         new ProcessedAndroidManifest(
             androidApplicationResourceInfo.getManifest(), /* pkg= */ null, /* exported= */ false),
-        /* rTxt= */ null,
+        androidApplicationResourceInfo.getRTxt(),
+        androidApplicationResourceInfo.getResourcesZip(),
         androidApplicationResourceInfo.getResourceProguardConfig(),
         androidApplicationResourceInfo.getMainDexProguardConfig(),
         DataBinding.getDisabledDataBindingContext(ctx),
-        /* addResourcesClassJarToCompilationClasspath= */ false);
+        /* isFromAndroidApplicationResourceInfo= */ true);
   }
 
   ResourceApk withApk(Artifact apk) {
@@ -141,10 +146,11 @@ public final class ResourceApk {
         primaryAssets,
         manifest,
         rTxt,
+        resourcesZip,
         resourceProguardConfig,
         mainDexProguardConfig,
         asDataBindingContext(),
-        /* addResourcesClassJarToCompilationClasspath= */ true);
+        isFromAndroidApplicationResourceInfo);
   }
 
   public Artifact getArtifact() {
@@ -203,8 +209,13 @@ public final class ResourceApk {
         rTxt,
         null,
         null,
+        null,
         dataBindingContext,
-        /* addResourcesClassJarToCompilationClasspath= */ true);
+        /* isFromAndroidApplicationResourceInfo= */ false);
+  }
+
+  public Artifact getResourcesZip() {
+    return resourcesZip;
   }
 
   public Artifact getResourceProguardConfig() {
@@ -227,8 +238,8 @@ public final class ResourceApk {
     return dataBindingContext;
   }
 
-  public boolean addResourcesClassJarToCompilationClasspath() {
-    return addResourcesClassJarToCompilationClasspath;
+  public boolean isFromAndroidApplicationResourceInfo() {
+    return isFromAndroidApplicationResourceInfo;
   }
 
   /**

@@ -17,9 +17,12 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -76,12 +79,17 @@ public abstract class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<Co
     }
 
     @Override
-    public Map<String, BuildOptions> split(BuildOptions options, EventHandler eventHandler) {
-      BuildOptions result1 = options.clone();
-      BuildOptions result2 = options.clone();
+    public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+      return ImmutableSet.of(TestOptions.class);
+    }
+
+    @Override
+    public Map<String, BuildOptions> split(BuildOptionsView options, EventHandler eventHandler) {
+      BuildOptionsView result1 = options.clone();
+      BuildOptionsView result2 = options.clone();
       result1.get(TestOptions.class).testArguments = Collections.singletonList(toOption1);
       result2.get(TestOptions.class).testArguments = Collections.singletonList(toOption2);
-      return ImmutableMap.of("result1", result1, "result2", result2);
+      return ImmutableMap.of("result1", result1.underlying(), "result2", result2.underlying());
     }
   }
 

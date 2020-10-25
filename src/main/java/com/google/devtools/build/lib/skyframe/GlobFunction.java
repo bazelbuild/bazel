@@ -58,9 +58,8 @@ public final class GlobFunction implements SkyFunction {
     GlobDescriptor glob = (GlobDescriptor) skyKey.argument();
 
     RepositoryName repositoryName = glob.getPackageId().getRepository();
-    BlacklistedPackagePrefixesValue blacklistedPackagePrefixes =
-        (BlacklistedPackagePrefixesValue)
-            env.getValue(BlacklistedPackagePrefixesValue.key(repositoryName));
+    IgnoredPackagePrefixesValue ignoredPackagePrefixes =
+        (IgnoredPackagePrefixesValue) env.getValue(IgnoredPackagePrefixesValue.key(repositoryName));
     if (env.valuesMissing()) {
       return null;
     }
@@ -68,8 +67,8 @@ public final class GlobFunction implements SkyFunction {
     PathFragment globSubdir = glob.getSubdir();
     PathFragment dirPathFragment = glob.getPackageId().getPackageFragment().getRelative(globSubdir);
 
-    for (PathFragment blacklistedPrefix : blacklistedPackagePrefixes.getPatterns()) {
-      if (dirPathFragment.startsWith(blacklistedPrefix)) {
+    for (PathFragment ignoredPrefix : ignoredPackagePrefixes.getPatterns()) {
+      if (dirPathFragment.startsWith(ignoredPrefix)) {
         return GlobValue.EMPTY;
       }
     }
@@ -236,6 +235,28 @@ public final class GlobFunction implements SkyFunction {
           if (!symlinkFileValue.exists()) {
             continue;
           }
+
+          // This check is more strict than necessary: we raise an error if globbing traverses into
+          // a directory for any reason, even though it's only necessary if that reason was the
+          // resolution of a recursive glob ("**"). Fixing this would require plumbing the ancestor
+          // symlink information through DirectoryListingValue.
+          if (symlinkFileValue.isDirectory()
+              && symlinkFileValue.unboundedAncestorSymlinkExpansionChain() != null) {
+            SkyKey uniquenessKey =
+                FileSymlinkInfiniteExpansionUniquenessFunction.key(
+                    symlinkFileValue.unboundedAncestorSymlinkExpansionChain());
+            env.getValue(uniquenessKey);
+            if (env.valuesMissing()) {
+              return null;
+            }
+
+            FileSymlinkInfiniteExpansionException symlinkException =
+                new FileSymlinkInfiniteExpansionException(
+                    symlinkFileValue.pathToUnboundedAncestorSymlinkExpansionChain(),
+                    symlinkFileValue.unboundedAncestorSymlinkExpansionChain());
+            throw new GlobFunctionException(symlinkException, Transience.PERSISTENT);
+          }
+
           Dirent dirent = symlinkFileMap.get(lookedUpKeyAndValue.getKey());
           String fileName = dirent.getName();
           if (symlinkFileValue.isDirectory()) {
@@ -413,6 +434,10 @@ public final class GlobFunction implements SkyFunction {
    */
   private static final class GlobFunctionException extends SkyFunctionException {
     public GlobFunctionException(InconsistentFilesystemException e, Transience transience) {
+      super(e, transience);
+    }
+
+    public GlobFunctionException(FileSymlinkInfiniteExpansionException e, Transience transience) {
       super(e, transience);
     }
   }

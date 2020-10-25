@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
-import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.exec.TreeDeleter;
@@ -66,7 +65,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    * Returns whether the darwin sandbox is supported on the local machine by running a small command
    * in it.
    */
-  public static boolean isSupported(CommandEnvironment cmdEnv) {
+  public static boolean isSupported(CommandEnvironment cmdEnv) throws InterruptedException {
     if (OS.getCurrent() != OS.DARWIN) {
       return false;
     }
@@ -79,7 +78,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     return isSupported;
   }
 
-  private static boolean computeIsSupported() {
+  private static boolean computeIsSupported() throws InterruptedException {
     List<String> args = new ArrayList<>();
     args.add(sandboxExecBinary);
     args.add("-p");
@@ -134,7 +133,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       @Nullable SandboxfsProcess sandboxfsProcess,
       boolean sandboxfsMapSymlinkTargets,
       TreeDeleter treeDeleter)
-      throws IOException {
+      throws IOException, InterruptedException {
     super(cmdEnv);
     this.helpers = helpers;
     this.execRoot = cmdEnv.getExecRoot();
@@ -161,7 +160,8 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     }
   }
 
-  private static ImmutableSet<Path> getAlwaysWritableDirs(FileSystem fs) throws IOException {
+  private static ImmutableSet<Path> getAlwaysWritableDirs(FileSystem fs)
+      throws IOException, InterruptedException {
     HashSet<Path> writableDirs = new HashSet<>();
 
     addPathToSetIfExists(fs, writableDirs, "/dev");
@@ -188,10 +188,8 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     return ImmutableSet.copyOf(writableDirs);
   }
 
-  /**
-   * Returns the value of a POSIX or X/Open system configuration variable.
-   */
-  private static String getConfStr(String confVar) throws IOException {
+  /** Returns the value of a POSIX or X/Open system configuration variable. */
+  private static String getConfStr(String confVar) throws IOException, InterruptedException {
     String[] commandArr = new String[2];
     commandArr[0] = getconfBinary;
     commandArr[1] = confVar;
@@ -207,7 +205,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   @Override
   protected SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, ExecException {
+      throws IOException, InterruptedException {
     // Each invocation of "exec" gets its own sandbox base.
     // Note that the value returned by context.getId() is only unique inside one given SpawnRunner,
     // so we have to prefix our name to turn it into a globally unique value.
@@ -232,18 +230,17 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     SandboxInputs inputs =
         helpers.processInputFiles(
-            context.getInputMapping(
-                getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
-            spawn,
-            context.getArtifactExpander(),
-            execRoot);
+            context.getInputMapping(), spawn, context.getArtifactExpander(), execRoot);
     SandboxOutputs outputs = helpers.getOutputs(spawn);
 
     final Path sandboxConfigPath = sandboxPath.getRelative("sandbox.sb");
     Duration timeout = context.getTimeout();
 
     ProcessWrapper.CommandLineBuilder processWrapperCommandLineBuilder =
-        processWrapper.commandLineBuilder(spawn.getArguments()).setTimeout(timeout);
+        processWrapper
+            .commandLineBuilder(spawn.getArguments())
+            .addExecutionInfo(spawn.getExecutionInfo())
+            .setTimeout(timeout);
 
     final Path statisticsPath;
     if (getSandboxOptions().collectLocalSandboxExecutionStatistics) {

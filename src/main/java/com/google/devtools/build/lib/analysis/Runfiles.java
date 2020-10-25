@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -34,27 +35,29 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkbuildapi.RunfilesApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SymlinkEntryApi;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.starlarkbuildapi.RunfilesApi;
+import com.google.devtools.build.lib.starlarkbuildapi.SymlinkEntryApi;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.syntax.Location;
 
 /**
  * An object that encapsulates runfiles. Conceptually, the runfiles are a map of paths to files,
  * forming a symlink tree.
  *
  * <p>In order to reduce memory consumption, this map is not explicitly stored here, but instead as
- * a combination of three parts: artifacts placed at their root-relative paths, source tree symlinks
- * and root symlinks (outside of the source tree).
+ * a combination of three parts: artifacts placed at their output-dir-relative paths, source tree
+ * symlinks and root symlinks (outside of the source tree).
  */
 @Immutable
 @AutoCodec
@@ -168,15 +171,15 @@ public final class Runfiles implements RunfilesApi {
    * The artifacts that should be present in the runfiles directory.
    *
    * <p>This collection may not include any middlemen. These artifacts will be placed at a location
-   * that corresponds to the root-relative path of each artifact. It's possible for several
-   * artifacts to have the same root-relative path, in which case the last one will win.
+   * that corresponds to the output-dir-relative path of each artifact. It's possible for several
+   * artifacts to have the same output-dir-relative path, in which case the last one will win.
    */
   private final NestedSet<Artifact> artifacts;
 
   /**
    * A map of symlinks that should be present in the runfiles directory. In general, the symlink can
-   * be determined from the artifact by using the root-relative path, so this should only be used
-   * for cases where that isn't possible.
+   * be determined from the artifact by using the output-dir-relative path, so this should only be
+   * used for cases where that isn't possible.
    *
    * <p>This may include runfiles symlinks from the root of the runfiles tree.
    */
@@ -299,7 +302,8 @@ public final class Runfiles implements RunfilesApi {
     Set<PathFragment> manifestKeys =
         Streams.concat(
                 symlinks.toList().stream().map(SymlinkEntry::getPath),
-                getArtifacts().toList().stream().map(Artifact::getRootRelativePath))
+                getArtifacts().toList().stream()
+                    .map(artifact -> artifact.getOutputDirRelativePath(false)))
             .collect(ImmutableSet.toImmutableSet());
     Iterable<PathFragment> emptyKeys = emptyFilesSupplier.getExtraPaths(manifestKeys);
     return NestedSetBuilder.<String>stableOrder()
@@ -329,7 +333,9 @@ public final class Runfiles implements RunfilesApi {
   @VisibleForTesting
   static Map<PathFragment, Artifact> filterListForObscuringSymlinks(
       EventHandler eventHandler, Location location, Map<PathFragment, Artifact> workingManifest) {
-    Map<PathFragment, Artifact> newManifest = new HashMap<>();
+    Map<PathFragment, Artifact> newManifest =
+        Maps.newHashMapWithExpectedSize(workingManifest.size());
+    Set<PathFragment> noFurtherObstructions = new HashSet<>();
 
     outer:
     for (Map.Entry<PathFragment, Artifact> entry : workingManifest.entrySet()) {
@@ -337,8 +343,13 @@ public final class Runfiles implements RunfilesApi {
       Artifact symlink = entry.getValue();
       // drop nested entries; warn if this changes anything
       int n = source.segmentCount();
+      ArrayList<PathFragment> parents = new ArrayList<>(n);
       for (int j = 1; j < n; ++j) {
         PathFragment prefix = source.subFragment(0, n - j);
+        if (noFurtherObstructions.contains(prefix)) {
+          break;
+        }
+        parents.add(prefix);
         Artifact ancestor = workingManifest.get(prefix);
         if (ancestor != null) {
           // This is an obscuring symlink, so just drop it and move on if there's no reporter.
@@ -364,6 +375,7 @@ public final class Runfiles implements RunfilesApi {
           continue outer;
         }
       }
+      noFurtherObstructions.addAll(parents);
       newManifest.put(entry.getKey(), entry.getValue());
     }
     return newManifest;
@@ -385,7 +397,7 @@ public final class Runfiles implements RunfilesApi {
     Map<PathFragment, Artifact> manifest = getSymlinksAsMap(checker);
     // Add artifacts (committed to inclusion on construction of runfiles).
     for (Artifact artifact : getArtifacts().toList()) {
-      checker.put(manifest, artifact.getRootRelativePath(), artifact);
+      checker.put(manifest, artifact.getOutputDirRelativePath(false), artifact);
     }
 
     manifest = filterListForObscuringSymlinks(eventHandler, location, manifest);
@@ -519,11 +531,11 @@ public final class Runfiles implements RunfilesApi {
    */
   public Map<PathFragment, Artifact> asMapWithoutRootSymlinks() {
     Map<PathFragment, Artifact> result = entriesToMap(symlinks, null);
-    // If multiple artifacts have the same root-relative path, the last one in the list will win.
-    // That is because the runfiles tree cannot contain the same artifact for different
-    // configurations, because it only uses root-relative paths.
+    // If multiple artifacts have the same output-dir-relative path, the last one in the list will
+    // win. That is because the runfiles tree cannot contain the same artifact for different
+    // configurations, because it only uses output-dir-relative paths.
     for (Artifact artifact : artifacts.toList()) {
-      result.put(artifact.getRootRelativePath(), artifact);
+      result.put(artifact.getOutputDirRelativePath(false), artifact);
     }
     return result;
   }
@@ -895,9 +907,7 @@ public final class Runfiles implements RunfilesApi {
      * Collects runfiles from data dependencies of a target.
      */
     public Builder addDataDeps(RuleContext ruleContext) {
-      addTargets(
-          getPrerequisites(ruleContext, "data", TransitionMode.DONT_CHECK),
-          RunfilesProvider.DATA_RUNFILES);
+      addTargets(getPrerequisites(ruleContext, "data"), RunfilesProvider.DATA_RUNFILES);
       return this;
     }
 
@@ -953,7 +963,7 @@ public final class Runfiles implements RunfilesApi {
 
     /** Adds symlinks to given artifacts at their exec paths. */
     public Builder addSymlinksToArtifacts(NestedSet<Artifact> artifacts) {
-      // These are symlinks using the exec path, not the root-relative path, which currently
+      // These are symlinks using the exec path, not the output-dir-relative path, which currently
       // requires flattening.
       return addSymlinksToArtifacts(artifacts.toList());
     }
@@ -1022,8 +1032,7 @@ public final class Runfiles implements RunfilesApi {
           // dependent rules in srcs (except for filegroups and such), but always in deps.
           // TODO(bazel-team): DONT_CHECK is not optimal here. Rules that use split configs need to
           // be changed not to call into here.
-          getPrerequisites(ruleContext, "srcs", TransitionMode.DONT_CHECK),
-          getPrerequisites(ruleContext, "deps", TransitionMode.DONT_CHECK));
+          getPrerequisites(ruleContext, "srcs"), getPrerequisites(ruleContext, "deps"));
     }
 
     /**
@@ -1034,9 +1043,9 @@ public final class Runfiles implements RunfilesApi {
      * <p>If the rule does not have the specified attribute, returns the empty list.
      */
     private static Iterable<? extends TransitiveInfoCollection> getPrerequisites(
-        RuleContext ruleContext, String attributeName, TransitionMode mode) {
+        RuleContext ruleContext, String attributeName) {
       if (ruleContext.getRule().isAttrDefined(attributeName, BuildType.LABEL_LIST)) {
-        return ruleContext.getPrerequisites(attributeName, mode);
+        return ruleContext.getPrerequisites(attributeName);
       } else {
         return Collections.emptyList();
       }
@@ -1077,7 +1086,7 @@ public final class Runfiles implements RunfilesApi {
     }
 
     for (Artifact artifact : getArtifacts().toList()) {
-      fp.addPath(artifact.getRootRelativePath());
+      fp.addPath(artifact.getOutputDirRelativePath(false));
       fp.addPath(artifact.getExecPath());
     }
 

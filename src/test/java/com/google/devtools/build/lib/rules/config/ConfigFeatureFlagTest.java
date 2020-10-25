@@ -21,13 +21,12 @@ import com.google.common.collect.Iterables;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.skylark.util.BazelEvaluationTestCase;
-import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
+import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import org.junit.Before;
 import org.junit.Test;
@@ -38,7 +37,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class ConfigFeatureFlagTest extends BuildViewTestCase {
 
-  private final EvaluationTestCase ev = new BazelEvaluationTestCase();
+  private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
 
   private StarlarkRuleContext createRuleContext(String label) throws Exception {
     return new StarlarkRuleContext(
@@ -53,7 +52,7 @@ public final class ConfigFeatureFlagTest extends BuildViewTestCase {
   }
 
   @Override
-  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder =
         new ConfiguredRuleClassProvider.Builder().addRuleDefinition(new FeatureFlagSetterRule());
     TestRuleClassProvider.addStandardRules(builder);
@@ -117,7 +116,7 @@ public final class ConfigFeatureFlagTest extends BuildViewTestCase {
   }
 
   @Test
-  public void configFeatureFlagProvider_skylarkConstructor() throws Exception {
+  public void configFeatureFlagProvider_starlarkConstructor() throws Exception {
     scratch.file(
         "test/wrapper.bzl",
         "def _flag_reading_wrapper_impl(ctx):",
@@ -402,7 +401,7 @@ public final class ConfigFeatureFlagTest extends BuildViewTestCase {
   public void policy_mustContainRulesPackage() throws Exception {
     reporter.removeHandler(failFastHandler); // expecting an error
     scratch.overwriteFile(
-        "tools/whitelists/config_feature_flag/BUILD",
+        "tools/allowlists/config_feature_flag/BUILD",
         "package_group(name = 'config_feature_flag', packages = ['//some/other'])");
     scratch.file(
         "test/BUILD",
@@ -420,7 +419,7 @@ public final class ConfigFeatureFlagTest extends BuildViewTestCase {
   @Test
   public void policy_doesNotBlockRuleIfInPackageGroup() throws Exception {
     scratch.overwriteFile(
-        "tools/whitelists/config_feature_flag/BUILD",
+        "tools/allowlists/config_feature_flag/BUILD",
         "package_group(name = 'config_feature_flag', packages = ['//test'])");
     scratch.file(
         "test/BUILD",

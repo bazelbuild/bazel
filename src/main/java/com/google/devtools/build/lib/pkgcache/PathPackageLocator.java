@@ -24,6 +24,9 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
@@ -80,7 +83,18 @@ public class PathPackageLocator implements Serializable {
   public Path getPackageBuildFile(PackageIdentifier packageName) throws NoSuchPackageException {
     Path buildFile  = getPackageBuildFileNullable(packageName, UnixGlob.DEFAULT_SYSCALLS_REF);
     if (buildFile == null) {
-      throw new BuildFileNotFoundException(packageName, "BUILD file not found on package path");
+      String message = "BUILD file not found on package path";
+      throw new BuildFileNotFoundException(
+          packageName,
+          message,
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(message)
+                  .setPackageLoading(
+                      PackageLoading.newBuilder()
+                          .setCode(PackageLoading.Code.BUILD_FILE_MISSING)
+                          .build())
+                  .build()));
     }
     return buildFile;
   }
@@ -119,6 +133,7 @@ public class PathPackageLocator implements Serializable {
       for (BuildFileName buildFileName : buildFilesByPriority) {
         Path buildFile =
             outputBase
+                .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION)
                 .getRelative(packageIdentifier.getSourceRoot())
                 .getRelative(buildFileName.getFilenameFragment());
         try {

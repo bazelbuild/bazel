@@ -25,13 +25,13 @@ import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.query.BlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.query.GraphlessBlazeQueryEnvironment;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
-import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -48,7 +48,7 @@ public class QueryEnvironmentFactory {
       boolean keepGoing,
       boolean strictScope,
       boolean orderedResults,
-      List<String> universeScope,
+      UniverseScope universeScope,
       int loadingPhaseThreads,
       Predicate<Label> labelFilter,
       ExtendedEventHandler eventHandler,
@@ -65,7 +65,7 @@ public class QueryEnvironmentFactory {
           eventHandler,
           settings,
           extraFunctions,
-          relativeWorkingDirectory.getPathString(),
+          relativeWorkingDirectory,
           graphFactory,
           universeScope,
           packagePath,
@@ -103,7 +103,7 @@ public class QueryEnvironmentFactory {
 
   protected static boolean canUseSkyQuery(
       boolean orderedResults,
-      List<String> universeScope,
+      UniverseScope universeScope,
       @Nullable PathPackageLocator packagePath,
       boolean strictScope,
       Predicate<Label> labelFilter) {

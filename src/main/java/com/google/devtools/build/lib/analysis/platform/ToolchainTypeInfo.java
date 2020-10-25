@@ -20,10 +20,10 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainTypeInfoApi;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainTypeInfoApi;
 import java.util.Objects;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.syntax.Location;
 
 /** A provider that supplies information about a specific toolchain type. */
 @Immutable
@@ -59,7 +59,7 @@ public class ToolchainTypeInfo extends NativeInfo implements ToolchainTypeInfoAp
 
   @Override
   public void repr(Printer printer) {
-    printer.format("ToolchainTypeInfo(%s)", typeLabel);
+    Printer.format(printer, "ToolchainTypeInfo(%s)", typeLabel);
   }
 
   @Override

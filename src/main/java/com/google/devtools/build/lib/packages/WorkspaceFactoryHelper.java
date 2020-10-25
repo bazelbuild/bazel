@@ -25,12 +25,12 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
 import java.util.stream.Collectors;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 
 /** A helper for the {@link WorkspaceFactory} to create repository rules */
 public class WorkspaceFactoryHelper {
@@ -47,29 +47,16 @@ public class WorkspaceFactoryHelper {
     StoredEventHandler eventHandler = new StoredEventHandler();
     BuildLangTypedAttributeValuesMap attributeValues = new BuildLangTypedAttributeValuesMap(kwargs);
     Rule rule =
-        RuleFactory.createRule(
-            pkg,
-            ruleClass,
-            attributeValues,
-            eventHandler,
-            semantics,
-            callstack,
-            new AttributeContainer(ruleClass));
+        RuleFactory.createRule(pkg, ruleClass, attributeValues, eventHandler, semantics, callstack);
     pkg.addEvents(eventHandler.getEvents());
     pkg.addPosts(eventHandler.getPosts());
     overwriteRule(pkg, rule);
     for (Map.Entry<String, Label> entry :
         ruleClass.getExternalBindingsFunction().apply(rule).entrySet()) {
       Label nameLabel = Label.parseAbsolute("//external:" + entry.getKey(), ImmutableMap.of());
-      addBindRule(
-          pkg,
-          bindRuleClass,
-          nameLabel,
-          entry.getValue(),
-          semantics,
-          callstack,
-          new AttributeContainer(bindRuleClass));
+      addBindRule(pkg, bindRuleClass, nameLabel, entry.getValue(), semantics, callstack);
     }
+    pkg.addRegisteredToolchains(ruleClass.getToolchainsToRegisterFunction().apply(rule));
     return rule;
   }
 
@@ -138,8 +125,7 @@ public class WorkspaceFactoryHelper {
       Label virtual,
       Label actual,
       StarlarkSemantics semantics,
-      ImmutableList<StarlarkThread.CallStackEntry> callstack,
-      AttributeContainer attributeContainer)
+      ImmutableList<StarlarkThread.CallStackEntry> callstack)
       throws RuleFactory.InvalidRuleException, Package.NameConflictException, InterruptedException {
 
     Map<String, Object> attributes = Maps.newHashMap();
@@ -153,8 +139,7 @@ public class WorkspaceFactoryHelper {
     BuildLangTypedAttributeValuesMap attributeValues =
         new BuildLangTypedAttributeValuesMap(attributes);
     Rule rule =
-        RuleFactory.createRule(
-            pkg, bindRuleClass, attributeValues, handler, semantics, callstack, attributeContainer);
+        RuleFactory.createRule(pkg, bindRuleClass, attributeValues, handler, semantics, callstack);
     overwriteRule(pkg, rule);
     rule.setVisibility(ConstantRuleVisibility.PUBLIC);
   }

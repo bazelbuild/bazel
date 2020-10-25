@@ -19,14 +19,14 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.ClassObject;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * Fake implementation of {@link StructApi}.

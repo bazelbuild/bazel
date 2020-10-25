@@ -489,7 +489,7 @@ public final class OptionProcessor extends AbstractProcessor {
     }
   }
 
-  private boolean hasSpecialNullDefaultValue(Option annotation) {
+  private static boolean hasSpecialNullDefaultValue(Option annotation) {
     return OptionDefinition.SPECIAL_NULL_DEFAULT_VALUE.equals(annotation.defaultValue());
   }
 
@@ -510,11 +510,11 @@ public final class OptionProcessor extends AbstractProcessor {
           "flaky_test_attempts",
           "worker_max_instances");
 
-  private boolean isMultipleOptionDefaultValueException(Option annotation) {
+  private static boolean isMultipleOptionDefaultValueException(Option annotation) {
     return MULTIPLE_OPTIONS_DEFAULT_VALUE_EXCEPTIONS.contains(annotation.name());
   }
 
-  private void checkNoDefaultValueForMultipleOption(VariableElement optionField)
+  private static void checkNoDefaultValueForMultipleOption(VariableElement optionField)
       throws OptionProcessorException {
     Option annotation = optionField.getAnnotation(Option.class);
 
@@ -550,8 +550,7 @@ public final class OptionProcessor extends AbstractProcessor {
         error(e.getElementInError(), e.getMessage());
       }
     }
-    // Claim all Option annotated fields.
-    return true;
+    return false;
   }
 
   /**

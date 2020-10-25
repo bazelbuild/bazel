@@ -17,13 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.android.AndroidDataContext;
 import com.google.devtools.build.lib.rules.android.AndroidResources;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
-import com.google.devtools.build.lib.skylarkbuildapi.android.DataBindingV2ProviderApi.LabelJavaPackagePair;
+import com.google.devtools.build.lib.starlarkbuildapi.android.DataBindingV2ProviderApi.LabelJavaPackagePair;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -60,8 +59,7 @@ class DisabledDataBindingV2Context implements DataBindingContext {
     // android_binary doesn't have "exports"
     if (ruleContext.attributes().has("exports", BuildType.LABEL_LIST)) {
       Iterable<DataBindingV2Provider> exportsProviders =
-          ruleContext.getPrerequisites(
-              "exports", TransitionMode.TARGET, DataBindingV2Provider.PROVIDER);
+          ruleContext.getPrerequisites("exports", DataBindingV2Provider.PROVIDER);
       for (DataBindingV2Provider provider : exportsProviders) {
         setterStores.addAll(provider.getSetterStores());
         classInfos.addAll(provider.getClassInfos());
@@ -72,7 +70,7 @@ class DisabledDataBindingV2Context implements DataBindingContext {
     }
 
     Iterable<DataBindingV2Provider> depsProviders =
-        ruleContext.getPrerequisites("deps", TransitionMode.TARGET, DataBindingV2Provider.PROVIDER);
+        ruleContext.getPrerequisites("deps", DataBindingV2Provider.PROVIDER);
 
     for (DataBindingV2Provider provider : depsProviders) {
       brFiles.addTransitive(provider.getTransitiveBRFiles());

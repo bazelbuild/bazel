@@ -14,10 +14,11 @@
 
 package net.starlark.java.annot.processor.testsources;
 
-import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Test case for a StarlarkCallable method which specifies StarlarkThread before other parameters.
@@ -28,12 +29,12 @@ public class StarlarkInfoBeforeParams implements StarlarkValue {
       name = "skylark_info_wrong_order",
       documented = false,
       parameters = {
-        @Param(name = "one", type = String.class, named = true),
-        @Param(name = "two", type = Integer.class, named = true),
-        @Param(name = "three", type = String.class, named = true)
+        @Param(name = "one", named = true),
+        @Param(name = "two", named = true),
+        @Param(name = "three", named = true)
       },
       useStarlarkThread = true)
-  public String threeArgMethod(StarlarkThread thread, String one, Integer two, String three) {
+  public String threeArgMethod(StarlarkThread thread, String one, StarlarkInt two, String three) {
     return "bar";
   }
 }

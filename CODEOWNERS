@@ -17,15 +17,15 @@
 # Android
 
 # android/ directory anywhere in the repository
-android/ @ahumesky @jin
+android/ @ahumesky
 
-/src/tools/android/java/com/google/devtools/build/android/desugar/ @ahumesky @jin @kevin1e100
+/src/tools/android/java/com/google/devtools/build/android/desugar/ @ahumesky @kevin1e100
 
-/src/test/java/com/google/devtools/build/android/desugar/ @ahumesky @jin @kevin1e100
+/src/test/java/com/google/devtools/build/android/desugar/ @ahumesky @kevin1e100
 
-/src/tools/android/java/com/google/devtools/build/android/dexer/ @ahumesky @jin @kevin1e100
+/src/tools/android/java/com/google/devtools/build/android/dexer/ @ahumesky @kevin1e100
 
-/src/test/java/com/google/devtools/build/android/dexer/ @ahumesky @jin @kevin1e100
+/src/test/java/com/google/devtools/build/android/dexer/ @ahumesky @kevin1e100
 
 # Apple
 
@@ -35,7 +35,7 @@ android/ @ahumesky @jin
 
 # Documentation
 
-/site @aiuto @gregestren @jin
+/site @aiuto @gregestren @jin @floriographygoth
 
 # C++
 
@@ -59,9 +59,9 @@ android/ @ahumesky @jin
 
 /src/main/java/com/google/devtools/build/lib/rules/ @lberki
 
-# Skylark
+# Starlark
 
-/src/main/java/com/google/devtools/build/lib/syntax/ @brandjon @c-parsons @laurentlb @vladmos
+/src/main/java/net/starlark/java/ @alandonovan @brandjon
 
 /tools/coverage/ @lberki
 /tools/test/collect_coverage.sh @lberki

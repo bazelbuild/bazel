@@ -16,11 +16,12 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.syntax.Location;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -28,7 +29,7 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link LocationPrinter} static methods. */
 @RunWith(JUnit4.class)
 public class LocationPrinterTest {
-  private final FileSystem fileSystem = new InMemoryFileSystem();
+  private final FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
 
   @Test
   public void getRelativeLocationString_PathIsAlreadyRelative() {

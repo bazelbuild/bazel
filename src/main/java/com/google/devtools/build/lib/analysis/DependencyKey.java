@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.analysis;
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
+import javax.annotation.Nullable;
 
 /**
  * Information about a dependency, including the label and configuration transition. This will be
@@ -36,6 +38,13 @@ public abstract class DependencyKey {
     /** Sets the aspects that are propagating to the target this dependency points to. */
     Builder setAspects(AspectCollection aspectCollection);
 
+    /**
+     * Sets the {@link ToolchainContextKey} that this dependency should use for toolchain
+     * resolution.
+     */
+    @Nullable
+    Builder setToolchainContextKey(ToolchainContextKey toolchainContextKey);
+
     /** Returns the new instance. */
     DependencyKey build();
   }
@@ -53,4 +62,17 @@ public abstract class DependencyKey {
 
   /** Returns the aspects that are propagating to the target this dependency points to. */
   public abstract AspectCollection getAspects();
+
+  /**
+   * Returns the {@link ToolchainContextKey} that this dependency should use for toolchain
+   * resolution.
+   */
+  @Nullable
+  public abstract ToolchainContextKey getToolchainContextKey();
+
+  public Dependency.Builder getDependencyBuilder() {
+    return Dependency.builder()
+        .setLabel(getLabel())
+        .setToolchainContextKey(getToolchainContextKey());
+  }
 }

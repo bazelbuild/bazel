@@ -58,9 +58,16 @@ public class AndroidResourceOutputs {
     // see http://www.info-zip.org/FAQ.html#limits
     private static final long MINIMUM_TIMESTAMP_INCREMENT = 2000L;
 
-    // The earliest date representable in a zip file, 1-1-1980 (the DOS epoch).
-    private static final long ZIP_EPOCH =
-        new GregorianCalendar(1980, Calendar.JANUARY, 01, 0, 0).getTimeInMillis();
+    /**
+     * Normalized timestamp for zip entries We use the system's default timezone and locale and
+     * additionally avoid using the DOS epoch to ensure Java's zip implementation does not add the
+     * System's timezone into the extra field of the zip entry.
+     *
+     * <p>See https://bugs.java.com/bugdatabase/view_bug.do?bug_id=JDK-8246129 for details and a
+     * concrete standalone test case.
+     */
+    private static final long DEFAULT_TIMESTAMP =
+        new GregorianCalendar(1980, Calendar.FEBRUARY, 01, 0, 0).getTimeInMillis();
 
     private final ZipOutputStream zip;
 
@@ -84,9 +91,9 @@ public class AndroidResourceOutputs {
      */
     protected long normalizeTime(String filename) {
       if (filename.endsWith(".class")) {
-        return ZIP_EPOCH + MINIMUM_TIMESTAMP_INCREMENT;
+        return DEFAULT_TIMESTAMP + MINIMUM_TIMESTAMP_INCREMENT;
       } else {
-        return ZIP_EPOCH;
+        return DEFAULT_TIMESTAMP;
       }
     }
 

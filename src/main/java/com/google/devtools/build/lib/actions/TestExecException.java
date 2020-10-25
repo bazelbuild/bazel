@@ -13,20 +13,24 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-/**
- * An TestExecException that is related to the failure of a TestAction.
- */
-public final class TestExecException extends ExecException {
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.TestAction;
 
-  public TestExecException(String message) {
+/** An TestExecException that is related to the failure of a TestAction. */
+public final class TestExecException extends ExecException {
+  private final FailureDetails.TestAction.Code detailedCode;
+
+  public TestExecException(String message, FailureDetails.TestAction.Code detailedCode) {
     super(message);
+    this.detailedCode = detailedCode;
   }
 
   @Override
-  public ActionExecutionException toActionExecutionException(String messagePrefix,
-      boolean verboseFailures, Action action) {
-    String message = messagePrefix + " failed";
-    return new ActionExecutionException(
-        message + ": " + getMessage(), this, action, isCatastrophic());
+  protected FailureDetail getFailureDetail(String message) {
+    return FailureDetail.newBuilder()
+        .setTestAction(TestAction.newBuilder().setCode(detailedCode))
+        .setMessage(message)
+        .build();
   }
 }

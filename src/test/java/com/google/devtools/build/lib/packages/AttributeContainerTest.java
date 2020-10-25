@@ -14,12 +14,13 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
-import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import java.util.Arrays;
+import com.google.devtools.build.lib.packages.AttributeContainer.Mutable;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Random;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -30,46 +31,57 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class AttributeContainerTest {
 
-  private RuleClass ruleClass;
-  private AttributeContainer container;
-  private Attribute attribute1;
-  private Attribute attribute2;
-
-  @Before
-  public final void createAttributeContainer() throws Exception  {
-    ruleClass =
-        TestRuleClassProvider.getRuleClassProvider().getRuleClassMap().get("testing_dummy_rule");
-    attribute1 = ruleClass.getAttributeByName("srcs");
-    attribute2 = ruleClass.getAttributeByName("dummyinteger");
-    container = new AttributeContainer(ruleClass);
-  }
+  private static final int ATTR1 = 2;
+  private static final int ATTR2 = 6;
 
   @Test
-  public void testAttributeSettingAndRetrievalByName() throws Exception {
+  public void testAttributeSettingAndRetrieval() {
+    AttributeContainer container = new Mutable((short) 10);
     Object someValue1 = new Object();
     Object someValue2 = new Object();
-    container.setAttributeValueByName(attribute1.getName(), someValue1);
-    container.setAttributeValueByName(attribute2.getName(), someValue2);
-    assertThat(container.getAttr(attribute1.getName())).isEqualTo(someValue1);
-    assertThat(container.getAttr(attribute2.getName())).isEqualTo(someValue2);
-    assertThat(container.getAttr("nomatch")).isNull();
+    container.setAttributeValue(ATTR1, someValue1, /*explicit=*/ true);
+    container.setAttributeValue(ATTR2, someValue2, /*explicit=*/ true);
+    assertThat(container.getAttributeValue(ATTR1)).isEqualTo(someValue1);
+    assertThat(container.getAttributeValue(ATTR2)).isEqualTo(someValue2);
+    assertThrows(IndexOutOfBoundsException.class, () -> container.getAttributeValue(10));
   }
 
   @Test
-  public void testExplicitSpecificationsByName() throws Exception {
-    // Name-based setters are automatically considered explicit.
-    container.setAttributeValueByName(attribute1.getName(), new Object());
-    assertThat(container.isAttributeValueExplicitlySpecified(attribute1)).isTrue();
-    assertThat(container.isAttributeValueExplicitlySpecified("nomatch")).isFalse();
+  public void testAttributeSettingAndRetrieval_afterFreezing() {
+    AttributeContainer container = new Mutable((short) 10);
+    Object someValue1 = new Object();
+    Object someValue2 = new Object();
+    container.setAttributeValue(ATTR1, someValue1, /*explicit=*/ true);
+    container.setAttributeValue(ATTR2, someValue2, /*explicit=*/ true);
+    AttributeContainer frozen = container.freeze();
+    assertThat(frozen.getAttributeValue(ATTR1)).isEqualTo(someValue1);
+    assertThat(frozen.getAttributeValue(ATTR2)).isEqualTo(someValue2);
+    assertThrows(IndexOutOfBoundsException.class, () -> container.getAttributeValue(10));
   }
 
   @Test
-  public void testExplicitSpecificationsByInstance() throws Exception {
+  public void testExplicitSpecificationsByInstance() {
+    AttributeContainer container = new Mutable((short) 10);
     Object someValue = new Object();
-    container.setAttributeValue(attribute1, someValue, true);
-    container.setAttributeValue(attribute2, someValue, false);
-    assertThat(container.isAttributeValueExplicitlySpecified(attribute1)).isTrue();
-    assertThat(container.isAttributeValueExplicitlySpecified(attribute2)).isFalse();
+    container.setAttributeValue(ATTR1, someValue, true);
+    container.setAttributeValue(ATTR2, someValue, false);
+    assertThat(container.isAttributeValueExplicitlySpecified(ATTR1)).isTrue();
+    assertThat(container.isAttributeValueExplicitlySpecified(ATTR2)).isFalse();
+  }
+
+  @Test
+  public void testExplicitStateForOffByOneError() {
+    AttributeContainer container = new Mutable((short) 30);
+    // Set index 3 explicitly and check neighbouring indices dont leak that.
+    Object valA = new Object();
+    Object valB = new Object();
+    Object valC = new Object();
+    container.setAttributeValue(2, valA, true);
+    container.setAttributeValue(3, valB, true);
+    container.setAttributeValue(4, valC, false);
+    assertThat(container.isAttributeValueExplicitlySpecified(2)).isTrue();
+    assertThat(container.isAttributeValueExplicitlySpecified(3)).isTrue();
+    assertThat(container.isAttributeValueExplicitlySpecified(4)).isFalse();
   }
 
   @Test
@@ -78,32 +90,72 @@ public class AttributeContainerTest {
     // The state packing machinery has special behavior at multiples of 8,
     // so set enough explicit values to exercise that.
     final int numAttributes = 17;
-    Attribute[] attributes = new Attribute[numAttributes];
-    for (int attributeIndex = 0; attributeIndex < numAttributes; ++attributeIndex) {
-      attributes[attributeIndex] = ruleClass.getAttribute(attributeIndex);
+    List<Integer> attrIndices = new ArrayList<>();
+    for (int attrIndex = 0; attrIndex < numAttributes; ++attrIndex) {
+      attrIndices.add(attrIndex);
     }
 
     Object someValue = new Object();
     for (int explicitCount = 0; explicitCount <= numAttributes; ++explicitCount) {
-        AttributeContainer container = new AttributeContainer(ruleClass);
-        // Shuffle the attributes each time through, to exercise
-        // different stored indices and orderings.
-        Collections.shuffle(Arrays.asList(attributes));
+      AttributeContainer container = new Mutable((short) 20);
+      // Shuffle the attributes each time through, to exercise
+      // different stored indices and orderings.
+      Collections.shuffle(attrIndices);
         // Also randomly interleave calls to the two setters.
         int valuePassKey = rng.nextInt(1 << numAttributes);
         for (int pass = 0; pass <= 1; ++pass) {
           for (int i = 0; i < explicitCount; ++i) {
             if (pass == ((valuePassKey >> i) & 1)) {
-              container.setAttributeValue(attributes[i], someValue, true);
+            container.setAttributeValue(i, someValue, true);
             }
           }
         }
 
         for (int i = 0; i < numAttributes; ++i) {
           boolean expected = i < explicitCount;
-          assertThat(container.isAttributeValueExplicitlySpecified(attributes[i]))
-              .isEqualTo(expected);
+        assertThat(container.isAttributeValueExplicitlySpecified(i)).isEqualTo(expected);
         }
     }
+  }
+
+  private void checkFreezeWorks(
+      short maxAttrCount, Class<? extends AttributeContainer> expectedImplClass) {
+    AttributeContainer container = new Mutable(maxAttrCount);
+    Object someValue1 = new Object();
+    Object someValue2 = new Object();
+    container.setAttributeValue(ATTR1, someValue1, /*explicit=*/ true);
+    container.setAttributeValue(ATTR2, someValue2, /*explicit=*/ false);
+    AttributeContainer frozen = container.freeze();
+    assertThat(frozen).isInstanceOf(expectedImplClass);
+    // freezing returned something else.
+    assertThat(frozen).isNotSameInstanceAs(container);
+    // Double freezing is a no-op
+    assertThat(frozen.freeze()).isSameInstanceAs(frozen);
+    // reads/explicit bits work as expected
+    assertThat(frozen.getAttributeValue(ATTR1)).isEqualTo(someValue1);
+    assertThat(frozen.isAttributeValueExplicitlySpecified(ATTR1)).isTrue();
+    assertThat(frozen.getAttributeValue(ATTR2)).isEqualTo(someValue2);
+    assertThat(frozen.isAttributeValueExplicitlySpecified(ATTR2)).isFalse();
+    // Invalid attribute index.
+    assertThrows(IndexOutOfBoundsException.class, () -> frozen.getAttributeValue(maxAttrCount));
+    // writes no longer work.
+    assertThrows(
+        UnsupportedOperationException.class,
+        () -> frozen.setAttributeValue(ATTR2, new Object(), true));
+    // Updates to the original container no longer reflected in new container.
+    Object newValue = new Object();
+    container.setAttributeValue(ATTR2, newValue, true);
+    assertThat(container.getAttributeValue(ATTR2)).isEqualTo(newValue);
+    assertThat(frozen.getAttributeValue(ATTR2)).isEqualTo(someValue2);
+  }
+
+  @Test
+  public void testFreezeWorks_smallImplementation() {
+    checkFreezeWorks((short) 20, AttributeContainer.Small.class);
+  }
+
+  @Test
+  public void testFreezeWorks_largeImplementation() {
+    checkFreezeWorks((short) 150, AttributeContainer.Large.class);
   }
 }

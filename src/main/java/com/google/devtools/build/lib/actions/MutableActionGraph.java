@@ -24,7 +24,11 @@ import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.SaneAnalysisException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.Set;
 
 /**
@@ -100,6 +104,15 @@ public interface MutableActionGraph extends ActionGraph {
       eventListener.handle(Event.error(msg));
     }
 
+    @Override
+    public DetailedExitCode getDetailedExitCode() {
+      return DetailedExitCode.of(
+          FailureDetail.newBuilder()
+              .setMessage(getMessage())
+              .setAnalysis(Analysis.newBuilder().setCode(Code.ACTION_CONFLICT))
+              .build());
+    }
+
     private static void addStringDetail(
         StringBuilder sb, String key, String valueA, String valueB) {
       valueA = valueA != null ? valueA : "(null)";
@@ -172,7 +185,9 @@ public interface MutableActionGraph extends ActionGraph {
     }
 
     private static String getKey(ActionKeyContext actionKeyContext, ActionAnalysisMetadata action) {
-      return action instanceof Action ? ((Action) action).getKey(actionKeyContext) : null;
+      return action instanceof Action
+          ? ((Action) action).getKey(actionKeyContext, /*artifactExpander=*/ null)
+          : null;
     }
 
     // See also Actions.canBeShared()

@@ -18,18 +18,19 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
-import com.google.devtools.build.lib.analysis.skylark.StarlarkActionFactory;
-import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCommonApi;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkThread;
 
 /** A module that contains Starlark utilities for Java support. */
 public class JavaStarlarkCommon
@@ -37,7 +38,6 @@ public class JavaStarlarkCommon
         Artifact,
         JavaInfo,
         JavaToolchainProvider,
-        JavaRuntimeInfo,
         ConstraintValueInfo,
         StarlarkRuleContext,
         StarlarkActionFactory> {
@@ -69,7 +69,7 @@ public class JavaStarlarkCommon
       Sequence<?> annotationProcessorAdditionalOutputs, // <Artifact> expected
       String strictDepsMode,
       JavaToolchainProvider javaToolchain,
-      JavaRuntimeInfo hostJavabase,
+      Object hostJavabase,
       Sequence<?> sourcepathEntries, // <Artifact> expected
       Sequence<?> resources, // <Artifact> expected
       Boolean neverlink,
@@ -102,7 +102,6 @@ public class JavaStarlarkCommon
                 "annotation_processor_additional_outputs"),
             strictDepsMode,
             javaToolchain,
-            hostJavabase,
             ImmutableList.copyOf(Sequence.cast(sourcepathEntries, Artifact.class, "sourcepath")),
             Sequence.cast(resources, Artifact.class, "resources"),
             neverlink,
@@ -135,21 +134,21 @@ public class JavaStarlarkCommon
   @Override
   public Artifact packSources(
       StarlarkActionFactory actions,
-      Artifact outputJar,
+      Object outputJar,
+      Object outputSourceJar,
       Sequence<?> sourceFiles, // <Artifact> expected.
       Sequence<?> sourceJars, // <Artifact> expected.
       JavaToolchainProvider javaToolchain,
-      JavaRuntimeInfo hostJavabase)
+      Object hostJavabase)
       throws EvalException {
     return JavaInfoBuildHelper.getInstance()
         .packSourceFiles(
             actions,
-            outputJar,
-            /* outputSourceJar= */ null,
+            outputJar instanceof Artifact ? (Artifact) outputJar : null,
+            outputSourceJar instanceof Artifact ? (Artifact) outputSourceJar : null,
             Sequence.cast(sourceFiles, Artifact.class, "sources"),
             Sequence.cast(sourceJars, Artifact.class, "source_jars"),
-            javaToolchain,
-            hostJavabase);
+            javaToolchain);
   }
 
   @Override
@@ -214,7 +213,28 @@ public class JavaStarlarkCommon
   }
 
   @Override
+  public Sequence<String> getConstraints(JavaInfo javaInfo) {
+    // No implementation in Bazel. This method not callable in Starlark except through
+    // (discouraged) use of --experimental_google_legacy_api.
+    return StarlarkList.empty();
+  }
+
+  @Override
   public JavaInfo removeAnnotationProcessors(JavaInfo javaInfo) {
+    // No implementation in Bazel. This method not callable in Starlark except through
+    // (discouraged) use of --experimental_google_legacy_api.
+    return null;
+  }
+
+  @Override
+  public JavaInfo setAnnotationProcessing(
+      JavaInfo javaInfo,
+      boolean enabled,
+      Sequence<?> processorClassnames,
+      Object processorClasspath,
+      Object classJar,
+      Object sourceJar)
+      throws EvalException {
     // No implementation in Bazel. This method not callable in Starlark except through
     // (discouraged) use of --experimental_google_legacy_api.
     return null;

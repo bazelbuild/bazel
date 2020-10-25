@@ -15,11 +15,9 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
 import com.google.devtools.build.lib.clock.Clock;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsProvider;
-import java.util.function.Predicate;
 
 /**
  * The Executor provides the context for the execution of actions. It is only valid during the
@@ -54,9 +52,6 @@ public interface Executor extends ActionContext.ActionContextRegistry {
    * performance measurements / reporting.
    */
   Clock getClock();
-
-  /** Predicate for whether an action's failures should have verbose error messages. */
-  Predicate<Label> getVerboseFailuresPredicate();
 
   /**
    * Returns the command line options of the Blaze command being executed.

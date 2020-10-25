@@ -17,10 +17,10 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -30,19 +30,17 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
@@ -50,12 +48,12 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
-import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import net.starlark.java.syntax.StarlarkFile;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -109,11 +107,11 @@ public class PackageLoadingTest extends FoundationTestCase {
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .build();
     SkyframeExecutorTestHelper.process(skyframeExecutor);
-    setUpSkyframe(parsePackageOptions(), parseStarlarkSemanticsOptions());
+    setUpSkyframe(parsePackageOptions(), parseBuildLanguageOptions());
   }
 
   private void setUpSkyframe(
-      PackageOptions packageOptions, StarlarkSemanticsOptions starlarkSemanticsOptions) {
+      PackageOptions packageOptions, BuildLanguageOptions buildLanguageOptions) {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             null,
@@ -127,12 +125,11 @@ public class PackageLoadingTest extends FoundationTestCase {
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
-                Optional.<RootedPath>absent())));
+                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
-        starlarkSemanticsOptions,
+        buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
@@ -143,7 +140,7 @@ public class PackageLoadingTest extends FoundationTestCase {
   private OptionsParser parse(String... options) throws Exception {
     OptionsParser parser =
         OptionsParser.builder()
-            .optionsClasses(PackageOptions.class, StarlarkSemanticsOptions.class)
+            .optionsClasses(PackageOptions.class, BuildLanguageOptions.class)
             .build();
     parser.parse("--default_visibility=public");
     parser.parse(options);
@@ -155,13 +152,12 @@ public class PackageLoadingTest extends FoundationTestCase {
     return parse(options).getOptions(PackageOptions.class);
   }
 
-  private StarlarkSemanticsOptions parseStarlarkSemanticsOptions(String... options)
-      throws Exception {
-    return parse(options).getOptions(StarlarkSemanticsOptions.class);
+  private BuildLanguageOptions parseBuildLanguageOptions(String... options) throws Exception {
+    return parse(options).getOptions(BuildLanguageOptions.class);
   }
 
   protected void setOptions(String... options) throws Exception {
-    setUpSkyframe(parsePackageOptions(options), parseStarlarkSemanticsOptions(options));
+    setUpSkyframe(parsePackageOptions(options), parseBuildLanguageOptions(options));
   }
 
   private PackageManager getPackageManager() {
@@ -417,9 +413,11 @@ public class PackageLoadingTest extends FoundationTestCase {
     scratch.file("e/f/BUILD");
     scratch.file("e/BUILD", "# Whatever", "filegroup(name='fg', srcs=['f/g'])");
     reporter.removeHandler(failFastHandler);
-    List<Event> events = getPackage("e").getEvents();
-    assertThat(events).hasSize(1);
-    assertThat(events.get(0).getLocation().line()).isEqualTo(2);
+
+    getPackage("e");
+
+    assertThat(eventCollector).hasSize(1);
+    assertThat(Iterables.getOnlyElement(eventCollector).getLocation().line()).isEqualTo(2);
   }
 
   /** Static tests (i.e. no changes to filesystem, nor calls to sync). */

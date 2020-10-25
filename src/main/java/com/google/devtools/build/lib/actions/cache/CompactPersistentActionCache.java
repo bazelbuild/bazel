@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.util.PersistentMap;
 import com.google.devtools.build.lib.util.StringIndexer;
 import com.google.devtools.build.lib.util.VarInt;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import java.io.ByteArrayOutputStream;
@@ -381,14 +382,14 @@ public class CompactPersistentActionCache implements ActionCache {
       VarInt.putVarInt(actionKeyBytes.length, sink);
       sink.write(actionKeyBytes);
 
-      DigestUtils.write(entry.getFileDigest(), sink);
+      MetadataDigestUtils.write(entry.getFileDigest(), sink);
 
       VarInt.putVarInt(entry.discoversInputs() ? files.size() : NO_INPUT_DISCOVERY_COUNT, sink);
       for (String file : files) {
         VarInt.putVarInt(indexer.getOrCreateIndex(file), sink);
       }
 
-      DigestUtils.write(entry.getUsedClientEnvDigest(), sink);
+      MetadataDigestUtils.write(entry.getUsedClientEnvDigest(), sink);
 
       return sink.toByteArray();
     } catch (IOException e) {
@@ -410,9 +411,12 @@ public class CompactPersistentActionCache implements ActionCache {
       source.get(actionKeyBytes);
       String actionKey = new String(actionKeyBytes, ISO_8859_1);
 
-      byte[] digest = DigestUtils.read(source);
+      byte[] digest = MetadataDigestUtils.read(source);
 
       int count = VarInt.getVarInt(source);
+      if (count != NO_INPUT_DISCOVERY_COUNT && count < 0) {
+        throw new IOException("Negative discovered file count: " + count);
+      }
       ImmutableList<String> files = null;
       if (count != NO_INPUT_DISCOVERY_COUNT) {
         ImmutableList.Builder<String> builder = ImmutableList.builderWithExpectedSize(count);
@@ -427,7 +431,7 @@ public class CompactPersistentActionCache implements ActionCache {
         files = builder.build();
       }
 
-      byte[] usedClientEnvDigest = DigestUtils.read(source);
+      byte[] usedClientEnvDigest = MetadataDigestUtils.read(source);
 
       if (source.remaining() > 0) {
         throw new IOException("serialized entry data has not been fully decoded");

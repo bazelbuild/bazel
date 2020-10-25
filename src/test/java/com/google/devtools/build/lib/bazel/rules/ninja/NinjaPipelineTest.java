@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
 import com.google.devtools.build.lib.bazel.rules.ninja.pipeline.NinjaPipelineImpl;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -51,7 +50,7 @@ public class NinjaPipelineTest {
     private final Path dir;
     private final ListeningExecutorService service;
 
-    Tester() throws IOException, DefaultHashFunctionNotSetException {
+    Tester() throws IOException {
       service =
           MoreExecutors.listeningDecorator(
               Executors.newFixedThreadPool(
@@ -60,7 +59,7 @@ public class NinjaPipelineTest {
                       .setNameFormat(NinjaPipelineTest.class.getSimpleName() + "-%d")
                       .build()));
       java.nio.file.Path tmpDir = Files.createTempDirectory("test");
-      dir = new JavaIoFileSystem().getPath(tmpDir.toString());
+      dir = new JavaIoFileSystem(DigestHashFunction.SHA256).getPath(tmpDir.toString());
     }
 
     ListeningExecutorService getService() {
@@ -88,11 +87,6 @@ public class NinjaPipelineTest {
 
   @Before
   public void setUp() throws Exception {
-    try {
-      DigestHashFunction.setDefault(DigestHashFunction.SHA256);
-    } catch (DigestHashFunction.DefaultAlreadySetException e) {
-      // Do nothing.
-    }
     tester = new Tester();
   }
 
@@ -234,8 +228,8 @@ public class NinjaPipelineTest {
     assertThat(exception)
         .hasMessageThat()
         .isEqualTo(
-            "Ninja file requested from 'test.ninja' "
-                + "not declared in 'srcs' attribute of 'ninja_target'.");
+            "Ninja file 'subfile.ninja' requested from 'test.ninja' "
+                + "not declared in 'ninja_srcs' attribute of 'ninja_target'.");
   }
 
   @Test

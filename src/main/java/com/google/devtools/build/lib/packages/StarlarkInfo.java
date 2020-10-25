@@ -19,18 +19,17 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.HasBinary;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.TokenKind;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.ClassObject;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.HasBinary;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.TokenKind;
 
 /** An Info (provider instance) for providers defined in Starlark. */
 public final class StarlarkInfo extends StructImpl implements HasBinary, ClassObject {
@@ -250,15 +249,11 @@ public final class StarlarkInfo extends StructImpl implements HasBinary, ClassOb
   @Override
   public boolean isImmutable() {
     // If the provider is not yet exported, the hash code of the object is subject to change.
-    // TODO(adonovan): implement isHashable?
     if (!getProvider().isExported()) {
       return false;
     }
-    // TODO(bazel-team): If we export at the end of a full module's evaluation, instead of at the
-    // end of every top-level statement, then we can assume that exported implies frozen, and just
-    // return true here without a traversal.
     for (int i = table.length / 2; i < table.length; i++) {
-      if (!EvalUtils.isImmutable(table[i])) {
+      if (!Starlark.isImmutable(table[i])) {
         return false;
       }
     }

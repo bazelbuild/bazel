@@ -19,8 +19,11 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
@@ -51,10 +54,15 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
   private static final PatchTransition CHANGE_FOO_FLAG_TRANSITION =
       new PatchTransition() {
         @Override
-        public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
-          BuildOptions toOptions = options.clone();
+        public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+          return ImmutableSet.of(LateBoundSplitUtil.TestOptions.class);
+        }
+
+        @Override
+        public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
+          BuildOptionsView toOptions = options.clone();
           toOptions.get(LateBoundSplitUtil.TestOptions.class).fooFlag = "PATCHED!";
-          return toOptions;
+          return toOptions.underlying();
         }
       };
 
@@ -123,8 +131,8 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
             SkyframeExecutorTestUtils.getExistingConfiguredTargets(
                 skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep", ImmutableMap.of())));
     assertThat(getConfiguration(dep)).isEqualTo(getHostConfiguration());
-    // This is technically redundant, but slightly stronger in sanity checking that the host
-    // configuration doesn't happen to match what the patch would have done.
+    // This is technically redundant, but slightly stronger in checking that the host configuration
+    // doesn't happen to match what the patch would have done.
     assertThat(LateBoundSplitUtil.getOptions(getConfiguration(dep)).fooFlag).isEmpty();
   }
 }

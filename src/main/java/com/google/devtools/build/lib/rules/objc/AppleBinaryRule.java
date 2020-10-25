@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
+import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagTransitionFactory;
@@ -133,6 +135,21 @@ public class AppleBinaryRule implements RuleDefinition {
                 .allowedFileTypes()
                 .singleArtifact()
                 .aspect(objcProtoAspect))
+        /*<!-- #BLAZE_RULE(apple_binary).ATTRIBUTE(stamp) -->
+        Enable link stamping.
+        Whether to encode build information into the binary. Possible values:
+        <ul>
+          <li><code>stamp = 1</code>: Stamp the build information into the
+            binary. Stamped binaries are only rebuilt when their dependencies
+            change. Use this if there are tests that depend on the build
+            information.</li>
+          <li><code>stamp = 0</code>: Always replace build information by constant
+            values. This gives good build result caching.</li>
+          <li><code>stamp = -1</code>: Embedding of build information is controlled
+            by the <a href="../user-manual.html#flag--stamp">--[no]stamp</a> flag.</li>
+        </ul>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr("stamp", TRISTATE).value(TriState.AUTO))
         .add(
             attr("feature_flags", LABEL_KEYED_STRING_DICT)
                 .undocumented("the feature flag feature has not yet been launched")
@@ -153,6 +170,7 @@ public class AppleBinaryRule implements RuleDefinition {
                 (rule) -> AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION,
                 new ConfigFeatureFlagTransitionFactory("feature_flags")))
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
+        .useToolchainTransition(true)
         .build();
   }
 

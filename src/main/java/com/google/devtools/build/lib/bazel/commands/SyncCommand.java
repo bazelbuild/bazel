@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOrderEvent;
-import com.google.devtools.build.lib.bazel.repository.skylark.StarlarkRepositoryFunction;
+import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.server.FailureDetails.SyncCommand.Code;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -60,6 +59,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import net.starlark.java.eval.Starlark;
 
 /** Syncs all repositories specified in the workspace file */
 @Command(
@@ -122,7 +122,7 @@ public final class SyncCommand implements BlazeCommand {
       EvaluationContext evaluationContext =
           EvaluationContext.newBuilder()
               .setNumThreads(threadsOption.threads)
-              .setEventHander(env.getReporter())
+              .setEventHandler(env.getReporter())
               .build();
       EvaluationResult<SkyValue> packageLookupValue =
           skyframeExecutor.prepareAndGet(ImmutableSet.of(packageLookupKey), evaluationContext);
@@ -246,13 +246,9 @@ public final class SyncCommand implements BlazeCommand {
 
   private static ResolvedEvent resolveBind(Rule rule) {
     String name = rule.getName();
-    Label actual = (Label) rule.getAttributeContainer().getAttr("actual");
+    Label actual = (Label) rule.getAttr("actual");
     String nativeCommand =
-        "bind(name = "
-            + Printer.getPrinter().repr(name)
-            + ", actual = "
-            + Printer.getPrinter().repr(actual.getCanonicalForm())
-            + ")";
+        Starlark.format("bind(name = %r, actual = %r)", name, actual.getCanonicalForm());
 
     return new ResolvedEvent() {
       @Override
@@ -282,9 +278,7 @@ public final class SyncCommand implements BlazeCommand {
     String name = "//external/" + ruleName;
     StringBuilder nativeCommandBuilder = new StringBuilder().append(ruleName).append("(");
     nativeCommandBuilder.append(
-        args.stream()
-            .map(arg -> Printer.getPrinter().repr(arg).toString())
-            .collect(Collectors.joining(", ")));
+        args.stream().map(Starlark::repr).collect(Collectors.joining(", ")));
     nativeCommandBuilder.append(")");
     String nativeCommand = nativeCommandBuilder.toString();
 
@@ -319,7 +313,7 @@ public final class SyncCommand implements BlazeCommand {
   private static BlazeCommandResult blazeCommandResultWithNoBuildReport(
       CommandEnvironment env, ExitCode exitCode, Code syncCommandCode, String message) {
     reportNoBuildRequestFinished(env, exitCode);
-    return createFailedBlazeCommandResult(exitCode, syncCommandCode, message);
+    return createFailedBlazeCommandResult(syncCommandCode, message);
   }
 
   private static void reportNoBuildRequestFinished(CommandEnvironment env, ExitCode exitCode) {
@@ -328,10 +322,9 @@ public final class SyncCommand implements BlazeCommand {
   }
 
   private static BlazeCommandResult createFailedBlazeCommandResult(
-      ExitCode exitCode, Code syncCommandCode, String message) {
+      Code syncCommandCode, String message) {
     return BlazeCommandResult.detailedExitCode(
         DetailedExitCode.of(
-            exitCode,
             FailureDetail.newBuilder()
                 .setMessage(message)
                 .setSyncCommand(

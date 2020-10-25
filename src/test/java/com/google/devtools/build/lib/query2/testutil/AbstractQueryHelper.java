@@ -20,11 +20,11 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.testutil.AbstractQueryTest.QueryHelper;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import java.util.Arrays;
-import java.util.List;
 
 /** Partial {@link QueryHelper} implementation for settings storage and event handling. */
 public abstract class AbstractQueryHelper<T> implements QueryHelper<T> {
@@ -34,7 +34,7 @@ public abstract class AbstractQueryHelper<T> implements QueryHelper<T> {
   protected boolean keepGoing;
   protected ImmutableSet<Setting> settings = ImmutableSet.of();
   protected boolean orderedResults = true;
-  protected List<String> universeScope = ImmutableList.of();
+  protected UniverseScope universeScope = UniverseScope.EMPTY;
 
   @Override
   public void setUp() throws Exception {
@@ -48,7 +48,9 @@ public abstract class AbstractQueryHelper<T> implements QueryHelper<T> {
 
   @Override
   public void setUniverseScope(String universeScope) {
-    this.universeScope = Arrays.asList(universeScope.split(","));
+    this.universeScope =
+        UniverseScope.fromUniverseScopeList(
+            ImmutableList.copyOf(Arrays.asList(universeScope.split(","))));
   }
 
   @Override

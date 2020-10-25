@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -30,7 +31,6 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaOptions;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.IntStream;
 import org.junit.Before;
 import org.junit.Test;
@@ -51,7 +51,7 @@ public class ComposingTransitionTest {
   }
 
   @Test
-  public void compose_patch_patch() {
+  public void compose_patch_patch() throws Exception {
     // Same flag, will overwrite.
     ConfigurationTransition composed =
         ComposingTransition.of(new StubPatch(FLAG_1, "value1"), new StubPatch(FLAG_1, "value2"));
@@ -68,7 +68,7 @@ public class ComposingTransitionTest {
   }
 
   @Test
-  public void compose_patch_split() {
+  public void compose_patch_split() throws Exception {
     // Different flags, will combine.
     ConfigurationTransition composed =
         ComposingTransition.of(
@@ -93,7 +93,7 @@ public class ComposingTransitionTest {
   }
 
   @Test
-  public void compose_split_patch() {
+  public void compose_split_patch() throws Exception {
     // Different flags, will combine.
     ConfigurationTransition composed =
         ComposingTransition.of(
@@ -184,8 +184,8 @@ public class ComposingTransitionTest {
     }
 
     @Override
-    public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
-      return updateOptions(options, flagLabel, flagValue);
+    public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
+      return updateOptions(options.underlying(), flagLabel, flagValue);
     }
   }
 
@@ -199,25 +199,26 @@ public class ComposingTransitionTest {
     }
 
     @Override
-    public Map<String, BuildOptions> split(BuildOptions options, EventHandler eventHandler) {
+    public ImmutableMap<String, BuildOptions> split(
+        BuildOptionsView options, EventHandler eventHandler) {
       return IntStream.range(0, flagValues.size())
           .boxed()
           .collect(
               toImmutableMap(
                   i -> "stub_split" + i,
-                  i -> updateOptions(options, flagLabel, flagValues.get(i))));
+                  i -> updateOptions(options.underlying(), flagLabel, flagValues.get(i))));
     }
   }
 
   private static final class TransitionWithCustomFragments implements PatchTransition {
-    private final Set<Class<? extends FragmentOptions>> fragments;
+    private final ImmutableSet<Class<? extends FragmentOptions>> fragments;
 
-    TransitionWithCustomFragments(Set<Class<? extends FragmentOptions>> fragments) {
+    TransitionWithCustomFragments(ImmutableSet<Class<? extends FragmentOptions>> fragments) {
       this.fragments = fragments;
     }
 
     @Override
-    public Set<Class<? extends FragmentOptions>> requiresOptionFragments() {
+    public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
       return fragments;
     }
 
@@ -233,7 +234,7 @@ public class ComposingTransitionTest {
         ComposingTransition.of(
             new TransitionWithCustomFragments(ImmutableSet.of(CppOptions.class)),
             new TransitionWithCustomFragments(ImmutableSet.of(JavaOptions.class)));
-    assertThat(composed.requiresOptionFragments())
-        .containsExactly(CppOptions.class, JavaOptions.class);
+    assertThat(composed.requiresOptionFragments(BuildOptions.builder().build()))
+        .containsExactly("CppOptions", "JavaOptions");
   }
 }

@@ -29,6 +29,7 @@ import com.android.aapt.Resources.Plural;
 import com.android.aapt.Resources.Reference;
 import com.android.aapt.Resources.ResourceTable;
 import com.android.aapt.Resources.Style;
+import com.android.aapt.Resources.ToolFingerprint;
 import com.android.aapt.Resources.Type;
 import com.android.aapt.Resources.Value;
 import com.android.aapt.Resources.XmlAttribute;
@@ -121,12 +122,19 @@ public class ProtoApk implements Closeable {
     final URI dstZipUri = URI.create("jar:" + destination.toUri());
     try (final ZipFile srcZip = new ZipFile(uri.getPath());
         final UniqueZipBuilder dstZip = UniqueZipBuilder.createFor(destination)) {
-      final ResourceTable.Builder dstTableBuilder = ResourceTable.newBuilder();
       final ResourceTable resourceTable =
           ResourceTable.parseFrom(
               Files.newInputStream(apkFileSystem.getPath(RESOURCE_TABLE)),
               ExtensionRegistry.getEmptyRegistry());
-      dstTableBuilder.setSourcePool(resourceTable.getSourcePool());
+      final ResourceTable.Builder dstTableBuilder =
+          resourceTable.toBuilder()
+              .addToolFingerprint(
+                  ToolFingerprint.newBuilder().setTool("ResourceProcessorBusyBox")
+                  // NB: "stamp" information should go here, but that's not available:
+                  // https://github.com/bazelbuild/bazel/blob/78bb263e46bf301900c1d4b1e04fabf3a6854762/src/main/java/com/google/devtools/build/lib/bazel/rules/java/BazelJavaRuleClasses.java#L380
+                  );
+
+      dstTableBuilder.clearPackage(); // we'll add these back, with filtering below
       for (Package pkg : resourceTable.getPackageList()) {
         Package dstPkg = copyPackage(resourceFilter, dstZip, pkg);
         dstTableBuilder.addPackage(dstPkg);

@@ -43,8 +43,7 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("PACKAGE_LOOKUP");
   public static final SkyFunctionName CONTAINING_PACKAGE_LOOKUP =
       SkyFunctionName.createHermetic("CONTAINING_PACKAGE_LOOKUP");
-  public static final SkyFunctionName AST_FILE_LOOKUP =
-      SkyFunctionName.createHermetic("AST_FILE_LOOKUP");
+  public static final SkyFunctionName BZL_COMPILE = SkyFunctionName.createHermetic("BZL_COMPILE");
   public static final SkyFunctionName STARLARK_BUILTINS =
       SkyFunctionName.createHermetic("STARLARK_BUILTINS");
   public static final SkyFunctionName BZL_LOAD = SkyFunctionName.createHermetic("BZL_LOAD");
@@ -73,8 +72,8 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("COLLECT_TEST_SUITES_IN_PACKAGE");
   public static final SkyFunctionName COLLECT_PACKAGES_UNDER_DIRECTORY =
       SkyFunctionName.createHermetic("COLLECT_PACKAGES_UNDER_DIRECTORY");
-  public static final SkyFunctionName BLACKLISTED_PACKAGE_PREFIXES =
-      SkyFunctionName.createHermetic("BLACKLISTED_PACKAGE_PREFIXES");
+  public static final SkyFunctionName IGNORED_PACKAGE_PREFIXES =
+      SkyFunctionName.createHermetic("IGNORED_PACKAGE_PREFIXES");
   static final SkyFunctionName TEST_SUITE_EXPANSION =
       SkyFunctionName.createHermetic("TEST_SUITE_EXPANSION");
   static final SkyFunctionName TESTS_IN_SUITE = SkyFunctionName.createHermetic("TESTS_IN_SUITE");

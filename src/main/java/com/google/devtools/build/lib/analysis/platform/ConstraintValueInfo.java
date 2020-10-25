@@ -14,17 +14,21 @@
 
 package com.google.devtools.build.lib.analysis.platform;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Objects;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.syntax.Location;
 
 /** Provider for a platform constraint value that fulfills a {@link ConstraintSettingInfo}. */
 @Immutable
@@ -58,10 +62,38 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
     return label;
   }
 
+  /**
+   * Returns a {@link ConfigMatchingProvider} that matches if the owning target's platform includes
+   * this constraint.
+   *
+   * <p>The {@link com.google.devtools.build.lib.rules.platform.ConstraintValue} rule can't directly
+   * return a {@link ConfigMatchingProvider} because, as part of a platform's definition, it doesn't
+   * have access to the platform during its analysis.
+   *
+   * <p>Instead, a target with a <code>select()</code> on a {@link
+   * com.google.devtools.build.lib.rules.platform.ConstraintValue} passes its platform info to this
+   * method.
+   */
+  public ConfigMatchingProvider configMatchingProvider(PlatformInfo platformInfo) {
+    return new ConfigMatchingProvider(
+        label,
+        ImmutableMultimap.of(),
+        ImmutableMap.of(),
+        // Technically a select() on a constraint_value requires PlatformConfiguration, since that's
+        // used to build the platform this checks against. But platformInfo's existence implies
+        // the owning target already depends on PlatformConfiguration. And we can't reference
+        // PlatformConfiguration.class here without a build dependency cycle.
+        ImmutableSet.of(),
+        platformInfo.constraints().hasConstraintValue(this));
+  }
+
   @Override
   public void repr(Printer printer) {
-    printer.format(
-        "ConstraintValueInfo(setting=%s, %s)", constraint.label().toString(), label.toString());
+    Printer.format(
+        printer,
+        "ConstraintValueInfo(setting=%s, %s)",
+        constraint.label().toString(),
+        label.toString());
   }
 
   /** Returns a new {@link ConstraintValueInfo} with the given data. */

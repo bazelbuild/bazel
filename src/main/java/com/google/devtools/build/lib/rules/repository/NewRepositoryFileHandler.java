@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -33,6 +32,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
 import java.util.Map;
+import net.starlark.java.eval.EvalException;
 
 /**
  * Encapsulates the 2-step behavior of creating workspace and build files for the new_*_repository

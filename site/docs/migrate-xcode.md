@@ -270,3 +270,25 @@ bazel build //:my-target
 When building with Bazel, the `WORKSPACE` and `BUILD` files become the source
 of truth about the build. To make Xcode aware of this, you must generate a
 Bazel-compatible Xcode project using [Tulsi](http://tulsi.bazel.build/).
+
+### Troubleshooting
+
+Bazel errors can arise when it gets out of sync with the selected Xcode version,
+like when you apply an update. Here are some things to try if you're
+experiencing errors with Xcode, for example "Xcode version must be specified to
+use an Apple CROSSTOOL".
+
+* Manually run Xcode and accept any terms and conditions.
+
+* Use Xcode select to indicate the correct version, accept the license, and
+  clear Bazel's state.
+```
+  sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+  sudo xcodebuild -license
+  bazel sync --configure
+```
+
+* If this does not work, you may also try running `bazel clean --expunge`.
+
+Note: If you've saved your Xcode to a different path, you can use `xcode-select
+-s` to point to that path.

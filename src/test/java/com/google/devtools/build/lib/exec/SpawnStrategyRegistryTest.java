@@ -179,28 +179,6 @@ public class SpawnStrategyRegistryTest {
   }
 
   @Test
-  public void testMultipleDescriptionFilterLegacy() throws Exception {
-    NoopStrategy strategy1 = new NoopStrategy("1");
-    NoopStrategy strategy2 = new NoopStrategy("2");
-    SpawnStrategyRegistry strategyRegistry =
-        SpawnStrategyRegistry.builder()
-            .registerStrategy(strategy1, "foo")
-            .registerStrategy(strategy2, "bar")
-            .addDescriptionFilter(ELLO_MATCHER, ImmutableList.of("foo"))
-            .addDescriptionFilter(
-                new RegexFilter(ImmutableList.of("ll"), ImmutableList.of()),
-                ImmutableList.of("bar"))
-            .useLegacyDescriptionFilterPrecedence()
-            .build();
-
-    assertThat(
-            strategyRegistry.getStrategies(
-                createSpawnWithMnemonicAndDescription("", "hello"),
-                SpawnStrategyRegistryTest::noopEventHandler))
-        .containsExactly(strategy1);
-  }
-
-  @Test
   public void testMultipleDefaultStrategies() throws Exception {
     NoopStrategy strategy1 = new NoopStrategy("1");
     NoopStrategy strategy2 = new NoopStrategy("2");
@@ -567,7 +545,7 @@ public class SpawnStrategyRegistryTest {
     private int usedCalled = 0;
 
     public NoopAbstractStrategy(String name) {
-      super(null, null);
+      super(null, null, /*verboseFailures=*/ true);
       this.name = name;
     }
 

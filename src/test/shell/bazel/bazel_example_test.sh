@@ -166,8 +166,8 @@ function test_python() {
   expect_log "Hello"
 }
 
-function test_java_skylark() {
-  local java_pkg=examples/java-skylark/src/main/java/com/example/myproject
+function test_java_starlark() {
+  local java_pkg=examples/java-starlark/src/main/java/com/example/myproject
   assert_build_output ./bazel-bin/${java_pkg}/libhello-lib.jar ${java_pkg}:hello-lib
   assert_build_output ./bazel-bin/${java_pkg}/hello-data ${java_pkg}:hello-data
   assert_build_output ./bazel-bin/${java_pkg}/hello-world ${java_pkg}:hello-world
@@ -177,9 +177,9 @@ function test_java_skylark() {
   assert_binary_run_from_subdir "bazel-bin/${java_pkg}/hello-data foo" "Heyo foo"
 }
 
-function test_java_test_skylark() {
-  setup_skylark_javatest_support
-  javatests=examples/java-skylark/src/test/java/com/example/myproject
+function test_java_test_starlark() {
+  setup_starlark_javatest_support
+  javatests=examples/java-starlark/src/test/java/com/example/myproject
   assert_build //${javatests}:pass
   assert_test_ok //${javatests}:pass
   assert_test_fails //${javatests}:fail

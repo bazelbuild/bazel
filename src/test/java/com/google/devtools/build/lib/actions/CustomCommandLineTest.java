@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
@@ -39,6 +38,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
+import net.starlark.java.eval.EvalException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -970,7 +970,7 @@ public class CustomCommandLineTest {
     Map<String, CustomCommandLine> digests = new HashMap<>();
     for (CustomCommandLine commandLine : commandLines) {
       Fingerprint fingerprint = new Fingerprint();
-      commandLine.addToFingerprint(actionKeyContext, fingerprint);
+      commandLine.addToFingerprint(actionKeyContext, /*artifactExpander=*/ null, fingerprint);
       String digest = fingerprint.hexDigestAndReset();
       CustomCommandLine previous = digests.putIfAbsent(digest, commandLine);
       if (previous != null) {

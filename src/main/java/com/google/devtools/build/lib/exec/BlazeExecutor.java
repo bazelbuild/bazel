@@ -13,17 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.clock.Clock;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsProvider;
-import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -36,7 +36,7 @@ import javax.annotation.Nullable;
  */
 @ThreadSafe
 public final class BlazeExecutor implements Executor {
-  private final Predicate<Label> verboseFailures;
+
   private final ShowSubcommands showSubcommands;
   private final FileSystem fileSystem;
   private final Path execRoot;
@@ -63,8 +63,7 @@ public final class BlazeExecutor implements Executor {
       OptionsProvider options,
       ModuleActionContextRegistry actionContextRegistry,
       SpawnStrategyRegistry spawnStrategyRegistry) {
-    ExecutionOptions executionOptions = options.getOptions(ExecutionOptions.class);
-    this.verboseFailures = executionOptions.getVerboseFailuresPredicate();
+    ExecutionOptions executionOptions = checkNotNull(options.getOptions(ExecutionOptions.class));
     this.showSubcommands = executionOptions.showSubcommands;
     this.fileSystem = fileSystem;
     this.execRoot = execRoot;
@@ -105,11 +104,6 @@ public final class BlazeExecutor implements Executor {
   @Nullable
   public <T extends ActionContext> T getContext(Class<T> type) {
     return actionContextRegistry.getContext(type);
-  }
-
-  @Override
-  public Predicate<Label> getVerboseFailuresPredicate() {
-    return verboseFailures;
   }
 
   /** Returns the options associated with the execution. */

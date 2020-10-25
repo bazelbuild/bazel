@@ -53,9 +53,9 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -168,13 +168,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
-      SkyFunction blacklistedPackagePrefixesFunction,
+      SkyFunction ignoredPackagePrefixesFunction,
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
       ImmutableList<BuildFileName> buildFilesByPriority,
       ExternalPackageHelper externalPackageHelper,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       BuildOptions defaultBuildOptions,
-      MutableArtifactFactorySupplier mutableArtifactFactorySupplier,
       @Nullable ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
     super(
         skyframeExecutorConsumerOnInit,
@@ -186,7 +185,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         workspaceStatusActionFactory,
         extraSkyFunctions,
         ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
-        blacklistedPackagePrefixesFunction,
+        ignoredPackagePrefixesFunction,
         crossRepositoryLabelViolationStrategy,
         buildFilesByPriority,
         externalPackageHelper,
@@ -195,7 +194,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         GraphInconsistencyReceiver.THROWING,
         defaultBuildOptions,
         new PackageProgressReceiver(),
-        mutableArtifactFactorySupplier,
         new ConfiguredTargetProgressReceiver(),
         /*nonexistentFileReceiver=*/ null,
         managedDirectoriesKnowledge);
@@ -235,17 +233,22 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       ExtendedEventHandler eventHandler,
       PackageOptions packageOptions,
       PathPackageLocator packageLocator,
-      StarlarkSemanticsOptions starlarkSemanticsOptions,
+      BuildLanguageOptions buildLanguageOptions,
       UUID commandId,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm,
       OptionsProvider options)
       throws InterruptedException, AbruptExitException {
-    // If the nestedSetAsSkykeyThreshold changed between builds, it's necessary to reset the
+    // If the ArtifactNestedSetFunction options changed between builds, it's necessary to reset the
     // evaluator to avoid dependency inconsistencies in Skyframe.
-    // Resetting the evaluator also creates new instances of the SkyFunctions, hence also wiping
+    // Resetting the evaluator creates new instances of the SkyFunctions, hence also wiping
     // various state maps in ActionExecutionFunction and ArtifactNestedSetFunction.
-    if (evaluatorNeedsReset || nestedSetAsSkyKeyThresholdUpdatedAndReset(options)) {
+    boolean nestedSetAsSkyKeyOptionsChanged = nestedSetAsSkyKeyOptionsChanged(options);
+    if (evaluatorNeedsReset || nestedSetAsSkyKeyOptionsChanged) {
+      if (nestedSetAsSkyKeyOptionsChanged) {
+        eventHandler.handle(
+            Event.info("ArtifactNestedSetFunction options changed. Resetting evaluator..."));
+      }
       // Recreate MemoizingEvaluator so that graph is recreated with correct edge-clearing status,
       // or if the graph doesn't have edges, so that a fresh graph can be used.
       resetEvaluator();
@@ -255,7 +258,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         eventHandler,
         packageOptions,
         packageLocator,
-        starlarkSemanticsOptions,
+        buildLanguageOptions,
         commandId,
         clientEnv,
         tsgm,
@@ -266,6 +269,21 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     Profiler.instance().logSimpleTask(startTime, stopTime, ProfilerTask.INFO, "handleDiffs");
     long duration = stopTime - startTime;
     sourceDiffCheckingDuration = duration > 0 ? Duration.ofNanos(duration) : Duration.ZERO;
+  }
+
+  /**
+   * Updates ArtifactNestedSetFunction options if the flags' values changed.
+   *
+   * @return whether an update was made.
+   */
+  private static boolean nestedSetAsSkyKeyOptionsChanged(OptionsProvider options) {
+    BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
+    if (buildRequestOptions == null) {
+      return false;
+    }
+
+    return ArtifactNestedSetFunction.sizeThresholdUpdated(
+        buildRequestOptions.nestedSetAsSkyKeyThreshold);
   }
 
   /**
@@ -476,7 +494,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
             .setNumThreads(DEFAULT_THREAD_COUNT)
-            .setEventHander(eventHandler)
+            .setEventHandler(eventHandler)
             .build();
     getDriver().evaluate(ImmutableList.of(), evaluationContext);
 
@@ -897,7 +915,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
                   EvaluationContext.newBuilder()
                       .setKeepGoing(false)
                       .setNumThreads(ResourceUsage.getAvailableProcessors())
-                      .setEventHander(eventHandler)
+                      .setEventHandler(eventHandler)
                       .build();
               getDriver().evaluate(ImmutableList.of(), evaluationContext);
               return null;
@@ -1017,7 +1035,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
             .setNumThreads(DEFAULT_THREAD_COUNT)
-            .setEventHander(eventHandler)
+            .setEventHandler(eventHandler)
             .build();
     return getDriver().evaluate(ImmutableSet.of(key), evaluationContext).get(key);
   }
@@ -1034,11 +1052,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    * constructed (if the default value can be provided for the new argument in Builder).
    */
   public static final class Builder {
-    protected PackageFactory pkgFactory;
-    protected FileSystem fileSystem;
-    protected BlazeDirectories directories;
-    protected ActionKeyContext actionKeyContext;
-    protected BuildOptions defaultBuildOptions;
+    PackageFactory pkgFactory;
+    FileSystem fileSystem;
+    BlazeDirectories directories;
+    ActionKeyContext actionKeyContext;
+    BuildOptions defaultBuildOptions;
     private CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy;
     private ImmutableList<BuildFileName> buildFilesByPriority;
     private ExternalPackageHelper externalPackageHelper;
@@ -1050,10 +1068,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     private Factory workspaceStatusActionFactory;
     private Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories = ImmutableList.of();
     private Iterable<SkyValueDirtinessChecker> customDirtinessCheckers = ImmutableList.of();
-    private MutableArtifactFactorySupplier mutableArtifactFactorySupplier =
-        new MutableArtifactFactorySupplier();
     private Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit = skyframeExecutor -> {};
-    private SkyFunction blacklistedPackagePrefixesFunction;
+    private SkyFunction ignoredPackagePrefixesFunction;
 
     private Builder() {}
 
@@ -1068,7 +1084,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Preconditions.checkNotNull(buildFilesByPriority);
       Preconditions.checkNotNull(externalPackageHelper);
       Preconditions.checkNotNull(actionOnIOExceptionReadingBuildFile);
-      Preconditions.checkNotNull(blacklistedPackagePrefixesFunction);
+      Preconditions.checkNotNull(ignoredPackagePrefixesFunction);
 
       SequencedSkyframeExecutor skyframeExecutor =
           new SequencedSkyframeExecutor(
@@ -1082,13 +1098,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
               diffAwarenessFactories,
               extraSkyFunctions,
               customDirtinessCheckers,
-              blacklistedPackagePrefixesFunction,
+              ignoredPackagePrefixesFunction,
               crossRepositoryLabelViolationStrategy,
               buildFilesByPriority,
               externalPackageHelper,
               actionOnIOExceptionReadingBuildFile,
               defaultBuildOptions,
-              mutableArtifactFactorySupplier,
               managedDirectoriesKnowledge);
       skyframeExecutor.init();
       return skyframeExecutor;
@@ -1119,9 +1134,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       return this;
     }
 
-    public Builder setBlacklistedPackagePrefixesFunction(
-        SkyFunction blacklistedPackagePrefixesFunction) {
-      this.blacklistedPackagePrefixesFunction = blacklistedPackagePrefixesFunction;
+    public Builder setIgnoredPackagePrefixesFunction(SkyFunction ignoredPackagePrefixesFunction) {
+      this.ignoredPackagePrefixesFunction = ignoredPackagePrefixesFunction;
       return this;
     }
 
@@ -1170,11 +1184,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       return this;
     }
 
-    public Builder setMutableArtifactFactorySupplier(
-        MutableArtifactFactorySupplier mutableArtifactFactorySupplier) {
-      this.mutableArtifactFactorySupplier = mutableArtifactFactorySupplier;
-      return this;
-    }
     public Builder setSkyframeExecutorConsumerOnInit(
         Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit) {
       this.skyframeExecutorConsumerOnInit = skyframeExecutorConsumerOnInit;

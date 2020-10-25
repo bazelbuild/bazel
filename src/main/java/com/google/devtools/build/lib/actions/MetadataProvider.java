@@ -13,31 +13,31 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
-/**
- * The interface for Action inputs metadata (Digest and size).
- *
- * NOTE: Implementations must be thread safe.
- */
+/** Provides {@link ActionInput} metadata. */
+@ThreadSafe
 public interface MetadataProvider {
+
   /**
-   * Returns digest for the given artifact. This digest is current as of some time t >= the start of
-   * the present build. If the artifact is an output of an action that already executed at time p,
-   * then t >= p. Aside from these properties, t can be any value and may vary arbitrarily across
-   * calls.
+   * Returns a {@link FileArtifactValue} for the given {@link ActionInput}.
    *
-   * <p>Returned {@link FileArtifactValue} instance corresponds to the final target of a symlink and
-   * therefore must not have a type of {@link FileStateType#SYMLINK}.
+   * <p>If the given input is an output {@link Artifact} of an action, then the returned value is
+   * current as of the action's most recent execution time (which may be from a prior build, in
+   * which case the value may or may not be up to date for the current build). The returned value
+   * can vary across calls, for example if the action executes between calls and produces different
+   * outputs than its previous execution.
    *
-   * <p>The return value is owned by the cache and must not be modified.
+   * <p>The returned {@link FileArtifactValue} instance corresponds to the final target of a symlink
+   * and therefore must not have a type of {@link FileStateType#SYMLINK}.
    *
    * @param input the input to retrieve the digest for
    * @return the artifact's digest or null if digest cannot be obtained (due to artifact
    *     non-existence, lookup errors, or any other reason)
-   * @throws DigestOfDirectoryException in case {@code input} is a directory.
-   * @throws IOException If the file cannot be digested.
+   * @throws IOException if the input cannot be digested
    */
   @Nullable
   FileArtifactValue getMetadata(ActionInput input) throws IOException;
@@ -45,4 +45,18 @@ public interface MetadataProvider {
   /** Looks up an input from its exec path. */
   @Nullable
   ActionInput getInput(String execPath);
+
+  /**
+   * Returns a {@link FileSystem} which, if not-null, should be used instead of the one associated
+   * with {@linkplain Artifact#getPath() the path provided for input artifacts}.
+   *
+   * <p>For {@linkplain ActionInput ActionInputs} which are {@linkplain Artifact Artifacts}, we can
+   * perform direct operations on the {@linkplain Artifact#getPath path}. Doing so, may require
+   * {@link FileSystem} redirection. This method defines whether that is the case and which {@link
+   * FileSystem} to use for that.
+   */
+  @Nullable
+  default FileSystem getFileSystemForInputResolution() {
+    return null;
+  }
 }

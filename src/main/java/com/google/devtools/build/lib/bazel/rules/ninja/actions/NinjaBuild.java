@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
@@ -48,13 +47,13 @@ public class NinjaBuild implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    Map<String, List<String>> outputGroupsMap =
+    Map<String, List<String>> outputGroupsFromAttrs =
         ruleContext.attributes().get("output_groups", Type.STRING_LIST_DICT);
     NinjaGraphProvider graphProvider =
-        ruleContext.getPrerequisite("ninja_graph", TransitionMode.TARGET, NinjaGraphProvider.class);
+        ruleContext.getPrerequisite("ninja_graph", NinjaGraphProvider.class);
     Preconditions.checkNotNull(graphProvider);
     List<PathFragment> pathsToBuild =
-        outputGroupsMap.values().stream()
+        outputGroupsFromAttrs.values().stream()
             .flatMap(List::stream)
             .map(PathFragment::create)
             .collect(Collectors.toList());
@@ -78,6 +77,9 @@ public class NinjaBuild implements RuleConfiguredTargetFactory {
       return null;
     }
 
+    RuleConfiguredTargetBuilder ruleConfiguredTargetBuilder =
+        new RuleConfiguredTargetBuilder(ruleContext);
+
     try {
       symlinkDepsMappings(ruleContext, artifactsHelper, depsMap);
 
@@ -91,6 +93,7 @@ public class NinjaBuild implements RuleConfiguredTargetFactory {
 
       new NinjaActionsHelper(
               ruleContext,
+              ruleConfiguredTargetBuilder,
               artifactsHelper,
               graphProvider.getTargetsMap(),
               graphProvider.getPhonyTargetsMap(),
@@ -104,8 +107,8 @@ public class NinjaBuild implements RuleConfiguredTargetFactory {
       }
 
       NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
-      TreeMap<String, NestedSet<Artifact>> groups = Maps.newTreeMap();
-      for (Map.Entry<String, List<String>> entry : outputGroupsMap.entrySet()) {
+      TreeMap<String, NestedSet<Artifact>> outputGroups = Maps.newTreeMap();
+      for (Map.Entry<String, List<String>> entry : outputGroupsFromAttrs.entrySet()) {
         NestedSet<Artifact> artifacts =
             getGroupArtifacts(
                 ruleContext,
@@ -113,7 +116,7 @@ public class NinjaBuild implements RuleConfiguredTargetFactory {
                 graphProvider.getPhonyTargetsMap(),
                 phonyTargetArtifacts,
                 artifactsHelper);
-        groups.put(entry.getKey(), artifacts);
+        outputGroups.put(entry.getKey(), artifacts);
         filesToBuild.addTransitive(artifacts);
       }
 
@@ -121,10 +124,10 @@ public class NinjaBuild implements RuleConfiguredTargetFactory {
         return null;
       }
 
-      return new RuleConfiguredTargetBuilder(ruleContext)
+      return ruleConfiguredTargetBuilder
           .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
           .setFilesToBuild(filesToBuild.build())
-          .addOutputGroups(groups)
+          .addOutputGroups(outputGroups)
           .build();
     } catch (GenericParsingException e) {
       ruleContext.ruleError(e.getMessage());
@@ -200,8 +203,7 @@ public class NinjaBuild implements RuleConfiguredTargetFactory {
       ImmutableSortedMap.Builder<PathFragment, Artifact> depsMapBuilder,
       ImmutableSortedMap.Builder<PathFragment, Artifact> symlinksMapBuilder)
       throws InterruptedException {
-    FileProvider fileProvider =
-        ruleContext.getPrerequisite("ninja_graph", TransitionMode.TARGET, FileProvider.class);
+    FileProvider fileProvider = ruleContext.getPrerequisite("ninja_graph", FileProvider.class);
     Preconditions.checkNotNull(fileProvider);
     new NestedSetVisitor<Artifact>(
             a -> {

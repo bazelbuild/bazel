@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import javax.annotation.Nullable;
 
 /** Generates baseline (empty) coverage for the given non-test target. */
 @VisibleForTesting
@@ -60,7 +61,10 @@ public final class BaselineCoverageAction extends AbstractFileWriteAction
   }
 
   @Override
-  public void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+  public void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable Artifact.ArtifactExpander artifactExpander,
+      Fingerprint fp) {
     // TODO(b/150305897): No UUID?
     // TODO(b/150308417): Sort?
     Artifacts.addToFingerprint(fp, instrumentedFiles.toList());
@@ -105,10 +109,11 @@ public final class BaselineCoverageAction extends AbstractFileWriteAction
   static NestedSet<Artifact> create(
       RuleContext ruleContext, NestedSet<Artifact> instrumentedFiles) {
     // Baseline coverage artifacts will still go into "testlogs" directory.
-    Artifact coverageData = ruleContext.getPackageRelativeArtifact(
-        PathFragment.create(ruleContext.getTarget().getName()).getChild("baseline_coverage.dat"),
-        ruleContext.getConfiguration().getTestLogsDirectory(
-            ruleContext.getRule().getRepository()));
+    Artifact coverageData =
+        ruleContext.getPackageRelativeArtifact(
+            PathFragment.create(ruleContext.getTarget().getName())
+                .getChild("baseline_coverage.dat"),
+            ruleContext.getTestLogsDirectory());
     ruleContext.registerAction(new BaselineCoverageAction(
         ruleContext.getActionOwner(), instrumentedFiles, coverageData));
     return NestedSetBuilder.create(Order.STABLE_ORDER, coverageData);

@@ -44,7 +44,11 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
+import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.proto.ActionRewind.ActionRewindEvent;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunction.Restart;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -204,14 +208,14 @@ public class ActionRewindStrategy {
       lostInputRecordsThisAction.add(lostInputRecord);
       int priorLosses = lostInputRecords.add(lostInputRecord, /*occurrences=*/ 1);
       if (MAX_REPEATED_LOST_INPUTS <= priorLosses) {
-        BugReport.sendBugReport(
-            new IllegalStateException(
-                String.format(
-                    "lost input too many times (#%s) for the same action. lostInput: %s, "
-                        + "lostInput digest: %s, failedAction: %.10000s",
-                    priorLosses + 1, lostInputsByDigest.get(digest), digest, failedAction)));
-        throw new ActionExecutionException(
-            lostInputsException, failedAction, /*catastrophe=*/ false);
+        String message =
+            String.format(
+                "lost input too many times (#%s) for the same action. lostInput: %s, "
+                    + "lostInput digest: %s, failedAction: %.10000s",
+                priorLosses + 1, lostInputsByDigest.get(digest), digest, failedAction);
+        BugReport.sendBugReport(new IllegalStateException(message));
+        throw createActionExecutionException(
+            lostInputsException, failedAction, message, Code.LOST_INPUT_TOO_MANY_TIMES);
       } else if (0 < priorLosses) {
         logger.atInfo().log(
             "lost input again (#%s) for the same action. lostInput: %s, "
@@ -308,12 +312,13 @@ public class ActionRewindStrategy {
       return;
     }
     // TODO(b/19539699): tighten signatures for ActionInputDepOwnerMap to make this impossible.
-    BugReport.sendBugReport(
-        new IllegalStateException(
-            String.format(
-                "Unexpected source artifact as lost input%s: %s %s",
-                lostInputQualifier, expectedDerived, failedAction)));
-    throw new ActionExecutionException(lostInputsException, failedAction, /*catastrophe=*/ false);
+    String message =
+        String.format(
+            "Unexpected source artifact as lost input%s: %s %s",
+            lostInputQualifier, expectedDerived, failedAction);
+    BugReport.sendBugReport(new IllegalStateException(message));
+    throw createActionExecutionException(
+        lostInputsException, failedAction, message, Code.LOST_INPUT_IS_SOURCE);
   }
 
   /**
@@ -573,6 +578,22 @@ public class ActionRewindStrategy {
           actionKey,
           target);
     }
+  }
+
+  private static ActionExecutionException createActionExecutionException(
+      LostInputsActionExecutionException lostInputsException,
+      Action failedAction,
+      String message,
+      Code detailedCode) {
+    return new ActionExecutionException(
+        lostInputsException,
+        failedAction,
+        /*catastrophe=*/ false,
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setActionRewinding(ActionRewinding.newBuilder().setCode(detailedCode))
+                .build()));
   }
 
   static class RewindPlan {

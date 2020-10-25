@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.test;
 
-import com.google.devtools.build.lib.skylarkbuildapi.test.ExecutionInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.test.TestEnvironmentInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.test.TestingModuleApi;
-import com.google.devtools.build.lib.syntax.Dict;
+import com.google.devtools.build.lib.starlarkbuildapi.test.ExecutionInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.test.TestEnvironmentInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.test.TestingModuleApi;
+import net.starlark.java.eval.Dict;
 
 /**
  * Fake implementation of {@link TestingModuleApi}.

@@ -15,10 +15,13 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 
 /**
- * Exception indicating an attempt to access a package which is not found, does
- * not exist, or can't be parsed into a package.
+ * Exception indicating an attempt to access a package which is not found, does not exist, or can't
+ * be parsed into a package.
  *
  * <p>Prefer using more-specific subclasses, when appropriate.
  */
@@ -36,6 +39,21 @@ public class NoSuchPackageException extends NoSuchThingException {
     this.packageId = packageId;
   }
 
+  public NoSuchPackageException(
+      PackageIdentifier packageId, String message, DetailedExitCode detailedExitCode) {
+    super(message, detailedExitCode);
+    this.packageId = packageId;
+  }
+
+  public NoSuchPackageException(
+      PackageIdentifier packageId,
+      String message,
+      Exception cause,
+      DetailedExitCode detailedExitCode) {
+    super(message, cause, detailedExitCode);
+    this.packageId = packageId;
+  }
+
   public PackageIdentifier getPackageId() {
     return packageId;
   }
@@ -46,6 +64,23 @@ public class NoSuchPackageException extends NoSuchThingException {
 
   @Override
   public String getMessage() {
-    return String.format("%s '%s': %s", "no such package", packageId, getRawMessage());
+    return String.format("no such package '%s': %s", packageId, getRawMessage());
+  }
+
+  @Override
+  public DetailedExitCode getDetailedExitCode() {
+    DetailedExitCode uncheckedDetailedExitCode = getUncheckedDetailedExitCode();
+    return uncheckedDetailedExitCode != null
+        ? uncheckedDetailedExitCode
+        : defaultDetailedExitCode();
+  }
+
+  private DetailedExitCode defaultDetailedExitCode() {
+    return DetailedExitCode.of(
+        FailureDetail.newBuilder()
+            .setMessage(getMessage())
+            .setPackageLoading(
+                PackageLoading.newBuilder().setCode(PackageLoading.Code.PACKAGE_MISSING).build())
+            .build());
   }
 }

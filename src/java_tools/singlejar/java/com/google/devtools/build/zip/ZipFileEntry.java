@@ -15,7 +15,6 @@
 package com.google.devtools.build.zip;
 
 import java.util.EnumSet;
-
 import javax.annotation.Nullable;
 
 /**
@@ -320,12 +319,11 @@ public final class ZipFileEntry {
    * @param set whether the flag is to be set or cleared
    */
   public void setFlag(Flag flag, boolean set) {
-    short mask = 0x0000;
-    mask |= 1 << flag.getBit();
+    short mask = (short) (1 << flag.getBit());
     if (set) {
       flags |= mask;
     } else {
-      flags &= ~mask;
+      flags = (short) (flags & ~mask);
     }
   }
 

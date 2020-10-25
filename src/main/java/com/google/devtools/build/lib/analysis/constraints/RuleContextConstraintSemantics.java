@@ -24,7 +24,6 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LabelAndLocation;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentCollection.EnvironmentWithGroup;
@@ -231,8 +230,7 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
         return EnvironmentCollection.EMPTY;
       }
       EnvironmentCollection.Builder environments = new EnvironmentCollection.Builder();
-      for (TransitiveInfoCollection envTarget :
-          ruleContext.getPrerequisites(attrName, TransitionMode.DONT_CHECK)) {
+      for (TransitiveInfoCollection envTarget : ruleContext.getPrerequisites(attrName)) {
         EnvironmentWithGroup envInfo = resolveEnvironment(envTarget);
         environments.put(envInfo.group(), envInfo.environment());
         supportedEnvironments.put(envInfo.group(), envInfo.environment());
@@ -242,8 +240,8 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
 
     /**
      * Returns the environment and its group. An {@link Environment} rule only "supports" one
-     * environment: itself. Extract that from its more generic provider interface and sanity
-     * check that that's in fact what we see.
+     * environment: itself. Extract that from its more generic provider interface and check that
+     * it's in fact what we see.
      */
     private EnvironmentWithGroup resolveEnvironment(TransitiveInfoCollection envRule) {
       SupportedEnvironmentsProvider prereq =
@@ -358,7 +356,7 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
     // conceptual sense, we don't know which groups we should apply that to.
     String restrictionAttr = RuleClass.RESTRICTED_ENVIRONMENT_ATTR;
     List<? extends TransitiveInfoCollection> restrictionEnvironments =
-        ruleContext.getPrerequisites(restrictionAttr, TransitionMode.DONT_CHECK);
+        ruleContext.getPrerequisites(restrictionAttr);
     if (restrictionEnvironments.isEmpty()
         && attributes.isAttributeValueExplicitlySpecified(restrictionAttr)) {
       attributeError(ruleContext, restrictionAttr, "attribute cannot be empty");
@@ -726,17 +724,14 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
         // Use the same implicit deps check that query uses. This facilitates running queries to
         // determine exactly which rules need to be constraint-annotated for depot migrations.
         if (!DependencyFilter.NO_IMPLICIT_DEPS.apply(ruleContext.getRule(), attrDef)
-            // We can't identify host deps by calling BuildConfiguration.isHostConfiguration()
-            // because --nodistinct_host_configuration subverts that call.
-            || attrDef.getTransitionFactory().isHost()) {
+            || attrDef.getTransitionFactory().isTool()) {
           continue;
         }
       }
 
       Set<Label> selectOnlyDepsForThisAttribute =
           getDepsOnlyInSelects(ruleContext, attr, attributes.getAttributeType(attr));
-      for (TransitiveInfoCollection dep :
-          ruleContext.getPrerequisites(attr, TransitionMode.DONT_CHECK)) {
+      for (TransitiveInfoCollection dep : ruleContext.getPrerequisites(attr)) {
         // Output files inherit the environment spec of their generating rule.
         if (dep instanceof OutputFileConfiguredTarget) {
           // Note this reassignment means constraint violation errors reference the generating

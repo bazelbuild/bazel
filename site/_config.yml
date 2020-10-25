@@ -16,11 +16,17 @@ gems:
 url: "https://docs.bazel.build" # used by jekyll-sitemap
 
 # Update this to the newest release for the default docs.bazel.build version.
-version: "3.1.0"
+version: "3.7.0"
 
 # This must be kept in sync with //scripts/docs:doc_versions.bzl
 doc_versions:
   - master
+  - 3.7.0
+  - 3.6.0
+  - 3.5.1
+  - 3.4.0
+  - 3.3.0
+  - 3.2.0
   - 3.1.0
   - 3.0.0
   - 2.2.0

@@ -56,18 +56,18 @@ public class BuildDocCollector {
   }
 
   /**
-   * Parse the file containing blacklisted rules for documentation. The list is simply a list of
-   * rules separated by new lines. Line comments can be added to the file by starting them with #.
+   * Parse the file containing rules blocked from documentation. The list is simply a list of rules
+   * separated by new lines. Line comments can be added to the file by starting them with #.
    *
-   * @param blackList The name of the file containing the blacklist.
-   * @return The set of blacklisted rules.
+   * @param denyList The name of the file containing the denylist.
+   * @return The set of denylisted rules.
    * @throws IOException
    */
   @VisibleForTesting
-  public static Set<String> readBlackList(String blackList) throws IOException {
+  public static Set<String> readDenyList(String denyList) throws IOException {
     Set<String> result = new HashSet<String>();
-    if (blackList != null && !blackList.isEmpty()) {
-      File file = new File(blackList);
+    if (denyList != null && !denyList.isEmpty()) {
+      File file = new File(denyList);
       try (BufferedReader reader = Files.newBufferedReader(file.toPath(), UTF_8)) {
         for (String line = reader.readLine(); line != null; line = reader.readLine()) {
           String rule = SHARP_SPLITTER.split(line).iterator().next();
@@ -84,27 +84,27 @@ public class BuildDocCollector {
    * Creates a map of rule names (keys) to rule documentation (values).
    *
    * <p>This method crawls the specified input directories for rule class definitions (as Java
-   * source files) which contain the rules' and attributes' definitions as comments in a
-   * specific format. The keys in the returned Map correspond to these rule classes.
+   * source files) which contain the rules' and attributes' definitions as comments in a specific
+   * format. The keys in the returned Map correspond to these rule classes.
    *
    * <p>In the Map's values, all references pointing to other rules, rule attributes, and general
-   * documentation (e.g. common definitions, make variables, etc.) are expanded into hyperlinks.
-   * The links generated follow either the multi-page or single-page Build Encyclopedia model
-   * depending on the mode set for the provided {@link RuleLinkExpander}.
+   * documentation (e.g. common definitions, make variables, etc.) are expanded into hyperlinks. The
+   * links generated follow either the multi-page or single-page Build Encyclopedia model depending
+   * on the mode set for the provided {@link RuleLinkExpander}.
    *
    * @param inputDirs list of directories to scan for documentation
-   * @param blackList specify an optional blacklist file that list some rules that should
-   *                  not be listed in the output.
+   * @param denyList specify an optional denylist file that list some rules that should not be
+   *     listed in the output.
    * @param expander The RuleLinkExpander, which is used for expanding links in the rule doc.
    * @throws BuildEncyclopediaDocException
    * @throws IOException
    * @return Map of rule class to rule documentation.
    */
   public Map<String, RuleDocumentation> collect(
-      List<String> inputDirs, String blackList, RuleLinkExpander expander)
+      List<String> inputDirs, String denyList, RuleLinkExpander expander)
       throws BuildEncyclopediaDocException, IOException {
-    // Read the blackList file
-    Set<String> blacklistedRules = readBlackList(blackList);
+    // Read the denyList file
+    Set<String> denylistedRules = readDenyList(denyList);
     // RuleDocumentations are generated in order (based on rule type then alphabetically).
     // The ordering is also used to determine in which rule doc the common attribute docs are
     // generated (they are generated at the first appearance).
@@ -127,8 +127,13 @@ public class BuildDocCollector {
         System.out.println(" Processing input directory: " + inputDir);
       }
       int ruleNum = ruleDocEntries.size();
-      collectDocs(processedFiles, ruleClassFiles, ruleDocEntries, blacklistedRules,
-          attributeDocEntries, new File(inputDir));
+      collectDocs(
+          processedFiles,
+          ruleClassFiles,
+          ruleDocEntries,
+          denylistedRules,
+          attributeDocEntries,
+          new File(inputDir));
       if (printMessages) {
         System.out.println(" " + (ruleDocEntries.size() - ruleNum)
             + " rule documentations found.");
@@ -155,16 +160,16 @@ public class BuildDocCollector {
    * links generated follow the multi-page Build Encyclopedia model (one page per rule class.).
    *
    * @param inputDirs list of directories to scan for documentation
-   * @param blackList specify an optional blacklist file that list some rules that should not be
+   * @param denyList specify an optional denylist file that list some rules that should not be
    *     listed in the output.
    * @throws BuildEncyclopediaDocException
    * @throws IOException
    * @return Map of rule class to rule documentation.
    */
-  public Map<String, RuleDocumentation> collect(List<String> inputDirs, String blackList)
+  public Map<String, RuleDocumentation> collect(List<String> inputDirs, String denyList)
       throws BuildEncyclopediaDocException, IOException {
     RuleLinkExpander expander = new RuleLinkExpander(productName, /* singlePage */ false);
-    return collect(inputDirs, blackList, expander);
+    return collect(inputDirs, denyList, expander);
   }
 
   /**
@@ -257,19 +262,19 @@ public class BuildDocCollector {
    * <p>This method crawls the specified input directory (recursively calling itself for all
    * subdirectories) and reads each Java source file using {@link SourceFileReader} to extract the
    * raw rule and attribute documentation embedded in comments in a specific format. The extracted
-   * documentation is then further processed, such as by
-   * {@link BuildDocCollector#collect(List<String>, String, RuleLinkExpander), collect}, in order
-   * to associate each rule's documentation with its attribute documentation.
+   * documentation is then further processed, such as by {@link
+   * BuildDocCollector#collect(List<String>, String, RuleLinkExpander), collect}, in order to
+   * associate each rule's documentation with its attribute documentation.
    *
    * <p>This method returns the following through its parameters: the set of Java source files
-   * processed, a map of rule name to the source file it was extracted from, a map of rule name
-   * to the documentation to the rule, and a multimap of attribute name to attribute documentation.
+   * processed, a map of rule name to the source file it was extracted from, a map of rule name to
+   * the documentation to the rule, and a multimap of attribute name to attribute documentation.
    *
-   * @param processedFiles The set of Java source files files that have already been processed
-   *        in order to avoid reprocessing the same file.
+   * @param processedFiles The set of Java source files files that have already been processed in
+   *     order to avoid reprocessing the same file.
    * @param ruleClassFiles Map of rule name to the source file it was extracted from.
    * @param ruleDocEntries Map of rule name to rule documentation.
-   * @param blackList The set of blacklisted rules whose documentation should not be extracted.
+   * @param denyList The set of denylisted rules whose documentation should not be extracted.
    * @param attributeDocEntries Multimap of rule attribute name to attribute documentation.
    * @param inputPath The File representing the file or directory to read.
    * @throws BuildEncyclopediaDocException
@@ -279,9 +284,10 @@ public class BuildDocCollector {
       Set<File> processedFiles,
       Map<String, File> ruleClassFiles,
       Map<String, RuleDocumentation> ruleDocEntries,
-      Set<String> blackList,
+      Set<String> denyList,
       ListMultimap<String, RuleDocumentationAttribute> attributeDocEntries,
-      File inputPath) throws BuildEncyclopediaDocException, IOException {
+      File inputPath)
+      throws BuildEncyclopediaDocException, IOException {
     if (processedFiles.contains(inputPath)) {
       return;
     }
@@ -292,7 +298,7 @@ public class BuildDocCollector {
         sfr.readDocsFromComments();
         for (RuleDocumentation d : sfr.getRuleDocEntries()) {
           String ruleName = d.getRuleName();
-          if (!blackList.contains(ruleName)) {
+          if (!denyList.contains(ruleName)) {
             if (ruleDocEntries.containsKey(ruleName)
                 && !ruleClassFiles.get(ruleName).equals(inputPath)) {
               System.err.printf(
@@ -310,8 +316,13 @@ public class BuildDocCollector {
       }
     } else if (inputPath.isDirectory()) {
       for (File childPath : inputPath.listFiles()) {
-        collectDocs(processedFiles, ruleClassFiles, ruleDocEntries, blackList,
-            attributeDocEntries, childPath);
+        collectDocs(
+            processedFiles,
+            ruleClassFiles,
+            ruleDocEntries,
+            denyList,
+            attributeDocEntries,
+            childPath);
       }
     }
 

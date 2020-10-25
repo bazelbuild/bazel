@@ -171,7 +171,7 @@ EOF
   [ ! -L bazel-x ] || fail "bazel-x should have been removed"
 }
 
-function test_skylark_flags_affect_workspace() {
+function test_starlark_flags_affect_workspace() {
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("//:macro.bzl", "macro")
 print("In workspace: ")
@@ -187,23 +187,23 @@ EOF
 
   MARKER="<== Starlark flag test ==>"
 
-  # Sanity check.
+  # Initial check.
   bazel build //:x &>"$TEST_log" \
     || fail "Expected build to succeed"
   expect_log "In workspace: " "Did not find workspace print output"
   expect_log "In workspace macro: " "Did not find workspace macro print output"
   expect_not_log "$MARKER" \
     "Marker string '$MARKER' was seen even though \
-    --internal_skylark_flag_test_canary wasn't passed"
+    --internal_starlark_flag_test_canary wasn't passed"
 
   # Build with the special testing flag that appends a marker string to all
   # print() calls.
-  bazel build //:x --internal_skylark_flag_test_canary &>"$TEST_log" \
+  bazel build //:x --internal_starlark_flag_test_canary &>"$TEST_log" \
     || fail "Expected build to succeed"
   expect_log "In workspace: $MARKER" \
-    "Skylark flags are not propagating to workspace evaluation"
+    "Starlark flags are not propagating to workspace evaluation"
   expect_log "In workspace macro: $MARKER" \
-    "Skylark flags are not propagating to workspace macro evaluation"
+    "Starlark flags are not propagating to workspace macro evaluation"
 }
 
 function test_workspace_name() {

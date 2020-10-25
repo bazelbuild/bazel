@@ -34,10 +34,10 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.vfs.Path;
 import io.grpc.Context;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -94,12 +94,9 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
       Map<Path, ListenableFuture<Void>> downloadsToWaitFor = new HashMap<>();
       for (ActionInput input : inputs) {
         if (input instanceof VirtualActionInput) {
-          VirtualActionInput paramFileActionInput = (VirtualActionInput) input;
-          Path outputPath = execRoot.getRelative(paramFileActionInput.getExecPath());
-          outputPath.getParentDirectory().createDirectoryAndParents();
-          try (OutputStream out = outputPath.getOutputStream()) {
-            paramFileActionInput.writeTo(out);
-          }
+          VirtualActionInput virtualActionInput = (VirtualActionInput) input;
+          Path outputPath = execRoot.getRelative(virtualActionInput.getExecPath());
+          SandboxHelpers.atomicallyWriteVirtualInput(virtualActionInput, outputPath, ".remote");
         } else {
           FileArtifactValue metadata = metadataProvider.getMetadata(input);
           if (metadata == null || !metadata.isRemote()) {
@@ -128,7 +125,7 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
                 new IOException(
                     String.format(
                         "Failed to fetch file with hash '%s' because it does not exist remotely."
-                            + " --experimental_remote_outputs=minimal does not work if"
+                            + " --remote_download_outputs=minimal does not work if"
                             + " your remote cache evicts files during builds.",
                         ((CacheNotFoundException) t).getMissingDigest().getHash()));
             bulkAnnotatedException.add(annotatedException);

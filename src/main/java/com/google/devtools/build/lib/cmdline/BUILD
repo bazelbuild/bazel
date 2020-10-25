@@ -9,9 +9,6 @@ filegroup(
 )
 
 # cmdline provides Label and target pattern parsing.
-#
-# TODO(adonovan): break the dependency from lib.syntax to lib.cmdline by putting
-# the Label of the BUILD/.bzl file in the Starlark thread-local state.
 java_library(
     name = "cmdline",
     srcs = [
@@ -27,21 +24,27 @@ java_library(
     deps = [
         ":LabelValidator",
         ":cmdline-primitives",
-        "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/annot",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
 
-# Does not depend on lib/syntax.
+# Does not depend on Starlark. But this is no longer relevant because Starlark no longer depends on cmdline.
+# TODO(adonovan): merge these packages.
 java_library(
     name = "cmdline-primitives",
     srcs = [

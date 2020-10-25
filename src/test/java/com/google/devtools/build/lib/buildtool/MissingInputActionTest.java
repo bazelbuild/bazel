@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCa
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
 import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.vfs.Path;
@@ -77,7 +79,9 @@ public class MissingInputActionTest extends GoogleBuildIntegrationTestCase {
     addOptions("--workspace_status_command=" + sleepPath.getPathString());
     for (int i = 0; i < 2; i++) {
       assertMissingInputOnBuild("//dummy", 1);
-      events.assertContainsError("dummy/BUILD:1:8: //dummy:dummy: missing input file '//dummy:in'");
+      events.assertContainsError(
+          "dummy/BUILD:1:8: Executing genrule //dummy:dummy failed: missing input file"
+              + " '//dummy:in'");
       events.assertContainsEventWithFrequency("missing input file", 1);
       events.assertDoesNotContainEvent("Failed to determine build info");
       events.clear();
@@ -113,8 +117,33 @@ public class MissingInputActionTest extends GoogleBuildIntegrationTestCase {
     }
   }
 
+  @Test
+  public void testMissingTopLevelInput() throws Exception {
+    // Create a rule that exports a missing source file as a top-level artifact so that the missing
+    // file will be detected by the TargetCompletion function, not an ActionExecution function.
+    write(
+        "foo/missing.bzl",
+        "def _missing_impl(ctx):",
+        "    return DefaultInfo(files = depset(ctx.files.srcs))",
+        "",
+        "missing = rule(",
+        "               implementation = _missing_impl,",
+        "               attrs = { 'srcs': attr.label_list(allow_files = True) }",
+        ")");
+    write(
+        "foo/BUILD",
+        "load('missing.bzl', 'missing')",
+        "missing(name = 'foo', srcs = ['missing.sh'])");
+    addOptions("--keep_going");
+    assertMissingInputOnBuild("//foo:foo", 0);
+    events.assertContainsError("foo/BUILD:2:8: //foo:foo: missing input file '//foo:missing.sh'");
+    events.assertContainsEventWithFrequency("missing input file", 1);
+  }
+
   private void assertMissingInputOnBuild(String label, int numMissing) {
     BuildFailedException e = assertThrows(BuildFailedException.class, () -> buildTarget(label));
+    FailureDetail failureDetail = e.getDetailedExitCode().getFailureDetail();
+    assertThat(failureDetail.getExecution().getCode()).isEqualTo(Code.SOURCE_INPUT_MISSING);
     if (numMissing > 0) {
       String expected = numMissing + " input file(s) do not exist";
         assertThat(e).hasMessageThat().contains(expected);

@@ -34,6 +34,18 @@ fi
 
 WRAPPER="${MY_LOCATION}/xcrunwrapper.sh"
 
+# Ensure 0 timestamping for hermetic results.
+export ZERO_AR_DATE=1
+
+if [ ! -f "${MY_LOCATION}"/libtool_check_unique ] ; then
+    echo "libtool_check_unique not found. Please file an issue at github.com/bazelbuild/bazel"
+elif "${MY_LOCATION}"/libtool_check_unique "$@"; then
+  # If there are no duplicate .o basenames,
+  # libtool can be invoked with the original arguments.
+  "${WRAPPER}" libtool "$@"
+  exit
+fi
+
 TEMPDIR="$(mktemp -d "${TMPDIR:-/tmp}/libtool.XXXXXXXX")"
 trap "rm -rf \"${TEMPDIR}\"" EXIT
 
@@ -51,6 +63,11 @@ function hash_objfile() {
   fi
   echo "$SYMLINK_NAME"
 }
+
+python_executable=/usr/bin/python2.7
+if [[ ! -x "$python_executable" ]]; then
+  python_executable=python
+fi
 
 ARGS=()
 
@@ -72,7 +89,7 @@ while [[ $# -gt 0 ]]; do
       HASHED_FILELIST="${ARG%.objlist}_hashes.objlist"
       rm -f "${HASHED_FILELIST}"
       # Use python helper script for fast md5 calculation of many strings.
-      python "${MY_LOCATION}/make_hashed_objlist.py" \
+      "$python_executable" "${MY_LOCATION}/make_hashed_objlist.py" \
         "${ARG}" "${HASHED_FILELIST}" "${TEMPDIR}"
       ARGS+=("${HASHED_FILELIST}")
       ;;
@@ -85,7 +102,7 @@ while [[ $# -gt 0 ]]; do
      OUTPUTFILE="${ARG}"
      ;;
    # Flags with no args
-    -static|-s|-a|-c|-L|-T|-no_warning_for_no_symbols)
+    -static|-s|-a|-c|-L|-T|-D|-no_warning_for_no_symbols)
       ARGS+=("${ARG}")
       ;;
    # Single-arg flags
@@ -111,11 +128,4 @@ while [[ $# -gt 0 ]]; do
    esac
 done
 
-# Ensure 0 timestamping for hermetic results.
-export ZERO_AR_DATE=1
-
 "${WRAPPER}" libtool "${ARGS[@]}"
-
-# Prevents a pre-Xcode-8 bug in which passing zero-date archive files to ld
-# would cause ld to error.
-touch "$OUTPUTFILE"

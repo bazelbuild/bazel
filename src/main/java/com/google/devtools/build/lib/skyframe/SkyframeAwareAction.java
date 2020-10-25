@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.graph.ImmutableGraph;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.ValueOrException;
@@ -46,12 +47,15 @@ public interface SkyframeAwareAction<E extends Exception> {
 
   /** Wrapper and/or base class for exceptions raised in {@link #processSkyframeValues}. */
   class ExceptionBase extends Exception {
-    public ExceptionBase(String message) {
-      super(message);
+    private final FailureDetail failureDetail;
+
+    public ExceptionBase(Throwable cause, FailureDetail failureDetail) {
+      super(cause.getMessage(), cause);
+      this.failureDetail = failureDetail;
     }
 
-    public ExceptionBase(Throwable cause) {
-      super(cause.getMessage(), cause);
+    public FailureDetail getFailureDetail() {
+      return failureDetail;
     }
   }
 

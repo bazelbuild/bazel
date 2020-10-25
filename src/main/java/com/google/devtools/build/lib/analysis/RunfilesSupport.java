@@ -105,8 +105,7 @@ public final class RunfilesSupport {
     if (runUnder != null
         && runUnder.getLabel() != null
         && TargetUtils.isTestRule(ruleContext.getRule())) {
-      TransitiveInfoCollection runUnderTarget =
-          ruleContext.getPrerequisite(":run_under", TransitionMode.DONT_CHECK);
+      TransitiveInfoCollection runUnderTarget = ruleContext.getPrerequisite(":run_under");
       runfiles =
           new Runfiles.Builder(
                   ruleContext.getWorkspaceName(),
@@ -223,13 +222,12 @@ public final class RunfilesSupport {
     // The executable may be null for emptyRunfiles
     PathFragment relativePath =
         (owningExecutable != null)
-            ? owningExecutable.getRootRelativePath()
+            ? owningExecutable.getOutputDirRelativePath(
+                context.getConfiguration().isSiblingRepositoryLayout())
             : context.getPackageDirectory().getRelative(context.getLabel().getName());
     String basename = relativePath.getBaseName();
     PathFragment inputManifestPath = relativePath.replaceName(basename + INPUT_MANIFEST_EXT);
-    return context.getDerivedArtifact(
-        inputManifestPath,
-        context.getConfiguration().getBinDirectory(context.getRule().getRepository()));
+    return context.getDerivedArtifact(inputManifestPath, context.getBinDirectory());
   }
 
   /**
@@ -351,7 +349,10 @@ public final class RunfilesSupport {
     }
 
     PathFragment runfilesDir =
-        FileSystemUtils.replaceExtension(inputManifest.getRootRelativePath(), RUNFILES_DIR_EXT);
+        FileSystemUtils.replaceExtension(
+            inputManifest.getOutputDirRelativePath(
+                context.getConfiguration().isSiblingRepositoryLayout()),
+            RUNFILES_DIR_EXT);
     PathFragment outputManifestPath = runfilesDir.getRelative(OUTPUT_MANIFEST_BASENAME);
 
     BuildConfiguration config = context.getConfiguration();

@@ -138,12 +138,12 @@ public final class MockProtoSupport {
     config.create("net/grpc/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "cc_library(name = 'grpc++_codegen_lib')");
-    config.create("net/rpc/python/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "py_library(name = 'proto_python_api_1_stub',",
-        "           srcs = [ 'test_only_prefix_proto_python_api_1_stub.py' ])",
+    config.create(
+        "net/rpc/python/BUILD",
         "py_library(name = 'proto_python_api_2_stub',",
-        "           srcs = [ 'test_only_prefix_proto_python_api_2_stub.py' ])");
+        "           srcs = [ 'test_only_prefix_proto_python_api_2_stub.py' ],",
+        "           visibility = ['//visibility:public'],",
+        ")");
     config.create("java/com/google/net/rpc/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "java_library(name = 'rpc',",
@@ -173,9 +173,7 @@ public final class MockProtoSupport {
         "net/proto2/go/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "go_library(name = 'protodeps',",
-        "           srcs = [ 'protodeps.go' ])",
-        "go_library(name = 'proto',",
-        "           srcs = [ 'proto.go' ])");
+        "           srcs = [ 'protodeps.go' ])");
     config.create("net/proto2/compiler/go/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "go_binary(name = 'protoc-gen-go',",

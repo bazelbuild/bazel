@@ -54,10 +54,9 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.DanglingSymlinkException;
-import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.FileOperationException;
+import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.RecursiveFilesystemTraversalException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.TraversalRequest;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TimestampGranularityUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -96,6 +95,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -159,12 +159,11 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
     skyFunctions.put(
-        SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
-        new BlacklistedPackagePrefixesFunction(
-            /*blacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT));
+        SkyFunctions.IGNORED_PACKAGE_PREFIXES,
+        new IgnoredPackagePrefixesFunction(
+            /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT));
     skyFunctions.put(
         SkyFunctions.PACKAGE, new PackageFunction(null, null, null, null, null, null, null, null));
-    skyFunctions.put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider));
     skyFunctions.put(
         WorkspaceFileValue.WORKSPACE_FILE,
         new WorkspaceFileFunction(
@@ -313,7 +312,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
             .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
-            .setEventHander(NullEventHandler.INSTANCE)
+            .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     return driver.evaluate(ImmutableList.of(key), evaluationContext);
   }
@@ -982,7 +981,9 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     EvaluationResult<SkyValue> result = eval(key);
     assertThat(result.hasError()).isTrue();
     ErrorInfo error = result.getError(key);
-    assertThat(error.getException()).isInstanceOf(FileOperationException.class);
+    assertThat(error.getException()).isInstanceOf(RecursiveFilesystemTraversalException.class);
+    assertThat(((RecursiveFilesystemTraversalException) error.getException()).getType())
+        .isEqualTo(RecursiveFilesystemTraversalException.Type.FILE_OPERATION_FAILURE);
     assertThat(error.getException()).hasMessageThat().contains("Infinite symlink expansion");
   }
 
@@ -1000,22 +1001,22 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     EvaluationResult<SkyValue> result = eval(key);
     assertThat(result.hasError()).isTrue();
     ErrorInfo error = result.getError(key);
-    assertThat(error.getException()).isInstanceOf(FileOperationException.class);
+    assertThat(error.getException()).isInstanceOf(RecursiveFilesystemTraversalException.class);
+    assertThat(((RecursiveFilesystemTraversalException) error.getException()).getType())
+        .isEqualTo(RecursiveFilesystemTraversalException.Type.FILE_OPERATION_FAILURE);
     assertThat(error.getException()).hasMessageThat().contains("Symlink cycle");
   }
 
-  private static class NonHermeticArtifactFakeFunction implements SkyFunction {
+  private static final class NonHermeticArtifactFakeFunction implements SkyFunction {
 
-    private final Map<TreeFileArtifact, FileArtifactValue> allTreeFiles = new HashMap<>();
+    private TreeArtifactValue.Builder tree;
 
-    @Nullable
     @Override
-    public SkyValue compute(SkyKey skyKey, Environment env)
-        throws SkyFunctionException, InterruptedException {
+    public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
       try {
         if (skyKey.argument() instanceof Artifact
             && ((Artifact) skyKey.argument()).isTreeArtifact()) {
-          return TreeArtifactValue.create(allTreeFiles);
+          return tree.build();
         }
         return FileArtifactValue.createForTesting(((Artifact) skyKey.argument()).getPath());
       } catch (IOException e) {
@@ -1029,16 +1030,17 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
       return null;
     }
 
-    public void addNewTreeFileArtifact(TreeFileArtifact input) throws IOException {
-      allTreeFiles.put(input, FileArtifactValue.createForTesting(input.getPath()));
+    void addNewTreeFileArtifact(TreeFileArtifact input) throws IOException {
+      if (tree == null) {
+        tree = TreeArtifactValue.newBuilder(input.getParent());
+      }
+      tree.putChild(input, FileArtifactValue.createForTesting(input.getPath()));
     }
   }
 
-  private static class ArtifactFakeFunction implements SkyFunction {
-    @Nullable
+  private static final class ArtifactFakeFunction implements SkyFunction {
     @Override
-    public SkyValue compute(SkyKey skyKey, Environment env)
-        throws SkyFunctionException, InterruptedException {
+    public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
       return env.getValue(new NonHermeticArtifactSkyKey(skyKey));
     }
 
@@ -1049,11 +1051,10 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     }
   }
 
-  private class ActionFakeFunction implements SkyFunction {
+  private final class ActionFakeFunction implements SkyFunction {
     @Nullable
     @Override
-    public SkyValue compute(SkyKey skyKey, Environment env)
-        throws SkyFunctionException, InterruptedException {
+    public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
       return env.getValue(
           new NonHermeticArtifactSkyKey(
               Preconditions.checkNotNull(

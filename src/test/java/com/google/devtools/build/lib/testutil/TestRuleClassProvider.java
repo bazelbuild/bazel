@@ -39,10 +39,10 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.lang.reflect.Method;
 import java.util.Map;
+import net.starlark.java.syntax.Location;
 
 /**
  * Helper class to provide a RuleClassProvider for tests.

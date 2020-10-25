@@ -18,16 +18,17 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidLibraryAarInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidLibraryAarInfoApi;
 import java.util.Objects;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 
 /**
  * A target that can provide the aar artifact of Android libraries and all the manifests that are
@@ -37,8 +38,7 @@ import javax.annotation.Nullable;
 public class AndroidLibraryAarInfo extends NativeInfo
     implements AndroidLibraryAarInfoApi<Artifact> {
 
-  public static final NativeProvider<AndroidLibraryAarInfo> PROVIDER =
-      new NativeProvider<AndroidLibraryAarInfo>(AndroidLibraryAarInfo.class, NAME) {};
+  public static final Provider PROVIDER = new Provider();
 
   @Nullable private final Aar aar;
   private final NestedSet<Aar> transitiveAars;
@@ -139,8 +139,7 @@ public class AndroidLibraryAarInfo extends NativeInfo
         Artifact libraryClassJar,
         ImmutableList<Artifact> localProguardSpecs)
         throws InterruptedException {
-      Artifact aarOut =
-          dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_AAR);
+      Artifact aarOut = dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_AAR);
 
       new AarGeneratorBuilder()
           .withPrimaryResources(primaryResources)
@@ -165,8 +164,7 @@ public class AndroidLibraryAarInfo extends NativeInfo
     public AndroidLibraryAarInfo toProvider(
         RuleContext ruleContext, boolean definesLocalResources) {
       return toProvider(
-          AndroidCommon.getTransitivePrerequisites(ruleContext, TransitionMode.TARGET, PROVIDER),
-          definesLocalResources);
+          AndroidCommon.getTransitivePrerequisites(ruleContext, PROVIDER), definesLocalResources);
     }
 
     public AndroidLibraryAarInfo toProvider(
@@ -187,6 +185,28 @@ public class AndroidLibraryAarInfo extends NativeInfo
       artifactBuilder.add(getAar()).add(getManifest());
 
       return AndroidLibraryAarInfo.create(this, aarBuilder.build(), artifactBuilder.build());
+    }
+  }
+
+  /** Provider class for {@link AndroidLibraryAarInfo} objects. */
+  public static class Provider extends BuiltinProvider<AndroidLibraryAarInfo>
+      implements AndroidLibraryAarInfoApi.Provider<Artifact> {
+
+    public Provider() {
+      super(NAME, AndroidLibraryAarInfo.class);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public AndroidLibraryAarInfoApi<Artifact> create(
+        Artifact aarArtifact,
+        Artifact manifest,
+        Sequence<? extends AndroidLibraryAarInfoApi<Artifact>> infosFromDeps,
+        Boolean definesLocalResources)
+        throws EvalException {
+
+      Aar aar = Aar.create(aarArtifact, manifest);
+      return aar.toProvider((Iterable<AndroidLibraryAarInfo>) infosFromDeps, definesLocalResources);
     }
   }
 }

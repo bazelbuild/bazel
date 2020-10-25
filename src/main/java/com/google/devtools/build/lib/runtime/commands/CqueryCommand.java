@@ -22,9 +22,9 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetQueryEnvironment;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
-import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
+import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -113,8 +113,10 @@ public final class CqueryCommand implements BlazeCommand {
     QueryExpression expr;
     try {
       expr = QueryParser.parse(query, functions);
-    } catch (QueryException e) {
-      String message = "Error while parsing '" + query + "': " + e.getMessage();
+    } catch (QuerySyntaxException e) {
+      String message =
+          String.format(
+              "Error while parsing '%s': %s", QueryExpression.truncate(query), e.getMessage());
       env.getReporter().handle(Event.error(message));
       return createFailureResult(message, Code.EXPRESSION_PARSE_FAILURE);
     }

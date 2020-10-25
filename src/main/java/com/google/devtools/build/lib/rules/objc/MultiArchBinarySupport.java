@@ -26,7 +26,6 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -58,7 +57,7 @@ public class MultiArchBinarySupport {
       RuleContext ruleContext) {
     ImmutableListMultimap<BuildConfiguration, ToolchainInfo> configToProvider =
         ruleContext.getPrerequisitesByConfiguration(
-            ObjcRuleClasses.CHILD_CONFIG_ATTR, TransitionMode.SPLIT, ToolchainInfo.PROVIDER);
+            ObjcRuleClasses.CHILD_CONFIG_ATTR, ToolchainInfo.PROVIDER);
 
     ImmutableMap.Builder<BuildConfiguration, CcToolchainProvider> result = ImmutableMap.builder();
     for (BuildConfiguration config : configToProvider.keySet()) {
@@ -131,8 +130,9 @@ public class MultiArchBinarySupport {
    *     corresponds to child configurations for this target. Can be obtained via {@link
    *     #getDependencySpecificConfigurations}
    * @param extraLinkInputs the extra linker inputs to be made available during link actions
-   * @param cpuToDepsCollectionMap a multimap from dependency configuration to the list of
-   *     provider collections which are propagated from the dependencies of that configuration
+   * @param isStampingEnabled whether linkstamping is enabled
+   * @param cpuToDepsCollectionMap a multimap from dependency configuration to the list of provider
+   *     collections which are propagated from the dependencies of that configuration
    * @param outputMapCollector a map to which output groups created by compile action generation are
    *     added
    * @return a set containing all single-architecture binaries that are linked from this call
@@ -142,6 +142,7 @@ public class MultiArchBinarySupport {
       ExtraLinkArgs extraLinkArgs,
       Set<DependencySpecificConfiguration> dependencySpecificConfigurations,
       Iterable<Artifact> extraLinkInputs,
+      boolean isStampingEnabled,
       ListMultimap<String, TransitiveInfoCollection> cpuToDepsCollectionMap,
       Map<String, NestedSet<Artifact>> outputMapCollector)
       throws RuleErrorException, InterruptedException {
@@ -186,7 +187,8 @@ public class MultiArchBinarySupport {
               j2ObjcMappingFileProvider,
               j2ObjcEntryClassProvider,
               extraLinkArgs,
-              extraLinkInputs)
+              extraLinkInputs,
+              isStampingEnabled)
           .validateAttributes();
       ruleContext.assertNoErrors();
     }

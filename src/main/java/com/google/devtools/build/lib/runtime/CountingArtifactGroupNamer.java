@@ -15,26 +15,22 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.NamedSetOfFilesId;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import java.util.HashMap;
 import java.util.Map;
-import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 /** Conversion of paths to URIs. */
 @ThreadSafe
 public class CountingArtifactGroupNamer implements ArtifactGroupNamer {
-  @GuardedBy("this")
-  private final Map<Object, Long> reportedArtifactNames = new HashMap<>();
 
-  @GuardedBy("this")
-  private long nextArtifactName;
+  private final Map<NestedSet.Node, Integer> nodeNames = new HashMap<>();
 
   @Override
-  public NamedSetOfFilesId apply(Object id) {
-    Long name;
+  public NamedSetOfFilesId apply(NestedSet.Node id) {
+    Integer name;
     synchronized (this) {
-      name = reportedArtifactNames.get(id);
+      name = nodeNames.get(id);
     }
     if (name == null) {
       return null;
@@ -43,16 +39,15 @@ public class CountingArtifactGroupNamer implements ArtifactGroupNamer {
   }
 
   /**
-   * If the {@link NestedSetView} has no name already, return a new name for it. Return null
-   * otherwise.
+   * If the {@link NestedSet} has no name already, return a new name for it. Return null otherwise.
    */
-  public synchronized String maybeName(NestedSetView<?> view) {
-    if (reportedArtifactNames.containsKey(view.identifier())) {
+  public synchronized String maybeName(NestedSet<?> set) {
+    NestedSet.Node id = set.toNode();
+    if (nodeNames.containsKey(id)) {
       return null;
     }
-    Long name = nextArtifactName;
-    nextArtifactName++;
-    reportedArtifactNames.put(view.identifier(), name);
+    Integer name = nodeNames.size();
+    nodeNames.put(id, name);
     return name.toString();
   }
 }

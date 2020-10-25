@@ -15,10 +15,6 @@
 package com.google.devtools.build.remote.worker;
 
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
-import static java.util.logging.Level.FINE;
-import static java.util.logging.Level.INFO;
-import static java.util.logging.Level.SEVERE;
-import static java.util.logging.Level.WARNING;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -33,6 +29,7 @@ import build.bazel.remote.execution.v2.Platform.Property;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.WaitExecutionRequest;
 import com.google.common.base.Throwables;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -75,13 +72,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /** A basic implementation of an {@link ExecutionImplBase} service. */
 final class ExecutionServer extends ExecutionImplBase {
-  private static final Logger logger = Logger.getLogger(ExecutionServer.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   // The name of the container image entry in the Platform proto
   // (see third_party/googleapis/devtools/remoteexecution/*/remote_execution.proto and
@@ -178,7 +173,7 @@ final class ExecutionServer extends ExecutionImplBase {
             if (e instanceof ExecutionStatusException) {
               resp = ((ExecutionStatusException) e).getResponse();
             } else {
-              logger.log(Level.SEVERE, "Work failed: " + opName, e);
+              logger.atSevere().withCause(e).log("Work failed: %s", opName);
               resp =
                   ExecuteResponse.newBuilder()
                       .setStatus(StatusUtils.internalErrorStatus(e))
@@ -213,6 +208,7 @@ final class ExecutionServer extends ExecutionImplBase {
     waitExecution(opName, future, responseObserver);
   }
 
+  @SuppressWarnings("LogAndThrow")
   private ActionResult execute(ExecuteRequest request, String id)
       throws IOException, InterruptedException, StatusException {
     Path tempRoot = workPath.getRelative("build-" + id);
@@ -224,25 +220,21 @@ final class ExecutionServer extends ExecutionImplBase {
           String.format(
               "build-request-id: %s command-id: %s action-id: %s",
               meta.getCorrelatedInvocationsId(), meta.getToolInvocationId(), meta.getActionId());
-      logger.log(FINE, "Received work for: {0}", workDetails);
+      logger.atFine().log("Received work for: %s", workDetails);
       ActionResult result = execute(request.getActionDigest(), tempRoot);
-      logger.log(FINE, "Completed {0}.", workDetails);
+      logger.atFine().log("Completed %s", workDetails);
       return result;
     } catch (Exception e) {
-      logger.log(Level.SEVERE, "Work failed: {0} {1}.", new Object[] {workDetails, e});
+      logger.atSevere().withCause(e).log("Work failed: %s", workDetails);
       throw e;
     } finally {
       if (workerOptions.debug) {
-        logger.log(INFO, "Preserving work directory {0}.", tempRoot);
+        logger.atInfo().log("Preserving work directory %s", tempRoot);
       } else {
         try {
           tempRoot.deleteTree();
         } catch (IOException e) {
-          logger.log(
-              SEVERE,
-              String.format(
-                  "Failed to delete tmp directory %s: %s",
-                  tempRoot, Throwables.getStackTraceAsString(e)));
+          logger.atSevere().withCause(e).log("Failed to delete tmp directory %s", tempRoot);
         }
       }
     }
@@ -250,8 +242,8 @@ final class ExecutionServer extends ExecutionImplBase {
 
   private ActionResult execute(Digest actionDigest, Path execRoot)
       throws IOException, InterruptedException, StatusException {
-    Command command = null;
-    Action action = null;
+    Command command;
+    Action action;
     ActionKey actionKey = digestUtil.asActionKey(actionDigest);
     try {
       action = Action.parseFrom(getFromFuture(cache.downloadBlob(actionDigest)));
@@ -320,7 +312,7 @@ final class ExecutionServer extends ExecutionImplBase {
             String.format(
                 "Command:\n%s\nexceeded deadline of %f seconds.",
                 Arrays.toString(command.getArgumentsList().toArray()), timeoutMillis / 1000.0);
-        logger.warning(errMessage);
+        logger.atWarning().log(errMessage);
         errStatus =
             Status.newBuilder()
                 .setCode(Code.DEADLINE_EXCEEDED.getNumber())
@@ -384,7 +376,7 @@ final class ExecutionServer extends ExecutionImplBase {
   // This is used to set "-u UID" flag for commands running inside Docker containers. There are
   // only a small handful of cases where uid is vital (e.g., if strict permissions are set on the
   // output files), so most use cases would work without setting uid.
-  private static long getUid() {
+  private static long getUid() throws InterruptedException {
     com.google.devtools.build.lib.shell.Command cmd =
         new com.google.devtools.build.lib.shell.Command(
             new String[] {"id", "-u"},
@@ -397,8 +389,8 @@ final class ExecutionServer extends ExecutionImplBase {
       cmd.execute(stdout, stderr);
       return Long.parseLong(stdout.toString().trim());
     } catch (CommandException | NumberFormatException e) {
-      logger.log(
-          WARNING, "Could not get UID for passing to Docker container. Proceeding without it.", e);
+      logger.atWarning().withCause(e).log(
+          "Could not get UID for passing to Docker container. Proceeding without it");
       return -1;
     }
   }
@@ -450,7 +442,7 @@ final class ExecutionServer extends ExecutionImplBase {
   // arguments. Otherwise, returns a Command that would run the specified command inside the
   // specified docker container.
   private com.google.devtools.build.lib.shell.Command getCommand(Command cmd, String pathString)
-      throws StatusException {
+      throws StatusException, InterruptedException {
     Map<String, String> environmentVariables = getEnvironmentVariables(cmd);
     // This allows Bazel's integration tests to test for the remote platform.
     environmentVariables.put("BAZEL_REMOTE_PLATFORM", platformAsString(cmd.getPlatform()));

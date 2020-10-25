@@ -28,13 +28,13 @@ import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.skyframe.TestsForTargetPatternValue;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.function.Predicate;
+import net.starlark.java.syntax.Location;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -72,7 +72,7 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
         "",
         "py_binary(name = 'notest',",
         "        srcs = ['notest.py'])",
-        "cc_library(name = 'xUnit', data = ['//tools:test_sharding_compliant'])",
+        "cc_library(name = 'xUnit')",
         "",
         "test_suite( name = 'smallTests', tags=['small'])");
 
@@ -116,7 +116,7 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
             ruleClass,
             Location.fromFile(""),
             CallStack.EMPTY,
-            new AttributeContainer(ruleClass));
+            AttributeContainer.newMutableInstance(ruleClass));
     Mockito.when(ruleClass.getName()).thenReturn("existent_library");
     assertThat(filter.apply(mockRule)).isTrue();
     Mockito.when(ruleClass.getName()).thenReturn("exist_library");
@@ -184,7 +184,7 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
             .setNumThreads(1)
-            .setEventHander(reporter)
+            .setEventHandler(reporter)
             .build();
     EvaluationResult<TestsForTargetPatternValue> result =
         getSkyframeExecutor().getDriver().evaluate(ImmutableList.of(key), evaluationContext);

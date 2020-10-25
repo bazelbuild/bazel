@@ -73,14 +73,14 @@ public class BuildEncyclopediaOptions extends OptionsBase {
   public String outputDir;
 
   @Option(
-    name = "blacklist",
-    abbrev = 'b',
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "A path to a file listing rules not to document."
-  )
-  public String blacklist;
+      name = "denylist",
+      oldName = "blacklist",
+      abbrev = 'b',
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A path to a file listing rules not to document.")
+  public String denylist;
 
   @Option(
     name = "single_page",

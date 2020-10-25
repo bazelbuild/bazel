@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.java;
 
-import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCcLinkParamsProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCcLinkParamsProviderApi;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
 
 /** Fake implementation of {@link JavaCcLinkParamsProvider}. */
 public class FakeJavaCcLinkParamsProvider

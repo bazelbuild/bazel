@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -22,6 +23,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunctio
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
+import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -52,14 +54,19 @@ public class AqueryCommandUtilsTest {
       throws Exception {
     String query = "//some_target";
     QueryExpression expr = QueryParser.parse(query, functions);
-
-    assertThrows(
-        QueryException.class,
-        () ->
-            AqueryCommandUtils.getTopLevelTargets(
-                /* universeScope= */ ImmutableList.of(),
-                expr,
-                /* queryCurrentSkyframeState= */ true,
-                query));
+    QueryException exception =
+        assertThrows(
+            QueryException.class,
+            () ->
+                AqueryCommandUtils.getTopLevelTargets(
+                    /* universeScope= */ ImmutableList.of(),
+                    expr,
+                    /* queryCurrentSkyframeState= */ true));
+    assertThat(exception).hasMessageThat().contains("Error while parsing '" + query);
+    assertThat(exception)
+        .hasMessageThat()
+        .contains("with --skyframe_state is currently not supported");
+    assertThat(exception.getFailureDetail().getActionQuery().getCode())
+        .isEqualTo(ActionQuery.Code.TOP_LEVEL_TARGETS_WITH_SKYFRAME_STATE_NOT_SUPPORTED);
   }
 }

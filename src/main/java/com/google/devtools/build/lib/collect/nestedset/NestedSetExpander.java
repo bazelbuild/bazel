@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.collect.nestedset;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetStore.MissingNestedSetException;
 import java.util.concurrent.TimeoutException;
 
 /**
@@ -25,7 +26,7 @@ import java.util.concurrent.TimeoutException;
 public interface NestedSetExpander {
 
   <T> ImmutableList<? extends T> toListInterruptibly(NestedSet<? extends T> nestedSet)
-      throws InterruptedException, TimeoutException;
+      throws InterruptedException, TimeoutException, MissingNestedSetException;
 
   /** Simply delegates to {@link NestedSet#toListInterruptibly} without doing anything special. */
   NestedSetExpander DEFAULT = NestedSet::toListInterruptibly;

@@ -65,7 +65,7 @@ public class AvailableXcodesRule implements RuleDefinition {
   }
 }
 
-/*<!-- #BLAZE_RULE (NAME = available_xcodes, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = available_xcodes, TYPE = OTHER, FAMILY = Objective-C) -->
 
 <p>Two targets of this rule can be depended on by an <code>xcode_config</code> rule instance to
 indicate the remotely and locally available xcode versions.

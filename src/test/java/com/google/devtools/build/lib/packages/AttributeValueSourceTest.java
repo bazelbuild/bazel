@@ -20,7 +20,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
-import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.eval.EvalException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -41,14 +41,14 @@ public class AttributeValueSourceTest {
   }
 
   @Test
-  public void testValidateStarlarkName_EmptyName() throws Exception {
+  public void testValidateStarlarkName_emptyName() throws Exception {
     for (AttributeValueSource source : AttributeValueSource.values()) {
       assertNameIsNotValid(source, "", "Attribute name must not be empty.");
     }
   }
 
   @Test
-  public void testValidateStarlarkName_MissingPrefix() throws Exception {
+  public void testValidateStarlarkName_missingPrefix() throws Exception {
     String msg =
         "When an attribute value is a function, the attribute must be private "
             + "(i.e. start with '_'). Found 'my_name'";
@@ -77,7 +77,7 @@ public class AttributeValueSourceTest {
   }
 
   @Test
-  public void testConvertToNativeName_InvalidName() throws Exception {
+  public void testConvertToNativeName_invalidName() throws Exception {
     assertTranslationFails(AttributeValueSource.COMPUTED_DEFAULT, "name");
     assertTranslationFails(AttributeValueSource.LATE_BOUND, "name");
   }

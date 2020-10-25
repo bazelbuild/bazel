@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.rules.android;
 
+import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcToolchainRequiringRule;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -68,16 +68,17 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS --> */
         .setImplicitOutputsFunction(AndroidRuleClasses.ANDROID_BINARY_IMPLICIT_OUTPUTS)
         .add(
-            Whitelist.getAttributeFromWhitelistName("export_deps")
-                .value(environment.getToolsLabel("//tools/android:export_deps_whitelist")))
+            Allowlist.getAttributeFromAllowlistName("export_deps")
+                .value(environment.getToolsLabel("//tools/android:export_deps_allowlist")))
         .add(
-            Whitelist.getAttributeFromWhitelistName("allow_deps_without_srcs")
+            Allowlist.getAttributeFromAllowlistName("allow_deps_without_srcs")
                 .value(
                     environment.getToolsLabel(
-                        "//tools/android:allow_android_library_deps_without_srcs_whitelist")))
+                        "//tools/android:allow_android_library_deps_without_srcs_allowlist")))
         .cfg(
             new ConfigFeatureFlagTransitionFactory(AndroidFeatureFlagSetProvider.FEATURE_FLAG_ATTR))
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(environment))
+        .useToolchainTransition(true)
         .build();
   }
 
@@ -88,6 +89,7 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
         .ancestors(
             AndroidRuleClasses.AndroidBinaryBaseRule.class,
             BazelJavaRuleClasses.JavaBaseRule.class,
+            BazelSdkToolchainRule.class,
             CcToolchainRequiringRule.class)
         .factoryClass(BazelAndroidBinary.class)
         .build();

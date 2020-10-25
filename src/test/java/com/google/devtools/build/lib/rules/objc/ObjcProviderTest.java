@@ -26,11 +26,12 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -55,7 +56,9 @@ public class ObjcProviderTest {
 
   private static Artifact createArtifact(String path) {
     return ActionsTestUtil.createArtifact(
-        ArtifactRoot.asSourceRoot(Root.absoluteRoot(new InMemoryFileSystem())), path);
+        ArtifactRoot.asSourceRoot(
+            Root.absoluteRoot(new InMemoryFileSystem(DigestHashFunction.SHA256))),
+        path);
   }
 
   @Test

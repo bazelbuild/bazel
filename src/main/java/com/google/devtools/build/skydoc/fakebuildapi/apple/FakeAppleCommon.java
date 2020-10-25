@@ -15,29 +15,30 @@
 package com.google.devtools.build.skydoc.fakebuildapi.apple;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.StarlarkAspectApi;
-import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleCommonApi;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleDynamicFrameworkInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.ApplePlatformApi;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleStaticLibraryInfoApi.AppleStaticLibraryInfoProvider;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleToolchainApi;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.DottedVersionApi;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.XcodeConfigInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectApi;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleCommonApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleDynamicFrameworkInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.ApplePlatformApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleStaticLibraryInfoApi.AppleStaticLibraryInfoProvider;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleToolchainApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.DottedVersionApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.ObjcProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.XcodeConfigInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSplitTransitionProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStarlarkAspect;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStructApi;
 import com.google.devtools.build.skydoc.fakebuildapi.apple.FakeAppleStaticLibraryInfo.FakeAppleStaticLibraryInfoProvider;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkThread;
 
 /** Fake implementation of {@link AppleCommonApi}. */
 public class FakeAppleCommon
@@ -124,6 +125,7 @@ public class FakeAppleCommon
       StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
       Sequence<?> extraLinkopts,
       Sequence<?> extraLinkInputs,
+      StarlarkInt stamp,
       StarlarkThread thread) {
     return new FakeStructApi();
   }
@@ -149,7 +151,7 @@ public class FakeAppleCommon
 
   @Override
   public ObjcProviderApi<?> newObjcProvider(
-      Boolean usesSwift, Dict<?, ?> kwargs, StarlarkThread thread) {
+      Boolean usesSwift, Dict<String, Object> kwargs, StarlarkThread thread) {
     return new FakeObjcProvider();
   }
 

@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -29,7 +30,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -57,7 +57,6 @@ public class CppCompileActionBuilder {
   private Artifact outputFile;
   private Artifact dwoFile;
   private Artifact ltoIndexingFile;
-  @Nullable private PathFragment tempOutputFile;
   private Artifact dotdFile;
   private Artifact gcnoFile;
   private CcCompilationContext ccCompilationContext = CcCompilationContext.EMPTY;
@@ -117,7 +116,6 @@ public class CppCompileActionBuilder {
     this.outputFile = other.outputFile;
     this.dwoFile = other.dwoFile;
     this.ltoIndexingFile = other.ltoIndexingFile;
-    this.tempOutputFile = other.tempOutputFile;
     this.dotdFile = other.dotdFile;
     this.gcnoFile = other.gcnoFile;
     this.ccCompilationContext = other.ccCompilationContext;
@@ -137,11 +135,6 @@ public class CppCompileActionBuilder {
     this.actionName = other.actionName;
     this.grepIncludes = other.grepIncludes;
     this.builtinIncludeDirectories = other.builtinIncludeDirectories;
-  }
-
-  @Nullable
-  public PathFragment getTempOutputFile() {
-    return tempOutputFile;
   }
 
   public CppCompileActionBuilder setSourceFile(Artifact sourceFile) {
@@ -269,71 +262,43 @@ public class CppCompileActionBuilder {
     NestedSet<Artifact> prunableHeaders = buildPrunableHeaders();
 
     configuration.modifyExecutionInfo(
-        executionInfo, CppCompileAction.actionNameToMnemonic(getActionName()));
+        executionInfo,
+        CppCompileAction.actionNameToMnemonic(
+            getActionName(), featureConfiguration, cppConfiguration.useCppCompileHeaderMnemonic()));
 
     // Copying the collections is needed to make the builder reusable.
     CppCompileAction action;
-    boolean fake = tempOutputFile != null;
-    if (fake) {
-      action =
-          new FakeCppCompileAction(
-              owner,
-              featureConfiguration,
-              variables,
-              sourceFile,
-              cppConfiguration,
-              shareable,
-              shouldScanIncludes,
-              shouldPruneModules(),
-              usePic,
-              useHeaderModules,
-              realMandatoryInputs,
-              buildInputsForInvalidation(),
-              getBuiltinIncludeFiles(),
-              prunableHeaders,
-              outputFile,
-              tempOutputFile,
-              dotdFile,
-              env,
-              ccCompilationContext,
-              coptsFilter,
-              cppSemantics,
-              builtinIncludeDirectories,
-              ImmutableMap.copyOf(executionInfo),
-              grepIncludes);
-    } else {
-      action =
-          new CppCompileAction(
-              owner,
-              featureConfiguration,
-              variables,
-              sourceFile,
-              cppConfiguration,
-              shareable,
-              shouldScanIncludes,
-              shouldPruneModules(),
-              usePic,
-              useHeaderModules,
-              realMandatoryInputs,
-              buildInputsForInvalidation(),
-              getBuiltinIncludeFiles(),
-              prunableHeaders,
-              outputFile,
-              dotdFile,
-              gcnoFile,
-              dwoFile,
-              ltoIndexingFile,
-              env,
-              ccCompilationContext,
-              coptsFilter,
-              ImmutableList.copyOf(additionalIncludeScanningRoots),
-              actionClassId,
-              ImmutableMap.copyOf(executionInfo),
-              getActionName(),
-              cppSemantics,
-              builtinIncludeDirectories,
-              grepIncludes);
-    }
+
+    action =
+        new CppCompileAction(
+            owner,
+            featureConfiguration,
+            variables,
+            sourceFile,
+            cppConfiguration,
+            shareable,
+            shouldScanIncludes,
+            usePic,
+            useHeaderModules,
+            realMandatoryInputs,
+            buildInputsForInvalidation(),
+            getBuiltinIncludeFiles(),
+            prunableHeaders,
+            outputFile,
+            dotdFile,
+            gcnoFile,
+            dwoFile,
+            ltoIndexingFile,
+            env,
+            ccCompilationContext,
+            coptsFilter,
+            ImmutableList.copyOf(additionalIncludeScanningRoots),
+            actionClassId,
+            ImmutableMap.copyOf(executionInfo),
+            getActionName(),
+            cppSemantics,
+            builtinIncludeDirectories,
+            grepIncludes);
     return action;
   }
 
@@ -353,13 +318,17 @@ public class CppCompileActionBuilder {
     NestedSetBuilder<Artifact> realMandatoryInputsBuilder = NestedSetBuilder.compileOrder();
     realMandatoryInputsBuilder.addTransitive(mandatoryInputsBuilder.build());
     realMandatoryInputsBuilder.addAll(getBuiltinIncludeFiles());
-    if (useHeaderModules() && !shouldPruneModules()) {
+    if (useHeaderModules() && !shouldScanIncludes) {
       realMandatoryInputsBuilder.addTransitive(ccCompilationContext.getTransitiveModules(usePic));
     }
     ccCompilationContext.addAdditionalInputs(realMandatoryInputsBuilder);
     realMandatoryInputsBuilder.add(Preconditions.checkNotNull(sourceFile));
     if (grepIncludes != null) {
       realMandatoryInputsBuilder.add(grepIncludes);
+    }
+    if (!shouldScanIncludes && dotdFile == null) {
+      realMandatoryInputsBuilder.addTransitive(ccCompilationContext.getDeclaredIncludeSrcs());
+      realMandatoryInputsBuilder.addAll(additionalPrunableHeaders);
     }
     return realMandatoryInputsBuilder.build();
   }
@@ -382,10 +351,6 @@ public class CppCompileActionBuilder {
         && (sourceFile.isFileType(CppFileTypes.CPP_SOURCE)
             || sourceFile.isFileType(CppFileTypes.CPP_HEADER)
             || sourceFile.isFileType(CppFileTypes.CPP_MODULE_MAP));
-  }
-
-  private boolean shouldPruneModules() {
-    return shouldScanIncludes && useHeaderModules();
   }
 
   /**
@@ -472,8 +437,7 @@ public class CppCompileActionBuilder {
       RuleErrorConsumer ruleErrorConsumer,
       Label label,
       ArtifactCategory outputCategory,
-      String outputName,
-      boolean generateDotd)
+      String outputName)
       throws RuleErrorException {
     this.outputFile =
         CppHelper.getCompileOutputArtifact(
@@ -482,7 +446,10 @@ public class CppCompileActionBuilder {
             CppHelper.getArtifactNameForCategory(
                 ruleErrorConsumer, ccToolchain, outputCategory, outputName),
             configuration);
-    if (generateDotd && !useHeaderModules()) {
+    if (CppFileTypes.headerDiscoveryRequired(sourceFile)
+        && !useHeaderModules()
+        && cppSemantics.needsDotdInputPruning(configuration)
+        && !featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
       String dotdFileName =
           CppHelper.getDotdFileName(ruleErrorConsumer, ccToolchain, outputCategory, outputName);
       dotdFile =
@@ -510,20 +477,6 @@ public class CppCompileActionBuilder {
 
   public Artifact getOutputFile() {
     return outputFile;
-  }
-
-  /**
-   * The temp output file is not an artifact, since it does not appear in the outputs of the
-   * action.
-   *
-   * <p>This is theoretically a problem if that file already existed before, since then Blaze
-   * does not delete it before executing the rule, but 1. that only applies for local
-   * execution which does not happen very often and 2. it is only a problem if the compiler is
-   * affected by the presence of this file, which it should not be.
-   */
-  public CppCompileActionBuilder setTempOutputFile(PathFragment tempOutputFile) {
-    this.tempOutputFile = tempOutputFile;
-    return this;
   }
 
   public Artifact getDotdFile() {
@@ -593,11 +546,7 @@ public class CppCompileActionBuilder {
   }
 
   public PathFragment getRealOutputFilePath() {
-    if (getTempOutputFile() != null) {
-      return getTempOutputFile();
-    } else {
-      return getOutputFile().getExecPath();
-    }
+    return getOutputFile().getExecPath();
   }
 
   /**
@@ -633,5 +582,10 @@ public class CppCompileActionBuilder {
   public boolean shouldCompileHeaders() {
     Preconditions.checkNotNull(featureConfiguration);
     return ccToolchain.shouldProcessHeaders(featureConfiguration, cppConfiguration);
+  }
+
+  @Nullable
+  public Artifact getGrepIncludes() {
+    return grepIncludes;
   }
 }

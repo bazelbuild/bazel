@@ -25,6 +25,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
@@ -41,6 +42,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.eval.StarlarkInt;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -59,9 +61,9 @@ public class AttributeTest {
 
   @Test
   public void testBasics() throws Exception {
-    Attribute attr = attr("foo", Type.INTEGER).mandatory().value(3).build();
+    Attribute attr = attr("foo", Type.INTEGER).mandatory().value(StarlarkInt.of(3)).build();
     assertThat(attr.getName()).isEqualTo("foo");
-    assertThat(attr.getDefaultValue(null)).isEqualTo(3);
+    assertThat(attr.getDefaultValue(null)).isEqualTo(StarlarkInt.of(3));
     assertThat(attr.getType()).isEqualTo(Type.INTEGER);
     assertThat(attr.isMandatory()).isTrue();
     assertThat(attr.isDocumented()).isTrue();
@@ -74,7 +76,7 @@ public class AttributeTest {
     NullPointerException e =
         assertThrows(
             NullPointerException.class,
-            () -> attr("foo", Type.INTEGER).nonEmpty().value(3).build());
+            () -> attr("foo", Type.INTEGER).nonEmpty().value(StarlarkInt.of(3)).build());
     assertThat(e).hasMessageThat().isEqualTo("attribute 'foo' must be a list");
   }
 
@@ -91,7 +93,7 @@ public class AttributeTest {
     IllegalStateException e =
         assertThrows(
             IllegalStateException.class,
-            () -> attr("foo", Type.INTEGER).singleArtifact().value(3).build());
+            () -> attr("foo", Type.INTEGER).singleArtifact().value(StarlarkInt.of(3)).build());
     assertThat(e).hasMessageThat().isEqualTo("attribute 'foo' must be a label-valued type");
   }
 
@@ -118,10 +120,8 @@ public class AttributeTest {
    */
   @Test
   public void testConvenienceFactoriesDefaultValues() throws Exception {
-    assertDefaultValue(0,
-                       attr("x", INTEGER).build());
-    assertDefaultValue(42,
-                       attr("x", INTEGER).value(42).build());
+    assertDefaultValue(StarlarkInt.of(0), attr("x", INTEGER).build());
+    assertDefaultValue(StarlarkInt.of(42), attr("x", INTEGER).value(StarlarkInt.of(42)).build());
 
     assertDefaultValue("",
                        attr("x", STRING).build());
@@ -157,8 +157,7 @@ public class AttributeTest {
   public void testConvenienceFactoriesTypes() throws Exception {
     assertType(INTEGER,
                attr("x", INTEGER).build());
-    assertType(INTEGER,
-               attr("x", INTEGER).value(42).build());
+    assertType(INTEGER, attr("x", INTEGER).value(StarlarkInt.of(42)).build());
 
     assertType(STRING,
                attr("x", STRING).build());
@@ -287,8 +286,10 @@ public class AttributeTest {
 
   private static class TestSplitTransition implements SplitTransition {
     @Override
-    public Map<String, BuildOptions> split(BuildOptions buildOptions, EventHandler eventHandler) {
-      return ImmutableMap.of("test0", buildOptions.clone(), "test1", buildOptions.clone());
+    public Map<String, BuildOptions> split(
+        BuildOptionsView buildOptions, EventHandler eventHandler) {
+      return ImmutableMap.of(
+          "test0", buildOptions.clone().underlying(), "test1", buildOptions.clone().underlying());
     }
   }
 

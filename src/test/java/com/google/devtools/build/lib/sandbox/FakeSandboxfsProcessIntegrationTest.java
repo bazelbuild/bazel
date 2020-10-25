@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.sandbox;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -32,7 +33,7 @@ public class FakeSandboxfsProcessIntegrationTest extends BaseSandboxfsProcessInt
 
   @Override
   Path newTmpDir() throws IOException {
-    FileSystem fileSystem = new InMemoryFileSystem();
+    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
     Path tmpDir = fileSystem.getPath("/tmp");
     tmpDir.createDirectory();
     return tmpDir;
@@ -44,7 +45,7 @@ public class FakeSandboxfsProcessIntegrationTest extends BaseSandboxfsProcessInt
   }
 
   @Test
-  public void testMount_NotADirectory() throws IOException {
+  public void testMount_notADirectory() throws IOException {
     FileSystemUtils.createEmptyFile(tmpDir.getRelative("file"));
     IOException expected = assertThrows(
         IOException.class, () -> mount(tmpDir.getRelative("file")));
@@ -52,7 +53,7 @@ public class FakeSandboxfsProcessIntegrationTest extends BaseSandboxfsProcessInt
   }
 
   @Test
-  public void testSandboxCreate_EnforcesNonRepeatedNames() throws IOException {
+  public void testSandboxCreate_enforcesNonRepeatedNames() throws IOException {
     Path mountPoint = tmpDir.getRelative("mnt");
     mountPoint.createDirectory();
     SandboxfsProcess process = mount(mountPoint);
@@ -64,7 +65,7 @@ public class FakeSandboxfsProcessIntegrationTest extends BaseSandboxfsProcessInt
   }
 
   @Test
-  public void testSandboxDestroy_EnforcesExistingName() throws IOException {
+  public void testSandboxDestroy_enforcesExistingName() throws IOException {
     Path mountPoint = tmpDir.getRelative("mnt");
     mountPoint.createDirectory();
     SandboxfsProcess process = mount(mountPoint);
@@ -75,7 +76,7 @@ public class FakeSandboxfsProcessIntegrationTest extends BaseSandboxfsProcessInt
   }
 
   @Test
-  public void testCreateAndDestroySandbox_ReuseName() throws IOException {
+  public void testCreateAndDestroySandbox_reuseName() throws IOException {
     Path mountPoint = tmpDir.getRelative("mnt");
     mountPoint.createDirectory();
     SandboxfsProcess process = mount(mountPoint);

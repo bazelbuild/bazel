@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.Immutable;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -145,10 +146,24 @@ public final class NinjaTarget {
         targetHasDescription = true;
       }
 
+      // symlink_outputs are taken from the "build" statement (instead of the referenced rule)
+      // if it's available.
+      boolean targetHasSymlinkOutputs = false;
+      String symlinkOutputs = targetVariables.get("symlink_outputs");
+      if (symlinkOutputs != null) {
+        builder.put(
+            NinjaRuleVariable.SYMLINK_OUTPUTS, NinjaVariableValue.createPlainText(symlinkOutputs));
+        targetHasSymlinkOutputs = true;
+      }
+
       for (Map.Entry<NinjaRuleVariable, NinjaVariableValue> entry : ruleVariables.entrySet()) {
         NinjaRuleVariable type = entry.getKey();
-        if (type.equals(NinjaRuleVariable.DESCRIPTION) && targetHasDescription) {
-          // Don't use the rule description, as the target defined a specific description.
+
+        // Don't use the rule variable if the same variable is defined in the build statement.
+        if (type == NinjaRuleVariable.DESCRIPTION && targetHasDescription) {
+          continue;
+        }
+        if (type == NinjaRuleVariable.SYMLINK_OUTPUTS && targetHasSymlinkOutputs) {
           continue;
         }
         NinjaVariableValue reducedValue =
@@ -165,7 +180,8 @@ public final class NinjaTarget {
   public enum InputKind implements InputOutputKind {
     EXPLICIT,
     IMPLICIT,
-    ORDER_ONLY
+    ORDER_ONLY,
+    VALIDATION,
   }
 
   /** Enum with possible kinds of outputs. */
@@ -222,6 +238,17 @@ public final class NinjaTarget {
     return outputs.values();
   }
 
+  public Collection<PathFragment> getAllSymlinkOutputs() {
+    String symlinkOutputs = computeRuleVariables().get(NinjaRuleVariable.SYMLINK_OUTPUTS);
+    if (symlinkOutputs == null) {
+      return ImmutableSet.of();
+    } else {
+      return Arrays.stream(symlinkOutputs.split(" "))
+          .map(PathFragment::create)
+          .collect(Collectors.toSet());
+    }
+  }
+
   public Collection<PathFragment> getAllInputs() {
     return inputs.values();
   }
@@ -240,6 +267,10 @@ public final class NinjaTarget {
 
   public Collection<PathFragment> getOrderOnlyInputs() {
     return inputs.get(InputKind.ORDER_ONLY);
+  }
+
+  public Collection<PathFragment> getValidationInputs() {
+    return inputs.get(InputKind.VALIDATION);
   }
 
   public long getOffset() {

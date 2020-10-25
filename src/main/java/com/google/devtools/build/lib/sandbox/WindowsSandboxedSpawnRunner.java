@@ -60,7 +60,7 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   @Override
   protected SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
-      throws IOException {
+      throws IOException, InterruptedException {
     Path tmpDir = createActionTemp(execRoot);
     Path commandTmpDir = tmpDir.getRelative("work");
     commandTmpDir.createDirectory();
@@ -70,11 +70,7 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     SandboxInputs readablePaths =
         helpers.processInputFiles(
-            context.getInputMapping(
-                getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
-            spawn,
-            context.getArtifactExpander(),
-            execRoot);
+            context.getInputMapping(), spawn, context.getArtifactExpander(), execRoot);
 
     readablePaths.materializeVirtualInputs(execRoot);
 

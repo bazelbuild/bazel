@@ -121,7 +121,7 @@ class OptionProcessor {
   // server to configure blazerc options and client environment.
   static std::vector<std::string> GetBlazercAndEnvCommandArgs(
       const std::string& cwd,
-      const std::vector<std::unique_ptr<RcFile>>& blazercs,
+      const std::vector<RcFile*>& blazercs,
       const std::vector<std::string>& env);
 
   // Finds and parses the appropriate RcFiles:
@@ -138,8 +138,7 @@ class OptionProcessor {
 
  private:
   blaze_exit_code::ExitCode ParseStartupOptions(
-      const std::vector<std::unique_ptr<RcFile>>& rc_files,
-      std::string* error);
+      const std::vector<RcFile*>& rc_files, std::string* error);
 
   // An ordered list of command args that contain information about the
   // execution environment and the flags passed via the bazelrc files.

@@ -25,7 +25,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 function test_basic_output() {
   mkdir -p test
   cat << EOF >> test/BUILD
-load(":skylark.bzl", "test_rule")
+load(":starlark.bzl", "test_rule")
 
 test_rule(
     name = "test",
@@ -33,7 +33,7 @@ test_rule(
 )
 EOF
 
-  cat << 'EOF' >> test/skylark.bzl
+  cat << 'EOF' >> test/starlark.bzl
 def _test_impl(ctx):
   ctx.actions.run_shell(outputs = [ctx.outputs.out],
                         command = ["touch", ctx.outputs.out.path])
@@ -58,7 +58,7 @@ EOF
 function test_execution_failure() {
   mkdir -p test
   cat << EOF >> test/BUILD
-load(":skylark.bzl", "test_rule")
+load(":starlark.bzl", "test_rule")
 
 test_rule(
     name = "test",
@@ -66,7 +66,7 @@ test_rule(
 )
 EOF
 
-  cat << 'EOF' >> test/skylark.bzl
+  cat << 'EOF' >> test/starlark.bzl
 def _test_impl(ctx):
   ctx.actions.run_shell(outputs = [ctx.outputs.out],
                         command = ["not_a_command", ctx.outputs.out.path])
@@ -86,7 +86,7 @@ EOF
   ! bazel build //test:test &> $TEST_log \
       || fail "Should have resulted in an execution error"
 
-  expect_log "error executing shell command"
+  expect_log "error executing command.*not_a_command"
 }
 
 run_suite "Starlark rule definition tests"

@@ -14,13 +14,15 @@
 
 package com.google.devtools.build.buildjar;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.MoreFiles;
 import com.google.devtools.build.buildjar.instrumentation.JacocoInstrumentationProcessor;
 import com.google.devtools.build.buildjar.javac.BlazeJavacArguments;
 import com.google.devtools.build.buildjar.javac.JavacOptions;
@@ -133,11 +135,11 @@ public final class JavaLibraryBuildRequest {
       depsBuilder.setTargetLabel(optionsParser.getTargetLabel());
     }
     this.dependencyModule = depsBuilder.build();
+    this.sourceGenDir =
+        deriveDirectory(optionsParser.getTargetLabel(), optionsParser.getOutputJar(), "_sources");
 
     AnnotationProcessingModule.Builder processingBuilder = AnnotationProcessingModule.builder();
-    if (optionsParser.getSourceGenDir() != null) {
-      processingBuilder.setSourceGenDir(Paths.get(optionsParser.getSourceGenDir()));
-    }
+    processingBuilder.setSourceGenDir(sourceGenDir);
     if (optionsParser.getManifestProtoPath() != null) {
       processingBuilder.setManifestProtoPath(Paths.get(optionsParser.getManifestProtoPath()));
     }
@@ -162,10 +164,10 @@ public final class JavaLibraryBuildRequest {
     this.processorPath = asPaths(optionsParser.getProcessorPath());
     this.processorNames = optionsParser.getProcessorNames();
     this.builtinProcessorNames = ImmutableSet.copyOf(optionsParser.getBuiltinProcessorNames());
-    // Since the default behavior of this tool with no arguments is "rm -fr <classDir>", let's not
-    // default to ".", shall we?
-    this.classDir = asPath(firstNonNull(optionsParser.getClassDir(), "classes"));
-    this.tempDir = asPath(firstNonNull(optionsParser.getTempDir(), "_tmp"));
+    this.classDir =
+        deriveDirectory(optionsParser.getTargetLabel(), optionsParser.getOutputJar(), "_classes");
+    this.tempDir =
+        deriveDirectory(optionsParser.getTargetLabel(), optionsParser.getOutputJar(), "_tmp");
     this.outputJar = asPath(optionsParser.getOutputJar());
     this.nativeHeaderOutput = asPath(optionsParser.getNativeHeaderOutput());
     for (Map.Entry<String, List<String>> entry : optionsParser.getPostProcessors().entrySet()) {
@@ -179,11 +181,28 @@ public final class JavaLibraryBuildRequest {
       }
     }
     this.javacOpts = ImmutableList.copyOf(optionsParser.getJavacOpts());
-    this.sourceGenDir = asPath(optionsParser.getSourceGenDir());
     this.generatedSourcesOutputJar = asPath(optionsParser.getGeneratedSourcesOutputJar());
     this.generatedClassOutputJar = asPath(optionsParser.getManifestProtoPath());
     this.targetLabel = optionsParser.getTargetLabel();
     this.injectingRuleKind = optionsParser.getInjectingRuleKind();
+  }
+
+  /**
+   * Derive a temporary directory path based on the path to the output jar, to avoid breaking
+   * fragile assumptions made by the implementation of javahotswap.
+   */
+  // TODO(b/169793789): kill this with fire if javahotswap starts using jars instead of classes
+  @VisibleForTesting
+  static Path deriveDirectory(String label, String outputJar, String suffix) throws IOException {
+    checkArgument(label != null, "--target_label is required");
+    checkArgument(outputJar != null, "--output is required");
+    checkArgument(
+        label.contains(":"), "--target_label must be a canonical label (containing a `:`)");
+
+    Path path = Paths.get(outputJar);
+    String name = MoreFiles.getNameWithoutExtension(path);
+    String base = label.substring(label.lastIndexOf(':') + 1);
+    return path.resolveSibling("_javac").resolve(base).resolve(name + suffix);
   }
 
   private static ImmutableList<Path> asPaths(Collection<String> paths) {
@@ -316,7 +335,6 @@ public final class JavaLibraryBuildRequest {
             .bootClassPath(getBootClassPath())
             .system(getSystem())
             .sourceFiles(ImmutableList.copyOf(getSourceFiles()))
-            .processors(null)
             .builtinProcessors(builtinProcessorNames)
             .sourcePath(getSourcePath())
             .sourceOutput(getSourceGenDir())

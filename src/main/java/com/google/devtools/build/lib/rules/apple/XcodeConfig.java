@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.XcodeConfigEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
@@ -68,23 +67,20 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
       infoBuilder.setXcodeVersionFlag(appleOptions.xcodeVersion);
     }
     XcodeVersionRuleData explicitDefaultVersion =
-        ruleContext.getPrerequisite(
-            XcodeConfigRule.DEFAULT_ATTR_NAME, TransitionMode.TARGET, XcodeVersionRuleData.class);
+        ruleContext.getPrerequisite(XcodeConfigRule.DEFAULT_ATTR_NAME, XcodeVersionRuleData.class);
 
     List<XcodeVersionRuleData> explicitVersions =
         ruleContext.getPrerequisites(
-            XcodeConfigRule.VERSIONS_ATTR_NAME, TransitionMode.TARGET, XcodeVersionRuleData.class);
+            XcodeConfigRule.VERSIONS_ATTR_NAME, XcodeVersionRuleData.class);
 
     AvailableXcodesInfo remoteVersions =
         ruleContext.getPrerequisite(
             XcodeConfigRule.REMOTE_VERSIONS_ATTR_NAME,
-            TransitionMode.TARGET,
             AvailableXcodesInfo.PROVIDER);
 
     AvailableXcodesInfo localVersions =
         ruleContext.getPrerequisite(
             XcodeConfigRule.LOCAL_VERSIONS_ATTR_NAME,
-            TransitionMode.TARGET,
             AvailableXcodesInfo.PROVIDER);
 
     XcodeVersionProperties xcodeVersionProperties;
@@ -353,7 +349,27 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
       XcodeVersionRuleData specifiedVersionFromLocal =
           localAliasesToVersionMap.get(versionOverrideFlag);
       if (specifiedVersionFromLocal != null && specifiedVersionFromRemote != null) {
-        return Maps.immutableEntry(specifiedVersionFromRemote, Availability.BOTH);
+        XcodeVersionRuleData strictlyMatchedRemoteVersion =
+            remoteAliasesToVersionMap.get(specifiedVersionFromLocal.getVersion().toString());
+        if (strictlyMatchedRemoteVersion != null) {
+          return Maps.immutableEntry(specifiedVersionFromRemote, Availability.BOTH);
+        } else {
+          ruleContext.throwWithRuleError(
+              String.format(
+                  "Xcode version %1$s was selected, either because --xcode_version was passed, or"
+                      + " because xcode-select points to this version locally. This corresponds to"
+                      + " local Xcode version %2$s. That build of version %1$s is not"
+                      + " available remotely, but there is a different build of version %1$s,"
+                      + " which has version %3$s and aliases %4$s. You probably meant to use this"
+                      + " version. Please download it to continue using dynamic execution. If you"
+                      + " really did intend to use local version %2$s, please either specify it"
+                      + " fully with --xcode_version=%2$s or disable dynamic (and thus remote)"
+                      + " execution.",
+                  versionOverrideFlag,
+                  specifiedVersionFromLocal.getVersion(),
+                  specifiedVersionFromRemote.getVersion(),
+                  specifiedVersionFromRemote.getAliases()));
+        }
       } else if (specifiedVersionFromLocal != null) {
         String error =
             String.format(
@@ -508,7 +524,6 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
   public static XcodeConfigInfo getXcodeConfigInfo(RuleContext ruleContext) {
     return ruleContext.getPrerequisite(
         XcodeConfigRule.XCODE_CONFIG_ATTR_NAME,
-        TransitionMode.TARGET,
         com.google.devtools.build.lib.rules.apple.XcodeConfigInfo.PROVIDER);
   }
 }

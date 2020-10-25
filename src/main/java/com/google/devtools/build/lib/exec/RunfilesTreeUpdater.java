@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -66,7 +67,7 @@ public class RunfilesTreeUpdater {
       ImmutableMap<String, String> env,
       OutErr outErr,
       boolean enableRunfiles)
-      throws IOException, ExecException {
+      throws IOException, ExecException, InterruptedException {
     Path runfilesDirPath = execRoot.getRelative(runfilesDir);
     Path inputManifest = RunfilesSupport.inputManifestPath(runfilesDirPath);
     if (!inputManifest.exists()) {
@@ -80,7 +81,9 @@ public class RunfilesTreeUpdater {
       // symbolic link, it is likely a symbolic link to the input manifest, so we cannot trust it as
       // an up-to-date check.
       if (!outputManifest.isSymbolicLink()
-          && Arrays.equals(outputManifest.getDigest(), inputManifest.getDigest())) {
+          && Arrays.equals(
+              DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(outputManifest),
+              DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(inputManifest))) {
         return;
       }
     } catch (IOException e) {
@@ -129,7 +132,7 @@ public class RunfilesTreeUpdater {
       BinTools binTools,
       ImmutableMap<String, String> env,
       OutErr outErr)
-      throws ExecException, IOException {
+      throws ExecException, IOException, InterruptedException {
     for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> runfiles :
         runfilesSupplier.getMappings().entrySet()) {
       PathFragment runfilesDir = runfiles.getKey();

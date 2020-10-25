@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.config;
 
-import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigurationTransitionApi;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
+import net.starlark.java.eval.Printer;
 
 /**
  * Fake implementation of {@link ConfigurationTransitionApi}.

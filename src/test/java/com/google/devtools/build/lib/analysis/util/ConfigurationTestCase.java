@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.analysis.util;
 
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
@@ -34,7 +33,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -48,9 +47,7 @@ import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -61,6 +58,7 @@ import com.google.devtools.common.options.OptionsParser;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.Before;
 import org.junit.runner.RunWith;
@@ -126,6 +124,10 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
         "",
         "def http_file(**kwargs):",
         "  pass");
+    mockToolsConfig.create(
+        "bazel_tools_workspace/tools/jdk/local_java_repository.bzl",
+        "def local_java_repository(**kwargs):",
+        "  pass");
 
     analysisMock.setupMockClient(mockToolsConfig);
     analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
@@ -151,14 +153,11 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
-                Optional.<RootedPath>absent()),
+                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
-                Optional.<RootedPath>absent()),
+                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.REPOSITORY_OVERRIDES,
-                ImmutableMap.<RepositoryName, PathFragment>of()),
+                RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
                 RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
@@ -171,7 +170,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
-        Options.getDefaults(StarlarkSemanticsOptions.class),
+        Options.getDefaults(BuildLanguageOptions.class),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));

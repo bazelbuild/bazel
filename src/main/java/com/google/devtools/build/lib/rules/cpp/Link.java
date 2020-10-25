@@ -66,14 +66,6 @@ public abstract class Link {
           CppFileTypes.OBJECT_FILE, CppFileTypes.PIC_OBJECT_FILE, CppFileTypes.CLIF_OUTPUT_PROTO);
 
   /**
-   * Prefix that is prepended to command line entries that refer to the output
-   * of cc_fake_binary compile actions. This is a bad hack to signal to the code
-   * in {@code CppLinkAction#executeFake(Executor, FileOutErr)} that it needs
-   * special handling.
-   */
-  public static final String FAKE_OBJECT_PREFIX = "fake:";
-
-  /**
    * Whether a particular link target requires PIC code.
    */
   public enum Picness {

@@ -8,7 +8,7 @@ title: User manual
 
 Some commands, like <code>build</code> or <code>test</code>, can operate
 on a list of targets. They use a syntax more flexible than labels, which is
-documented in the "<a href="guide.html#target-patterns">Specifying
+documented in the "<a href="guide.html#specifying-targets-to-build">Specifying
 targets to build</a>" section of the User's Guide.
 
 <h2>Options</h2>
@@ -289,7 +289,9 @@ Package path elements may be specified in three formats:
   Note also that Bazel's <code class='flag'>--strip</code> option corresponds with ld's <code>--strip-debug</code> option:
   it only strips debugging information.  If for some reason you want to strip <em>all</em> symbols,
   not just <em>debug</em> symbols, you would need to use ld's <code>--strip-all</code> option,
-  which you can do by passing <code class='flag'>--linkopt=-Wl,--strip-all</code> to Bazel.
+  which you can do by passing <code class='flag'>--linkopt=-Wl,--strip-all</code> to Bazel. Also be
+  aware that setting Bazel's <code class='flag'>--strip</code> flag will override
+  <code class='flag'>--linkopt=-Wl,--strip-all</code>, so you should only set one or the other.
 </p>
 
 <h4 id='flag--stripopt'><code class='flag'>--stripopt <var>strip-option</var></code></h4>
@@ -454,7 +456,8 @@ Package path elements may be specified in three formats:
 
 <h4 id='flag--compilation_mode'><code class='flag'>--compilation_mode (fastbuild|opt|dbg)</code> (-c)</h4>
 <p>
-  This option takes an argument of <code>fastbuild</code>, <code>dbg</code>
+  The <code class="flag">--compilation_mode</code> option (often shortened to <code>-c</code>,
+  especially <code>-c opt</code>) takes an argument of <code>fastbuild</code>, <code>dbg</code>
   or <code>opt</code>, and affects various C/C++ code-generation
   options, such as the level of optimization and the completeness of
   debug tables.  Bazel uses a different output directory for each
@@ -1124,6 +1127,11 @@ memory-saving mode</a>.
   preceded with '-' sign used to denote excluded tags. Required tags may also
   have a preceding '+' sign.
 </p>
+<p>
+  When running tests, Bazel ignores <code class='flag'>--build_tag_filters</code> for test targets,
+  which are built and run even if they do not match this filter. To avoid building them, filter
+  test targets using <code class='flag'>--test_tag_filters</code> or by explicitly excluding them.
+</p>
 
 <h4 id='flag--test_size_filters'><code class='flag'>--test_size_filters <var>size[,size]*</var></code></h4>
 <p>
@@ -1487,7 +1495,7 @@ either to the terminal, or to additional log files.
 <pre>
 #!/bin/bash
 echo "CURRENT_TIME $(date +%s)"
-echo "RANDOM_HASH $(cat /dev/urandom | head -c16 | md5sum 2>/dev/null | cut -f1 -d' ')"
+echo "RANDOM_HASH $(cat /proc/sys/kernel/random/uuid)"
 echo "STABLE_GIT_COMMIT $(git rev-parse HEAD)"
 echo "STABLE_USER_NAME $USER"
 </pre>
@@ -1567,6 +1575,13 @@ echo "STABLE_USER_NAME $USER"
 </p>
 
 <h3 id='misc_build_options'>Miscellaneous</h3>
+
+<h4 id='flag--flag_alias'><code class='flag'>--flag_alias <var>alias_name=target_path</var></code></h4>
+<p>
+  A convenience flag used to bind longer Starlark build settings to a shorter name. For more
+  details, see the
+  <a href=https://docs.bazel.build/versions/master/skylark/config.html#using-build-setting-aliases">Starlark Configurations</a>.
+</p>
 
 <h4 id='flag--symlink_prefix'><code class='flag'>--symlink_prefix <var>string</var></code></h4>
 <p>
@@ -2638,32 +2653,9 @@ adb -s deadbeef install ...
   The following options are supported:
 </p>
 <ul>
-  <li><code id='flag--dump'>--dump=text</code> displays all gathered data in a
-  <a href='guide.html#dump-text-format'>human-readable format</a></li>
-  <li><code>--dump=raw</code> displays all gathered data in a
-  <a href='guide.html#dump-raw-format'>script-friendly format</a></li>
-  <li><code id='flag--html'>--html</code> generates an <a href='guide.html#dump-html-format'>HTML file</a> visualizing the
-  actions and rules executed in the build, as well as summary statistics for the build
-    <ul>
-      <li><code id='flag--html_details'>--html_details</code> adds more fine-grained
-      information on actions and rules to the HTML visualization</li>
-        <ul>
-          <li><code id='flag--html_histograms'>--html_histograms</code> adds histograms for Skylark
-          functions clicked in the statistics table. This will increase file size massively</li>
-          <li><code id='flag--nochart'>--nochart</code> hides the task chart from generated HTML
-          </li>
-        </ul>
-    </ul>
-  </li>
-  <li><code id='flag--combine'>--combine</code> combines multiple profile data files into a single
-  report. Does not generate HTML task charts</li>
-  <li><code id='flag--task_tree'>--task_tree</code> prints the tree of tasks matching the given
-  regular expression
-    <ul>
-      <li><code id='flag--task_tree_threshold'>--task_tree_threshold</code> skip tasks with duration
-      less than threshold, in milliseconds. Default is 50ms</li>
-    </ul>
-  </li>
+  <li><code id='flag--dump'>--dump</code> displays all gathered data in a
+  <a href='guide.html#dump-text-format'>human-readable format</a>. However,
+  this it does not support other formats yet.</li>
 </ul>
 
 <p>
@@ -2675,7 +2667,8 @@ adb -s deadbeef install ...
 <h3 id='canonicalize'><code>canonicalize-flags</code></h3>
 
 <p>
-  The <code>canonicalize-flags</code> command, which takes a list of options for
+  The <a href="https://docs.bazel.build/command-line-reference.html#canonicalize-flags-options">
+  <code>canonicalize-flags</code></a> command, which takes a list of options for
   a Bazel command and returns a list of options that has the same effect. The
   new list of options is canonical, i.e., two lists of options with the same
   effect are canonicalized to the same new list.
@@ -2687,8 +2680,17 @@ adb -s deadbeef install ...
 </p>
 <p>
   Note that a small number of options cannot be reordered, because Bazel cannot
-  ensure that the effect is identical.
+  ensure that the effect is identical. Also note that this command
+  <i>does not</i> expand flags from <code>--config</code>.
 </p>
+<p>
+  As an example:
+</p>
+<pre>
+  % bazel canonicalize-flags -- --config=any_name --test_tag_filters="-lint"
+  --config=any_name
+  --test_tag_filters=-lint
+</pre>
 
 <h3 id='startup_options'>Startup options</h3>
 
@@ -2873,7 +2875,8 @@ adb -s deadbeef install ...
   This option specifies how long, in seconds, the Bazel server process
   should wait after the last client request, before it exits.  The
   default value is 10800 (3 hours). <code class='flag'>--max_idle_secs=0</code> will cause the
-  Bazel server process to persist indefinitely.
+  Bazel server process to persist indefinitely. <i>NOTE:</i> this flag is only read if Bazel needs
+  to start a new server. Changing this option will not cause the server to restart.
 </p>
 <p>
   This option may be used by scripts that invoke Bazel to ensure that

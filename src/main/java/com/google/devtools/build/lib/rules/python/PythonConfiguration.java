@@ -16,13 +16,13 @@ package com.google.devtools.build.lib.rules.python;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.TriState;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * The configuration fragment containing information about the various pieces of infrastructure
@@ -32,7 +32,7 @@ import net.starlark.java.annot.StarlarkDocumentationCategory;
 @StarlarkBuiltin(
     name = "py",
     doc = "A configuration fragment for Python.",
-    category = StarlarkDocumentationCategory.CONFIGURATION_FRAGMENT)
+    category = DocCategory.CONFIGURATION_FRAGMENT)
 public class PythonConfiguration extends Fragment implements StarlarkValue {
 
   private final PythonVersion version;

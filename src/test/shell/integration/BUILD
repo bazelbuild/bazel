@@ -358,9 +358,9 @@ sh_test(
 )
 
 sh_test(
-    name = "skylark_flag_test",
+    name = "starlark_flag_test",
     size = "medium",
-    srcs = ["skylark_flag_test.sh"],
+    srcs = ["starlark_flag_test.sh"],
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
@@ -465,6 +465,7 @@ sh_test(
     args = [
         "--worker_sandboxing=no",
         "non-sandboxed",
+        "proto",
     ],
     data = [
         ":test-deps",
@@ -477,12 +478,31 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_json_worker_test",
+    size = "large",
+    srcs = ["bazel_worker_test.sh"],
+    args = [
+        "--worker_sandboxing=no",
+        "non-sandboxed",
+        "json",
+    ],
+    data = [
+        ":test-deps",
+        "//src/test/java/com/google/devtools/build/lib:ExampleWorker_deploy.jar",
+    ],
+    tags = [
+        "no_windows",
+    ],
+)
+
+sh_test(
     name = "bazel_worker_multiplexer_test",
     size = "large",
     srcs = ["bazel_worker_multiplexer_test.sh"],
     args = [
         "--worker_sandboxing=no",
         "non-sandboxed",
+        "proto",
     ],
     data = [
         ":test-deps",
@@ -501,6 +521,7 @@ sh_test(
     args = [
         "--worker_sandboxing",
         "sandboxed",
+        "proto",
     ],
     data = [
         ":test-deps",
@@ -677,6 +698,15 @@ sh_test(
 )
 
 sh_test(
+    name = "starlark_dependency_pruning_test",
+    timeout = "long",
+    srcs = ["starlark_dependency_pruning_test.sh"],
+    data = [":test-deps"],
+    shard_count = 2,
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
     name = "validation_actions_test",
     srcs = ["validation_actions_test.sh"],
     data = [":test-deps"],
@@ -687,6 +717,15 @@ sh_test(
 sh_test(
     name = "target_pattern_file_test",
     srcs = ["target_pattern_file_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
+    name = "info_test",
+    srcs = ["info_test.sh"],
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",

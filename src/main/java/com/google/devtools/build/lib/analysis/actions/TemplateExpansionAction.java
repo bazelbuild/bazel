@@ -28,20 +28,20 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.IOException;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 
 /** Action to expand a template and write the expanded content to a file. */
 @AutoCodec
@@ -169,10 +169,7 @@ public final class TemplateExpansionAction extends AbstractAction {
             return this;
           }
         } catch (ExecException e) {
-          Label label = getOwner().getLabel();
           throw e.toActionExecutionException(
-              "Error expanding template '" + Label.print(label) + "'",
-              actionExecutionContext.showVerboseFailures(label),
               TemplateExpansionAction.this);
         }
         return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
@@ -181,7 +178,10 @@ public final class TemplateExpansionAction extends AbstractAction {
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable ArtifactExpander artifactExpander,
+      Fingerprint fp) {
     fp.addString(GUID);
     fp.addString(String.valueOf(makeExecutable));
     fp.addString(template.getKey());

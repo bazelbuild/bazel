@@ -22,9 +22,8 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.test.TestProvider;
+import com.google.devtools.build.lib.analysis.test.TestTagsProvider;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TestTargetUtils;
 import com.google.devtools.build.lib.packages.Type;
@@ -66,9 +65,9 @@ public class TestSuite implements RuleConfiguredTargetFactory {
           Iterables.concat(
               getPrerequisites(ruleContext, "tests"),
               getPrerequisites(ruleContext, "$implicit_tests"))) {
-      if (dep.getProvider(TestProvider.class) != null) {
+      if (dep.getProvider(TestTagsProvider.class) != null) {
         // getTestTags maps to Rule.getRuleTags.
-        List<String> tags = dep.getProvider(TestProvider.class).getTestTags();
+        List<String> tags = dep.getProvider(TestTagsProvider.class).getTestTags();
         if (!TestTargetUtils.testMatchesFilters(
             tags, requiredExcluded.first, requiredExcluded.second)) {
           // This test does not match our filter. Ignore it.
@@ -93,7 +92,7 @@ public class TestSuite implements RuleConfiguredTargetFactory {
   private Iterable<? extends TransitiveInfoCollection> getPrerequisites(
       RuleContext ruleContext, String attributeName) {
     if (ruleContext.attributes().has(attributeName, BuildType.LABEL_LIST)) {
-      return ruleContext.getPrerequisites(attributeName, TransitionMode.TARGET);
+      return ruleContext.getPrerequisites(attributeName);
     } else {
       return ImmutableList.<TransitiveInfoCollection>of();
     }
@@ -103,12 +102,11 @@ public class TestSuite implements RuleConfiguredTargetFactory {
     if (!ruleContext.attributes().has(attributeName, BuildType.LABEL_LIST)) {
       return;
     }
-    for (TransitiveInfoCollection dep :
-        ruleContext.getPrerequisites(attributeName, TransitionMode.TARGET)) {
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites(attributeName)) {
       // TODO(bazel-team): Maybe convert the TransitiveTestsProvider into an inner interface.
       TransitiveTestsProvider provider = dep.getProvider(TransitiveTestsProvider.class);
-      TestProvider testProvider = dep.getProvider(TestProvider.class);
-      if (provider == null && testProvider == null) {
+      TestTagsProvider tagsProvider = dep.getProvider(TestTagsProvider.class);
+      if (provider == null && tagsProvider == null) {
         ruleContext.attributeError(attributeName,
             "expecting a test or a test_suite rule but '" + dep.getLabel() + "' is not one");
       }

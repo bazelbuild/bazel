@@ -58,7 +58,12 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   @Before
   public final void setUpCqueryOptions() throws Exception {
     this.options = new CqueryOptions();
+    // TODO(bazel-team): reduce the confusion about these two seemingly similar settings.
+    // options.aspectDeps impacts how proto and similar output formatters output aspect results.
+    // Setting.INCLUDE_ASPECTS impacts whether or not aspect dependencies are included when
+    // following target deps. See CommonQueryOptions for further flag details.
     options.aspectDeps = Mode.OFF;
+    helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
     this.reporter = new Reporter(new EventBus(), events::add);
     helper.useRuleClassProvider(
         setRuleClassProviders(BuildOutputFormatterCallbackTest::simpleRule).build());
@@ -107,7 +112,9 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             "my_rule(",
             "  name = \"my_rule\",",
             "  deps = [\"//test:lasagna.java\", \"//test:naps.java\"],",
-            ")")
+            ")",
+            "# Rule my_rule instantiated at (most recent call last):",
+            "#   /workspace/test/BUILD:1:8 in <toplevel>")
         .inOrder();
 
     getHelper().useConfiguration("--test_arg=hound");
@@ -117,7 +124,9 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             "my_rule(",
             "  name = \"my_rule\",",
             "  deps = [\"//test:mondays.java\"],",
-            ")")
+            ")",
+            "# Rule my_rule instantiated at (most recent call last):",
+            "#   /workspace/test/BUILD:1:8 in <toplevel>")
         .inOrder();
   }
 
@@ -139,7 +148,9 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         "alias(",
         "  name = 'my_alias',",
         "  actual = ':my_rule'",
-        ")");
+        ")",
+        "# Rule my_alias instantiated at (most recent call last):",
+        "#   /workspace/test/BUILD:12:6 in <toplevel>");
 
     assertThat(getOutput("//test:my_alias"))
         .containsExactly(
@@ -147,7 +158,9 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             "alias(",
             "  name = \"my_alias\",",
             "  actual = \"//test:my_rule\",",
-            ")")
+            ")",
+            "# Rule my_alias instantiated at (most recent call last):",
+            "#   /workspace/test/BUILD:12:6 in <toplevel>")
         .inOrder();
   }
 
@@ -182,7 +195,9 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             "alias(",
             "  name = \"my_alias\",",
             "  actual = \"//test:my_first_rule\",",
-            ")")
+            ")",
+            "# Rule my_alias instantiated at (most recent call last):",
+            "#   /workspace/test/BUILD:13:6 in <toplevel>")
         .inOrder();
 
     getHelper().useConfiguration("--test_arg=hound");
@@ -192,7 +207,9 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             "alias(",
             "  name = \"my_alias\",",
             "  actual = \"//test:my_second_rule\",",
-            ")")
+            ")",
+            "# Rule my_alias instantiated at (most recent call last):",
+            "#   /workspace/test/BUILD:13:6 in <toplevel>")
         .inOrder();
   }
 
@@ -240,7 +257,9 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             "  name = \"my_rule\",",
             "  deps = [\"//test:lasagna.java\", \"//test:naps.java\"],",
             "  out = \"//test:output.txt\",",
-            ")")
+            ")",
+            "# Rule my_rule instantiated at (most recent call last):",
+            "#   /workspace/test/BUILD:1:8 in <toplevel>")
         .inOrder();
 
     getHelper().useConfiguration("--test_arg=hound");
@@ -251,7 +270,9 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             "  name = \"my_rule\",",
             "  deps = [\"//test:mondays.java\"],",
             "  out = \"//test:output.txt\",",
-            ")")
+            ")",
+            "# Rule my_rule instantiated at (most recent call last):",
+            "#   /workspace/test/BUILD:1:8 in <toplevel>")
         .inOrder();
   }
 }

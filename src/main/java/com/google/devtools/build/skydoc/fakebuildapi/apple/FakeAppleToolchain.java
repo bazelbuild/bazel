@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.apple;
 
-import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleConfigurationApi;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.ApplePlatformTypeApi;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleToolchainApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleConfigurationApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.ApplePlatformTypeApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleToolchainApi;
 
 /**
  * Fake implementation of {@link AppleToolchainApi}.

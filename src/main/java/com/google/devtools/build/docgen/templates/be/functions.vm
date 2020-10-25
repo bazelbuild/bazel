@@ -577,20 +577,20 @@ select(
 
   <i>almost</i>
   any attribute assignment so its value depends on command-line Bazel flags.
-  This can be used, for example, to define platform-specific dependencies or to
+  You can use this, for example, to define platform-specific dependencies or to
   embed different resources depending on whether a rule is built in "developer"
   vs. "release" mode.
 </p>
 
-<p>Basic usage is as follows:</p>
+<p>Basic use is as follows:</p>
 
 <pre class="code">
 sh_binary(
-    name = "myrule",
+    name = "mytarget",
     srcs = select({
-        ":conditionA": ["myrule_a.sh"],
-        ":conditionB": ["myrule_b.sh"],
-        "//conditions:default": ["myrule_default.sh"]
+        ":conditionA": ["mytarget_a.sh"],
+        ":conditionB": ["mytarget_b.sh"],
+        "//conditions:default": ["mytarget_default.sh"]
     })
 )
 </pre>
@@ -600,13 +600,14 @@ sh_binary(
   list assignment with a <code>select</code> call that maps
   configuration conditions to matching values. Each condition is a label
   reference to
-  a <code><a href="general.html#config_setting">config_setting</a></code> instance,
-  which "matches" if the rule's configuration matches an expected set of
-  values. The value of <code>myrule#srcs</code> then becomes whichever
+  a <code><a href="general.html#config_setting">config_setting</a></code> or
+  <code><a href="platform.html#constraint_value">constraint_value</a></code>,
+  which "matches" if the target's configuration matches an expected set of
+  values. The value of <code>mytarget#srcs</code> then becomes whichever
   label list matches the current invocation.
 </p>
 
-<p>Further notes:</p>
+<p>Notes:</p>
 
 <ul>
   <li>Exactly one condition is selected on any invocation.
@@ -646,7 +647,7 @@ Conditions checked:
  //pkg:conditionB.
 </pre>
 
-<code>no_match_error</code> can be used to signal more precise errors.
+You can signal more precise errors with <code>no_match_error</code>.
 
 <h3 id="select_example">Examples</h3>
 

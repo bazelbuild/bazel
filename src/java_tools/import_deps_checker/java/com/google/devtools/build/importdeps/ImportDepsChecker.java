@@ -75,12 +75,13 @@ public final class ImportDepsChecker implements Closeable {
   public boolean check() throws IOException {
     for (Path path : inputJars) {
       try (ZipFile jarFile = new ZipFile(path.toFile())) {
-        jarFile
-            .stream()
+        jarFile.stream()
             .forEach(
                 entry -> {
                   String name = entry.getName();
-                  if (!name.endsWith(".class")) {
+                  if (!name.endsWith(".class") || name.startsWith("META-INF/versions/")) {
+                    // Ignore META-INF/versions/ since given bootclasspath may not cover them, and
+                    // any classes would usually only differ in using newer language features.
                     return;
                   }
                   try (InputStream inputStream = jarFile.getInputStream(entry)) {

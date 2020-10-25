@@ -17,10 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skylarkbuildapi.android.UsesDataBindingProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.starlarkbuildapi.android.UsesDataBindingProviderApi;
 import java.util.Collection;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 
 /**
  * A provider that exposes this enables <a

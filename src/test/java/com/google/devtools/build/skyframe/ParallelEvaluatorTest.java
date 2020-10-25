@@ -2271,7 +2271,7 @@ public class ParallelEvaluatorTest {
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
             .setNumThreads(200)
-            .setEventHander(reporter)
+            .setEventHandler(reporter)
             .build();
     driver.evaluate(ImmutableList.of(GraphTester.toSkyKey("top1")), evaluationContext);
     assertThat(enqueuedValues).containsExactlyElementsIn(

@@ -67,10 +67,15 @@ _supports_dynamic_linker_feature = feature(
     enabled = True,
 )
 
+_parse_headers_feature = feature(
+    name = "parse_headers",
+)
+
 _feature_name_to_feature = {
     "default_feature": _default_feature,
     "supports_interface_shared_libraries": _supports_interface_shared_libraries_feature,
     "supports_dynamic_linker": _supports_dynamic_linker_feature,
+    "parse_headers": _parse_headers_feature,
 }
 
 _action_name_to_action = {}
@@ -94,15 +99,8 @@ def _impl(ctx):
     builtin_sysroot = ctx.attr.builtin_sysroot if ctx.attr.builtin_sysroot != "" else None
     cc_target_os = ctx.attr.cc_target_os if ctx.attr.cc_target_os != "" else None
 
-    # TODO(steinman): Replace this with xcode_config.execution_info once it is released.
-    execution_requirements = ["requires-darwin"]
     xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
-    if xcode_config:
-        if xcode_config.availability() == "remote":
-            execution_requirements.append("no-local")
-        elif xcode_config.availability() == "local":
-            execution_requirements.append("no-remote")
-        execution_requirements.append("supports-xcode-requirements-set")
+    xcode_execution_requirements = xcode_config.execution_info().keys()
     if (ctx.attr.cpu == "tvos_arm64"):
         preprocess_assemble_action = action_config(
             action_name = ACTION_NAMES.preprocess_assemble,
@@ -123,7 +121,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -147,7 +145,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -170,7 +168,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -194,7 +192,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -218,7 +216,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -241,7 +239,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -264,7 +262,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -287,7 +285,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -350,7 +348,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -410,7 +408,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -470,7 +468,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -530,7 +528,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -590,7 +588,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -650,7 +648,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -710,7 +708,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -770,7 +768,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -830,7 +828,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -890,7 +888,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -954,7 +952,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/wrapped_clang++",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -1015,7 +1013,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang++",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -1076,7 +1074,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/wrapped_clang++",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -1137,7 +1135,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang++",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -1198,7 +1196,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/wrapped_clang++",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -1259,7 +1257,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang++",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -1320,7 +1318,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/wrapped_clang++",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -1381,7 +1379,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang++",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -1442,7 +1440,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/wrapped_clang++",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -1503,7 +1501,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/wrapped_clang++",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -1530,7 +1528,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -1555,7 +1553,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -1580,7 +1578,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -1604,7 +1602,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -1628,7 +1626,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -1652,7 +1650,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -1676,7 +1674,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -1700,7 +1698,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -1735,7 +1733,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -1767,7 +1765,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -1799,7 +1797,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -1831,7 +1829,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -1863,7 +1861,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -1896,7 +1894,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -1929,7 +1927,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -1962,7 +1960,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -1995,7 +1993,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2027,7 +2025,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2060,7 +2058,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2090,7 +2088,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2120,7 +2118,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2150,7 +2148,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2180,7 +2178,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2210,7 +2208,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2240,7 +2238,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2270,7 +2268,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2300,7 +2298,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2330,7 +2328,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2368,7 +2366,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2403,7 +2401,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2438,7 +2436,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2473,7 +2471,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2508,7 +2506,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2544,7 +2542,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2580,7 +2578,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2616,7 +2614,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2652,7 +2650,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2687,7 +2685,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2714,7 +2712,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2738,7 +2736,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2761,7 +2759,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2785,7 +2783,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2809,7 +2807,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2832,7 +2830,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2855,7 +2853,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2878,7 +2876,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2903,7 +2901,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2925,7 +2923,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2946,7 +2944,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2968,7 +2966,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -2990,7 +2988,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3011,7 +3009,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3032,7 +3030,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3053,7 +3051,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3081,7 +3079,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3107,7 +3105,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3133,7 +3131,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3158,7 +3156,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3183,7 +3181,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3208,7 +3206,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3233,7 +3231,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3258,7 +3256,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3289,7 +3287,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3318,7 +3316,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3346,7 +3344,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3374,7 +3372,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3402,7 +3400,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3430,7 +3428,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3458,7 +3456,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3487,7 +3485,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3515,7 +3513,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3543,7 +3541,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3574,7 +3572,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3603,7 +3601,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3631,7 +3629,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3659,7 +3657,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3687,7 +3685,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3715,7 +3713,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3743,7 +3741,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3772,7 +3770,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3800,7 +3798,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3828,7 +3826,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -3838,6 +3836,7 @@ def _impl(ctx):
     if (ctx.attr.cpu == "x64_windows"):
         linkstamp_compile_action = action_config(
             action_name = ACTION_NAMES.linkstamp_compile,
+            enabled = True,
             flag_sets = [
                 flag_set(
                     flag_groups = [flag_group(flags = ["-arch <architecture>"])],
@@ -3859,13 +3858,14 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
     elif (ctx.attr.cpu == "ios_arm64"):
         linkstamp_compile_action = action_config(
             action_name = ACTION_NAMES.linkstamp_compile,
+            enabled = True,
             flag_sets = [
                 flag_set(
                     flag_groups = [flag_group(flags = ["-arch arm64"])],
@@ -3887,13 +3887,14 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
     elif (ctx.attr.cpu == "tvos_arm64"):
         linkstamp_compile_action = action_config(
             action_name = ACTION_NAMES.linkstamp_compile,
+            enabled = True,
             flag_sets = [
                 flag_set(
                     flag_groups = [flag_group(flags = ["-arch arm64"])],
@@ -3915,13 +3916,14 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
     elif (ctx.attr.cpu == "ios_armv7"):
         linkstamp_compile_action = action_config(
             action_name = ACTION_NAMES.linkstamp_compile,
+            enabled = True,
             flag_sets = [
                 flag_set(
                     flag_groups = [flag_group(flags = ["-arch armv7"])],
@@ -3943,13 +3945,14 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
     elif (ctx.attr.cpu == "watchos_armv7k"):
         linkstamp_compile_action = action_config(
             action_name = ACTION_NAMES.linkstamp_compile,
+            enabled = True,
             flag_sets = [
                 flag_set(
                     flag_groups = [flag_group(flags = ["-arch armv7k"])],
@@ -3971,13 +3974,14 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
     elif (ctx.attr.cpu == "ios_i386"):
         linkstamp_compile_action = action_config(
             action_name = ACTION_NAMES.linkstamp_compile,
+            enabled = True,
             flag_sets = [
                 flag_set(
                     flag_groups = [flag_group(flags = ["-arch i386"])],
@@ -3999,13 +4003,14 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
     elif (ctx.attr.cpu == "watchos_i386"):
         linkstamp_compile_action = action_config(
             action_name = ACTION_NAMES.linkstamp_compile,
+            enabled = True,
             flag_sets = [
                 flag_set(
                     flag_groups = [flag_group(flags = ["-arch i386"])],
@@ -4027,13 +4032,14 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
     elif (ctx.attr.cpu == "ios_x86_64"):
         linkstamp_compile_action = action_config(
             action_name = ACTION_NAMES.linkstamp_compile,
+            enabled = True,
             flag_sets = [
                 flag_set(
                     flag_groups = [flag_group(flags = ["-arch x86_64"])],
@@ -4055,13 +4061,14 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
     elif (ctx.attr.cpu == "darwin_x86_64"):
         linkstamp_compile_action = action_config(
             action_name = ACTION_NAMES.linkstamp_compile,
+            enabled = True,
             flag_sets = [
                 flag_set(
                     flag_groups = [flag_group(flags = ["-arch x86_64"])],
@@ -4083,13 +4090,14 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
     elif (ctx.attr.cpu == "tvos_x86_64"):
         linkstamp_compile_action = action_config(
             action_name = ACTION_NAMES.linkstamp_compile,
+            enabled = True,
             flag_sets = [
                 flag_set(
                     flag_groups = [flag_group(flags = ["-arch x86_64"])],
@@ -4111,7 +4119,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4138,7 +4146,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4162,7 +4170,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4185,7 +4193,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4209,7 +4217,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4233,7 +4241,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4256,7 +4264,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4279,7 +4287,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4302,7 +4310,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4330,7 +4338,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4356,7 +4364,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4382,7 +4390,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4407,7 +4415,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4432,7 +4440,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4457,7 +4465,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4482,7 +4490,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4507,7 +4515,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4527,7 +4535,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/ar_wrapper",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4545,7 +4553,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/ar_wrapper",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4563,7 +4571,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/ar_wrapper",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4580,7 +4588,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/ar_wrapper",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4597,7 +4605,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/ar_wrapper",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4614,7 +4622,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/ar_wrapper",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4631,7 +4639,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/ar_wrapper",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4648,7 +4656,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/ar_wrapper",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4691,7 +4699,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4731,7 +4739,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4771,7 +4779,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4811,7 +4819,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4851,7 +4859,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4891,7 +4899,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4931,7 +4939,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -4971,7 +4979,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -5011,7 +5019,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -5051,7 +5059,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = xcode_execution_requirements,
                 ),
             ],
         )
@@ -5239,6 +5247,27 @@ def _impl(ctx):
                         ],
                     ),
                 ],
+            ),
+        ],
+    )
+
+    language_objc_feature = feature(
+        name = "lang_objc",
+        provides = [
+            "variant:language",
+        ],
+    )
+
+    language_feature = feature(
+        name = "language",
+        enabled = True,
+        flag_sets = [
+            flag_set(
+                actions = [
+                    ACTION_NAMES.cpp_header_parsing,
+                ],
+                flag_groups = [flag_group(flags = ["-DDUMMY_LANG_OBJC"])],
+                with_features = [with_feature_set(features = ["lang_objc"])],
             ),
         ],
     )
@@ -6890,6 +6919,7 @@ def _impl(ctx):
             "preprocess-assemble",
             "c-compile",
             "c++-compile",
+            "c++-header-parsing",
             "c++-link-static-library",
             "c++-link-dynamic-library",
             "c++-link-nodeps-dynamic-library",
@@ -7849,6 +7879,8 @@ def _impl(ctx):
         compile_all_modules_feature,
         exclude_private_headers_in_module_maps_feature,
         has_configured_linker_path_feature,
+        language_objc_feature,
+        language_feature,
         only_doth_headers_in_module_maps_feature,
         is_not_test_target_feature,
         generate_dsym_file_feature,

@@ -55,6 +55,32 @@ public class NinjaParserStepTest {
     doTestSimpleVariable("a=b # comment", "a", "b");
     doTestSimpleVariable("a.b.c =    some long:    value", "a.b.c", "some long:    value");
     doTestSimpleVariable("a_11_24-rt.15= ^&%=#@", "a_11_24-rt.15", "^&%=#@");
+    doTestSimpleVariable("a= $\n b", "a", "b");
+  }
+
+  @Test
+  public void testTrailingWhitespaceIsSaved() throws Exception {
+    doTestSimpleVariable("a = b ", "a", "b ");
+  }
+
+  @Test
+  public void testTrailingWhitespaceBeforeNewlineIsSaved() throws Exception {
+    doTestSimpleVariable("a = b \n", "a", "b ");
+  }
+
+  @Test
+  public void testTrailingWhitespaceBeforeCarriageReturnIsSaved() throws Exception {
+    doTestSimpleVariable("a = b \r", "a", "b ");
+  }
+
+  @Test
+  public void testTrailingWhitespaceBeforeNewlineCarriageReturnIsSaved() throws Exception {
+    doTestSimpleVariable("a = b \n\r", "a", "b ");
+  }
+
+  @Test
+  public void testTrailingWhitespaceBeforeCarriageReturnNewlineIsSaved() throws Exception {
+    doTestSimpleVariable("a = b \r\n", "a", "b ");
   }
 
   @Test
@@ -76,7 +102,11 @@ public class NinjaParserStepTest {
   @Test
   public void testNoValue() throws Exception {
     doTestNoValue("a=");
+    doTestNoValue("a =");
+    doTestNoValue("a  =");
     doTestNoValue("a=\u000018");
+    doTestNoValue("a =    ");
+    doTestNoValue("a  =    ");
     doTestNoValue("a  =    ");
     doTestNoValue("a  =\nm");
     doTestNoValue("a  =    # 123");
@@ -327,7 +357,7 @@ public class NinjaParserStepTest {
     assertThat(target.getExplicitInputs()).containsExactly(PathFragment.create("input"));
 
     NinjaTarget target1 =
-        createParser("build o1 o2 | io1 io2: command i1 i2 | ii1 ii2 || ooi1 ooi2")
+        createParser("build o1 o2 | io1 io2: command i1 i2 | ii1 ii2 || ooi1 ooi2 |@ vi1 vi2")
             .parseNinjaTarget(scope, LINE_NUM_AFTER_RULE_DEFS);
     assertThat(target1.getRuleName()).isEqualTo("command");
     assertThat(target1.getOutputs())
@@ -340,6 +370,8 @@ public class NinjaParserStepTest {
         .containsExactly(PathFragment.create("ii1"), PathFragment.create("ii2"));
     assertThat(target1.getOrderOnlyInputs())
         .containsExactly(PathFragment.create("ooi1"), PathFragment.create("ooi2"));
+    assertThat(target1.getValidationInputs())
+        .containsExactly(PathFragment.create("vi1"), PathFragment.create("vi2"));
 
     NinjaTarget target2 =
         createParser("build output: phony").parseNinjaTarget(scope, LINE_NUM_AFTER_RULE_DEFS);
@@ -362,6 +394,7 @@ public class NinjaParserStepTest {
     testNinjaTargetParsingError("build xxx || yyy: command", "Unexpected token: PIPE2");
     testNinjaTargetParsingError("build xxx: command :", "Unexpected token: COLON");
     testNinjaTargetParsingError("build xxx: command | || a", "Expected paths sequence");
+    testNinjaTargetParsingError("build xxx: command | |@ a", "Expected paths sequence");
   }
 
   @Test

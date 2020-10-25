@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.skylark.StarlarkErrorReporter;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkErrorReporter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -38,22 +38,21 @@ import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBinaryDataSettingsApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDataProcessingApi;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkList;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidBinaryDataSettingsApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDataProcessingApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkThread;
 
 /** Starlark-visible methods for working with Android data (manifests, resources, and assets). */
 public abstract class AndroidStarlarkData
@@ -236,7 +235,6 @@ public abstract class AndroidStarlarkData
 
     if (definesLocalResources != definesLocalAssets) {
       throw new EvalException(
-          Location.BUILTIN,
           "Must define either both or none of assets and resources. Use the merge_assets and"
               + " merge_resources methods to define them, or assets_from_deps and"
               + " resources_from_deps to inherit without defining them.");
@@ -546,7 +544,6 @@ public abstract class AndroidStarlarkData
     // Can we adjust its structure to take this into account?
     if (!binaryDataInfo.getResourcesInfo().getDirectAndroidResources().isSingleton()) {
       throw new EvalException(
-          Location.BUILTIN,
           "Expected exactly 1 direct android resource container, but found: "
               + binaryDataInfo.getResourcesInfo().getDirectAndroidResources());
     }
@@ -556,9 +553,6 @@ public abstract class AndroidStarlarkData
           AndroidBinary.shrinkResources(
               ctx,
               binaryDataInfo.getResourcesInfo().getDirectAndroidResources().toList().get(0),
-              ResourceDependencies.fromProviders(
-                  getProviders(depsTargets, AndroidResourcesInfo.PROVIDER),
-                  /* neverlink = */ false),
               proguardOutputJar,
               proguardMapping,
               settings.resourceFilterFactory,

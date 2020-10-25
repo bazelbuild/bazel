@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.repository;
 
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import java.io.IOException;
+import net.starlark.java.eval.EvalException;
 
 /** Exception thrown when something goes wrong accessing a rule. */
 public class ExternalPackageException extends SkyFunctionException {

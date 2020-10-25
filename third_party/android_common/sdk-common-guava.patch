@@ -1,0 +1,157 @@
+From ef147e98b0f59abea189a1d9ece3171f0442fa90 Mon Sep 17 00:00:00 2001
+From: Alexandre Rostovtsev <arostovtsev@google.com>
+Date: Wed, 15 Jul 2020 13:05:56 -0400
+Subject: [PATCH 1/2] Fix compatibility with Guava 26 and higher
+
+Objects.firstNonNull() and toStringHelper() were moved to MoreObjects in
+Guava 18 and the Objects.* aliases were removed in Guava 21; see
+https://github.com/google/guava/commit/39534cb20b1ae63e5a516ceacd9ba71fddeaa8c5 and
+https://github.com/google/guava/commit/f67ab864bde63fa6602b5688de0440957ffeaa2e
+
+CharMatcher.JAVA_LETTER was removed in Guava 26;
+CharMatcher.javaLetter() is exactly equivalent (but also deprecated).
+See https://github.com/google/guava/commit/f1249c4f0449260ff123e8da6b921a37fc058147
+---
+ .../src/main/java/com/android/ide/common/res2/DataSet.java  | 4 ++--
+ .../java/com/android/ide/common/res2/MergeConsumer.java     | 4 ++--
+ .../java/com/android/ide/common/res2/MergingException.java  | 6 +++---
+ .../main/java/com/android/ide/common/res2/ResourceFile.java | 4 ++--
+ .../main/java/com/android/ide/common/res2/ResourceSet.java  | 2 +-
+ .../ide/common/resources/configuration/LocaleQualifier.java | 4 ++--
+ 6 files changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/sdk-common/src/main/java/com/android/ide/common/res2/DataSet.java b/sdk-common/src/main/java/com/android/ide/common/res2/DataSet.java
+index 8d662a0f67..5975bcb4ba 100644
+--- a/sdk-common/src/main/java/com/android/ide/common/res2/DataSet.java
++++ b/sdk-common/src/main/java/com/android/ide/common/res2/DataSet.java
+@@ -20,7 +20,7 @@ import com.android.annotations.NonNull;
+ import com.android.annotations.Nullable;
+ import com.android.ide.common.blame.Message;
+ import com.android.utils.ILogger;
+-import com.google.common.base.Objects;
++import com.google.common.base.MoreObjects;
+ import com.google.common.base.Splitter;
+ import com.google.common.collect.ArrayListMultimap;
+ import com.google.common.collect.ListMultimap;
+@@ -515,7 +515,7 @@ abstract class DataSet<I extends DataItem<F>, F extends DataFile<I>> implements
+ 
+     @Override
+     public String toString() {
+-        return Objects.toStringHelper(getClass())
++        return MoreObjects.toStringHelper(getClass())
+                 .addValue(mConfigName)
+                 .add("sources", Arrays.toString(mSourceFiles.toArray()))
+                 .toString();
+diff --git a/sdk-common/src/main/java/com/android/ide/common/res2/MergeConsumer.java b/sdk-common/src/main/java/com/android/ide/common/res2/MergeConsumer.java
+index 71a3bbfdbb..cd074dc816 100644
+--- a/sdk-common/src/main/java/com/android/ide/common/res2/MergeConsumer.java
++++ b/sdk-common/src/main/java/com/android/ide/common/res2/MergeConsumer.java
+@@ -22,7 +22,7 @@ import com.android.ide.common.blame.Message;
+ import com.android.ide.common.blame.SourceFile;
+ import com.android.ide.common.blame.SourceFilePosition;
+ import com.android.ide.common.blame.SourcePosition;
+-import com.google.common.base.Objects;
++import com.google.common.base.MoreObjects;
+ import com.google.common.base.Throwables;
+ 
+ import java.io.File;
+@@ -51,7 +51,7 @@ public interface MergeConsumer<I extends DataItem> {
+         private ConsumerException(@NonNull Throwable cause, @NonNull SourceFile file) {
+             super(cause, new Message(
+                     Message.Kind.ERROR,
+-                    Objects.firstNonNull(
++                    MoreObjects.firstNonNull(
+                             cause.getLocalizedMessage(),
+                             cause.getClass().getCanonicalName()),
+                     Throwables.getStackTraceAsString(cause),
+diff --git a/sdk-common/src/main/java/com/android/ide/common/res2/MergingException.java b/sdk-common/src/main/java/com/android/ide/common/res2/MergingException.java
+index c805c71358..820772afce 100644
+--- a/sdk-common/src/main/java/com/android/ide/common/res2/MergingException.java
++++ b/sdk-common/src/main/java/com/android/ide/common/res2/MergingException.java
+@@ -24,7 +24,7 @@ import com.android.ide.common.blame.SourceFile;
+ import com.android.ide.common.blame.SourceFilePosition;
+ import com.android.ide.common.blame.SourcePosition;
+ import com.google.common.base.Joiner;
+-import com.google.common.base.Objects;
++import com.google.common.base.MoreObjects;
+ import com.google.common.base.Throwables;
+ import com.google.common.collect.ImmutableList;
+ import com.google.common.collect.Iterables;
+@@ -108,7 +108,7 @@ public class MergingException extends Exception {
+         public MergingException build() {
+             if (mCause != null) {
+                 if (mMessageText == null) {
+-                    mMessageText = Objects.firstNonNull(
++                    mMessageText = MoreObjects.firstNonNull(
+                             mCause.getLocalizedMessage(), mCause.getClass().getCanonicalName());
+                 }
+                 if (mPosition == SourcePosition.UNKNOWN && mCause instanceof SAXParseException) {
+@@ -131,7 +131,7 @@ public class MergingException extends Exception {
+                     new Message(
+                             Kind.ERROR,
+                             mMessageText,
+-                            Objects.firstNonNull(mOriginalMessageText, mMessageText),
++                            MoreObjects.firstNonNull(mOriginalMessageText, mMessageText),
+                             RESOURCE_ASSET_MERGER_TOOL_NAME,
+                             new SourceFilePosition(mFile, mPosition)));
+         }
+diff --git a/sdk-common/src/main/java/com/android/ide/common/res2/ResourceFile.java b/sdk-common/src/main/java/com/android/ide/common/res2/ResourceFile.java
+index 48d865edf4..5a6b2cbb9b 100644
+--- a/sdk-common/src/main/java/com/android/ide/common/res2/ResourceFile.java
++++ b/sdk-common/src/main/java/com/android/ide/common/res2/ResourceFile.java
+@@ -18,7 +18,7 @@ package com.android.ide.common.res2;
+ 
+ import com.android.SdkConstants;
+ import com.android.annotations.NonNull;
+-import com.google.common.base.Objects;
++import com.google.common.base.MoreObjects;
+ 
+ import org.w3c.dom.Document;
+ import org.w3c.dom.Node;
+@@ -114,7 +114,7 @@ public class ResourceFile extends DataFile<ResourceItem> {
+ 
+     @Override
+     public String toString() {
+-        return Objects.toStringHelper(getClass())
++        return MoreObjects.toStringHelper(getClass())
+                 .add("mFile", mFile)
+                 .add("mQualifiers", mQualifiers)
+                 .toString();
+diff --git a/sdk-common/src/main/java/com/android/ide/common/res2/ResourceSet.java b/sdk-common/src/main/java/com/android/ide/common/res2/ResourceSet.java
+index d9c8be621f..58237ea10c 100644
+--- a/sdk-common/src/main/java/com/android/ide/common/res2/ResourceSet.java
++++ b/sdk-common/src/main/java/com/android/ide/common/res2/ResourceSet.java
+@@ -17,7 +17,7 @@
+ package com.android.ide.common.res2;
+ 
+ import static com.android.ide.common.res2.ResourceFile.ATTR_QUALIFIER;
+-import static com.google.common.base.Objects.firstNonNull;
++import static com.google.common.base.MoreObjects.firstNonNull;
+ import static com.google.common.base.Preconditions.checkNotNull;
+ import static com.google.common.base.Preconditions.checkState;
+ 
+diff --git a/sdk-common/src/main/java/com/android/ide/common/resources/configuration/LocaleQualifier.java b/sdk-common/src/main/java/com/android/ide/common/resources/configuration/LocaleQualifier.java
+index 389f5c47f9..c0c09df17a 100644
+--- a/sdk-common/src/main/java/com/android/ide/common/resources/configuration/LocaleQualifier.java
++++ b/sdk-common/src/main/java/com/android/ide/common/resources/configuration/LocaleQualifier.java
+@@ -102,7 +102,7 @@ public final class LocaleQualifier extends ResourceQualifier {
+      * @return is it valid?
+      */
+     private static boolean isValidAlpha2Code(@NonNull String str) {
+-        return str.length() == 2 && CharMatcher.JAVA_LETTER.matchesAllOf(str);
++        return str.length() == 2 && CharMatcher.javaLetter().matchesAllOf(str);
+     }
+ 
+     /**
+@@ -111,7 +111,7 @@ public final class LocaleQualifier extends ResourceQualifier {
+      * @return is it valid?
+      */
+     private static boolean isValidAlpha3Code(@NonNull String str) {
+-        return str.length() == 3 && CharMatcher.JAVA_LETTER.matchesAllOf(str);
++        return str.length() == 3 && CharMatcher.javaLetter().matchesAllOf(str);
+     }
+ 
+     /**
+-- 
+2.28.0.rc0.105.gf9edc3c819-goog
+

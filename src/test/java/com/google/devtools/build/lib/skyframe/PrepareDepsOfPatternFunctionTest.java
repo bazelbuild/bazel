@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternValue.PrepareDepsOfPatternSkyKeysAndExceptions;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -39,12 +40,12 @@ public final class PrepareDepsOfPatternFunctionTest extends BuildViewTestCase {
 
   private static PrepareDepsOfPatternSkyKeysAndExceptions createPrepDepsKeysMaybe(
       ImmutableList<String> patterns) {
-    return PrepareDepsOfPatternValue.keys(patterns, "");
+    return PrepareDepsOfPatternValue.keys(patterns, PathFragment.EMPTY_FRAGMENT);
   }
 
   private static SkyKey createPrepDepsKey(String pattern) {
     PrepareDepsOfPatternSkyKeysAndExceptions keysAndExceptions =
-        PrepareDepsOfPatternValue.keys(ImmutableList.of(pattern), "");
+        PrepareDepsOfPatternValue.keys(ImmutableList.of(pattern), PathFragment.EMPTY_FRAGMENT);
     assertThat(keysAndExceptions.getExceptions()).isEmpty();
     return Iterables.getOnlyElement(keysAndExceptions.getValues()).getSkyKey();
   }
@@ -55,7 +56,7 @@ public final class PrepareDepsOfPatternFunctionTest extends BuildViewTestCase {
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
             .setNumThreads(SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT)
-            .setEventHander(reporter)
+            .setEventHandler(reporter)
             .build();
     EvaluationResult<PrepareDepsOfPatternValue> evaluationResult =
         skyframeExecutor.getDriver().evaluate(ImmutableList.of(key), evaluationContext);

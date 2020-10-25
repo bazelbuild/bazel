@@ -40,7 +40,7 @@ public class XcodeConfigRule implements RuleDefinition {
         .requiresConfigurationFragments(AppleConfiguration.class)
         .exemptFromConstraintChecking(
             "this rule refines configuration variables and does not build actual content")
-        /* <!-- #BLAZE_RULE(xcode_config).ATTRIBUTE(version) -->
+        /* <!-- #BLAZE_RULE(xcode_config).ATTRIBUTE(default) -->
         The default official version of xcode to use.
         The version specified by the provided <code>xcode_version</code> target is to be used if
         no <code>xcode_version</code> build flag is specified. This is required if any
@@ -52,7 +52,7 @@ public class XcodeConfigRule implements RuleDefinition {
                 .allowedRuleClasses("xcode_version")
                 .allowedFileTypes()
                 .nonconfigurable("this rule determines configuration"))
-        /* <!-- #BLAZE_RULE(xcode_config).ATTRIBUTE(version) -->
+        /* <!-- #BLAZE_RULE(xcode_config).ATTRIBUTE(versions) -->
         Accepted <code>xcode_version<code> targets that may be used.
         If the value of the <code>xcode_version</code> build flag matches one of the aliases
         or version number of any of the given <code>xcode_version</code> targets, the matching
@@ -97,7 +97,7 @@ public class XcodeConfigRule implements RuleDefinition {
   }
 }
 
-/*<!-- #BLAZE_RULE (NAME = xcode_config, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = xcode_config, TYPE = OTHER, FAMILY = Objective-C) -->
 
 <p>A single target of this rule can be referenced by the <code>--xcode_version_config</code> build
 flag to translate the <code>--xcode_version</code> flag into an accepted official xcode version.

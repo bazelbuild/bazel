@@ -1,0 +1,52 @@
+From 9141b40f4f155084eae7f3674ac1271f9552c4a9 Mon Sep 17 00:00:00 2001
+From: Philipp Schrader <philipp.schrader@gmail.com>
+Date: Sun, 13 Sep 2020 20:23:02 -0700
+Subject: [PATCH] Rename target_compatible_with to
+ internal_target_compatible_with in _rbe_config
+
+This is a backport of
+https://github.com/bazelbuild/bazel-toolchains/pull/913/ to 3.1.0
+which is what's currently used in bazel.
+---
+ rules/rbe_repo.bzl           | 4 ++--
+ rules/rbe_repo/build_gen.bzl | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/rules/rbe_repo.bzl b/rules/rbe_repo.bzl
+index a386010..faec7e6 100644
+--- a/rules/rbe_repo.bzl
++++ b/rules/rbe_repo.bzl
+@@ -817,7 +817,7 @@ _rbe_autoconfig = repository_rule(
+         "tag": attr.string(
+             doc = ("Optional. The tag of the image to pull, e.g. latest."),
+         ),
+-        "target_compatible_with": attr.string_list(
++        "internal_target_compatible_with": attr.string_list(
+             default = _RBE_UBUNTU_TARGET_COMPAT_WITH,
+             doc = ("The list of constraints that will be added to the " +
+                    "toolchain in its target_compatible_with attribute. For " +
+@@ -1174,7 +1174,7 @@ def rbe_autoconfig(
+         registry = registry,
+         repository = repository,
+         tag = tag,
+-        target_compatible_with = target_compatible_with,
++        internal_target_compatible_with = target_compatible_with,
+         use_checked_in_confs = use_checked_in_confs,
+         use_legacy_platform_definition = use_legacy_platform_definition,
+     )
+diff --git a/rules/rbe_repo/build_gen.bzl b/rules/rbe_repo/build_gen.bzl
+index a4902cd..6aefd49 100644
+--- a/rules/rbe_repo/build_gen.bzl
++++ b/rules/rbe_repo/build_gen.bzl
+@@ -165,7 +165,7 @@ def _create_platform(ctx, exec_properties, image_name, name, cc_toolchain_target
+                             ("\",\n        \"").join(ctx.attr.exec_compatible_with) +
+                             "\",")
+     target_compatible_with = ("\"" +
+-                              ("\",\n        \"").join(ctx.attr.target_compatible_with) +
++                              ("\",\n        \"").join(ctx.attr.internal_target_compatible_with) +
+                               "\",")
+ 
+     platform_exec_properties = create_rbe_exec_properties_dict(
+-- 
+2.20.1
+

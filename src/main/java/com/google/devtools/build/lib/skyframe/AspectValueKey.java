@@ -17,20 +17,19 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey.KeyAndHost;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import javax.annotation.Nullable;
 
 /** A base class for keys that have AspectValue as a Sky value. */
-public abstract class AspectValueKey extends ActionLookupKey {
+public abstract class AspectValueKey implements ActionLookupKey {
 
   private static final Interner<AspectKey> aspectKeyInterner = BlazeInterners.newWeakInterner();
   private static final Interner<StarlarkAspectLoadingKey> starlarkAspectKeyInterner =
@@ -38,61 +37,47 @@ public abstract class AspectValueKey extends ActionLookupKey {
 
   public abstract String getDescription();
 
-  @Override
-  public abstract Label getLabel();
-
-  // Methods to create aspect keys.
-
   public static AspectKey createAspectKey(
       Label label,
-      BuildConfiguration baseConfiguration,
+      @Nullable BuildConfiguration baseConfiguration,
       ImmutableList<AspectKey> baseKeys,
       AspectDescriptor aspectDescriptor,
-      BuildConfiguration aspectConfiguration) {
-    KeyAndHost aspectKeyAndHost = ConfiguredTargetKey.keyFromConfiguration(aspectConfiguration);
+      @Nullable BuildConfiguration aspectConfiguration) {
     return AspectKey.createAspectKey(
-        ConfiguredTargetKey.of(label, baseConfiguration),
+        ConfiguredTargetKey.builder().setLabel(label).setConfiguration(baseConfiguration).build(),
         baseKeys,
         aspectDescriptor,
-        aspectKeyAndHost.key,
-        aspectKeyAndHost.isHost);
+        aspectConfiguration == null ? null : BuildConfigurationValue.key(aspectConfiguration));
   }
 
   public static AspectKey createAspectKey(
       Label label,
-      BuildConfiguration baseConfiguration,
+      @Nullable BuildConfiguration baseConfiguration,
       AspectDescriptor aspectDescriptor,
-      BuildConfiguration aspectConfiguration) {
-    KeyAndHost aspectKeyAndHost = ConfiguredTargetKey.keyFromConfiguration(aspectConfiguration);
+      @Nullable BuildConfiguration aspectConfiguration) {
     return AspectKey.createAspectKey(
-        ConfiguredTargetKey.of(label, baseConfiguration),
+        ConfiguredTargetKey.builder().setLabel(label).setConfiguration(baseConfiguration).build(),
         ImmutableList.of(),
         aspectDescriptor,
-        aspectKeyAndHost.key,
-        aspectKeyAndHost.isHost);
+        aspectConfiguration == null ? null : BuildConfigurationValue.key(aspectConfiguration));
   }
 
   public static StarlarkAspectLoadingKey createStarlarkAspectKey(
       Label targetLabel,
-      BuildConfiguration aspectConfiguration,
-      BuildConfiguration targetConfiguration,
+      @Nullable BuildConfiguration aspectConfiguration,
+      @Nullable BuildConfiguration targetConfiguration,
       Label starlarkFileLabel,
       String starlarkExportName) {
-    KeyAndHost keyAndHost = ConfiguredTargetKey.keyFromConfiguration(aspectConfiguration);
     StarlarkAspectLoadingKey key =
-        keyAndHost.isHost
-            ? new HostStarlarkAspectLoadingKey(
-                targetLabel,
-                keyAndHost.key,
-                ConfiguredTargetKey.of(targetLabel, targetConfiguration),
-                starlarkFileLabel,
-                starlarkExportName)
-            : new StarlarkAspectLoadingKey(
-                targetLabel,
-                keyAndHost.key,
-                ConfiguredTargetKey.of(targetLabel, targetConfiguration),
-                starlarkFileLabel,
-                starlarkExportName);
+        new StarlarkAspectLoadingKey(
+            targetLabel,
+            aspectConfiguration == null ? null : BuildConfigurationValue.key(aspectConfiguration),
+            ConfiguredTargetKey.builder()
+                .setLabel(targetLabel)
+                .setConfiguration(targetConfiguration)
+                .build(),
+            starlarkFileLabel,
+            starlarkExportName);
 
     return starlarkAspectKeyInterner.intern(key);
   }
@@ -103,13 +88,13 @@ public abstract class AspectValueKey extends ActionLookupKey {
   @AutoCodec
   public static class AspectKey extends AspectValueKey {
     private final ImmutableList<AspectKey> baseKeys;
-    private final BuildConfigurationValue.Key aspectConfigurationKey;
+    @Nullable private final BuildConfigurationValue.Key aspectConfigurationKey;
     private final ConfiguredTargetKey baseConfiguredTargetKey;
     private final AspectDescriptor aspectDescriptor;
     private int hashCode;
 
     private AspectKey(
-        BuildConfigurationValue.Key aspectConfigurationKey,
+        @Nullable BuildConfigurationValue.Key aspectConfigurationKey,
         ConfiguredTargetKey baseConfiguredTargetKey,
         ImmutableList<AspectKey> baseKeys,
         AspectDescriptor aspectDescriptor) {
@@ -125,14 +110,10 @@ public abstract class AspectValueKey extends ActionLookupKey {
         ConfiguredTargetKey baseConfiguredTargetKey,
         ImmutableList<AspectKey> baseKeys,
         AspectDescriptor aspectDescriptor,
-        BuildConfigurationValue.Key aspectConfigurationKey,
-        boolean aspectConfigurationIsHost) {
+        @Nullable BuildConfigurationValue.Key aspectConfigurationKey) {
       return aspectKeyInterner.intern(
-          aspectConfigurationIsHost
-              ? new HostAspectKey(
-                  aspectConfigurationKey, baseConfiguredTargetKey, baseKeys, aspectDescriptor)
-              : new AspectKey(
-                  aspectConfigurationKey, baseConfiguredTargetKey, baseKeys, aspectDescriptor));
+          new AspectKey(
+              aspectConfigurationKey, baseConfiguredTargetKey, baseKeys, aspectDescriptor));
     }
 
     @Override
@@ -175,12 +156,6 @@ public abstract class AspectValueKey extends ActionLookupKey {
       }
     }
 
-    // Note that this does not factor into equality/hash-code computations because its value is
-    // already encoded in the aspectConfigurationKey, albeit in an opaque way.
-    protected boolean aspectConfigurationIsHost() {
-      return false;
-    }
-
     /**
      * Returns the key of the configured target of the aspect; that is, the configuration in which
      * the aspect will be evaluated.
@@ -198,12 +173,13 @@ public abstract class AspectValueKey extends ActionLookupKey {
      * configuration. In untrimmed configuration mode, this configuration will be equivalent to the
      * base target's configuration.
      */
+    @Nullable
     BuildConfigurationValue.Key getAspectConfigurationKey() {
       return aspectConfigurationKey;
     }
 
     /** Returns the key for the base configured target for this aspect. */
-    ConfiguredTargetKey getBaseConfiguredTargetKey() {
+    public ConfiguredTargetKey getBaseConfiguredTargetKey() {
       return baseConfiguredTargetKey;
     }
 
@@ -265,11 +241,8 @@ public abstract class AspectValueKey extends ActionLookupKey {
           ? ""
           : String.format(" (over %s)", baseKeys.toString());
       return String.format(
-          "%s with aspect %s%s%s",
-          getLabel().toString(),
-          aspectDescriptor.getAspectClass().getName(),
-          (aspectConfigurationKey != null && aspectConfigurationIsHost()) ? "(host) " : "",
-          baseKeysString);
+          "%s with aspect %s%s",
+          getLabel(), aspectDescriptor.getAspectClass().getName(), baseKeysString);
     }
 
     @Override
@@ -282,8 +255,7 @@ public abstract class AspectValueKey extends ActionLookupKey {
           + " "
           + baseConfiguredTargetKey
           + " "
-          + aspectDescriptor.getParameters()
-          + (aspectConfigurationIsHost() ? " (host)" : "");
+          + aspectDescriptor.getParameters();
     }
 
     AspectKey withLabel(Label label) {
@@ -293,30 +265,13 @@ public abstract class AspectValueKey extends ActionLookupKey {
       }
 
       return createAspectKey(
-          ConfiguredTargetKey.of(
-              label,
-              baseConfiguredTargetKey.getConfigurationKey(),
-              baseConfiguredTargetKey.isHostConfiguration()),
+          ConfiguredTargetKey.builder()
+              .setLabel(label)
+              .setConfigurationKey(baseConfiguredTargetKey.getConfigurationKey())
+              .build(),
           newBaseKeys.build(),
           aspectDescriptor,
-          aspectConfigurationKey,
-          aspectConfigurationIsHost());
-    }
-  }
-
-  /** An {@link AspectKey} for an aspect in the host configuration. */
-  static class HostAspectKey extends AspectKey {
-    private HostAspectKey(
-        BuildConfigurationValue.Key aspectConfigurationKey,
-        ConfiguredTargetKey baseConfiguredTargetKey,
-        ImmutableList<AspectKey> baseKeys,
-        AspectDescriptor aspectDescriptor) {
-      super(aspectConfigurationKey, baseConfiguredTargetKey, baseKeys, aspectDescriptor);
-    }
-
-    @Override
-    protected boolean aspectConfigurationIsHost() {
-      return true;
+          aspectConfigurationKey);
     }
   }
 
@@ -354,10 +309,6 @@ public abstract class AspectValueKey extends ActionLookupKey {
 
     Label getStarlarkFileLabel() {
       return starlarkFileLabel;
-    }
-
-    protected boolean isAspectConfigurationHost() {
-      return false;
     }
 
     @Override
@@ -439,31 +390,7 @@ public abstract class AspectValueKey extends ActionLookupKey {
           baseConfiguredTargetKey,
           ImmutableList.of(),
           new AspectDescriptor(aspectClass, AspectParameters.EMPTY),
-          aspectConfigurationKey,
-          isAspectConfigurationHost());
-    }
-  }
-
-  /** A {@link StarlarkAspectLoadingKey} for an aspect in the host configuration. */
-  private static class HostStarlarkAspectLoadingKey extends StarlarkAspectLoadingKey {
-
-    private HostStarlarkAspectLoadingKey(
-        Label targetLabel,
-        BuildConfigurationValue.Key aspectConfigurationKey,
-        ConfiguredTargetKey baseConfiguredTargetKey,
-        Label starlarkFileLabel,
-        String starlarkFunctionName) {
-      super(
-          targetLabel,
-          aspectConfigurationKey,
-          baseConfiguredTargetKey,
-          starlarkFileLabel,
-          starlarkFunctionName);
-    }
-
-    @Override
-    protected boolean isAspectConfigurationHost() {
-      return true;
+          aspectConfigurationKey);
     }
   }
 }

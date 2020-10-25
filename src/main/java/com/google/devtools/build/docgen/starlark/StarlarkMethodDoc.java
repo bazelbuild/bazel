@@ -19,7 +19,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import net.starlark.java.annot.Param;
-import net.starlark.java.annot.StarlarkInterfaceUtils;
+import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkMethod;
 
 /** An abstract class containing documentation for a Starlark method. */
@@ -35,6 +35,9 @@ public abstract class StarlarkMethodDoc extends StarlarkDoc {
   public String getReturnTypeExtraMessage() {
     return "";
   }
+
+  /** Returns the annotated Java method. */
+  public abstract Method getMethod();
 
   /** Returns a string containing a name for the method's return type. */
   public String getReturnType() {
@@ -67,7 +70,7 @@ public abstract class StarlarkMethodDoc extends StarlarkDoc {
   }
 
   private String getParameterString(Method method) {
-    StarlarkMethod annotation = StarlarkInterfaceUtils.getStarlarkMethod(method);
+    StarlarkMethod annotation = StarlarkAnnotations.getStarlarkMethod(method);
     List<String> argList = new ArrayList<>();
 
     boolean named = false;
@@ -104,7 +107,7 @@ public abstract class StarlarkMethodDoc extends StarlarkDoc {
 
   protected String getSignature(String fullyQualifiedMethodName, Method method) {
     String args =
-        StarlarkInterfaceUtils.getStarlarkMethod(method).structField()
+        StarlarkAnnotations.getStarlarkMethod(method).structField()
             ? ""
             : "(" + getParameterString(method) + ")";
 

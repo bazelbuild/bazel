@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.config;
 
-import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigGlobalLibraryApi;
-import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigurationTransitionApi;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkCallable;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigGlobalLibraryApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * Fake implementation of {@link ConfigGlobalLibraryApi}.

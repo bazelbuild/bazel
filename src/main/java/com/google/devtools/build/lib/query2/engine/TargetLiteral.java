@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.engine;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
+import com.google.devtools.build.lib.server.FailureDetails.Query;
 import java.util.Collection;
 import java.util.Set;
 
@@ -50,7 +51,8 @@ public final class TargetLiteral extends QueryExpression {
     Set<T> value = context.get(varName);
     if (value == null) {
       return env.immediateFailedFuture(
-          new QueryException(this, "undefined variable '" + varName + "'"));
+          new QueryException(
+              this, "undefined variable '" + varName + "'", Query.Code.VARIABLE_UNDEFINED));
     }
     try {
       callback.process(value);

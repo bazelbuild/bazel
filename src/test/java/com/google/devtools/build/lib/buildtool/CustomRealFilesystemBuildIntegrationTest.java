@@ -19,17 +19,21 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.NotifyingHelper;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -80,14 +84,15 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     customFileSystem.alwaysError(fooShFile);
 
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo:top"));
-    events.assertContainsError("//foo:top: missing input file '//foo:foo.sh': nope");
+    events.assertContainsError(
+        "Executing genrule //foo:top failed: missing input file '//foo:foo.sh': nope");
   }
 
   /**
    * Tests that IOExceptions encountered while handling non-mandatory inputs are properly handled.
    */
   @Test
-  public void testIOException_NonMandatoryInputs() throws Exception {
+  public void testIOException_nonMandatoryInputs() throws Exception {
     Path fooBuildFile =
         write("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'], hdrs_check = 'loose')");
     write("foo/foo.cc", "#include \"foo/foo.h\"");
@@ -100,7 +105,47 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     assertThat(rootCauses).hasSize(1);
     assertThat(rootCauses.get(0).getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//foo:foo"));
     assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
-    events.assertContainsError("foo/BUILD:1:11: //foo:foo: missing input file 'foo/foo.h': nope");
+    events.assertContainsError(
+        "foo/BUILD:1:11: Compiling foo/foo.cc failed: missing input file 'foo/foo.h': nope");
+  }
+
+  /** Tests that IOExceptions encountered when not all discovered deps are done are handled. */
+  @Test
+  public void testIOException_missingNonMandatoryInput() throws Exception {
+    Path fooBuildFile =
+        write("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'], hdrs_check = 'loose')");
+    write("foo/foo.cc", "#include \"foo/error.h\"", "#include \"foo/other.h\"");
+    Path errorHFile = fooBuildFile.getParentDirectory().getRelative("error.h");
+    Path otherHFile = fooBuildFile.getParentDirectory().getRelative("other.h");
+    writeAbsolute(errorHFile, "//thisisacomment");
+    writeAbsolute(otherHFile, "//thisisacomment");
+    customFileSystem.alwaysError(errorHFile);
+    getSkyframeExecutor()
+        .getEvaluatorForTesting()
+        .injectGraphTransformerForTesting(
+            NotifyingHelper.makeNotifyingTransformer(
+                (key, type, order, context) -> {
+                  if (key.functionName().equals(FileStateValue.FILE_STATE)
+                      && ((RootedPath) key.argument())
+                          .getRootRelativePath()
+                          .getPathString()
+                          .endsWith("foo/other.h")) {
+                    try {
+                      Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+                      throw new IllegalStateException("Should have been interrupted by failure");
+                    } catch (InterruptedException e) {
+                      Thread.currentThread().interrupt();
+                    }
+                  }
+                }));
+
+    BuildFailedException e = assertThrows(BuildFailedException.class, () -> buildTarget("//foo"));
+    ImmutableList<Cause> rootCauses = e.getRootCauses().toList();
+    assertThat(rootCauses).hasSize(1);
+    assertThat(rootCauses.get(0).getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//foo:foo"));
+    assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
+    events.assertContainsError(
+        "foo/BUILD:1:11: Compiling foo/foo.cc failed: missing input file 'foo/error.h': nope");
   }
 
   /**
@@ -108,7 +153,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
    * handled.
    */
   @Test
-  public void testIOException_NonMandatoryGeneratedInputs() throws Exception {
+  public void testIOException_nonMandatoryGeneratedInputs() throws Exception {
     write(
         "bar/BUILD",
         "cc_library(",
@@ -220,7 +265,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     private final Set<String> createDirectoryErrorNames = new HashSet<>();
 
     private CustomRealFilesystem() {
-      super(DigestHashFunction.getDefaultUnchecked());
+      super(DigestHashFunction.SHA256, /*hashAttributeName=*/ "");
     }
 
     void alwaysError(Path path) {

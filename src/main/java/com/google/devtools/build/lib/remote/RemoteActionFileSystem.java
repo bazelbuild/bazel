@@ -275,7 +275,7 @@ class RemoteActionFileSystem extends DelegateFileSystem {
     return super.stat(path, followSymlinks);
   }
 
-  private FileStatus statFromRemoteMetadata(RemoteFileArtifactValue m) {
+  private static FileStatus statFromRemoteMetadata(RemoteFileArtifactValue m) {
     return new FileStatus() {
       @Override
       public boolean isFile() {
@@ -314,7 +314,7 @@ class RemoteActionFileSystem extends DelegateFileSystem {
 
       @Override
       public long getNodeId() {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("Cannot get node id for " + m);
       }
     };
   }

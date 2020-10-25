@@ -36,16 +36,20 @@ import com.google.devtools.build.lib.collect.ImmutableSortedKeyMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.packages.License.DistributionType;
+import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -65,7 +69,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.spelling.SpellChecker;
+import net.starlark.java.syntax.Location;
 
 /**
  * A package, which is a container of {@link Rule}s, each of which contains a dictionary of named
@@ -75,6 +83,8 @@ import net.starlark.java.spelling.SpellChecker;
  * as such. Note, however, that some member variables exposed via the public interface are not
  * strictly immutable, so until their types are guaranteed immutable we're not applying the
  * {@code @Immutable} annotation here.
+ *
+ * <p>This class should not be extended - it's only non-final for mocking!
  *
  * <p>When changing this class, make sure to make corresponding changes to serialization!
  */
@@ -93,6 +103,8 @@ public class Package {
    * The repository identifier for this package.
    */
   private final PackageIdentifier packageIdentifier;
+
+  private final boolean suggestNoSuchTargetCorrections;
 
   /** The filename of this package's BUILD file. */
   private RootedPath filename;
@@ -165,6 +177,12 @@ public class Package {
    */
   private boolean containsErrors;
 
+  /**
+   * The first detailed error encountered during this package's construction and evaluation, or
+   * {@code null} if there were no such errors or all its errors lacked details.
+   */
+  @Nullable private FailureDetail failureDetail;
+
   /** The list of transitive closure of the Starlark file dependencies. */
   private ImmutableList<Label> starlarkFileDependencies;
 
@@ -200,13 +218,12 @@ public class Package {
 
   private ImmutableSet<String> features;
 
-  private ImmutableList<Event> events;
-  private ImmutableList<Postable> posts;
-
   private ImmutableList<String> registeredExecutionPlatforms;
   private ImmutableList<String> registeredToolchains;
 
   private long computationSteps;
+
+  private ImmutableMap<String, Module> loads;
 
   /** Returns the number of Starlark computation steps executed by this BUILD file. */
   public long getComputationSteps() {
@@ -214,20 +231,30 @@ public class Package {
   }
 
   /**
-   * Package initialization, part 1 of 3: instantiates a new package with the
-   * given name.
-   *
-   * <p>As part of initialization, {@link Builder} constructs {@link InputFile}
-   * and {@link PackageGroup} instances that require a valid Package instance where
-   * {@link Package#getNameFragment()} is accessible. That's why these settings are
-   * applied here at the start.
-   *
-   * @precondition {@code name} must be a suffix of
-   * {@code filename.getParentDirectory())}.
+   * Returns the mapping, for each load statement in this BUILD file in source order, from the load
+   * string to the module it loads. It thus indirectly records the package's complete load DAG. In
+   * some configurations the information may be unavailable (null).
    */
-  protected Package(PackageIdentifier packageId, String runfilesPrefix) {
+  @Nullable
+  public ImmutableMap<String, Module> getLoads() {
+    return loads;
+  }
+
+  /**
+   * Package initialization, part 1 of 3: instantiates a new package with the given name.
+   *
+   * <p>As part of initialization, {@link Builder} constructs {@link InputFile} and {@link
+   * PackageGroup} instances that require a valid Package instance where {@link
+   * Package#getNameFragment()} is accessible. That's why these settings are applied here at the
+   * start.
+   *
+   * <p>{@code name} <b>MUST</b> be a suffix of {@code filename.getParentDirectory())}.
+   */
+  private Package(
+      PackageIdentifier packageId, String workspaceName, boolean suggestNoSuchTargetCorrections) {
     this.packageIdentifier = packageId;
-    this.workspaceName = runfilesPrefix;
+    this.workspaceName = workspaceName;
+    this.suggestNoSuchTargetCorrections = suggestNoSuchTargetCorrections;
   }
 
   /** Returns this packages' identifier. */
@@ -270,7 +297,7 @@ public class Package {
    * @throws UnsupportedOperationException if called from a package other than the //external
    *     package
    */
-  public ImmutableMap<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>>
+  ImmutableMap<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>>
       getExternalPackageRepositoryMappings() {
     if (!packageIdentifier.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
       throw new UnsupportedOperationException(
@@ -373,7 +400,7 @@ public class Package {
     // but stopping a build only for some errors but not others creates user
     // confusion.
     if (builder.containsErrors) {
-      for (Rule rule : builder.getTargets(Rule.class)) {
+      for (Rule rule : builder.getRules()) {
         rule.setContainsErrors();
       }
     }
@@ -416,12 +443,11 @@ public class Package {
     }
     this.buildFile = builder.buildFile;
     this.containsErrors = builder.containsErrors;
+    this.failureDetail = builder.getFailureDetail();
     this.starlarkFileDependencies = builder.starlarkFileDependencies;
     this.defaultLicense = builder.defaultLicense;
     this.defaultDistributionSet = builder.defaultDistributionSet;
     this.features = ImmutableSortedSet.copyOf(builder.features);
-    this.events = ImmutableList.copyOf(builder.events);
-    this.posts = ImmutableList.copyOf(builder.posts);
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
     this.repositoryMapping = Preconditions.checkNotNull(builder.repositoryMapping);
@@ -516,12 +542,43 @@ public class Package {
     return containsErrors;
   }
 
-  public List<Postable> getPosts() {
-    return posts;
+  /**
+   * Returns the first {@link FailureDetail} describing one of the package's errors, or {@code null}
+   * if it has no errors or all its errors lack details.
+   */
+  @Nullable
+  public FailureDetail getFailureDetail() {
+    return failureDetail;
   }
 
-  public List<Event> getEvents() {
-    return events;
+  /**
+   * Returns a {@link FailureDetail} attributing a target error to the package's {@link
+   * FailureDetail}, or a generic {@link Code#TARGET_MISSING} failure detail if the package has
+   * none.
+   *
+   * <p>May only be called when {@link #containsErrors()} is true and with a target whose package is
+   * this one.
+   */
+  public FailureDetail contextualizeFailureDetailForTarget(Target target) {
+    Preconditions.checkState(
+        target.getPackage().getPackageIdentifier().equals(packageIdentifier),
+        "contextualizeFailureDetailForTarget called for target not in package. target=%s,"
+            + " package=%s",
+        target,
+        this);
+    Preconditions.checkState(
+        containsErrors,
+        "contextualizeFailureDetailForTarget called for package not in error. target=%s",
+        target);
+    String prefix =
+        "Target '" + target.getLabel() + "' contains an error and its package is in error";
+    if (failureDetail == null) {
+      return FailureDetail.newBuilder()
+          .setMessage(prefix)
+          .setPackageLoading(PackageLoading.newBuilder().setCode(Code.TARGET_MISSING))
+          .build();
+    }
+    return failureDetail.toBuilder().setMessage(prefix + ": " + failureDetail.getMessage()).build();
   }
 
   /** Returns an (immutable, ordered) view of all the targets belonging to this package. */
@@ -587,47 +644,8 @@ public class Package {
       return target;
     }
 
-    // No such target.
-
-    // If there's a file on the disk that's not mentioned in the BUILD file,
-    // produce a more informative error.  NOTE! this code path is only executed
-    // on failure, which is (relatively) very rare.  In the common case no
-    // stat(2) is executed.
-    Path filename = getPackageDirectory().getRelative(targetName);
-    String suffix;
-    if (!PathFragment.isNormalized(targetName) || "*".equals(targetName)) {
-      // Don't check for file existence if the target name is not normalized
-      // because the error message would be confusing and wrong. If the
-      // targetName is "foo/bar/.", and there is a directory "foo/bar", it
-      // doesn't mean that "//pkg:foo/bar/." is a valid label.
-      // Also don't check if the target name is a single * character since
-      // it's invalid on Windows.
-      suffix = "";
-    } else if (filename.isDirectory()) {
-      suffix =
-          "; however, a source directory of this name exists.  (Perhaps add "
-              + "'exports_files([\""
-              + targetName
-              + "\"])' to "
-              + getName()
-              + "/BUILD, or define a "
-              + "filegroup?)";
-    } else if (filename.exists()) {
-      suffix =
-          "; however, a source file of this name exists.  (Perhaps add "
-              + "'exports_files([\""
-              + targetName
-              + "\"])' to "
-              + getName()
-              + "/BUILD?)";
-    } else {
-      suffix = SpellChecker.didYouMean(targetName, targets.keySet());
-    }
-
-    throw makeNoSuchTargetException(targetName, suffix);
-  }
-
-  protected NoSuchTargetException makeNoSuchTargetException(String targetName, String suffix) {
+    String alternateTargetSuggestion =
+        suggestNoSuchTargetCorrections ? getAlternateTargetSuggestion(targetName) : "";
     Label label;
     try {
       label = Label.create(packageIdentifier, targetName);
@@ -637,8 +655,42 @@ public class Package {
     String msg =
         String.format(
             "target '%s' not declared in package '%s'%s defined by %s",
-            targetName, getName(), suffix, filename.asPath().getPathString());
-    return new NoSuchTargetException(label, msg);
+            targetName, getName(), alternateTargetSuggestion, filename.asPath().getPathString());
+    throw new NoSuchTargetException(label, msg);
+  }
+
+  private String getAlternateTargetSuggestion(String targetName) {
+    // If there's a file on the disk that's not mentioned in the BUILD file,
+    // produce a more informative error.  NOTE! this code path is only executed
+    // on failure, which is (relatively) very rare.  In the common case no
+    // stat(2) is executed.
+    Path filename = getPackageDirectory().getRelative(targetName);
+    if (!PathFragment.isNormalized(targetName) || "*".equals(targetName)) {
+      // Don't check for file existence if the target name is not normalized
+      // because the error message would be confusing and wrong. If the
+      // targetName is "foo/bar/.", and there is a directory "foo/bar", it
+      // doesn't mean that "//pkg:foo/bar/." is a valid label.
+      // Also don't check if the target name is a single * character since
+      // it's invalid on Windows.
+      return "";
+    } else if (filename.isDirectory()) {
+      return "; however, a source directory of this name exists.  (Perhaps add "
+          + "'exports_files([\""
+          + targetName
+          + "\"])' to "
+          + getName()
+          + "/BUILD, or define a "
+          + "filegroup?)";
+    } else if (filename.exists()) {
+      return "; however, a source file of this name exists.  (Perhaps add "
+          + "'exports_files([\""
+          + targetName
+          + "\"])' to "
+          + getName()
+          + "/BUILD?)";
+    } else {
+      return SpellChecker.didYouMean(targetName, targets.keySet());
+    }
   }
 
   /**
@@ -692,19 +744,13 @@ public class Package {
     return defaultApplicableLicenses;
   }
 
-  /**
-   * Gets the parsed license object for the default license
-   * declared by this package.
-   */
-  public License getDefaultLicense() {
+  /** Gets the parsed license object for the default license declared by this package. */
+  License getDefaultLicense() {
     return defaultLicense;
   }
 
-  /**
-   * Returns the parsed set of distributions declared as the default for this
-   * package.
-   */
-  public Set<License.DistributionType> getDefaultDistribs() {
+  /** Returns the parsed set of distributions declared as the default for this package. */
+  Set<License.DistributionType> getDefaultDistribs() {
     return defaultDistributionSet;
   }
 
@@ -772,17 +818,35 @@ public class Package {
   }
 
   public static Builder newExternalPackageBuilder(
-      Builder.Helper helper,
+      PackageSettings helper,
       RootedPath workspacePath,
-      String runfilesPrefix,
+      String workspaceName,
       StarlarkSemantics starlarkSemantics) {
     return new Builder(
             helper,
             LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
-            runfilesPrefix,
-            starlarkSemantics.incompatibleNoImplicitFileExport(),
+            workspaceName,
+            starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
             Builder.EMPTY_REPOSITORY_MAPPING)
         .setFilename(workspacePath);
+  }
+
+  /**
+   * Returns an error {@link Event} with {@link Location} and {@link DetailedExitCode} properties.
+   */
+  public static Event error(Location location, String message, Code code) {
+    Event error = Event.error(location, message);
+    // The DetailedExitCode's message is the base event's toString because that string nicely
+    // includes the location value.
+    return error.withProperty(DetailedExitCode.class, createDetailedCode(error.toString(), code));
+  }
+
+  public static DetailedExitCode createDetailedCode(String errorMessage, Code code) {
+    return DetailedExitCode.of(
+        FailureDetail.newBuilder()
+            .setMessage(errorMessage)
+            .setPackageLoading(PackageLoading.newBuilder().setCode(code))
+            .build());
   }
 
   /**
@@ -791,27 +855,39 @@ public class Package {
    */
   public static class Builder {
 
-    public static final ImmutableMap<RepositoryName, RepositoryName> EMPTY_REPOSITORY_MAPPING =
+    static final ImmutableMap<RepositoryName, RepositoryName> EMPTY_REPOSITORY_MAPPING =
         ImmutableMap.of();
 
-    public interface Helper {
+    /** Defines configuration to control the runtime behavior of {@link Package}s. */
+    public interface PackageSettings {
       /**
-       * Returns a fresh {@link Package} instance that a {@link Builder} will internally mutate
-       * during package loading. Called by {@link PackageFactory}.
+       * Returns if {@link NoSuchTargetException}s thrown from {@link #getTarget} should attempt to
+       * suggest existing alternatives. The benefit is potentially improved error messaging, while
+       * the drawback is extra I/O and CPU work, which might not be desired in all environments.
        */
-      Package createFreshPackage(PackageIdentifier packageId, String runfilesPrefix);
+      boolean suggestNoSuchTargetCorrections();
+
+      /**
+       * Reports whether to record the set of Modules loaded by this package, which enables richer
+       * modes of blaze query.
+       */
+      boolean recordLoadedModules();
     }
 
-    /** {@link Helper} that simply calls the {@link Package} constructor. */
-    public static class DefaultHelper implements Helper {
-      public static final DefaultHelper INSTANCE = new DefaultHelper();
+    /** Default {@link PackageSettings}. */
+    public static class DefaultPackageSettings implements PackageSettings {
+      public static final DefaultPackageSettings INSTANCE = new DefaultPackageSettings();
 
-      private DefaultHelper() {
+      private DefaultPackageSettings() {}
+
+      @Override
+      public boolean suggestNoSuchTargetCorrections() {
+        return true;
       }
 
       @Override
-      public Package createFreshPackage(PackageIdentifier packageId, String runfilesPrefix) {
-        return new Package(packageId, runfilesPrefix);
+      public boolean recordLoadedModules() {
+        return true;
       }
     }
 
@@ -828,7 +904,7 @@ public class Package {
 
     // The map from each repository to that repository's remappings map.
     // This is only used in the //external package, it is an empty map for all other packages.
-    public final HashMap<RepositoryName, HashMap<RepositoryName, RepositoryName>>
+    private final HashMap<RepositoryName, HashMap<RepositoryName, RepositoryName>>
         externalPackageRepositoryMappings = new HashMap<>();
     /**
      * The map of repository reassignments for BUILD packages loaded within external repositories.
@@ -842,16 +918,28 @@ public class Package {
     private InputFile buildFile = null;
     // TreeMap so that the iteration order of variables is predictable. This is useful so that the
     // serialized representation is deterministic.
-    private TreeMap<String, String> makeEnv = new TreeMap<>();
+    private final TreeMap<String, String> makeEnv = new TreeMap<>();
     private RuleVisibility defaultVisibility = ConstantRuleVisibility.PRIVATE;
     private boolean defaultVisibilitySet;
     private List<String> defaultCopts = null;
-    private List<String> features = new ArrayList<>();
-    private List<Event> events = Lists.newArrayList();
-    private List<Postable> posts = Lists.newArrayList();
+    private final List<String> features = new ArrayList<>();
+    private final List<Event> events = Lists.newArrayList();
+    private final List<Postable> posts = Lists.newArrayList();
     @Nullable private String ioExceptionMessage = null;
     @Nullable private IOException ioException = null;
+    @Nullable private DetailedExitCode ioExceptionDetailedExitCode = null;
     private boolean containsErrors = false;
+    // A package's FailureDetail field derives from its Builder's events. During package
+    // deserialization, those events are unavailable, because those events aren't serialized [*].
+    // Its FailureDetail value is serialized, however. During deserialization, that value is
+    // assigned here, so that it can be assigned to the deserialized package.
+    //
+    // Likewise, during workspace part assembly, errors from parent parts should propagate to their
+    // children.
+    //
+    // [*] Not in the context of the package, anyway. Skyframe values containing a package may
+    // serialize events emitted during its construction/evaluation.
+    @Nullable private FailureDetail failureDetailOverride = null;
 
     private ImmutableList<Label> defaultApplicableLicenses = ImmutableList.of();
     private License defaultLicense = License.NO_LICENSE;
@@ -874,15 +962,14 @@ public class Package {
     private boolean packageFunctionUsed;
 
     /**
-     * The collection of the prefixes of every output file. Maps every prefix
-     * to an output file whose prefix it is.
+     * The collection of the prefixes of every output file. Maps every prefix to an output file
+     * whose prefix it is.
      *
-     * <p>This is needed to make the output file prefix conflict check be
-     * reasonably fast. However, since it can potentially take a lot of memory and
-     * is useless after the package has been loaded, it isn't passed to the
-     * package itself.
+     * <p>This is needed to make the output file prefix conflict check be reasonably fast. However,
+     * since it can potentially take a lot of memory and is useless after the package has been
+     * loaded, it isn't passed to the package itself.
      */
-    private Map<String, OutputFile> outputFilePrefixes = new HashMap<>();
+    private final Map<String, OutputFile> outputFilePrefixes = new HashMap<>();
 
     private final Interner<ImmutableList<?>> listInterner = new ThreadCompatibleInterner<>();
 
@@ -891,6 +978,11 @@ public class Package {
     Map<Location, String> getGeneratorNameByLocation() {
       return generatorNameByLocation;
     }
+
+    // Value of '$implicit_tests' attribute shared by all test_suite rules in the
+    // package that don't specify an explicit 'tests' attribute value.
+    // It contains the label of each non-manual test in the package, in label order.
+    final List<Label> testSuiteImplicitTests = new ArrayList<>();
 
     @ThreadCompatible
     private static class ThreadCompatibleInterner<T> implements Interner<T> {
@@ -910,12 +1002,12 @@ public class Package {
     private boolean alreadyBuilt = false;
 
     Builder(
-        Helper helper,
+        PackageSettings packageSettings,
         PackageIdentifier id,
-        String runfilesPrefix,
+        String workspaceName,
         boolean noImplicitFileExport,
         ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
-      this.pkg = helper.createFreshPackage(id, runfilesPrefix);
+      this.pkg = new Package(id, workspaceName, packageSettings.suggestNoSuchTargetCorrections());
       this.noImplicitFileExport = noImplicitFileExport;
       this.repositoryMapping = repositoryMapping;
       if (pkg.getName().startsWith("javatests/")) {
@@ -1006,9 +1098,9 @@ public class Package {
     ImmutableMap<RepositoryName, RepositoryName> getRepositoryMappingFor(RepositoryName name) {
       Map<RepositoryName, RepositoryName> mapping = externalPackageRepositoryMappings.get(name);
       if (mapping == null) {
-        return ImmutableMap.<RepositoryName, RepositoryName>of();
+        return ImmutableMap.of();
       } else {
-        return ImmutableMap.<RepositoryName, RepositoryName>copyOf(mapping);
+        return ImmutableMap.copyOf(mapping);
       }
     }
 
@@ -1016,10 +1108,22 @@ public class Package {
       return filename;
     }
 
+    /**
+     * Returns {@link Postable}s accumulated while building the package.
+     *
+     * <p>Should retrieved and reported as close to after {@link #build()} or {@link #finishBuild()}
+     * as possible - any earlier and the data may be incomplete.
+     */
     public List<Postable> getPosts() {
       return posts;
     }
 
+    /**
+     * Returns {@link Event}s accumulated while building the package.
+     *
+     * <p>Should retrieved and reported as close to after {@link #build()} or {@link #finishBuild()}
+     * as possible - any earlier and the data may be incomplete.
+     */
     public List<Event> getEvents() {
       return events;
     }
@@ -1070,12 +1174,12 @@ public class Package {
       return this;
     }
 
-    public Builder setThirdPartyLicenceExistencePolicy(ThirdPartyLicenseExistencePolicy policy) {
+    Builder setThirdPartyLicenceExistencePolicy(ThirdPartyLicenseExistencePolicy policy) {
       this.thirdPartyLicenceExistencePolicy = policy;
       return this;
     }
 
-    public ThirdPartyLicenseExistencePolicy getThirdPartyLicenseExistencePolicy() {
+    ThirdPartyLicenseExistencePolicy getThirdPartyLicenseExistencePolicy() {
       return thirdPartyLicenceExistencePolicy;
     }
 
@@ -1093,6 +1197,11 @@ public class Package {
     /** Sets the number of Starlark computation steps executed by this BUILD file. */
     void setComputationSteps(long n) {
       pkg.computationSteps = n;
+    }
+
+    /** Sets the load mapping for this package. */
+    void setLoads(ImmutableMap<String, Module> loads) {
+      pkg.loads = Preconditions.checkNotNull(loads);
     }
 
     /**
@@ -1117,9 +1226,10 @@ public class Package {
       return this;
     }
 
-    Builder setIOExceptionAndMessage(IOException e, String message) {
+    Builder setIOException(IOException e, String message, DetailedExitCode detailedExitCode) {
       this.ioException = e;
       this.ioExceptionMessage = message;
+      this.ioExceptionDetailedExitCode = detailedExitCode;
       return setContainsErrors();
     }
 
@@ -1152,6 +1262,28 @@ public class Package {
     public Builder addEvent(Event event) {
       this.events.add(event);
       return this;
+    }
+
+    public void setFailureDetailOverride(FailureDetail failureDetail) {
+      failureDetailOverride = failureDetail;
+    }
+
+    @Nullable
+    public FailureDetail getFailureDetail() {
+      if (failureDetailOverride != null) {
+        return failureDetailOverride;
+      }
+
+      for (Event event : this.events) {
+        if (event.getKind() != EventKind.ERROR) {
+          continue;
+        }
+        DetailedExitCode detailedExitCode = event.getProperty(DetailedExitCode.class);
+        if (detailedExitCode != null && detailedExitCode.getFailureDetail() != null) {
+          return detailedExitCode.getFailureDetail();
+        }
+      }
+      return null;
     }
 
     Builder setStarlarkFileDependencies(ImmutableList<Label> starlarkFileDependencies) {
@@ -1203,8 +1335,8 @@ public class Package {
 
     /**
      * Sets the default value to use for a rule's {@link RuleClass#COMPATIBLE_ENVIRONMENT_ATTR}
-     * attribute when not explicitly specified by the rule. Records a package error if
-     * any labels are duplicated.
+     * attribute when not explicitly specified by the rule. Records a package error if any labels
+     * are duplicated.
      */
     void setDefaultCompatibleWith(List<Label> environments, String attrName, Location location) {
       if (hasDuplicateLabels(
@@ -1232,30 +1364,30 @@ public class Package {
      * Creates a new {@link Rule} {@code r} where {@code r.getPackage()} is the {@link Package}
      * associated with this {@link Builder}.
      *
-     * <p>The created {@link Rule} will have no attribute values, no output files, and therefore
-     * will be in an invalid state.
+     * <p>The created {@link Rule} will have no output files and therefore will be in an invalid
+     * state.
      */
     Rule createRule(
         Label label,
         RuleClass ruleClass,
         Location location,
         List<StarlarkThread.CallStackEntry> callstack,
-        AttributeContainer attributeContainer) {
+        AttributeContainer attributeContainer) { // required by WorkspaceFactory.setParent hack
       return new Rule(
           pkg, label, ruleClass, location, callStackBuilder.of(callstack), attributeContainer);
     }
 
     /**
-     * Same as {@link #createRule(Label, RuleClass, Location, List<StarlarkThread.CallStackEntry>,
-     * AttributeContainer)}, except allows specifying an {@link ImplicitOutputsFunction} override.
-     * Only use if you know what you're doing.
+     * Same as {@link #createRule(Label, RuleClass, Location, List, AttributeContainer)}, except
+     * allows specifying an {@link ImplicitOutputsFunction} override.
+     *
+     * <p>Only use if you know what you're doing.
      */
     Rule createRule(
         Label label,
         RuleClass ruleClass,
         Location location,
         List<StarlarkThread.CallStackEntry> callstack,
-        AttributeContainer attributeContainer,
         ImplicitOutputsFunction implicitOutputsFunction) {
       return new Rule(
           pkg,
@@ -1263,7 +1395,7 @@ public class Package {
           ruleClass,
           location,
           callStackBuilder.of(callstack),
-          attributeContainer,
+          AttributeContainer.newMutableInstance(ruleClass),
           implicitOutputsFunction);
     }
 
@@ -1274,10 +1406,10 @@ public class Package {
 
     /**
      * Removes a target from the {@link Package} under construction. Intended to be used only by
-     * {@link com.google.devtools.build.lib.skyframe.PackageFunction} to remove targets whose
-     * labels cross subpackage boundaries.
+     * {@link com.google.devtools.build.lib.skyframe.PackageFunction} to remove targets whose labels
+     * cross subpackage boundaries.
      */
-    public void removeTarget(Target target) {
+    void removeTarget(Target target) {
       if (target.getPackage() == pkg) {
         this.targets.remove(target.getName());
       }
@@ -1288,11 +1420,11 @@ public class Package {
     }
 
     /**
-     * Returns an (immutable, unordered) view of all the targets belonging to
-     * this package which are instances of the specified class.
+     * Returns an (immutable, unordered) view of all the targets belonging to this package which are
+     * instances of the specified class.
      */
-    private <T extends Target> Iterable<T> getTargets(Class<T> targetClass) {
-      return Package.getTargets(targets, targetClass);
+    private Iterable<Rule> getRules() {
+      return Package.getTargets(targets, Rule.class);
     }
 
     /**
@@ -1399,8 +1531,12 @@ public class Package {
         EventHandler eventHandler) {
       Set<Label> dupes = CollectionUtils.duplicatedElementsOf(labels);
       for (Label dupe : dupes) {
-        eventHandler.handle(Event.error(location, String.format(
-            "label '%s' is duplicated in the '%s' list of '%s'", dupe, attrName, owner)));
+        eventHandler.handle(
+            error(
+                location,
+                String.format(
+                    "label '%s' is duplicated in the '%s' list of '%s'", dupe, attrName, owner),
+                Code.DUPLICATE_LABEL));
       }
       return !dupes.isEmpty();
     }
@@ -1426,22 +1562,31 @@ public class Package {
       }
 
       targets.put(group.getName(), group);
-      Collection<Event> membershipErrors = group.validateMembership();
-      if (!membershipErrors.isEmpty()) {
-        for (Event error : membershipErrors) {
-          eventHandler.handle(error);
-        }
+      // Invariant: once group is inserted into targets, it must also:
+      // (a) be inserted into environmentGroups, or
+      // (b) have its group.processMemberEnvironments called.
+      // Otherwise it will remain uninitialized,
+      // causing crashes when it is later toString-ed.
+
+      for (Event error : group.validateMembership()) {
+        eventHandler.handle(error);
         setContainsErrors();
-        return;
       }
 
       // For each declared environment, make sure it doesn't also belong to some other group.
       for (Label environment : group.getEnvironments()) {
         EnvironmentGroup otherGroup = environmentGroups.get(environment);
         if (otherGroup != null) {
-          eventHandler.handle(Event.error(location, "environment " + environment + " belongs to"
-              + " both " + group.getLabel() + " and " + otherGroup.getLabel()));
+          eventHandler.handle(
+              error(
+                  location,
+                  String.format(
+                      "environment %s belongs to both %s and %s",
+                      environment, group.getLabel(), otherGroup.getLabel()),
+                  Code.ENVIRONMENT_IN_MULTIPLE_GROUPS));
           setContainsErrors();
+          // Ensure the orphan gets (trivially) initialized.
+          group.processMemberEnvironments(ImmutableMap.of());
         } else {
           environmentGroups.put(environment, group);
         }
@@ -1490,7 +1635,8 @@ public class Package {
       Preconditions.checkNotNull(buildFileLabel);
       Preconditions.checkNotNull(makeEnv);
       if (ioException != null) {
-        throw new NoSuchPackageException(getPackageIdentifier(), ioExceptionMessage, ioException);
+        throw new NoSuchPackageException(
+            getPackageIdentifier(), ioExceptionMessage, ioException, ioExceptionDetailedExitCode);
       }
 
       // We create the original BUILD InputFile when the package filename is set; however, the
@@ -1498,47 +1644,49 @@ public class Package {
       // current instance here.
       buildFile = (InputFile) Preconditions.checkNotNull(targets.get(buildFileLabel.getName()));
 
-      List<Label> labelsOfTestTargets = new ArrayList<>();
-      List<Rule> implicitTestSuiteRuleInstances = new ArrayList<>();
-      Map<Label, InputFile> newInputFiles = new HashMap<>();
-      for (final Rule rule : getTargets(Rule.class)) {
+      List<Label> tests = new ArrayList<>();
+      Map<String, InputFile> newInputFiles = new HashMap<>();
+      for (final Rule rule : getRules()) {
         if (discoverAssumedInputFiles) {
-          // All labels mentioned in a rule that refer to an unknown target in the
-          // current package are assumed to be InputFiles, so let's create them:
-          for (AttributeMap.DepEdge depEdge : AggregatingAttributeMapper.of(rule).visitLabels()) {
-            InputFile inputFile = createInputFileMaybe(depEdge.getLabel(), rule.getLocation());
-            if (inputFile != null && !newInputFiles.containsKey(depEdge.getLabel())) {
-              newInputFiles.put(depEdge.getLabel(), inputFile);
+          // All labels mentioned by a rule that refer to an unknown target in the
+          // current package are assumed to be InputFiles, so let's create them.
+          // (We add them to a temporary map while we are iterating over this.targets.)
+          for (AttributeMap.DepEdge edge : AggregatingAttributeMapper.of(rule).visitLabels()) {
+            Label label = edge.getLabel();
+            if (label.getPackageIdentifier().equals(pkg.getPackageIdentifier())
+                && !targets.containsKey(label.getName())
+                && !newInputFiles.containsKey(label.getName())) {
+              Location loc = rule.getLocation();
+              newInputFiles.put(
+                  label.getName(),
+                  noImplicitFileExport
+                      ? new InputFile(
+                          pkg, label, loc, ConstantRuleVisibility.PRIVATE, License.NO_LICENSE)
+                      : new InputFile(pkg, label, loc));
             }
           }
         }
 
         // "test_suite" rules have the idiosyncratic semantics of implicitly
-        // depending on all tests in the package, iff tests=[] and suites=[].
+        // depending on all tests in the package, iff tests=[] and suites=[],
+        // which is about 20% of >1M test_suite instances in Google's corpus.
         // Note, we implement this here when the Package is fully constructed,
         // since clearly this information isn't available at Rule construction
         // time, as forward references are permitted.
         if (TargetUtils.isTestRule(rule) && !TargetUtils.hasManualTag(rule)) {
-          labelsOfTestTargets.add(rule.getLabel());
-        }
-
-        AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
-        if (rule.getRuleClass().equals("test_suite")
-            && attributes.get("tests", BuildType.LABEL_LIST).isEmpty()) {
-          implicitTestSuiteRuleInstances.add(rule);
+          // Update the testSuiteImplicitTests list shared
+          // by all test_suite.$implicit_test attributes.
+          tests.add(rule.getLabel());
         }
       }
 
-      for (InputFile inputFile : newInputFiles.values()) {
-        addInputFile(inputFile);
+      Collections.sort(tests); // (for determinism)
+      this.testSuiteImplicitTests.addAll(tests);
+
+      for (InputFile file : newInputFiles.values()) {
+        addInputFile(file);
       }
 
-      if (!implicitTestSuiteRuleInstances.isEmpty()) {
-        Collections.sort(labelsOfTestTargets);
-        for (Rule rule : implicitTestSuiteRuleInstances) {
-          rule.setAttributeValueByName("$implicit_tests", labelsOfTestTargets);
-        }
-      }
       return this;
     }
 
@@ -1557,6 +1705,11 @@ public class Package {
       }
 
       // Freeze targets and distributions.
+      for (Target t : targets.values()) {
+        if (t instanceof Rule) {
+          ((Rule) t).freeze();
+        }
+      }
       targets = Maps.unmodifiableBiMap(targets);
       defaultDistributionSet =
           Collections.unmodifiableSet(defaultDistributionSet);
@@ -1590,22 +1743,6 @@ public class Package {
       }
       beforeBuild(discoverAssumedInputFiles);
       return finishBuild();
-    }
-
-    /**
-     * If "label" refers to a non-existent target in the current package, create an InputFile
-     * target.
-     */
-    private InputFile createInputFileMaybe(Label label, Location location) {
-      if (label != null && label.getPackageIdentifier().equals(pkg.getPackageIdentifier())) {
-        if (!targets.containsKey(label.getName())) {
-          return noImplicitFileExport
-              ? new InputFile(
-                  pkg, label, location, ConstantRuleVisibility.PRIVATE, License.NO_LICENSE)
-              : new InputFile(pkg, label, location);
-        }
-      }
-      return null;
     }
 
     private InputFile addInputFile(Label label, Location location) {
@@ -1678,7 +1815,7 @@ public class Package {
      * @param outputFiles a set containing the names of output files to be generated by the rule.
      * @throws NameConflictException if a conflict is found.
      */
-    private void checkForInputOutputConflicts(Rule rule, Set<String> outputFiles)
+    private static void checkForInputOutputConflicts(Rule rule, Set<String> outputFiles)
         throws NameConflictException {
       PackageIdentifier packageIdentifier = rule.getLabel().getPackageIdentifier();
       for (Label inputLabel : rule.getLabels()) {
@@ -1690,21 +1827,23 @@ public class Package {
     }
 
     /** An output file conflicts with another output file or the BUILD file. */
-    private NameConflictException duplicateOutputFile(OutputFile duplicate, Target existing) {
+    private static NameConflictException duplicateOutputFile(
+        OutputFile duplicate, Target existing) {
       return new NameConflictException(duplicate.getTargetKind() + " '" + duplicate.getName()
           + "' in rule '" + duplicate.getGeneratingRule().getName() + "' "
           + conflictsWith(existing));
     }
 
     /** The package contains two targets with the same name. */
-    private NameConflictException nameConflict(Target duplicate, Target existing) {
+    private static NameConflictException nameConflict(Target duplicate, Target existing) {
       return new NameConflictException(duplicate.getTargetKind() + " '" + duplicate.getName()
           + "' in package '" + duplicate.getLabel().getPackageName() + "' "
           + conflictsWith(existing));
     }
 
     /** A a rule has a input/output name conflict. */
-    private NameConflictException inputOutputNameConflict(Rule rule, String conflictingName) {
+    private static NameConflictException inputOutputNameConflict(
+        Rule rule, String conflictingName) {
       return new NameConflictException("rule '" + rule.getName() + "' has file '"
           + conflictingName + "' as both an input and an output");
     }

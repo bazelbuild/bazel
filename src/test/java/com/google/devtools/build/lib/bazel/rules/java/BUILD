@@ -17,7 +17,7 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:bazel_java_semantics",
-        "//src/main/java/com/google/devtools/build/lib/packages:build_type",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:junit4",

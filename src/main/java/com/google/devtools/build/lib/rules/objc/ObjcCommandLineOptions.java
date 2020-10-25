@@ -226,17 +226,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public boolean scanIncludes;
 
   @Option(
-      name = "objc_header_scanner_tool",
-      defaultValue = "@bazel_tools//tools/objc:header_scanner",
-      converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.CHANGES_INPUTS},
-      help =
-          "Location of tool to scan Objective-C code for inclusions and output a .headers_list "
-              + "file.")
-  public Label objcHeaderScannerTool;
-
-  @Option(
     name = "apple_sdk",
     defaultValue = "null",
     converter = LabelConverter.class,
@@ -262,4 +251,23 @@ public class ObjcCommandLineOptions extends FragmentOptions {
               + "https://github.com/bazelbuild/bazel/issues/10854 for details and migration "
               + "instructions")
   public boolean incompatibleObjcCompileInfoMigration;
+
+  @Option(
+      name = "incompatible_avoid_hardcoded_objc_compilation_flags",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.ACTION_COMMAND_LINES,
+      },
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+      },
+      help =
+          "Prevents Bazel from adding compiler options to Objective-C compilation actions. Options"
+              + " set in the crosstool are still applied.")
+  public boolean incompatibleAvoidHardcodedObjcCompilationFlags;
 }

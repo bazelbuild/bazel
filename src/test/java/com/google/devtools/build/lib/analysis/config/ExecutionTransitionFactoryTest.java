@@ -34,7 +34,7 @@ public class ExecutionTransitionFactoryTest {
   private static final Label EXECUTION_PLATFORM = Label.parseAbsoluteUnchecked("//platform:exec");
 
   @Test
-  public void executionTransition() throws OptionsParsingException {
+  public void executionTransition() throws OptionsParsingException, InterruptedException {
     ExecutionTransitionFactory execTransitionFactory = ExecutionTransitionFactory.create();
     PatchTransition transition =
         execTransitionFactory.create(
@@ -51,7 +51,10 @@ public class ExecutionTransitionFactoryTest {
             ImmutableList.of(CoreOptions.class, PlatformOptions.class),
             "--platforms=//platform:target");
 
-    BuildOptions result = transition.patch(options, new StoredEventHandler());
+    BuildOptions result =
+        transition.patch(
+            new BuildOptionsView(options, transition.requiresOptionFragments()),
+            new StoredEventHandler());
     assertThat(result).isNotNull();
     assertThat(result).isNotSameInstanceAs(options);
 
@@ -63,7 +66,8 @@ public class ExecutionTransitionFactoryTest {
   }
 
   @Test
-  public void executionTransition_noExecPlatform() throws OptionsParsingException {
+  public void executionTransition_noExecPlatform()
+      throws OptionsParsingException, InterruptedException {
     ExecutionTransitionFactory execTransitionFactory = ExecutionTransitionFactory.create();
     // No execution platform available.
     PatchTransition transition =
@@ -81,7 +85,10 @@ public class ExecutionTransitionFactoryTest {
             ImmutableList.of(CoreOptions.class, PlatformOptions.class),
             "--platforms=//platform:target");
 
-    BuildOptions result = transition.patch(options, new StoredEventHandler());
+    BuildOptions result =
+        transition.patch(
+            new BuildOptionsView(options, transition.requiresOptionFragments()),
+            new StoredEventHandler());
     assertThat(result).isNotNull();
     assertThat(result).isEqualTo(options);
   }

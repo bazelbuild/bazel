@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.BooleanConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
-import com.google.devtools.common.options.Converters.IntegerConverter;
 import com.google.devtools.common.options.Converters.StringConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -38,6 +37,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.eval.StarlarkInt;
 
 /**
  * {@link Converter}s for {@link com.google.devtools.common.options.Option}s that aren't
@@ -51,13 +51,33 @@ public class CoreOptionConverters {
    */
   public static final ImmutableMap<Type<?>, Converter<?>> BUILD_SETTING_CONVERTERS =
       new ImmutableMap.Builder<Type<?>, Converter<?>>()
-          .put(INTEGER, new IntegerConverter())
+          .put(INTEGER, new StarlarkIntConverter())
           .put(BOOLEAN, new BooleanConverter())
           .put(STRING, new StringConverter())
           .put(STRING_LIST, new CommaSeparatedOptionListConverter())
           .put(LABEL, new LabelConverter())
           .put(LABEL_LIST, new LabelListConverter())
           .build();
+
+  /** A converter from strings to Starlark int values. */
+  private static class StarlarkIntConverter implements Converter<StarlarkInt> {
+    @Override
+    public StarlarkInt convert(String input) throws OptionsParsingException {
+      // Note that Starlark rule attribute values are currently restricted
+      // to the signed 32-bit range, but Starlark-based flags may take on
+      // any integer value.
+      try {
+        return StarlarkInt.parse(input, 0);
+      } catch (NumberFormatException ex) {
+        throw new OptionsParsingException("invalid int: " + ex.getMessage());
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "an int";
+    }
+  }
 
   /** A converter from strings to Labels. */
   public static class LabelConverter implements Converter<Label> {

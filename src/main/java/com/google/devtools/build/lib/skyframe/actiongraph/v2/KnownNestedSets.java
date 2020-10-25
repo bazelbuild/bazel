@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.DepSetOfFiles;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import java.io.IOException;
 
 /** Cache for NestedSets in the action graph. */
@@ -28,23 +28,20 @@ public class KnownNestedSets extends BaseCache<Object, DepSetOfFiles> {
   }
 
   @Override
-  protected Object transformToKey(Object nestedSetViewObject) {
-    NestedSetView<?> nestedSetView = (NestedSetView<?>) nestedSetViewObject;
-    // The NestedSet is identified by their raw 'children' object since multiple NestedSetViews
-    // can point to the same object.
-    return nestedSetView.identifier();
+  protected Object transformToKey(Object nestedSet) {
+    return ((NestedSet) nestedSet).toNode();
   }
 
   @Override
-  DepSetOfFiles createProto(Object nestedSetViewObject, int id) throws IOException {
-    NestedSetView<?> nestedSetView = (NestedSetView) nestedSetViewObject;
+  DepSetOfFiles createProto(Object nestedSetObject, int id) throws IOException {
+    NestedSet<?> nestedSet = (NestedSet) nestedSetObject;
     DepSetOfFiles.Builder depSetBuilder = DepSetOfFiles.newBuilder().setId(id);
-    for (NestedSetView<?> transitiveNestedSet : nestedSetView.transitives()) {
-      depSetBuilder.addTransitiveDepSetIds(this.dataToIdAndStreamOutputProto(transitiveNestedSet));
+    for (NestedSet<?> succ : nestedSet.getNonLeaves()) {
+      depSetBuilder.addTransitiveDepSetIds(this.dataToIdAndStreamOutputProto(succ));
     }
-    for (Object directArtifact : nestedSetView.directs()) {
+    for (Object elem : nestedSet.getLeaves()) {
       depSetBuilder.addDirectArtifactIds(
-          knownArtifacts.dataToIdAndStreamOutputProto((Artifact) directArtifact));
+          knownArtifacts.dataToIdAndStreamOutputProto((Artifact) elem));
     }
     return depSetBuilder.build();
   }

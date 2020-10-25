@@ -137,7 +137,10 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     resolvedTargetPatterns.clear();
     QueryEvalResult queryEvalResult = super.evaluateQuery(expr, callback);
     return new DigraphQueryEvalResult<>(
-        queryEvalResult.getSuccess(), queryEvalResult.isEmpty(), graph);
+        queryEvalResult.getSuccess(),
+        queryEvalResult.isEmpty(),
+        queryEvalResult.getDetailedExitCode(),
+        graph);
   }
 
   @Override
@@ -231,7 +234,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     try {
       return getNode(getTargetOrThrow(label)).getLabel();
     } catch (NoSuchThingException e) {
-      throw new TargetNotFoundException(e);
+      throw new TargetNotFoundException(e, e.getDetailedExitCode());
     }
   }
 
@@ -313,12 +316,14 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
           keepGoing,
           loadingPhaseThreads,
           maxDepth,
-          errorObserver,
           new GraphBuildingObserver());
     }
 
     if (errorObserver.hasErrors()) {
-      reportBuildFileError(caller, "errors were encountered while computing transitive closure");
+      handleError(
+          caller,
+          "errors were encountered while computing transitive closure",
+          errorObserver.getDetailedExitCode());
     }
   }
 
@@ -379,16 +384,18 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
           dependencyFilter.apply(((Rule) from), attribute),
           "Disallowed edge from LabelVisitor: %s --> %s", from, to);
       makeEdge(from, to);
+      errorObserver.edge(from, attribute, to);
     }
 
     @Override
     public void node(Target node) {
       graph.createNode(node);
+      errorObserver.node(node);
     }
 
     @Override
     public void missingEdge(Target target, Label to, NoSuchThingException e) {
-      // No - op.
+      errorObserver.missingEdge(target, to, e);
     }
   }
 

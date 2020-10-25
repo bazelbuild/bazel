@@ -23,12 +23,14 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkThread.CallStackEntry;
+import net.starlark.java.syntax.Location;
 
 /**
  * Given a {@link RuleClass} and a set of attribute values, returns a {@link Rule} instance. Also
@@ -78,8 +80,7 @@ public class RuleFactory {
       BuildLangTypedAttributeValuesMap attributeValues,
       EventHandler eventHandler,
       StarlarkSemantics semantics,
-      ImmutableList<StarlarkThread.CallStackEntry> callstack,
-      AttributeContainer attributeContainer)
+      ImmutableList<StarlarkThread.CallStackEntry> callstack)
       throws InvalidRuleException, InterruptedException {
     Preconditions.checkNotNull(ruleClass);
     String ruleClassName = ruleClass.getName();
@@ -107,14 +108,16 @@ public class RuleFactory {
           ruleClass + " cannot be in the WORKSPACE file " + "(used by " + label + ")");
     }
 
+    boolean recordRuleInstantiationCallstack =
+        semantics.getBool(BuildLanguageOptions.RECORD_RULE_INSTANTIATION_CALLSTACK);
     AttributesAndLocation generator =
-        generatorAttributesForMacros(pkgBuilder, attributeValues, callstack, label);
+        generatorAttributesForMacros(
+            pkgBuilder, attributeValues, callstack, label, recordRuleInstantiationCallstack);
 
     // The raw stack is of the form [<toplevel>@BUILD:1, macro@lib.bzl:1, cc_library@<builtin>].
-    // If we're recording it (--record_rule_instantiation_callstack),
-    // pop the innermost frame for the rule, since it's obvious.
+    // Pop the innermost frame for the rule, since it's obvious.
     callstack =
-        semantics.recordRuleInstantiationCallstack()
+        recordRuleInstantiationCallstack
             ? callstack.subList(0, callstack.size() - 1) // pop
             : ImmutableList.of(); // save space
 
@@ -125,7 +128,9 @@ public class RuleFactory {
       // This flag is overridable by RuleClass.ThirdPartyLicenseEnforcementPolicy (which is checked
       // in RuleClass). This lets Bazel and Blaze migrate away from license logic on independent
       // timelines. See --incompatible_disable_third_party_license_checking comments for details.
-      boolean checkThirdPartyLicenses = !semantics.incompatibleDisableThirdPartyLicenseChecking();
+      boolean checkThirdPartyLicenses =
+          !semantics.getBool(
+              BuildLanguageOptions.INCOMPATIBLE_DISABLE_THIRD_PARTY_LICENSE_CHECKING);
       return ruleClass.createRule(
           pkgBuilder,
           label,
@@ -133,7 +138,6 @@ public class RuleFactory {
           eventHandler,
           generator.location, // see b/23974287 for rationale
           callstack,
-          attributeContainer,
           checkThirdPartyLicenses);
     } catch (LabelSyntaxException | CannotPrecomputeDefaultsException e) {
       throw new RuleFactory.InvalidRuleException(ruleClass + " " + e.getMessage());
@@ -154,31 +158,22 @@ public class RuleFactory {
    *     creation
    * @param semantics the Starlark semantics
    * @param callstack the stack of active calls in the Starlark thread
-   * @param attributeContainer the {@link AttributeContainer} the rule will contain
    * @throws InvalidRuleException if the rule could not be constructed for any reason (e.g. no
    *     {@code name} attribute is defined)
    * @throws NameConflictException if the rule's name or output files conflict with others in this
    *     package
    * @throws InterruptedException if interrupted
    */
-  static Rule createAndAddRule(
+  static Rule createAndAddRuleImpl(
       Package.Builder pkgBuilder,
       RuleClass ruleClass,
       BuildLangTypedAttributeValuesMap attributeValues,
       EventHandler eventHandler,
       StarlarkSemantics semantics,
-      ImmutableList<StarlarkThread.CallStackEntry> callstack,
-      AttributeContainer attributeContainer)
+      ImmutableList<StarlarkThread.CallStackEntry> callstack)
       throws InvalidRuleException, NameConflictException, InterruptedException {
     Rule rule =
-        createRule(
-            pkgBuilder,
-            ruleClass,
-            attributeValues,
-            eventHandler,
-            semantics,
-            callstack,
-            attributeContainer);
+        createRule(pkgBuilder, ruleClass, attributeValues, eventHandler, semantics, callstack);
     pkgBuilder.addRule(rule);
     return rule;
   }
@@ -193,9 +188,6 @@ public class RuleFactory {
    *     rule, and have a build-language-typed value which can be converted to the appropriate
    *     native type of the attribute (i.e. via {@link BuildType#selectableConvert}). There must be
    *     a map entry for each non-optional attribute of this class of rule.
-   * @param loc the location of the rule expression
-   * @param thread the lexical environment of the function call which declared this rule (optional)
-   * @param attributeContainer the {@link AttributeContainer} the rule will contain
    * @throws InvalidRuleException if the rule could not be constructed for any reason (e.g. no
    *     {@code name} attribute is defined)
    * @throws NameConflictException if the rule's name or output files conflict with others in this
@@ -207,17 +199,10 @@ public class RuleFactory {
       RuleClass ruleClass,
       BuildLangTypedAttributeValuesMap attributeValues,
       StarlarkSemantics semantics,
-      ImmutableList<StarlarkThread.CallStackEntry> callstack,
-      AttributeContainer attributeContainer)
+      ImmutableList<StarlarkThread.CallStackEntry> callstack)
       throws InvalidRuleException, NameConflictException, InterruptedException {
-    return createAndAddRule(
-        context.pkgBuilder,
-        ruleClass,
-        attributeValues,
-        context.eventHandler,
-        semantics,
-        callstack,
-        attributeContainer);
+    return createAndAddRuleImpl(
+        context.pkgBuilder, ruleClass, attributeValues, context.eventHandler, semantics, callstack);
   }
 
   /**
@@ -313,8 +298,9 @@ public class RuleFactory {
   private static AttributesAndLocation generatorAttributesForMacros(
       Package.Builder pkgBuilder,
       BuildLangTypedAttributeValuesMap args,
-      ImmutableList<StarlarkThread.CallStackEntry> stack,
-      Label label) {
+      ImmutableList<CallStackEntry> stack,
+      Label label,
+      boolean recordRuleInstantiationCallstack) {
     // For a callstack [BUILD <toplevel>, .bzl <function>, <rule>],
     // location is that of the caller of 'rule' (the .bzl function).
     Location location = stack.size() < 2 ? Location.BUILTIN : stack.get(stack.size() - 2).location;
@@ -331,6 +317,8 @@ public class RuleFactory {
     // The stack must contain at least two entries:
     // 0: the outermost function (e.g. a BUILD file),
     // 1: the function called by it (e.g. a "macro" in a .bzl file).
+    // optionally followed by other Starlark or built-in functions,
+    // and finally the rule instantiation function.
     if (stack.size() < 2 || !stack.get(1).location.file().endsWith(".bzl")) {
       return new AttributesAndLocation(args, location); // macro is not a Starlark function
     }
@@ -346,10 +334,14 @@ public class RuleFactory {
       generatorName = (String) args.getAttributeValue("name");
     }
     builder.put("generator_name", generatorName);
-    builder.put("generator_function", generatorFunction);
-    String relativePath = maybeGetRelativeLocation(generatorLocation, label);
-    if (relativePath != null) {
-      builder.put("generator_location", relativePath);
+    if (!recordRuleInstantiationCallstack) {
+      // When we are recording the callstack, we can materialize the value from callstack
+      // as needed. So save memory by not recording it.
+      builder.put("generator_function", generatorFunction);
+      String relativePath = maybeGetRelativeLocation(generatorLocation, label);
+      if (relativePath != null) {
+        builder.put("generator_location", relativePath);
+      }
     }
 
     try {

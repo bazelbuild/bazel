@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.vfs;
 
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
@@ -25,13 +26,12 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
-import com.google.devtools.build.lib.actions.MetadataConsumer;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 import javax.annotation.Nullable;
@@ -182,7 +182,7 @@ public interface OutputService {
   default void updateActionFileSystemContext(
       FileSystem actionFileSystem,
       Environment env,
-      MetadataConsumer consumer,
+      MetadataInjector injector,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets)
       throws IOException {}
 
@@ -203,9 +203,14 @@ public interface OutputService {
       FileSystem fileSystem,
       ImmutableList<Root> pathEntries,
       ActionInputMap actionInputMap,
-      Map<Artifact, Collection<Artifact>> expandedArtifacts,
+      Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets)
       throws IOException {
     throw new IllegalStateException("Path resolver not supported by this class");
+  }
+
+  @Nullable
+  default BulkDeleter bulkDeleter() {
+    return null;
   }
 }

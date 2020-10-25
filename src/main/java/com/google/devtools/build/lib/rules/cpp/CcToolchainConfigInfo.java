@@ -33,12 +33,12 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.VariableWithV
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainConfigInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainConfigInfoApi;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
+import net.starlark.java.eval.EvalException;
 
 /** Information describing C++ toolchain derived from CROSSTOOL file. */
 @Immutable

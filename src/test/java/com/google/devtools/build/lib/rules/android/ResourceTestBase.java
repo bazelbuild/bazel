@@ -27,14 +27,15 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -184,7 +185,7 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
   @Before
   public void setup() throws Exception {
     errorConsumer = new FakeRuleErrorConsumer();
-    fileSystem = new InMemoryFileSystem();
+    fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
     root = ArtifactRoot.asSourceRoot(Root.fromPath(fileSystem.getPath("/")));
   }
 
@@ -234,7 +235,10 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
         /* env= */ new CachingAnalysisEnvironment(
             view.getArtifactFactory(),
             skyframeExecutor.getActionKeyContext(),
-            ConfiguredTargetKey.of(dummyTarget.getLabel(), targetConfig),
+            ConfiguredTargetKey.builder()
+                .setLabel(dummyTarget.getLabel())
+                .setConfiguration(targetConfig)
+                .build(),
             /*isSystemEnv=*/ false,
             targetConfig.extendedSanityChecks(),
             targetConfig.allowAnalysisFailures(),

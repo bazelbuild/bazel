@@ -19,9 +19,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.java.ProguardLibrary;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidProguardInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidProguardInfoApi;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 
 /**
  * A target that can provide local proguard specifications, returned by the {@link

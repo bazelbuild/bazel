@@ -21,9 +21,10 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.starlarkdebug.server.StarlarkDebugServer;
-import com.google.devtools.build.lib.syntax.Debug;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
+import net.starlark.java.eval.Debug;
 
 /** Blaze module for setting up Starlark debugging. */
 public final class StarlarkDebuggerModule extends BlazeModule {
@@ -59,7 +60,7 @@ public final class StarlarkDebuggerModule extends BlazeModule {
   }
 
   @Override
-  public void blazeShutdownOnCrash() {
+  public void blazeShutdownOnCrash(DetailedExitCode exitCode) {
     disableDebugging();
   }
 

@@ -14,11 +14,10 @@
 package com.google.devtools.build.docgen.starlark;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.syntax.Starlark;
 import java.lang.reflect.Method;
 import java.util.List;
-import net.starlark.java.annot.StarlarkDeprecated;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Starlark;
 
 /**
  * A class representing a Java method callable from Starlark which constructs a type of Starlark
@@ -29,8 +28,6 @@ public final class StarlarkConstructorMethodDoc extends StarlarkMethodDoc {
   private final Method method;
   private final StarlarkMethod callable;
   private final ImmutableList<StarlarkParamDoc> params;
-  // TODO(cparsons): Move to superclass when StarlarkBuiltinMethodDoc is removed.
-  private final boolean deprecated;
 
   public StarlarkConstructorMethodDoc(
       String fullyQualifiedName, Method method, StarlarkMethod callable) {
@@ -43,14 +40,9 @@ public final class StarlarkConstructorMethodDoc extends StarlarkMethodDoc {
             withoutSelfParam(callable, method),
             callable.extraPositionals(),
             callable.extraKeywords());
-    this.deprecated = method.isAnnotationPresent(StarlarkDeprecated.class);
   }
 
   @Override
-  public boolean isDeprecated() {
-    return deprecated;
-  }
-
   public Method getMethod() {
     return method;
   }

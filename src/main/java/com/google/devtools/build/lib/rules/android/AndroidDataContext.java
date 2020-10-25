@@ -18,18 +18,17 @@ import static com.google.devtools.build.lib.analysis.config.CompilationMode.OPT;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
-import com.google.devtools.build.lib.analysis.Whitelist;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.TriState;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDataContextApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDataContextApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
@@ -80,7 +79,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
 
     return new AndroidDataContext(
         ruleContext,
-        ruleContext.getExecutablePrerequisite("$android_resources_busybox", TransitionMode.HOST),
+        ruleContext.getExecutablePrerequisite("$android_resources_busybox"),
         androidConfig.persistentBusyboxTools(),
         AndroidSdkProvider.fromRuleContext(ruleContext),
         hasExemption(ruleContext, "allow_raw_access_to_resource_paths", false),
@@ -93,10 +92,10 @@ public class AndroidDataContext implements AndroidDataContextApi {
   }
 
   private static boolean hasExemption(
-      RuleContext ruleContext, String exemptionName, boolean valueIfNoWhitelist) {
-    return Whitelist.hasWhitelist(ruleContext, exemptionName)
-        ? Whitelist.isAvailable(ruleContext, exemptionName)
-        : valueIfNoWhitelist;
+      RuleContext ruleContext, String exemptionName, boolean valueIfNoAllowlist) {
+    return Allowlist.hasAllowlist(ruleContext, exemptionName)
+        ? Allowlist.isAvailable(ruleContext, exemptionName)
+        : valueIfNoAllowlist;
   }
 
   protected AndroidDataContext(

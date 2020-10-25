@@ -26,48 +26,48 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.List;
 import java.util.Optional;
+import net.starlark.java.eval.Starlark;
 
 /**
  * The implementation of the config_feature_flag rule for defining custom flags for Android rules.
  */
 public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
   /** The name of the policy that is used to restrict access to the config_feature_flag rule. */
-  private static final String WHITELIST_NAME = "config_feature_flag";
+  private static final String ALLOWLIST_NAME = "config_feature_flag";
 
   /** The label of the policy that is used to restrict access to the config_feature_flag rule. */
-  private static final String WHITELIST_LABEL =
-      "//tools/whitelists/config_feature_flag:config_feature_flag";
+  private static final String ALLOWLIST_LABEL =
+      "//tools/allowlists/config_feature_flag:config_feature_flag";
 
   /** Constructs a definition for the attribute used to restrict access to config_feature_flag. */
-  public static Attribute.Builder<Label> getWhitelistAttribute(RuleDefinitionEnvironment env) {
-    return Whitelist.getAttributeFromWhitelistName(WHITELIST_NAME)
-        .value(env.getToolsLabel(WHITELIST_LABEL));
+  public static Attribute.Builder<Label> getAllowlistAttribute(RuleDefinitionEnvironment env) {
+    return Allowlist.getAttributeFromAllowlistName(ALLOWLIST_NAME)
+        .value(env.getToolsLabel(ALLOWLIST_LABEL));
   }
 
   /**
    * Constructs a definition for the attribute used to restrict access to config_feature_flag. The
-   * whitelist will only be reached if the given {@code attributeToInspect} has a value explicitly
+   * allowlist will only be reached if the given {@code attributeToInspect} has a value explicitly
    * specified. It must be non-configurable.
    */
-  public static Attribute.Builder<Label> getWhitelistAttribute(
+  public static Attribute.Builder<Label> getAllowlistAttribute(
       RuleDefinitionEnvironment env, String attributeToInspect) {
-    final Label label = env.getToolsLabel(WHITELIST_LABEL);
-    return Whitelist.getAttributeFromWhitelistName(WHITELIST_NAME)
+    final Label label = env.getToolsLabel(ALLOWLIST_LABEL);
+    return Allowlist.getAttributeFromAllowlistName(ALLOWLIST_NAME)
         .value(
             new ComputedDefault() {
               @Override
@@ -81,10 +81,10 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
    * Returns whether config_feature_flag and related features are available to the current rule.
    *
    * <p>The current rule must have an attribute defined on it created with {@link
-   * #getWhitelistAttribute}.
+   * #getAllowlistAttribute}.
    */
   public static boolean isAvailable(RuleContext ruleContext) {
-    return Whitelist.isAvailable(ruleContext, WHITELIST_NAME);
+    return Allowlist.isAvailable(ruleContext, ALLOWLIST_NAME);
   }
 
   @Override

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import javax.annotation.Nullable;
@@ -66,8 +67,9 @@ public class LostInputsActionExecutionException extends ActionExecutionException
       ImmutableMap<String, ActionInput> lostInputs,
       ActionInputDepOwners owners,
       Action action,
-      Exception cause) {
-    super(message, cause, action, /*catastrophe=*/ false);
+      Exception cause,
+      DetailedExitCode detailedExitCode) {
+    super(message, cause, action, /*catastrophe=*/ false, detailedExitCode);
     this.lostInputs = lostInputs;
     this.owners = owners;
   }

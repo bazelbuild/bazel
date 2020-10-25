@@ -38,18 +38,6 @@ import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.S
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.StartDebuggingResponse;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Stepping;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Value;
-import com.google.devtools.build.lib.syntax.Debug;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.FileOptions;
-import com.google.devtools.build.lib.syntax.Module;
-import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkList;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.SyntaxError;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
@@ -63,6 +51,18 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Debug;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.FileOptions;
+import net.starlark.java.syntax.ParserInput;
+import net.starlark.java.syntax.SyntaxError;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -163,8 +163,7 @@ public class StarlarkDebugServerTest {
 
     Location expectedLocation =
         DebugEventHelper.getLocationProto(
-            com.google.devtools.build.lib.syntax.Location.fromFileLineColumn(
-                "/a/build/file/BUILD", 1, 1));
+            net.starlark.java.syntax.Location.fromFileLineColumn("/a/build/file/BUILD", 1, 1));
 
     assertThat(event)
         .isEqualTo(
@@ -445,12 +444,12 @@ public class StarlarkDebugServerTest {
             .addScope(
                 Scope.newBuilder()
                     .setName("local")
-                    .addBinding(getValueProto("a", 2))
-                    .addBinding(getValueProto("b", 1)))
+                    .addBinding(getValueProto("a", StarlarkInt.of(2)))
+                    .addBinding(getValueProto("b", StarlarkInt.of(1))))
             .addScope(
                 Scope.newBuilder()
                     .setName("global")
-                    .addBinding(getValueProto("c", 3))
+                    .addBinding(getValueProto("c", StarlarkInt.of(3)))
                     .addBinding(getValueProto("fn", module.getGlobal("fn"))))
             .build());
 
@@ -466,8 +465,8 @@ public class StarlarkDebugServerTest {
             .addScope(
                 Scope.newBuilder()
                     .setName("global")
-                    .addBinding(getValueProto("a", 1))
-                    .addBinding(getValueProto("c", 3))
+                    .addBinding(getValueProto("a", StarlarkInt.of(1)))
+                    .addBinding(getValueProto("c", StarlarkInt.of(3)))
                     .addBinding(getValueProto("fn", module.getGlobal("fn"))))
             .build());
   }
@@ -495,7 +494,8 @@ public class StarlarkDebugServerTest {
                     EvaluateRequest.newBuilder().setThreadId(threadId).setStatement("x[1]").build())
                 .build());
     assertThat(response.hasEvaluate()).isTrue();
-    assertThat(response.getEvaluate().getResult()).isEqualTo(getValueProto("Evaluation result", 2));
+    assertThat(response.getEvaluate().getResult())
+        .isEqualTo(getValueProto("Evaluation result", StarlarkInt.of(2)));
   }
 
   @Test
@@ -528,7 +528,9 @@ public class StarlarkDebugServerTest {
 
     ListFramesResponse frames = listFrames(threadId);
     assertThat(frames.getFrame(0).getScope(0).getBindingList())
-        .contains(getValueProto("x", StarlarkList.of(/*mutability=*/ null, 5, 6)));
+        .contains(
+            getValueProto(
+                "x", StarlarkList.of(/*mutability=*/ null, StarlarkInt.of(5), StarlarkInt.of(6))));
   }
 
   @Test
@@ -762,7 +764,7 @@ public class StarlarkDebugServerTest {
   }
 
   private static ParserInput createInput(String filename, String... lines) {
-    return ParserInput.create(Joiner.on("\n").join(lines), filename);
+    return ParserInput.fromString(Joiner.on("\n").join(lines), filename);
   }
 
   /**
@@ -776,7 +778,7 @@ public class StarlarkDebugServerTest {
             () -> {
               try (Mutability mu = Mutability.create("test")) {
                 StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
-                EvalUtils.exec(
+                Starlark.execFile(
                     input, FileOptions.DEFAULT, module != null ? module : Module.create(), thread);
               } catch (SyntaxError.Exception | EvalException | InterruptedException ex) {
                 throw new AssertionError(ex);

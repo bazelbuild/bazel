@@ -19,12 +19,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * A configuration transition that composes two other transitions in an ordered sequence.
@@ -53,15 +51,22 @@ public class ComposingTransition implements ConfigurationTransition {
   }
 
   @Override
-  public Set<Class<? extends FragmentOptions>> requiresOptionFragments() {
-    return ImmutableSet.<Class<? extends FragmentOptions>>builder()
-        .addAll(transition1.requiresOptionFragments())
-        .addAll(transition2.requiresOptionFragments())
+  public ImmutableSet<String> requiresOptionFragments(BuildOptions options) {
+    // At first glance this code looks wrong. A composing transition applies transition2 over
+    // transition1's outputs, not the original options. We don't have to worry about that here
+    // because the reason we pass the options is so Starlark transitions can map individual flags
+    // like "//command_line_option:copts" to the fragments that own them. This doesn't depend on the
+    // flags' values. This is fortunate, because it producers simpler, faster code and cleaner
+    // interfaces.
+    return ImmutableSet.<String>builder()
+        .addAll(transition1.requiresOptionFragments(options))
+        .addAll(transition2.requiresOptionFragments(options))
         .build();
   }
 
   @Override
-  public Map<String, BuildOptions> apply(BuildOptionsView buildOptions, EventHandler eventHandler) {
+  public Map<String, BuildOptions> apply(BuildOptionsView buildOptions, EventHandler eventHandler)
+      throws InterruptedException {
     ImmutableMap.Builder<String, BuildOptions> toOptions = ImmutableMap.builder();
     Map<String, BuildOptions> transition1Output =
         transition1.apply(
@@ -84,6 +89,11 @@ public class ComposingTransition implements ConfigurationTransition {
   @Override
   public String getName() {
     return "(" + transition1.getName() + " + " + transition2.getName() + ")";
+  }
+
+  @Override
+  public boolean isHostTransition() {
+    return transition1.isHostTransition() || transition2.isHostTransition();
   }
 
   // Override to allow recursive visiting.

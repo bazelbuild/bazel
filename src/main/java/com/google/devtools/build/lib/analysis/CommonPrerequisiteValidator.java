@@ -18,16 +18,16 @@ import com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.FunctionSplitTransitionWhitelist;
+import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 
 /**
@@ -84,7 +84,10 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       boolean toolCheckAtDefinition = false;
       try {
         toolCheckAtDefinition =
-            context.getStarlarkSemantics().incompatibleVisibilityPrivateAttributesAtDefinition();
+            context
+                .getStarlarkSemantics()
+                .getBool(
+                    BuildLanguageOptions.INCOMPATIBLE_VISIBILITY_PRIVATE_ATTRIBUTES_AT_DEFINITION);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
       }
@@ -107,15 +110,19 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     }
 
     if (prerequisiteTarget instanceof PackageGroup) {
+      Attribute configuredAttribute = RawAttributeMapper.of(rule).getAttributeDefinition(attrName);
+      if (configuredAttribute == null) { // handles aspects
+        configuredAttribute = attribute;
+      }
       boolean containsPackageSpecificationProvider =
-          RawAttributeMapper.of(rule)
-              .getAttributeDefinition(attrName)
+          configuredAttribute
               .getRequiredProviders()
               .getDescription()
               .contains("PackageSpecificationProvider");
       // TODO(plf): Add the PackageSpecificationProvider to the 'visibility' attribute.
       if (!attrName.equals("visibility")
-          && !attrName.equals(FunctionSplitTransitionWhitelist.WHITELIST_ATTRIBUTE_NAME)
+          && !attrName.equals(FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME)
+          && !attrName.equals(FunctionSplitTransitionAllowlist.LEGACY_ATTRIBUTE_NAME)
           && !containsPackageSpecificationProvider) {
         context.attributeError(
             attrName,

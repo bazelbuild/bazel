@@ -126,18 +126,18 @@ genrule(
   tags = [ "local" ],
 )
 
-load('//examples/genrule:skylark.bzl', 'skylark_breaks1')
+load('//examples/genrule:starlark.bzl', 'starlark_breaks1')
 
-skylark_breaks1(
-  name = "skylark_breaks1",
+starlark_breaks1(
+  name = "starlark_breaks1",
   input = "a.txt",
-  output = "skylark_breaks1.txt",
+  output = "starlark_breaks1.txt",
 )
 
-skylark_breaks1(
-  name = "skylark_breaks1_works_with_local_tag",
+starlark_breaks1(
+  name = "starlark_breaks1_works_with_local_tag",
   input = "a.txt",
-  output = "skylark_breaks1_works_with_local_tag.txt",
+  output = "starlark_breaks1_works_with_local_tag.txt",
   action_tags = [ "local" ],
 )
 
@@ -174,8 +174,8 @@ cp $(dirname $0)/tool.runfiles/{{WORKSPACE_NAME}}/examples/genrule/datafile $1
 echo "Tools work!"
 EOF
   chmod +x examples/genrule/tool.sh
-  cat << 'EOF' >> examples/genrule/skylark.bzl
-def _skylark_breaks1_impl(ctx):
+  cat << 'EOF' >> examples/genrule/starlark.bzl
+def _starlark_breaks1_impl(ctx):
   print(ctx.outputs.output.path)
   ctx.actions.run_shell(
     inputs = [ ctx.file.input ],
@@ -186,8 +186,8 @@ def _skylark_breaks1_impl(ctx):
     execution_requirements = { tag: '' for tag in ctx.attr.action_tags },
   )
 
-skylark_breaks1 = rule(
-  _skylark_breaks1_impl,
+starlark_breaks1 = rule(
+  _starlark_breaks1_impl,
   attrs = {
     "input": attr.label(mandatory=True, allow_single_file=True),
     "output": attr.output(mandatory=True),
@@ -267,10 +267,10 @@ function test_sandbox_undeclared_deps_with_local_tag() {
     || fail "Genrule did not produce output: examples/genrule:breaks1_works_with_local_tag"
 }
 
-function test_sandbox_undeclared_deps_skylark() {
-  output_file="${BAZEL_BIN_DIR}/examples/genrule/skylark_breaks1.txt"
-  bazel build examples/genrule:skylark_breaks1 &> $TEST_log \
-    && fail "Non-hermetic genrule succeeded: examples/genrule:skylark_breaks1" || true
+function test_sandbox_undeclared_deps_starlark() {
+  output_file="${BAZEL_BIN_DIR}/examples/genrule/starlark_breaks1.txt"
+  bazel build examples/genrule:starlark_breaks1 &> $TEST_log \
+    && fail "Non-hermetic genrule succeeded: examples/genrule:starlark_breaks1" || true
 
   [ -f "$output_file" ] ||
     fail "Action did not produce output: $output_file"
@@ -283,11 +283,11 @@ function test_sandbox_undeclared_deps_skylark() {
     fail "Output did not contain expected error message: $output_file"
 }
 
-function test_sandbox_undeclared_deps_skylark_with_local_tag() {
-  bazel build examples/genrule:skylark_breaks1_works_with_local_tag &> $TEST_log \
-    || fail "Non-hermetic genrule failed even though tags=['local']: examples/genrule:skylark_breaks1_works_with_local_tag"
-  [ -f "${BAZEL_BIN_DIR}/examples/genrule/skylark_breaks1_works_with_local_tag.txt" ] \
-    || fail "Action did not produce output: examples/genrule:skylark_breaks1_works_with_local_tag"
+function test_sandbox_undeclared_deps_starlark_with_local_tag() {
+  bazel build examples/genrule:starlark_breaks1_works_with_local_tag &> $TEST_log \
+    || fail "Non-hermetic genrule failed even though tags=['local']: examples/genrule:starlark_breaks1_works_with_local_tag"
+  [ -f "${BAZEL_BIN_DIR}/examples/genrule/starlark_breaks1_works_with_local_tag.txt" ] \
+    || fail "Action did not produce output: examples/genrule:starlark_breaks1_works_with_local_tag"
 }
 
 function test_sandbox_block_filesystem() {
@@ -369,14 +369,14 @@ function setup_network_tests() {
 genrule(
   name = "localhost",
   outs = [ "localhost.txt" ],
-  cmd = "curl -o \$@ localhost:${nc_port}",
+  cmd = "curl -fo \$@ localhost:${nc_port}",
   tags = [ ${tags} ],
 )
 
 genrule(
   name = "unix-socket",
   outs = [ "unix-socket.txt" ],
-  cmd = "curl --unix-socket ${socket} -o \$@ irrelevant-url",
+  cmd = "curl --unix-socket ${socket} -fo \$@ irrelevant-url",
   tags = [ ${tags} ],
 )
 
@@ -387,7 +387,7 @@ genrule(
       + "pid=\$\$!; "
       + "while ! grep started port.txt; do sleep 1; done; "
       + "port=\$\$(head -n 1 port.txt); "
-      + "curl -o \$@ localhost:\$\$port; "
+      + "curl -fo \$@ localhost:\$\$port; "
       + "kill \$\$pid",
 )
 EOF
@@ -410,14 +410,14 @@ EOF
 genrule(
   name = "remote-ip",
   outs = [ "remote-ip.txt" ],
-  cmd = "curl -o \$@ ${remote_ip}:80",
+  cmd = "curl -fo \$@ ${remote_ip}:80",
   tags = [ ${tags} ],
 )
 
 genrule(
   name = "remote-name",
   outs = [ "remote-name.txt" ],
-  cmd = "curl -o \$@ '${REMOTE_NETWORK_ADDRESS}'",
+  cmd = "curl -fo \$@ '${REMOTE_NETWORK_ADDRESS}'",
   tags = [ ${tags} ],
 )
 EOF
@@ -738,7 +738,7 @@ EOF
   expect_log "/sandbox/"  # Part of the path to the sandbox location.
 }
 
-function test_experimental_symlinked_sandbox_uses_expanded_tree_artifacts_in_runfiles_tree() {
+function test_sandbox_expands_tree_artifacts_in_runfiles_tree() {
   create_workspace_with_default_repos WORKSPACE
 
   cat > def.bzl <<'EOF'
@@ -789,11 +789,8 @@ sh_test(
 )
 EOF
 
-  bazel test --incompatible_symlinked_sandbox_expands_tree_artifacts_in_runfiles_tree \
-      --test_output=streamed :mkdata_test &>$TEST_log && fail "expected test to fail" || true
-
-  bazel test --noincompatible_symlinked_sandbox_expands_tree_artifacts_in_runfiles_tree \
-      --test_output=streamed :mkdata_test &>$TEST_log || fail "expected test to pass"
+  bazel test --test_output=streamed //:mkdata_test &>$TEST_log && fail "expected test to fail" || true
+  expect_log "'file' is not a regular file"
 }
 
 # regression test for https://github.com/bazelbuild/bazel/issues/6262

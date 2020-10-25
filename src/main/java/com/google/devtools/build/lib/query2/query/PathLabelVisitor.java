@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDefinition;
@@ -108,7 +107,7 @@ final class PathLabelVisitor {
   }
 
   public Iterable<Target> samePkgDirectRdeps(
-      ErrorSensingEventHandler eventHandler, Iterable<Target> from)
+      ExtendedEventHandler eventHandler, Iterable<Target> from)
       throws NoSuchThingException, InterruptedException {
     Visitor visitor = new Visitor(eventHandler, VisitorMode.SAME_PKG_DIRECT_RDEPS);
     for (Target t : from) {
@@ -125,7 +124,7 @@ final class PathLabelVisitor {
   }
 
   public Iterable<Target> rdeps(
-      ErrorSensingEventHandler eventHandler,
+      ExtendedEventHandler eventHandler,
       Iterable<Target> from,
       Iterable<Target> universe,
       int depth)

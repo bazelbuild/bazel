@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.syntax.Location;
+import net.starlark.java.syntax.Location;
 
 /**
  * A generated file that is the output of a rule.

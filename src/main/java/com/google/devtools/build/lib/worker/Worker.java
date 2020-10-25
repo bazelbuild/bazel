@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
@@ -27,8 +28,10 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
+import javax.annotation.Nullable;
 
 /**
  * Interface to a worker process running as a child process.
@@ -48,13 +51,20 @@ class Worker {
   protected final int workerId;
   /** The execution root of the worker. */
   protected final Path workDir;
-  /** The path of the log file. */
-  protected final Path logFile;
-  /** Stream for reading the WorkResponse. */
-  protected RecordingInputStream recordingStream;
+  /** The path of the log file for this worker. */
+  private final Path logFile;
+  /**
+   * Stream for recording the WorkResponse as it's read, so that it can be printed in the case of
+   * parsing failures.
+   */
+  @Nullable private RecordingInputStream recordingInputStream;
+  /** The implementation of the worker protocol (JSON or Proto). */
+  @Nullable private WorkerProtocolImpl workerProtocol;
 
   private Subprocess process;
   private Thread shutdownHook;
+  /** True if we deliberately destroyed this process. */
+  private boolean wasDestroyed;
 
   Worker(WorkerKey workerKey, int workerId, final Path workDir, Path logFile) {
     this.workerKey = workerKey;
@@ -76,7 +86,7 @@ class Worker {
     Runtime.getRuntime().addShutdownHook(shutdownHook);
   }
 
-  void createProcess() throws IOException {
+  Subprocess createProcess() throws IOException {
     ImmutableList<String> args = workerKey.getArgs();
     File executable = new File(args.get(0));
     if (!executable.isAbsolute() && executable.getParent() != null) {
@@ -89,14 +99,19 @@ class Worker {
     processBuilder.setWorkingDirectory(workDir.getPathFile());
     processBuilder.setStderr(logFile.getPathFile());
     processBuilder.setEnv(workerKey.getEnv());
-    this.process = processBuilder.start();
+    return processBuilder.start();
   }
 
   void destroy() throws IOException {
     if (shutdownHook != null) {
       Runtime.getRuntime().removeShutdownHook(shutdownHook);
     }
+    if (workerProtocol != null) {
+      workerProtocol.close();
+      workerProtocol = null;
+    }
     if (process != null) {
+      wasDestroyed = true;
       process.destroyAndWait();
     }
   }
@@ -107,6 +122,11 @@ class Worker {
    */
   int getWorkerId() {
     return this.workerId;
+  }
+
+  /** Returns the path of the log file for this worker. */
+  public Path getLogFile() {
+    return logFile;
   }
 
   HashCode getWorkerFilesCombinedHash() {
@@ -123,35 +143,50 @@ class Worker {
     return !process.finished();
   }
 
+  /** Returns true if this process is dead but we didn't deliberately kill it. */
+  boolean diedUnexpectedly() {
+    return process != null && !wasDestroyed && !process.isAlive();
+  }
+
+  /** Returns the exit value of this worker's process, if it has exited. */
+  public Optional<Integer> getExitValue() {
+    return process != null && !process.isAlive()
+        ? Optional.of(process.exitValue())
+        : Optional.empty();
+  }
+
   void putRequest(WorkRequest request) throws IOException {
-    request.writeDelimitedTo(process.getOutputStream());
-    process.getOutputStream().flush();
+    workerProtocol.putRequest(request);
   }
 
   WorkResponse getResponse() throws IOException {
-    recordingStream = new RecordingInputStream(process.getInputStream());
-    recordingStream.startRecording(4096);
-    // response can be null when the worker has already closed stdout at this point and thus
-    // the InputStream is at EOF.
-    return WorkResponse.parseDelimitedFrom(recordingStream);
+    recordingInputStream.startRecording(4096);
+    return workerProtocol.getResponse();
   }
 
   String getRecordingStreamMessage() {
-    recordingStream.readRemaining();
-    return recordingStream.getRecordedDataAsString();
+    recordingInputStream.readRemaining();
+    return recordingInputStream.getRecordedDataAsString();
   }
 
   public void prepareExecution(
       SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
       throws IOException {
     if (process == null) {
-      createProcess();
+      process = createProcess();
+      recordingInputStream = new RecordingInputStream(process.getInputStream());
+    }
+    if (workerProtocol == null) {
+      switch (workerKey.getProtocolFormat()) {
+        case JSON:
+          workerProtocol = new JsonWorkerProtocol(process.getOutputStream(), recordingInputStream);
+          break;
+        case PROTO:
+          workerProtocol = new ProtoWorkerProtocol(process.getOutputStream(), recordingInputStream);
+          break;
+      }
     }
   }
 
   public void finishExecution(Path execRoot) throws IOException {}
-
-  public Path getLogFile() {
-    return logFile;
-  }
 }

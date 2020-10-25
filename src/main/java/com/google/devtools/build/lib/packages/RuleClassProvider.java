@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * The collection of the supported build rules. Provides an StarlarkThread for Starlark rule
@@ -60,10 +60,23 @@ public interface RuleClassProvider extends RuleDefinitionContext {
       ImmutableMap<RepositoryName, RepositoryName> repoMapping);
 
   /**
-   * Returns the predeclared environment for a loading-phase thread. Includes "native", though its
-   * value may be inappropriate for a WORKSPACE file. Excludes universal bindings (e.g. True, len).
+   * Returns all the predeclared top-level symbols (for .bzl files) that belong to native rule sets,
+   * and hence are allowed to be overridden by builtins-injection.
+   *
+   * <p>For example, {@code CcInfo} is included, but {@code rule()} is not.
+   *
+   * @see StarlarkBuiltinsFunction
    */
-  // TODO(adonovan): update doc comment. And does it really include native?
+  ImmutableMap<String, Object> getNativeRuleSpecificBindings();
+
+  /**
+   * Returns the Starlark builtins registered with this RuleClassProvider.
+   *
+   * <p>Does not account for builtins injection. Excludes universal bindings (e.g. True, len).
+   *
+   * <p>See {@link PackageFactory#getUninjectedBuildBzlNativeBindings} for the canonical
+   * determination of the bzl environment (before injection).
+   */
   ImmutableMap<String, Object> getEnvironment();
 
   /**

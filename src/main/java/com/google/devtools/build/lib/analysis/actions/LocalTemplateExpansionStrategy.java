@@ -18,12 +18,13 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.util.StringUtilities;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 
-/** Strategy to perform tempate expansion locally */
+/** Strategy to perform template expansion locally. */
 public class LocalTemplateExpansionStrategy implements TemplateExpansionContext {
   public static final Class<LocalTemplateExpansionStrategy> TYPE =
       LocalTemplateExpansionStrategy.class;
@@ -46,7 +47,9 @@ public class LocalTemplateExpansionStrategy implements TemplateExpansionContext 
           .beginWriteOutputToFile(
               action, ctx, deterministicWriter, action.makeExecutable(), /*isRemotable=*/ true);
     } catch (IOException e) {
-      return SpawnContinuation.failedWithExecException(new EnvironmentalExecException(e));
+      return SpawnContinuation.failedWithExecException(
+          new EnvironmentalExecException(
+              e, FailureDetails.Execution.Code.LOCAL_TEMPLATE_EXPANSION_FAILURE));
     }
   }
 

@@ -32,9 +32,9 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
@@ -61,9 +61,6 @@ import com.google.devtools.build.lib.rules.ToolchainType.ToolchainTypeRule;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.repository.BindRule;
 import com.google.devtools.build.lib.rules.repository.WorkspaceBaseRule;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.common.options.Option;
@@ -76,6 +73,9 @@ import java.util.List;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Set of trimmable fragments for testing automatic trimming. */
 public final class TrimmableTestConfigurationFragments {
@@ -94,7 +94,7 @@ public final class TrimmableTestConfigurationFragments {
       throws LabelSyntaxException, IOException {
     scratch.file(
         path,
-        "toolchainTypeLabel = " + Printer.getPrinter().repr(toolchainTypeLabel),
+        "toolchainTypeLabel = " + Starlark.repr(toolchainTypeLabel),
         "def _impl(ctx):",
         "  ctx.actions.write(ctx.outputs.main, '')",
         "  files = depset(",
@@ -613,8 +613,19 @@ public final class TrimmableTestConfigurationFragments {
       }
 
       @Override
-      public BuildOptions patch(BuildOptions target, EventHandler eventHandler) {
-        BuildOptions output = target.clone();
+      public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+        return ImmutableSet.of(
+            AOptions.class,
+            BOptions.class,
+            COptions.class,
+            DOptions.class,
+            EOptions.class,
+            PlatformOptions.class);
+      }
+
+      @Override
+      public BuildOptions patch(BuildOptionsView target, EventHandler eventHandler) {
+        BuildOptionsView output = target.clone();
         if (alpha != null) {
           output.get(AOptions.class).alpha = alpha;
         }
@@ -639,7 +650,7 @@ public final class TrimmableTestConfigurationFragments {
         if (extraToolchains != null) {
           output.get(PlatformOptions.class).extraToolchains = extraToolchains;
         }
-        return output;
+        return output.underlying();
       }
     }
 
@@ -665,8 +676,7 @@ public final class TrimmableTestConfigurationFragments {
         throws InterruptedException, RuleErrorException, ActionConflictException {
       NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
       filesToBuild.addAll(ruleContext.getOutputArtifacts());
-      for (FileProvider dep :
-          ruleContext.getPrerequisites("deps", TransitionMode.TARGET, FileProvider.class)) {
+      for (FileProvider dep : ruleContext.getPrerequisites("deps", FileProvider.class)) {
         filesToBuild.addTransitive(dep.getFilesToBuild());
       }
       for (Artifact artifact : ruleContext.getOutputArtifacts()) {

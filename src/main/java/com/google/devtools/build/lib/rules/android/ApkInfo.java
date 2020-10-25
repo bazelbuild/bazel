@@ -13,14 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skylarkbuildapi.android.ApkInfoApi;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.starlarkbuildapi.android.ApkInfoApi;
+import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
 
 /** A provider for targets that produce an apk file. */
 @Immutable
@@ -38,20 +40,23 @@ public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
   @Nullable
   private final Artifact coverageMetadata;
   private final Artifact mergedManifest;
-  private final Artifact keystore;
+  private final ImmutableList<Artifact> signingKeys;
+  @Nullable private final Artifact signingLineage;
 
   ApkInfo(
       Artifact apk,
       Artifact unsignedApk,
       @Nullable Artifact coverageMetadata,
       Artifact mergedManifest,
-      Artifact keystore) {
+      List<Artifact> signingKeys,
+      @Nullable Artifact signingLineage) {
     super(PROVIDER);
     this.apk = apk;
     this.unsignedApk = unsignedApk;
     this.coverageMetadata = coverageMetadata;
     this.mergedManifest = mergedManifest;
-    this.keystore = keystore;
+    this.signingKeys = ImmutableList.copyOf(signingKeys);
+    this.signingLineage = signingLineage;
   }
 
   @Override
@@ -80,7 +85,18 @@ public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
   /* The keystore that was used to sign the apk returned from {@see getApk() */
   @Override
   public Artifact getKeystore() {
-    return keystore;
+    return signingKeys.get(0);
+  }
+
+  @Override
+  public ImmutableList<Artifact> getSigningKeys() {
+    return signingKeys;
+  }
+
+  @Nullable
+  @Override
+  public Artifact getSigningLineage() {
+    return signingLineage;
   }
 
   /** Provider for {@link ApkInfo}. */

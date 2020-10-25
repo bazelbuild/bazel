@@ -22,16 +22,15 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Value;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkValue;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -76,7 +75,7 @@ public final class DebuggerSerializationTest {
         .isEqualTo(
             Value.newBuilder()
                 .setLabel("order")
-                .setType("Traversal order")
+                .setType("string")
                 .setDescription("default")
                 .build());
     assertEqualIgnoringTypeDescriptionAndId(childValues.get(1), getValueProto("directs", children));
@@ -106,14 +105,13 @@ public final class DebuggerSerializationTest {
         .isEqualTo(
             Value.newBuilder()
                 .setLabel("order")
-                .setType("Traversal order")
+                .setType("string")
                 .setDescription("topological")
                 .build());
     assertEqualIgnoringTypeDescriptionAndId(
         childValues.get(1), getValueProto("directs", directChildren));
     assertEqualIgnoringTypeDescriptionAndId(
-        childValues.get(2),
-        getValueProto("transitives", ImmutableList.of(new NestedSetView<>(innerNestedSet))));
+        childValues.get(2), getValueProto("transitives", ImmutableList.of(innerNestedSet)));
   }
 
   @Test
@@ -267,10 +265,7 @@ public final class DebuggerSerializationTest {
     assertThat(value.getDescription()).isEqualTo(Starlark.repr(object));
   }
 
-  /**
-   * Type, description, and ID are implementation dependent (e.g. NestedSetView#directs returns a
-   * list instead of a set if there are no duplicates, which changes both 'type' and 'description').
-   */
+  // Type, description, and ID are implementation dependent.
   private void assertEqualIgnoringTypeDescriptionAndId(Value value1, Value value2) {
     assertThat(value1.getLabel()).isEqualTo(value2.getLabel());
 

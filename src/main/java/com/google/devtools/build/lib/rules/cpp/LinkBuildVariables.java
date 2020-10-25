@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import net.starlark.java.eval.EvalException;
 
 /** Enum covering all build variables we create for all various {@link CppLinkAction}. */
 public enum LinkBuildVariables {
@@ -80,7 +80,9 @@ public enum LinkBuildVariables {
   /** Path to the fdo instrument. */
   FDO_INSTRUMENT_PATH("fdo_instrument_path"),
   /** Path to the context sensitive fdo instrument. */
-  CS_FDO_INSTRUMENT_PATH("cs_fdo_instrument_path");
+  CS_FDO_INSTRUMENT_PATH("cs_fdo_instrument_path"),
+  /** Path to the Propeller Optimize linker profile artifact */
+  PROPELLER_OPTIMIZE_LD_PATH("propeller_optimize_ld_path");
 
   private final String variableName;
 
@@ -238,6 +240,12 @@ public enum LinkBuildVariables {
       buildVariables.addStringVariable(CS_FDO_INSTRUMENT_PATH.getVariableName(), csFdoInstrument);
     }
 
+    if (featureConfiguration.isEnabled(CppRuleClasses.PROPELLER_OPTIMIZE)
+        && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
+      buildVariables.addStringVariable(
+          PROPELLER_OPTIMIZE_LD_PATH.getVariableName(),
+          fdoContext.getPropellerOptimizeInputFile().getLdArtifact().getExecPathString());
+    }
     Iterable<String> userLinkFlagsWithLtoIndexingIfNeeded;
     if (!isLtoIndexing || cppConfiguration.useStandaloneLtoIndexingCommandLines()) {
       userLinkFlagsWithLtoIndexingIfNeeded = userLinkFlags;

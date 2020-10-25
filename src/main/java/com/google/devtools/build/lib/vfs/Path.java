@@ -666,7 +666,8 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
   /**
    * Deletes the file denoted by this path, not following symbolic links. Returns normally iff the
    * file doesn't exist after the call: true if this call deleted the file, false if the file
-   * already didn't exist. Throws an exception if the file could not be deleted for any reason.
+   * already didn't exist. Throws an exception if the file could not be deleted but was present
+   * prior to this call.
    *
    * @return true iff the file was actually deleted by this call
    * @throws IOException if the deletion failed but the file was present prior to the call
@@ -765,7 +766,11 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
   }
 
   /**
-   * Returns the digest of the file denoted by the current path, following symbolic links.
+   * Returns the digest of the file denoted by the current path, following symbolic links. Is not
+   * guaranteed to call {@link #getFastDigest} internally, even if a fast digest is likely
+   * available. Callers should prefer {@link DigestUtils#getDigestWithManualFallback} to this method
+   * unless they know that a fast digest is unavailable and do not need the other features
+   * (disk-read rate-limiting, global cache) that {@link DigestUtils} provides.
    *
    * @return a new byte array containing the file's digest
    * @throws IOException if the digest could not be computed for any reason
@@ -801,7 +806,7 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
         } else {
           hasher.putChar('-');
         }
-        hasher.putBytes(path.getDigest());
+        hasher.putBytes(DigestUtils.getDigestWithManualFallback(path, stat.getSize()));
       } else if (stat.isDirectory()) {
         hasher.putChar('d').putUnencodedChars(path.getDirectoryDigest());
       } else if (stat.isSymbolicLink()) {
@@ -815,7 +820,7 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
               } else {
                 hasher.putChar('-');
               }
-              hasher.putBytes(resolved.getDigest());
+              hasher.putBytes(DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(resolved));
             } else {
               // link to a non-file: include the link itself in the hash
               hasher.putChar('l').putUnencodedChars(link.toString());

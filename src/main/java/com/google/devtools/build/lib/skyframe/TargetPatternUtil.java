@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.ValueOrException;
@@ -54,10 +55,14 @@ public class TargetPatternUtil {
       Environment env, List<String> targetPatterns, FilteringPolicy filteringPolicy)
       throws InvalidTargetPatternException, InterruptedException {
 
+    if (targetPatterns.isEmpty()) {
+      return ImmutableList.of();
+    }
+
     // First parse the patterns, and throw any errors immediately.
     List<TargetPatternValue.TargetPatternKey> patternKeys = new ArrayList<>();
     for (TargetPatternValue.TargetPatternSkyKeyOrException keyOrException :
-        TargetPatternValue.keys(targetPatterns, filteringPolicy, "")) {
+        TargetPatternValue.keys(targetPatterns, filteringPolicy, PathFragment.EMPTY_FRAGMENT)) {
 
       try {
         patternKeys.add(keyOrException.getSkyKey());

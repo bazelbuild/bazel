@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
@@ -45,7 +47,6 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -61,10 +62,10 @@ import java.util.HashSet;
 import java.util.Set;
 import javax.annotation.Nullable;
 
-/**
- * This module provides the Sandbox spawn strategy.
- */
+/** This module provides the Sandbox spawn strategy. */
 public final class SandboxModule extends BlazeModule {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** Tracks whether we are issuing the very first build within this Bazel server instance. */
   private static boolean firstBuild = true;
@@ -98,8 +99,8 @@ public final class SandboxModule extends BlazeModule {
   @Nullable private TreeDeleter treeDeleter;
 
   /**
-   * Whether to remove the sandbox worker directories after a build or not. Useful for debugging
-   * to inspect the state of files on failures.
+   * Whether to remove the sandbox worker directories after a build or not. Useful for debugging to
+   * inspect the state of files on failures.
    */
   private boolean shouldCleanupSandboxBase;
 
@@ -141,14 +142,13 @@ public final class SandboxModule extends BlazeModule {
   @Override
   public void registerSpawnStrategies(
       SpawnStrategyRegistry.Builder registryBuilder, CommandEnvironment env)
-      throws AbruptExitException {
+      throws AbruptExitException, InterruptedException {
     checkNotNull(env, "env not initialized; was beforeCommand called?");
     try {
       setup(env, registryBuilder);
     } catch (IOException e) {
       throw new AbruptExitException(
           DetailedExitCode.of(
-              ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
               FailureDetail.newBuilder()
                   .setMessage(String.format("Failed to initialize sandbox: %s", e.getMessage()))
                   .setSandbox(
@@ -169,7 +169,7 @@ public final class SandboxModule extends BlazeModule {
    * @return true if windows-sandbox can and should be used; false otherwise
    * @throws IOException if there are problems trying to determine the status of windows-sandbox
    */
-  private boolean shouldUseWindowsSandbox(TriState requested, PathFragment binary)
+  private static boolean shouldUseWindowsSandbox(TriState requested, PathFragment binary)
       throws IOException {
     switch (requested) {
       case AUTO:
@@ -191,7 +191,7 @@ public final class SandboxModule extends BlazeModule {
   }
 
   private void setup(CommandEnvironment cmdEnv, SpawnStrategyRegistry.Builder builder)
-      throws IOException {
+      throws IOException, InterruptedException {
     SandboxOptions options = checkNotNull(env.getOptions().getOptions(SandboxOptions.class));
     sandboxBase = computeSandboxBase(options, env);
 
@@ -279,6 +279,8 @@ public final class SandboxModule extends BlazeModule {
     boolean linuxSandboxSupported = LinuxSandboxedSpawnRunner.isSupported(cmdEnv);
     boolean darwinSandboxSupported = DarwinSandboxedSpawnRunner.isSupported(cmdEnv);
 
+    boolean verboseFailures =
+        checkNotNull(cmdEnv.getOptions().getOptions(ExecutionOptions.class)).verboseFailures;
     // This works on most platforms, but isn't the best choice, so we put it first and let later
     // platform-specific sandboxing strategies become the default.
     if (processWrapperSupported) {
@@ -294,7 +296,7 @@ public final class SandboxModule extends BlazeModule {
                   treeDeleter));
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
-          new ProcessWrapperSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner),
+          new ProcessWrapperSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, verboseFailures),
           "sandboxed",
           "processwrapper-sandbox");
     }
@@ -321,12 +323,16 @@ public final class SandboxModule extends BlazeModule {
                     treeDeleter));
         spawnRunners.add(spawnRunner);
         builder.registerStrategy(
-            new DockerSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner), "docker");
+            new DockerSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, verboseFailures),
+            "docker");
       }
     } else if (options.dockerVerbose) {
-      cmdEnv.getReporter().handle(Event.info(
-          "Docker sandboxing disabled. Use the '--experimental_enable_docker_sandbox' command "
-          + "line option to enable it"));
+      cmdEnv
+          .getReporter()
+          .handle(
+              Event.info(
+                  "Docker sandboxing disabled. Use the '--experimental_enable_docker_sandbox'"
+                      + " command line option to enable it"));
     }
 
     // This is the preferred sandboxing strategy on Linux.
@@ -344,7 +350,7 @@ public final class SandboxModule extends BlazeModule {
                   treeDeleter));
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
-          new LinuxSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner),
+          new LinuxSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, verboseFailures),
           "sandboxed",
           "linux-sandbox");
     }
@@ -363,7 +369,7 @@ public final class SandboxModule extends BlazeModule {
                   treeDeleter));
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
-          new DarwinSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner),
+          new DarwinSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, verboseFailures),
           "sandboxed",
           "darwin-sandbox");
     }
@@ -376,7 +382,7 @@ public final class SandboxModule extends BlazeModule {
                   helpers, cmdEnv, timeoutKillDelay, windowsSandboxPath));
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
-          new WindowsSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner),
+          new WindowsSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, verboseFailures),
           "sandboxed",
           "windows-sandbox");
     }
@@ -524,6 +530,27 @@ public final class SandboxModule extends BlazeModule {
     unmountSandboxfs();
   }
 
+  /**
+   * Best-effort cleanup of the sandbox base assuming all per-spawn contents have been removed.
+   *
+   * <p>When this gets called, the individual trees of each spawn should have been cleaned up but we
+   * may be left with the top-level subdirectories used by each sandboxed spawn runner (e.g. {@code
+   * darwin-sandbox}) and the sandbox base itself. Try to delete those so that a Bazel server
+   * restart doesn't print a spurious {@code Deleting stale sandbox base} message.
+   */
+  private static void cleanupSandboxBaseTop(Path sandboxBase) {
+    try {
+      // This might be called twice for a given sandbox base, so don't bother recording error
+      // messages if any of the files we try to delete don't exist.
+      for (Path leftover : sandboxBase.getDirectoryEntries()) {
+        leftover.delete();
+      }
+      sandboxBase.delete();
+    } catch (IOException e) {
+      logger.atWarning().withCause(e).log("Failed to clean up sandbox base %s", sandboxBase);
+    }
+  }
+
   @Override
   public void afterCommand() {
     checkNotNull(env, "env not initialized; was beforeCommand called?");
@@ -555,7 +582,11 @@ public final class SandboxModule extends BlazeModule {
           sandboxfsProcess == null,
           "sandboxfs instance should have been shut down at this "
               + "point; were the buildComplete/buildInterrupted events sent?");
-      sandboxBase = null;
+
+      cleanupSandboxBaseTop(sandboxBase);
+      // We intentionally keep sandboxBase around, without resetting it to null, in case we have
+      // asynchronous deletions going on. In that case, we'd still want to retry this during
+      // shutdown.
     }
 
     spawnRunners.clear();
@@ -577,6 +608,10 @@ public final class SandboxModule extends BlazeModule {
         treeDeleter = null; // Avoid potential reexecution if we crash.
       }
     }
+
+    if (sandboxBase != null) {
+      cleanupSandboxBaseTop(sandboxBase);
+    }
   }
 
   @Override
@@ -585,7 +620,7 @@ public final class SandboxModule extends BlazeModule {
   }
 
   @Override
-  public void blazeShutdownOnCrash() {
+  public void blazeShutdownOnCrash(DetailedExitCode exitCode) {
     commonShutdown();
   }
 }

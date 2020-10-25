@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFil
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -45,7 +46,7 @@ import org.junit.runners.JUnit4;
 public class NinjaBuildTest extends BuildViewTestCase {
 
   @Override
-  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
     builder.addRuleDefinition(new NinjaGraphRule());
@@ -55,7 +56,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
 
   @Before
   public void setUp() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_ninja_actions");
+    setBuildLanguageOptions("--experimental_ninja_actions");
   }
 
   @Test
@@ -181,7 +182,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
     NinjaAction ninjaAction = (NinjaAction) Iterables.getOnlyElement(actions);
 
     // The build description is expanded with the file level variable.
-    assertThat(ninjaAction.getProgressMessage()).isEqualTo("foo bar baz qux");
+    assertThat(ninjaAction.getProgressMessage()).isEqualTo("foo bar baz qux ");
   }
 
   @Test
@@ -492,7 +493,47 @@ public class NinjaBuildTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCreateOutputSymlinkArtifacts() throws Exception {
+  public void testCreateOutputSymlinkArtifactsInTopLevelDirectory() throws Exception {
+    // output root: <cwd>/out/
+    // working directory: <cwd>
+    rewriteWorkspace("workspace(name = 'test')", "toplevel_output_directories(paths = ['out'])");
+
+    scratch.file(
+        "out/build.ninja",
+        "rule symlink_rule",
+        "  command = ln -s fictive-file ${out}",
+        "  symlink_outputs = $out",
+        "build out/dangling_symlink: symlink_rule");
+
+    ConfiguredTarget configuredTarget =
+        scratchConfiguredTarget(
+            "",
+            "ninja_target",
+            "ninja_graph(name = 'graph', output_root = 'out',",
+            " main = 'out/build.ninja')",
+            "ninja_build(name = 'ninja_target', ninja_graph = 'graph',",
+            " output_groups= {'main': ['out/dangling_symlink']})");
+    assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
+    RuleConfiguredTarget ninjaConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
+    ImmutableList<ActionAnalysisMetadata> actions = ninjaConfiguredTarget.getActions();
+    assertThat(actions).hasSize(1);
+
+    ActionAnalysisMetadata action = Iterables.getOnlyElement(actions);
+    Artifact primaryOutput = action.getPrimaryOutput();
+    assertThat(primaryOutput.isSymlink()).isTrue();
+    assertThat(action).isInstanceOf(NinjaAction.class);
+
+    List<CommandLineAndParamFileInfo> commandLines =
+        ((NinjaAction) action).getCommandLines().getCommandLines();
+    assertThat(commandLines).hasSize(1);
+    assertThat(commandLines.get(0).commandLine.toString())
+        .endsWith("ln -s fictive-file out/dangling_symlink");
+  }
+
+  @Test
+  public void testCreateOutputSymlinkArtifactsInWorkingDirectory() throws Exception {
+    // output root: <cwd>/build_config
+    // working directory: <cwd>/build_config
     rewriteWorkspace(
         "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 
@@ -500,6 +541,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
         "build_config/build.ninja",
         "rule symlink_rule",
         "  command = ln -s fictive-file ${out}",
+        "  symlink_outputs = $out",
         "build dangling_symlink: symlink_rule");
 
     ConfiguredTarget configuredTarget =
@@ -508,8 +550,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
             "ninja_target",
             "ninja_graph(name = 'graph', output_root = 'build_config',",
             " working_directory = 'build_config',",
-            " main = 'build_config/build.ninja',",
-            " output_root_symlinks = ['dangling_symlink'])",
+            " main = 'build_config/build.ninja')",
             "ninja_build(name = 'ninja_target', ninja_graph = 'graph',",
             " output_groups= {'main': ['dangling_symlink']})");
     assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
@@ -541,6 +582,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
         "rule cat",
         "  command = cat ${in} > ${out}",
         "build dangling_symlink: symlink_rule",
+        "  symlink_outputs = dangling_symlink",
         "build mybuild: cat dangling_symlink");
 
     ConfiguredTarget configuredTarget =
@@ -549,8 +591,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
             "ninja_target",
             "ninja_graph(name = 'graph', output_root = 'build_config',",
             " working_directory = 'build_config',",
-            " main = 'build_config/build.ninja',",
-            " output_root_symlinks = ['dangling_symlink'])",
+            " main = 'build_config/build.ninja')",
             "ninja_build(name = 'ninja_target', ninja_graph = 'graph',",
             " output_groups= {'main': ['mybuild']})");
     assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
@@ -650,5 +691,170 @@ public class NinjaBuildTest extends BuildViewTestCase {
                     "ninja_build(name = 'ninja_target', ninja_graph = 'graph',",
                     " output_groups= {'main': ['build_config/out.txt']})"));
     assertThat(throwable).hasMessageThat().contains(message);
+  }
+
+  /**
+   * Tests that outputs from validation actions are correctly read from Ninja files and added to the
+   * validation output groups. Note that validation inputs syntax ("|@") is specific to AOSP's
+   * implementation of Ninja.
+   */
+  @Test
+  public void testNinjaValidationInputs() throws Exception {
+    rewriteWorkspace(
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
+
+    scratch.file("build_config/input.txt", "World");
+    scratch.file("build_config/validation_input.txt", "6\n7\n8");
+    scratch.file(
+        "build_config/build.ninja",
+        "rule validate",
+        "  command = grep 7 ${in} > ${out}",
+        "  description = Validating input",
+        "rule echo",
+        "  command = echo \"Hello $$(cat ${in})!\" > ${out}",
+        "  description = Creating ${out}",
+        "build build_config/validation_output.txt: validate build_config/validation_input.txt",
+        "build build_config/hello.txt: echo build_config/input.txt "
+            + "|@ build_config/validation_output.txt",
+        "build build_config/hello2.txt: echo build_config/input.txt");
+
+    // Working directory is workspace root.
+    RuleConfiguredTarget configuredTarget =
+        (RuleConfiguredTarget)
+            scratchConfiguredTarget(
+                "",
+                "ninja_target",
+                "ninja_graph(name = 'graph', output_root = 'build_config',",
+                " main = 'build_config/build.ninja',",
+                " output_root_inputs = ['input.txt', 'validation_input.txt'])",
+                "ninja_build(name = 'ninja_target', ninja_graph = 'graph',",
+                " output_groups = {'main': ['build_config/hello.txt']})",
+                "ninja_build(name = 'ninja_target2', ninja_graph = 'graph',",
+                " output_groups = {'main': ['build_config/hello2.txt']})");
+
+    OutputGroupInfo outputGroupInfo = OutputGroupInfo.get(configuredTarget);
+    List<Artifact> validationArtifacts =
+        outputGroupInfo.getOutputGroup(OutputGroupInfo.VALIDATION).toList();
+    assertThat(validationArtifacts).hasSize(1);
+    assertThat(validationArtifacts.get(0).getExecPathString())
+        .isEqualTo("build_config/validation_output.txt");
+
+    ActionAnalysisMetadata echoAction = getGeneratingAction(configuredTarget, "hello.txt");
+
+    // Sanity check that we're specifying the paths correctly and double check that we have the
+    // right action.
+    assertThat(actionInputsToPaths(echoAction.getInputs())).contains("build_config/input.txt");
+    // The validation output should not be in the direct inputs of the action which depends on it,
+    // so that this action is not blocked on generating that validation input.
+    assertThat(actionInputsToPaths(echoAction.getInputs()))
+        .doesNotContain("build_config/validation_output.txt");
+
+    // ninja_target2 does not have a ninja build rule with a validation input, so it should not
+    // have any validation outputs in its validation output group.
+    RuleConfiguredTarget targetNoValidations =
+        (RuleConfiguredTarget) getConfiguredTarget("//:ninja_target2");
+    assertThat(
+            OutputGroupInfo.get(targetNoValidations)
+                .getOutputGroup(OutputGroupInfo.VALIDATION)
+                .toList())
+        .isEmpty();
+  }
+
+  @Test
+  public void testNinjaTransitiveValidationInputs() throws Exception {
+    rewriteWorkspace(
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
+
+    scratch.file("build_config/input.txt", "World");
+    scratch.file("build_config/validation_input.txt", "6\n7\n8");
+    scratch.file(
+        "build_config/build.ninja",
+        "rule validate",
+        "  command = grep 7 ${in} > ${out}",
+        "  description = Validating input",
+        "rule echo",
+        "  command = echo \"Hello $$(cat ${in})!\" > ${out}",
+        "  description = Creating ${out}",
+        "build build_config/validation_output.txt: validate build_config/validation_input.txt",
+        "build build_config/hello.txt: echo build_config/input.txt "
+            + "|@ build_config/validation_output.txt",
+        "build build_config/hello2.txt: echo build_config/hello.txt");
+
+    // Working directory is workspace root.
+    RuleConfiguredTarget configuredTarget =
+        (RuleConfiguredTarget)
+            scratchConfiguredTarget(
+                "",
+                "ninja_target",
+                "ninja_graph(name = 'graph', output_root = 'build_config',",
+                " main = 'build_config/build.ninja',",
+                " output_root_inputs = ['input.txt', 'validation_input.txt'])",
+                "ninja_build(name = 'ninja_target', ninja_graph = 'graph',",
+                // requesting hello2, whose generating action itself does not have a validation
+                // action
+                " output_groups = {'main': ['build_config/hello2.txt']})");
+
+    OutputGroupInfo outputGroupInfo = OutputGroupInfo.get(configuredTarget);
+    List<Artifact> validationArtifacts =
+        outputGroupInfo.getOutputGroup(OutputGroupInfo.VALIDATION).toList();
+    assertThat(validationArtifacts).hasSize(1);
+    // The validation output group should still have the output of the validation action even if
+    // that action is only in the transitive deps of the requested top-level artifact.
+    assertThat(validationArtifacts.get(0).getExecPathString())
+        .isEqualTo("build_config/validation_output.txt");
+  }
+
+  /**
+   * Tests that the validation outputs from two independent build graphs in a ninja file are all
+   * registered in the validation output group when those graphs are referenced from a nina_build
+   * target.
+   */
+  @Test
+  public void testNinjaValidationInputsIndependentValidationsAdded() throws Exception {
+    rewriteWorkspace(
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
+
+    scratch.file("build_config/input.txt", "World");
+    scratch.file("build_config/validation_input.txt", "6\n7\n8");
+    scratch.file("build_config/validation_input2.txt", "9\n0\n1");
+    scratch.file(
+        "build_config/build.ninja",
+        "rule validate",
+        "  command = grep 7 ${in} > ${out}",
+        "  description = Validating input",
+        "rule echo",
+        "  command = echo \"Hello $$(cat ${in})!\" > ${out}",
+        "  description = Creating ${out}",
+        // two validation outputs
+        "build build_config/validation_output.txt: validate build_config/validation_input.txt",
+        "build build_config/validation_output2.txt: validate build_config/validation_input2.txt",
+        // two build rules that consume validation inputs
+        "build build_config/hello.txt: echo build_config/input.txt "
+            + "|@ build_config/validation_output.txt",
+        "build build_config/hello2.txt: echo build_config/input.txt "
+            + "|@ build_config/validation_output2.txt");
+
+    // Working directory is workspace root.
+    RuleConfiguredTarget configuredTarget =
+        (RuleConfiguredTarget)
+            scratchConfiguredTarget(
+                "",
+                "ninja_target",
+                "ninja_graph(name = 'graph', output_root = 'build_config',",
+                " main = 'build_config/build.ninja',",
+                " output_root_inputs = ['input.txt', 'validation_input.txt',"
+                    + " 'validation_input2.txt'])",
+                "ninja_build(name = 'ninja_target', ninja_graph = 'graph',",
+                " output_groups = {",
+                "   'out1': ['build_config/hello.txt'],",
+                "   'out2': ['build_config/hello2.txt'],",
+                " })");
+
+    OutputGroupInfo outputGroupInfo = OutputGroupInfo.get(configuredTarget);
+    List<Artifact> validationArtifacts =
+        outputGroupInfo.getOutputGroup(OutputGroupInfo.VALIDATION).toList();
+    assertThat(ActionsTestUtil.execPaths(validationArtifacts))
+        .containsExactly(
+            "build_config/validation_output.txt", "build_config/validation_output2.txt");
   }
 }

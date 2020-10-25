@@ -23,6 +23,8 @@ import com.google.common.collect.MultimapBuilder;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.test.TestProvider;
+import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
@@ -564,11 +566,14 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
     PathConverter pathConverter = converters.pathConverter();
+    TestParams testParams = target.getProvider(TestProvider.class).getTestParams();
     BuildEventStreamProtos.TestSummary.Builder summaryBuilder =
         BuildEventStreamProtos.TestSummary.newBuilder()
             .setOverallStatus(BuildEventStreamerUtils.bepStatus(status))
             .setTotalNumCached(getNumCached())
             .setTotalRunCount(totalRuns())
+            .setRunCount(testParams.getRuns())
+            .setShardCount(testParams.getShards())
             .setFirstStartTimeMillis(firstStartTimeMillis)
             .setLastStopTimeMillis(lastStopTimeMillis)
             .setTotalRunDurationMillis(totalRunDurationMillis);

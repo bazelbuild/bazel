@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -33,7 +34,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -47,6 +47,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.eval.StarlarkValue;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -547,11 +548,16 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     public static final PatchTransition CLEAR_IRRELEVANT =
         new PatchTransition() {
           @Override
-          public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
-            BuildOptions cloned = options.clone();
+          public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+            return ImmutableSet.of(DiffResetOptions.class);
+          }
+
+          @Override
+          public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
+            BuildOptionsView cloned = options.clone();
             cloned.get(DiffResetOptions.class).probablyIrrelevantOption = "(cleared)";
             cloned.get(DiffResetOptions.class).alsoIrrelevantOption = "(cleared)";
-            return cloned;
+            return cloned.underlying();
           }
         };
 

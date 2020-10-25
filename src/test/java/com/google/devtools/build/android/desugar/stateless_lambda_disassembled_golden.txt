@@ -4,14 +4,14 @@ final class com.google.devtools.build.android.desugar.testdata.Lambda$$Lambda$0 
   private com.google.devtools.build.android.desugar.testdata.Lambda$$Lambda$0();
     Code:
        0: aload_0
-       1: invokespecial #10                 // Method java/lang/Object."<init>":()V
+       1: invokespecial #12                 // Method java/lang/Object."<init>":()V
        4: return
 
   public boolean test(java.lang.Object);
     Code:
        0: aload_1
-       1: checkcast     #14                 // class java/lang/String
-       4: invokestatic  #20                 // Method com/google/devtools/build/android/desugar/testdata/Lambda.lambda$as$0$Lambda:(Ljava/lang/String;)Z
+       1: checkcast     #16                 // class java/lang/String
+       4: invokestatic  #22                 // Method com/google/devtools/build/android/desugar/testdata/Lambda.lambda$as$0$Lambda:(Ljava/lang/String;)Z
        7: ireturn
 
   static {};

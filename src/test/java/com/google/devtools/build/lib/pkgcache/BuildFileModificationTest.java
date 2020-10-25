@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -29,7 +28,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -38,15 +37,16 @@ import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.OptionsParser;
 import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -99,19 +99,18 @@ public class BuildFileModificationTest extends FoundationTestCase {
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
-                Optional.<RootedPath>absent())));
+                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     OptionsParser parser =
         OptionsParser.builder()
-            .optionsClasses(PackageOptions.class, StarlarkSemanticsOptions.class)
+            .optionsClasses(PackageOptions.class, BuildLanguageOptions.class)
             .build();
     setUpSkyframe(
-        parser.getOptions(PackageOptions.class), parser.getOptions(StarlarkSemanticsOptions.class));
+        parser.getOptions(PackageOptions.class), parser.getOptions(BuildLanguageOptions.class));
   }
 
   private void setUpSkyframe(
-      PackageOptions packageOptions, StarlarkSemanticsOptions starlarkSemanticsOptions) {
+      PackageOptions packageOptions, BuildLanguageOptions buildLanguageOptions) {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             null,
@@ -125,7 +124,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
-        starlarkSemanticsOptions,
+        buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(clock));
@@ -135,7 +134,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
 
   @Override
   protected FileSystem createFileSystem() {
-    return new InMemoryFileSystem(clock);
+    return new InMemoryFileSystem(clock, DigestHashFunction.SHA256);
   }
 
   private void invalidatePackages() throws InterruptedException {

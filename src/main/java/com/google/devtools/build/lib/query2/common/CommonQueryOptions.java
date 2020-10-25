@@ -23,12 +23,13 @@ import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
-/** Options shared between blaze query and blaze cquery. */
+/** Options shared between blaze query implementations. */
 public class CommonQueryOptions extends OptionsBase {
 
   @Option(
@@ -48,6 +49,39 @@ public class CommonQueryOptions extends OptionsBase {
               + " build to break if targets parsed from the query expression are not buildable"
               + " with top-level options.")
   public List<String> universeScope;
+
+  @Option(
+      name = "line_terminator_null",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help = "Whether each format is terminated with \\0 instead of newline.")
+  public boolean lineTerminatorNull;
+
+  /** Ugly workaround since line terminator option default has to be constant expression. */
+  public String getLineTerminator() {
+    if (lineTerminatorNull) {
+      return "\0";
+    }
+
+    return System.lineSeparator();
+  }
+
+  @Option(
+      name = "infer_universe_scope",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "If set and --universe_scope is unset, then a value of --universe_scope will be inferred"
+              + " as the list of unique target patterns in the query expression. Note that the"
+              + " --universe_scope value inferred for a query expression that uses universe-scoped"
+              + " functions (e.g.`allrdeps`) may not be what you want, so you should use this"
+              + " option only if you know what you are doing. See"
+              + " https://docs.bazel.build/versions/master/query.html#sky-query for details and"
+              + " examples. If --universe_scope is set, then this option's value is ignored. Note:"
+              + " this option applies only to `query` (i.e. not `cquery`).")
+  public boolean inferUniverseScope;
 
   @Option(
       name = "tool_deps",
@@ -92,6 +126,16 @@ public class CommonQueryOptions extends OptionsBase {
               + "all the \"nodep\" attributes in the build language.")
   public boolean includeNoDepDeps;
 
+  @Option(
+      name = "include_aspects",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "aquery, cquery: whether to include aspect-generated actions in the output. "
+              + "query: no-op (aspects are always followed).")
+  public boolean useAspects;
+
   /** Return the current options as a set of QueryEnvironment settings. */
   public Set<Setting> toSettings() {
     Set<Setting> settings = EnumSet.noneOf(Setting.class);
@@ -104,8 +148,31 @@ public class CommonQueryOptions extends OptionsBase {
     if (!includeNoDepDeps) {
       settings.add(Setting.NO_NODEP_DEPS);
     }
+    if (useAspects) {
+      settings.add(Setting.INCLUDE_ASPECTS);
+    }
     return settings;
   }
+
+  ///////////////////////////////////////////////////////////
+  // LOCATION OUTPUT FORMATTER OPTIONS                     //
+  ///////////////////////////////////////////////////////////
+
+  // TODO(tanzhengwei): Clean up in next major release
+  @Option(
+      name = "incompatible_display_source_file_location",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "False by default, displays the target of the source file. "
+              + "If true, displays the location of line 1 of source files in location outputs. "
+              + "This flag only exists for migration purposes.")
+  public boolean displaySourceFileLocation;
 
   ///////////////////////////////////////////////////////////
   // PROTO OUTPUT FORMATTER OPTIONS                        //
@@ -180,6 +247,26 @@ public class CommonQueryOptions extends OptionsBase {
       help = "Whether or not to calculate and populate the $internal_attr_hash attribute.")
   public boolean protoIncludeSyntheticAttributeHash;
 
+  @Option(
+      name = "proto:instantiation_stack",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Populate the instantiation call stack of each rule. "
+              + "Note that this requires the stack to be present")
+  public boolean protoIncludeInstantiationStack;
+
+  @Option(
+      name = "proto:definition_stack",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Populate the definition_stack proto field, which records for each rule instance the "
+              + "Starlark call stack at the moment the rule's class was defined.")
+  public boolean protoIncludeDefinitionStack;
+
   /** An enum converter for {@code AspectResolver.Mode} . Should be used internally only. */
   public static class AspectResolutionModeConverter extends EnumConverter<Mode> {
     public AspectResolutionModeConverter() {
@@ -204,4 +291,30 @@ public class CommonQueryOptions extends OptionsBase {
               + "precise mode is not completely precise: the decision whether to compute an aspect "
               + "is decided in the analysis phase, which is not run during 'bazel query'.")
   public AspectResolver.Mode aspectDeps;
+
+  ///////////////////////////////////////////////////////////
+  // GRAPH OUTPUT FORMATTER OPTIONS                        //
+  ///////////////////////////////////////////////////////////
+
+  @Option(
+      name = "graph:node_limit",
+      defaultValue = "512",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "The maximum length of the label string for a graph node in the output.  Longer labels"
+              + " will be truncated; -1 means no truncation.  This option is only applicable to"
+              + " --output=graph.")
+  public int graphNodeStringLimit;
+
+  @Option(
+      name = "graph:factored",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "If true, then the graph will be emitted 'factored', i.e. topologically-equivalent nodes "
+              + "will be merged together and their labels concatenated. This option is only "
+              + "applicable to --output=graph.")
+  public boolean graphFactored;
 }

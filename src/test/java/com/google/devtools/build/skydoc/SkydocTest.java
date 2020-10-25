@@ -22,9 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase; // a bad dependency!
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.StarlarkFunction;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skydoc.SkydocMain.StarlarkEvaluationException;
@@ -40,6 +37,9 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Star
 import java.io.IOException;
 import java.util.Map;
 import java.util.stream.Collectors;
+import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.syntax.ParserInput;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -62,7 +62,7 @@ public final class SkydocTest extends BuildViewTestCase {
               public ParserInput inputSource(String pathString) throws IOException {
                 Path path = fileSystem.getPath("/" + pathString);
                 byte[] bytes = FileSystemUtils.asByteSource(path).read();
-                return ParserInput.create(bytes, path.toString());
+                return ParserInput.fromLatin1(bytes, path.toString());
               }
 
               @Override
@@ -112,7 +112,7 @@ public final class SkydocTest extends BuildViewTestCase {
         "    doc = 'This is my rule. It does stuff.',",
         "    implementation = rule_impl,",
         "    attrs = {",
-        "        'a': attr.label(mandatory=True, allow_files=True, single_file=True),",
+        "        'a': attr.label(mandatory=True, allow_single_file=True),",
         "        'b': attr.string_dict(mandatory=True),",
         "        'c': attr.output(mandatory=True),",
         "        'd': attr.bool(default=False, mandatory=False),",

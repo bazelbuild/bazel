@@ -26,6 +26,7 @@ import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -35,9 +36,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
@@ -61,7 +60,7 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
 
   private static final String DEVICE_BROKER_TYPE = "WRAPPED_EMULATOR";
 
-  static final String WHITELIST_NAME = "android_device";
+  static final String ALLOWLIST_NAME = "android_device";
 
   // Min resolution
   private static final int MIN_HORIZONTAL = 240;
@@ -92,7 +91,7 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     androidSemantics.checkForMigrationTag(ruleContext);
-    checkWhitelist(ruleContext);
+    checkAllowlist(ruleContext);
     Artifact executable = ruleContext.createOutputArtifact();
     Artifact metadata =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_DEVICE_EMULATOR_METADATA);
@@ -156,8 +155,8 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
         .build();
   }
 
-  private static void checkWhitelist(RuleContext ruleContext) throws RuleErrorException {
-    if (!Whitelist.isAvailable(ruleContext, WHITELIST_NAME)) {
+  private static void checkAllowlist(RuleContext ruleContext) throws RuleErrorException {
+    if (!Allowlist.isAvailable(ruleContext, ALLOWLIST_NAME)) {
       ruleContext.throwWithRuleError("The android_device rule may not be used in this package");
     }
   }
@@ -203,34 +202,30 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
         RuleContext ruleContext, ImmutableMap<String, String> executionInfo) {
       this.ruleContext = ruleContext;
       this.constraints = executionInfo;
-      horizontalResolution = ruleContext.attributes().get("horizontal_resolution", Type.INTEGER);
-      verticalResolution = ruleContext.attributes().get("vertical_resolution", Type.INTEGER);
-      ram = ruleContext.attributes().get("ram", Type.INTEGER);
-      density = ruleContext.attributes().get("screen_density", Type.INTEGER);
-      cache = ruleContext.attributes().get("cache", Type.INTEGER);
-      vmHeap = ruleContext.attributes().get("vm_heap", Type.INTEGER);
+      horizontalResolution =
+          ruleContext.attributes().get("horizontal_resolution", Type.INTEGER).toIntUnchecked();
+      verticalResolution =
+          ruleContext.attributes().get("vertical_resolution", Type.INTEGER).toIntUnchecked();
+      ram = ruleContext.attributes().get("ram", Type.INTEGER).toIntUnchecked();
+      density = ruleContext.attributes().get("screen_density", Type.INTEGER).toIntUnchecked();
+      cache = ruleContext.attributes().get("cache", Type.INTEGER).toIntUnchecked();
+      vmHeap = ruleContext.attributes().get("vm_heap", Type.INTEGER).toIntUnchecked();
 
       defaultProperties =
-          Optional.fromNullable(
-              ruleContext.getPrerequisiteArtifact("default_properties", TransitionMode.HOST));
-      adb = ruleContext.getPrerequisiteArtifact("$adb", TransitionMode.HOST);
-      emulatorArm = ruleContext.getPrerequisiteArtifact("$emulator_arm", TransitionMode.HOST);
-      emulatorX86 = ruleContext.getPrerequisiteArtifact("$emulator_x86", TransitionMode.HOST);
-      adbStatic = ruleContext.getPrerequisiteArtifact("$adb_static", TransitionMode.HOST);
-      emulatorX86Bios =
-          ruleContext.getPrerequisiteArtifacts("$emulator_x86_bios", TransitionMode.HOST).list();
-      xvfbSupportFiles =
-          ruleContext.getPrerequisiteArtifacts("$xvfb_support", TransitionMode.HOST).list();
-      mksdcard = ruleContext.getPrerequisiteArtifact("$mksd", TransitionMode.HOST);
-      snapshotFs = ruleContext.getPrerequisiteArtifact("$empty_snapshot_fs", TransitionMode.HOST);
-      unifiedLauncher =
-          ruleContext.getExecutablePrerequisite("$unified_launcher", TransitionMode.HOST);
-      androidRuntestDeps =
-          ruleContext.getPrerequisiteArtifacts("$android_runtest", TransitionMode.HOST).list();
+          Optional.fromNullable(ruleContext.getPrerequisiteArtifact("default_properties"));
+      adb = ruleContext.getPrerequisiteArtifact("$adb");
+      emulatorArm = ruleContext.getPrerequisiteArtifact("$emulator_arm");
+      emulatorX86 = ruleContext.getPrerequisiteArtifact("$emulator_x86");
+      adbStatic = ruleContext.getPrerequisiteArtifact("$adb_static");
+      emulatorX86Bios = ruleContext.getPrerequisiteArtifacts("$emulator_x86_bios").list();
+      xvfbSupportFiles = ruleContext.getPrerequisiteArtifacts("$xvfb_support").list();
+      mksdcard = ruleContext.getPrerequisiteArtifact("$mksd");
+      snapshotFs = ruleContext.getPrerequisiteArtifact("$empty_snapshot_fs");
+      unifiedLauncher = ruleContext.getExecutablePrerequisite("$unified_launcher");
+      androidRuntestDeps = ruleContext.getPrerequisiteArtifacts("$android_runtest").list();
       androidRuntest =
           androidRuntestDeps.stream().filter(Artifact::isSourceArtifact).collect(onlyElement());
-      testingShbaseDeps =
-          ruleContext.getPrerequisiteArtifacts("$testing_shbase", TransitionMode.HOST).list();
+      testingShbaseDeps = ruleContext.getPrerequisiteArtifacts("$testing_shbase").list();
       testingShbase =
           testingShbaseDeps
               .stream()
@@ -239,12 +234,11 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
               .collect(onlyElement());
 
       // may be empty
-      platformApks =
-          ruleContext.getPrerequisiteArtifacts("platform_apks", TransitionMode.TARGET).list();
-      sdkPath = ruleContext.getPrerequisiteArtifact("$sdk_path", TransitionMode.HOST);
+      platformApks = ruleContext.getPrerequisiteArtifacts("platform_apks").list();
+      sdkPath = ruleContext.getPrerequisiteArtifact("$sdk_path");
 
       TransitiveInfoCollection systemImagesAndSourceProperties =
-          ruleContext.getPrerequisite("system_image", TransitionMode.TARGET);
+          ruleContext.getPrerequisite("system_image");
       if (ruleContext.hasErrors()) {
         return;
       }

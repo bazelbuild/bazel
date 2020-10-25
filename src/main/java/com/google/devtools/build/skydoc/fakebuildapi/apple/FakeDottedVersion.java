@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.apple;
 
-import com.google.devtools.build.lib.skylarkbuildapi.apple.DottedVersionApi;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.DottedVersionApi;
+import net.starlark.java.eval.Printer;
 
 /**
  * Fake implementation of {@link DottedVersionApi}.
@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.syntax.Printer;
 public class FakeDottedVersion implements DottedVersionApi<FakeDottedVersion> {
 
   @Override
-  public int compareTo_skylark(FakeDottedVersion other) {
+  public int compareTo_starlark(FakeDottedVersion other) {
     return 0;
   }
 

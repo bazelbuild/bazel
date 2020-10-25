@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler.OutputType;
+import com.google.devtools.build.lib.skyframe.actiongraph.v2.InvalidAqueryOutputFormatException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.protobuf.TextFormat;
@@ -75,12 +76,11 @@ public final class AqueryBuildTool extends PostAnalysisQueryBuildTool<Configured
               : new PrintStream(queryRuntimeHelper.getOutputStreamForQueryOutput());
 
       if (aqueryOptions.protoV2) {
-        AqueryOutputHandler aqueryOutputHandler =
+        try (AqueryOutputHandler aqueryOutputHandler =
             ActionGraphProtoV2OutputFormatterCallback.constructAqueryOutputHandler(
                 OutputType.fromString(aqueryOptions.outputFormat),
                 queryRuntimeHelper.getOutputStreamForQueryOutput(),
-                printStream);
-        try {
+                printStream)) {
           ActionGraphDump actionGraphDump =
               new ActionGraphDump(
                   aqueryOptions.includeCommandline,
@@ -90,10 +90,15 @@ public final class AqueryBuildTool extends PostAnalysisQueryBuildTool<Configured
                   aqueryOutputHandler);
           ((SequencedSkyframeExecutor) env.getSkyframeExecutor())
               .dumpSkyframeState(actionGraphDump);
-        } finally {
-          aqueryOutputHandler.close();
+        } catch (InvalidAqueryOutputFormatException e) {
+          String message =
+              "--skyframe_state must be used with --output=proto|textproto|jsonproto. "
+                  + e.getMessage();
+          env.getReporter().handle(Event.error(message));
+          return getFailureResult(message, Code.SKYFRAME_STATE_PREREQ_UNMET);
         }
       } else {
+        // TODO(b/154500246) Remove this code path.
         ActionGraphContainer actionGraphContainer =
             ((SequencedSkyframeExecutor) env.getSkyframeExecutor())
                 .getActionGraphContainer(
@@ -153,7 +158,7 @@ public final class AqueryBuildTool extends PostAnalysisQueryBuildTool<Configured
             extraFunctions,
             topLevelConfigurations,
             hostConfiguration,
-            env.getRelativeWorkingDirectory().getPathString(),
+            env.getRelativeWorkingDirectory(),
             env.getPackageManager().getPackagePath(),
             () -> walkableGraph,
             aqueryOptions);

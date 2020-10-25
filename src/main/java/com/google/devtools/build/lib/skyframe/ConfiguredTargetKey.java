@@ -14,9 +14,10 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -31,85 +32,52 @@ import javax.annotation.Nullable;
  * action of an artifact.
  */
 @AutoCodec
-public class ConfiguredTargetKey extends ActionLookupKey {
+public class ConfiguredTargetKey implements ActionLookupKey {
+  /**
+   * Cache so that the number of ConfiguredTargetKey instances is {@code O(configured targets)} and
+   * not {@code O(edges between configured targets)}.
+   */
+  private static final Interner<ConfiguredTargetKey> interner = BlazeInterners.newWeakInterner();
+
   private final Label label;
   @Nullable private final BuildConfigurationValue.Key configurationKey;
 
   private transient int hashCode;
 
-  private ConfiguredTargetKey(Label label, @Nullable BuildConfigurationValue.Key configurationKey) {
+  ConfiguredTargetKey(Label label, @Nullable BuildConfigurationValue.Key configurationKey) {
     this.label = Preconditions.checkNotNull(label);
     this.configurationKey = configurationKey;
   }
 
-  public static ConfiguredTargetKey of(
-      ConfiguredTarget configuredTarget, BuildConfiguration buildConfiguration) {
-    return of(configuredTarget.getOriginalLabel(), buildConfiguration);
-  }
-
-  public static ConfiguredTargetKey of(
-      ConfiguredTarget configuredTarget,
-      BuildConfigurationValue.Key configurationKey,
-      boolean isHostConfiguration) {
-    return of(configuredTarget.getOriginalLabel(), configurationKey, isHostConfiguration);
-  }
-
-  public static ConfiguredTargetKey inTargetConfig(ConfiguredTarget configuredTarget) {
-    return of(
-        configuredTarget.getOriginalLabel(),
-        configuredTarget.getConfigurationKey(),
-        /*isHostConfiguration=*/ false);
-  }
-
-  /**
-   * Caches so that the number of ConfiguredTargetKey instances is {@code O(configured targets)} and
-   * not {@code O(edges between configured targets)}.
-   */
-  private static final Interner<ConfiguredTargetKey> interner = BlazeInterners.newWeakInterner();
-  private static final Interner<HostConfiguredTargetKey> hostInterner =
-      BlazeInterners.newWeakInterner();
-
-  public static ConfiguredTargetKey of(Label label, @Nullable BuildConfiguration configuration) {
-    KeyAndHost keyAndHost = keyFromConfiguration(configuration);
-    return of(label, keyAndHost.key, keyAndHost.isHost);
-  }
-
+  @AutoCodec.VisibleForSerialization
   @AutoCodec.Instantiator
-  public static ConfiguredTargetKey of(
-      Label label,
-      @Nullable BuildConfigurationValue.Key configurationKey,
-      boolean isHostConfiguration) {
-    if (isHostConfiguration) {
-      return hostInterner.intern(new HostConfiguredTargetKey(label, configurationKey));
-    } else {
-      return interner.intern(new ConfiguredTargetKey(label, configurationKey));
-    }
-  }
-
-  static KeyAndHost keyFromConfiguration(@Nullable BuildConfiguration configuration) {
-    return configuration == null
-        ? KeyAndHost.NULL_INSTANCE
-        : new KeyAndHost(
-            BuildConfigurationValue.key(configuration), configuration.isHostConfiguration());
+  static ConfiguredTargetKey create(
+      Label label, @Nullable BuildConfigurationValue.Key configurationKey) {
+    return interner.intern(new ConfiguredTargetKey(label, configurationKey));
   }
 
   @Override
-  public Label getLabel() {
+  public final Label getLabel() {
     return label;
   }
 
   @Override
-  public SkyFunctionName functionName() {
+  public final SkyFunctionName functionName() {
     return SkyFunctions.CONFIGURED_TARGET;
   }
 
   @Nullable
-  BuildConfigurationValue.Key getConfigurationKey() {
+  final BuildConfigurationValue.Key getConfigurationKey() {
     return configurationKey;
   }
 
+  @Nullable
+  ToolchainContextKey getToolchainContextKey() {
+    return null;
+  }
+
   @Override
-  public int hashCode() {
+  public final int hashCode() {
     // We use the hash code caching strategy employed by java.lang.String. There are three subtle
     // things going on here:
     //
@@ -136,11 +104,13 @@ public class ConfiguredTargetKey extends ActionLookupKey {
 
   private int computeHashCode() {
     int configVal = configurationKey == null ? 79 : configurationKey.hashCode();
-    return 31 * label.hashCode() + configVal + (isHostConfiguration() ? 41 : 0);
+    int toolchainContextVal =
+        getToolchainContextKey() == null ? 47 : getToolchainContextKey().hashCode();
+    return 31 * label.hashCode() + configVal + toolchainContextVal;
   }
 
   @Override
-  public boolean equals(Object obj) {
+  public final boolean equals(Object obj) {
     if (this == obj) {
       return true;
     }
@@ -151,52 +121,124 @@ public class ConfiguredTargetKey extends ActionLookupKey {
       return false;
     }
     ConfiguredTargetKey other = (ConfiguredTargetKey) obj;
-    return this.isHostConfiguration() == other.isHostConfiguration()
-        && Objects.equals(label, other.label)
-        && Objects.equals(configurationKey, other.configurationKey);
+    return Objects.equals(label, other.label)
+        && Objects.equals(configurationKey, other.configurationKey)
+        && Objects.equals(getToolchainContextKey(), other.getToolchainContextKey());
   }
 
-  public boolean isHostConfiguration() {
-    return false;
-  }
-
-  public String prettyPrint() {
+  public final String prettyPrint() {
     if (label == null) {
       return "null";
     }
-    return isHostConfiguration() ? (label + " (host)") : label.toString();
+    return label.toString();
   }
 
   @Override
-  public String toString() {
-    return String.format("%s %s %s", label, configurationKey, isHostConfiguration());
+  public final String toString() {
+    // TODO(b/162809183): consider reverting to less verbose toString when bug is resolved.
+    MoreObjects.ToStringHelper helper =
+        MoreObjects.toStringHelper(this).add("label", label).add("config", configurationKey);
+    if (getToolchainContextKey() != null) {
+      helper.add("toolchainContextKey", getToolchainContextKey());
+    }
+    return helper.toString();
   }
 
-  static class HostConfiguredTargetKey extends ConfiguredTargetKey {
-    private HostConfiguredTargetKey(
-        Label label, @Nullable BuildConfigurationValue.Key configurationKey) {
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class ConfiguredTargetKeyWithToolchainContext extends ConfiguredTargetKey {
+    private static final Interner<ConfiguredTargetKeyWithToolchainContext>
+        withToolchainContextInterner = BlazeInterners.newWeakInterner();
+
+    private final ToolchainContextKey toolchainContextKey;
+
+    private ConfiguredTargetKeyWithToolchainContext(
+        Label label,
+        @Nullable BuildConfigurationValue.Key configurationKey,
+        ToolchainContextKey toolchainContextKey) {
       super(label, configurationKey);
+      this.toolchainContextKey = toolchainContextKey;
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static ConfiguredTargetKeyWithToolchainContext create(
+        Label label,
+        @Nullable BuildConfigurationValue.Key configurationKey,
+        ToolchainContextKey toolchainContextKey) {
+      return withToolchainContextInterner.intern(
+          new ConfiguredTargetKeyWithToolchainContext(
+              label, configurationKey, toolchainContextKey));
     }
 
     @Override
-    public boolean isHostConfiguration() {
-      return true;
+    @Nullable
+    final ToolchainContextKey getToolchainContextKey() {
+      return toolchainContextKey;
     }
   }
 
-  /**
-   * Simple wrapper class for turning a {@link BuildConfiguration} into a {@link
-   * BuildConfigurationValue.Key} and boolean isHost.
-   */
-  public static class KeyAndHost {
-    private static final KeyAndHost NULL_INSTANCE = new KeyAndHost(null, false);
+  /** Returns a new {@link Builder} to create instances of {@link ConfiguredTargetKey}. */
+  public static Builder builder() {
+    return new Builder();
+  }
 
-    @Nullable public final BuildConfigurationValue.Key key;
-    final boolean isHost;
+  /** A helper class to create instances of {@link ConfiguredTargetKey}. */
+  public static class Builder {
+    private Label label = null;
+    private BuildConfigurationValue.Key configurationKey = null;
+    private ToolchainContextKey toolchainContextKey = null;
 
-    private KeyAndHost(@Nullable BuildConfigurationValue.Key key, boolean isHost) {
-      this.key = key;
-      this.isHost = isHost;
+    /** Sets the label for the target. */
+    public Builder setLabel(Label label) {
+      this.label = label;
+      return this;
+    }
+
+    /**
+     * Sets the {@link ConfiguredTarget} that we want a key for.
+     *
+     * <p>This sets both the label and configurationKey data.
+     */
+    public Builder setConfiguredTarget(ConfiguredTarget configuredTarget) {
+      setLabel(configuredTarget.getOriginalLabel());
+      if (this.configurationKey == null) {
+        setConfigurationKey(configuredTarget.getConfigurationKey());
+      }
+      return this;
+    }
+
+    /** Sets the {@link BuildConfiguration} for the configured target. */
+    public Builder setConfiguration(@Nullable BuildConfiguration buildConfiguration) {
+      if (buildConfiguration == null) {
+        return setConfigurationKey(null);
+      } else {
+        return setConfigurationKey(BuildConfigurationValue.key(buildConfiguration));
+      }
+    }
+
+    /** Sets the configuration key for the configured target. */
+    public Builder setConfigurationKey(@Nullable BuildConfigurationValue.Key configurationKey) {
+      this.configurationKey = configurationKey;
+      return this;
+    }
+
+    /**
+     * Sets the {@link ToolchainContextKey} this configured target should use for toolchain
+     * resolution. When present, this overrides the normally determined toolchain context.
+     */
+    public Builder setToolchainContextKey(ToolchainContextKey toolchainContextKey) {
+      this.toolchainContextKey = toolchainContextKey;
+      return this;
+    }
+
+    /** Builds a new {@link ConfiguredTargetKey} based on the supplied data. */
+    public ConfiguredTargetKey build() {
+      if (this.toolchainContextKey != null) {
+        return ConfiguredTargetKeyWithToolchainContext.create(
+            label, configurationKey, toolchainContextKey);
+      }
+      return create(label, configurationKey);
     }
   }
 }

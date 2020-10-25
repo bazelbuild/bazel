@@ -36,7 +36,7 @@ java_library(
         ":android-tests",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/windows/jni:file",
+        "//src/main/java/com/google/devtools/build/lib/windows:file",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

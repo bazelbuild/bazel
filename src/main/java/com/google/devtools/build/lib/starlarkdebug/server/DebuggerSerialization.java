@@ -16,19 +16,18 @@ package com.google.devtools.build.lib.starlarkdebug.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Value;
-import com.google.devtools.build.lib.syntax.CallUtils;
-import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.lang.reflect.Array;
 import java.util.Map;
 import java.util.Set;
+import net.starlark.java.eval.ClassObject;
+import net.starlark.java.eval.Debug;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Helper class for creating {@link StarlarkDebuggingProtos.Value} from Starlark objects. */
 final class DebuggerSerialization {
@@ -54,12 +53,6 @@ final class DebuggerSerialization {
   }
 
   private static boolean hasChildren(Object value) {
-    if (value instanceof Depset) {
-      return true;
-    }
-    if (value instanceof NestedSetView) {
-      return true;
-    }
     if (value instanceof Map) {
       return !((Map) value).isEmpty();
     }
@@ -72,6 +65,12 @@ final class DebuggerSerialization {
     if (value.getClass().isArray()) {
       return Array.getLength(value) > 0;
     }
+    if (value instanceof Debug.ValueWithDebugAttributes) {
+      return true;
+    }
+    if (value instanceof StarlarkInt) {
+      return false;
+    }
     if (value instanceof ClassObject || value instanceof StarlarkValue) {
       // assuming ClassObject's have at least one child as a temporary optimization
       // TODO(bazel-team): remove once child-listing logic is moved to StarlarkValue
@@ -82,12 +81,6 @@ final class DebuggerSerialization {
   }
 
   static ImmutableList<Value> getChildren(ThreadObjectMap objectMap, Object value) {
-    if (value instanceof Depset) {
-      return getChildren(objectMap, (Depset) value);
-    }
-    if (value instanceof NestedSetView) {
-      return getChildren(objectMap, (NestedSetView) value);
-    }
     if (value instanceof Map) {
       return getChildren(objectMap, ((Map) value).entrySet());
     }
@@ -99,6 +92,9 @@ final class DebuggerSerialization {
     }
     if (value.getClass().isArray()) {
       return getArrayChildren(objectMap, value);
+    }
+    if (value instanceof Debug.ValueWithDebugAttributes) {
+      return getDebugAttributes(objectMap, (Debug.ValueWithDebugAttributes) value);
     }
     // TODO(bazel-team): move child-listing logic to StarlarkValue where practical
     if (value instanceof ClassObject) {
@@ -128,11 +124,13 @@ final class DebuggerSerialization {
   }
 
   private static ImmutableList<Value> getChildren(
-      ThreadObjectMap objectMap, StarlarkValue skylarkValue) {
+      ThreadObjectMap objectMap, StarlarkValue starlarkValue) {
     StarlarkSemantics semantics = StarlarkSemantics.DEFAULT; // TODO(adonovan): obtain from thread.
+    // TODO(adonovan): would the debugger be content with Starlark.{dir,getattr}
+    // instead of getAnnotatedField{,Names}, if we filtered out BuiltinCallables?
     Set<String> fieldNames;
     try {
-      fieldNames = CallUtils.getFieldNames(semantics, skylarkValue);
+      fieldNames = Starlark.getAnnotatedFieldNames(semantics, starlarkValue);
     } catch (IllegalArgumentException e) {
       // silently return no children
       return ImmutableList.of();
@@ -142,7 +140,9 @@ final class DebuggerSerialization {
       try {
         children.add(
             getValueProto(
-                objectMap, fieldName, CallUtils.getField(semantics, skylarkValue, fieldName)));
+                objectMap,
+                fieldName,
+                Starlark.getAnnotatedField(semantics, starlarkValue, fieldName)));
       } catch (EvalException | InterruptedException | IllegalArgumentException e) {
         // silently ignore errors
       }
@@ -150,23 +150,13 @@ final class DebuggerSerialization {
     return children.build();
   }
 
-  private static ImmutableList<Value> getChildren(ThreadObjectMap objectMap, Depset nestedSet) {
-    return ImmutableList.<Value>builder()
-        .add(
-            Value.newBuilder()
-                .setLabel("order")
-                .setType("Traversal order")
-                .setDescription(nestedSet.getOrder().getStarlarkName())
-                .build())
-        .addAll(getChildren(objectMap, new NestedSetView<>(nestedSet.getSet())))
-        .build();
-  }
-
-  private static ImmutableList<Value> getChildren(
-      ThreadObjectMap objectMap, NestedSetView<?> nestedSet) {
-    return ImmutableList.of(
-        getValueProto(objectMap, "directs", nestedSet.directs()),
-        getValueProto(objectMap, "transitives", nestedSet.transitives()));
+  private static ImmutableList<Value> getDebugAttributes(
+      ThreadObjectMap objectMap, Debug.ValueWithDebugAttributes value) {
+    ImmutableList.Builder<Value> attributes = ImmutableList.builder();
+    for (Debug.DebugAttribute attr : value.getDebugAttributes()) {
+      attributes.add(getValueProto(objectMap, attr.name, attr.value));
+    }
+    return attributes.build();
   }
 
   private static ImmutableList<Value> getChildren(

@@ -74,7 +74,7 @@ public class SkyframeExecutorTestUtils {
         EvaluationContext.newBuilder()
             .setKeepGoing(keepGoing)
             .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
-            .setEventHander(errorEventListener)
+            .setEventHandler(errorEventListener)
             .build();
     return skyframeExecutor.getDriver().evaluate(ImmutableList.of(key), evaluationContext);
   }
@@ -89,7 +89,7 @@ public class SkyframeExecutorTestUtils {
   public static ConfiguredTargetValue getExistingConfiguredTargetValue(
       SkyframeExecutor skyframeExecutor, Label label, BuildConfiguration config)
       throws InterruptedException {
-    SkyKey key = ConfiguredTargetKey.of(label, config);
+    SkyKey key = ConfiguredTargetKey.builder().setLabel(label).setConfiguration(config).build();
     return (ConfiguredTargetValue) getExistingValue(skyframeExecutor, key);
   }
 

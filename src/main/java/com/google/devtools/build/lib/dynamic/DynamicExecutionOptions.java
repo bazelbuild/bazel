@@ -76,7 +76,7 @@ public class DynamicExecutionOptions extends OptionsBase {
       allowMultiple = true,
       help =
           "The local strategies, in order, to use for the given mnemonic. Passing"
-              + " 'remote' as the mnemonic sets the default for unspecified mnemonics. Takes"
+              + " 'local' as the mnemonic sets the default for unspecified mnemonics. Takes"
               + " [mnemonic=]local_strategy[,local_strategy,...]")
   public List<Map.Entry<String, List<String>>> dynamicLocalStrategy;
 

@@ -98,3 +98,15 @@ public class MainActivity extends Activity {
 }
 EOF
 }
+
+function setup_head_android_tools_if_exists() {
+  local head_android_tools=$(rlocation io_bazel/tools/android/runtime_deps/android_tools.tar.gz)
+  if [[ -f $head_android_tools ]]; then
+    HEAD_ANDROID_TOOLS_WS="$TEST_TMPDIR/head_android_tools"
+    mkdir "$HEAD_ANDROID_TOOLS_WS"
+    tar xvf $head_android_tools -C "$HEAD_ANDROID_TOOLS_WS"
+    echo "common --override_repository=android_tools=$HEAD_ANDROID_TOOLS_WS" >> $TEST_TMPDIR/bazelrc
+  fi
+}
+
+setup_head_android_tools_if_exists

@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.skylark.StarlarkApiProvider;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkApiProvider;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidStarlarkApiProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidStarlarkApiProviderApi;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 

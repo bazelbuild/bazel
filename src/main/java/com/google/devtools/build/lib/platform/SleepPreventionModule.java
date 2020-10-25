@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.platform;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 
@@ -23,7 +24,14 @@ public final class SleepPreventionModule extends BlazeModule {
 
   /** Methods for dealing with sleep prevention on local hardware. */
   @VisibleForTesting
-  public static final class SleepPrevention extends JniLoader {
+  public static final class SleepPrevention {
+
+    static {
+      JniLoader.loadJni();
+    }
+
+    private SleepPrevention() {}
+
     /**
      * Push a request to disable automatic sleep for hardware. Useful for making sure computers
      * don't go to sleep during long builds. Must be matched with a {@link #popDisableSleep} call.
@@ -44,14 +52,14 @@ public final class SleepPreventionModule extends BlazeModule {
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
-    if (JniLoader.jniEnabled()) {
+    if (JniLoader.isJniAvailable()) {
       SleepPrevention.pushDisableSleep();
     }
   }
 
   @Override
   public void afterCommand() {
-    if (JniLoader.jniEnabled()) {
+    if (JniLoader.isJniAvailable()) {
       SleepPrevention.popDisableSleep();
     }
   }

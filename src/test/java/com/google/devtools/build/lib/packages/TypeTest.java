@@ -24,12 +24,13 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.syntax.StarlarkList;
-import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.Tuple;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -50,9 +51,27 @@ public class TypeTest {
 
   @Test
   public void testInteger() throws Exception {
-    Object x = 3;
+    Object x = StarlarkInt.of(3);
     assertThat(Type.INTEGER.convert(x, null)).isEqualTo(x);
     assertThat(collectLabels(Type.INTEGER, x)).isEmpty();
+
+    // INTEGER rule attributes must be in signed 32-bit value range.
+    // (If we ever relax this, we'll need to audit every place that
+    // converts an attribute to an int using toIntUnchecked, since
+    // that operation might then fail, and extend the Package
+    // serialization protocol to support bigint.)
+    StarlarkInt big = StarlarkInt.of(111111111);
+    Type.ConversionException e =
+        assertThrows(
+            Type.ConversionException.class,
+            () -> Type.INTEGER.convert(StarlarkInt.multiply(big, big), "param"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("for param, got 12345678987654321, want value in signed 32-bit range");
+
+    // Ensure that the range of INTEGER.concat is int32.
+    assertThat(Type.INTEGER.concat(Arrays.asList(StarlarkInt.of(0x7fffffff), StarlarkInt.of(1))))
+        .isEqualTo(StarlarkInt.of(-0x80000000));
   }
 
   @Test
@@ -88,7 +107,8 @@ public class TypeTest {
   @Test
   public void testNonString() throws Exception {
     Type.ConversionException e =
-        assertThrows(Type.ConversionException.class, () -> Type.STRING.convert(3, null));
+        assertThrows(
+            Type.ConversionException.class, () -> Type.STRING.convert(StarlarkInt.of(3), null));
     assertThat(e).hasMessageThat().isEqualTo("expected value of type 'string', but got 3 (int)");
   }
 
@@ -96,8 +116,8 @@ public class TypeTest {
   public void testBoolean() throws Exception {
     Object myTrue = true;
     Object myFalse = false;
-    assertThat(Type.BOOLEAN.convert(1, null)).isEqualTo(Boolean.TRUE);
-    assertThat(Type.BOOLEAN.convert(0, null)).isEqualTo(Boolean.FALSE);
+    assertThat(Type.BOOLEAN.convert(StarlarkInt.of(1), null)).isEqualTo(Boolean.TRUE);
+    assertThat(Type.BOOLEAN.convert(StarlarkInt.of(0), null)).isEqualTo(Boolean.FALSE);
     assertThat(Type.BOOLEAN.convert(true, null)).isTrue();
     assertThat(Type.BOOLEAN.convert(myTrue, null)).isTrue();
     assertThat(Type.BOOLEAN.convert(false, null)).isFalse();
@@ -114,17 +134,21 @@ public class TypeTest {
         .hasMessageThat()
         .isEqualTo("expected value of type 'int', but got \"unexpected\" (string)");
     // Integers other than [0, 1] should fail.
-    e = assertThrows(Type.ConversionException.class, () -> Type.BOOLEAN.convert(2, null));
+    e =
+        assertThrows(
+            Type.ConversionException.class, () -> Type.BOOLEAN.convert(StarlarkInt.of(2), null));
     assertThat(e).hasMessageThat().isEqualTo("boolean is not one of [0, 1]");
-    e = assertThrows(Type.ConversionException.class, () -> Type.BOOLEAN.convert(-1, null));
+    e =
+        assertThrows(
+            Type.ConversionException.class, () -> Type.BOOLEAN.convert(StarlarkInt.of(-1), null));
     assertThat(e).hasMessageThat().isEqualTo("boolean is not one of [0, 1]");
   }
 
   @Test
   public void testTriState() throws Exception {
-    assertThat(BuildType.TRISTATE.convert(1, null)).isEqualTo(TriState.YES);
-    assertThat(BuildType.TRISTATE.convert(0, null)).isEqualTo(TriState.NO);
-    assertThat(BuildType.TRISTATE.convert(-1, null)).isEqualTo(TriState.AUTO);
+    assertThat(BuildType.TRISTATE.convert(StarlarkInt.of(1), null)).isEqualTo(TriState.YES);
+    assertThat(BuildType.TRISTATE.convert(StarlarkInt.of(0), null)).isEqualTo(TriState.NO);
+    assertThat(BuildType.TRISTATE.convert(StarlarkInt.of(-1), null)).isEqualTo(TriState.AUTO);
     assertThat(BuildType.TRISTATE.convert(TriState.YES, null)).isEqualTo(TriState.YES);
     assertThat(BuildType.TRISTATE.convert(TriState.NO, null)).isEqualTo(TriState.NO);
     assertThat(BuildType.TRISTATE.convert(TriState.AUTO, null)).isEqualTo(TriState.AUTO);
@@ -137,9 +161,10 @@ public class TypeTest {
 
   @Test
   public void testTriStateDoesNotAcceptArbitraryIntegers() throws Exception {
-    List<Integer> listOfCases = Lists.newArrayList(2, 3, -5, -2, 20);
-    for (Object entry : listOfCases) {
-      assertThrows(Type.ConversionException.class, () -> BuildType.TRISTATE.convert(entry, null));
+    for (Integer i : Lists.newArrayList(2, 3, -5, -2, 20)) {
+      assertThrows(
+          Type.ConversionException.class,
+          () -> BuildType.TRISTATE.convert(StarlarkInt.of(i), null));
     }
   }
 
@@ -218,7 +243,8 @@ public class TypeTest {
   @Test
   public void testNonLabel() throws Exception {
     Type.ConversionException e =
-        assertThrows(Type.ConversionException.class, () -> BuildType.LABEL.convert(3, null));
+        assertThrows(
+            Type.ConversionException.class, () -> BuildType.LABEL.convert(StarlarkInt.of(3), null));
     assertThat(e).hasMessageThat().isEqualTo("expected value of type 'string', but got 3 (int)");
   }
 
@@ -257,7 +283,9 @@ public class TypeTest {
   @Test
   public void testNonStringList() throws Exception {
     Type.ConversionException e =
-        assertThrows(Type.ConversionException.class, () -> Type.STRING_LIST.convert(3, "blah"));
+        assertThrows(
+            Type.ConversionException.class,
+            () -> Type.STRING_LIST.convert(StarlarkInt.of(3), "blah"));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo("expected value of type 'list(string)' for blah, but got 3 (int)");
@@ -265,7 +293,7 @@ public class TypeTest {
 
   @Test
   public void testStringListBadElements() throws Exception {
-    Object input = Arrays.<Object>asList("foo", "bar", 1);
+    Object input = Arrays.<Object>asList("foo", "bar", StarlarkInt.of(1));
     Type.ConversionException e =
         assertThrows(
             Type.ConversionException.class, () -> Type.STRING_LIST.convert(input, "argument quux"));
@@ -302,7 +330,7 @@ public class TypeTest {
     Type.ConversionException e =
         assertThrows(
             Type.ConversionException.class,
-            () -> BuildType.LABEL_LIST.convert(3, "foo", currentRule));
+            () -> BuildType.LABEL_LIST.convert(StarlarkInt.of(3), "foo", currentRule));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo("expected value of type 'list(label)' for foo, but got 3 (int)");
@@ -310,7 +338,7 @@ public class TypeTest {
 
   @Test
   public void testLabelListBadElements() throws Exception {
-    Object list = Arrays.<Object>asList("//foo:bar", 2, "foo");
+    Object list = Arrays.<Object>asList("//foo:bar", StarlarkInt.of(2), "foo");
     Type.ConversionException e =
         assertThrows(
             Type.ConversionException.class,
@@ -351,8 +379,9 @@ public class TypeTest {
 
   @Test
   public void testStringListDictBadFirstElement() throws Exception {
-    Object input = ImmutableMap.of(2, Arrays.asList("foo", "bar"),
-                                   "wiz", Arrays.asList("bang"));
+    Object input =
+        ImmutableMap.of(
+            StarlarkInt.of(2), Arrays.asList("foo", "bar"), "wiz", Arrays.asList("bang"));
     Type.ConversionException e =
         assertThrows(
             Type.ConversionException.class,

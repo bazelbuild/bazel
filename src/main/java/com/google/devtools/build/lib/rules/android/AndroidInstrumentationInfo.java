@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidInstrumentationInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidInstrumentationInfoApi;
+import net.starlark.java.eval.EvalException;
 
 /**
  * A provider for targets that create Android instrumentations. Consumed by Android testing rules.

@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -30,6 +29,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Starlark;
 
 /**
  * Access a repository on the local filesystem.
@@ -96,7 +96,7 @@ public class LocalRepositoryFunction extends RepositoryFunction {
 
   private static ResolvedEvent resolve(Rule rule, BlazeDirectories directories) {
     String name = rule.getName();
-    Object pathObj = rule.getAttributeContainer().getAttr("path");
+    Object pathObj = rule.getAttr("path");
     String path;
     if (pathObj instanceof String) {
       path = (String) pathObj;
@@ -111,12 +111,11 @@ public class LocalRepositoryFunction extends RepositoryFunction {
     if (pathFragment.isAbsolute() && pathFragment.startsWith(embeddedDir)) {
       pathArg =
           "__embedded_dir__ + \"/\" + "
-              + Printer.getPrinter().repr(pathFragment.relativeTo(embeddedDir).toString());
+              + Starlark.repr(pathFragment.relativeTo(embeddedDir).toString());
     } else {
-      pathArg = Printer.getPrinter().repr(path).toString();
+      pathArg = Starlark.repr(path);
     }
-    String repr =
-        "local_repository(name = " + Printer.getPrinter().repr(name) + ", path = " + pathArg + ")";
+    String repr = Starlark.format("local_repository(name = %r, path = %s)", name, pathArg);
     return new ResolvedEvent() {
       @Override
       public String getName() {

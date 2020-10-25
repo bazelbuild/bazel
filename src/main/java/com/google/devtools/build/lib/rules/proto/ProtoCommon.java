@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -34,12 +33,11 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /**
  * Utility functions for proto_library and proto aspect implementations.
@@ -272,52 +270,20 @@ public class ProtoCommon {
     }
 
     PathFragment stripImportPrefix;
-    PathFragment importPrefix;
-
-    StarlarkSemantics starlarkSemantics =
-        ruleContext.getAnalysisEnvironment().getStarlarkSemantics();
-    boolean siblingRepositoryLayout = starlarkSemantics.experimentalSiblingRepositoryLayout();
-    if (stripImportPrefixAttribute != null || importPrefixAttribute != null) {
-      if (stripImportPrefixAttribute == null) {
-        stripImportPrefix =
-            PathFragment.create(ruleContext.getLabel().getWorkspaceRoot(starlarkSemantics));
-      } else if (stripImportPrefixAttribute.isAbsolute()) {
-        stripImportPrefix =
-            ruleContext
-                .getLabel()
-                .getPackageIdentifier()
-                .getRepository()
-                .getExecPath(siblingRepositoryLayout)
-                .getRelative(stripImportPrefixAttribute.toRelative());
-      } else {
-        stripImportPrefix =
-            ruleContext
-                .getLabel()
-                .getPackageIdentifier()
-                .getExecPath(siblingRepositoryLayout)
-                .getRelative(stripImportPrefixAttribute);
-      }
-
-      if (importPrefixAttribute != null) {
-        importPrefix = importPrefixAttribute;
-      } else {
-        importPrefix = PathFragment.EMPTY_FRAGMENT;
-      }
-
-      if (importPrefix.isAbsolute()) {
-        ruleContext.attributeError("import_prefix", "should be a relative path");
-        return null;
-      }
+    if (stripImportPrefixAttribute == null) {
+      stripImportPrefix = PathFragment.EMPTY_FRAGMENT;
+    } else if (stripImportPrefixAttribute.isAbsolute()) {
+      stripImportPrefix = stripImportPrefixAttribute.toRelative();
     } else {
-      // Has generated sources, but neither strip_import_prefix nor import_prefix
       stripImportPrefix =
-          ruleContext
-              .getLabel()
-              .getPackageIdentifier()
-              .getRepository()
-              .getDerivedArtifactSourceRoot();
+          ruleContext.getLabel().getPackageFragment().getRelative(stripImportPrefixAttribute);
+    }
 
-      importPrefix = PathFragment.EMPTY_FRAGMENT;
+    PathFragment importPrefix =
+        importPrefixAttribute != null ? importPrefixAttribute : PathFragment.EMPTY_FRAGMENT;
+    if (importPrefix.isAbsolute()) {
+      ruleContext.attributeError("import_prefix", "should be a relative path");
+      return null;
     }
 
     PathFragment sourceRootPath = ruleContext.getUniqueDirectory("_virtual_imports");
@@ -327,9 +293,7 @@ public class ProtoCommon {
 
     ImmutableList.Builder<ProtoSource> sources = ImmutableList.builder();
     for (Artifact realProtoSource : protoSources) {
-      if (siblingRepositoryLayout && realProtoSource.isSourceArtifact()
-          ? !realProtoSource.getExecPath().startsWith(stripImportPrefix)
-          : !realProtoSource.getRootRelativePath().startsWith(stripImportPrefix)) {
+      if (!realProtoSource.getRepositoryRelativePath().startsWith(stripImportPrefix)) {
         ruleContext.ruleError(
             String.format(
                 ".proto file '%s' is not under the specified strip prefix '%s'",
@@ -342,8 +306,7 @@ public class ProtoCommon {
               realProtoSource,
               sourceRootPath,
               importPrefix,
-              stripImportPrefix,
-              starlarkSemantics.experimentalSiblingRepositoryLayout());
+              stripImportPrefix);
       sources.add(
           new ProtoSource(
               /* sourceFile */ virtualProtoSource,
@@ -358,18 +321,10 @@ public class ProtoCommon {
       Artifact realProtoSource,
       PathFragment sourceRootPath,
       PathFragment importPrefix,
-      PathFragment stripImportPrefix,
-      boolean siblingRepositoryLayout) {
-    PathFragment importPath;
-
-    if (siblingRepositoryLayout && realProtoSource.isSourceArtifact()) {
-      importPath =
-          importPrefix.getRelative(realProtoSource.getExecPath().relativeTo(stripImportPrefix));
-    } else {
-      importPath =
-          importPrefix.getRelative(
-              realProtoSource.getRootRelativePath().relativeTo(stripImportPrefix));
-    }
+      PathFragment stripImportPrefix) {
+    PathFragment importPath =
+        importPrefix.getRelative(
+            realProtoSource.getRepositoryRelativePath().relativeTo(stripImportPrefix));
 
     Artifact virtualProtoSource =
         ruleContext.getDerivedArtifact(
@@ -434,13 +389,11 @@ public class ProtoCommon {
       RuleContext ruleContext, boolean generatedProtosInVirtualImports)
       throws InterruptedException {
     ImmutableList<Artifact> originalDirectProtoSources =
-        ruleContext.getPrerequisiteArtifacts("srcs", TransitionMode.TARGET).list();
+        ruleContext.getPrerequisiteArtifacts("srcs").list();
     ImmutableList<ProtoInfo> deps =
-        ImmutableList.copyOf(
-            ruleContext.getPrerequisites("deps", TransitionMode.TARGET, ProtoInfo.PROVIDER));
+        ImmutableList.copyOf(ruleContext.getPrerequisites("deps", ProtoInfo.PROVIDER));
     ImmutableList<ProtoInfo> exports =
-        ImmutableList.copyOf(
-            ruleContext.getPrerequisites("exports", TransitionMode.TARGET, ProtoInfo.PROVIDER));
+        ImmutableList.copyOf(ruleContext.getPrerequisites("exports", ProtoInfo.PROVIDER));
 
     Library library =
         createLibraryWithVirtualSourceRootMaybe(
@@ -453,13 +406,8 @@ public class ProtoCommon {
       PathFragment contextProtoSourceRoot =
           ruleContext
               .getLabel()
-              .getPackageIdentifier()
               .getRepository()
-              .getExecPath(
-                  ruleContext
-                      .getAnalysisEnvironment()
-                      .getStarlarkSemantics()
-                      .experimentalSiblingRepositoryLayout());
+              .getExecPath(ruleContext.getConfiguration().isSiblingRepositoryLayout());
       library =
           createLibraryWithoutVirtualSourceRoot(contextProtoSourceRoot, originalDirectProtoSources);
     }
@@ -521,21 +469,24 @@ public class ProtoCommon {
   // Protocol compiler invocation stuff.
 
   /**
-   * Each language-specific initialization method will call this to construct
-   * Artifacts representing its protocol compiler outputs.
+   * Each language-specific initialization method will call this to construct Artifacts representing
+   * its protocol compiler outputs.
    *
-   * @param extension Remove ".proto" and replace it with this to produce
-   *                  the output file name, e.g. ".pb.cc".
-   * @param pythonNames If true, replace hyphens in the file name
-   *              with underscores, as required for Python modules.
+   * @param extension Remove ".proto" and replace it with this to produce the output file name, e.g.
+   *     ".pb.cc".
+   * @param pythonNames If true, replace hyphens in the file name with underscores, as required for
+   *     Python modules.
    */
-  public static ImmutableList<Artifact> getGeneratedOutputs(RuleContext ruleContext,
-      ImmutableList<Artifact> protoSources, String extension, boolean pythonNames) {
+  public static ImmutableList<Artifact> getGeneratedOutputs(
+      RuleContext ruleContext,
+      ImmutableList<Artifact> protoSources,
+      String extension,
+      boolean pythonNames) {
     ImmutableList.Builder<Artifact> outputsBuilder = new ImmutableList.Builder<>();
-    ArtifactRoot genfiles =
-        ruleContext.getConfiguration().getGenfilesDirectory(ruleContext.getRule().getRepository());
+    ArtifactRoot genfiles = ruleContext.getGenfilesDirectory();
     for (Artifact src : protoSources) {
-      PathFragment srcPath = src.getRootRelativePath();
+      PathFragment srcPath =
+          src.getOutputDirRelativePath(ruleContext.getConfiguration().isSiblingRepositoryLayout());
       if (pythonNames) {
         srcPath = srcPath.replaceName(srcPath.getBaseName().replace('-', '_'));
       }
@@ -550,14 +501,14 @@ public class ProtoCommon {
   }
 
   /**
-   * Each language-specific initialization method will call this to construct
-   * Artifacts representing its protocol compiler outputs.
+   * Each language-specific initialization method will call this to construct Artifacts representing
+   * its protocol compiler outputs.
    *
-   * @param extension Remove ".proto" and replace it with this to produce
-   *                  the output file name, e.g. ".pb.cc".
+   * @param extension Remove ".proto" and replace it with this to produce the output file name, e.g.
+   *     ".pb.cc".
    */
-  public static ImmutableList<Artifact> getGeneratedOutputs(RuleContext ruleContext,
-      ImmutableList<Artifact> protoSources, String extension) {
+  public static ImmutableList<Artifact> getGeneratedOutputs(
+      RuleContext ruleContext, ImmutableList<Artifact> protoSources, String extension) {
     return getGeneratedOutputs(ruleContext, protoSources, extension, false);
   }
 
@@ -606,7 +557,7 @@ public class ProtoCommon {
    */
   @VisibleForTesting
   public static boolean areDepsStrict(RuleContext ruleContext) {
-    StrictDepsMode flagValue = ruleContext.getFragment(ProtoConfiguration.class).strictProtoDeps();
-    return flagValue != StrictDepsMode.OFF && flagValue != StrictDepsMode.DEFAULT;
+    StrictDepsMode getBool = ruleContext.getFragment(ProtoConfiguration.class).strictProtoDeps();
+    return getBool != StrictDepsMode.OFF && getBool != StrictDepsMode.DEFAULT;
   }
 }

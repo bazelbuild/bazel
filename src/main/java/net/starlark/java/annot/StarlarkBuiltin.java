@@ -35,7 +35,7 @@ import java.lang.annotation.Target;
  * the minimum element in the partial order of all annotations defined on C and its ancestors, where
  * the order relationship is X < Y if X annotates a subtype of what Y annotates.) The lookup logic
  * for retrieving a class's {@link StarlarkBuiltin} is implemented by {@link
- * StarlarkInterfaceUtils#getStarlarkBuiltin}.
+ * StarlarkAnnotations#getStarlarkBuiltin}.
  *
  * <p>Inheriting an annotation is useful when the class is an implementation detail, such as a
  * concrete implementation of an abstract interface. Overriding an annotation is useful when the
@@ -51,15 +51,19 @@ import java.lang.annotation.Target;
  * StarlarkValue} without using the annotation mechanism defined in this package. {@code
  * StarlarkFunction} is one example.)
  */
+// TODO(adonovan): rename to StarlarkType now that that name is available again.
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface StarlarkBuiltin {
 
-  /** A type name that may be used in stringification and error messages. */
+  /**
+   * The name of this data type, as returned by the Starlark expression {@code type(x)}.
+   *
+   * <p>Applications should ensure that data type names are unique. This is especially important for
+   * a type that implements Comparable, as its {@code compareTo} method may be passed any value of
+   * the same Starlark type, not necessarily one of the same Java class.
+   */
   String name();
-
-  /** A title for the documentation page generated for this type. */
-  String title() default "";
 
   /** Module documentation in HTML. May be empty only if {@code !documented()}. */
   String doc() default "";
@@ -68,10 +72,9 @@ public @interface StarlarkBuiltin {
   boolean documented() default true;
 
   /**
-   * If true, this type is a singleton top-level type whose main purpose is to act as a namespace
-   * for other values.
+   * The category of the documentation to which this data type belongs. Applications may use this
+   * field as they wish for their documentation tools. The core data types of the Starlark
+   * interpreter all have category "core".
    */
-  boolean namespace() default false;
-
-  StarlarkDocumentationCategory category() default StarlarkDocumentationCategory.TOP_LEVEL_TYPE;
+  String category() default "";
 }

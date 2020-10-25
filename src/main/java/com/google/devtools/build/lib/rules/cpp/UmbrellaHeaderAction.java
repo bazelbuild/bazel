@@ -34,6 +34,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Action for generating an umbrella header. All the headers are #included in the umbrella header.
@@ -122,7 +123,10 @@ public final class UmbrellaHeaderAction extends AbstractFileWriteAction {
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable Artifact.ArtifactExpander artifactExpander,
+      Fingerprint fp) {
     fp.addString(GUID);
     fp.addPath(umbrellaHeader.getExecPath());
     fp.addInt(publicHeaders.size());

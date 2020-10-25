@@ -204,7 +204,12 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
       if (summary.isLocalActionCached()
           && TestLogHelper.shouldOutputTestLog(testOutput,
               TestResult.isBlazeTestStatusPassed(summary.getStatus()))) {
-        TestSummaryPrinter.printCachedOutput(summary, testOutput, printer, testLogPathFormatter);
+        TestSummaryPrinter.printCachedOutput(
+            summary,
+            testOutput,
+            printer,
+            testLogPathFormatter,
+            executionOptions.maxTestOutputBytes);
       }
     }
 

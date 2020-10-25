@@ -67,6 +67,7 @@ ls_srcs(
   name = "ls_srcs",
   srcs = glob(["srcs/**/*"]),
 )
+filegroup(name = "filegroup", srcs = glob(["srcs/**/*"]))
 EOF
 
   cat >pkg/rules.bzl <<'EOF'
@@ -165,6 +166,44 @@ function test_traditional_encoding_source_artifact() {
 
   bazel build //pkg:ls_srcs >$TEST_log 2>&1 || fail "Should build"
   assert_contains "pkg/srcs/TRADITIONAL " bazel-bin/pkg/ls_srcs
+}
+
+function test_utf8_source_artifact_in_bep() {
+  # Bazel relies on the JVM for filename encoding, and can only support
+  # UTF-8 if either a UTF-8 or ISO-8859-1 locale is available.
+  if ! "$is_windows"; then
+    if ! has_iso_8859_1_locale && ! has_utf8_locale; then
+      echo "Skipping test (no ISO-8859-1 or UTF-8 locale)."
+      echo "Available locales (need ISO-8859-1 or UTF-8):"
+      locale -a
+      return
+    fi
+  fi
+
+  unicode_filenames_test_setup
+
+  touch 'pkg/srcs/regular file.txt'
+
+  mkdir pkg/srcs/subdir
+  touch 'pkg/srcs/subdir/file.txt'
+
+  # >>> u"pkg/srcs/ünïcödë fïlë.txt".encode("utf8")
+  # 'pkg/srcs/\xc3\xbcn\xc3\xafc\xc3\xb6d\xc3\xab f\xc3\xafl\xc3\xab.txt'
+  touch "$(printf '%b' 'pkg/srcs/\xc3\xbcn\xc3\xafc\xc3\xb6d\xc3\xab f\xc3\xafl\xc3\xab.txt')"
+
+  # On systems without an ISO-8859-1 locale, the environment locale must be
+  # the same as the file encoding.
+  #
+  # This doesn't affect systems that do have an ISO-8859-1 locale, because the
+  # Bazel launcher will force it to be used.
+  bazel shutdown
+  LC_ALL=en_US.UTF-8 bazel build --build_event_json_file="$TEST_log" \
+      //pkg:filegroup 2>&1 || fail "Should build"
+  bazel shutdown
+
+  expect_log '"name":"pkg/srcs/regular file.txt"'
+  expect_log '"name":"pkg/srcs/subdir/file.txt"'
+  expect_log '"name":"pkg/srcs/ünïcödë fïlë.txt"'
 }
 
 run_suite "Tests for handling of Unicode filenames"

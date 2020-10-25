@@ -80,6 +80,6 @@ public class SequentialBuildDriver implements BuildDriver {
   @Nullable
   @Override
   public NodeEntry getEntryForTesting(SkyKey key) throws InterruptedException {
-    return memoizingEvaluator.getExistingEntryAtLatestVersion(key);
+    return memoizingEvaluator.getExistingEntryAtCurrentlyEvaluatingVersion(key);
   }
 }

@@ -85,6 +85,7 @@ public class J2ObjcLibraryRule implements RuleDefinition {
         .setImplicitOutputsFunction(CompilationSupport.FULLY_LINKED_LIB)
         .cfg(AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
+        .useToolchainTransition(true)
         .build();
   }
 
@@ -96,7 +97,6 @@ public class J2ObjcLibraryRule implements RuleDefinition {
         .ancestors(
             J2ObjcLibraryBaseRule.class,
             ObjcRuleClasses.CrosstoolRule.class,
-            ObjcRuleClasses.LibtoolRule.class,
             ObjcRuleClasses.XcrunRule.class)
         .build();
   }

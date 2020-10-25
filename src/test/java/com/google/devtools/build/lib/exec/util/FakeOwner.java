@@ -24,7 +24,9 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
+import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -32,8 +34,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.syntax.Location;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /** Fake implementation of {@link ActionExecutionMetadata} for testing. */
 public class FakeOwner implements ActionExecutionMetadata {
@@ -148,7 +150,8 @@ public class FakeOwner implements ActionExecutionMetadata {
   }
 
   @Override
-  public String getKey(ActionKeyContext actionKeyContext) {
+  public String getKey(
+      ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander) {
     return "MockOwner.getKey";
   }
 

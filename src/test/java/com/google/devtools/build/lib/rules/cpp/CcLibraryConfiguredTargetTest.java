@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
@@ -57,7 +58,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   private static final PathFragment CROSSTOOL_CPPMAP = PathFragment.create("crosstool.cppmap");
 
   @Override
-  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
     return builder.addRuleDefinition(new TestRuleClassProvider.MakeVariableTesterRule()).build();
@@ -1066,7 +1067,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration("--features=parse_headers");
     ConfiguredTarget x =
         scratchConfiguredTarget("x", "x", "cc_library(name = 'x', hdrs = ['x.cc'])");
-    assertThat(getGeneratingAction(getBinArtifact("_objs/x/.pic.o", x))).isNull();
+    assertThat(getGeneratingAction(getBinArtifact("_objs/x/x.o", x))).isNull();
   }
 
   @Test
@@ -1104,8 +1105,10 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "cc_library(name = 'z', srcs = ['z.cc'])");
     String hiddenTopLevel =
         ActionsTestUtil.baseNamesOf(getOutputGroup(x, OutputGroupInfo.HIDDEN_TOP_LEVEL));
-    assertThat(hiddenTopLevel).contains("y.h.processed");
+    assertThat(hiddenTopLevel).doesNotContain("y.h.processed");
     assertThat(hiddenTopLevel).doesNotContain("z.pic.o");
+    String validation = ActionsTestUtil.baseNamesOf(getOutputGroup(x, OutputGroupInfo.VALIDATION));
+    assertThat(validation).contains("y.h.processed");
   }
 
   @Test
@@ -1145,6 +1148,68 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testSrcCompileActionMnemonic() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
+
+    ConfiguredTarget x =
+        scratchConfiguredTarget("foo", "x", "cc_library(name = 'x', srcs = ['a.cc'])");
+
+    assertThat(getGeneratingCompileAction("_objs/x/a.o", x).getMnemonic()).isEqualTo("CppCompile");
+  }
+
+  @Test
+  public void testHeaderCompileActionMnemonic() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
+
+    ConfiguredTarget x =
+        scratchConfiguredTarget(
+            "foo", "x", "cc_library(name = 'x', srcs = ['y.h'], hdrs = ['z.h'])");
+
+    assertThat(getGeneratingCompileAction("_objs/x/y.h.processed", x).getMnemonic())
+        .isEqualTo("CppCompile");
+    assertThat(getGeneratingCompileAction("_objs/x/z.h.processed", x).getMnemonic())
+        .isEqualTo("CppCompile");
+  }
+
+  @Test
+  public void testIncompatibleUseCppCompileHeaderMnemonic() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration(
+        "--incompatible_use_cpp_compile_header_mnemonic",
+        "--features=parse_headers",
+        "--process_headers_in_dependencies");
+
+    ConfiguredTarget x =
+        scratchConfiguredTarget(
+            "foo", "x", "cc_library(name = 'x', srcs = ['a.cc', 'y.h'], hdrs = ['z.h'])");
+
+    assertThat(getGeneratingCompileAction("_objs/x/a.o", x).getMnemonic()).isEqualTo("CppCompile");
+    assertThat(getGeneratingCompileAction("_objs/x/y.h.processed", x).getMnemonic())
+        .isEqualTo("CppCompileHeader");
+    assertThat(getGeneratingCompileAction("_objs/x/z.h.processed", x).getMnemonic())
+        .isEqualTo("CppCompileHeader");
+  }
+
+  private CppCompileAction getGeneratingCompileAction(
+      String packageRelativePath, ConfiguredTarget owner) {
+    return (CppCompileAction) getGeneratingAction(getBinArtifact(packageRelativePath, owner));
+  }
+
+  @Test
   public void testIncludePathOrder() throws Exception {
     useConfiguration("--incompatible_merge_genfiles_directory=false");
     scratch.file("foo/BUILD",
@@ -1160,8 +1225,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         ")");
     ConfiguredTarget target = getConfiguredTarget("//foo");
     CppCompileAction action = getCppCompileAction(target);
-    String genfilesDir = getConfiguration(target).getGenfilesFragment().toString();
-    String binDir = getConfiguration(target).getBinFragment().toString();
+    String genfilesDir =
+        getConfiguration(target).getGenfilesFragment(RepositoryName.MAIN).toString();
+    String binDir = getConfiguration(target).getBinFragment(RepositoryName.MAIN).toString();
     // Local include paths come first.
     assertContainsSublist(
         action.getCompilerOptions(),
@@ -1570,5 +1636,292 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                 .collect(ImmutableList.toImmutableList()))
         .containsExactly("//foo:foo", "//foo:bar", "//foo:baz")
         .inOrder();
+  }
+
+  @Test
+  public void testPrecompiledFilesFromDifferentConfigs() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "load(':example_transition.bzl', 'transitioned_file')",
+        "genrule(",
+        "   name = 'generated',",
+        "   outs = ['libbar.so'],",
+        "   cmd = 'echo foo > @',",
+        ")",
+        "transitioned_file(",
+        "   name = 'transitioned_libbar',",
+        "   src = 'generated',",
+        ")",
+        "cc_library(",
+        "   name = 'foo',",
+        "   srcs = [",
+        "       'generated',",
+        "       'transitioned_libbar',",
+        "   ],",
+        ")");
+    scratch.file(
+        "foo/example_transition.bzl",
+        "def _impl(settings, attr):",
+        "    _ignore = (settings, attr)",
+        "    return [",
+        "        {'//command_line_option:test_arg': ['foo']},",
+        "    ]",
+        "cpu_transition = transition(",
+        "    implementation = _impl,",
+        "    inputs = [],",
+        "    outputs = ['//command_line_option:test_arg'],",
+        ")",
+        "def _transitioned_file_impl(ctx):",
+        "    return DefaultInfo(files = depset([ctx.file.src]))",
+        "",
+        "transitioned_file = rule(",
+        "    implementation = _transitioned_file_impl,",
+        "    attrs = {",
+        "        'src': attr.label(",
+        "            allow_single_file = True,",
+        "            cfg = cpu_transition,",
+        "        ),",
+        "        '_allowlist_function_transition': attr.label(",
+        "            default = '//tools/allowlists/function_transition_allowlist',",
+        "        ),",
+        "    },",
+        ")");
+    scratch.overwriteFile(
+        "tools/allowlists/function_transition_allowlist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_allowlist',",
+        "    packages = ['//...'],",
+        ")",
+        "filegroup(",
+        "    name = 'srcs',",
+        "    srcs = glob(['**']),",
+        "    visibility = ['//tools/allowlists:__pkg__'],",
+        ")");
+    checkError("//foo", "Trying to link twice");
+  }
+
+  @Test
+  public void testImplicitOutputsWhitelistNotOnWhitelist() throws Exception {
+    if (analysisMock.isThisBazel()) {
+      return;
+    }
+    scratch.overwriteFile(
+        "tools/build_defs/cc/whitelists/cc_lib_implicit_outputs/BUILD",
+        "package_group(",
+        "    name = 'allowed_cc_lib_implicit_outputs',",
+        "    packages = [])");
+
+    scratch.file(
+        "foo/BUILD",
+        "filegroup(",
+        "    name = 'denied',",
+        "    srcs = [':libdenied_cc_lib.a'],",
+        ")",
+        "cc_library(",
+        "    name = 'denied_cc_lib',",
+        "    srcs = ['denied_cc_lib.cc'],",
+        ")");
+    checkError(
+        "//foo:denied",
+        "Using implicit outputs from cc_library (//foo:denied_cc_lib) is "
+            + "forbidden. Use the rule cc_implicit_output as an alternative.");
+  }
+
+  @Test
+  public void testImplicitOutputsWhitelistOnWhitelist() throws Exception {
+    if (analysisMock.isThisBazel()) {
+      return;
+    }
+    scratch.overwriteFile(
+        "tools/build_defs/cc/whitelists/cc_lib_implicit_outputs/BUILD",
+        "package_group(",
+        "    name = 'allowed_cc_lib_implicit_outputs',",
+        "    packages = ['//bar'])");
+
+    scratch.file(
+        "bar/BUILD",
+        "filegroup(",
+        "    name = 'allowed',",
+        "    srcs = [':liballowed_cc_lib.a'],",
+        ")",
+        "cc_library(",
+        "    name = 'allowed_cc_lib',",
+        "    srcs = ['allowed_cc_lib.cc'],",
+        ")");
+    getConfiguredTarget("//bar:allowed");
+    assertNoEvents();
+  }
+
+  private void prepareCustomTransition() throws Exception {
+    scratch.file(
+        "transition/custom_transition.bzl",
+        "def _custom_transition_impl(settings, attr):",
+        "    _ignore = settings, attr",
+        "",
+        "    return {'//command_line_option:copt': ['-DFLAG']}",
+        "",
+        "custom_transition = transition(",
+        "    implementation = _custom_transition_impl,",
+        "    inputs = [],",
+        "    outputs = ['//command_line_option:copt'],",
+        ")",
+        "",
+        "def _apply_custom_transition_impl(ctx):",
+        "    cc_infos = []",
+        "    for dep in ctx.attr.deps:",
+        "        cc_infos.append(dep[CcInfo])",
+        "    merged_cc_info = cc_common.merge_cc_infos(cc_infos = cc_infos)",
+        "    return merged_cc_info",
+        "",
+        "apply_custom_transition = rule(",
+        "    implementation = _apply_custom_transition_impl,",
+        "    attrs = {",
+        "        '_whitelist_function_transition': attr.label(",
+        "            default = '//tools/allowlists/function_transition_allowlist',",
+        "        ),",
+        "        'deps': attr.label_list(cfg = custom_transition),",
+        "    },",
+        ")");
+    scratch.overwriteFile(
+        "tools/allowlists/function_transition_allowlist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_allowlist',",
+        "    packages = ['//...'],",
+        ")",
+        "filegroup(",
+        "    name = 'srcs',",
+        "    srcs = glob(['**']),",
+        "    visibility = ['//tools/allowlists:__pkg__'],",
+        ")");
+  }
+
+  @Test
+  public void testDynamicLinkTwiceAfterTransition() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY,
+                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
+
+    prepareCustomTransition();
+
+    scratch.file(
+        "transition/BUILD",
+        "load(':custom_transition.bzl', 'apply_custom_transition')",
+        "cc_binary(",
+        "    name = 'main',",
+        "    srcs = ['main.cc'],",
+        "    linkstatic = 0,",
+        "    deps = [",
+        "        'dep1',",
+        "        'dep2',",
+        "    ],",
+        ")",
+        "",
+        "apply_custom_transition(",
+        "    name = 'dep1',",
+        "    deps = [",
+        "        ':dep2',",
+        "    ],",
+        ")",
+        "",
+        "cc_library(",
+        "    name = 'dep2',",
+        "    srcs = ['test.cc'],",
+        "    hdrs = ['test.h'],",
+        ")");
+
+    checkError("//transition:main", "built in a different configuration");
+  }
+
+  @Test
+  public void testDynamicLinkUniqueAfterTransition() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY,
+                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
+
+    prepareCustomTransition();
+
+    scratch.file(
+        "transition/BUILD",
+        "load(':custom_transition.bzl', 'apply_custom_transition')",
+        "cc_binary(",
+        "    name = 'main',",
+        "    srcs = ['main.cc'],",
+        "    linkstatic = 0,",
+        "    deps = [",
+        "        'dep1',",
+        "        'dep3',",
+        "    ],",
+        ")",
+        "apply_custom_transition(",
+        "    name = 'dep1',",
+        "    deps = [",
+        "        ':dep2',",
+        "    ],",
+        ")",
+        "cc_library(",
+        "    name = 'dep2',",
+        "    srcs = ['test.cc'],",
+        "    hdrs = ['test.h'],",
+        ")",
+        "cc_library(",
+        "    name = 'dep3',",
+        "    srcs = ['other_test.cc'],",
+        "    hdrs = ['other_test.h'],",
+        ")");
+
+    getConfiguredTarget("//transition:main");
+    assertNoEvents();
+  }
+
+  // b/162180592
+  @Test
+  public void testSameSymlinkedLibraryDoesNotGiveDuplicateError() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY,
+                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
+
+    scratch.file(
+        "transition/BUILD",
+        "cc_binary(",
+        "    name = 'main',",
+        "    srcs = ['main.cc'],",
+        "    deps = [",
+        "        'dep1',",
+        "        'dep2',",
+        "    ],",
+        ")",
+        "cc_binary(",
+        "    name = 'libshared.so',",
+        "    srcs = ['shared.cc'],",
+        "    linkshared = 1,",
+        ")",
+        "cc_library(",
+        "    name = 'dep1',",
+        "    srcs = ['test.cc', 'libshared.so'],",
+        "    hdrs = ['test.h'],",
+        ")",
+        "cc_library(",
+        "    name = 'dep2',",
+        "    srcs = ['other_test.cc', 'libshared.so'],",
+        "    hdrs = ['other_test.h'],",
+        ")");
+
+    getConfiguredTarget("//transition:main");
+    assertNoEvents();
   }
 }

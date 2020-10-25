@@ -103,7 +103,6 @@ java_library(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
-        "//src/tools/android/java/com/android/tools/r8:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/desugar:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/dexer:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/idlclass:srcs",

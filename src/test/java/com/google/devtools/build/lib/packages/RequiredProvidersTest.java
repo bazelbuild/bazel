@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.syntax.Location;
+import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -45,7 +45,7 @@ public class RequiredProvidersTest {
 
   static {
     try {
-      P_STARLARK.export(Label.create("foo/bar", "x.bzl"), "p_skylark");
+      P_STARLARK.export(Label.create("foo/bar", "x.bzl"), "p_starlark");
     } catch (LabelSyntaxException e) {
       throw new AssertionError(e);
     }
@@ -190,7 +190,7 @@ public class RequiredProvidersTest {
                 .addNativeSet(ImmutableSet.of(P1.class, P2.class))
                 .build()
                 .getDescription())
-        .isEqualTo("[P1, P2] or ['p_legacy', 'p_skylark'] or 'p_skylark'");
+        .isEqualTo("[P1, P2] or ['p_legacy', 'p_starlark'] or 'p_starlark'");
   }
 
   @SafeVarargs

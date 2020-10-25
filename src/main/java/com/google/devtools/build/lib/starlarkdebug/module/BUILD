@@ -14,10 +14,11 @@ java_library(
     deps = [
         ":options",
         "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/server",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
     ],
 )

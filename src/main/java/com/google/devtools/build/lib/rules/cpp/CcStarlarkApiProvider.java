@@ -18,12 +18,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.skylark.StarlarkApiProvider;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkApiProvider;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcStarlarkApiProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcStarlarkApiProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**

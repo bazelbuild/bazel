@@ -861,11 +861,11 @@ public class FileSystemUtils {
   }
 
   /**
-   * Reads the given file {@code path}, assumed to have size {@code fileSize}, and does a sanity
-   * check on the number of bytes read.
+   * Reads the given file {@code path}, assumed to have size {@code fileSize}, and does a check on
+   * the number of bytes read.
    *
-   * <p>Use this method when you already know the size of the file. The sanity check is intended to
-   * catch issues where filesystems incorrectly truncate files.
+   * <p>Use this method when you already know the size of the file. The check is intended to catch
+   * issues where filesystems incorrectly truncate files.
    *
    * @throws IOException if there was an error, or if fewer than {@code fileSize} bytes were read.
    */

@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
-import com.google.devtools.build.lib.skylarkbuildapi.StarlarkConfigApi;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkConfigApi;
 import com.google.devtools.build.skydoc.fakebuildapi.ConfigApiFakes.FakeBuildSettingDescriptor;
 import com.google.devtools.build.skydoc.fakebuildapi.ConfigApiFakes.FakeExecTransitionFactory;
+import net.starlark.java.eval.Printer;
 
 /** Fake implementation of {@link StarlarkConfigApi}. */
 public class FakeConfigApi implements StarlarkConfigApi {

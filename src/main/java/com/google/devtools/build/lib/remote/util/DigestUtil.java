@@ -21,10 +21,10 @@ import build.bazel.remote.execution.v2.DigestFunction;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashingOutputStream;
 import com.google.common.io.BaseEncoding;
-import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.Message;
 import java.io.ByteArrayOutputStream;
@@ -61,7 +61,7 @@ public class DigestUtil {
   }
 
   public Digest compute(Path file, long fileSize) throws IOException {
-    return buildDigest(DigestUtils.getDigestOrFail(file, fileSize), fileSize);
+    return buildDigest(DigestUtils.getDigestWithManualFallback(file, fileSize), fileSize);
   }
 
   public Digest compute(VirtualActionInput input) throws IOException {

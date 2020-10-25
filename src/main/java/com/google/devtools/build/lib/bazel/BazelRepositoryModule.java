@@ -15,7 +15,6 @@
 
 package com.google.devtools.build.lib.bazel;
 
-import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
@@ -36,8 +35,9 @@ import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.DelegatingDownloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
-import com.google.devtools.build.lib.bazel.repository.skylark.StarlarkRepositoryFunction;
-import com.google.devtools.build.lib.bazel.repository.skylark.StarlarkRepositoryModule;
+import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriter;
+import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
+import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction;
@@ -73,7 +73,7 @@ import com.google.devtools.build.lib.skyframe.MutableSupplier;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -88,6 +88,7 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -110,8 +111,8 @@ public class BazelRepositoryModule extends BlazeModule {
   private final MutableSupplier<Map<String, String>> clientEnvironmentSupplier =
       new MutableSupplier<>();
   private ImmutableMap<RepositoryName, PathFragment> overrides = ImmutableMap.of();
-  private Optional<RootedPath> resolvedFile = Optional.absent();
-  private Optional<RootedPath> resolvedFileReplacingWorkspace = Optional.absent();
+  private Optional<RootedPath> resolvedFile = Optional.empty();
+  private Optional<RootedPath> resolvedFileReplacingWorkspace = Optional.empty();
   private Set<String> outputVerificationRules = ImmutableSet.of();
   private FileSystem filesystem;
   // We hold the precomputed value of the managed directories here, so that the dependency
@@ -228,9 +229,9 @@ public class BazelRepositoryModule extends BlazeModule {
     clientEnvironmentSupplier.set(env.getRepoEnv());
     PackageOptions pkgOptions = env.getOptions().getOptions(PackageOptions.class);
     isFetch.set(pkgOptions != null && pkgOptions.fetch);
-    resolvedFile = Optional.<RootedPath>absent();
-    resolvedFileReplacingWorkspace = Optional.<RootedPath>absent();
-    outputVerificationRules = ImmutableSet.<String>of();
+    resolvedFile = Optional.empty();
+    resolvedFileReplacingWorkspace = Optional.empty();
+    outputVerificationRules = ImmutableSet.of();
 
     starlarkRepositoryFunction.setProcessWrapper(ProcessWrapper.fromCommandEnvironment(env));
 
@@ -248,19 +249,19 @@ public class BazelRepositoryModule extends BlazeModule {
         starlarkRepositoryFunction.setTimeoutScaling(1.0);
       }
       if (repoOptions.experimentalRepositoryCache != null) {
-        // A set but empty path indicates a request to disable the repository cache.
-        if (!repoOptions.experimentalRepositoryCache.isEmpty()) {
-          Path repositoryCachePath;
-          if (repoOptions.experimentalRepositoryCache.isAbsolute()) {
-            repositoryCachePath = filesystem.getPath(repoOptions.experimentalRepositoryCache);
-          } else {
-            repositoryCachePath =
-                env.getBlazeWorkspace()
-                    .getWorkspace()
-                    .getRelative(repoOptions.experimentalRepositoryCache);
-          }
-          repositoryCache.setRepositoryCachePath(repositoryCachePath);
+        Path repositoryCachePath;
+        if (repoOptions.experimentalRepositoryCache.isEmpty()) {
+          // A set but empty path indicates a request to disable the repository cache.
+          repositoryCachePath = null;
+        } else if (repoOptions.experimentalRepositoryCache.isAbsolute()) {
+          repositoryCachePath = filesystem.getPath(repoOptions.experimentalRepositoryCache);
+        } else {
+          repositoryCachePath =
+              env.getBlazeWorkspace()
+                  .getWorkspace()
+                  .getRelative(repoOptions.experimentalRepositoryCache);
         }
+        repositoryCache.setRepositoryCachePath(repositoryCachePath);
       } else {
         Path repositoryCachePath =
             env.getDirectories()
@@ -281,6 +282,11 @@ public class BazelRepositoryModule extends BlazeModule {
         }
       }
 
+      UrlRewriter rewriter =
+          UrlRewriter.getDownloaderUrlRewriter(
+              repoOptions == null ? null : repoOptions.downloaderConfig, env.getReporter());
+      downloadManager.setUrlRewriter(rewriter);
+
       if (repoOptions.experimentalDistdir != null) {
         downloadManager.setDistdir(
             repoOptions.experimentalDistdir.stream()
@@ -298,7 +304,7 @@ public class BazelRepositoryModule extends BlazeModule {
         httpDownloader.setTimeoutScaling((float) repoOptions.httpTimeoutScaling);
       } else {
         env.getReporter()
-            .handle(Event.warn("Ingoring request to scale http timeouts by a non-positive factor"));
+            .handle(Event.warn("Ignoring request to scale http timeouts by a non-positive factor"));
         httpDownloader.setTimeoutScaling(1.0f);
       }
 

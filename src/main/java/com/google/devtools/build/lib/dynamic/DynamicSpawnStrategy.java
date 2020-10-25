@@ -27,12 +27,17 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.exec.ExecutionPolicy;
+import com.google.devtools.build.lib.server.FailureDetails.DynamicExecution;
+import com.google.devtools.build.lib.server.FailureDetails.DynamicExecution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -103,11 +108,11 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
    * SandboxedSpawnStrategy.StopConcurrentSpawns} lambda passed to the spawn runners. Each strategy
    * may call this at most once.
    *
-   * @param branch the future running the spawn
-   * @param branchDone semaphore that is expected to receive a permit once the future terminates
+   * @param branch the future of the branch running the spawn
+   * @param branchDone semaphore that is expected to receive a permit once {@code branch} terminates
    *     (after {@link InterruptedException} bubbles up through its call stack)
    * @param cancellingStrategy identifier of the strategy that is performing the cancellation. Used
-   *     to prevent cross-cancellations and to sanity-check that the same strategy doesn't issue the
+   *     to prevent cross-cancellations and to check that the same strategy doesn't issue the
    *     cancellation twice.
    * @param strategyThatCancelled name of the first strategy that executed this method, or a null
    *     reference if this is the first time this method is called. If not null, we expect the value
@@ -126,7 +131,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
     // value of "cancellingStrategy", we do not expect concurrent calls to this method. (If there
     // are, we are in big trouble.)
     String current = strategyThatCancelled.get();
-    if (current != null && current.equals(cancellingStrategy)) {
+    if (cancellingStrategy.equals(current)) {
       throw new AssertionError("stopBranch called more than once by " + cancellingStrategy);
     } else {
       // Protect against the two branches from cancelling each other. The first branch to set the
@@ -222,10 +227,52 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
     }
   }
 
+  /**
+   * Checks if the given spawn has the right execution requirements to indicate whether it can
+   * succeed when running remotely and/or locally depending on the Xcode versions it needs.
+   *
+   * @param options the dynamic execution options that configure this check
+   * @param spawn the spawn to validate
+   * @throws ExecException if the spawn does not contain the expected execution requirements
+   */
+  static void verifyAvailabilityInfo(DynamicExecutionOptions options, Spawn spawn)
+      throws ExecException {
+    if (options.requireAvailabilityInfo
+        && !options.availabilityInfoExempt.contains(spawn.getMnemonic())) {
+      if (spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_DARWIN)
+          && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIREMENTS_SET)) {
+        String message =
+            String.format(
+                "The following spawn was missing Xcode-related execution requirements. Please"
+                    + " let the Bazel team know if you encounter this issue. You can work around"
+                    + " this error by passing --experimental_require_availability_info=false --"
+                    + " at your own risk! This may cause some actions to be executed on the"
+                    + " wrong platform, which can result in build failures.\n"
+                    + "Failing spawn: mnemonic = %s\n"
+                    + "tool files = %s\n"
+                    + "execution platform = %s\n"
+                    + "execution info = %s\n",
+                spawn.getMnemonic(),
+                spawn.getToolFiles(),
+                spawn.getExecutionPlatform(),
+                spawn.getExecutionInfo());
+
+        FailureDetail detail =
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setDynamicExecution(
+                    DynamicExecution.newBuilder().setCode(Code.XCODE_RELATED_PREREQ_UNMET))
+                .build();
+        throw new EnvironmentalExecException(detail);
+      }
+    }
+  }
+
   @Override
   public ImmutableList<SpawnResult> exec(
       final Spawn spawn, final ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
+    DynamicSpawnStrategy.verifyAvailabilityInfo(options, spawn);
     ExecutionPolicy executionPolicy = getExecutionPolicy.apply(spawn);
     if (executionPolicy.canRunLocallyOnly()) {
       return runLocally(spawn, actionExecutionContext, null);
@@ -242,8 +289,8 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
     AtomicReference<String> strategyThatCancelled = new AtomicReference<>(null);
     SettableFuture<ImmutableList<SpawnResult>> remoteBranch = SettableFuture.create();
 
-    AtomicBoolean localCanReportDone = new AtomicBoolean(false);
-    AtomicBoolean remoteCanReportDone = new AtomicBoolean(false);
+    AtomicBoolean localStarting = new AtomicBoolean(true);
+    AtomicBoolean remoteStarting = new AtomicBoolean(true);
 
     ListenableFuture<ImmutableList<SpawnResult>> localBranch =
         executorService.submit(
@@ -252,9 +299,9 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
               ImmutableList<SpawnResult> callImpl(ActionExecutionContext context)
                   throws InterruptedException, ExecException {
                 try {
-                  if (!localCanReportDone.compareAndSet(false, true)) {
-                    // If we ever get here, it's because we were cancelled and the listener ran
-                    // first. Just make sure that's the case.
+                  if (!localStarting.compareAndSet(true, false)) {
+                    // If we ever get here, it's because we were cancelled early and the listener
+                    // ran first. Just make sure that's the case.
                     checkState(Thread.interrupted());
                     throw new InterruptedException();
                   }
@@ -272,7 +319,9 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
             });
     localBranch.addListener(
         () -> {
-          if (localCanReportDone.compareAndSet(false, true)) {
+          if (localStarting.compareAndSet(true, false)) {
+            // If the local branch got cancelled before even starting, we release its semaphore for
+            // it.
             localDone.release();
           }
           if (!localBranch.isCancelled()) {
@@ -288,9 +337,9 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
               public ImmutableList<SpawnResult> callImpl(ActionExecutionContext context)
                   throws InterruptedException, ExecException {
                 try {
-                  if (!remoteCanReportDone.compareAndSet(false, true)) {
-                    // If we ever get here, it's because we were cancelled and the listener ran
-                    // first. Just make sure that's the case.
+                  if (!remoteStarting.compareAndSet(true, false)) {
+                    // If we ever get here, it's because we were cancelled early and the listener
+                    // ran first. Just make sure that's the case.
                     checkState(Thread.interrupted());
                     throw new InterruptedException();
                   }
@@ -309,7 +358,9 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
             }));
     remoteBranch.addListener(
         () -> {
-          if (remoteCanReportDone.compareAndSet(false, true)) {
+          if (remoteStarting.compareAndSet(true, false)) {
+            // If the remote branch got cancelled before even starting, we release its semaphore for
+            // it.
             remoteDone.release();
           }
           if (!remoteBranch.isCancelled()) {
@@ -374,7 +425,9 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
     for (SandboxedSpawnStrategy strategy :
         dynamicStrategyRegistry.getDynamicSpawnActionContexts(
             spawn, DynamicStrategyRegistry.DynamicMode.LOCAL)) {
-      return strategy.exec(spawn, actionExecutionContext, stopConcurrentSpawns);
+      if (strategy.canExec(spawn, actionExecutionContext)) {
+        return strategy.exec(spawn, actionExecutionContext, stopConcurrentSpawns);
+      }
     }
     throw new RuntimeException(
         "executorCreated not yet called or no default dynamic_local_strategy set");
@@ -391,7 +444,9 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
     for (SandboxedSpawnStrategy strategy :
         dynamicStrategyRegistry.getDynamicSpawnActionContexts(
             spawn, DynamicStrategyRegistry.DynamicMode.REMOTE)) {
-      return strategy.exec(spawn, actionExecutionContext, stopConcurrentSpawns);
+      if (strategy.canExec(spawn, actionExecutionContext)) {
+        return strategy.exec(spawn, actionExecutionContext, stopConcurrentSpawns);
+      }
     }
     throw new RuntimeException(
         "executorCreated not yet called or no default dynamic_remote_strategy set");

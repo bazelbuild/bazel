@@ -57,6 +57,7 @@ import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
 import java.io.File;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -186,9 +187,35 @@ public class LocalSpawnRunner implements SpawnRunner {
     }
 
     public SpawnResult run() throws InterruptedException, IOException {
+      if (localExecutionOptions.localRetriesOnCrash == 0) {
+        return runOnce();
+      } else {
+        int attempts = 0;
+        while (true) {
+          // Assume that any exceptions from runOnce() come from the Java side of things, not the
+          // subprocess, so let them bubble up on first occurrence. In particular, we need this to
+          // be true for InterruptedException to ensure that the dynamic scheduler can stop us
+          // quickly.
+          SpawnResult result = runOnce();
+          if (attempts == localExecutionOptions.localRetriesOnCrash
+              || !TerminationStatus.crashed(result.exitCode())) {
+            return result;
+          }
+          stepLog(
+              SEVERE,
+              "Retrying crashed subprocess due to exit code %s (attempt %s)",
+              result.exitCode(),
+              attempts);
+          Thread.sleep(attempts * 1000);
+          attempts++;
+        }
+      }
+    }
+
+    private SpawnResult runOnce() throws InterruptedException, IOException {
       try {
         return start();
-      } catch (InterruptedException e) {
+      } catch (InterruptedException | InterruptedIOException e) {
         maybeCleanupOnInterrupt();
         // Logging the exception causes a lot of noise in builds using the dynamic scheduler, and
         // the information is not very interesting, so avoid that.
@@ -278,7 +305,8 @@ public class LocalSpawnRunner implements SpawnRunner {
             .setStatus(Status.EXECUTION_DENIED)
             .setExitCode(LOCAL_EXEC_ERROR)
             .setExecutorHostname(hostName)
-            .setFailureDetail(makeFailureDetail(LOCAL_EXEC_ERROR, Status.EXECUTION_DENIED))
+            .setFailureDetail(
+                makeFailureDetail(LOCAL_EXEC_ERROR, Status.EXECUTION_DENIED, actionType))
             .build();
       }
 
@@ -327,6 +355,7 @@ public class LocalSpawnRunner implements SpawnRunner {
           ProcessWrapper.CommandLineBuilder commandLineBuilder =
               processWrapper
                   .commandLineBuilder(spawn.getArguments())
+                  .addExecutionInfo(spawn.getExecutionInfo())
                   .setTimeout(context.getTimeout());
           if (localExecutionOptions.collectLocalExecutionStatistics) {
             statisticsPath = tmpDir.getRelative("stats.out");
@@ -363,6 +392,12 @@ public class LocalSpawnRunner implements SpawnRunner {
             subprocess.destroyAndWait();
             throw e;
           }
+          if (Thread.interrupted()) {
+            stepLog(SEVERE, "Interrupted but didn't throw; status %s", terminationStatus);
+            throw new InterruptedException();
+          }
+        } catch (InterruptedIOException e) {
+          throw new InterruptedException(e.getMessage());
         } catch (IOException e) {
           String msg = e.getMessage() == null ? e.getClass().getName() : e.getMessage();
           setState(State.PERMANENT_ERROR);
@@ -376,7 +411,8 @@ public class LocalSpawnRunner implements SpawnRunner {
               .setStatus(Status.EXECUTION_FAILED)
               .setExitCode(LOCAL_EXEC_ERROR)
               .setExecutorHostname(hostName)
-              .setFailureDetail(makeFailureDetail(LOCAL_EXEC_ERROR, Status.EXECUTION_FAILED))
+              .setFailureDetail(
+                  makeFailureDetail(LOCAL_EXEC_ERROR, Status.EXECUTION_FAILED, actionType))
               .build();
         }
         setState(State.SUCCESS);
@@ -397,7 +433,7 @@ public class LocalSpawnRunner implements SpawnRunner {
                 .setExecutorHostname(hostName)
                 .setWallTime(wallTime);
         if (status != Status.SUCCESS) {
-          spawnResultBuilder.setFailureDetail(makeFailureDetail(exitCode, status));
+          spawnResultBuilder.setFailureDetail(makeFailureDetail(exitCode, status, actionType));
         }
         if (statisticsPath != null) {
           ExecutionStatistics.getResourceUsage(statisticsPath)
@@ -475,7 +511,7 @@ public class LocalSpawnRunner implements SpawnRunner {
     }
   }
 
-  private static FailureDetail makeFailureDetail(int exitCode, Status status) {
+  private static FailureDetail makeFailureDetail(int exitCode, Status status, String actionType) {
     FailureDetails.Spawn.Builder spawnFailure = FailureDetails.Spawn.newBuilder();
     switch (status) {
       case SUCCESS:
@@ -506,7 +542,7 @@ public class LocalSpawnRunner implements SpawnRunner {
         break;
     }
     return FailureDetail.newBuilder()
-        .setMessage("local spawn failed")
+        .setMessage("local spawn failed for " + actionType)
         .setSpawn(spawnFailure)
         .build();
   }

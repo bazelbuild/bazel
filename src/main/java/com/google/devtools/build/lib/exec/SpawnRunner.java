@@ -184,7 +184,7 @@ public interface SpawnRunner {
      * to any of the output file locations. This method is used to coordinate - implementations must
      * throw an {@link InterruptedException} for all but one caller.
      */
-    void lockOutputFiles() throws InterruptedException, IOException;
+    void lockOutputFiles() throws InterruptedException;
 
     /**
      * Returns whether this spawn may be executing concurrently under multiple spawn runners. If so,
@@ -198,8 +198,7 @@ public interface SpawnRunner {
     /** The files to which to write stdout and stderr. */
     FileOutErr getFileOutErr();
 
-    SortedMap<PathFragment, ActionInput> getInputMapping(boolean expandTreeArtifactsInRunfiles)
-        throws IOException;
+    SortedMap<PathFragment, ActionInput> getInputMapping() throws IOException;
 
     /** Reports a progress update to the Spawn strategy. */
     void report(ProgressStatus state, String name);

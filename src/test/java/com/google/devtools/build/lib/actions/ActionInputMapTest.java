@@ -203,11 +203,6 @@ public final class ActionInputMapTest {
     }
 
     @Override
-    public boolean isMarkerValue() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
     public FileContentsProxy getContentsProxy() {
       throw new UnsupportedOperationException();
     }

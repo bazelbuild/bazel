@@ -58,6 +58,12 @@ function test_add_ast_path_remapping() {
   expect_log "-Wl,-add_ast_path,${PWD}/foo" "Expected add_ast_path to be remapped."
 }
 
+function test_disable_add_ast_path_remapping() {
+  env RELATIVE_AST_PATH=isset DEVELOPER_DIR=dummy SDKROOT=a \
+      "${WRAPPED_CLANG}" "-Wl,-add_ast_path,relative/foo" >$TEST_log || fail "wrapped_clang failed";
+  expect_log "-Wl,-add_ast_path,relative/foo" "Expected add_ast_path to not be remapped."
+}
+
 # Test that __BAZEL_XCODE_DEVELOPER_DIR__ is remapped properly.
 function test_developer_dir_remapping() {
   env DEVELOPER_DIR=mydir SDKROOT=a \

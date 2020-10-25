@@ -20,7 +20,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -44,7 +44,7 @@ public final class ProguardLibraryRule implements RuleDefinition {
         .add(attr("proguard_specs", LABEL_LIST).legacyAllowAnyFileType())
         .add(
             attr("$proguard_whitelister", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .exec()
                 .value(
                     new Attribute.ComputedDefault() {

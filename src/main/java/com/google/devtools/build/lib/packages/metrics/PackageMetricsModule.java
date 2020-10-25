@@ -14,14 +14,10 @@
 package com.google.devtools.build.lib.packages.metrics;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
-import com.google.devtools.build.lib.packages.metrics.ExtremaPackageLoadingListener.PackageIdentifierAndLong;
-import com.google.devtools.build.lib.packages.metrics.ExtremaPackageLoadingListener.TopPackages;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -29,13 +25,10 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
-import java.util.List;
 import javax.annotation.Nullable;
 
 /** Provides logging for extreme package-loading events. */
 public class PackageMetricsModule extends BlazeModule {
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-
   /** Options for {@link PackageMetricsModule}. */
   public static class Options extends OptionsBase {
     @Option(
@@ -45,23 +38,33 @@ public class PackageMetricsModule extends BlazeModule {
         effectTags = {OptionEffectTag.BAZEL_MONITORING},
         help = "Configures number of packages included in top-package INFO logging, <= 0 disables.")
     public int numberOfPackagesToTrack;
+
+    @Option(
+        name = "record_metrics_for_all_packages",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.BAZEL_MONITORING},
+        help =
+            "Configures PackageMetrics to record all metrics for all packages. Disables Top-n INFO"
+                + " logging.")
+    public boolean enableAllMetrics;
   }
 
-  private final ExtremaPackageLoadingListener packageLoadingListener;
+  private final PackageMetricsPackageLoadingListener packageLoadingListener;
 
   public PackageMetricsModule() {
-    this(new ExtremaPackageLoadingListener());
+    this(PackageMetricsPackageLoadingListener.getInstance());
   }
 
   @VisibleForTesting
-  PackageMetricsModule(ExtremaPackageLoadingListener packageLoadingListener) {
+  PackageMetricsModule(PackageMetricsPackageLoadingListener packageLoadingListener) {
     this.packageLoadingListener = packageLoadingListener;
   }
 
   @Nullable
   @Override
   public PackageLoadingListener getPackageLoadingListener(
-      Package.Builder.Helper packageBuilderHelper,
+      PackageSettings packageSettings,
       ConfiguredRuleClassProvider ruleClassProvider,
       FileSystem fs) {
     return packageLoadingListener;
@@ -75,25 +78,17 @@ public class PackageMetricsModule extends BlazeModule {
   @Override
   public void beforeCommand(CommandEnvironment commandEnvironment) {
     Options options = commandEnvironment.getOptions().getOptions(Options.class);
-    packageLoadingListener.setNumPackagesToTrack(Math.max(options.numberOfPackagesToTrack, 0));
+    PackageMetricsRecorder recorder =
+        options.enableAllMetrics
+            ? new CompletePackageMetricsRecorder()
+            : new ExtremaPackageMetricsRecorder(Math.max(options.numberOfPackagesToTrack, 0));
+    packageLoadingListener.setPackageMetricsRecorder(recorder);
   }
 
   @Override
   public void afterCommand() {
-    TopPackages topPackages = packageLoadingListener.getAndResetTopPackages();
-    logIfNonEmpty("Slowest packages (ms)", topPackages.getSlowestPackages());
-    logIfNonEmpty("Largest packages (num targets)", topPackages.getLargestPackages());
-    logIfNonEmpty(
-        "Packages with most computation steps", topPackages.getPackagesWithMostComputationSteps());
-    logIfNonEmpty(
-        "Packages with most transitive loads (num bzl files)",
-        topPackages.getPackagesWithMostTransitiveLoads());
-  }
-
-  private static void logIfNonEmpty(
-      String logLinePrefix, List<PackageIdentifierAndLong> extremeElements) {
-    if (!extremeElements.isEmpty()) {
-      logger.atInfo().log("%s: %s", logLinePrefix, Joiner.on(", ").join(extremeElements));
+    if (packageLoadingListener.getPackageMetricsRecorder() != null) {
+      packageLoadingListener.getPackageMetricsRecorder().loadingFinished();
     }
   }
 }

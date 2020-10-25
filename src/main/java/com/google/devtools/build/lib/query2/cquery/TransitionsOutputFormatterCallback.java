@@ -13,11 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DependencyKind;
+import com.google.devtools.build.lib.analysis.DependencyKind.ToolchainDependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
@@ -42,7 +45,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.io.OutputStream;
 import java.util.Collection;
@@ -52,6 +54,7 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /**
  * Output formatter that prints {@link ConfigurationTransition} information for rule configured
@@ -98,18 +101,15 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
       return;
     }
     partialResult.forEach(
-        ct -> partialResultMap.put(ct.getLabel(), accessor.getTargetFromConfiguredTarget(ct)));
+        ct ->
+            partialResultMap.put(
+                ct.getOriginalLabel(), accessor.getTargetFromConfiguredTarget(ct)));
     for (ConfiguredTarget configuredTarget : partialResult) {
-      Target target = partialResultMap.get(configuredTarget.getLabel());
-      BuildConfiguration config =
-          skyframeExecutor.getConfiguration(
-              eventHandler, configuredTarget.getConfigurationKey());
+      Target target = partialResultMap.get(configuredTarget.getOriginalLabel());
+      BuildConfiguration config = getConfiguration(configuredTarget.getConfigurationKey());
       addResult(
           getRuleClassTransition(configuredTarget, target)
-              + configuredTarget.getLabel()
-              + " ("
-              + (config != null && config.isHostConfiguration() ? "HOST" : config)
-              + ")");
+              + String.format("%s (%s)", configuredTarget.getOriginalLabel(), shortId(config)));
       if (!(configuredTarget instanceof RuleConfiguredTarget)) {
         continue;
       }
@@ -132,8 +132,10 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
                     /*aspect=*/ null,
                     configConditions,
                     toolchainContexts,
+                    DependencyResolver.shouldUseToolchainTransition(config, target),
                     trimmingTransitionFactory);
       } catch (EvalException | InconsistentAspectOrderException e) {
+        // This is an abuse of InterruptedException.
         throw new InterruptedException(e.getMessage());
       }
       for (Map.Entry<DependencyKind, DependencyKey> attributeAndDep : deps.entries()) {
@@ -152,8 +154,13 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
                 .values();
         String hostConfigurationChecksum = hostConfiguration.checksum();
         String dependencyName;
-        if (attributeAndDep.getKey() == DependencyKind.TOOLCHAIN_DEPENDENCY) {
-          dependencyName = "[toolchain dependency]";
+        if (DependencyKind.isToolchain(attributeAndDep.getKey())) {
+          ToolchainDependencyKind tdk = (ToolchainDependencyKind) attributeAndDep.getKey();
+          if (tdk.isDefaultExecGroup()) {
+            dependencyName = "[toolchain dependency]";
+          } else {
+            dependencyName = String.format("[toolchain dependency: %s]", tdk.getExecGroupName());
+          }
         } else {
           dependencyName = attributeAndDep.getKey().getAttribute().getName();
         }
@@ -164,16 +171,17 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
                 .concat(dep.getLabel().toString())
                 .concat("#")
                 .concat(dep.getTransition().getName())
-                .concat(" ( -> ")
+                .concat(" -> ")
                 .concat(
                     toOptions.stream()
                         .map(
                             options -> {
                               String checksum = options.computeChecksum();
-                              return checksum.equals(hostConfigurationChecksum) ? "HOST" : checksum;
+                              return checksum.equals(hostConfigurationChecksum)
+                                  ? "HOST"
+                                  : shortId(checksum);
                             })
-                        .collect(Collectors.joining(", ")))
-                .concat(")"));
+                        .collect(joining(", "))));
         if (verbosity == CqueryOptions.Transitions.LITE) {
           continue;
         }
@@ -214,4 +222,3 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
     }
   }
 }
-

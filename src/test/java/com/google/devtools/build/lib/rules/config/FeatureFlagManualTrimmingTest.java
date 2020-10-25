@@ -28,10 +28,11 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Rule;
@@ -60,7 +61,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Override
-  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder =
         new ConfiguredRuleClassProvider.Builder().addRuleDefinition(new FeatureFlagSetterRule());
     TestRuleClassProvider.addStandardRules(builder);
@@ -541,9 +542,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//test:target");
     RuleContext ruleContext = getRuleContext(target);
     BuildConfiguration childConfiguration =
-        Iterables.getOnlyElement(
-                ruleContext.getPrerequisiteConfiguredTargetAndTargets(
-                    "exports_flag", TransitionMode.TARGET))
+        Iterables.getOnlyElement(ruleContext.getPrerequisiteConfiguredTargets("exports_flag"))
             .getConfiguration();
 
     Label childLabel = Label.parseAbsoluteUnchecked("//test:read_flag");
@@ -885,10 +884,13 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
 
     BuildOptions topLevelOptions =
         getConfiguration(getConfiguredTarget("//test:toplevel_target")).getOptions();
-    BuildOptions depOptions =
+    PatchTransition transition =
         new ConfigFeatureFlagTaggedTrimmingTransitionFactory(BaseRuleClasses.TAGGED_TRIMMING_ATTR)
-            .create((Rule) getTarget("//test:dep"))
-            .patch(topLevelOptions, eventCollector);
+            .create((Rule) getTarget("//test:dep"));
+    BuildOptions depOptions =
+        transition.patch(
+            new BuildOptionsView(topLevelOptions, transition.requiresOptionFragments()),
+            eventCollector);
     assertThat(depOptions).isSameInstanceAs(topLevelOptions);
   }
 

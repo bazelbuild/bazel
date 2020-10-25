@@ -27,27 +27,34 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-/**
- * Options related to worker processes.
- */
+/** Options related to worker processes. */
 public class WorkerOptions extends OptionsBase {
   public static final WorkerOptions DEFAULTS = Options.getDefaults(WorkerOptions.class);
 
   @Option(
-    name = "experimental_persistent_javac",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Enable the experimental persistent Java compiler.",
-    expansion = {
-      "--strategy=Javac=worker",
-      "--strategy=JavaIjar=local",
-      "--strategy=JavaDeployJar=local",
-      "--strategy=JavaSourceJar=local",
-      "--strategy=Turbine=local"
-    }
-  )
+      name = "experimental_persistent_javac",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Enable the experimental persistent Java compiler.",
+      expansion = {
+        "--strategy=Javac=worker",
+        "--strategy=JavaIjar=local",
+        "--strategy=JavaDeployJar=local",
+        "--strategy=JavaSourceJar=local",
+        "--strategy=Turbine=local"
+      })
   public Void experimentalPersistentJavac;
+
+  @Option(
+      name = "experimental_worker_allow_json_protocol",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      help =
+          "Allows workers to use the JSON worker protocol until it is determined to be"
+              + " stable.")
+  public boolean experimentalJsonWorkerProtocol;
 
   /**
    * Defines a resource converter for named values in the form [name=]value, where the value is
@@ -57,17 +64,17 @@ public class WorkerOptions extends OptionsBase {
    */
   public static class MultiResourceConverter implements Converter<Entry<String, Integer>> {
 
-    static ResourceConverter valueConverter;
-
     public static final int DEFAULT_VALUE = 4;
 
-    public MultiResourceConverter() {
-      valueConverter = new ResourceConverter(() -> DEFAULT_VALUE, 0, Integer.MAX_VALUE);
-    }
+    static ResourceConverter valueConverter =
+        new ResourceConverter(() -> DEFAULT_VALUE, 0, Integer.MAX_VALUE);
 
     @Override
     public Map.Entry<String, Integer> convert(String input) throws OptionsParsingException {
       // TODO(steinman): Make auto value return a reasonable multiplier of host capacity.
+      if (input == null || "null".equals(input)) {
+        input = "auto";
+      }
       int pos = input.indexOf('=');
       if (pos < 0) {
         return Maps.immutableEntry("", valueConverter.convert(input));
@@ -88,7 +95,7 @@ public class WorkerOptions extends OptionsBase {
       converter = MultiResourceConverter.class,
       defaultValue = "auto",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
           "How many instances of a worker process (like the persistent Java compiler) may be "
               + "launched if you use the 'worker' strategy. May be specified as [name=value] to "
@@ -98,6 +105,22 @@ public class WorkerOptions extends OptionsBase {
               + "\"=value\" sets a default for unspecified mnemonics.",
       allowMultiple = true)
   public List<Map.Entry<String, Integer>> workerMaxInstances;
+
+  @Option(
+      name = "experimental_worker_max_multiplex_instances",
+      converter = MultiResourceConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "How many WorkRequests a multiplex worker process may receive in parallel if you use the"
+              + " 'worker' strategy with --experimental_worker_multiplex. May be specified as"
+              + " [name=value] to give a different value per worker mnemonic. Takes "
+              + ResourceConverter.FLAG_SYNTAX
+              + ". 'auto' calculates a reasonable default based on machine capacity. "
+              + "\"=value\" sets a default for unspecified mnemonics.",
+      allowMultiple = true)
+  public List<Map.Entry<String, Integer>> workerMaxMultiplexInstances;
 
   @Option(
       name = "high_priority_workers",
@@ -111,21 +134,19 @@ public class WorkerOptions extends OptionsBase {
   public List<String> highPriorityWorkers;
 
   @Option(
-    name = "worker_quit_after_build",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "If enabled, all workers quit after a build is done."
-  )
+      name = "worker_quit_after_build",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If enabled, all workers quit after a build is done.")
   public boolean workerQuitAfterBuild;
 
   @Option(
-    name = "worker_verbose",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "If enabled, prints verbose messages when workers are started, shutdown, ..."
-  )
+      name = "worker_verbose",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If enabled, prints verbose messages when workers are started, shutdown, ...")
   public boolean workerVerbose;
 
   @Option(
@@ -141,12 +162,20 @@ public class WorkerOptions extends OptionsBase {
   public List<Map.Entry<String, String>> workerExtraFlags;
 
   @Option(
-    name = "worker_sandboxing",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "If enabled, workers will be executed in a sandboxed environment."
-  )
+      name = "worker_sandboxing",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If enabled, workers will be executed in a sandboxed environment.")
   public boolean workerSandboxing;
 
+  @Option(
+      name = "experimental_worker_multiplex",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Currently a no-op. Future: If enabled, workers that support the experimental"
+              + " multiplexing feature will use that feature.")
+  public boolean workerMultiplex;
 }

@@ -38,7 +38,7 @@ public class InconsistentFilesystemTest extends BuildIntegrationTestCase {
 
   @Override
   protected FileSystem createFileSystem() {
-    return new UnixFileSystem(DigestHashFunction.getDefaultUnchecked()) {
+    return new UnixFileSystem(DigestHashFunction.SHA256, /*hashAttributeName=*/ "") {
       boolean threwException = false;
 
       @Override

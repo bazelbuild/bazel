@@ -21,6 +21,12 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+COVERAGE_GENERATOR_DIR="$1"; shift
+if [[ "${COVERAGE_GENERATOR_DIR}" != "released" ]]; then
+  COVERAGE_GENERATOR_DIR="$(rlocation io_bazel/$COVERAGE_GENERATOR_DIR)"
+  add_to_bazelrc "build --override_repository=remote_coverage_tools=${COVERAGE_GENERATOR_DIR}"
+fi
+
 # Writes the C++ source files and a corresponding BUILD file for which to
 # collect code coverage. The sources are a.cc, a.h and t.cc.
 function setup_a_cc_lib_and_t_cc_test() {
@@ -100,6 +106,47 @@ function test_cc_test_llvm_coverage_doesnt_fail() {
   # contents because it's a binary.
   [ -f "$(get_coverage_file_path_from_test_log)" ] \
       || fail "Coverage output file was not created."
+}
+
+function test_cc_test_llvm_coverage_produces_lcov_report() {
+  local -r llvm_profdata="/usr/bin/llvm-profdata-9"
+  if [[ ! -x ${llvm_profdata} ]]; then
+    return
+  fi
+
+  local -r clang="/usr/bin/clang-9"
+  if [[ ! -x ${clang} ]]; then
+    return
+  fi
+
+  local -r llvm_cov="/usr/bin/llvm-cov-9"
+  if [[ ! -x ${llvm_cov} ]]; then
+    return
+  fi
+
+  setup_a_cc_lib_and_t_cc_test
+
+  BAZEL_USE_LLVM_NATIVE_COVERAGE=1 GCOV=$llvm_profdata CC=$clang \
+    BAZEL_LLVM_COV=$llvm_cov bazel coverage --experimental_generate_llvm_lcov \
+      --test_output=all //:t &>$TEST_log || fail "Coverage for //:t failed"
+
+  local expected_result="SF:a.cc
+FN:3,_Z1ab
+FNDA:1,_Z1ab
+FNF:1
+FNH:1
+DA:3,1
+DA:4,1
+DA:5,1
+DA:6,1
+DA:7,0
+DA:8,0
+DA:9,1
+LH:5
+LF:7
+end_of_record"
+
+  assert_equals "$(cat $(get_coverage_file_path_from_test_log))" "$expected_result"
 }
 
 run_suite "test tests"

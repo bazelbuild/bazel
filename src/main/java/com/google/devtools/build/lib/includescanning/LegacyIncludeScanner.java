@@ -58,7 +58,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import javax.annotation.Nullable;
 
 /**
  * C include scanner. Quickly scans C/C++ source files to determine the bounding set of transitively
@@ -749,7 +748,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
   private class LegacyIncludeVisitor extends AbstractQueueVisitor implements IncludeVisitor {
     private final ActionExecutionMetadata actionExecutionMetadata;
     private final ActionExecutionContext actionExecutionContext;
-    @Nullable private final Artifact grepIncludes;
+    private final Artifact grepIncludes;
     private final Map<PathFragment, Artifact> pathToLegalOutputArtifact;
     /** The set of headers known to be part of a C++ module. Scanning can stop here. */
     private final Set<Artifact> modularHeaders;
@@ -760,7 +759,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
     LegacyIncludeVisitor(
         ActionExecutionMetadata actionExecutionMetadata,
         ActionExecutionContext actionExecutionContext,
-        @Nullable Artifact grepIncludes,
+        Artifact grepIncludes,
         final Map<PathFragment, Artifact> pathToLegalOutputArtifact,
         Set<Artifact> modularHeaders) {
       super(

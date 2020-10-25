@@ -29,6 +29,7 @@ import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
@@ -36,11 +37,11 @@ import com.google.devtools.build.lib.actions.EventReportingArtifacts.ReportedArt
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.extra.ExtraAction;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
@@ -58,7 +59,6 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.NoAnalyzeEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.NoExecutionEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
@@ -102,6 +102,7 @@ public class BuildEventStreamer {
   private int progressCount;
 
   private final CountingArtifactGroupNamer artifactGroupNamer;
+  private final String oomMessage;
   private OutErrProvider outErrProvider;
 
   @GuardedBy("this")
@@ -134,9 +135,7 @@ public class BuildEventStreamer {
   private ImmutableMap<BuildEventTransport, ListenableFuture<Void>> halfCloseFuturesMap =
       ImmutableMap.of();
 
-  /**
-   * Provider for stdout and stderr output.
-   */
+  /** Provider for stdout and stderr output. */
   public interface OutErrProvider {
     /**
      * Return the chunks of stdout that were produced since the last call to this function (or the
@@ -157,19 +156,14 @@ public class BuildEventStreamer {
   private BuildEventStreamer(
       Collection<BuildEventTransport> transports,
       BuildEventStreamOptions options,
-      CountingArtifactGroupNamer artifactGroupNamer) {
+      CountingArtifactGroupNamer artifactGroupNamer,
+      String oomMessage) {
     this.transports = transports;
     this.besOptions = options;
     this.announcedEvents = null;
     this.progressCount = 0;
     this.artifactGroupNamer = artifactGroupNamer;
-  }
-
-  /** Creates a new build event streamer with default options. */
-  public BuildEventStreamer(
-      Collection<BuildEventTransport> transports,
-      CountingArtifactGroupNamer namer) {
-    this(transports, new BuildEventStreamOptions(), namer);
+    this.oomMessage = oomMessage;
   }
 
   @ThreadCompatible
@@ -337,11 +331,15 @@ public class BuildEventStreamer {
     return closed;
   }
 
-  public void close() {
-    close(null);
+  public void closeOnAbort(AbortReason reason) {
+    close(checkNotNull(reason));
   }
 
-  public synchronized void close(@Nullable AbortReason reason) {
+  public void close() {
+    close(/*reason=*/ null);
+  }
+
+  private synchronized void close(@Nullable AbortReason reason) {
     if (closed) {
       return;
     }
@@ -357,25 +355,25 @@ public class BuildEventStreamer {
 
     ImmutableMap.Builder<BuildEventTransport, ListenableFuture<Void>> closeFuturesMapBuilder =
         ImmutableMap.builder();
-    for (final BuildEventTransport transport : transports) {
+    for (BuildEventTransport transport : transports) {
       closeFuturesMapBuilder.put(transport, transport.close());
     }
     closeFuturesMap = closeFuturesMapBuilder.build();
 
     ImmutableMap.Builder<BuildEventTransport, ListenableFuture<Void>> halfCloseFuturesMapBuilder =
         ImmutableMap.builder();
-    for (final BuildEventTransport transport : transports) {
+    for (BuildEventTransport transport : transports) {
       halfCloseFuturesMapBuilder.put(transport, transport.getHalfCloseFuture());
     }
     halfCloseFuturesMap = halfCloseFuturesMapBuilder.build();
   }
 
-  private void maybeReportArtifactSet(CompletionContext ctx, NestedSetView<?> view) {
-    String name = artifactGroupNamer.maybeName(view);
+  private void maybeReportArtifactSet(CompletionContext ctx, NestedSet<?> set) {
+    String name = artifactGroupNamer.maybeName(set);
     if (name == null) {
       return;
     }
-    view = NamedArtifactGroup.expandView(ctx, view);
+    set = NamedArtifactGroup.expandSet(ctx, set);
 
     // We only split if the max number of entries is at least 2 (it must be at least a binary tree).
     // The method throws for smaller values.
@@ -383,16 +381,12 @@ public class BuildEventStreamer {
       // We only split the event after naming it to avoid splitting the same node multiple times.
       // Note that the artifactGroupNames keeps references to the individual pieces, so this can
       // double the memory consumption of large nested sets.
-      view = view.splitIfExceedsMaximumSize(besOptions.maxNamedSetEntries);
+      set = set.splitIfExceedsMaximumSize(besOptions.maxNamedSetEntries);
     }
-    for (NestedSetView<?> transitive : view.transitives()) {
-      maybeReportArtifactSet(ctx, transitive);
+    for (NestedSet<?> succ : set.getNonLeaves()) {
+      maybeReportArtifactSet(ctx, succ);
     }
-    post(new NamedArtifactGroup(name, ctx, view));
-  }
-
-  private void maybeReportArtifactSet(CompletionContext ctx, NestedSet<?> set) {
-    maybeReportArtifactSet(ctx, new NestedSetView<>(set));
+    post(new NamedArtifactGroup(name, ctx, set));
   }
 
   private void maybeReportConfiguration(BuildEvent configuration) {
@@ -427,7 +421,6 @@ public class BuildEventStreamer {
 
   @Subscribe
   @AllowConcurrentEvents
-  @SuppressWarnings("unchecked")
   public void buildEvent(BuildEvent event) {
     if (finalEventsToCome != null) {
       synchronized (this) {
@@ -446,8 +439,9 @@ public class BuildEventStreamer {
 
     if (event instanceof BuildStartingEvent) {
       BuildRequest buildRequest = ((BuildStartingEvent) event).getRequest();
-      isTestCommand = "test".equals(buildRequest.getCommandName())
-          || "coverage".equals(buildRequest.getCommandName());
+      isTestCommand =
+          "test".equals(buildRequest.getCommandName())
+              || "coverage".equals(buildRequest.getCommandName());
     }
 
     if (event instanceof BuildEventWithConfiguration) {
@@ -458,9 +452,8 @@ public class BuildEventStreamer {
 
     if (event instanceof EventReportingArtifacts) {
       ReportedArtifacts reportedArtifacts = ((EventReportingArtifacts) event).reportedArtifacts();
-      for (NestedSet<?> artifactSet : reportedArtifacts.artifacts) {
-        maybeReportArtifactSet(
-            reportedArtifacts.completionContext, (NestedSet<Object>) artifactSet);
+      for (NestedSet<Artifact> artifactSet : reportedArtifacts.artifacts) {
+        maybeReportArtifactSet(reportedArtifacts.completionContext, artifactSet);
       }
     }
 
@@ -486,9 +479,7 @@ public class BuildEventStreamer {
 
     if (event instanceof BuildCompleteEvent) {
       BuildCompleteEvent buildCompleteEvent = (BuildCompleteEvent) event;
-      if (isCrash(buildCompleteEvent)) {
-        addAbortReason(AbortReason.INTERNAL);
-      } else if (isCatastrophe(buildCompleteEvent)) {
+      if (isCrash(buildCompleteEvent) || isCatastrophe(buildCompleteEvent)) {
         addAbortReason(AbortReason.INTERNAL);
       } else if (isIncomplete(buildCompleteEvent)) {
         addAbortReason(AbortReason.INCOMPLETE);
@@ -518,7 +509,7 @@ public class BuildEventStreamer {
     return event.getResult().wasCatastrophe();
   }
 
-  private boolean isIncomplete(BuildCompleteEvent event) {
+  private static boolean isIncomplete(BuildCompleteEvent event) {
     return !event.getResult().getSuccess()
         && !event.getResult().wasCatastrophe()
         && event.getResult().getStopOnFirstFailure();
@@ -613,7 +604,7 @@ public class BuildEventStreamer {
     }
   }
 
-  private static <T> void consumeAsPairsofStrings(
+  private static void consumeAsPairsofStrings(
       Iterable<String> leftIterable,
       Iterable<String> rightIterable,
       BiConsumer<String, String> biConsumer,
@@ -625,7 +616,7 @@ public class BuildEventStreamer {
         (s1, s2) -> lastConsumer.accept(nullToEmpty(s1), nullToEmpty(s2)));
   }
 
-  private static <T> void consumeAsPairsofStrings(
+  private static void consumeAsPairsofStrings(
       Iterable<String> leftIterable,
       Iterable<String> rightIterable,
       BiConsumer<String, String> biConsumer) {
@@ -722,7 +713,7 @@ public class BuildEventStreamer {
   }
 
   /** Return true if the test summary contains no actual test runs. */
-  private boolean isVacuousTestSummary(BuildEvent event) {
+  private static boolean isVacuousTestSummary(BuildEvent event) {
     return event instanceof TestSummary && (((TestSummary) event).totalRuns() == 0);
   }
 
@@ -750,38 +741,45 @@ public class BuildEventStreamer {
   }
 
   /**
-   * Stores the abort reason for later reporting on BEP pending events. In case of multiple abort
-   * reasons:
+   * Stores the {@link AbortReason} for later reporting on BEP pending events.
+   *
+   * <p>In case of multiple abort reasons:
    *
    * <ul>
-   *   <li>Only the most recent reason will be reported as the main AbortReason in BEP.
-   *   <li>All previous AbortReason will appear in Aborted#getDescription message.
+   *   <li>Only the most recent reason will be reported as the main {@link AbortReason} in BEP.
+   *   <li>All previous reasons will appear in the {@link Aborted#getDescription} message.
    * </ul>
    */
-  private synchronized void addAbortReason(BuildEventStreamProtos.Aborted.AbortReason reason) {
+  private synchronized void addAbortReason(AbortReason reason) {
     abortReasons.add(reason);
   }
 
-  /** @return the most recent AbortReason or UNKNOWN if no value was set. */
+  /**
+   * Returns the most recent {@link AbortReason} or {@link AbortReason#UNKNOWN} if no reason was
+   * set.
+   */
   private synchronized AbortReason getLastAbortReason() {
-    return abortReasons.isEmpty() ? AbortReason.UNKNOWN : Iterables.getLast(abortReasons);
+    return Iterables.getLast(abortReasons, AbortReason.UNKNOWN);
   }
 
   /**
-   * @return Detailed message explaining the most recent AbortReason (and possibly previous
-   *     reasons).
+   * Returns a detailed message explaining the most recent {@link AbortReason} (and possibly
+   * previous reasons).
    */
   private synchronized String getAbortReasonDetails() {
-    return abortReasons.size() <= 1
-        ? ""
-        : String.format("Multiple abort reasons reported: %s", abortReasons);
+    if (abortReasons.size() == 1
+        && Iterables.getOnlyElement(abortReasons) == AbortReason.OUT_OF_MEMORY) {
+      return BugReport.constructOomExitMessage(oomMessage);
+    }
+    return abortReasons.size() > 1 ? "Multiple abort reasons reported: " + abortReasons : "";
   }
 
   /** A builder for {@link BuildEventStreamer}. */
-  public static class Builder {
+  public static final class Builder {
     private Set<BuildEventTransport> buildEventTransports;
     private BuildEventStreamOptions besStreamOptions;
     private CountingArtifactGroupNamer artifactGroupNamer;
+    private String oomMessage;
 
     public Builder buildEventTransports(Set<BuildEventTransport> value) {
       this.buildEventTransports = value;
@@ -798,12 +796,17 @@ public class BuildEventStreamer {
       return this;
     }
 
+    public Builder oomMessage(String oomMessage) {
+      this.oomMessage = oomMessage;
+      return this;
+    }
+
     public BuildEventStreamer build() {
       return new BuildEventStreamer(
           checkNotNull(buildEventTransports),
           checkNotNull(besStreamOptions),
-          checkNotNull(artifactGroupNamer));
+          checkNotNull(artifactGroupNamer),
+          nullToEmpty(oomMessage));
     }
   }
 }
-

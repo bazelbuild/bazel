@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
+import com.google.devtools.build.lib.server.FailureDetails.Sandbox.Code;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.OS;
@@ -57,7 +58,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    * Returns whether the linux sandbox is supported on the local machine by running a small command
    * in it.
    */
-  public static boolean isSupported(final CommandEnvironment cmdEnv) {
+  public static boolean isSupported(final CommandEnvironment cmdEnv) throws InterruptedException {
     if (OS.getCurrent() != OS.LINUX) {
       return false;
     }
@@ -65,11 +66,20 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       return false;
     }
     Path linuxSandbox = LinuxSandboxUtil.getLinuxSandbox(cmdEnv);
-    return isSupportedMap.computeIfAbsent(
-        linuxSandbox, linuxSandboxPath -> computeIsSupported(cmdEnv, linuxSandboxPath));
+    Boolean isSupported;
+    synchronized (isSupportedMap) {
+      isSupported = isSupportedMap.get(linuxSandbox);
+      if (isSupported != null) {
+        return isSupported;
+      }
+      isSupported = computeIsSupported(cmdEnv, linuxSandbox);
+      isSupportedMap.put(linuxSandbox, isSupported);
+    }
+    return isSupported;
   }
 
-  private static boolean computeIsSupported(CommandEnvironment cmdEnv, Path linuxSandbox) {
+  private static boolean computeIsSupported(CommandEnvironment cmdEnv, Path linuxSandbox)
+      throws InterruptedException {
     ImmutableList<String> linuxSandboxArgv =
         LinuxSandboxUtil.commandLineBuilder(linuxSandbox, ImmutableList.of("/bin/true")).build();
     ImmutableMap<String, String> env = ImmutableMap.of();
@@ -143,7 +153,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   @Override
   protected SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, ExecException {
+      throws IOException, ExecException, InterruptedException {
     // Each invocation of "exec" gets its own sandbox base.
     // Note that the value returned by context.getId() is only unique inside one given SpawnRunner,
     // so we have to prefix our name to turn it into a globally unique value.
@@ -166,17 +176,14 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     SandboxInputs inputs =
         helpers.processInputFiles(
-            context.getInputMapping(
-                getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
-            spawn,
-            context.getArtifactExpander(),
-            execRoot);
+            context.getInputMapping(), spawn, context.getArtifactExpander(), execRoot);
     SandboxOutputs outputs = helpers.getOutputs(spawn);
 
     Duration timeout = context.getTimeout();
 
     LinuxSandboxUtil.CommandLineBuilder commandLineBuilder =
         LinuxSandboxUtil.commandLineBuilder(linuxSandbox, spawn.getArguments())
+            .addExecutionInfo(spawn.getExecutionInfo())
             .setWritableFilesAndDirectories(writableDirs)
             .setTmpfsDirectories(getTmpfsPaths())
             .setBindMounts(getReadOnlyBindMounts(blazeDirs, sandboxExecRoot))
@@ -277,7 +284,9 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         bindMounts.put(mountTarget, mountSource);
       } catch (IllegalArgumentException e) {
         throw new UserExecException(
-            String.format("Error occurred when analyzing bind mount pairs. %s", e.getMessage()));
+            createFailureDetail(
+                String.format("Error occurred when analyzing bind mount pairs. %s", e.getMessage()),
+                Code.BIND_MOUNT_ANALYSIS_FAILURE));
       }
     }
     for (Path inaccessiblePath : getInaccessiblePaths()) {
@@ -305,7 +314,10 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       final Path target = bindMount.getKey();
       // Mount source should exist in the file system
       if (!source.exists()) {
-        throw new UserExecException(String.format("Mount source '%s' does not exist.", source));
+        throw new UserExecException(
+            createFailureDetail(
+                String.format("Mount source '%s' does not exist.", source),
+                Code.MOUNT_SOURCE_DOES_NOT_EXIST));
       }
       // If target exists, but is not of the same type as the source, then we cannot mount it.
       if (target.exists()) {
@@ -316,18 +328,22 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         if (!(areBothDirectories || areBothFiles)) {
           // Source and target are not of the same type; we cannot mount it.
           throw new UserExecException(
-              String.format(
-                  "Mount target '%s' is not of the same type as mount source '%s'.",
-                  target, source));
+              createFailureDetail(
+                  String.format(
+                      "Mount target '%s' is not of the same type as mount source '%s'.",
+                      target, source),
+                  Code.MOUNT_SOURCE_TARGET_TYPE_MISMATCH));
         }
       } else {
         // Mount target should exist in the file system
         throw new UserExecException(
-            String.format(
-                "Mount target '%s' does not exist. Bazel only supports bind mounting on top of "
-                    + "existing files/directories. Please create an empty file or directory at "
-                    + "the mount target path according to the type of mount source.",
-                target));
+            createFailureDetail(
+                String.format(
+                    "Mount target '%s' does not exist. Bazel only supports bind mounting on top of "
+                        + "existing files/directories. Please create an empty file or directory at "
+                        + "the mount target path according to the type of mount source.",
+                    target),
+                Code.MOUNT_TARGET_DOES_NOT_EXIST));
       }
     }
   }

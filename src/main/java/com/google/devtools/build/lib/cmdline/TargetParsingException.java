@@ -14,16 +14,45 @@
 package com.google.devtools.build.lib.cmdline;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
+import com.google.devtools.build.lib.skyframe.DetailedException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 
-/**
- * Indicates that a target label cannot be parsed.
- */
-public class TargetParsingException extends Exception {
-  public TargetParsingException(String message) {
+/** An exception indicating a target label that cannot be parsed. */
+public class TargetParsingException extends Exception implements DetailedException {
+
+  private final DetailedExitCode detailedExitCode;
+
+  public TargetParsingException(String message, TargetPatterns.Code code) {
     super(Preconditions.checkNotNull(message));
+    this.detailedExitCode = DetailedExitCode.of(createFailureDetail(message, code));
   }
 
-  public TargetParsingException(String message, Throwable cause) {
+  public TargetParsingException(String message, Throwable cause, TargetPatterns.Code code) {
     super(Preconditions.checkNotNull(message), cause);
+    this.detailedExitCode = DetailedExitCode.of(createFailureDetail(message, code));
+  }
+
+  public TargetParsingException(
+      String message, Throwable cause, DetailedExitCode detailedExitCode) {
+    super(Preconditions.checkNotNull(message), cause);
+    this.detailedExitCode = Preconditions.checkNotNull(detailedExitCode);
+  }
+
+  private static FailureDetail createFailureDetail(String message, TargetPatterns.Code code) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setTargetPatterns(TargetPatterns.newBuilder().setCode(code).build())
+        .build();
+  }
+
+  /**
+   * Returns the detailed exit code that contains the failure detail associated with the error
+   * during parsing.
+   */
+  @Override
+  public DetailedExitCode getDetailedExitCode() {
+    return detailedExitCode;
   }
 }

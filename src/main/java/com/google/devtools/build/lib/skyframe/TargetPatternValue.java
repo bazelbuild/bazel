@@ -112,7 +112,7 @@ public final class TargetPatternValue implements SkyValue {
    * @param offset The offset to apply to relative target patterns.
    */
   @ThreadSafe
-  public static TargetPatternKey key(String pattern, FilteringPolicy policy, String offset)
+  public static TargetPatternKey key(String pattern, FilteringPolicy policy, PathFragment offset)
       throws TargetParsingException {
     return Iterables.getOnlyElement(keys(ImmutableList.of(pattern), policy, offset)).getSkyKey();
   }
@@ -129,8 +129,8 @@ public final class TargetPatternValue implements SkyValue {
    * @param offset The offset to apply to relative target patterns.
    */
   @ThreadSafe
-  public static Iterable<TargetPatternSkyKeyOrException> keys(List<String> patterns,
-      FilteringPolicy policy, String offset) {
+  public static Iterable<TargetPatternSkyKeyOrException> keys(
+      List<String> patterns, FilteringPolicy policy, PathFragment offset) {
     TargetPattern.Parser parser = new TargetPattern.Parser(offset);
     ImmutableList.Builder<TargetPatternSkyKeyOrException> builder = ImmutableList.builder();
     for (String pattern : patterns) {
@@ -284,14 +284,14 @@ public final class TargetPatternValue implements SkyValue {
     private final FilteringPolicy policy;
     private final boolean isNegative;
 
-    private final String offset;
+    private final PathFragment offset;
     private final ImmutableSet<PathFragment> excludedSubdirectories;
 
     public TargetPatternKey(
         TargetPattern parsedPattern,
         FilteringPolicy policy,
         boolean isNegative,
-        String offset,
+        PathFragment offset,
         ImmutableSet<PathFragment> excludedSubdirectories) {
       this.parsedPattern = Preconditions.checkNotNull(parsedPattern);
       this.policy = Preconditions.checkNotNull(policy);
@@ -321,7 +321,7 @@ public final class TargetPatternValue implements SkyValue {
       return policy;
     }
 
-    public String getOffset() {
+    public PathFragment getOffset() {
       return offset;
     }
 
@@ -330,38 +330,37 @@ public final class TargetPatternValue implements SkyValue {
     }
 
     ImmutableSet<PathFragment> getAllSubdirectoriesToExclude(
-        Iterable<PathFragment> blacklistedPackagePrefixes) throws InterruptedException {
+        Iterable<PathFragment> ignoredPackagePrefixes) throws InterruptedException {
       ImmutableSet.Builder<PathFragment> excludedPathsBuilder = ImmutableSet.builder();
       excludedPathsBuilder.addAll(getExcludedSubdirectories());
       excludedPathsBuilder.addAll(
-          getAllBlacklistedSubdirectoriesToExclude(() -> blacklistedPackagePrefixes));
+          getAllIgnoredSubdirectoriesToExclude(() -> ignoredPackagePrefixes));
       return excludedPathsBuilder.build();
     }
 
-    public ImmutableSet<PathFragment> getAllBlacklistedSubdirectoriesToExclude(
-        InterruptibleSupplier<? extends Iterable<PathFragment>> blacklistedPackagePrefixes)
+    public ImmutableSet<PathFragment> getAllIgnoredSubdirectoriesToExclude(
+        InterruptibleSupplier<? extends Iterable<PathFragment>> ignoredPackagePrefixes)
         throws InterruptedException {
-      return getAllBlacklistedSubdirectoriesToExclude(parsedPattern, blacklistedPackagePrefixes);
+      return getAllIgnoredSubdirectoriesToExclude(parsedPattern, ignoredPackagePrefixes);
     }
 
-    public static ImmutableSet<PathFragment> getAllBlacklistedSubdirectoriesToExclude(
+    public static ImmutableSet<PathFragment> getAllIgnoredSubdirectoriesToExclude(
         TargetPattern pattern,
-        InterruptibleSupplier<? extends Iterable<PathFragment>> blacklistedPackagePrefixes)
+        InterruptibleSupplier<? extends Iterable<PathFragment>> ignoredPackagePrefixes)
         throws InterruptedException {
-      ImmutableSet.Builder<PathFragment> blacklistedPathsBuilder = ImmutableSet.builder();
+      ImmutableSet.Builder<PathFragment> ignoredPathsBuilder = ImmutableSet.builder();
       if (pattern.getType() == Type.TARGETS_BELOW_DIRECTORY) {
-        for (PathFragment blacklistedPackagePrefix : blacklistedPackagePrefixes.get()) {
-          PackageIdentifier pkgIdForBlacklistedDirectorPrefix =
+        for (PathFragment ignoredPackagePrefix : ignoredPackagePrefixes.get()) {
+          PackageIdentifier pkgIdForIgnoredDirectorPrefix =
               PackageIdentifier.create(
                   pattern.getDirectoryForTargetsUnderDirectory().getRepository(),
-                  blacklistedPackagePrefix);
-          if (pattern.containsAllTransitiveSubdirectoriesForTBD(
-              pkgIdForBlacklistedDirectorPrefix)) {
-            blacklistedPathsBuilder.add(blacklistedPackagePrefix);
+                  ignoredPackagePrefix);
+          if (pattern.containsAllTransitiveSubdirectoriesForTBD(pkgIdForIgnoredDirectorPrefix)) {
+            ignoredPathsBuilder.add(ignoredPackagePrefix);
           }
         }
       }
-      return blacklistedPathsBuilder.build();
+      return ignoredPathsBuilder.build();
     }
 
     @Override

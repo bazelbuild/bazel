@@ -152,14 +152,17 @@ public final class AnalysisUtils {
   }
 
   /**
-   * Returns a path fragment qualified by the rule name and unique fragment to
-   * disambiguate artifacts produced from the source file appearing in
-   * multiple rules.
+   * Returns a path fragment qualified by the rule name and unique fragment to disambiguate
+   * artifacts produced from the source file appearing in multiple rules.
    *
    * <p>For example "//pkg:target" -> "pkg/&lt;fragment&gt;/target.
    */
-  public static PathFragment getUniqueDirectory(Label label, PathFragment fragment) {
-    return label.getPackageIdentifier().getSourceRoot().getRelative(fragment)
+  public static PathFragment getUniqueDirectory(
+      Label label, PathFragment fragment, boolean siblingRepositoryLayout) {
+    return label
+        .getPackageIdentifier()
+        .getPackagePath()
+        .getRelative(fragment)
         .getRelative(label.getName());
   }
 
@@ -189,7 +192,7 @@ public final class AnalysisUtils {
       ExtendedEventHandler eventHandler,
       ConfiguredRuleClassProvider ruleClassProvider,
       ConfigurationsCollector configurationsCollector)
-      throws InvalidConfigurationException {
+      throws InvalidConfigurationException, InterruptedException {
     // We use a hash set here to remove duplicate nodes; this can happen for input files and package
     // groups.
     LinkedHashSet<TargetAndConfiguration> nodes = new LinkedHashSet<>(targets.size());

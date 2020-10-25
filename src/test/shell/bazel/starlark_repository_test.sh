@@ -322,7 +322,7 @@ EOF
   expect_log "Failed to load Starlark extension '@does_not_exist//:random.bzl'"
 }
 
-function test_skylark_local_repository() {
+function test_starlark_local_repository() {
   create_new_workspace
   repo2=$new_workspace_dir
   # Remove the WORKSPACE file in the symlinked repo, so our Starlark rule has to
@@ -359,7 +359,7 @@ EOF
   expect_log "foo"
 }
 
-function setup_skylark_repository() {
+function setup_starlark_repository() {
   create_new_workspace
   repo2=$new_workspace_dir
 
@@ -375,8 +375,8 @@ EOF
   cat > BUILD
 }
 
-function test_skylark_flags_affect_repository_rule() {
-  setup_skylark_repository
+function test_starlark_flags_affect_repository_rule() {
+  setup_starlark_repository
 
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
@@ -394,19 +394,19 @@ EOF
   expect_log "In repo rule: " "Did not find repository rule print output"
   expect_not_log "$MARKER" \
       "Marker string '$MARKER' was seen even though \
-      --internal_skylark_flag_test_canary wasn't passed"
+      --internal_starlark_flag_test_canary wasn't passed"
 
   # Build with the special testing flag that appends a marker string to all
   # print() calls.
-  bazel build @foo//:bar --internal_skylark_flag_test_canary >& $TEST_log \
+  bazel build @foo//:bar --internal_starlark_flag_test_canary >& $TEST_log \
     || fail "Expected build to succeed"
   expect_log "In repo rule: $MARKER" \
       "Starlark flags are not propagating to repository rule implementation \
       function evaluation"
 }
 
-function test_skylark_repository_which_and_execute() {
-  setup_skylark_repository
+function test_starlark_repository_which_and_execute() {
+  setup_starlark_repository
 
   echo "#!/bin/sh" > bin.sh
   echo "exit 0" >> bin.sh
@@ -440,8 +440,8 @@ EOF
   expect_log "version"
 }
 
-function test_skylark_repository_execute_stderr() {
-  setup_skylark_repository
+function test_starlark_repository_execute_stderr() {
+  setup_starlark_repository
 
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
@@ -463,8 +463,8 @@ EOF
   expect_log "shhhh"
 }
 
-function test_skylark_repository_execute_env_and_workdir() {
-  setup_skylark_repository
+function test_starlark_repository_execute_env_and_workdir() {
+  setup_starlark_repository
 
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
@@ -488,8 +488,8 @@ EOF
   expect_log "PWD=$repo2 TOTO=titi"
 }
 
-function test_skylark_repository_environ() {
-  setup_skylark_repository
+function test_starlark_repository_environ() {
+  setup_starlark_repository
 
   # Our custom repository rule
   cat >test.bzl <<EOF
@@ -558,7 +558,7 @@ EOF
   expect_log "BOZ"
 }
 
-function write_environ_skylark() {
+function write_environ_starlark() {
   local execution_file="$1"
   local environ="$2"
 
@@ -587,7 +587,7 @@ EOF
 
 function setup_invalidation_test() {
   local startup_flag="${1-}"
-  setup_skylark_repository
+  setup_starlark_repository
 
   # We use a counter to avoid other invalidation to hide repository
   # invalidation (e.g., --action_env will cause all action to re-run).
@@ -599,7 +599,7 @@ def environ(r_ctx, var):
   return r_ctx.os.environ[var] if var in r_ctx.os.environ else "undefined"
 EOF
 
-  write_environ_skylark "${execution_file}" '"FOO", "BAR"'
+  write_environ_starlark "${execution_file}" '"FOO", "BAR"'
 
   cat <<EOF >bar.tpl
 FOO=%{FOO} BAR=%{BAR} BAZ=%{BAZ}
@@ -665,7 +665,7 @@ function environ_invalidation_test_template() {
   assert_equals 4 $(cat "${execution_file}")
 
   # Now try to depends on more variables
-  write_environ_skylark "${execution_file}" '"FOO", "BAR", "BAZ"'
+  write_environ_starlark "${execution_file}" '"FOO", "BAR", "BAZ"'
 
   # The Starlark rule has changed, so a rebuild should happen
   FOO=BAZ bazel ${startup_flag} build @foo//:bar >& $TEST_log \
@@ -688,7 +688,7 @@ function environ_invalidation_test_template() {
 
 function environ_invalidation_action_env_test_template() {
   local startup_flag="${1-}"
-  setup_skylark_repository
+  setup_starlark_repository
 
   # We use a counter to avoid other invalidation to hide repository
   # invalidation (e.g., --action_env will cause all action to re-run).
@@ -716,20 +716,20 @@ function environ_invalidation_action_env_test_template() {
   assert_equals 2 $(cat "${execution_file}")
 }
 
-function test_skylark_repository_environ_invalidation() {
+function test_starlark_repository_environ_invalidation() {
   environ_invalidation_test_template
 }
 
 # Same test as previous but with server restart between each invocation
-function test_skylark_repository_environ_invalidation_batch() {
+function test_starlark_repository_environ_invalidation_batch() {
   environ_invalidation_test_template --batch
 }
 
-function test_skylark_repository_environ_invalidation_action_env() {
+function test_starlark_repository_environ_invalidation_action_env() {
   environ_invalidation_action_env_test_template
 }
 
-function test_skylark_repository_environ_invalidation_action_env_batch() {
+function test_starlark_repository_environ_invalidation_action_env_batch() {
   environ_invalidation_action_env_test_template --batch
 }
 
@@ -770,12 +770,12 @@ EOF
   assert_equals 3 $(cat "${execution_file}")
 }
 
-function test_skylark_repository_bzl_invalidation() {
+function test_starlark_repository_bzl_invalidation() {
   bzl_invalidation_test_template
 }
 
 # Same test as previous but with server restart between each invocation
-function test_skylark_repository_bzl_invalidation_batch() {
+function test_starlark_repository_bzl_invalidation_batch() {
   bzl_invalidation_test_template --batch
 }
 
@@ -804,12 +804,12 @@ EOF
   assert_equals 2 $(cat "${execution_file}")
 }
 
-function test_skylark_repository_file_invalidation() {
+function test_starlark_repository_file_invalidation() {
   file_invalidation_test_template
 }
 
 # Same test as previous but with server restart between each invocation
-function test_skylark_repository_file_invalidation_batch() {
+function test_starlark_repository_file_invalidation_batch() {
   file_invalidation_test_template --batch
 }
 
@@ -853,7 +853,7 @@ function test_starlark_invalidation_batch() {
 
 
 function test_repo_env() {
-  setup_skylark_repository
+  setup_starlark_repository
 
   cat > test.bzl <<'EOF'
 def _impl(ctx):
@@ -977,13 +977,13 @@ EOF
     diff time2.txt time3.txt || fail "Expected repo to not be refetched"
 }
 
-function test_skylark_repository_executable_flag() {
+function test_starlark_repository_executable_flag() {
   if "$is_windows"; then
     # There is no executable flag on Windows.
-    echo "Skipping test_skylark_repository_executable_flag on Windows"
+    echo "Skipping test_starlark_repository_executable_flag on Windows"
     return
   fi
-  setup_skylark_repository
+  setup_starlark_repository
 
   # Our custom repository rule
   cat >test.bzl <<EOF
@@ -1004,7 +1004,7 @@ EOF
   test ! -x "${output_base}/external/foo/test2" || fail "test2 is executable"
 }
 
-function test_skylark_repository_download() {
+function test_starlark_repository_download() {
   # Prepare HTTP server with Python
   local server_dir="${TEST_TMPDIR}/server_dir"
   mkdir -p "${server_dir}"
@@ -1018,7 +1018,7 @@ function test_skylark_repository_download() {
   # Start HTTP server with Python
   startup_server "${server_dir}"
 
-  setup_skylark_repository
+  setup_starlark_repository
   # Our custom repository rule
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
@@ -1061,7 +1061,7 @@ EOF
     || fail "download_executable_file.sh is not executable"
 }
 
-function test_skylark_repository_context_downloads_return_struct() {
+function test_starlark_repository_context_downloads_return_struct() {
    # Prepare HTTP server with Python
   local server_dir="${TEST_TMPDIR}/server_dir"
   mkdir -p "${server_dir}"
@@ -1090,7 +1090,7 @@ function test_skylark_repository_context_downloads_return_struct() {
     server_dir="/${server_dir}"
   fi
 
-  setup_skylark_repository
+  setup_starlark_repository
   # Our custom repository rule
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
@@ -1136,7 +1136,7 @@ EOF
       || fail "expected compressed calculated sha256 $compressed_not_provided_sha256"
 }
 
-function test_skylark_repository_download_args() {
+function test_starlark_repository_download_args() {
   # Prepare HTTP server with Python
   local server_dir="${TEST_TMPDIR}/server_dir"
   mkdir -p "${server_dir}"
@@ -1197,7 +1197,7 @@ EOF
 }
 
 
-function test_skylark_repository_download_and_extract() {
+function test_starlark_repository_download_and_extract() {
   # Prepare HTTP server with Python
   local server_dir="${TEST_TMPDIR}/server_dir"
   mkdir -p "${server_dir}"
@@ -1218,7 +1218,7 @@ function test_skylark_repository_download_and_extract() {
   # Start HTTP server with Python
   startup_server "${server_dir}"
 
-  setup_skylark_repository
+  setup_starlark_repository
   # Our custom repository rule
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
@@ -1443,9 +1443,9 @@ EOF
   cat <<'EOF' >bar.tpl
 FOO=%{FOO} BAR=%{BAR} BAZ=%{BAZ}
 EOF
-  write_environ_skylark "${TEST_TMPDIR}/executionFOO" ""
+  write_environ_starlark "${TEST_TMPDIR}/executionFOO" ""
   mv test.bzl testfoo.bzl
-  write_environ_skylark "${TEST_TMPDIR}/executionBAR" ""
+  write_environ_starlark "${TEST_TMPDIR}/executionBAR" ""
   mv test.bzl testbar.bzl
   cat > WORKSPACE <<'EOF'
 load("//:testfoo.bzl", foorepo="repo")
@@ -1541,12 +1541,15 @@ EOF
       && fail "Expected failure" || :
 
   # Extract the first error message printed
-  ed "${TEST_log}" <<'EOF'
-1
-/^ERROR
-.,/^[^ ]/-1w firsterror.log
-Q
-EOF
+  #
+  # ERROR: An error occurred during the fetch of repository 'this_is_the_root_cause':
+  #    Traceback (most recent call last):
+  # 	File ".../http.bzl", line 111, column 45, in _http_archive_impl
+  # 		download_info = ctx.download_and_extract(
+  # Error in download_and_extract: java.io.IOException: Error downloading \
+  #   [http://does.not.exist.example.com/some/file.tar] to ...file.tar: \
+  #   Unknown host: does.not.exist.example.com
+  awk '/^ERROR/ {on=1} on {print} /^Error/ {exit}' < "${TEST_log}" > firsterror.log
   echo; echo "first error message which should focus on the root cause";
   echo "=========="; cat firsterror.log; echo "=========="
   # We expect it to contain the root cause, and the failure ...
@@ -1573,14 +1576,8 @@ EOF
   bazel build //:it > "${TEST_log}" 2>&1 \
       && fail "Expected failure" || :
 
-  # Extract the first error message printed
-  ed "${TEST_log}" <<'EOF'
-1
-/^ERROR
-.,/^[^ ]/-1w firsterror.log
-Q
-EOF
-  echo; echo "first error message which should focus on the root cause";
+  # Extract the first error message printed (see previous awk command).
+  awk '/^ERROR/ {on=1} on {print} /^Error/ {exit}' < "${TEST_log}" > firsterror.log
   echo "=========="; cat firsterror.log; echo "=========="
   grep -q 'this_is_the_root_cause' firsterror.log \
       || fail "Root-cause repository not mentioned"

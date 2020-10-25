@@ -32,14 +32,13 @@ import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.S
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.ThreadContinuedEvent;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.ThreadPausedEvent;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Value;
-import com.google.devtools.build.lib.syntax.Debug;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.StarlarkFunction;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Debug;
+import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.syntax.Location;
 
 /**
  * Helper class for constructing event or response protos to be sent from the debug server to a
@@ -170,16 +169,16 @@ final class DebugEventHelper {
     return builder.build();
   }
 
-  static StarlarkThread.Stepping convertSteppingEnum(StarlarkDebuggingProtos.Stepping stepping) {
+  static Debug.Stepping convertSteppingEnum(StarlarkDebuggingProtos.Stepping stepping) {
     switch (stepping) {
       case INTO:
-        return StarlarkThread.Stepping.INTO;
+        return Debug.Stepping.INTO;
       case OUT:
-        return StarlarkThread.Stepping.OUT;
+        return Debug.Stepping.OUT;
       case OVER:
-        return StarlarkThread.Stepping.OVER;
+        return Debug.Stepping.OVER;
       case NONE:
-        return StarlarkThread.Stepping.NONE;
+        return Debug.Stepping.NONE;
       case UNRECOGNIZED:
         // fall through to exception
     }

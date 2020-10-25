@@ -20,18 +20,12 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.bazel.rules.BazelRulesModule;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
-import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.TestOptions;
 import java.util.Arrays;
 import org.junit.Before;
@@ -50,66 +44,20 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class BlazeOptionHandlerTest {
 
-  private final Scratch scratch = new Scratch();
-  private final StoredEventHandler eventHandler = new StoredEventHandler();
+  private StoredEventHandler eventHandler;
   private OptionsParser parser;
-  private BlazeRuntime runtime;
   private BlazeOptionHandler optionHandler;
 
   @Before
-  public void initStuff() throws Exception {
-    parser =
-        OptionsParser.builder()
-            .optionsClasses(TestOptions.class, CommonCommandOptions.class, ClientOptions.class)
-            .allowResidue(true)
-            .build();
-    String productName = TestConstants.PRODUCT_NAME;
-    ServerDirectories serverDirectories =
-        new ServerDirectories(
-            scratch.dir("install_base"), scratch.dir("output_base"), scratch.dir("user_root"));
-    this.runtime =
-        new BlazeRuntime.Builder()
-            .setFileSystem(scratch.getFileSystem())
-            .setServerDirectories(serverDirectories)
-            .setProductName(productName)
-            .setStartupOptionsProvider(
-                OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build())
-            .addBlazeModule(new BazelRulesModule())
-            .build();
-    this.runtime.overrideCommands(ImmutableList.of(new C0Command()));
+  public void setUp() throws Exception {
+    ImmutableList<Class<? extends OptionsBase>> optionsClasses =
+        ImmutableList.of(TestOptions.class, CommonCommandOptions.class, ClientOptions.class);
 
-    BlazeDirectories directories =
-        new BlazeDirectories(
-            serverDirectories,
-            scratch.dir("workspace"),
-            /* defaultSystemJavabase= */ null,
-            productName);
-    runtime.initWorkspace(directories, /*binTools=*/ null);
-
-    optionHandler =
-        new BlazeOptionHandler(
-            runtime,
-            runtime.getWorkspace(),
-            new C0Command(),
-            C0Command.class.getAnnotation(Command.class),
-            parser,
-            InvocationPolicy.getDefaultInstance());
-  }
-
-  @Command(
-    name = "c0",
-    shortDescription = "c0 desc",
-    help = "c0 help",
-    options = {TestOptions.class}
-  )
-  private static class C0Command implements BlazeCommand {
-    @Override
-    public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void editOptions(OptionsParser optionsParser) {}
+    BlazeOptionHandlerTestHelper helper =
+        new BlazeOptionHandlerTestHelper(optionsClasses, /* allowResidue= */ true);
+    eventHandler = helper.getEventHandler();
+    parser = helper.getOptionsParser();
+    optionHandler = helper.getOptionHandler();
   }
 
   private static ListMultimap<String, RcChunkOfArgs> structuredArgsFrom2SimpleRcsWithOnlyResidue() {
@@ -384,7 +332,7 @@ public class BlazeOptionHandlerTest {
                     eventHandler, structuredArgsFrom2SimpleRcsWithOnlyResidue()));
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes()).isEmpty();
-    assertThat(e).hasMessageThat().contains("Config value other is not defined in any .rc file");
+    assertThat(e).hasMessageThat().contains("Config value 'other' is not defined in any .rc file");
   }
 
   @Test
@@ -394,7 +342,9 @@ public class BlazeOptionHandlerTest {
         assertThrows(
             OptionsParsingException.class,
             () -> optionHandler.expandConfigOptions(eventHandler, ArrayListMultimap.create()));
-    assertThat(e).hasMessageThat().contains("Config value invalid is not defined in any .rc file");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Config value 'invalid' is not defined in any .rc file");
   }
 
   @Test

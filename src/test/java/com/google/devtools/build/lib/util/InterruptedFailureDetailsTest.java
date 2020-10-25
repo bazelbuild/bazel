@@ -33,7 +33,6 @@ public class InterruptedFailureDetailsTest {
     assertThat(detailedExitCode)
         .isEqualTo(
             DetailedExitCode.of(
-                ExitCode.INTERRUPTED,
                 FailureDetail.newBuilder()
                     .setMessage("myMessage")
                     .setInterrupted(Interrupted.newBuilder().setCode(Code.BUILD))

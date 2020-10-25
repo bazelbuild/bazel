@@ -19,7 +19,9 @@ This makes it possible to:
 *   bake better defaults into rules (e.g. automatically build `//my:android_app`
     with a specified SDK)
 
-and more, all completely from .bzl files (no Bazel release required).
+and more, all completely from .bzl files (no Bazel release required). See the
+`bazelbuild/examples` repo for
+[examples](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations).
 
 <!-- [TOC] -->
 
@@ -49,6 +51,8 @@ register changes). They also can be set via the command line
 set via [user-defined transitions](#user-defined-transitions).
 
 ### Defining build settings
+
+[End to end example](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations/basic_build_setting)
 
 #### The `build_setting` `rule()` parameter
 
@@ -146,6 +150,8 @@ flavor(
 
 ### Predefined settings
 
+[End to end example](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations/use_skylib_build_setting)
+
 The
 [Skylib](https://github.com/bazelbuild/bazel-skylib)
 library includes a set of predefined settings you can instantiate without having
@@ -232,30 +238,59 @@ kotlin_binary = rule(
 
 ```
 
-#### Settings Build Settings on the command line
+#### Using build settings on the command line
 
-Build settings are set on the command line like any other flag. Boolean build
-settings understand no-prefixes and both equals and space syntaxes are supported.
-The name of build settings is their full target path:
+Similar to most native flags, you can use the command line to set build settings
+[that are marked as flags](#the-build-setting-rule-parameter). The build
+setting's name is its full target path using `name=value` syntax:
 
 ```shell
-$ bazel build //my/target --//example:favorite_flavor="PAMPLEMOUSSE"
+$ bazel build //my/target --//example:string_flag=some-value # allowed
+$ bazel build //my/target --//example:string_flag some-value # not allowed
 ```
 
-There are plans to implement shorthand mapping of flag labels so users don't
-need to use their entire target path each time i.e.:
+Special boolean syntax is supported:
 
 ```shell
-$ bazel build //my/target --cpu=k8 --noboolean_flag
+$ bazel build //my/target --//example:boolean_flag
+$ bazel build //my/target --no//example:boolean_flag
+```
+
+#### Using build setting aliases
+
+You can set an alias for your build setting target path to make it easier to read
+on the command line. Aliases function similarly to native flags and also make use
+of the double-dash option syntax.
+
+Set an alias by adding `--flag_alias=ALIAS_NAME=TARGET_PATH`
+to your `.bazelrc` . For example, to set an alias to `coffee`:
+
+```shell
+# .bazelrc
+build --flag_alias=coffee=//experimental/user/starlark_configurations/basic_build_setting:coffee-temp
+```
+
+Best Practice: Setting an alias multiple times results in the most recent
+one taking precedence. Use unique alias names to avoid unintended parsing results.
+
+To make use of the alias, type it in place of the build setting target path.
+With the above example of `coffee` set in the user's `.bazelrc`:
+
+```shell
+$ bazel build //my/target --coffee=ICED
 ```
 
 instead of
 
 ```shell
-$ bazel build //my/target --//third_party/bazel/src/main:cpu=k8 --no//my/project:boolean_flag
+$ bazel build //my/target --//experimental/user/starlark_configurations/basic_build_setting:coffee-temp=ICED
 ```
+Best Practice: While it possible to set aliases on the command line, leaving them
+in a `.bazelrc` reduces command line clutter.
 
 ### Label-typed build settings
+
+[End to end example](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations/label_typed_build_setting)
 
 Unlike other build settings, label-typed settings cannot be defined using the
 `build_setting` rule parameter. Instead, bazel has two built-in rules:
@@ -273,7 +308,7 @@ the [`configuration_field`](lib/globals.html#configuration_field)
 
 ```python
 # example/rules.bzl
-MyProvider = provider(field = ["my_field"])
+MyProvider = provider(fields = ["my_field"])
 
 def _dep_impl(ctx):
     return MyProvider(my_field = "yeehaw")
@@ -283,7 +318,7 @@ dep_rule = rule(
 )
 
 def _parent_impl(ctx):
-    if ctx.attr.my_field_provider[MyProvider] == "cowabunga":
+    if ctx.attr.my_field_provider[MyProvider].my_field == "cowabunga":
         ...
 
 parent_rule = rule(
@@ -311,6 +346,8 @@ TODO(bazel-team): Expand supported build setting types.
 
 ### Build settings and `select()`
 
+[End to end example](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations/select_on_build_setting)
+
 Users can configure attributes on build settings by using
  [`select()`](../be/functions.html#select). Build setting targets can be passed to the `flag_values` attribute of
 `config_setting`. The value to match to the configuration is passed as a
@@ -337,16 +374,16 @@ configured targets in the build graph.
 > special attribute to the rule to which the transition is attached:
 >
 > ```python
-> "_whitelist_function_transition": attr.label(
->      default = "@bazel_tools//tools/whitelists/function_transition_whitelist"
+> "_allowlist_function_transition": attr.label(
+>      default = "@bazel_tools//tools/allowlists/function_transition_allowlist"
 >  )
 > ```
 >
 > By adding transitions you can pretty easily explode the size of
-> your build graph. This sets a whitelist on the packages in which you can
+> your build graph. This sets an allowlist on the packages in which you can
 > create targets of this rule. The default value in the codeblock above
-> whitelists everything. But if you'd like to restrict who is using your rule,
-> you can set that attribute to point to your own custom whitelist.
+> allowlists everything. But if you'd like to restrict who is using your rule,
+> you can set that attribute to point to your own custom allowlist.
 > Contact bazel-discuss@googlegroups.com if you'd like advice or assistance
 > understanding how transitions can affect on your build performance.
 
@@ -410,6 +447,9 @@ not actually changed over the course of the transition - its original value must
 be explicitly passed through in the returned dictionary.
 
 ### Defining 1:2+ transitions
+
+[End to end example](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations/multi_arch_binary)
+
 [Outgoing edge transition](#outgoing-edge-transitions) can map a single input
 configuration to two or more output configurations. These are defined in
 Starlark by returning a list of dictionaries in the transition implementation
@@ -432,6 +472,9 @@ coffee_transition = transition(
 ```
 
 ### Attaching transitions
+
+[End to end example](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations/attaching_transitions_to_rules)
+
 Transitions can be attached in two places: incoming edges and outgoing edges.
 Effectively this means rules can transition their own configuration (incoming
 edge transition) and transition their dependencies' configurations (outgoing
@@ -472,13 +515,16 @@ drink_rule = rule(
 Outgoing edge transitions can be 1:1 or 1:2+.
 
 ### Transitions on native options
+
+[End to end example](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations/transition_on_native_flag)
+
 WARNING: Long term, we plan to reimplement all native options as build settings.
 When that happens, this syntax will be deprecated. Currently other issues are
 blocking that migration but be aware you may have to migrate your transitions
 at some point in the future.
 
-Starlark transitions can also declare reads and writes on native options via
-a special prefix to the option name.
+Starlark transitions can also declare reads and writes on native build
+configuration options via a special prefix to the option name.
 
 ```python
 # example/transitions/transitions.bzl
@@ -492,11 +538,30 @@ cpu_transition = transition(
     outputs = ["//command_line_option:cpu"]
 ```
 
-NOTE: Transitioning on --define using "//command_line_option:define" is not
-supported - create a custom [build setting](#users-defined-build-settings) to
-cover this functionality.
+#### Unsupported native options
+
+Bazel doesn't support transitioning on `--define` using
+`"//command_line_option:define"`. Instead, create a custom
+[build setting](#users-defined-build-settings)
+to cover this functionality. In general, any new usage of `--define`, such as in
+select() statements, is discouraged in favor of build settings.
+
+Bazel doesn't support transitioning on options that expand to other options such
+as `--config`. One, option expansion happens at the
+beginning of the build so Starlark transitions have no access to that logic.
+Two, `--config` can be used to set options that aren't part of the build
+configuration which cannot be set by transitions. An example of this is execution options
+like
+[`--spawn_strategy`](https://docs.bazel.build/versions/master/user-manual.html#flag--spawn_strategy)
+. A workaround is to manually expand the option in the starlark transition by
+setting the individual flags to their appropriate values. Unfortunately this
+requires maintaining the expansion in two places. Note that this workaround
+does not allow for command-specific behavior like `--config` does.
 
 ### Accessing attributes with transitions
+
+[End to end example](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations/read_attr_in_transition)
+
 When [attaching a transition to an outgoing edge](#outgoing-edge-transitions)
 (regardless of whether the transition is a 1:1 or 1:2+ transition) access to
 values of that attribute in the rule implementation changes. Access through
@@ -544,6 +609,7 @@ flags will likely be replaced by transitioning on the
 
  * [Starlark Build Configuration](https://docs.google.com/document/d/1vc8v-kXjvgZOdQdnxPTaV0rrLxtP2XwnD2tAZlYJOqw/edit?usp=sharing)
  * [Bazel Configurability Roadmap](https://bazel.build/roadmaps/configuration.html)
+ * Full [set](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations) of end to end examples
 
 ## Memory and performance considerations
 

@@ -30,6 +30,14 @@ else
 fi
 fulljdk=$1
 out=$3
+ARCH=`uname -p`
+if [[ "${ARCH}" == 'ppc64le'  ]] || [[ "${ARCH}" == 's390x' ]]; then
+  FULL_JDK_DIR="jdk*"
+  DOCS=""
+else
+  FULL_JDK_DIR="zulu*"
+  DOCS="DISCLAIMER readme.txt"
+fi
 
 UNAME=$(uname -s | tr 'A-Z' 'a-z')
 
@@ -38,11 +46,11 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   mkdir "tmp.$$"
   cd "tmp.$$"
   unzip "../$fulljdk"
-  cd zulu*
+  cd $FULL_JDK_DIR
   ./bin/jlink --module-path ./jmods/ --add-modules "$modules" \
     --vm=server --strip-debug --no-man-pages \
     --output reduced
-  cp DISCLAIMER readme.txt legal/java.base/ASSEMBLY_EXCEPTION \
+  cp $DOCS legal/java.base/ASSEMBLY_EXCEPTION \
     reduced/
   # These are necessary for --host_jvm_debug to work.
   cp bin/dt_socket.dll bin/jdwp.dll reduced/bin
@@ -55,11 +63,11 @@ else
   # to the owner stored in the archive - it will try to do that when running as
   # root, but fail when running inside Docker, so we explicitly disable it.
   tar xf "$fulljdk" --no-same-owner
-  cd zulu*
+  cd $FULL_JDK_DIR
   ./bin/jlink --module-path ./jmods/ --add-modules "$modules" \
     --vm=server --strip-debug --no-man-pages \
     --output reduced
-  cp DISCLAIMER readme.txt legal/java.base/ASSEMBLY_EXCEPTION \
+  cp $DOCS legal/java.base/ASSEMBLY_EXCEPTION \
     reduced/
   # These are necessary for --host_jvm_debug to work.
   if [[ "$UNAME" =~ darwin ]]; then

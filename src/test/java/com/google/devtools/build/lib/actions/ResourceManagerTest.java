@@ -474,7 +474,8 @@ public class ResourceManagerTest {
   }
 
     @Override
-    public String getKey(ActionKeyContext actionKeyContext) {
+    public String getKey(
+        ActionKeyContext actionKeyContext, @Nullable Artifact.ArtifactExpander artifactExpander) {
       throw new IllegalStateException();
     }
 

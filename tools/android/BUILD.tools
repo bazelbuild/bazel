@@ -3,6 +3,9 @@ load("//tools/python:private/version.bzl", "PY_BINARY_VERSION")
 
 package(default_visibility = ["//visibility:public"])
 
+# The toolchain type used to distinguish Android SDK toolchains.
+toolchain_type(name = "sdk_toolchain_type")
+
 alias(
     name = "sdk",
     actual = "//external:android/sdk",
@@ -132,18 +135,18 @@ alias(
 # if requested.
 filegroup(
     name = "desugar_java8_extra_bootclasspath",
-    srcs = ["java_lang_extras.jar"],
+    srcs = ["java_base_extras.jar"],
     visibility = ["//visibility:public"],
 )
 
 # javac needs this Jar to compile lambdas, method references, and type annotations.
 # These classes are not part of the android.jar.
 genrule(
-    name = "gen_java_lang_extras_jar",
+    name = "gen_java_base_extras_jar",
     srcs = [
         "@bazel_tools//tools/jdk:platformclasspath",
     ],
-    outs = ["java_lang_extras.jar"],
+    outs = ["java_base_extras.jar"],
     cmd = """
     $(location @bazel_tools//tools/jdk:singlejar) \
         --exclude_build_data \
@@ -457,8 +460,9 @@ genrule(
 # //external:has_androidsdk is bound to either
 # @bazel_tools//tools/android:always_true or
 # @bazel_tools//tools/android:always_false depending on whether
-# android_sdk_repository has run. This allows targets to depend on targets from
-# @androidsdk if and only if the user has an android_sdk_repository set up.
+# android_sdk_repository has run and is valid. This allows targets to depend on
+# targets from @androidsdk if and only if the user has an
+# android_sdk_repository set up.
 
 config_feature_flag(
     name = "true",
@@ -484,17 +488,17 @@ config_setting(
 )
 
 package_group(
-    name = "android_device_whitelist",
+    name = "android_device_allowlist",
     packages = ["//..."],
 )
 
 package_group(
-    name = "export_deps_whitelist",
+    name = "export_deps_allowlist",
     packages = ["//..."],
 )
 
 package_group(
-    name = "allow_android_library_deps_without_srcs_whitelist",
+    name = "allow_android_library_deps_without_srcs_allowlist",
     packages = ["//..."],
 )
 

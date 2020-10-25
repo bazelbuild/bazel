@@ -14,8 +14,17 @@
 
 package com.google.devtools.build.lib.platform;
 
+import com.google.devtools.build.lib.jni.JniLoader;
+
 /** Native methods for dealing with suspension events. */
-public final class SuspendCounter extends JniLoader {
+public final class SuspendCounter {
+
+  static {
+    JniLoader.loadJni();
+  }
+
+  private SuspendCounter() {}
+
   static native int suspendCountJNI();
 
   /**
@@ -23,6 +32,6 @@ public final class SuspendCounter extends JniLoader {
    * platform equivalents to a SIGSTOP/SIGTSTP.
    */
   public static int suspendCount() {
-    return JniLoader.jniEnabled() ? suspendCountJNI() : 0;
+    return JniLoader.isJniAvailable() ? suspendCountJNI() : 0;
   }
 }

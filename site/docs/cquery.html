@@ -60,17 +60,14 @@ $ bazel query "deps(//tree:ash)" --noimplicit_deps
 # cquery: cquery lets you set build options at the command line and chooses
 # the exact dependencies that implies.
 $ bazel cquery "deps(//tree:ash)" --define species=excelsior --noimplicit_deps
-//tree:ash (hash-of-config)
-//tree:manna-ash (hash-of-config)
+//tree:ash (9f87702)
+//tree:manna-ash (9f87702)
 </pre>
 
 <p>
-  Each result includes information about the configuration in which the target
-  was built.  For most targets, this is an (opaque) hash of the build options
-  and values in that configuration. Host-configured targets are marked
-  <code>(HOST)</code>. Non-generated source files, like those commonly
-  found in <code>srcs</code>, have no need for configuration and are
-  marked <code>(null)</code>.
+  Each result includes a <a href="#configurations">unique identifier</a> <code>(9f87702)</code> of
+  the <a href="https://docs.bazel.build/glossary.html#configuration">configuration</a> the target is
+  built with.
 </p>
 
 <p>
@@ -112,6 +109,43 @@ $ bazel cquery "deps(//tree:ash)" --define species=excelsior --noimplicit_deps
   for querying dependencies of top-level build targets.
 </p>
 
+<h2 id='configurations'>Configurations</h2>
+
+<p>
+  The line:
+</p>
+
+<pre>
+//tree:ash (9f87702)
+</pre>
+
+<p>
+  means <code>//tree:ash</code> was built in a configuration with ID <code>9f87702</code>. For most
+  targets, this is an opaque hash of the the build option values defining the configuration.
+</p>
+
+<p>
+  To see the configuration's complete contents, run:
+</p>
+
+<pre>
+$ bazel config 9f87702
+</pre>
+
+<p>
+  The host configuration uses the special ID <code>(HOST)</code>. Non-generated source files, like
+  those commonly found in <code>srcs</code>, use the special ID <code>(null)</code> (because they
+  don't need to be configured).
+</p>
+
+<p>
+  <code>9f87702</code> is a prefix of the complete ID. This is because complete IDs are
+  SHA-256 hashes, which are long and hard to follow. <code>cquery</code> understands any valid
+   prefix of a complete ID, similar to
+  <a href="https://git-scm.com/book/en/v2/Git-Tools-Revision-Selection#_revision_selection">Git short hashes</a>.
+  To see complete IDs, run <code>$ bazel config</code>.
+</p>
+
 <h2 id='target-pattern-evaluation'>Target pattern evaluation</h2>
 
 <p>
@@ -138,7 +172,7 @@ $ bazel cquery "deps(//tree:ash)" --define species=excelsior --noimplicit_deps
 # //foo. So there are two configured target instances of //foo in
 # the build graph.
 $ bazel cquery //foo --universe_scope=//foo,//genrule_with_foo_as_tool
-//foo (9f87702f17541d32a56488e3b8be8a98e52b06945f7)
+//foo (9f87702)
 //foo (HOST)
   </pre>
 
@@ -183,8 +217,8 @@ $ bazel cquery //foo --universe_scope=//foo,//genrule_with_foo_as_tool
 
 <p>
   Valid values for the second argument
-  are <code>"target"</code>, <code>"host"</code>, <code>"null"</code>, or a
-  custom configuration hash. Hashes can be retrieved from <code>$
+  are <code>target</code>, <code>host</code>, <code>null</code>, or a
+  <a href="#configurations">custom configuration hash</a>. Hashes can be retrieved from <code>$
   bazel config</code> or a prevous <code>cquery</code>'s output.
 </p>
 
@@ -199,9 +233,9 @@ $ bazel cquery "config(//bar, host)" --universe_scope=//foo
 <pre>
 $ bazel cquery "deps(//foo)"
 //bar (HOST)
-//baz (3732cc8c6d40d97)
+//baz (3732cc8)
 
-$ bazel cquery "config(//baz, 3732cc8c6d40d97)"
+$ bazel cquery "config(//baz, 3732cc8)"
 </pre>
 
 <p>
@@ -315,6 +349,26 @@ cc_library(
   targets also in non-target configurations.
 </p>
 
+<h4><code>--include_aspects</code> (boolean, default=False)</h4>
+
+<p>
+  <a href="https://docs.bazel.build/versions/master/skylark/aspects.html">Aspects</a> can add
+  additional dependencies to a build. By default, <code>cquery</code> doesn't follow aspects because
+  they make the queryable graph bigger, which uses more memory. But following them produces more
+  accurate results.
+</p>
+
+<p>
+  If you're not worried about the memory impact of large queries, enable this flag by default in
+  your bazelrc.
+</p>
+
+<p>
+  If you query with aspects disabled, you can experience a problem where target X fails while
+  building target Y but <code>cquery somepath(Y, X)</code> and <code>cquery deps(Y) | grep 'X'
+  </code> return no results because the dependency occurs through an aspect.
+</p>
+
 <h2 id='output-formats'>Output formats</h2>
 
 <p> By default, cquery outputs results in a dependency-ordered list of label and configuration pairs.
@@ -334,7 +388,7 @@ There are other options for exposing the results as well. </p>
 </p>
 
 <p>
-  For example, a target might impose a transition to the host transition on all
+  For example, a target might impose a transition to the host configuration on all
   dependencies in its <code>tools</code> attribute. These are known as attribute
   transitions. Rules can also impose transitions on their own configurations,
   known as rule class transitions. This output format outputs information about
@@ -349,7 +403,7 @@ There are other options for exposing the results as well. </p>
   without the options diff.
 </p>
 
-<h3>Proto</h3>
+<h3>Protocol message output</h3>
 
 <pre>
 --output=proto
@@ -380,6 +434,173 @@ There are other options for exposing the results as well. </p>
   targets and within attributes, all possible inputs for selects are still
   included as <code>rule_input</code> fields.
 </p>
+
+<h3>Graph output</h3>
+
+<pre>
+--output=graph
+</pre>
+
+<p>
+  This option generates output as a Graphviz-compatible .dot file. See <code>query</code>'s
+  <a href="query.html#output-graph">graph output documentation</a> for details. <code>cquery</code>
+  also supports
+
+  <a href="query.html#graph-node_limit-n"><code>--graph:node_limit</code></a> and
+  <a href="query.html#no-graph-factored"><code>--graph:factored</code></a>.
+
+</p>
+
+<h3>Defining the output format using Starlark</h3>
+
+<pre>
+--output=starlark
+</pre>
+
+<p>
+  This output format calls a
+  <a href="https://docs.bazel.build/versions/master/skylark/language.html">Starlark</a>
+  function for each configured target in the query result, and prints the value returned by the
+  call. The <code>--starlark:file</code> flag specifies the location of a Starlark file that
+  defines a function named <code>format</code> with a single parameter, <code>target</code>. This
+  function is called for each
+  <a href="https://docs.bazel.build/versions/master/skylark/lib/Target.html">Target</a> in the
+  query result. Alternatively, for convenience, you may specify just the body of a function
+  declared as <code>def format(target): return expr</code> by using the
+  <code>--starlark:expr</code> flag.
+
+<h4>'cquery' Starlark dialect</h4>
+<p>
+  The cquery Starlark environment differs from a BUILD or .bzl file. It includes all core Starlark
+  <a href="https://github.com/bazelbuild/starlark/blob/master/spec.md#built-in-constants-and-functions">
+  built-in constants and functions</a>, plus a few cquery-specific ones described below,
+  but not (for example) <code>glob</code>, <code>native</code>, or <code>rule</code>, and it does
+  not support load statements.
+</p>
+<h5 id='build_options'>build_options(target)</h5>
+<p>
+  <code>build_options(target)</code> returns a map whose keys are build option identifiers (see
+  <a href="https://docs.bazel.build/versions/master/skylark/config.html">Configurations</a>)
+  and whose values are their Starlark values. Build options whose values are not legal Starlark
+  values are omitted from this map.
+</p><p>
+  If the target is an input file, <code>build_options(target)</code> returns None, as input file
+  targets have a null configuration.
+</p>
+<h5 id='providers'>providers(target)</h5>
+<p>
+  <code>providers(target)</code> returns a map whose keys are names of
+  <a href="https://docs.bazel.build/versions/master/skylark/rules.html#providers">providers</a>
+  (for example, <code>"DefaultInfo"</code>) and whose values are their Starlark values. Providers
+  whose values are not legal Starlark values are omitted from this map.
+</p>
+
+<h4>Examples</h4>
+
+<p>
+Print a space-separated list of the base names of all files produced by <code>//foo</code>:
+</p>
+<pre>
+  bazel cquery //foo --output=starlark \
+    --starlark:expr="' '.join([f.basename for f in target.files.to_list()])"
+</pre>
+<p>
+Print a space-separated list of the paths of all files produced by <b>rule</b> targets in
+<code>//bar</code> and its subpackages:
+</p>
+<pre>
+  bazel cquery 'kind(rule, //bar/...)' --output=starlark \
+    --starlark:expr="' '.join([f.path for f in target.files.to_list()])"
+</pre>
+<p>
+Print a list of the mnemonics of all actions registered by <code>//foo</code>.
+</p>
+<pre>
+  bazel cquery //foo --output=starlark \
+    --starlark:expr="[a.mnemonic for a in target.actions]"
+</pre>
+<p>
+Print a list of compilation outputs registered by a <code>cc_library</code> <code>//baz</code>.
+</p>
+<pre>
+  bazel cquery //baz --output=starlark \
+    --starlark:expr="[f.path for f in target.output_groups.compilation_outputs.to_list()]"
+</pre>
+<p>
+Print the value of the command line option <code>--javacopt</code> when building <code>//foo</code>.
+</p>
+<pre>
+  bazel cquery //foo --output=starlark \
+    --starlark:expr="build_options(target)['//command_line_option:javacopt']"
+</pre>
+<p>
+  Print the label of each target with exactly one output. This example uses Starlark functions
+  defined in a file.
+</p>
+<pre>
+  $ cat example.cquery
+
+  def has_one_output(target):
+    return len(target.files.to_list()) == 1
+
+  def format(target):
+    if has_one_output(target):
+      return target.label
+    else:
+      return ""
+
+
+  $ bazel cquery //baz --output=starlark --starlark:file=example.cquery
+</pre>
+<p>
+  Print the label of each target which is strictly Python 3. This example uses Starlark functions
+  defined in a file.
+</p>
+<pre>
+  $ cat example.cquery
+
+  def format(target):
+    p = providers(target)
+    py_info = p.get("PyInfo")
+    if py_info and py_info.has_py3_only_sources:
+      return target.label
+    else:
+      return ""
+
+
+  $ bazel cquery //baz --output=starlark --starlark:file=example.cquery
+</pre>
+
+<p>
+  Extract a value from a user defined Provider.
+</p>
+<pre>
+  $ cat some_package/my_rule.bzl
+
+  MyRuleInfo = provider(fields={"color": "the name of a color"})
+
+  def _my_rule_impl(ctx):
+      ...
+      return [MyRuleInfo(color="red")]
+
+  my_rule = rule(
+      implementation = _my_rule_impl,
+      attrs = {...},
+  )
+
+  $ cat example.cquery
+
+  def format(target):
+    p = providers(target)
+    my_rule_info = p.get("//some_package:my_rule.bzl%MyRuleInfo'")
+    if my_rule_info:
+      return my_rule_info.color
+    return ""
+
+
+  $ bazel cquery //baz --output=starlark --starlark:file=example.cquery
+</pre>
+
 
 <h2 id='compare'>cquery vs. query</h2>
 
@@ -460,22 +681,7 @@ $ bazel cquery 'somepath(//foo, //bar)' --universe_scope=//foo
 
   <li>
     <strong>No support
-      for <a href="https://docs.bazel.build/versions/master/skylark/aspects.html">aspects</a>.</strong>
-    Aspects can add additional dependencies which <code>cquery</code> will not see.
-    This can manifest as seeing a failure on target X while building target Y but a <code>cquery
-    somepath(Y, X)</code> and <code>cquery deps(Y) | grep 'X'</code> will return no results because
-    somewhere in the path between Y and X there's an aspect dependency.
-      </li>
-
-  <li>
-    <strong>No support
-    for <a href="query.html#output-graph"><code>--output=graph</code></a>
-      or <a href="query.html#output-xml"><code>--output=xml</code></a>.</strong>
-  </li>
-
-  <li>
-    <strong>No support for recursive target patterns (<code>
-        "/..."</code>).</strong>
+    for <a href="query.html#output-xml"><code>--output=xml</code></a>.</strong>
   </li>
 
   <li>

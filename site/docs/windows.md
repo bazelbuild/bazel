@@ -27,6 +27,12 @@ For example, add the following line to your bazelrc file:
 startup --output_user_root=C:/tmp
 ```
 
+### Enable 8.3 Filename Support
+Bazel attempts to create a short name version for long file paths. But to do so the [8.3 filename support](https://docs.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-8dot3name) needs to be enabled for the volume in which the file with the long path resides. You can enable 8.3 name creation in all volumes by running the following command:
+```
+fsutil 8dot3name set 0
+```
+
 ### Enable symlink support
 
 Some features require Bazel to create file symlink on Windows, you can allow Bazel to do that by enabling [Developer Mode](https://docs.microsoft.com/en-us/windows/uwp/get-started/enable-your-device-for-development) on Windows (Only works for Windows 10, version 1703 or newer).
@@ -189,6 +195,19 @@ projects](https://github.com/bazelbuild/bazel/tree/master/examples):
 C:\projects\bazel> bazel build //examples/cpp:hello-world
 
 C:\projects\bazel> bazel-bin\examples\cpp\hello-world.exe
+```
+
+By default, the built binaries target x64 architecture. To specify a different
+target architecture, set the `--cpu` build option for your target architecture:
+*  x64 (default):  `--cpu=x64_windows` or no option
+*  x86: `--cpu=x64_x86_windows`
+*  ARM: `--cpu=x64_arm_windows`
+*  ARM64: `--cpu=x64_arm64_windows`
+
+For example, to build targets for ARM architecture, run:
+
+```
+C:\projects\bazel> bazel build //examples/cpp:hello-world --cpu=x64_arm_windows
 ```
 
 To build and use Dynamically Linked Libraries (DLL files), see [this

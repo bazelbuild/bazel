@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.base.Preconditions;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -25,8 +23,10 @@ import com.google.devtools.build.lib.packages.BuildType.Selector;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.Type.ListType;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
@@ -44,8 +44,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
   private final Rule rule;
 
   private AggregatingAttributeMapper(Rule rule) {
-    super(rule.getPackage(), rule.getRuleClassObject(), rule.getLabel(),
-        rule.getAttributeContainer());
+    super(rule);
     this.rule = rule;
   }
 
@@ -252,10 +251,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     // If this attribute value is configurable, visit all possible values.
     SelectorList<T> selectorList = getSelectorList(attributeName, type);
     if (selectorList != null) {
-      ImmutableList.Builder<T> builder = ImmutableList.builder();
-      visitConfigurableAttribute(selectorList.getSelectors(), new BoundSelectorPaths(), type,
-          null, builder);
-      return builder.build();
+      return getAllValues(selectorList.getSelectors(), type);
     }
 
     // If this attribute is a computed default, feed it all possible value combinations of
@@ -277,109 +273,6 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     // For any other attribute, just return its direct value.
     T value = get(attributeName, type);
     return value == null ? ImmutableList.of() : ImmutableList.of(value);
-  }
-
-  /**
-   * Determines all possible values a configurable attribute can take. Do not call this method
-   * unless really necessary (see TODO comment inside).
-   *
-   * @param selectors the selectors that make up this attribute assignment (in order)
-   * @param boundSelectorPaths paths that have already been chosen from previous selectors in an
-   *     earlier recursive call of this method. For example, given
-   *     <pre>cmd = select({':a': 'w', ':b': 'x'}) + select({':a': 'y', ':b': 'z'})</pre>
-   *     the only possible values for <code>cmd</code> are <code>"wy"</code> and <code>"xz"</code>.
-   *     This is because the selects have the same conditions, so whatever matches the first also
-   *     matches the second. Note that this doesn't work for selects with overlapping but
-   *     <i>different</i> key sets. That's because of key specialization (see
-   *     {@link ConfiguredAttributeMapper} - if the
-   *     second select also included a condition <code>':c'</code> that includes both the flags
-   *     in <code>':a'</code> and <code>':b'</code>, <code>':c'</code> would be chosen over
-   *     them both.
-   * @param type the type of this attribute
-   * @param currentValueSoFar the partial value produced so far from earlier calls to this method
-   * @param valuesBuilder output container for full values this attribute can take
-   */
-  private <T> void visitConfigurableAttribute(List<Selector<T>> selectors,
-      BoundSelectorPaths boundSelectorPaths, Type<T> type, T currentValueSoFar,
-      ImmutableList.Builder<T> valuesBuilder) {
-    // TODO(bazel-team): minimize or eliminate uses of this interface. It necessarily grows
-    // exponentially with the number of selects in the attribute. Is that always necessary?
-    // For example, dependency resolution just needs to know every possible label an attribute
-    // might reference, but it doesn't need to know the exact combination of labels that make
-    // up a value. This may be even less important for non-label values (e.g. strings), which
-    // have no impact on the dependency structure.
-
-    if (selectors.isEmpty()) {
-      if (currentValueSoFar != null) {
-        // Null values arise when a None is used as the value of a Selector for a type without a
-        // default value.
-        // TODO(gregce): visitAttribute should probably convey that an unset attribute is possible.
-        // Therefore we need to actually handle null values here.
-        valuesBuilder.add(currentValueSoFar);
-      }
-    } else {
-      Selector<T> firstSelector = selectors.get(0);
-      List<Selector<T>> remainingSelectors = selectors.subList(1, selectors.size());
-
-      Map<Label, T> firstSelectorEntries = firstSelector.getEntries();
-      Label boundKey = boundSelectorPaths.getChosenKey(firstSelectorEntries.keySet());
-      if (boundKey != null) {
-        // If we've already followed some path from a previous selector with the same exact
-        // conditions as this one, we only need to visit that path (since the same key will
-        // match both selectors).
-        T boundValue = firstSelectorEntries.get(boundKey);
-        visitConfigurableAttribute(remainingSelectors, boundSelectorPaths, type,
-                    currentValueSoFar == null
-                        ? boundValue
-                        : type.concat(ImmutableList.of(currentValueSoFar, boundValue)),
-                    valuesBuilder);
-      } else {
-        // Otherwise, we need to iterate over all possible paths.
-        for (Map.Entry<Label, T> selectorBranch : firstSelectorEntries.entrySet()) {
-          // Bind this particular path for later selectors using the same conditions.
-          boundSelectorPaths.bind(firstSelectorEntries.keySet(), selectorBranch.getKey());
-          visitConfigurableAttribute(remainingSelectors, boundSelectorPaths, type,
-              currentValueSoFar == null
-                  ? selectorBranch.getValue()
-                  : type.concat(ImmutableList.of(currentValueSoFar, selectorBranch.getValue())),
-              valuesBuilder);
-          // Unbind the path (so when we pop back up the recursive stack we can rebind it to new
-          // values if we visit this selector again).
-          boundSelectorPaths.unbind(firstSelectorEntries.keySet());
-        }
-      }
-    }
-  }
-
-  /**
-   * Helper class for {@link #visitConfigurableAttribute}. See that method's comments for more
-   * details.
-   */
-  private static class BoundSelectorPaths {
-    private final Map<Set<Label>, Label> bindings = new HashMap<>();
-
-    /**
-     * Binds the given config key set to the specified path. There should be no previous binding
-     * for this key set.
-     */
-    public void bind(Set<Label> allKeys, Label chosenKey) {
-      Preconditions.checkState(allKeys.contains(chosenKey));
-      Verify.verify(bindings.put(allKeys, chosenKey) == null);
-    }
-
-    /**
-     * Unbinds the given config key set.
-     */
-    public void unbind(Set<Label> allKeys) {
-      Verify.verifyNotNull(bindings.remove(allKeys));
-    }
-
-    /**
-     * Returns the key this config key set is bound to or null if no binding.
-     */
-    public Label getChosenKey(Set<Label> allKeys) {
-      return bindings.get(allKeys);
-    }
   }
 
   /**
@@ -582,5 +475,131 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
         value,
         /*context=*/ null);
     return result.build();
+  }
+
+  /**
+   * Helper class for {@link #getAllValues}. Represents a node in the logical DAG of combinations of
+   * {@link Selector}s' values.
+   */
+  private static class ConfigurableAttrVisitationNode<T> {
+    /** Offset into the list of selectors being combined. */
+    private final int offset;
+    /** Key of the selector taken. */
+    private final Label boundKey;
+    /** Accumulated value through this node. */
+    private final T valueSoFar;
+
+    private ConfigurableAttrVisitationNode(int offset, Label boundKey, T valueSoFar) {
+      this.offset = offset;
+      this.boundKey = boundKey;
+      this.valueSoFar = valueSoFar;
+    }
+  }
+
+  /**
+   * Represents a path previously taken through a previous selector.
+   *
+   * <p>Used to short-circuit visitation when encountering selectors with <i>equivalent</i> key
+   * sets. See uses for details. Note that this optimization is not safe for overlapping but
+   * <i>different</i> keysets due to specialization (see {@link ConfiguredAttributeMapper}).
+   */
+  private static class BoundKeyAndOffset {
+    /** Key chosen from associated select. */
+    private final Label key;
+    /**
+     * Offset into the list of selectors where this key was bound. Used to determine when {@link
+     * #key} is safe to follow through equivalent selects.
+     */
+    private final int offset;
+
+    private BoundKeyAndOffset(Label key, int offset) {
+      this.key = key;
+      this.offset = offset;
+    }
+  }
+
+  /**
+   * Determines all possible values a configurable attribute can take. Do not call this method
+   * unless really necessary and avoid all new uses.
+   */
+  // TODO(bazel-team): minimize or eliminate uses of this interface. It necessarily grows
+  // exponentially with the number of selects in the attribute. Is that always necessary?
+  // For example, dependency resolution just needs to know every possible label an attribute
+  // might reference, but it doesn't need to know the exact combination of labels that make
+  // up a value. This may be even less important for non-label values (e.g. strings), which
+  // have no impact on the dependency structure.
+  private static <T> ImmutableList<T> getAllValues(List<Selector<T>> selectors, Type<T> type) {
+    if (selectors.isEmpty()) {
+      return ImmutableList.of();
+    }
+
+    if (selectors.size() == 1) {
+      // Optimize for common case.
+      return selectors.get(0).getEntries().values().stream()
+          .filter(v -> v != null)
+          .collect(ImmutableList.toImmutableList());
+    }
+
+    Deque<ConfigurableAttrVisitationNode<T>> nodes = new ArrayDeque<>();
+    // Track per selector key set when we started visiting a specific key.
+    Map<Set<Label>, BoundKeyAndOffset> boundKeysAndOffsets = new HashMap<>();
+    ImmutableList.Builder<T> result = ImmutableList.builder();
+
+    // Seed visitation.
+    for (Map.Entry<Label, T> root : selectors.get(0).getEntries().entrySet()) {
+      nodes.push(new ConfigurableAttrVisitationNode<>(0, root.getKey(), root.getValue()));
+    }
+
+    while (!nodes.isEmpty()) {
+      ConfigurableAttrVisitationNode<T> node = nodes.pop();
+      int nextOffset = node.offset + 1;
+      if (nextOffset >= selectors.size()) {
+        if (node.valueSoFar != null) {
+          // Null values arise when a None is used as the value of a Selector for a type without a
+          // default value.
+          // TODO(gregce): visitAttribute should probably convey that an unset attribute is
+          //  possible. Therefore we need to actually handle null values here.
+          result.add(node.valueSoFar);
+        }
+        continue;
+      }
+
+      Map<Label, T> nextSelectorEntries = selectors.get(nextOffset).getEntries();
+      BoundKeyAndOffset boundKeyAndOffset = boundKeysAndOffsets.get(nextSelectorEntries.keySet());
+      if (boundKeyAndOffset != null && boundKeyAndOffset.offset < node.offset) {
+        // We've seen this select key set before along this path and chosen this key.
+        nodes.push(
+            new ConfigurableAttrVisitationNode<>(
+                nextOffset,
+                boundKeyAndOffset.key,
+                concat(type, node.valueSoFar, nextSelectorEntries.get(boundKeyAndOffset.key))));
+        continue;
+      }
+
+      Set<Label> currentKeys = selectors.get(node.offset).getEntries().keySet();
+      // Record that we've descended along node.boundKey starting at this offset.
+      boundKeysAndOffsets.put(currentKeys, new BoundKeyAndOffset(node.boundKey, node.offset));
+
+      if (currentKeys.equals(nextSelectorEntries.keySet())) {
+        nodes.push(
+            new ConfigurableAttrVisitationNode<>(
+                nextOffset,
+                node.boundKey,
+                concat(type, node.valueSoFar, nextSelectorEntries.get(node.boundKey))));
+        continue;
+      }
+
+      for (Map.Entry<Label, T> entry : nextSelectorEntries.entrySet()) {
+        nodes.push(
+            new ConfigurableAttrVisitationNode<>(
+                nextOffset, entry.getKey(), concat(type, node.valueSoFar, entry.getValue())));
+      }
+    }
+
+    return result.build();
+  }
+
+  private static <T> T concat(Type<T> type, T lhs, T rhs) {
+    return type.concat(ImmutableList.of(lhs, rhs));
   }
 }

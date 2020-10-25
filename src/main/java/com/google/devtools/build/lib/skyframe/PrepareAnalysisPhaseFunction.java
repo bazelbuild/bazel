@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
@@ -33,13 +34,14 @@ import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
-import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition;
-import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.skyframe.PrepareAnalysisPhaseValue.PrepareAnalysisPhaseKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -79,9 +81,11 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
     PrepareAnalysisPhaseKey options = (PrepareAnalysisPhaseKey) key.argument();
 
     BuildOptions targetOptions = defaultBuildOptions.applyDiff(options.getOptionsDiff());
+    BuildOptionsView hostTransitionOptionsView =
+        new BuildOptionsView(targetOptions, HostTransition.INSTANCE.requiresOptionFragments());
     BuildOptions hostOptions =
         targetOptions.get(CoreOptions.class).useDistinctHostConfiguration
-            ? HostTransition.INSTANCE.patch(targetOptions, env.getListener())
+            ? HostTransition.INSTANCE.patch(hostTransitionOptionsView, env.getListener())
             : targetOptions;
 
     ImmutableSortedSet<Class<? extends Fragment>> allFragments =
@@ -129,7 +133,8 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
     Map<SkyKey, SkyValue> configs = env.getValues(targetConfigurationKeys);
 
     // We only report invalid options for the target configurations, and abort if there's an error.
-    ErrorSensingEventHandler nosyEventHandler = new ErrorSensingEventHandler(env.getListener());
+    ErrorSensingEventHandler<Void> nosyEventHandler =
+        ErrorSensingEventHandler.withoutPropertyValueTracking(env.getListener());
     targetConfigurationKeys
         .stream()
         .map(k -> configs.get(k))
@@ -138,7 +143,8 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
         .forEach(config -> config.reportInvalidOptions(nosyEventHandler));
     if (nosyEventHandler.hasErrors()) {
       throw new PrepareAnalysisPhaseFunctionException(
-          new InvalidConfigurationException("Build options are invalid"));
+          new InvalidConfigurationException(
+              "Build options are invalid", Code.INVALID_BUILD_OPTIONS));
     }
 
     // We get the list of labels from the TargetPatternPhaseValue, so we are reasonably certain that
@@ -178,9 +184,8 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
       return null;
     }
     ImmutableList<ConfiguredTargetKey> topLevelCtKeys =
-        topLevelTargetsWithConfigs
-            .stream()
-            .map(node -> ConfiguredTargetKey.of(node.getLabel(), node.getConfiguration()))
+        topLevelTargetsWithConfigs.stream()
+            .map(TargetAndConfiguration::getConfiguredTargetKey)
             .collect(ImmutableList.toImmutableList());
     return new PrepareAnalysisPhaseValue(
         hostConfigurationKey, targetConfigurationKeys, topLevelCtKeys);

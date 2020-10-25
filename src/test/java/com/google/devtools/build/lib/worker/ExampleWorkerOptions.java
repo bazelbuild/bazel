@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -100,14 +102,21 @@ public class ExampleWorkerOptions extends OptionsBase {
   public int exitAfter;
 
   @Option(
-    name = "poison_after",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.NO_OP},
-    defaultValue = "0",
-    help =
-        "Poisons the worker after processing this many work units, so that it returns a "
-            + "corrupt response instead of a response protobuf from then on (default: disabled)."
-  )
+      name = "exit_during",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "0",
+      help = "The worker exits during processing after this many work units (default: disabled).")
+  public int exitDuring;
+
+  @Option(
+      name = "poison_after",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "0",
+      help =
+          "Poisons the worker after processing this many work units, so that it returns a "
+              + "corrupt response instead of a response protobuf from then on (default: disabled).")
   public int poisonAfter;
 
   @Option(
@@ -118,4 +127,21 @@ public class ExampleWorkerOptions extends OptionsBase {
     help = "Instead of writing an error message to stdout, write it to stderr and terminate."
   )
   public boolean hardPoison;
+
+  /** Enum converter for --worker_protocol. */
+  public static class WorkerProtocolEnumConverter
+      extends EnumConverter<ExecutionRequirements.WorkerProtocolFormat> {
+    public WorkerProtocolEnumConverter() {
+      super(ExecutionRequirements.WorkerProtocolFormat.class, "worker protocol format option");
+    }
+  }
+
+  @Option(
+      name = "worker_protocol",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "proto",
+      help = "The protocol (JSON or proto) to use for communication between this worker and Bazel.",
+      converter = WorkerProtocolEnumConverter.class)
+  public ExecutionRequirements.WorkerProtocolFormat workerProtocol;
 }

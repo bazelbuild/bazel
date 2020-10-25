@@ -14,6 +14,11 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.errorprone.annotations.ForOverride;
+import javax.annotation.Nullable;
+
 /**
  * An exception indication that the execution of an action has failed OR could not be attempted OR
  * could not be finished OR had something else wrong.
@@ -81,24 +86,46 @@ public abstract class ExecException extends Exception {
    * @param action failed action
    * @return ActionExecutionException object describing the action failure
    */
-  public ActionExecutionException toActionExecutionException(Action action) {
-    // In all ExecException implementations verboseFailures argument used only to determine should
-    // we pass ExecException as cause of ActionExecutionException. So use this method only
-    // if you need this information inside of ActionExecutionexception.
-    return toActionExecutionException("", true, action);
+  public final ActionExecutionException toActionExecutionException(Action action) {
+    return toActionExecutionException(null, action);
   }
 
   /**
-   * Returns a new ActionExecutionException given a message prefix describing the action type as a
-   * noun. When appropriate (we use some heuristics to decide), produces an abbreviated message
-   * incorporating just the termination status if available.
+   * Returns a new ActionExecutionException given an optional action subtask describing which part
+   * of the action failed (should be null for standard action failures). When appropriate (we use
+   * some heuristics to decide), produces an abbreviated message incorporating just the termination
+   * status if available.
    *
-   * @param messagePrefix describes the action type as noun
-   * @param verboseFailures true if user requested verbose output with flag --verbose_failures or
-   *     --experimental_verbose_failures_filter
+   * @param actionSubtask additional information about the action
    * @param action failed action
    * @return ActionExecutionException object describing the action failure
    */
-  public abstract ActionExecutionException toActionExecutionException(
-      String messagePrefix, boolean verboseFailures, Action action);
+  public final ActionExecutionException toActionExecutionException(
+      @Nullable String actionSubtask, Action action) {
+    // Message from ActionExecutionException will be prepended with action.describe() where
+    // necessary: because not all ActionExecutionExceptions come from this codepath, it is safer
+    // for consumers to manually prepend. We still put action.describe() in the failure detail
+    // message argument.
+    String message =
+        (actionSubtask == null ? "" : actionSubtask + ": ")
+            + getMessageForActionExecutionException();
+    return toActionExecutionException(
+        message,
+        action,
+        DetailedExitCode.of(getFailureDetail(action.describe() + " failed: " + message)));
+  }
+
+  @ForOverride
+  protected ActionExecutionException toActionExecutionException(
+      String message, Action action, DetailedExitCode code) {
+    return new ActionExecutionException(message, this, action, isCatastrophic(), code);
+  }
+
+  @ForOverride
+  protected String getMessageForActionExecutionException() {
+    return getMessage();
+  }
+
+  @ForOverride
+  protected abstract FailureDetail getFailureDetail(String message);
 }

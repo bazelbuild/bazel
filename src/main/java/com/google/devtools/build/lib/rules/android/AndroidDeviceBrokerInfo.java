@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDeviceBrokerInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDeviceBrokerInfoApi;
+import net.starlark.java.eval.EvalException;
 
 /** Supplies the device broker type string, passed to the Android test runtime. */
 @Immutable

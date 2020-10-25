@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 
 import com.google.common.base.Joiner;
@@ -87,15 +88,9 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     ConfiguredTarget j2objcLibraryTarget = getConfiguredTarget(
         "//java/com/google/dummy/test:transpile");
     ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.LIBRARY)))
-        .containsExactly(
-            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX
-                + "third_party/java/j2objc/libjre_core_lib.a",
-            "java/com/google/dummy/test/libtest_j2objc.a");
-    assertThat(Artifact.toRootRelativePaths(provider.header()))
-        .containsExactly(
-            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "third_party/java/j2objc/jre_core.h",
-            "java/com/google/dummy/test/_j2objc/test/java/com/google/dummy/test/test.h");
+    assertThat(baseArtifactNames(provider.get(ObjcProvider.LIBRARY)))
+        .containsExactly("libjre_core_lib.a", "libtest_j2objc.a");
+    assertThat(baseArtifactNames(provider.header())).containsExactly("jre_core.h", "test.h");
 
     String execPath =
         getConfiguration(j2objcLibraryTarget).getBinDirectory(RepositoryName.MAIN).getExecPath()
@@ -109,6 +104,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     useConfiguration(
         "--proto_toolchain_for_java=//tools/proto/toolchains:java",
         "--incompatible_objc_compile_info_migration=false");
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_compile_info=false");
     testJ2ObjCInformationExportedFromJ2ObjcLibrary();
   }
 
@@ -144,18 +140,11 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ConfiguredTarget target = getConfiguredTarget("//java/com/google/test:transpile");
     ObjcProvider provider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    String genfilesFragment = getConfiguration(target).getGenfilesFragment().toString();
-    assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.LIBRARY)))
-        .containsExactly(
-            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX
-                + "third_party/java/j2objc/libjre_core_lib.a",
-            "java/com/google/test/libtest_j2objc.a");
-    assertThat(Artifact.toRootRelativePaths(provider.header()))
-        .containsExactly(
-            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "third_party/java/j2objc/jre_core.h",
-            "java/com/google/test/_j2objc/test/"
-                + genfilesFragment
-                + "/java/com/google/test/test.h");
+    String genfilesFragment =
+        getConfiguration(target).getGenfilesFragment(RepositoryName.MAIN).toString();
+    assertThat(baseArtifactNames(provider.get(ObjcProvider.LIBRARY)))
+        .containsExactly("libjre_core_lib.a", "libtest_j2objc.a");
+    assertThat(baseArtifactNames(provider.header())).containsExactly("jre_core.h", "test.h");
 
     String execPath =
         getConfiguration(target).getBinDirectory(RepositoryName.MAIN).getExecPath() + "/";
@@ -194,20 +183,14 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     ConfiguredTarget j2objcLibraryTarget = getConfiguredTarget(
         "//java/com/google/dummy/test/proto:transpile");
     ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.LIBRARY)))
+    assertThat(baseArtifactNames(provider.get(ObjcProvider.LIBRARY)))
         .containsExactly(
-            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX
-                + "third_party/java/j2objc/libjre_core_lib.a",
-            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX
-                + "third_party/java/j2objc/libproto_runtime.a",
-            "java/com/google/dummy/test/proto/libtest_j2objc.a",
-            "java/com/google/dummy/test/proto/libtest_proto_j2objc.a");
-    assertThat(Artifact.toRootRelativePaths(provider.header()))
-        .containsExactly(
-            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "third_party/java/j2objc/jre_core.h",
-            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "third_party/java/j2objc/runtime.h",
-            "java/com/google/dummy/test/proto/test.j2objc.pb.h",
-            "java/com/google/dummy/test/proto/_j2objc/test/java/com/google/dummy/test/proto/test.h");
+            "libjre_core_lib.a",
+            "libproto_runtime.a",
+            "libtest_j2objc.a",
+            "libtest_proto_j2objc.a");
+    assertThat(baseArtifactNames(provider.header()))
+        .containsExactly("jre_core.h", "runtime.h", "test.j2objc.pb.h", "test.h");
   }
 
   @Test
@@ -366,7 +349,10 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     assertThat(objcProvider.header().toList()).contains(headerFile);
     assertThat(objcProvider.get(ObjcProvider.SOURCE).toList()).contains(sourceFile);
     assertThat(objcProvider.include())
-        .contains(getConfiguration(target).getGenfilesFragment().getRelative("external/bla"));
+        .contains(
+            getConfiguration(target)
+                .getGenfilesFragment(RepositoryName.create("@bla"))
+                .getRelative("external/bla"));
   }
 
   @Test
@@ -431,15 +417,9 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "//java/com/google/dummy/test:transpile");
     ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     // jre_io_lib and jre_emul_lib should be excluded.
-    assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.LIBRARY)))
-        .containsExactly(
-            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX
-                + "third_party/java/j2objc/libjre_core_lib.a",
-            "java/com/google/dummy/test/libtest_j2objc.a");
-    assertThat(Artifact.toRootRelativePaths(provider.header()))
-        .containsExactly(
-            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "third_party/java/j2objc/jre_core.h",
-            "java/com/google/dummy/test/_j2objc/test/java/com/google/dummy/test/test.h");
+    assertThat(baseArtifactNames(provider.get(ObjcProvider.LIBRARY)))
+        .containsExactly("libjre_core_lib.a", "libtest_j2objc.a");
+    assertThat(baseArtifactNames(provider.header())).containsExactly("jre_core.h", "test.h");
   }
 
   @Test
@@ -511,19 +491,16 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "//java/com/google/transpile:lib1");
     J2ObjcMappingFileProvider mappingFileProvider =
         target.getProvider(J2ObjcMappingFileProvider.class);
-    assertThat(Artifact.toRootRelativePaths(mappingFileProvider.getHeaderMappingFiles()))
-        .containsExactly(
-            "java/com/google/transpile/lib1.mapping.j2objc",
-            "java/com/google/transpile/lib2.mapping.j2objc");
+    assertThat(baseArtifactNames(mappingFileProvider.getHeaderMappingFiles()))
+        .containsExactly("lib1.mapping.j2objc", "lib2.mapping.j2objc");
 
     Artifact mappingFile = getFirstArtifactEndingWith(
         mappingFileProvider.getHeaderMappingFiles(), "lib1.mapping.j2objc");
     SpawnAction headerMappingAction = (SpawnAction) getGeneratingAction(mappingFile);
     String execPath =
         getConfiguration(target).getBinDirectory(RepositoryName.MAIN).getExecPath() + "/";
-    assertThat(Artifact.toRootRelativePaths(headerMappingAction.getInputs()))
-        .containsAtLeast(
-            "java/com/google/transpile/libOne.java", "java/com/google/transpile/jar.srcjar");
+    assertThat(baseArtifactNames(headerMappingAction.getInputs()))
+        .containsAtLeast("libOne.java", "jar.srcjar");
     assertThat(headerMappingAction.getArguments())
         .containsExactly(
             TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "tools/j2objc/j2objc_header_map.py",
@@ -540,7 +517,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
       Artifact archiveFile, String objFileName, Iterable<String> compilationInputExecPaths)
       throws Exception {
     CommandAction compileAction = getObjcCompileAction(archiveFile, objFileName);
-    assertThat(Artifact.toRootRelativePaths(compileAction.getPossibleInputsForTesting()))
+    assertThat(baseArtifactNames(compileAction.getPossibleInputsForTesting()))
         .containsAtLeastElementsIn(compilationInputExecPaths);
   }
 
@@ -636,16 +613,9 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     ConfiguredTarget objcTarget = getConfiguredTarget("//app:lib");
 
     ObjcProvider provider = objcTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.LIBRARY)))
-        .containsExactly(
-            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX
-                + "third_party/java/j2objc/libjre_core_lib.a",
-            "java/com/google/dummy/test/libtest_j2objc.a",
-            "app/liblib.a");
-    assertThat(Artifact.toRootRelativePaths(provider.header()))
-        .containsExactly(
-            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "third_party/java/j2objc/jre_core.h",
-            "java/com/google/dummy/test/_j2objc/test/java/com/google/dummy/test/test.h");
+    assertThat(baseArtifactNames(provider.get(ObjcProvider.LIBRARY)))
+        .containsExactly("libjre_core_lib.a", "libtest_j2objc.a", "liblib.a");
+    assertThat(baseArtifactNames(provider.header())).containsExactly("jre_core.h", "test.h");
 
     String execPath =
         getConfiguration(objcTarget).getBinDirectory(RepositoryName.MAIN).getExecPath() + "/";
@@ -682,18 +652,11 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     ConfiguredTarget objcTarget = getConfiguredTarget("//app:lib");
 
     ObjcProvider provider = objcTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.LIBRARY)))
+    assertThat(baseArtifactNames(provider.get(ObjcProvider.LIBRARY)))
         .containsExactly(
-            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX
-                + "third_party/java/j2objc/libjre_core_lib.a",
-            "app/libdummyOne_j2objc.a",
-            "app/libdummyTwo_j2objc.a",
-            "app/liblib.a");
-    assertThat(Artifact.toRootRelativePaths(provider.header()))
-        .containsExactly(
-            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "third_party/java/j2objc/jre_core.h",
-            "app/_j2objc/dummyOne/app/dummyOne.h",
-            "app/_j2objc/dummyTwo/app/dummyTwo.h");
+            "libjre_core_lib.a", "libdummyOne_j2objc.a", "libdummyTwo_j2objc.a", "liblib.a");
+    assertThat(baseArtifactNames(provider.header()))
+        .containsExactly("jre_core.h", "dummyOne.h", "dummyTwo.h");
 
     String execPath =
         getConfiguration(objcTarget).getBinDirectory(RepositoryName.MAIN).getExecPath() + "/";
@@ -894,13 +857,21 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   public void testObjcCompileAction() throws Exception {
     Artifact archive = j2objcArchive("//java/com/google/dummy/test:transpile", "test");
     CommandAction compileAction = getObjcCompileAction(archive, "test.o");
-    assertThat(Artifact.toRootRelativePaths(compileAction.getPossibleInputsForTesting()))
-        .containsAtLeast(
-            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "third_party/java/j2objc/jre_core.h",
-            "java/com/google/dummy/test/_j2objc/test/java/com/google/dummy/test/test.h",
-            "java/com/google/dummy/test/_j2objc/test/java/com/google/dummy/test/test.m");
+    assertThat(baseArtifactNames(compileAction.getPossibleInputsForTesting()))
+        .containsAtLeast("jre_core.h", "test.h", "test.m");
     assertThat(compileAction.getArguments())
-        .containsAtLeast("-fno-objc-arc", "-fno-strict-overflow");
+        .containsAtLeast("-fno-objc-arc", "-fno-strict-overflow", "-fobjc-weak");
+  }
+
+  @Test
+  public void testObjcCompileArcAction() throws Exception {
+    useConfiguration("--j2objc_translation_flags=-use-arc");
+    Artifact archive = j2objcArchive("//java/com/google/dummy/test:transpile", "test");
+    CommandAction compileAction = getObjcCompileAction(archive, "test.o");
+    assertThat(baseArtifactNames(compileAction.getPossibleInputsForTesting()))
+        .containsAtLeast("jre_core.h", "test.h", "test.m");
+    assertThat(compileAction.getArguments())
+        .containsAtLeast("-fobjc-arc", "-fobjc-arc-exceptions", "-fno-strict-overflow");
   }
 
   @Test
@@ -911,10 +882,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "//app:app",
         "libtest_j2objc.a",
         "test.o",
-        ImmutableList.of(
-            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "third_party/java/j2objc/jre_core.h",
-            "java/com/google/dummy/test/_j2objc/test/java/com/google/dummy/test/test.h",
-            "java/com/google/dummy/test/_j2objc/test/java/com/google/dummy/test/test.m"));
+        ImmutableList.of("jre_core.h", "test.h", "test.m"));
   }
 
   @Test
@@ -940,19 +908,13 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "//app:app",
         "libtest_j2objc.a",
         "test.o",
-        ImmutableList.of(
-            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "third_party/java/j2objc/jre_core.h",
-            "java/com/google/dummy/test/_j2objc/test/java/com/google/dummy/test/test.h",
-            "java/com/google/dummy/test/_j2objc/test/java/com/google/dummy/test/test.m"));
+        ImmutableList.of("jre_core.h", "test.h", "test.m"));
 
     checkObjcArchiveAndLinkActions(
         "//app:app",
         "libdummy_j2objc.a",
         "dummy.o",
-        ImmutableList.of(
-            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "third_party/java/j2objc/jre_core.h",
-            "java/com/google/dummy/_j2objc/dummy/java/com/google/dummy/dummy.h",
-            "java/com/google/dummy/_j2objc/dummy/java/com/google/dummy/dummy.m"));
+        ImmutableList.of("jre_core.h", "dummy.h", "dummy.m"));
   }
 
   // Tests that a j2objc library can acquire java library information from a Starlark rule target.
@@ -1005,8 +967,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     ObjcProvider provider = objcTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
 
     // The only way that //examples:lib can see inner's archive is through the Starlark rule.
-    assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.LIBRARY)))
-        .contains("examples/libinner_j2objc.a");
+    assertThat(baseArtifactNames(provider.get(ObjcProvider.LIBRARY))).contains("libinner_j2objc.a");
   }
 
   @Test
@@ -1024,8 +985,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     checkObjcCompileActions(
         getBinArtifact("liblib.a", getConfiguredTarget("//app:lib")),
         "lib.o",
-        ImmutableList.of(
-            "java/com/google/dummy/test/_j2objc/test/java/com/google/dummy/test/test.h"));
+        ImmutableList.of("test.h"));
   }
 
   @Test
@@ -1105,19 +1065,14 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     ConfiguredTarget j2objcLibraryTarget =
         getConfiguredTarget("//java/com/google/dummy/test/proto:transpile");
     ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.LIBRARY)))
+    assertThat(baseArtifactNames(provider.get(ObjcProvider.LIBRARY)))
         .containsExactly(
-            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX
-                + "third_party/java/j2objc/libjre_core_lib.a",
-            "tools/j2objc/libalt_proto_runtime.a",
-            "java/com/google/dummy/test/proto/libtest_j2objc.a",
-            "java/com/google/dummy/test/proto/libtest_proto_j2objc.a");
-    assertThat(Artifact.toRootRelativePaths(provider.header()))
-        .containsExactly(
-            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "third_party/java/j2objc/jre_core.h",
-            "tools/j2objc/alt_proto_runtime.h",
-            "java/com/google/dummy/test/proto/test.j2objc.pb.h",
-            "java/com/google/dummy/test/proto/_j2objc/test/java/com/google/dummy/test/proto/test.h");
+            "libjre_core_lib.a",
+            "libalt_proto_runtime.a",
+            "libtest_j2objc.a",
+            "libtest_proto_j2objc.a");
+    assertThat(baseArtifactNames(provider.header()))
+        .containsExactly("jre_core.h", "alt_proto_runtime.h", "test.j2objc.pb.h", "test.h");
   }
 
   @Test
@@ -1222,8 +1177,9 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     ConfiguredTarget j2objcLibraryTarget =
         getConfiguredTarget("//java/com/google/dummy/test:transpile");
     String genfilesFragment =
-        getConfiguration(j2objcLibraryTarget).getGenfilesFragment().toString();
-    String binFragment = getConfiguration(j2objcLibraryTarget).getBinFragment().toString();
+        getConfiguration(j2objcLibraryTarget).getGenfilesFragment(RepositoryName.MAIN).toString();
+    String binFragment =
+        getConfiguration(j2objcLibraryTarget).getBinFragment(RepositoryName.MAIN).toString();
 
     String commandLine = Joiner.on(" ").join(compileAction.getArguments());
     ImmutableList<String> expectedArgs =

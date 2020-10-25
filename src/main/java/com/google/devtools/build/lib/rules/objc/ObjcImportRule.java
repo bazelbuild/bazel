@@ -45,6 +45,7 @@ public class ObjcImportRule implements RuleDefinition {
         .add(
             attr("archives", LABEL_LIST).mandatory().nonEmpty().allowedFileTypes(FileType.of(".a")))
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(environment))
+        .useToolchainTransition(true)
         .build();
   }
 

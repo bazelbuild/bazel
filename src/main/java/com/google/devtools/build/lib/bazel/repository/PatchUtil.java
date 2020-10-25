@@ -14,6 +14,14 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import com.github.difflib.UnifiedDiffUtils;
+import com.github.difflib.patch.AbstractDelta;
+import com.github.difflib.patch.ChangeDelta;
+import com.github.difflib.patch.Chunk;
+import com.github.difflib.patch.DeleteDelta;
+import com.github.difflib.patch.InsertDelta;
+import com.github.difflib.patch.Patch;
+import com.github.difflib.patch.PatchFailedException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
@@ -21,12 +29,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import difflib.Chunk;
-import difflib.Delta;
-import difflib.DeltaComparator;
-import difflib.DiffUtils;
-import difflib.Patch;
-import difflib.PatchFailedException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -83,11 +85,10 @@ public class PatchUtil {
 
     public static List<String> applyTo(Patch<String> patch, List<String> target)
         throws PatchFailedException {
-      List<Delta<String>> deltas = patch.getDeltas();
+      List<AbstractDelta<String>> deltas = patch.getDeltas();
       List<String> result = new ArrayList<>(target);
-      deltas.sort(DeltaComparator.INSTANCE);
-      for (Delta<String> item : Lists.reverse(deltas)) {
-        Delta<String> delta = item;
+      for (AbstractDelta<String> item : Lists.reverse(deltas)) {
+        AbstractDelta<String> delta = item;
         applyTo(delta, result);
       }
 
@@ -99,15 +100,15 @@ public class PatchUtil {
      * to apply the Delta with an offset, starting from 1, up to the total lines in the original
      * content. For every offset, we try both forwards and backwards.
      */
-    private static void applyTo(Delta<String> delta, List<String> result)
+    private static void applyTo(AbstractDelta<String> delta, List<String> result)
         throws PatchFailedException {
       PatchFailedException e = applyDelta(delta, result);
       if (e == null) {
         return;
       }
 
-      Chunk<String> original = delta.getOriginal();
-      Chunk<String> revised = delta.getRevised();
+      Chunk<String> original = delta.getSource();
+      Chunk<String> revised = delta.getTarget();
       int[] direction = {1, -1};
       int maxOffset = result.size();
       for (int i = 1; i < maxOffset; i++) {
@@ -116,9 +117,25 @@ public class PatchUtil {
           if (offset + original.getPosition() < 0 || offset + revised.getPosition() < 0) {
             continue;
           }
-          delta.setOriginal(new Chunk<>(original.getPosition() + offset, original.getLines()));
-          delta.setRevised(new Chunk<>(revised.getPosition() + offset, revised.getLines()));
-          PatchFailedException exception = applyDelta(delta, result);
+          Chunk<String> source = new Chunk<>(original.getPosition() + offset, original.getLines());
+          Chunk<String> target = new Chunk<>(revised.getPosition() + offset, revised.getLines());
+          AbstractDelta<String> newDelta = null;
+          switch (delta.getType()) {
+            case CHANGE:
+              newDelta = new ChangeDelta<>(source, target);
+              break;
+            case INSERT:
+              newDelta = new InsertDelta<>(source, target);
+              break;
+            case DELETE:
+              newDelta = new DeleteDelta<>(source, target);
+              break;
+            case EQUAL:
+          }
+          PatchFailedException exception = null;
+          if (newDelta != null) {
+            exception = applyDelta(newDelta, result);
+          }
           if (exception == null) {
             return;
           }
@@ -128,7 +145,8 @@ public class PatchUtil {
       throw e;
     }
 
-    private static PatchFailedException applyDelta(Delta<String> delta, List<String> result) {
+    private static PatchFailedException applyDelta(
+        AbstractDelta<String> delta, List<String> result) {
       try {
         delta.applyTo(result);
         return null;
@@ -136,11 +154,11 @@ public class PatchUtil {
         String msg =
             String.join(
                 "\n",
-                "**Original Position**: " + (delta.getOriginal().getPosition() + 1) + "\n",
+                "**Original Position**: " + (delta.getSource().getPosition() + 1) + "\n",
                 "**Original Content**:",
-                String.join("\n", delta.getOriginal().getLines()) + "\n",
+                String.join("\n", delta.getSource().getLines()) + "\n",
                 "**Revised Content**:",
-                String.join("\n", delta.getRevised().getLines()) + "\n");
+                String.join("\n", delta.getTarget().getLines()) + "\n");
         return new PatchFailedException(e.getMessage() + "\n" + msg);
       }
     }
@@ -435,8 +453,7 @@ public class PatchUtil {
 
     // Does this patch look like adding a new file.
     boolean isAddFile =
-        patch.getDeltas().size() == 1
-            && patch.getDeltas().get(0).getOriginal().getLines().isEmpty();
+        patch.getDeltas().size() == 1 && patch.getDeltas().get(0).getSource().getLines().isEmpty();
 
     // If this patch is not adding a new file,
     // then either old file or new file should be specified and exists,
@@ -609,7 +626,7 @@ public class PatchUtil {
           boolean isRenaming = isGitDiff && hasRenameFrom && hasRenameTo;
 
           if (!patchContent.isEmpty() || isRenaming || filePermission != -1) {
-            // We collected something useful, let's do some sanity checks before applying the patch.
+            // We collected something useful, let's do some checks before applying the patch.
             int patchStartLocation = i + 1 - patchContent.size();
 
             checkPatchContentIsComplete(
@@ -620,7 +637,7 @@ public class PatchUtil {
                   oldFile, newFile, oldFileStr, newFileStr, patchStartLocation);
             }
 
-            Patch<String> patch = DiffUtils.parseUnifiedDiff(patchContent);
+            Patch<String> patch = UnifiedDiffUtils.parseUnifiedDiff(patchContent);
             checkFilesStatusForPatching(
                 patch, oldFile, newFile, oldFileStr, newFileStr, patchStartLocation);
 
@@ -660,4 +677,6 @@ public class PatchUtil {
       }
     }
   }
+
+  private PatchUtil() {}
 }

@@ -41,14 +41,14 @@ public class StarlarkTestingModuleTest extends BuildViewTestCase {
         "  attrs = {},",
         ")");
     scratch.file(
-        "examples/apple_skylark/BUILD",
+        "examples/apple_starlark/BUILD",
         "package(default_visibility = ['//visibility:public'])",
         "load('//examples/rule:apple_rules.bzl', 'my_rule')",
         "my_rule(",
         "    name = 'my_target',",
         ")");
 
-    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
     ExecutionInfo provider = starlarkTarget.get(ExecutionInfo.PROVIDER);
 
     assertThat(provider.getExecutionInfo().get("requires-darwin")).isEqualTo("1");
@@ -66,14 +66,14 @@ public class StarlarkTestingModuleTest extends BuildViewTestCase {
         "  attrs = {},",
         ")");
     scratch.file(
-        "examples/apple_skylark/BUILD",
+        "examples/apple_starlark/BUILD",
         "package(default_visibility = ['//visibility:public'])",
         "load('//examples/rule:apple_rules.bzl', 'my_rule')",
         "my_rule(",
         "    name = 'my_target',",
         ")");
 
-    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
     TestEnvironmentInfo provider = starlarkTarget.get(TestEnvironmentInfo.PROVIDER);
 
     assertThat(provider.getEnvironment().get("XCODE_VERSION_OVERRIDE")).isEqualTo("7.3.1");
@@ -93,14 +93,14 @@ public class StarlarkTestingModuleTest extends BuildViewTestCase {
         "    attrs = {},",
         ")");
     scratch.file(
-        "examples/apple_skylark/BUILD",
+        "examples/apple_starlark/BUILD",
         "package(default_visibility = ['//visibility:public'])",
         "load('//examples/rule:apple_rules.bzl', 'my_rule_test')",
         "my_rule_test(",
         "    name = 'my_target',",
         ")");
 
-    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
     TestRunnerAction testAction =
         (TestRunnerAction)
             getGeneratingAction(TestProvider.getTestStatusArtifacts(starlarkTarget).get(0));

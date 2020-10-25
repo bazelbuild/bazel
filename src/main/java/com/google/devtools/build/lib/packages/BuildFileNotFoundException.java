@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.io.IOException;
 
 /**
@@ -31,5 +31,10 @@ public class BuildFileNotFoundException extends NoSuchPackageException {
   public BuildFileNotFoundException(PackageIdentifier packageIdentifier, String message,
       IOException cause) {
     super(packageIdentifier, message, cause);
+  }
+
+  public BuildFileNotFoundException(
+      PackageIdentifier packageIdentifier, String message, DetailedExitCode detailedExitCode) {
+    super(packageIdentifier, message, detailedExitCode);
   }
 }

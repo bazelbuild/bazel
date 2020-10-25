@@ -11,7 +11,7 @@ filegroup(
     srcs = glob(["*"]) + [
         "//src/test/java/com/google/devtools/build/lib/bazel/repository/cache:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository/downloader:srcs",
-        "//src/test/java/com/google/devtools/build/lib/bazel/repository/skylark:srcs",
+        "//src/test/java/com/google/devtools/build/lib/bazel/repository/starlark:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
@@ -43,8 +43,8 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
-        "//third_party:diffutils",
         "//third_party:guava",
+        "//third_party:java-diff-utils",
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
@@ -111,6 +111,6 @@ test_suite(
         ":windows_tests",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository/cache:all_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository/downloader:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/bazel/repository/skylark:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/lib/bazel/repository/starlark:all_windows_tests",
     ],
 )

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
@@ -88,7 +89,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
   @Before
   public final void setupStarlarkRule() throws Exception {
-    setStarlarkSemanticsOptions("--incompatible_new_actions_api=false");
+    setBuildLanguageOptions("--incompatible_new_actions_api=false");
 
     File[] files = Runfiles.location(RULE_DIRECTORY).listFiles();
     for (File file : files) {
@@ -159,7 +160,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         "java_lite_proto_library(name = 'lite_pb2', deps = [':protolib'])",
         "proto_library(name = 'protolib', srcs = ['file.proto'])");
 
-    String genfilesDir = targetConfig.getGenfilesFragment().getPathString();
+    String genfilesDir = targetConfig.getGenfilesFragment(RepositoryName.MAIN).getPathString();
 
     List<String> args =
         getGeneratingSpawnAction(getConfiguredTarget("//x:lite_pb2"), "x/protolib-lite-src.jar")
@@ -241,7 +242,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         "proto_library(name = 'bravo', srcs = ['bravo.proto'], deps = [':alpha'])",
         "proto_library(name = 'alpha')");
 
-    String genfilesDir = targetConfig.getGenfilesFragment().getPathString();
+    String genfilesDir = targetConfig.getGenfilesFragment(RepositoryName.MAIN).getPathString();
 
     ConfiguredTarget litepb2 = getConfiguredTarget("//cross:lite_pb2");
 

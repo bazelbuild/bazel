@@ -18,10 +18,10 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.Map;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Starlark;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -191,7 +191,7 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testFilteredExecutionInfo_FromUncheckedExecRequirements() throws Exception {
+  public void testFilteredExecutionInfo_fromUncheckedExecRequirements() throws Exception {
     scratch.file("tests/BUILD", "sh_binary(name = 'no-tag', srcs=['sh.sh'])");
 
     Rule noTag = (Rule) getTarget("//tests:no-tag");
@@ -209,6 +209,23 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
             noTag,
             /* allowTagsPropagation */ true);
     assertThat(execInfo).containsExactly("no-cache", "1");
+  }
+
+  @Test
+  public void testFilteredExecutionInfo_fromUncheckedExecRequirements_withWorkerKeyMnemonic()
+      throws Exception {
+    scratch.file("tests/BUILD", "sh_binary(name = 'no-tag', srcs=['sh.sh'])");
+
+    Rule noTag = (Rule) getTarget("//tests:no-tag");
+
+    Map<String, String> execInfo =
+        TargetUtils.getFilteredExecutionInfo(
+            Dict.of(
+                (Mutability) null, "supports-workers", "1", "worker-key-mnemonic", "MyMnemonic"),
+            noTag, /* allowTagsPropagation */
+            true);
+    assertThat(execInfo)
+        .containsExactly("supports-workers", "1", "worker-key-mnemonic", "MyMnemonic");
   }
 
   @Test
@@ -244,7 +261,7 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testFilteredExecutionInfo_WithNullUncheckedExecRequirements() throws Exception {
+  public void testFilteredExecutionInfo_withNullUncheckedExecRequirements() throws Exception {
     scratch.file(
         "tests/BUILD",
         "sh_binary(name = 'tag1', srcs=['sh.sh'], tags=['supports-workers', 'no-cache'])");
@@ -260,7 +277,7 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testFilteredExecutionInfoWhenIncompatibleFlagDisabled() throws Exception {
+  public void testFilteredExecutionInfo_whenIncompatibleFlagDisabled() throws Exception {
     // when --incompatible_allow_tags_propagation=false
     scratch.file(
         "tests/BUILD",

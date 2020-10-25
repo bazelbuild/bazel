@@ -23,13 +23,15 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -45,6 +47,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.UUID;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkInt;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -72,7 +75,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
                 ImmutableList.of(Root.fromPath(rootDirectory), Root.fromPath(alternativeRoot)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageOptions,
-            Options.getDefaults(StarlarkSemanticsOptions.class),
+            Options.getDefaults(BuildLanguageOptions.class),
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
@@ -185,7 +188,8 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   private void checkSuccessfulLookup(String label) throws Exception {
     SkyKey skyKey = key(label);
     EvaluationResult<BzlLoadValue> result = get(skyKey);
-    assertThat(label).isEqualTo(result.get(skyKey).getDependency().getLabel().toString());
+    assertThat(label)
+        .isEqualTo(BazelModuleContext.of(result.get(skyKey).getModule()).label().toString());
   }
 
   @Test
@@ -267,7 +271,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLoadUsingLabelThatDoesntCrossBoundaryOfPackage() throws Exception {
+  public void testLoadFromSubdirInSamePackageIsOk() throws Exception {
     scratch.file("a/BUILD");
     scratch.file("a/a.bzl", "load('//a:b/b.bzl', 'b')");
     scratch.file("a/b/b.bzl", "b = 42");
@@ -276,7 +280,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLoadUsingLabelThatCrossesBoundaryOfPackage_Disallow_OfSamePkg() throws Exception {
+  public void testLoadMustRespectPackageBoundary_ofSubpkg() throws Exception {
     scratch.file("a/BUILD");
     scratch.file("a/a.bzl", "load('//a:b/b.bzl', 'b')");
     scratch.file("a/b/BUILD", "");
@@ -288,8 +292,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLoadUsingLabelThatCrossesBoundaryOfPackage_Disallow_OfSamePkg_Relative()
-      throws Exception {
+  public void testLoadMustRespectPackageBoundary_ofSubpkg_relative() throws Exception {
     scratch.file("a/BUILD");
     scratch.file("a/a.bzl", "load('b/b.bzl', 'b')");
     scratch.file("a/b/BUILD", "");
@@ -301,8 +304,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLoadUsingLabelThatCrossesBoundaryOfPackage_Disallow_OfDifferentPkgUnder()
-      throws Exception {
+  public void testLoadMustRespectPackageBoundary_ofIndirectSubpkg() throws Exception {
     scratch.file("a/BUILD");
     scratch.file("a/a.bzl", "load('//a/b:c/c.bzl', 'c')");
     scratch.file("a/b/BUILD", "");
@@ -315,8 +317,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLoadUsingLabelThatCrossesBoundaryOfPackage_Disallow_OfDifferentPkgAbove()
-      throws Exception {
+  public void testLoadMustRespectPackageBoundary_ofParentPkg() throws Exception {
     scratch.file("a/b/BUILD");
     scratch.file("a/b/b.bzl", "load('//a/c:c/c.bzl', 'c')");
     scratch.file("a/BUILD");
@@ -347,8 +348,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testWithNonExistentRepository_And_DisallowLoadUsingLabelThatCrossesBoundaryOfPackage()
-      throws Exception {
+  public void testLoadFromNonExistentRepository_producesMeaningfulError() throws Exception {
     scratch.file("BUILD", "load(\"@repository//dir:file.bzl\", \"foo\")");
 
     SkyKey skyKey = key("@repository//dir:file.bzl");
@@ -403,11 +403,12 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
 
-    assertThat(result.get(skyKey).getModule().getGlobals()).containsEntry("a_symbol", 5);
+    assertThat(result.get(skyKey).getModule().getGlobals())
+        .containsEntry("a_symbol", StarlarkInt.of(5));
   }
 
   @Test
-  public void testErrorReadingBzlFileInlineIsTransient() throws Exception {
+  public void testErrorReadingBzlFileIsTransientWhenUsingASTInlining() throws Exception {
     CustomInMemoryFs fs = (CustomInMemoryFs) fileSystem;
     scratch.file("a/BUILD");
     fs.badPathForRead = scratch.file("a/a1.bzl", "doesntmatter");
@@ -449,6 +450,10 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   private static class CustomInMemoryFs extends InMemoryFileSystem {
     @Nullable private Path badPathForStat;
     @Nullable private Path badPathForRead;
+
+    CustomInMemoryFs() {
+      super(DigestHashFunction.SHA256);
+    }
 
     @Override
     public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {

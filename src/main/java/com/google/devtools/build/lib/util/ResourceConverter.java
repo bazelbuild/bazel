@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.Map;
 import java.util.function.DoubleBinaryOperator;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
@@ -135,7 +136,7 @@ public class ResourceConverter extends Converters.IntegerConverter {
     if (expression == null) {
       return firstOperandSupplier.get();
     }
-    for (ImmutableMap.Entry<String, DoubleBinaryOperator> operator : OPERATORS.entrySet()) {
+    for (Map.Entry<String, DoubleBinaryOperator> operator : OPERATORS.entrySet()) {
       if (expression.startsWith(operator.getKey())) {
         float secondOperand;
         try {

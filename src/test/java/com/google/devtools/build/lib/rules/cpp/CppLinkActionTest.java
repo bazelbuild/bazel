@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
@@ -63,6 +62,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -160,7 +160,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
             /* existingActionConfigNames= */ ImmutableSet.of());
 
     try {
-      return CcToolchainFeaturesTest.buildFeatures(features, actionConfigs)
+      return CcToolchainTestHelper.buildFeatures(features, actionConfigs)
           .getFeatureConfiguration(
               ImmutableSet.of(
                   "link_cpp_standard_library",
@@ -178,7 +178,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     RuleContext ruleContext = createDummyRuleContext();
 
     FeatureConfiguration featureConfiguration =
-        CcToolchainFeaturesTest.buildFeatures(
+        CcToolchainTestHelper.buildFeatures(
                 MockCcSupport.EMPTY_EXECUTABLE_ACTION_CONFIG,
                 "feature {",
                 "   name: 'a'",
@@ -207,7 +207,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     RuleContext ruleContext = createDummyRuleContext();
 
     FeatureConfiguration featureConfiguration =
-        CcToolchainFeaturesTest.buildFeatures(
+        CcToolchainTestHelper.buildFeatures(
                 "action_config {",
                 "   config_name: '" + LinkTargetType.EXECUTABLE.getActionName() + "'",
                 "   action_name: '" + LinkTargetType.EXECUTABLE.getActionName() + "'",
@@ -432,7 +432,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     RuleContext ruleContext = createDummyRuleContext();
 
     FeatureConfiguration featureConfiguration =
-        CcToolchainFeaturesTest.buildFeatures(
+        CcToolchainTestHelper.buildFeatures(
                 MockCcSupport.EMPTY_EXECUTABLE_ACTION_CONFIG,
                 "feature {",
                 "   name: 'a'",
@@ -460,7 +460,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
     OUTPUT_FILE,
     NATIVE_DEPS,
     USE_TEST_ONLY_FLAGS,
-    FAKE,
     RUNTIME_SOLIB_DIR,
     ENVIRONMENT,
   }
@@ -512,7 +511,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
             builder.setNativeDeps(attributesToFlip.contains(NonStaticAttributes.NATIVE_DEPS));
             builder.setUseTestOnlyFlags(
                 attributesToFlip.contains(NonStaticAttributes.USE_TEST_ONLY_FLAGS));
-            builder.setFake(attributesToFlip.contains(NonStaticAttributes.FAKE));
             builder.setToolchainLibrariesSolibDir(
                 attributesToFlip.contains(NonStaticAttributes.RUNTIME_SOLIB_DIR)
                     ? null
@@ -650,7 +648,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 objects.build(),
                 ImmutableList.<LibraryToLink>of(),
                 getMockFeatureConfiguration(/* envVars= */ ImmutableMap.of()))
-            .setFake(true)
             .build();
 
     // Ensure that minima are enforced.
@@ -723,7 +720,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
   public Artifact getOutputArtifact(String relpath) {
     return ActionsTestUtil.createArtifactWithExecPath(
         getTargetConfiguration().getBinDirectory(RepositoryName.MAIN),
-        getTargetConfiguration().getBinFragment().getRelative(relpath));
+        getTargetConfiguration().getBinFragment(RepositoryName.MAIN).getRelative(relpath));
   }
 
   private Artifact scratchArtifact(String s) {
@@ -752,7 +749,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
         createLinkBuilder(ruleContext, LinkTargetType.EXECUTABLE)
             .setInterfaceOutput(scratchArtifact("FakeInterfaceOutput"));
 
-    assertError("Interface output can only be used with non-fake DYNAMIC_LIBRARY targets", builder);
+    assertError("Interface output can only be used with DYNAMIC_LIBRARY targets", builder);
   }
 
   @Test
@@ -783,7 +780,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     RuleContext ruleContext = createDummyRuleContext();
 
     FeatureConfiguration featureConfiguration =
-        CcToolchainFeaturesTest.buildFeatures(
+        CcToolchainTestHelper.buildFeatures(
                 MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE,
                 "feature {",
                 "   name: 'build_interface_libraries'",
@@ -972,24 +969,24 @@ public class CppLinkActionTest extends BuildViewTestCase {
     for (LinkTargetType linkType : targetTypesToTest) {
 
       scratch.deleteFile("dummyRuleContext/BUILD");
-      Artifact output = scratchArtifact("output." + linkType.getDefaultExtension());
+      Artifact output = ruleContext.getBinArtifact("output." + linkType.getDefaultExtension());
 
       CppLinkActionBuilder builder =
           createLinkBuilder(
                   ruleContext,
                   linkType,
-                  output.getExecPathString(),
+                  output.getRootRelativePathString(),
                   ImmutableList.<Artifact>of(),
                   ImmutableList.<LibraryToLink>of(),
                   getMockFeatureConfiguration(/* envVars= */ ImmutableMap.of()))
               .setLibraryIdentifier("foo")
               .addObjectFiles(ImmutableList.of(testTreeArtifact))
-              .addObjectFile(objectFile)
-              // Makes sure this doesn't use a params file.
-              .setFake(true);
+              .addObjectFile(objectFile);
 
       CppLinkAction linkAction = builder.build();
-      assertThat(linkAction.getCommandLine(expander))
+      assertThat(
+              ImmutableList.copyOf(
+                  linkAction.getLinkCommandLine().paramCmdLine().arguments(expander)))
           .containsAtLeast(
               library0.getExecPathString(),
               library1.getExecPathString(),
@@ -1158,5 +1155,41 @@ public class CppLinkActionTest extends BuildViewTestCase {
             "-Wl,-S",
             "--sysroot=/usr/grte/v1")
         .inOrder();
+  }
+
+  @Test
+  public void testExposesLinkstampSources() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "cc_binary(",
+        "  name = 'bin',",
+        "  deps = [':lib'],",
+        ")",
+        "cc_library(",
+        "  name = 'lib',",
+        "  linkstamp = 'linkstamp.cc',",
+        ")");
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//x:bin");
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/bin");
+    assertThat(artifactsToStrings(linkAction.getLinkstampObjects()))
+        .containsExactly("src x/linkstamp.cc");
+  }
+
+  @Test
+  public void testExposesLinkstampObjects() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "cc_binary(",
+        "  name = 'bin',",
+        "  deps = [':lib'],",
+        ")",
+        "cc_library(",
+        "  name = 'lib',",
+        "  linkstamp = 'linkstamp.cc',",
+        ")");
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//x:bin");
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/bin");
+    assertThat(artifactsToStrings(linkAction.getLinkstampObjectFileInputs()))
+        .containsExactly("bin x/_objs/bin/x/linkstamp.o");
   }
 }

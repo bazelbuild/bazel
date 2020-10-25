@@ -68,7 +68,7 @@ public class Java7CompatibilityTest {
     int clinitMethods;
 
     private ClassTester() {
-      super(Opcodes.ASM5, null);
+      super(Opcodes.ASM8, null);
     }
 
     @Override

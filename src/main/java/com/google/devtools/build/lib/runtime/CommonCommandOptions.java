@@ -216,18 +216,6 @@ public class CommonCommandOptions extends OptionsBase {
   public String oomMessage;
 
   @Option(
-      name = "incompatible_enable_profile_by_default",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If enabled, Bazel will generate a JSON profile by default.")
-  public boolean enableProfileByDefault;
-
-  @Option(
       name = "experimental_generate_json_trace_profile",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
@@ -279,7 +267,8 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean slimProfile;
 
   @Option(
-      name = "experimental_include_primary_output",
+      name = "experimental_profile_include_primary_output",
+      oldName = "experimental_include_primary_output",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
@@ -287,6 +276,14 @@ public class CommonCommandOptions extends OptionsBase {
           "Includes the extra \"out\" attribute in action events that contains the exec path "
               + "to the action's primary output.")
   public boolean includePrimaryOutput;
+
+  @Option(
+      name = "experimental_profile_include_target_label",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help = "Includes target label in action events' JSON profile data.")
+  public boolean profileIncludeTargetLabel;
 
   @Option(
       name = "experimental_announce_profile_path",

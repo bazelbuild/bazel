@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentCollection;
@@ -36,11 +35,14 @@ import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsP
 import com.google.devtools.build.lib.analysis.test.AnalysisTestActionBuilder;
 import com.google.devtools.build.lib.analysis.test.AnalysisTestResultInfo;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.test.TestActionBuilder;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestEnvironmentInfo;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
+import com.google.devtools.build.lib.analysis.test.TestTagsProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -53,8 +55,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -62,6 +62,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.syntax.Location;
 
 /**
  * Builder class for analyzed rule instances.
@@ -149,14 +151,27 @@ public final class RuleConfiguredTargetBuilder {
 
     collectTransitiveValidationOutputGroups();
 
+    // Add a default provider that forwards InstrumentedFilesInfo from dependencies, even if this
+    // rule doesn't configure InstrumentedFilesInfo. This needs to be done for non-test rules
+    // as well, but should be done before initializeTestProvider, which uses that.
+    if (ruleContext.getConfiguration().isCodeCoverageEnabled()
+        && ruleContext.getConfiguration().experimentalForwardInstrumentedFilesInfoByDefault()
+        && !providersBuilder.contains(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR.getKey())) {
+      addNativeDeclaredProvider(InstrumentedFilesCollector.forwardAll(ruleContext));
+    }
     // Create test action and artifacts if target was successfully initialized
-    // and is a test.
+    // and is a test. Also, as an extreme hack, only bother doing this if the TestConfiguration
+    // is actually present.
     if (TargetUtils.isTestRule(ruleContext.getTarget())) {
-      if (runfilesSupport != null) {
-        add(TestProvider.class, initializeTestProvider(filesToRunProvider));
-      } else {
-        if (!allowAnalysisFailures) {
-          throw new IllegalStateException("Test rules must have runfiles");
+      ImmutableList<String> testTags = ImmutableList.copyOf(ruleContext.getRule().getRuleTags());
+      add(TestTagsProvider.class, new TestTagsProvider(testTags));
+      if (ruleContext.getConfiguration().hasFragment(TestConfiguration.class)) {
+        if (runfilesSupport != null) {
+          add(TestProvider.class, initializeTestProvider(filesToRunProvider));
+        } else {
+          if (!allowAnalysisFailures) {
+            throw new IllegalStateException("Test rules must have runfiles");
+          }
         }
       }
     }
@@ -219,7 +234,6 @@ public final class RuleConfiguredTargetBuilder {
           BuildSettingProvider.class,
           new BuildSettingProvider(buildSetting, defaultValue, ruleContext.getLabel()));
     }
-
     TransitiveInfoProviderMap providers = providersBuilder.build();
 
     if (ruleContext.getRule().isAnalysisTest()) {
@@ -256,17 +270,13 @@ public final class RuleConfiguredTargetBuilder {
    * CoreOptions#includeRequiredConfigFragmentsProvider} isn't {@link
    * CoreOptions.IncludeConfigFragmentsEnum#OFF}.
    *
-   * <p>See {@link ConfiguredTargetFactory#getRequiredConfigFragments} for a description of the
-   * meaning of this provider's content. That method populates the results of {@link
-   * RuleContext#getRequiredConfigFragments} and {@link #ruleImplSpecificRequiredConfigFragments}.
+   * <p>See {@link com.google.devtools.build.lib.analysis.config.RequiredFragmentsUtil} for a
+   * description of the meaning of this provider's content. That class contains methods that
+   * populate the results of {@link RuleContext#getRequiredConfigFragments} and {@link
+   * #ruleImplSpecificRequiredConfigFragments}.
    */
   private void maybeAddRequiredConfigFragmentsProvider() {
-    if (ruleContext
-            .getConfiguration()
-            .getOptions()
-            .get(CoreOptions.class)
-            .includeRequiredConfigFragmentsProvider
-        != IncludeConfigFragmentsEnum.OFF) {
+    if (ruleContext.shouldIncludeRequiredConfigFragmentsProvider()) {
       addProvider(
           new RequiredConfigFragmentsProvider(
               ImmutableSet.<String>builder()
@@ -284,8 +294,7 @@ public final class RuleConfiguredTargetBuilder {
           ruleContext.attributes().getAttributeDefinition(attributeName).getType();
       if (attributeType.getLabelClass() == LabelClass.DEPENDENCY) {
         for (TransitiveLabelsInfo labelsInfo :
-            ruleContext.getPrerequisites(
-                attributeName, TransitionMode.DONT_CHECK, TransitiveLabelsInfo.class)) {
+            ruleContext.getPrerequisites(attributeName, TransitiveLabelsInfo.class)) {
           nestedSetBuilder.addTransitive(labelsInfo.getLabels());
         }
       }
@@ -309,17 +318,15 @@ public final class RuleConfiguredTargetBuilder {
 
       Attribute attribute = ruleContext.attributes().getAttributeDefinition(attributeName);
 
-      // Validation actions in the host configuration, or for tools, or from implicit deps should
+      // Validation actions for tools, or from implicit deps should
       // not fail the overall build, since those dependencies should have their own builds
       // and tests that should surface any failing validations.
-      if (!attribute.getTransitionFactory().isHost()
-          && !attribute.getTransitionFactory().isTool()
+      if (!attribute.getTransitionFactory().isTool()
           && !attribute.isImplicit()
           && attribute.getType().getLabelClass() == LabelClass.DEPENDENCY) {
 
         for (OutputGroupInfo outputGroup :
-            ruleContext.getPrerequisites(
-                attributeName, TransitionMode.DONT_CHECK, OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
+            ruleContext.getPrerequisites(attributeName, OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
 
           NestedSet<Artifact> validationArtifacts =
               outputGroup.getOutputGroup(OutputGroupInfo.VALIDATION);
@@ -371,7 +378,8 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   private TestProvider initializeTestProvider(FilesToRunProvider filesToRunProvider) {
-    int explicitShardCount = ruleContext.attributes().get("shard_count", Type.INTEGER);
+    int explicitShardCount =
+        ruleContext.attributes().get("shard_count", Type.INTEGER).toIntUnchecked();
     if (explicitShardCount < 0
         && ruleContext.getRule().isAttributeValueExplicitlySpecified("shard_count")) {
       ruleContext.attributeError("shard_count", "Must not be negative.");
@@ -404,8 +412,7 @@ public final class RuleConfiguredTargetBuilder {
                 (ExecutionInfo) providersBuilder.getProvider(ExecutionInfo.PROVIDER.getKey()))
             .setShardCount(explicitShardCount)
             .build();
-    ImmutableList<String> testTags = ImmutableList.copyOf(ruleContext.getRule().getRuleTags());
-    return new TestProvider(testParams, testTags);
+    return new TestProvider(testParams);
   }
 
   /**

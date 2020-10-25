@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.packages.BuildType.OUTPUT_LIST;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.substitutePlaceholderIntoTemplate;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 import static com.google.devtools.build.lib.packages.RuleClass.NO_EXTERNAL_BINDINGS;
+import static com.google.devtools.build.lib.packages.RuleClass.NO_TOOLCHAINS_TO_REGISTER;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
@@ -29,7 +30,6 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Strings;
@@ -49,16 +49,11 @@ import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.Attribute.ValidityPredicate;
-import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.StarlarkFunction;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.ArrayList;
@@ -72,6 +67,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -114,7 +114,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         false,
         false,
         false,
-        false,
         ImplicitOutputsFunction.NONE,
         null,
         DUMMY_CONFIGURED_TARGET_FACTORY,
@@ -122,9 +121,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         PREFERRED_DEPENDENCY_PREDICATE,
         AdvertisedProviderSet.EMPTY,
         null,
-        NO_EXTERNAL_BINDINGS,
         ImmutableSet.<Class<?>>of(),
-        MissingFragmentPolicy.FAIL_ANALYSIS,
         true,
         attr("my-string-attr", STRING).mandatory().build(),
         attr("my-label-attr", LABEL)
@@ -133,7 +130,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
             .value(Label.parseAbsolute("//default:label", ImmutableMap.of()))
             .build(),
         attr("my-labellist-attr", LABEL_LIST).mandatory().legacyAllowAnyFileType().build(),
-        attr("my-integer-attr", INTEGER).value(42).build(),
+        attr("my-integer-attr", INTEGER).value(StarlarkInt.of(42)).build(),
         attr("my-string-attr2", STRING).mandatory().value((String) null).build(),
         attr("my-stringlist-attr", STRING_LIST).build(),
         attr("my-sorted-stringlist-attr", STRING_LIST).orderIndependent().build());
@@ -151,7 +148,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         false,
         false,
         false,
-        false,
         ImplicitOutputsFunction.NONE,
         null,
         DUMMY_CONFIGURED_TARGET_FACTORY,
@@ -159,9 +155,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         PREFERRED_DEPENDENCY_PREDICATE,
         AdvertisedProviderSet.EMPTY,
         null,
-        NO_EXTERNAL_BINDINGS,
         ImmutableSet.<Class<?>>of(),
-        MissingFragmentPolicy.FAIL_ANALYSIS,
         true,
         attributes.toArray(new Attribute[0]));
   }
@@ -201,7 +195,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     assertThat(ruleClassA.getAttribute(1).getDefaultValue(null))
         .isEqualTo(Label.parseAbsolute("//default:label", ImmutableMap.of()));
     assertThat(ruleClassA.getAttribute(2).getDefaultValue(null)).isEqualTo(Collections.emptyList());
-    assertThat(ruleClassA.getAttribute(3).getDefaultValue(null)).isEqualTo(42);
+    assertThat(ruleClassA.getAttribute(3).getDefaultValue(null)).isEqualTo(StarlarkInt.of(42));
     // default explicitly specified
     assertThat(ruleClassA.getAttribute(4).getDefaultValue(null)).isNull();
     assertThat(ruleClassA.getAttribute(5).getDefaultValue(null)).isEqualTo(Collections.emptyList());
@@ -281,7 +275,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             false,
             false,
             false,
-            false,
             ImplicitOutputsFunction.NONE,
             null,
             DUMMY_CONFIGURED_TARGET_FACTORY,
@@ -289,9 +282,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
             PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
-            NO_EXTERNAL_BINDINGS,
             ImmutableSet.<Class<?>>of(),
-            MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
             attr("list1", LABEL_LIST).mandatory().legacyAllowAnyFileType().build(),
             attr("list2", LABEL_LIST).mandatory().legacyAllowAnyFileType().build(),
@@ -328,7 +319,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             false,
             false,
             false,
-            false,
             ImplicitOutputsFunction.NONE,
             null,
             DUMMY_CONFIGURED_TARGET_FACTORY,
@@ -336,9 +326,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
             PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
-            NO_EXTERNAL_BINDINGS,
             ImmutableSet.<Class<?>>of(),
-            MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
             attr("visibility", LABEL_LIST).legacyAllowAnyFileType().build());
     Map<String, Object> attributeValues = new HashMap<>();
@@ -399,7 +387,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     AttributeMap attributes = RawAttributeMapper.of(rule);
     assertThat(attributes.get("my-label-attr", BuildType.LABEL).toString())
         .isEqualTo("//default:label");
-    assertThat(attributes.get("my-integer-attr", Type.INTEGER).intValue()).isEqualTo(42);
+    assertThat(attributes.get("my-integer-attr", Type.INTEGER).toIntUnchecked()).isEqualTo(42);
     // missing attribute -> default chosen based on type
     assertThat(attributes.get("my-string-attr", Type.STRING)).isEmpty();
     assertThat(attributes.get("my-labellist-attr", BuildType.LABEL_LIST)).isEmpty();
@@ -426,7 +414,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             false,
             false,
             false,
-            false,
             ImplicitOutputsFunction.fromTemplates(
                 "foo-%{name}.bar", "lib%{name}-wazoo-%{name}.mumble", "stuff-%{outs}-bar"),
             null,
@@ -435,9 +422,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
             PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
-            NO_EXTERNAL_BINDINGS,
             ImmutableSet.<Class<?>>of(),
-            MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
             attr("name", STRING).build(),
             attr("outs", OUTPUT_LIST).build());
@@ -468,7 +453,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             false,
             false,
             false,
-            false,
             ImplicitOutputsFunction.fromTemplates("%{dirname}lib%{basename}.bar"),
             null,
             DUMMY_CONFIGURED_TARGET_FACTORY,
@@ -476,9 +460,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
             PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
-            NO_EXTERNAL_BINDINGS,
             ImmutableSet.<Class<?>>of(),
-            MissingFragmentPolicy.FAIL_ANALYSIS,
             true);
 
     Rule rule = createRule(ruleClass, "myRule", ImmutableMap.of(), testRuleLocation, NO_STACK);
@@ -504,7 +486,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         false,
         false,
         false,
-        false,
         ImplicitOutputsFunction.fromTemplates("empty"),
         null,
         DUMMY_CONFIGURED_TARGET_FACTORY,
@@ -512,9 +493,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         PREFERRED_DEPENDENCY_PREDICATE,
         AdvertisedProviderSet.EMPTY,
         null,
-        NO_EXTERNAL_BINDINGS,
         ImmutableSet.<Class<?>>of(),
-        MissingFragmentPolicy.FAIL_ANALYSIS,
         true,
         attr("condition", BOOLEAN).value(false).build(),
         attr("declared1", BOOLEAN).value(false).build(),
@@ -673,7 +652,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             false,
             false,
             false,
-            false,
             ImplicitOutputsFunction.fromTemplates("first-%{name}", "second-%{name}", "out-%{outs}"),
             null,
             DUMMY_CONFIGURED_TARGET_FACTORY,
@@ -681,9 +659,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
             PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
-            NO_EXTERNAL_BINDINGS,
             ImmutableSet.<Class<?>>of(),
-            MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
             attr("name", STRING).build(),
             attr("outs", OUTPUT_LIST).build());
@@ -716,7 +692,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             false,
             false,
             false,
-            false,
             ImplicitOutputsFunction.NONE,
             null,
             DUMMY_CONFIGURED_TARGET_FACTORY,
@@ -724,9 +699,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
             PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
-            NO_EXTERNAL_BINDINGS,
             ImmutableSet.<Class<?>>of(),
-            MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
             attr("a", STRING_LIST).mandatory().build(),
             attr("b", STRING_LIST).mandatory().build(),
@@ -800,7 +773,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         reporter,
         location,
         callstack,
-        new AttributeContainer(ruleClass),
         /*checkThirdPartyRulesHaveLicenses=*/ true);
   }
 
@@ -868,9 +840,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
   private static RuleClass newRuleClass(
       String name,
-      boolean skylarkExecutable,
+      boolean starlarkExecutable,
       boolean documented,
-      boolean publicByDefault,
       boolean binaryOutput,
       boolean workspaceOnly,
       boolean outputsDefaultExecutable,
@@ -882,9 +853,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
       Predicate<String> preferredDependencyPredicate,
       AdvertisedProviderSet advertisedProviders,
       @Nullable StarlarkFunction configuredTargetFunction,
-      Function<? super Rule, Map<String, Label>> externalBindingsFunction,
       Set<Class<?>> allowedConfigurationFragments,
-      MissingFragmentPolicy missingFragmentPolicy,
       boolean supportsConstraintChecking,
       Attribute... attributes) {
     return new RuleClass(
@@ -892,16 +861,15 @@ public class RuleClassTest extends PackageLoadingTestCase {
         DUMMY_STACK,
         /*key=*/ name,
         RuleClassType.NORMAL,
-        /*isStarlark=*/ skylarkExecutable,
-        /*skylarkTestable=*/ false,
+        /*isStarlark=*/ starlarkExecutable,
+        /*starlarkTestable=*/ false,
         documented,
-        publicByDefault,
         binaryOutput,
         workspaceOnly,
         outputsDefaultExecutable,
         isAnalysisTest,
         /* hasAnalysisTestTransition=*/ false,
-        /* hasFunctionTransitionWhitelist=*/ false,
+        /* hasFunctionTransitionAllowlist= */ false,
         /* ignoreLicenses=*/ false,
         implicitOutputsFunction,
         transitionFactory,
@@ -910,18 +878,19 @@ public class RuleClassTest extends PackageLoadingTestCase {
         preferredDependencyPredicate,
         advertisedProviders,
         configuredTargetFunction,
-        externalBindingsFunction,
+        NO_EXTERNAL_BINDINGS,
+        NO_TOOLCHAINS_TO_REGISTER,
         /*optionReferenceFunction=*/ RuleClass.NO_OPTION_REFERENCE,
         /*ruleDefinitionEnvironmentLabel=*/ null,
         /*ruleDefinitionEnvironmentDigest=*/ null,
         new ConfigurationFragmentPolicy.Builder()
             .requiresConfigurationFragments(allowedConfigurationFragments)
-            .setMissingFragmentPolicy(missingFragmentPolicy)
             .build(),
         supportsConstraintChecking,
         ThirdPartyLicenseExistencePolicy.USER_CONTROLLABLE,
         /*requiredToolchains=*/ ImmutableSet.of(),
         /*useToolchainResolution=*/ true,
+        /*useToolchainTransition=*/ true,
         /* executionPlatformConstraints= */ ImmutableSet.of(),
         /* execGroups= */ ImmutableMap.of(),
         OutputFile.Kind.FILE,
@@ -938,7 +907,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         false,
         false,
         false,
-        false,
         ImplicitOutputsFunction.NONE,
         null,
         DUMMY_CONFIGURED_TARGET_FACTORY,
@@ -946,9 +914,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         PREFERRED_DEPENDENCY_PREDICATE,
         AdvertisedProviderSet.EMPTY,
         null,
-        NO_EXTERNAL_BINDINGS,
         ImmutableSet.<Class<?>>of(DummyFragment.class),
-        MissingFragmentPolicy.FAIL_ANALYSIS,
         true,
         attr("attr", STRING).build());
   }
@@ -1144,14 +1110,14 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
     ruleClassBuilder.addExecGroups(
         ImmutableMap.of(
-            "cherry", new ExecGroup(ImmutableSet.of(toolchain), ImmutableSet.of(constraint))));
+            "cherry", ExecGroup.create(ImmutableSet.of(toolchain), ImmutableSet.of(constraint))));
 
     RuleClass ruleClass = ruleClassBuilder.build();
 
     assertThat(ruleClass.getExecGroups()).hasSize(1);
-    assertThat(ruleClass.getExecGroups().get("cherry").getRequiredToolchains())
+    assertThat(ruleClass.getExecGroups().get("cherry").requiredToolchains())
         .containsExactly(toolchain);
-    assertThat(ruleClass.getExecGroups().get("cherry").getExecutionPlatformConstraints())
+    assertThat(ruleClass.getExecGroups().get("cherry").execCompatibleWith())
         .containsExactly(constraint);
   }
 
@@ -1188,7 +1154,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
   @Test
   public void testBuildTooManyAttributesRejected() {
     RuleClass.Builder builder =
-        new RuleClass.Builder("myclass", RuleClassType.NORMAL, /*skylark=*/ false)
+        new RuleClass.Builder("myclass", RuleClassType.NORMAL, /*starlark=*/ false)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .add(attr("tags", STRING_LIST));
     for (int i = 0; i < 200; i++) {
@@ -1209,7 +1175,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         assertThrows(
             IllegalArgumentException.class,
             () ->
-                new RuleClass.Builder("myclass", RuleClassType.NORMAL, /*skylark=*/ false)
+                new RuleClass.Builder("myclass", RuleClassType.NORMAL, /*starlark=*/ false)
                     .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
                     .add(attr("tags", STRING_LIST))
                     .add(attr(Strings.repeat("x", 150), STRING))

@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLeve
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryUtil;
+import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.QueryRuntimeHelper;
 import com.google.devtools.build.lib.runtime.QueryRuntimeHelper.QueryRuntimeHelperException;
@@ -35,6 +37,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Set;
 
 /**
  * Version of {@link BuildTool} that handles all work for queries based on results from the analysis
@@ -77,11 +80,23 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
             env.getSkyframeExecutor().getTransitiveConfigurationKeys(),
             queryRuntimeHelper,
             queryExpression);
-      } catch (QueryException | IOException e) {
+      } catch (QueryException e) {
+        String errorMessage = "Error doing post analysis query";
         if (!request.getKeepGoing()) {
-          throw new ViewCreationFailedException("Error doing post analysis query", e);
+          throw new ViewCreationFailedException(errorMessage, e.getFailureDetail(), e);
         }
-        env.getReporter().error(null, "Error doing post analysis query", e);
+        env.getReporter().error(null, errorMessage, e);
+      } catch (IOException e) {
+        String errorMessage = "I/O error doing post analysis query";
+        if (!request.getKeepGoing()) {
+          FailureDetail failureDetail =
+              FailureDetail.newBuilder()
+                  .setMessage(errorMessage + ": " + e.getMessage())
+                  .setQuery(Query.newBuilder().setCode(Code.OUTPUT_FORMATTER_IO_EXCEPTION))
+                  .build();
+          throw new ViewCreationFailedException(errorMessage, failureDetail, e);
+        }
+        env.getReporter().error(null, errorMessage, e);
       } catch (QueryRuntimeHelperException e) {
         throw new ExitException(DetailedExitCode.of(e.getFailureDetail()));
       }
@@ -137,11 +152,33 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
                       NamedThreadSafeOutputFormatterCallback.callbackNames(callbacks))));
       return;
     }
+
+    // A certain subset of output formatters support "streaming" results - the formatter is called
+    // multiple times where each call has only a some of the full query results (see
+    // StreamedOutputFormatter for details). cquery and aquery don't do this. But the reason is
+    // subtle and hard to follow. Post-analysis output formatters inherit from Callback, which
+    // declares "void process(Iterable<T> partialResult)". Its javadoc says that the subinterface
+    // BatchCallback may stream partial results. But post-analysis callbacks don't inherit
+    // BatchCallback!
+    //
+    // To protect against accidental feature regression (like implementing a callback that
+    // accidentally inherits BatchCallback), we explicitly disable streaming here. The aggregating
+    // callback collects the entire query's results, even if the query was evaluated in a streaming
+    // manner. Note that streaming query evaluation is a distinct concept from streaming output
+    // formatting. Once the complete query finishes, we replay the full results back to the original
+    // callback. That way callback implementations can safely assume they're only called once and
+    // the results for that call are indeed complete.
+    AggregateAllOutputFormatterCallback<T, Set<T>> aggregateResultsCallback =
+        QueryUtil.newOrderedAggregateAllOutputFormatterCallback(postAnalysisQueryEnvironment);
     QueryEvalResult result =
-        postAnalysisQueryEnvironment.evaluateQuery(queryExpression, callback);
+        postAnalysisQueryEnvironment.evaluateQuery(queryExpression, aggregateResultsCallback);
     if (result.isEmpty()) {
       env.getReporter().handle(Event.info("Empty query results"));
     }
+    callback.start();
+    callback.process(aggregateResultsCallback.getResult());
+    callback.close(/*failFast=*/ !result.getSuccess());
+
     queryRuntimeHelper.afterQueryOutputIsWritten();
   }
 }

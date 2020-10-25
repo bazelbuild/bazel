@@ -14,27 +14,28 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.devtools.build.lib.syntax.Location;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import net.starlark.java.syntax.Location;
 
 /**
- * This exception is thrown during a build when an input file is missing, but the file
- * is not the input to any action being executed.
+ * This exception is thrown during a build when an input file is missing, but the file is not the
+ * input to any action being executed.
  *
- * If a missing input file is an input
- * to an action, an {@link ActionExecutionException} is thrown instead.
+ * <p>If a missing input file is an input to an action, an {@link ActionExecutionException} is
+ * thrown instead.
  */
 public class MissingInputFileException extends BuildFailedException {
   private final Location location;
 
-  public MissingInputFileException(String message, Location location) {
-    super(message);
+  public MissingInputFileException(FailureDetail failureDetail, Location location) {
+    super(failureDetail.getMessage(), DetailedExitCode.of(failureDetail));
     this.location = location;
   }
 
   /**
-   * Return a location where this input file is referenced. If there
-   * are multiple such locations, one is chosen arbitrarily. If there
-   * are none, return null.
+   * Return a location where this input file is referenced. If there are multiple such locations,
+   * one is chosen arbitrarily. If there are none, return null.
    */
   public Location getLocation() {
     return location;

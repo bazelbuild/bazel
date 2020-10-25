@@ -26,8 +26,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
-import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Actions;
@@ -40,6 +39,7 @@ import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.InjectedActionLookupKey;
@@ -70,6 +70,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -336,7 +337,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     evaluate(template);
   }
 
-  private static final ActionLookupValue.ActionLookupKey CTKEY = new InjectedActionLookupKey("key");
+  private static final ActionLookupKey CTKEY = new InjectedActionLookupKey("key");
 
   private ImmutableList<Action> evaluate(ActionTemplate<?> actionTemplate) throws Exception {
     ConfiguredTargetValue ctValue = createConfiguredTargetValue(actionTemplate);
@@ -347,7 +348,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
             .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
-            .setEventHander(NullEventHandler.INSTANCE)
+            .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     EvaluationResult<ActionTemplateExpansionValue> result =
         driver.evaluate(ImmutableList.of(templateKey), evaluationContext);
@@ -383,20 +384,17 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
       throws Exception {
     SpecialArtifact treeArtifact = createTreeArtifact(path);
     treeArtifact.setGeneratingActionKey(ActionLookupData.create(CTKEY, /*actionIndex=*/ 0));
-    Map<TreeFileArtifact, FileArtifactValue> treeFileArtifactMap = new LinkedHashMap<>();
+    TreeArtifactValue.Builder tree = TreeArtifactValue.newBuilder(treeArtifact);
 
     for (String childRelativePath : childRelativePaths) {
       TreeFileArtifact treeFileArtifact =
           TreeFileArtifact.createTreeOutput(treeArtifact, childRelativePath);
       scratch.file(treeFileArtifact.getPath().toString(), childRelativePath);
       // We do not care about the FileArtifactValues in this test.
-      treeFileArtifactMap.put(
-          treeFileArtifact, FileArtifactValue.createForTesting(treeFileArtifact));
+      tree.putChild(treeFileArtifact, FileArtifactValue.createForTesting(treeFileArtifact));
     }
 
-    artifactValueMap.put(
-        treeArtifact, TreeArtifactValue.create(ImmutableMap.copyOf(treeFileArtifactMap)));
-
+    artifactValueMap.put(treeArtifact, tree.build());
     return treeArtifact;
   }
 
@@ -455,7 +453,8 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     }
 
     @Override
-    public String getKey(ActionKeyContext actionKeyContext) {
+    public String getKey(
+        ActionKeyContext actionKeyContext, @Nullable Artifact.ArtifactExpander artifactExpander) {
       Fingerprint fp = new Fingerprint();
       fp.addPath(inputTreeArtifact.getPath());
       fp.addPath(outputTreeArtifact.getPath());
@@ -465,6 +464,11 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     @Override
     public String prettyPrint() {
       return "TestActionTemplate for " + outputTreeArtifact;
+    }
+
+    @Override
+    public String describe() {
+      return prettyPrint();
     }
 
     @Override

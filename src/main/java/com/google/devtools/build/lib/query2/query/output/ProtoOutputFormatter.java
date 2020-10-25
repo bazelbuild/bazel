@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.hash.HashFunction;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
@@ -72,6 +73,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * An output formatter that outputs a protocol buffer representation
@@ -108,6 +110,9 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   private boolean includeLocations = true;
   private boolean includeRuleInputsAndOutputs = true;
   private boolean includeSyntheticAttributeHash = false;
+  private boolean includeInstantiationStack = false;
+  private boolean includeDefinitionStack = false;
+  private HashFunction hashFunction = null;
 
   @Nullable private EventHandler eventHandler;
 
@@ -117,8 +122,9 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   @Override
-  public void setOptions(CommonQueryOptions options, AspectResolver aspectResolver) {
-    super.setOptions(options, aspectResolver);
+  public void setOptions(
+      CommonQueryOptions options, AspectResolver aspectResolver, HashFunction hashFunction) {
+    super.setOptions(options, aspectResolver, hashFunction);
     this.aspectResolver = aspectResolver;
     this.dependencyFilter = FormatUtils.getDependencyFilter(options);
     this.relativeLocations = options.relativeLocations;
@@ -128,6 +134,9 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     this.includeLocations = options.protoIncludeLocations;
     this.includeRuleInputsAndOutputs = options.protoIncludeRuleInputsAndOutputs;
     this.includeSyntheticAttributeHash = options.protoIncludeSyntheticAttributeHash;
+    this.includeInstantiationStack = options.protoIncludeInstantiationStack;
+    this.includeDefinitionStack = options.protoIncludeDefinitionStack;
+    this.hashFunction = hashFunction;
   }
 
   @Override
@@ -180,7 +189,6 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   /** Converts a logical {@link Target} object into a {@link Build.Target} protobuffer. */
-  @VisibleForTesting
   public Build.Target toTargetProtoBuffer(Target target, Object extraDataForAttrHash)
       throws InterruptedException {
     Build.Target.Builder targetPb = Build.Target.newBuilder();
@@ -251,6 +259,24 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       for (String feature : rule.getPackage().getFeatures()) {
         rulePb.addDefaultSetting(feature);
       }
+
+      if (includeInstantiationStack) {
+        for (StarlarkThread.CallStackEntry fr : rule.getCallStack().toArray()) {
+          // Always report relative locations.
+          // (New fields needn't honor relativeLocations.)
+          rulePb.addInstantiationStack(
+              FormatUtils.getRootRelativeLocation(fr.location, rule.getPackage()) + ": " + fr.name);
+        }
+      }
+
+      if (includeDefinitionStack && rule.getRuleClassObject().isStarlark()) {
+        for (StarlarkThread.CallStackEntry fr : rule.getRuleClassObject().getCallStack()) {
+          // Always report relative locations.
+          // (New fields needn't honor relativeLocations.)
+          rulePb.addDefinitionStack(
+              FormatUtils.getRootRelativeLocation(fr.location, rule.getPackage()) + ": " + fr.name);
+        }
+      }
       targetPb.setType(RULE);
       targetPb.setRule(rulePb);
     } else if (target instanceof OutputFile) {
@@ -280,13 +306,13 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       }
 
       if (inputFile.getName().equals("BUILD")) {
-        Iterable<Label> skylarkLoadLabels =
+        Iterable<Label> starlarkLoadLabels =
             aspectResolver == null
                 ? inputFile.getPackage().getStarlarkFileDependencies()
                 : aspectResolver.computeBuildFileDependencies(inputFile.getPackage());
 
-        for (Label skylarkLoadLabel : skylarkLoadLabels) {
-          input.addSubinclude(skylarkLoadLabel.toString());
+        for (Label starlarkLoadLabel : starlarkLoadLabels) {
+          input.addSubinclude(starlarkLoadLabel.toString());
         }
 
         for (String feature : inputFile.getPackage().getFeatures()) {
@@ -350,8 +376,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     return targetPb.build();
   }
 
-  protected void addAttributes(Build.Rule.Builder rulePb, Rule rule, Object extraDataForAttrHash)
-      throws InterruptedException {
+  protected void addAttributes(Build.Rule.Builder rulePb, Rule rule, Object extraDataForAttrHash) {
     Map<Attribute, Build.Attribute> serializedAttributes = Maps.newHashMap();
     AggregatingAttributeMapper attributeMapper = AggregatingAttributeMapper.of(rule);
     for (Attribute attr : rule.getAttributes()) {
@@ -388,7 +413,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
               .setName("$internal_attr_hash")
               .setStringValue(
                   SyntheticAttributeHashCalculator.compute(
-                      rule, serializedAttributes, extraDataForAttrHash))
+                      rule, serializedAttributes, extraDataForAttrHash, hashFunction))
               .setType(Discriminator.STRING));
     }
   }

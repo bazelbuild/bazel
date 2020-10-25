@@ -470,11 +470,6 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
         startup_options.failure_detail_out.AsCommandLineArgument());
   }
 
-  if (startup_options.deep_execroot) {
-    result.push_back("--deep_execroot");
-  } else {
-    result.push_back("--nodeep_execroot");
-  }
   if (startup_options.expand_configs_in_place) {
     result.push_back("--expand_configs_in_place");
   } else {
@@ -484,6 +479,10 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
     // Only include this if a value is requested - we rely on the empty case
     // being "null" to set the programmatic default in the server.
     result.push_back("--digest_function=" + startup_options.digest_function);
+  }
+  if (!startup_options.unix_digest_hash_attribute_name.empty()) {
+    result.push_back("--unix_digest_hash_attribute_name=" +
+                     startup_options.unix_digest_hash_attribute_name);
   }
   if (startup_options.idle_server_tasks) {
     result.push_back("--idle_server_tasks");
@@ -779,7 +778,9 @@ static void ConnectOrDie(const OptionProcessor &option_processor,
   // Give the server two minutes to start up. That's enough to connect with a
   // debugger.
   const auto start_time = std::chrono::system_clock::now();
-  const auto try_until_time = start_time + std::chrono::seconds(120);
+  const auto try_until_time =
+      start_time +
+      std::chrono::seconds(startup_options.local_startup_timeout_secs);
   // Print an update at most once every 10 seconds if we are still trying to
   // connect.
   const auto min_message_interval = std::chrono::seconds(10);
@@ -821,7 +822,8 @@ static void ConnectOrDie(const OptionProcessor &option_processor,
     }
   }
   BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-      << "couldn't connect to server (" << server_pid << ") after 120 seconds.";
+      << "couldn't connect to server (" << server_pid << ") after "
+      << startup_options.local_startup_timeout_secs << " seconds.";
 }
 
 // Ensures that any server previously associated with `server_dir` is no longer
@@ -1049,7 +1051,7 @@ static bool IsVolatileArg(const string &arg) {
   // server command line difference logic can be simplified then.
   static const std::set<string> volatile_startup_options = {
       "--option_sources=", "--max_idle_secs=", "--connect_timeout_secs=",
-      "--client_debug="};
+      "--local_startup_timeout_secs=", "--client_debug="};
 
   // Split arg based on the first "=" if one exists in arg.
   const string::size_type eq_pos = arg.find_first_of('=');

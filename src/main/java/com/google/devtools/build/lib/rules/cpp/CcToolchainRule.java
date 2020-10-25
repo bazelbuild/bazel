@@ -21,13 +21,14 @@ import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
-import com.google.devtools.build.lib.analysis.Whitelist;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -122,6 +123,12 @@ public final class CcToolchainRule implements RuleDefinition {
           null,
           (rule, attributes, cppConfig) -> cppConfig.getFdoPrefetchHintsLabel());
 
+  private static final LabelLateBoundDefault<?> PROPELLER_OPTIMIZE =
+      LabelLateBoundDefault.fromTargetConfiguration(
+          CppConfiguration.class,
+          null,
+          (rule, attributes, cppConfig) -> cppConfig.getPropellerOptimizeLabel());
+
   /**
    * Returns true if zipper should be loaded. We load the zipper executable if FDO optimization is
    * enabled through --fdo_optimize or --fdo_profile
@@ -145,7 +152,7 @@ public final class CcToolchainRule implements RuleDefinition {
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-    final Label zipper = env.getToolsLabel("//tools/zip:zipper");
+    final Label zipper = env.getToolsLabel("//tools/zip:unzip_fdo");
     return builder
         .requiresConfigurationFragments(CppConfiguration.class, PlatformConfiguration.class)
         .advertiseProvider(TemplateVariableInfo.class)
@@ -186,7 +193,7 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(
             attr("all_files", LABEL)
                 .legacyAllowAnyFileType()
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .mandatory())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(compiler_files) -->
         Collection of all cc_toolchain artifacts required for compile actions.
@@ -198,7 +205,7 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(
             attr("compiler_files", LABEL)
                 .legacyAllowAnyFileType()
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .mandatory())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(compiler_files_without_includes) -->
         Collection of all cc_toolchain artifacts required for compile actions in case when
@@ -207,14 +214,14 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(
             attr("compiler_files_without_includes", LABEL)
                 .legacyAllowAnyFileType()
-                .cfg(HostTransition.createFactory()))
+                .cfg(ExecutionTransitionFactory.create()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(strip_files) -->
         Collection of all cc_toolchain artifacts required for strip actions.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
             attr("strip_files", LABEL)
                 .legacyAllowAnyFileType()
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .mandatory())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(objcopy_files) -->
         Collection of all cc_toolchain artifacts required for objcopy actions.
@@ -222,23 +229,29 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(
             attr("objcopy_files", LABEL)
                 .legacyAllowAnyFileType()
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .mandatory())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(as_files) -->
         <p>Collection of all cc_toolchain artifacts required for assembly actions.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("as_files", LABEL).legacyAllowAnyFileType().cfg(HostTransition.createFactory()))
+        .add(
+            attr("as_files", LABEL)
+                .legacyAllowAnyFileType()
+                .cfg(ExecutionTransitionFactory.create()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(ar_files) -->
         <p>Collection of all cc_toolchain artifacts required for archiving actions.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("ar_files", LABEL).legacyAllowAnyFileType().cfg(HostTransition.createFactory()))
+        .add(
+            attr("ar_files", LABEL)
+                .legacyAllowAnyFileType()
+                .cfg(ExecutionTransitionFactory.create()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(linker_files) -->
         Collection of all cc_toolchain artifacts required for linking actions.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
             attr("linker_files", LABEL)
                 .legacyAllowAnyFileType()
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .mandatory())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(dwp_files) -->
         Collection of all cc_toolchain artifacts required for dwp actions.
@@ -246,7 +259,7 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(
             attr("dwp_files", LABEL)
                 .legacyAllowAnyFileType()
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .mandatory())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(coverage_files) -->
         Collection of all cc_toolchain artifacts required for coverage actions. If not specified,
@@ -255,25 +268,37 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(
             attr("coverage_files", LABEL)
                 .legacyAllowAnyFileType()
-                .cfg(HostTransition.createFactory()))
+                .cfg(ExecutionTransitionFactory.create()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(static_runtime_lib) -->
         Static library artifact for the C++ runtime library (e.g. libstdc++.a).
 
         <p>This will be used when 'static_link_cpp_runtimes' feature is enabled, and we're linking
         dependencies statically.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("static_runtime_lib", LABEL).legacyAllowAnyFileType())
+        .add(
+            attr("static_runtime_lib", LABEL)
+                .legacyAllowAnyFileType()
+                // Should be in the target configuration
+                .cfg(NoTransition.createFactory()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(dynamic_runtime_lib) -->
         Dynamic library artifact for the C++ runtime library (e.g. libstdc++.so).
 
         <p>This will be used when 'static_link_cpp_runtimes' feature is enabled, and we're linking
         dependencies dynamically.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("dynamic_runtime_lib", LABEL).legacyAllowAnyFileType())
+        .add(
+            attr("dynamic_runtime_lib", LABEL)
+                .legacyAllowAnyFileType()
+                // Should be in the target configuration
+                .cfg(NoTransition.createFactory()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(module_map) -->
         Module map artifact to be used for modular builds.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("module_map", LABEL).legacyAllowAnyFileType().cfg(HostTransition.createFactory()))
+        .add(
+            attr("module_map", LABEL)
+                .legacyAllowAnyFileType()
+                // Should be in the target configuration
+                .cfg(NoTransition.createFactory()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(supports_param_files) -->
         Set to True when cc_toolchain supports using param files for linking actions.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
@@ -284,12 +309,12 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(attr("supports_header_parsing", BOOLEAN).value(false))
         .add(
             attr("$interface_library_builder", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .singleArtifact()
                 .value(env.getToolsLabel("//tools/cpp:interface_library_builder")))
         .add(
             attr("$link_dynamic_library_tool", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .singleArtifact()
                 .value(env.getToolsLabel("//tools/cpp:link_dynamic_library")))
         .add(
@@ -297,7 +322,7 @@ public final class CcToolchainRule implements RuleDefinition {
                 .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
         .add(
             attr(":zipper", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .singleArtifact()
                 .value(
                     LabelLateBoundDefault.fromTargetConfiguration(
@@ -310,30 +335,60 @@ public final class CcToolchainRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(libc_top) -->
         A collection of artifacts for libc passed as inputs to compile/linking actions.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("libc_top", LABEL).allowedFileTypes())
-        .add(attr(LIBC_TOP_ATTR, LABEL).value(LIBC_TOP_VALUE))
-        .add(attr(TARGET_LIBC_TOP_ATTR, LABEL).value(TARGET_LIBC_TOP_VALUE))
-        .add(attr(FDO_OPTIMIZE_ATTR, LABEL).value(FDO_OPTIMIZE_VALUE))
+        .add(
+            attr("libc_top", LABEL)
+                .allowedFileTypes()
+                // Should be in the target configuration
+                .cfg(NoTransition.createFactory()))
+        .add(
+            attr(LIBC_TOP_ATTR, LABEL)
+                .value(LIBC_TOP_VALUE)
+                // Should be in the target configuration
+                .cfg(NoTransition.createFactory()))
+        .add(
+            attr(TARGET_LIBC_TOP_ATTR, LABEL)
+                .value(TARGET_LIBC_TOP_VALUE)
+                // Should be in the target configuration
+                .cfg(NoTransition.createFactory()))
+        .add(
+            attr(FDO_OPTIMIZE_ATTR, LABEL)
+                .value(FDO_OPTIMIZE_VALUE)
+                // Should be in the target configuration
+                .cfg(NoTransition.createFactory()))
         .add(
             attr(XFDO_PROFILE_ATTR, LABEL)
                 .allowedRuleClasses("fdo_profile")
                 .mandatoryProviders(ImmutableList.of(FdoProfileProvider.PROVIDER.id()))
-                .value(XFDO_PROFILE_VALUE))
+                .value(XFDO_PROFILE_VALUE)
+                // Should be in the target configuration
+                .cfg(NoTransition.createFactory()))
         .add(
             attr(FDO_PROFILE_ATTR, LABEL)
                 .allowedRuleClasses("fdo_profile")
                 .mandatoryProviders(ImmutableList.of(FdoProfileProvider.PROVIDER.id()))
-                .value(FDO_PROFILE_VALUE))
+                .value(FDO_PROFILE_VALUE)
+                // Should be in the target configuration
+                .cfg(NoTransition.createFactory()))
         .add(
             attr(CSFDO_PROFILE_ATTR, LABEL)
                 .allowedRuleClasses("fdo_profile")
                 .mandatoryProviders(ImmutableList.of(FdoProfileProvider.PROVIDER.id()))
-                .value(CSFDO_PROFILE_VALUE))
+                .value(CSFDO_PROFILE_VALUE)
+                // Should be in the target configuration
+                .cfg(NoTransition.createFactory()))
         .add(
             attr(":fdo_prefetch_hints", LABEL)
                 .allowedRuleClasses("fdo_prefetch_hints")
                 .mandatoryProviders(ImmutableList.of(FdoPrefetchHintsProvider.PROVIDER.id()))
-                .value(FDO_PREFETCH_HINTS))
+                .value(FDO_PREFETCH_HINTS)
+                .cfg(NoTransition.createFactory()))
+        .add(
+            attr(":propeller_optimize", LABEL)
+                .allowedRuleClasses("propeller_optimize")
+                .mandatoryProviders(ImmutableList.of(PropellerOptimizeProvider.PROVIDER.id()))
+                .value(PROPELLER_OPTIMIZE)
+                // Should be in the target configuration
+                .cfg(NoTransition.createFactory()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(toolchain_identifier) -->
         The identifier used to match this cc_toolchain with the corresponding
         crosstool_config.toolchain.
@@ -355,11 +410,16 @@ public final class CcToolchainRule implements RuleDefinition {
             attr(TOOLCHAIN_CONFIG_ATTR, LABEL)
                 .allowedFileTypes()
                 .mandatoryProviders(CcToolchainConfigInfo.PROVIDER.id())
-                .mandatory())
+                .mandatory()
+                // Should be in the target configuration
+                .cfg(NoTransition.createFactory()))
         .add(
-            Whitelist.getAttributeFromWhitelistName(
-                    CcToolchain.ALLOWED_LAYERING_CHECK_FEATURES_WHITELIST)
+            Allowlist.getAttributeFromAllowlistName(
+                    CcToolchain.ALLOWED_LAYERING_CHECK_FEATURES_ALLOWLIST)
                 .value(CcToolchain.ALLOWED_LAYERING_CHECK_FEATURES_LABEL))
+        .add(
+            Allowlist.getAttributeFromAllowlistName(CcToolchain.LOOSE_HEADER_CHECK_ALLOWLIST)
+                .value(CcToolchain.LOOSE_HEADER_CHECK_LABEL))
         .build();
   }
 

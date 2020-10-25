@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -39,12 +40,15 @@ public class TestTrimmingTransitionTest {
       TestTrimmingTransitionFactory.TestTrimmingTransition.INSTANCE;
 
   @Test
-  public void removesTestOptionsWhenSet() throws OptionsParsingException {
+  public void removesTestOptionsWhenSet() throws OptionsParsingException, InterruptedException {
     BuildOptions options =
         BuildOptions.of(
             ImmutableList.of(CoreOptions.class, TestOptions.class), "--trim_test_configuration");
 
-    BuildOptions result = TRIM_TRANSITION.patch(options, new StoredEventHandler());
+    BuildOptions result =
+        TRIM_TRANSITION.patch(
+            new BuildOptionsView(options, TRIM_TRANSITION.requiresOptionFragments()),
+            new StoredEventHandler());
 
     // Verify the transitions actually applied.
     assertThat(result).isNotNull();
@@ -53,12 +57,15 @@ public class TestTrimmingTransitionTest {
   }
 
   @Test
-  public void isNOPWhenUnset() throws OptionsParsingException {
+  public void isNOPWhenUnset() throws OptionsParsingException, InterruptedException {
     BuildOptions options =
         BuildOptions.of(
             ImmutableList.of(CoreOptions.class, TestOptions.class), "--notrim_test_configuration");
 
-    BuildOptions result = TRIM_TRANSITION.patch(options, new StoredEventHandler());
+    BuildOptions result =
+        TRIM_TRANSITION.patch(
+            new BuildOptionsView(options, TRIM_TRANSITION.requiresOptionFragments()),
+            new StoredEventHandler());
 
     // Verify the transitions actually applied.
     assertThat(result).isNotNull();
@@ -66,7 +73,7 @@ public class TestTrimmingTransitionTest {
   }
 
   @Test
-  public void retainsStarlarkOptions() throws OptionsParsingException {
+  public void retainsStarlarkOptions() throws OptionsParsingException, InterruptedException {
     Label starlarkOptionKey = Label.parseAbsoluteUnchecked("//options:foo");
     String starlarkOptionValue = "bar";
 
@@ -77,7 +84,10 @@ public class TestTrimmingTransitionTest {
             .addStarlarkOption(starlarkOptionKey, starlarkOptionValue)
             .build();
 
-    BuildOptions result = TRIM_TRANSITION.patch(options, new StoredEventHandler());
+    BuildOptions result =
+        TRIM_TRANSITION.patch(
+            new BuildOptionsView(options, TRIM_TRANSITION.requiresOptionFragments()),
+            new StoredEventHandler());
 
     // Verify the transitions actually applied.
     assertThat(result).isNotNull();
@@ -86,7 +96,8 @@ public class TestTrimmingTransitionTest {
   }
 
   @Test
-  public void composeCommutativelyWithExecutionTransition() throws OptionsParsingException {
+  public void composeCommutativelyWithExecutionTransition()
+      throws OptionsParsingException, InterruptedException {
     Label executionPlatform = Label.parseAbsoluteUnchecked("//platform:exec");
 
     PatchTransition execTransition =
@@ -106,10 +117,22 @@ public class TestTrimmingTransitionTest {
             "--trim_test_configuration");
 
     EventHandler handler = new StoredEventHandler();
+
+    BuildOptions execTransitionOptions =
+        execTransition.patch(
+            new BuildOptionsView(options, execTransition.requiresOptionFragments()), handler);
     BuildOptions execThenTrim =
-        TRIM_TRANSITION.patch(execTransition.patch(options, handler), handler);
+        TRIM_TRANSITION.patch(
+            new BuildOptionsView(execTransitionOptions, TRIM_TRANSITION.requiresOptionFragments()),
+            handler);
+
+    BuildOptions trimTransitionOptions =
+        TRIM_TRANSITION.patch(
+            new BuildOptionsView(options, TRIM_TRANSITION.requiresOptionFragments()), handler);
     BuildOptions trimThenExec =
-        execTransition.patch(TRIM_TRANSITION.patch(options, handler), handler);
+        execTransition.patch(
+            new BuildOptionsView(trimTransitionOptions, execTransition.requiresOptionFragments()),
+            handler);
 
     assertThat(execThenTrim).isEqualTo(trimThenExec);
 

@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.rules.test;
 
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.analysis.test.TestEnvironmentInfo;
-import com.google.devtools.build.lib.skylarkbuildapi.test.TestingModuleApi;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.starlarkbuildapi.test.TestingModuleApi;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
 
 /** A class that exposes testing infrastructure to Starlark. */
 public class StarlarkTestingModule implements TestingModuleApi {

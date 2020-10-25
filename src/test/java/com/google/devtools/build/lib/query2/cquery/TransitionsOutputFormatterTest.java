@@ -56,6 +56,7 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
   @Before
   public final void setUpCqueryOptions() {
     this.options = new CqueryOptions();
+    helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
     this.reporter = new Reporter(new EventBus(), events::add);
   }
 
@@ -136,7 +137,10 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
         "simple_rule(name = 'foo')");
 
     List<String> result = getOutput("deps(//test:rule_with_patch)", Transitions.LITE);
-    String postPatchConfig = result.get(2).substring("//test:foo (".length());
+    String depEntry = result.get(2);
+    // depEntry is "//test:rule_with_path (<config_id>)". This gets just "<config_id>".
+    String postPatchConfig =
+        depEntry.substring(depEntry.lastIndexOf("(") + 1, depEntry.length() - 1);
     assertThat(result.get(1)).endsWith(postPatchConfig);
   }
 

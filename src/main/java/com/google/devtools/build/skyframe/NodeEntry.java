@@ -83,7 +83,7 @@ public interface NodeEntry extends ThinNodeEntry {
     /**
      * A forced rebuilding is in progress, likely because of a transient error on the previous build
      * or a recoverable inconsistency in the current one. The distinction between this and {@link
-     * #REBUILDING} is only needed for internal sanity checks.
+     * #REBUILDING} is only needed for internal checks.
      */
     FORCED_REBUILDING
   }
@@ -219,8 +219,8 @@ public interface NodeEntry extends ThinNodeEntry {
       throws InterruptedException;
 
   /**
-   * Similar to {@link #addReverseDepAndCheckIfDone}, except that {@param reverseDep} must already
-   * be a reverse dep of this entry. Should be used when reverseDep has been marked dirty and is
+   * Similar to {@link #addReverseDepAndCheckIfDone}, except that {@code reverseDep} must already be
+   * a reverse dep of this entry. Should be used when reverseDep has been marked dirty and is
    * checking its dependencies for changes or is rebuilding. The caller must treat the return value
    * just as they would the return value of {@link #addReverseDepAndCheckIfDone} by scheduling this
    * node for evaluation if needed.
@@ -433,14 +433,14 @@ public interface NodeEntry extends ThinNodeEntry {
 
   /** Which edges a done NodeEntry stores (dependencies and/or reverse dependencies. */
   enum KeepEdgesPolicy {
-    /** Both deps and rdeps are stored. Incremental builds and sanity checks are possible. */
+    /** Both deps and rdeps are stored. Incremental builds and checking are possible. */
     ALL,
     /**
      * Only deps are stored. Incremental builds may be possible with a "top-down" evaluation
-     * framework. Sanity checking of reverse deps is not possible.
+     * framework. Checking of reverse deps is not possible.
      */
     JUST_DEPS,
-    /** Neither deps nor rdeps are stored. Incremental builds and sanity checking are disabled. */
+    /** Neither deps nor rdeps are stored. Incremental builds and checking are disabled. */
     NONE
   }
 }

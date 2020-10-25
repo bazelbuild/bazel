@@ -9,7 +9,7 @@ filegroup(
     srcs = glob(["*"]) + [
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader:srcs",
-        "//src/main/java/com/google/devtools/build/lib/bazel/repository/skylark:srcs",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository/starlark:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
@@ -23,7 +23,6 @@ java_library(
     deps = [
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
         "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
@@ -44,11 +43,13 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
         "//third_party:apache_commons_compress",
         "//third_party:auto_value",
-        "//third_party:diffutils",
         "//third_party:flogger",
         "//third_party:guava",
+        "//third_party:java-diff-utils",
         "//third_party:jsr305",
         "//third_party:xz",
     ],

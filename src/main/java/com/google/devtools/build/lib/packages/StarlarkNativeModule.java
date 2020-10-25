@@ -29,19 +29,10 @@ import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
-import com.google.devtools.build.lib.skylarkbuildapi.StarlarkNativeModuleApi;
-import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.NoneType;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkList;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
-import com.google.devtools.build.lib.syntax.Tuple;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkNativeModuleApi;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -50,6 +41,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.NoneType;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.Tuple;
+import net.starlark.java.syntax.Location;
 
 /** The Starlark native module. */
 // TODO(cparsons): Move the definition of native.package() to this class.
@@ -76,7 +79,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   public Sequence<?> glob(
       Sequence<?> include,
       Sequence<?> exclude,
-      Integer excludeDirs,
+      StarlarkInt excludeDirs,
       Object allowEmptyArgument,
       StarlarkThread thread)
       throws EvalException, ConversionException, InterruptedException {
@@ -89,7 +92,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     List<String> matches;
     boolean allowEmpty;
     if (allowEmptyArgument == Starlark.UNBOUND) {
-      allowEmpty = !thread.getSemantics().incompatibleDisallowEmptyGlob();
+      allowEmpty =
+          !thread.getSemantics().getBool(BuildLanguageOptions.INCOMPATIBLE_DISALLOW_EMPTY_GLOB);
     } else if (allowEmptyArgument instanceof Boolean) {
       allowEmpty = (Boolean) allowEmptyArgument;
     } else {
@@ -99,7 +103,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
     try {
       Globber.Token globToken =
-          context.globber.runAsync(includes, excludes, excludeDirs != 0, allowEmpty);
+          context.globber.runAsync(includes, excludes, excludeDirs.signum() != 0, allowEmpty);
       matches = context.globber.fetchUnsorted(globToken);
     } catch (IOException e) {
       String errorMessage =
@@ -109,11 +113,12 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
               excludes.isEmpty() ? "" : " - [" + Joiner.on(", ").join(excludes) + "]",
               e.getMessage());
       Location loc = thread.getCallerLocation();
-      context.eventHandler.handle(Event.error(loc, errorMessage));
-      context.pkgBuilder.setIOExceptionAndMessage(e, errorMessage);
+      Event error = Package.error(loc, errorMessage, Code.GLOB_IO_EXCEPTION);
+      context.eventHandler.handle(error);
+      context.pkgBuilder.setIOException(e, errorMessage, error.getProperty(DetailedExitCode.class));
       matches = ImmutableList.of();
     } catch (BadGlobException e) {
-      throw new EvalException(null, e.getMessage());
+      throw new EvalException(e);
     }
 
     ArrayList<String> result = new ArrayList<>(matches.size());
@@ -185,7 +190,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("package group has invalid name: %s: %s", name, e.getMessage());
     } catch (Package.NameConflictException e) {
-      throw new EvalException(null, e.getMessage());
+      throw new EvalException(e);
     }
   }
 
@@ -198,7 +203,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     List<String> files = Type.STRING_LIST.convert(srcs, "'exports_files' operand");
 
     RuleVisibility visibility =
-        EvalUtils.isNullOrNone(visibilityO)
+        Starlark.isNullOrNone(visibilityO)
             ? ConstantRuleVisibility.PUBLIC
             : PackageUtils.getVisibility(
                 pkgBuilder.getBuildFileLabel(),
@@ -235,7 +240,10 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
             == ThirdPartyLicenseExistencePolicy.NEVER_CHECK) {
           checkLicenses = false;
         } else {
-          checkLicenses = !thread.getSemantics().incompatibleDisableThirdPartyLicenseChecking();
+          checkLicenses =
+              !thread
+                  .getSemantics()
+                  .getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_THIRD_PARTY_LICENSE_CHECKING);
         }
 
         if (checkLicenses
@@ -281,7 +289,6 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     Dict<String, Object> values = Dict.of(mu);
 
     Rule rule = (Rule) target;
-    AttributeContainer cont = rule.getAttributeContainer();
     for (Attribute attr : rule.getAttributes()) {
       if (!Character.isAlphabetic(attr.getName().charAt(0))) {
         continue;
@@ -294,7 +301,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       }
 
       try {
-        Object val = starlarkifyValue(mu, cont.getAttr(attr.getName()), target.getPackage());
+        Object val = starlarkifyValue(mu, rule.getAttr(attr.getName()), target.getPackage());
         if (val == null) {
           continue;
         }
@@ -323,27 +330,22 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   @Nullable
   private static Object starlarkifyValue(Mutability mu, Object val, Package pkg)
       throws NotRepresentableException {
-    if (val == null) {
-      return null;
-    }
-    if (val instanceof Boolean) {
-      return val;
-    }
-    if (val instanceof Integer) {
-      return val;
-    }
-    if (val instanceof String) {
+    // easy cases
+    if (val == null
+        || val instanceof Boolean
+        || val instanceof String
+        || val instanceof StarlarkInt) {
       return val;
     }
 
     if (val instanceof TriState) {
       switch ((TriState) val) {
         case AUTO:
-          return -1;
+          return StarlarkInt.of(-1);
         case YES:
-          return 1;
+          return StarlarkInt.of(1);
         case NO:
-          return 0;
+          return StarlarkInt.of(0);
       }
     }
 
@@ -424,7 +426,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
   private static class NotRepresentableException extends EvalException {
     NotRepresentableException(String msg) {
-      super(null, msg);
+      super(msg);
     }
   }
 }

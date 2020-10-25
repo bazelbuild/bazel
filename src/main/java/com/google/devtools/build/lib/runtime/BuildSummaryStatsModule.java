@@ -18,6 +18,7 @@ import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -80,6 +81,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     enabled = env.getOptions().getOptions(ExecutionOptions.class).enableCriticalPathProfiling;
+    statsSummary = env.getOptions().getOptions(ExecutionOptions.class).statsSummary;
   }
 
   @Subscribe
@@ -106,6 +108,12 @@ public class BuildSummaryStatsModule extends BlazeModule {
   @AllowConcurrentEvents
   public void actionResultReceived(ActionResultReceivedEvent event) {
     spawnStats.countActionResult(event.getActionResult());
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
+  public void actionCompletion(ActionCompletionEvent event) {
+    spawnStats.incrementActionCount();
   }
 
   @Subscribe

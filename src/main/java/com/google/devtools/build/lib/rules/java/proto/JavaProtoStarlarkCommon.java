@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
-import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
@@ -29,8 +29,8 @@ import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Expor
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaProtoCommonApi;
-import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaProtoCommonApi;
+import net.starlark.java.eval.EvalException;
 
 /** A class that exposes Java common methods for proto compilation. */
 public class JavaProtoStarlarkCommon
@@ -43,7 +43,7 @@ public class JavaProtoStarlarkCommon
       Artifact sourceJar,
       String protoToolchainAttr,
       String flavour)
-      throws EvalException, InterruptedException {
+      throws EvalException {
     ProtoInfo protoInfo = target.get(ProtoInfo.PROVIDER);
     ProtoCompileActionBuilder.registerActions(
         starlarkRuleContext.getRuleContext(),

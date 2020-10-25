@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.skydoc.rendering;
 
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.StarlarkFunctionInfo;
-import com.google.devtools.skylark.common.DocstringUtils.DocstringParseError;
+import com.google.devtools.starlark.common.DocstringUtils.DocstringParseError;
 import java.util.List;
+import net.starlark.java.syntax.Location;
 
 /**
  * An exception that may be thrown during construction of {@link StarlarkFunctionInfo} if the

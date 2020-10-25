@@ -17,7 +17,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -34,6 +33,7 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * An action that writes the a parameter file to {@code incremental_install.py} based on the command
@@ -122,8 +122,7 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
   }
 
   @Override
-  public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
-      throws IOException, InterruptedException, ExecException {
+  public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
     Options options = ctx.getOptions().getOptions(Options.class);
     final List<String> args = new ArrayList<>(options.adbArgs);
     final String adb = options.adb;
@@ -180,7 +179,10 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable Artifact.ArtifactExpander artifactExpander,
+      Fingerprint fp) {
     fp.addString(GUID);
   }
 

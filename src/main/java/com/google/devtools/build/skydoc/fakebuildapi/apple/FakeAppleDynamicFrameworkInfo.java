@@ -15,11 +15,11 @@
 package com.google.devtools.build.skydoc.fakebuildapi.apple;
 
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleDynamicFrameworkInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleDynamicFrameworkInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.ObjcProviderApi;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
 
 /** Fake implementation of {@link AppleDynamicFrameworkInfoApi}. */
 public class FakeAppleDynamicFrameworkInfo implements AppleDynamicFrameworkInfoApi<FileApi> {

@@ -15,10 +15,10 @@
 package com.google.devtools.build.skydoc.fakebuildapi.test;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skylarkbuildapi.test.TestEnvironmentInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.starlarkbuildapi.test.TestEnvironmentInfoApi;
 import java.util.Map;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
 
 /**
  * Fake implementation of {@link TestEnvironmentInfoApi}.

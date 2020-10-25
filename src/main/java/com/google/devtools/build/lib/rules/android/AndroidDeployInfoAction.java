@@ -35,6 +35,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.IOException;
 import java.io.InputStream;
+import javax.annotation.Nullable;
 
 /**
  * Writes AndroidDeployInfo proto message. This proto describes how to deploy and launch an
@@ -106,7 +107,7 @@ public final class AndroidDeployInfoAction extends AbstractFileWriteAction {
   }
 
   @Override
-  public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) throws IOException {
+  public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
     return new ByteStringDeterministicWriter(getByteString());
   }
 
@@ -116,7 +117,10 @@ public final class AndroidDeployInfoAction extends AbstractFileWriteAction {
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable Artifact.ArtifactExpander artifactExpander,
+      Fingerprint fp) {
     fp.addString(GUID);
 
     try (InputStream in = getByteString().newInput()) {

@@ -53,7 +53,7 @@ The `bazel` tool performs many functions, called commands. The most commonly
 used ones are `bazel build` and `bazel test`. You can browse the online help
 messages using `bazel help`.
 
-<a name="build"></a>
+<a id="build"></a>
 
 ## Building programs with Bazel
 
@@ -111,7 +111,7 @@ directory tree that contains all the source files needed to build your
 application. Bazel allows you to perform a build from a completely read-only
 volume.
 
-<a name="target-patterns"></a>
+<a id="target-patterns"></a>
 
 ### Specifying targets to build
 
@@ -258,7 +258,7 @@ patterns (`...`, `:*`, `:all`, etc.). You should specify such test targets with
 explicit target patterns on the command line if you want Bazel to build/test
 them.
 
-<a name="fetch"></a>
+<a id="fetch"></a>
 ### Fetching external dependencies
 
 By default, Bazel will download and symlink external dependencies during the
@@ -304,7 +304,7 @@ However, if you're using anything outside of the workspace directory then Bazel
 will automatically run `bazel fetch` before running
 `bazel build`.
 
-<a name="repository-cache"></a>
+<a id="repository-cache"></a>
 #### The repository cache
 
 Bazel tries to avoid fetching the same file several times, even if the same
@@ -327,23 +327,82 @@ be determined, for example to manually clean up the cache. The cache is never
 cleaned up automatically, as it might contain a copy of a file that is no
 longer available upstream.
 
-<a name="distdir"></a>
+<a id="distdir"></a>
 #### Distribution files directories
 
-Besides the repository cache, Bazel has a second mechanism to avoid
-unnecessary downloads. Using the `--distdir` option, you can
-specify additional read-only directories to look for files instead of fetching
-them. A file is taken from such a directory if the file name is equal to
-the base name of the URL and additionally the hash of the file is equal to the
-one specified in the download request (again, no file is taken from a distdir,
-if no hash is specified). While the condition on the file name is not
-necessary for correctness, it reduces the number of candidate files to one per
-specified directory. In this way, specifying distribution files directories
-remains efficient, even if the number of files in such a directory grows
-large.
+The distribution directory is another Bazel mechanism to avoid unnecessary
+downloads. Bazel searches distribution directories before the repository cache.
+The primary difference is that the distribution directory requires manual
+preparation.
+
+Using the
+[`--distdir=/path/to-directory`](https://docs.bazel.build/versions/master/command-line-reference.html#flag--distdir)
+option, you can specify additional read-only directories to look for files
+instead of fetching them. A file is taken from such a directory if the file name
+is equal to the base name of the URL and additionally the hash of the file is
+equal to the one specified in the download request. This only works if the
+file hash is specified in the WORKSPACE declaration.
+
+While the condition on the file name is not necessary for correctness, it
+reduces the number of candidate files to one per specified directory. In this
+way, specifying distribution files directories remains efficient, even if the
+number of files in such a directory grows large.
+
+#### Running Bazel in an airgapped environment
+
+To keep Bazel's binary size small, Bazel's implicit dependencies are fetched
+over the network while running for the first time. These implicit dependencies
+contain toolchains and rules that may not be necessary for everyone. For
+example, Android tools are unbundled and fetched only when building Android
+projects.
+
+However, these implicit dependencies may cause problems when running
+Bazel in an airgapped environment, even if you have vendored all of your
+WORKSPACE dependencies. To solve that, you can prepare a distribution directory
+containing these dependencies on a machine with network access, and then
+transfer them to the airgapped environment with an offline approach.
+
+To prepare the [distribution directory](distribution-files-directories), use the
+[`--distdir`](https://docs.bazel.build/versions/master/command-line-reference.html#flag--distdir)
+flag. You will need to do this once for every new Bazel binary version, since
+the implicit dependencies can be different for every release.
+
+To build these dependencies outside of your airgapped environment, first
+checkout the Bazel source tree at the right version:
+
+```
+git clone https://github.com/bazelbuild/bazel "$BAZEL_DIR"
+cd "$BAZEL_DIR"
+git checkout "$BAZEL_VERSION"
+```
+
+Then, build the tarball containing the implicit runtime dependencies for that
+specific Bazel version:
+
+```
+bazel build @additional_distfiles//:archives.tar
+```
+
+Export this tarball to a directory that can be copied into your airgapped
+environment. Note the `--strip-components` flag, because `--distdir` can be
+quite finicky with the directory nesting level:
 
 
-<a name="configurations"></a>
+```
+tar xvf bazel-bin/external/additional_distfiles/archives.tar \
+  -C "$NEW_DIRECTORY" --strip-components=3
+```
+
+Finally, when you use Bazel in your airgapped environment, pass the `--distdir`
+flag pointing to the directory. For convenience, you can add it as an `.bazelrc`
+entry:
+
+```
+build --distdir=path/to/directory
+```
+
+
+<a id="configurations"></a>
 
 ### Build configurations and cross-compilation
 
@@ -361,13 +420,13 @@ cross-compile, in which you build a `//foo:bin` executable for a 64-bit
 architecture, but your workstation is a 32-bit machine. Clearly, the build will
 require building `//foo:bin` using a toolchain capable of creating 64-bit
 executables, but the build system must also build various tools used during the
-build itself&mdash;for example tools that are built from source, then
-subsequently used in, say, a genrule&mdash;and these must be built to run on
-your workstation. Thus we can identify two configurations: the **host
-configuration**, which is used for building tools that run during the build, and
-the **target configuration** (or _request configuration_, but we say "target
-configuration" more often even though that word already has many meanings),
-which is used for building the binary you ultimately requested.
+build itself—for example tools that are built from source, then subsequently
+used in, say, a genrule—and these must be built to run on your workstation. Thus
+we can identify two configurations: the **host configuration**, which is used
+for building tools that run during the build, and the **target configuration**
+(or _request configuration_, but we say "target configuration" more often even
+though that word already has many meanings), which is used for building the
+binary you ultimately requested.
 
 Typically, there are many libraries that are prerequisites of both the requested
 build target (`//foo:bin`) and one or more of the host tools, for example some
@@ -449,7 +508,7 @@ builds in which changes of configuration are infrequent (especially certain Java
 builds), and builds where the amount of code that must be built in both host and
 target configurations is large, may not benefit.
 
-<a name="correctness"></a>
+<a id="correctness"></a>
 
 ### Correct incremental rebuilds
 
@@ -529,7 +588,7 @@ build tool.
 If you ever detect a stable inconsistent state with Bazel, please report a bug.
 
 
-<a name="sandboxing"></a>
+<a id="sandboxing"></a>
 
 #### Sandboxed execution
 
@@ -566,7 +625,7 @@ issue tracker and mention which Linux distribution you're using so that we can
 investigate and provide a fix in a subsequent release.
 
 
-<a name="phases"></a>
+<a id="phases"></a>
 
 ### Phases of a build
 
@@ -618,7 +677,7 @@ build. Errors reported during this phase include: missing source files, errors
 in a tool executed by some build action, or failure of a tool to produce the
 expected set of outputs.
 
-<a name="client/server"></a>
+<a id="client/server"></a>
 
 ## Client/server implementation
 
@@ -658,7 +717,7 @@ directory enclosing the root of your workspace directory. For example:
 This makes it easier to find out which server process belongs to a given
 workspace. (Beware that with certain other options to `ps`, Bazel server
 processes may be named just `java`.) Bazel servers can be stopped using the
-[shutdown](#shutdown) command.
+[shutdown](user-manual.html#shutdown) command.
 
 When running `bazel`, the client first checks that the server is the appropriate
 version; if not, the server is stopped and a new one started. This ensures that
@@ -666,15 +725,14 @@ the use of a long-running server process doesn't interfere with proper
 versioning.
 
 
-<a name="bazelrc"></a>
+<a id="bazelrc"></a>
 
 ## `.bazelrc`, the Bazel configuration file
 
-Bazel accepts many options. Typically, some of these are varied frequently (for
-example, `--subcommands`) while others stay the same across several builds (e.g.
-`--package_path`). To avoid having to specify these unchanged options for every
-build (and other commands) Bazel allows you to specify options in a
-configuration file.
+Bazel accepts many options. Some options are varied frequently (for example,
+`--subcommands`) while others stay the same across several builds (such as
+`--package_path`). To avoid specifying these unchanged options for every build
+(and other commands), you can specify options in a configuration file.
 
 ### Where are the `.bazelrc` files?
 Bazel looks for optional configuration files in the following locations,
@@ -720,6 +778,10 @@ before the command (`build`, `test`, etc).
 
     This flag is optional. However, if the flag is specified, then the file must
     exist.
+
+In addition to this optional configuration file, Bazel looks for a global rc
+file. For more details, see the [global bazelrc section](#global_bazelrc).
+
 
 ### `.bazelrc` syntax and semantics
 
@@ -842,6 +904,10 @@ unintentional name sharing.
 the options specified for the config have the same precedence that the
 `--config=foo` option had.
 
+This syntax does not extend to the use of `startup` to set
+[startup options](#option-defaults), e.g. setting
+`startup:config-name --some_startup_option` in the .bazelrc will be ignored.
+
 #### Example
 
 Here's an example `~/.bazelrc` file:
@@ -860,7 +926,7 @@ build:memcheck --strip=never --test_timeout=3600
 ```
 
 
-<a name="startup files"></a>
+<a id="startup files"></a>
 ### Other files governing Bazel's behavior
 
 #### `.bazelignore`
@@ -872,8 +938,19 @@ that use other build systems. Place a file called
 and add the directories you want Bazel to ignore, one per
 line. Entries are relative to the workspace root.
 
+<a id="global_bazelrc"></a>
 
-<a name="scripting"></a>
+### The global bazelrc file
+
+In addition to your personal `.bazelrc` file, Bazel reads global bazelrc
+files in this order: `$workspace/tools/bazel.rc`, `.bazelrc` next to the
+Bazel binary, and `/etc/bazel.bazelrc`. (It's fine if any are missing.)
+
+You can make Bazel ignore the global bazelrcs by passing the
+`--nomaster_bazelrc` startup option.
+
+
+<a id="scripting"></a>
 
 ## Calling Bazel from scripts
 
@@ -929,10 +1006,7 @@ Bazel execution can result in following exit codes:
 -   `36` - Local Environmental Issue, suspected permanent.
 -   `37` - Unhandled Exception / Internal Bazel Error.
 -   `38` - Reserved for Google-internal use.
--   `40-44` - Reserved for errors in Bazel's command line launcher,
-    `bazel.cc` that are not command line
-    related. Typically these are related to bazel server
-    being unable to launch itself.
+-   `41-44` - Reserved for Google-internal use.
 -   `45` - Error publishing results to the Build Event Service.
 
 **Return codes for commands `bazel build`, `bazel test`:**
@@ -960,9 +1034,10 @@ Future Bazel versions may add additional exit codes, replacing generic failure
 exit code `1` with a different non-zero value with a particular meaning.
 However, all non-zero exit values will always constitute an error.
 
+
 ### Reading the .bazelrc file
 
-By default, Bazel will read the [`.bazelrc` file](#bazelrc) from the base
+By default, Bazel reads the [`.bazelrc` file](#bazelrc) from the base
 workspace directory or the user's home directory. Whether or not this is
 desirable is a choice for your script; if your script needs to be perfectly
 hermetic (e.g. when doing release builds), you should disable reading the
@@ -996,171 +1071,9 @@ files they created. Be sure to specify a very large value of _n_ if you rely on
 these messages.
 
 
-<a name="profiling"></a>
+<a id="profiling"></a>
 
 ## Troubleshooting performance by profiling
 
-The first step in analyzing the performance of your build is to profile your
-build with the [`--profile`](user-manual.html#flag--profile) flag.
+See the [Performance Profiling](performance.html#performance-profiling) section.
 
-The file generated by the [`--profile`](user-manual.html#flag--profile) flag is
-a binary file. Once you have generated this binary profile, you can analyze it
-using Bazel's [`analyze-profile`](user-manual.html#analyze-profile') command. By
-default, it will print out summary analysis information for each of the
-specified profile datafiles. This includes cumulative statistics for different
-task types for each build phase and an analysis of the critical execution path.
-
-The first section of the default output describes an overview of the time spent
-on the different build phases:
-
-```
-=== PHASE SUMMARY INFORMATION ===
-
-Total launch phase time         6.00 ms    0.01%
-Total init phase time            864 ms    1.11%
-Total loading phase time       21.841 s   28.05%
-Total analysis phase time       5.444 s    6.99%
-Total preparation phase time     155 ms    0.20%
-Total execution phase time     49.473 s   63.54%
-Total finish phase time         83.9 ms    0.11%
-Total run time                 77.866 s  100.00%
-```
-
-The following sections show the execution time of different tasks happening
-during a particular phase:
-
-```
-=== INIT PHASE INFORMATION ===
-
-Total init phase time                     864 ms
-
-Total time (across all threads) spent on:
-              Type    Total    Count     Average
-          VFS_STAT    2.72%        1     23.5 ms
-      VFS_READLINK   32.19%        1      278 ms
-
-=== LOADING PHASE INFORMATION ===
-
-Total loading phase time                21.841 s
-
-Total time (across all threads) spent on:
-              Type    Total    Count     Average
-             SPAWN    3.26%      154      475 ms
-          VFS_STAT   10.81%    65416     3.71 ms
-[...]
-SKYLARK_BUILTIN_FN   13.12%    45138     6.52 ms
-
-=== ANALYSIS PHASE INFORMATION ===
-
-Total analysis phase time                5.444 s
-
-Total time (across all threads) spent on:
-              Type    Total    Count     Average
-     SKYFRAME_EVAL    9.35%        1     4.782 s
-       SKYFUNCTION   89.36%    43332     1.06 ms
-
-=== EXECUTION PHASE INFORMATION ===
-
-Total preparation time                    155 ms
-Total execution phase time              49.473 s
-Total time finalizing build              83.9 ms
-
-Action dependency map creation           0.00 ms
-Actual execution time                   49.473 s
-
-Total time (across all threads) spent on:
-              Type    Total    Count     Average
-            ACTION    2.25%    12229     10.2 ms
-[...]
-       SKYFUNCTION    1.87%   236131     0.44 ms
-```
-
-The last section shows the critical path:
-
-```
-Critical path (32.078 s):
-    Id        Time Percentage   Description
-1109746     5.171 s   16.12%   Building [...]
-1109745      164 ms    0.51%   Extracting interface [...]
-1109744     4.615 s   14.39%   Building [...]
-[...]
-1109639     2.202 s    6.86%   Executing genrule [...]
-1109637     2.00 ms    0.01%   Symlinking [...]
-1109636      163 ms    0.51%   Executing genrule [...]
-           4.00 ms    0.01%   [3 middleman actions]
-```
-
-You can use the following options to display more detailed information:
-
--   <a name="dump-text-format"></a>[`--dump=text`](user-manual.html#flag--dump)
-
-    This option prints all recorded tasks in the order they occurred. Nested
-    tasks are indented relative to the parent. For each task, output includes
-    the following information:
-
-    ```
-    [task type] [task description]
-    Thread: [thread id]    Id: [task id]     Parent: [parent task id or 0 for top-level tasks]
-    Start time: [time elapsed from the profiling session start]       Duration: [task duration]
-    [aggregated statistic for nested tasks, including count and total duration for each nested task]
-    ```
-
--   <a name="dump-raw-format"></a>[`--dump=raw`](user-manual.html#flag--dump)
-
-    This option is most useful for automated analysis with scripts. It outputs
-    each task record on a single line using '|' delimiter between fields. Fields
-    are printed in the following order:
-
-    1.  thread id - integer positive number, identifies owner thread for the
-        task
-    2.  task id - integer positive number, identifies specific task
-    3.  parent task id for nested tasks or 0 for root tasks
-    4.  task start time in ns, relative to the start of the profiling session
-    5.  task duration in ns. Please note that this will include duration of all
-        subtasks.
-    6.  aggregated statistic for immediate subtasks per type. This will include
-        type name (lower case), number of subtasks for that type and their
-        cumulative duration. Types are space-delimited and information for
-        single type is comma-delimited.
-    7.  task type (upper case)
-    8.  task description
-
-    Example:
-
-    ```
-    1|1|0|0|0||PHASE|Launch Bazel
-    1|2|0|6000000|0||PHASE|Initialize command
-    1|3|0|168963053|278111411||VFS_READLINK|/[...]
-    1|4|0|571055781|23495512||VFS_STAT|/[...]
-    1|5|0|869955040|0||PHASE|Load packages
-    [...]
-    ```
-
--   <a name="dump-html-format"></a>[`--html`](user-manual.html#flag--html)
-
-    This option writes a file called `<profile-file>.html` in the directory of
-    the profile file. Open it in your browser to see the visualization of the
-    actions in your build. Note that the file can be quite large and may push
-    the capabilities of your browser &ndash; please wait for the file to load.
-
-    In most cases, the HTML output from [`--html`](user-manual.html#flag--html)
-    is easier to read than the [`--dump`](user-manual.html#flag--dump) output.
-    It includes a Gantt chart that displays time on the horizontal axis and
-    threads of execution along the vertical axis. If you click on the Statistics
-    link in the top right corner of the page, you will jump to a section that
-    lists summary analysis information from your build.
-
-    *   [`--html_details`](user-manual.html#flag--html_details)
-
-        Additionally passing this option will render a more detailed execution
-        chart and additional tables on the performance of built-in and
-        user-defined Starlark functions. Beware that this increases the file
-        size and the load on the browser considerably.
-
-If Bazel appears to be hung, you can hit <kbd>Ctrl-&#92;</kbd> or send
-Bazel a `SIGQUIT` signal (`kill -3 $(bazel info server_pid)`) to get a thread
-dump in the file `$(bazel info output_base)/server/jvm.out`.
-
-Since you may not be able to run `bazel info` if bazel is hung, the
-`output_base` directory is usually the parent of the `bazel-<workspace>`
-symlink in your workspace directory.

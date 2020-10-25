@@ -23,12 +23,12 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
-import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigFeatureFlagProviderApi;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigFeatureFlagProviderApi;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Provider for exporting value and valid value predicate of feature flags to consuming targets. */
 // TODO(adonovan): rename this to *Info and its constructor to *Provider.
@@ -78,7 +78,7 @@ public class ConfigFeatureFlagProvider extends NativeInfo implements ConfigFeatu
     @StarlarkMethod(
         name = "FeatureFlagInfo",
         documented = false,
-        parameters = {@Param(name = "value", named = true, type = String.class)},
+        parameters = {@Param(name = "value", named = true)},
         selfCall = true)
     public ConfigFeatureFlagProvider selfcall(String value) {
       return create(value, Predicates.alwaysTrue());

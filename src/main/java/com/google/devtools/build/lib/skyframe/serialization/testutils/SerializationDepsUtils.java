@@ -73,5 +73,10 @@ public class SerializationDepsUtils {
         }
       };
     }
+
+    @Override
+    public Artifact.DerivedArtifact intern(Artifact.DerivedArtifact original) {
+      return original;
+    }
   }
 }

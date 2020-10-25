@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidResourcesInfoApi;
-import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidResourcesInfoApi;
+import net.starlark.java.eval.EvalException;
 
 /** A provider that supplies ResourceContainers from its transitive closure. */
 @Immutable
@@ -255,7 +255,7 @@ public class AndroidResourcesInfo extends NativeInfo
     private static <T> NestedSet<T> nestedSet(Object from, Class<T> with, String fieldName)
         throws EvalException {
       Preconditions.checkArgument(
-          from instanceof Depset || from == com.google.devtools.build.lib.syntax.Starlark.UNBOUND);
+          from instanceof Depset || from == net.starlark.java.eval.Starlark.UNBOUND);
 
       if (from instanceof Depset) {
         return nestedSet((Depset) from, with, fieldName);

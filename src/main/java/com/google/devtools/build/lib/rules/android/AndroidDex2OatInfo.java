@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDex2OatInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDex2OatInfoApi;
 import javax.annotation.Nullable;
 
 /**

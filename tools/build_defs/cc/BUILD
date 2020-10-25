@@ -1,6 +1,9 @@
 licenses(["notice"])  # Apache 2.0
 
-exports_files(["action_names.bzl"])
+exports_files([
+    "action_names.bzl",
+    "cc_import.bzl",
+])
 
 filegroup(
     name = "srcs",
@@ -10,6 +13,14 @@ filegroup(
         "//:__pkg__",
         "//tools/build_defs:__pkg__",
     ],
+)
+
+filegroup(
+    name = "action_names",
+    srcs = [
+        "action_names.bzl",
+    ],
+    visibility = ["//visibility:public"],
 )
 
 filegroup(

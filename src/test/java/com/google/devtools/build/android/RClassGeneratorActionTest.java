@@ -501,26 +501,23 @@ public class RClassGeneratorActionTest {
   }
 
   private static final class ZipMtimeAsserter {
-    private static final long ZIP_EPOCH = Instant.parse("1980-01-01T00:00:00Z").getEpochSecond();
-    private static final long ZIP_EPOCH_PLUS_ONE_DAY =
-        Instant.parse("1980-01-02T00:00:00Z").getEpochSecond();
+    private static final long DEFAULT_TIMESTAMP =
+        Instant.parse("1980-02-01T00:00:00Z").getEpochSecond();
+    private static final long DEFAULT_TIMESTAMP_PLUS_ONE_DAY =
+        Instant.parse("1980-02-02T00:00:00Z").getEpochSecond();
 
     public static void assertEntry(ZipEntry e) {
       // getLastModifiedTime().toMillis() returns milliseconds, Instant.getEpochSecond() returns
       // seconds.
       long mtime = e.getLastModifiedTime().toMillis() / 1000;
-      // The ZIP epoch is the same as the MS-DOS epoch, 1980-01-01T00:00:00Z.
-      // AndroidResourceOutputs.ZipBuilder sets this to most of its entries, except for .class files
-      // for which the ZipBuilder increments the timestamp by 2 seconds.
+      // AndroidResourceOutputs.ZipBuilder sets the timestamp to one month after ZIP epoch
+      // which is the same as the MS-DOS epoch, 1980-01-01T00:00:00Z.
+      // The one exception being .class files for which the ZipBuilder
+      // increments the timestamp by 2 seconds.
       // We don't care about the details of this logic and asserting exact timestamps would couple
       // the test to the code too tightly, so here we only assert that the timestamp is on
-      // 1980-01-01, ignoring the exact time.
-      // AndroidResourceOutputs.ZipBuilde sets the ZIP epoch (same as the MS-DOS epoch,
-      // 1980-01-01T00:00:00Z) as the timestamp for all of its entries (except .class files, for
-      // which it sets a timestamp 2 seconds later than the DOS epoch).
-      // We don't care about the exact timestamps though, only that they are stable, so let's just
-      // assert that they are all on the day of 1980-01-01.
-      if (mtime < ZIP_EPOCH || mtime > ZIP_EPOCH_PLUS_ONE_DAY) {
+      // 1980-02-01, ignoring the exact time.
+      if (mtime < DEFAULT_TIMESTAMP || mtime > DEFAULT_TIMESTAMP_PLUS_ONE_DAY) {
         Assert.fail(String.format("e=(%s) mtime=(%s)", e.getName(), e.getLastModifiedTime()));
       }
     }

@@ -35,22 +35,23 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider.WithLegacyStarlarkName;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkList;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.ObjcProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * A provider that provides all compiling and linking information in the transitive closure of its
@@ -318,10 +319,13 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   private final CcCompilationContext ccCompilationContext;
 
-  /** Keys corresponding to compile information that has been migrated to CcCompilationContext. */
-  static final ImmutableSet<Key<?>> KEYS_FOR_COMPILE_INFO =
+  /**
+   * Keys that are deprecated and will be removed. These include compile information that has been
+   * migrated to CcCompilationContext, plus MERGE_ZIP.
+   */
+  static final ImmutableSet<Key<?>> DEPRECATED_KEYS =
       ImmutableSet.<Key<?>>of(
-          DEFINE, FRAMEWORK_SEARCH_PATHS, HEADER, INCLUDE, INCLUDE_SYSTEM, IQUOTE);
+          DEFINE, FRAMEWORK_SEARCH_PATHS, HEADER, INCLUDE, INCLUDE_SYSTEM, IQUOTE, MERGE_ZIP);
 
   /** All keys in ObjcProvider that will be passed in the corresponding Starlark provider. */
   static final ImmutableList<Key<?>> KEYS_FOR_STARLARK =
@@ -990,6 +994,10 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       this.starlarkSemantics = semantics;
     }
 
+    public StarlarkSemantics getStarlarkSemantics() {
+      return starlarkSemantics;
+    }
+
     private static void maybeAddEmptyBuilder(Map<Key<?>, NestedSetBuilder<?>> set, Key<?> key) {
       set.computeIfAbsent(key, k -> new NestedSetBuilder<>(k.order));
     }
@@ -1055,10 +1063,8 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
     /** Return an EvalException for having a bad key in the direct dependency provider. */
     private static <E> EvalException badDirectDependencyKeyError(Key<E> key) {
-      return new EvalException(
-          null,
-          String.format(
-              AppleStarlarkCommon.BAD_DIRECT_DEPENDENCY_KEY_ERROR, key.getStarlarkKeyName()));
+      return Starlark.errorf(
+          AppleStarlarkCommon.BAD_DIRECT_DEPENDENCY_KEY_ERROR, key.getStarlarkKeyName());
     }
 
     /**
@@ -1185,53 +1191,17 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
      */
     void addElementsFromStarlark(Key<?> key, Object starlarkToAdd) throws EvalException {
       NestedSet<?> toAdd = ObjcProviderStarlarkConverters.convertToJava(key, starlarkToAdd);
-      if (KEYS_FOR_COMPILE_INFO.contains(key)) {
-        String keyName = key.getStarlarkKeyName();
-
-        if (key == DEFINE) {
-          ccCompilationContextBuilder.addDefines(
-              Depset.noneableCast(starlarkToAdd, String.class, keyName));
-        } else if (key == FRAMEWORK_SEARCH_PATHS) {
-          // Due to legacy reasons, There is a mismatch between the starlark interface for the
-          // framework search path, and the internal representation.  The interface specifies that
-          // framework_search_paths include the framework directories, but internally we only store
-          // their parents.  We will eventually clean up the interface, but for now we need to do
-          // this ugly conversion.
-
-          ImmutableList<PathFragment> frameworks =
-              Depset.noneableCast(starlarkToAdd, String.class, keyName).toList().stream()
-                  .map(x -> PathFragment.create(x))
-                  .collect(ImmutableList.toImmutableList());
-
-          ImmutableList.Builder<PathFragment> frameworkSearchPaths = ImmutableList.builder();
-          for (PathFragment framework : frameworks) {
-            if (!framework.getSafePathString().endsWith(FRAMEWORK_SUFFIX)) {
-              throw new EvalException(
-                  null, String.format(AppleStarlarkCommon.BAD_FRAMEWORK_PATH_ERROR, framework));
-            }
-            frameworkSearchPaths.add(framework.getParentDirectory());
+      if (DEPRECATED_KEYS.contains(key)) {
+        if (getStarlarkSemantics()
+            .getBool(BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO)) {
+          if (!KEYS_FOR_DIRECT.contains(key)) {
+            throw Starlark.errorf(
+                AppleStarlarkCommon.DEPRECATED_KEY_ERROR, key.getStarlarkKeyName());
           }
-          ccCompilationContextBuilder.addFrameworkIncludeDirs(frameworkSearchPaths.build());
-        } else if (key == HEADER) {
-          ImmutableList<Artifact> hdrs =
-              Depset.noneableCast(starlarkToAdd, Artifact.class, keyName).toList();
-          ccCompilationContextBuilder.addDeclaredIncludeSrcs(hdrs);
-          ccCompilationContextBuilder.addTextualHdrs(hdrs);
-        } else if (key == INCLUDE) {
-          ccCompilationContextBuilder.addIncludeDirs(
-              Depset.noneableCast(starlarkToAdd, String.class, keyName).toList().stream()
-                  .map(x -> PathFragment.create(x))
-                  .collect(ImmutableList.toImmutableList()));
-        } else if (key == INCLUDE_SYSTEM) {
-          ccCompilationContextBuilder.addSystemIncludeDirs(
-              Depset.noneableCast(starlarkToAdd, String.class, keyName).toList().stream()
-                  .map(x -> PathFragment.create(x))
-                  .collect(ImmutableList.toImmutableList()));
-        } else if (key == IQUOTE) {
-          ccCompilationContextBuilder.addQuoteIncludeDirs(
-              Depset.noneableCast(starlarkToAdd, String.class, keyName).toList().stream()
-                  .map(x -> PathFragment.create(x))
-                  .collect(ImmutableList.toImmutableList()));
+        } else {
+          if (!addCompileElementsFromStarlark(key, starlarkToAdd)) {
+            uncheckedAddTransitive(key, toAdd);
+          }
         }
       } else {
         uncheckedAddTransitive(key, toAdd);
@@ -1242,6 +1212,63 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       }
     }
 
+    private boolean addCompileElementsFromStarlark(Key<?> key, Object starlarkToAdd)
+        throws EvalException {
+      String keyName = key.getStarlarkKeyName();
+
+      if (key == DEFINE) {
+        ccCompilationContextBuilder.addDefines(
+            Depset.noneableCast(starlarkToAdd, String.class, keyName));
+        return true;
+      } else if (key == FRAMEWORK_SEARCH_PATHS) {
+        // Due to legacy reasons, There is a mismatch between the starlark interface for the
+        // framework search path, and the internal representation.  The interface specifies that
+        // framework_search_paths include the framework directories, but internally we only store
+        // their parents.  We will eventually clean up the interface, but for now we need to do
+        // this ugly conversion.
+
+        ImmutableList<PathFragment> frameworks =
+            Depset.noneableCast(starlarkToAdd, String.class, keyName).toList().stream()
+                .map(PathFragment::create)
+                .collect(ImmutableList.toImmutableList());
+
+        ImmutableList.Builder<PathFragment> frameworkSearchPaths = ImmutableList.builder();
+        for (PathFragment framework : frameworks) {
+          if (!framework.getSafePathString().endsWith(FRAMEWORK_SUFFIX)) {
+            throw Starlark.errorf(AppleStarlarkCommon.BAD_FRAMEWORK_PATH_ERROR, framework);
+          }
+          frameworkSearchPaths.add(framework.getParentDirectory());
+        }
+        ccCompilationContextBuilder.addFrameworkIncludeDirs(frameworkSearchPaths.build());
+        return true;
+      } else if (key == HEADER) {
+        ImmutableList<Artifact> hdrs =
+            Depset.noneableCast(starlarkToAdd, Artifact.class, keyName).toList();
+        ccCompilationContextBuilder.addDeclaredIncludeSrcs(hdrs);
+        ccCompilationContextBuilder.addTextualHdrs(hdrs);
+        return true;
+      } else if (key == INCLUDE) {
+        ccCompilationContextBuilder.addIncludeDirs(
+            Depset.noneableCast(starlarkToAdd, String.class, keyName).toList().stream()
+                .map(PathFragment::create)
+                .collect(ImmutableList.toImmutableList()));
+        return true;
+      } else if (key == INCLUDE_SYSTEM) {
+        ccCompilationContextBuilder.addSystemIncludeDirs(
+            Depset.noneableCast(starlarkToAdd, String.class, keyName).toList().stream()
+                .map(PathFragment::create)
+                .collect(ImmutableList.toImmutableList()));
+        return true;
+      } else if (key == IQUOTE) {
+        ccCompilationContextBuilder.addQuoteIncludeDirs(
+            Depset.noneableCast(starlarkToAdd, String.class, keyName).toList().stream()
+                .map(PathFragment::create)
+                .collect(ImmutableList.toImmutableList()));
+        return true;
+      }
+      return false;
+    }
+
     /**
      * Adds the given providers from Starlark. An error is thrown if toAdd is not an iterable of
      * ObjcProvider instances.
@@ -1249,17 +1276,13 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     @SuppressWarnings("unchecked")
     void addProvidersFromStarlark(Object toAdd) throws EvalException {
       if (!(toAdd instanceof Iterable)) {
-        throw new EvalException(
-            null,
-            String.format(AppleStarlarkCommon.BAD_PROVIDERS_ITER_ERROR, Starlark.type(toAdd)));
+        throw Starlark.errorf(AppleStarlarkCommon.BAD_PROVIDERS_ITER_ERROR, Starlark.type(toAdd));
       } else {
         Iterable<Object> toAddIterable = (Iterable<Object>) toAdd;
         for (Object toAddObject : toAddIterable) {
           if (!(toAddObject instanceof ObjcProvider)) {
-            throw new EvalException(
-                null,
-                String.format(
-                    AppleStarlarkCommon.BAD_PROVIDERS_ELEM_ERROR, Starlark.type(toAddObject)));
+            throw Starlark.errorf(
+                AppleStarlarkCommon.BAD_PROVIDERS_ELEM_ERROR, Starlark.type(toAddObject));
           } else {
             ObjcProvider objcProvider = (ObjcProvider) toAddObject;
             this.addTransitiveAndPropagate(objcProvider);
@@ -1277,17 +1300,13 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     @SuppressWarnings("unchecked")
     void addDirectDepProvidersFromStarlark(Object toAdd) throws EvalException {
       if (!(toAdd instanceof Iterable)) {
-        throw new EvalException(
-            null,
-            String.format(AppleStarlarkCommon.BAD_PROVIDERS_ITER_ERROR, Starlark.type(toAdd)));
+        throw Starlark.errorf(AppleStarlarkCommon.BAD_PROVIDERS_ITER_ERROR, Starlark.type(toAdd));
       } else {
         Iterable<Object> toAddIterable = (Iterable<Object>) toAdd;
         for (Object toAddObject : toAddIterable) {
           if (!(toAddObject instanceof ObjcProvider)) {
-            throw new EvalException(
-                null,
-                String.format(
-                    AppleStarlarkCommon.BAD_PROVIDERS_ELEM_ERROR, Starlark.type(toAddObject)));
+            throw Starlark.errorf(
+                AppleStarlarkCommon.BAD_PROVIDERS_ELEM_ERROR, Starlark.type(toAddObject));
           } else {
             this.addAsDirectDeps((ObjcProvider) toAddObject);
           }

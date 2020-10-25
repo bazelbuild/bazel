@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -53,7 +53,7 @@ public final class LauncherFileWriteAction extends AbstractFileWriteAction {
         new LauncherFileWriteAction(
             ruleContext.getActionOwner(),
             output,
-            ruleContext.getPrerequisiteArtifact("$launcher", TransitionMode.HOST),
+            ruleContext.getPrerequisiteArtifact("$launcher"),
             launchInfo));
   }
 
@@ -90,7 +90,10 @@ public final class LauncherFileWriteAction extends AbstractFileWriteAction {
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable ArtifactExpander artifactExpander,
+      Fingerprint fp) {
     fp.addString(GUID);
     fp.addPath(this.launcher.getExecPath());
     fp.addString(this.launchInfo.fingerPrint);

@@ -21,13 +21,13 @@ import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.ApplePlatformApi;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.ApplePlatformTypeApi;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.ApplePlatformApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.ApplePlatformTypeApi;
 import java.util.HashMap;
 import java.util.Locale;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.syntax.Location;
 
 /** An enum that can be used to distinguish between various apple platforms. */
 @Immutable
@@ -38,7 +38,8 @@ public enum ApplePlatform implements ApplePlatformApi {
   TVOS_DEVICE("tvos_device", "AppleTVOS", PlatformType.TVOS, true),
   TVOS_SIMULATOR("tvos_simulator", "AppleTVSimulator", PlatformType.TVOS, false),
   WATCHOS_DEVICE("watchos_device", "WatchOS", PlatformType.WATCHOS, true),
-  WATCHOS_SIMULATOR("watchos_simulator", "WatchSimulator", PlatformType.WATCHOS, false);
+  WATCHOS_SIMULATOR("watchos_simulator", "WatchSimulator", PlatformType.WATCHOS, false),
+  CATALYST("catalyst", "MacOSX", PlatformType.CATALYST, true);
 
   private static final ImmutableSet<String> IOS_SIMULATOR_TARGET_CPUS =
       ImmutableSet.of("ios_x86_64", "ios_i386");
@@ -52,11 +53,13 @@ public enum ApplePlatform implements ApplePlatformApi {
       ImmutableSet.of("tvos_x86_64");
   private static final ImmutableSet<String> TVOS_DEVICE_TARGET_CPUS =
       ImmutableSet.of("tvos_arm64");
+  private static final ImmutableSet<String> CATALYST_TARGET_CPUS =
+      ImmutableSet.of("catalyst_x86_64");
   // "darwin" is included because that's currently the default when on macOS, and
   // migrating it would be a breaking change more details:
   // https://github.com/bazelbuild/bazel/pull/7062
   private static final ImmutableSet<String> MACOS_TARGET_CPUS =
-      ImmutableSet.of("darwin_x86_64", "darwin");
+      ImmutableSet.of("darwin_x86_64", "darwin_arm64", "darwin_arm64e", "darwin");
 
   private static final ImmutableSet<String> BIT_32_TARGET_CPUS =
       ImmutableSet.of("ios_i386", "ios_armv7", "ios_armv7s", "watchos_i386", "watchos_armv7k");
@@ -115,6 +118,8 @@ public enum ApplePlatform implements ApplePlatformApi {
       return TVOS_SIMULATOR;
     } else if (TVOS_DEVICE_TARGET_CPUS.contains(targetCpu)) {
       return TVOS_DEVICE;
+    } else if (CATALYST_TARGET_CPUS.contains(targetCpu)) {
+      return CATALYST;
     } else if (MACOS_TARGET_CPUS.contains(targetCpu)) {
       return MACOS;
     } else {
@@ -214,7 +219,8 @@ public enum ApplePlatform implements ApplePlatformApi {
     IOS("ios"),
     WATCHOS("watchos"),
     TVOS("tvos"),
-    MACOS("macos");
+    MACOS("macos"),
+    CATALYST("catalyst");
 
     /**
      * The key used to access the enum value as a field in the Starlark apple_common.platform_type
