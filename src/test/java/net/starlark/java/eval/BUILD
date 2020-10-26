@@ -29,7 +29,6 @@ java_test(
         "StarlarkMutableTest.java",
         "StarlarkThreadDebuggingTest.java",
         "StarlarkThreadTest.java",
-        "StringModuleTest.java",
     ],
     deps = [
         "//src/main/java/net/starlark/java/annot",

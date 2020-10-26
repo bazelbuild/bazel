@@ -40,12 +40,20 @@ assert_eq('b\\n\\n\\'.replace('\\', '$()'), "b$()n$()n$()")
 assert_eq('banana'.replace('a', 'e', 2), "benena")
 assert_eq('banana'.replace('a', 'e', 0), "banana")
 
+assert_eq('banana'.replace('', '-'), '-b-a-n-a-n-a-')
 assert_eq('banana'.replace('', '-', 2), "-b-anana")
 assert_eq('banana'.replace('', '-', 0), "banana")
 
 assert_eq('banana'.replace('', ''), "banana")
 assert_eq('banana'.replace('a', ''), "bnn")
 assert_eq('banana'.replace('a', '', 2), "bnna")
+
+assert_eq('banana'.replace('a', 'o', -2), 'bonono')
+assert_eq('banana'.replace('a', 'e', -1), 'benene')
+assert_eq('banana'.replace('a', 'e', -10), 'benene')
+assert_eq('banana'.replace('', '-', -2), '-b-a-n-a-n-a-')
+
+'banana'.replace('a', 'e', None) ### parameter 'count' got value of type 'NoneType', want 'int'
 
 # index, rindex
 assert_eq('banana'.index('na'), 2)
