@@ -33,7 +33,7 @@ assert_eq(x, "abc")
 y = {}
 assert_eq(y.clear == y.clear, False)
 assert_eq([].clear == [].clear, False)
-assert_eq(type([].clear), "function")
+assert_eq(type([].clear), "builtin_function_or_method")
 assert_eq(str([].clear), "<built-in method clear of list value>")
 assert_eq(str({}.clear), "<built-in method clear of dict value>")
 assert_eq(str(len), "<built-in function len>")

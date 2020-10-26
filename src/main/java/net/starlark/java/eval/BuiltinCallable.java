@@ -21,6 +21,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.spelling.SpellChecker;
 
@@ -30,8 +31,11 @@ import net.starlark.java.spelling.SpellChecker;
  * Starlark value. BuiltinCallables are not produced for Java methods for which {@link
  * StarlarkMethod#structField} is true.
  */
-// TODO(adonovan): rename AnnotatedMethod?
-// TODO(adonovan): annotate with type="builtin_function_or_method"
+// TODO(adonovan): rename to BuiltinFunction. Also, support annotated static methods.
+@StarlarkBuiltin(
+    name = "builtin_function_or_method", // (following Python)
+    category = "core",
+    doc = "The type of a built-in function, defined by Java code.")
 public final class BuiltinCallable implements StarlarkCallable {
 
   private final Object obj;

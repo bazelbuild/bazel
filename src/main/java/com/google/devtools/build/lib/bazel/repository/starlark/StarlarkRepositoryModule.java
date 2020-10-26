@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descriptor;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -40,6 +41,7 @@ import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryModuleApi;
 import java.util.Map;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -110,6 +112,12 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
 
   // RepositoryRuleFunction is the result of repository_rule(...).
   // It is a callable value; calling it yields a Rule instance.
+  @StarlarkBuiltin(
+      name = "repository_rule",
+      category = DocCategory.BUILTIN,
+      doc =
+          "A callable value that may be invoked during evaluation of the WORKSPACE file to"
+              + " instantiate and return a repository rule.")
   private static final class RepositoryRuleFunction
       implements StarlarkCallable, StarlarkExportable {
     private final RuleClass.Builder builder;

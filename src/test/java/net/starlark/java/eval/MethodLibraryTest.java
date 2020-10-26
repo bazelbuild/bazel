@@ -287,7 +287,8 @@ public final class MethodLibraryTest {
         .testEval("sorted([[1], [], [1, 2]], key=len, reverse=True)", "[[1, 2], [1], []]")
         .testEval("sorted([[0, 5], [4, 1], [1, 7]], key=max)", "[[4, 1], [0, 5], [1, 7]]")
         .testIfExactError(
-            "unsupported comparison: function <=> function", "sorted([sorted, sorted])");
+            "unsupported comparison: builtin_function_or_method <=> builtin_function_or_method",
+            "sorted([sorted, sorted])");
   }
 
   @Test
@@ -622,8 +623,8 @@ public final class MethodLibraryTest {
   @Test
   public void testIndexOnFunction() throws Exception {
     ev.new Scenario()
-        .testIfErrorContains("type 'function' has no operator [](int)", "len[1]")
-        .testIfErrorContains("invalid slice operand: function", "len[1:4]");
+        .testIfErrorContains("type 'builtin_function_or_method' has no operator [](int)", "len[1]")
+        .testIfErrorContains("invalid slice operand: builtin_function_or_method", "len[1:4]");
   }
 
   @Test
@@ -656,13 +657,15 @@ public final class MethodLibraryTest {
   @Test
   public void testType() throws Exception {
     ev.new Scenario()
+        .setUp("def f(): pass")
         .testExpression("type(1)", "int")
         .testExpression("type('a')", "string")
         .testExpression("type([1, 2])", "list")
         .testExpression("type((1, 2))", "tuple")
         .testExpression("type(True)", "bool")
         .testExpression("type(None)", "NoneType")
-        .testExpression("type(str)", "function");
+        .testExpression("type(f)", "function")
+        .testExpression("type(str)", "builtin_function_or_method");
   }
 
   @Test

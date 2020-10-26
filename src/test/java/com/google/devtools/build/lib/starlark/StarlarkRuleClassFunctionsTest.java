@@ -1090,7 +1090,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
     // callable in field
     ev.checkEvalErrorContains(
-        "in struct field .a: got function, want string, int, bool, or struct",
+        "in struct field .a: got builtin_function_or_method, want string, int, bool, or struct",
         "struct(a=rule).to_proto()");
   }
 
@@ -1166,7 +1166,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void testJsonInvalidStructure() throws Exception {
     ev.checkEvalErrorContains(
         "Invalid text format, expected a struct, a string, a bool, or an int but got a "
-            + "function for struct field 'a'",
+            + "builtin_function_or_method for struct field 'a'",
         "struct(a=rule).to_json()");
   }
 
@@ -2047,6 +2047,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
     getConfiguredTarget("//r:r");
 
-    ev.assertContainsError("Error in rule: Invalid rule class hasn't been exported by a bzl file");
+    ev.assertContainsError(
+        "Error in unexported rule: Invalid rule class hasn't been exported by a bzl file");
   }
 }

@@ -1974,11 +1974,9 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
         "silly_rule(name = 'silly')");
     thrown.handleAssertionErrors(); // Compatibility with JUnit 4.11
     thrown.expect(AssertionError.class);
-    // This confusing message shows why we should distinguish
-    // built-ins and Starlark functions in their repr strings.
     thrown.expectMessage(
-        "in call to rule(), parameter 'implementation' got value of type 'function', want"
-            + " 'function'");
+        "in call to rule(), parameter 'implementation' got value of type"
+            + " 'builtin_function_or_method', want 'function'");
     getConfiguredTarget("//test:silly");
   }
 

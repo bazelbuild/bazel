@@ -429,7 +429,7 @@ public final class PackageFactory {
   /** A callable Starlark value that creates Rules for native RuleClasses. */
   // TODO(adonovan): why is this distinct from RuleClass itself?
   // Make RuleClass implement StarlarkCallable directly.
-  private static class BuiltinRuleFunction implements StarlarkCallable, RuleFunction {
+  private static class BuiltinRuleFunction implements RuleFunction {
     private final RuleClass ruleClass;
 
     BuiltinRuleFunction(RuleClass ruleClass) {

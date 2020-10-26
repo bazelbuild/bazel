@@ -39,11 +39,11 @@ json.encode(float("NaN")) ### cannot encode non-finite float nan
 ---
 json.encode({1: "two"})  ### dict has int key, want string
 ---
-json.encode(len)  ### cannot encode function as JSON
+json.encode(len)  ### cannot encode builtin_function_or_method as JSON
 ---
-json.encode(struct(x = [1, len]))  ### in struct field .x: at list index 1: cannot encode function as JSON
+json.encode(struct(x = [1, len]))  ### in struct field .x: at list index 1: cannot encode builtin_function_or_method as JSON
 ---
-json.encode(struct(x = [1, {"x": len}]))  ### in struct field .x: at list index 1: in dict key "x": cannot encode function as JSON
+json.encode(struct(x = [1, {"x": len}]))  ### in struct field .x: at list index 1: in dict key "x": cannot encode builtin_function_or_method as JSON
 ---
 def f(deep):
   for x in range(10000):

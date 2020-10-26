@@ -1353,7 +1353,9 @@ public final class StarlarkEvaluationTest {
 
   @Test
   public void testStructAccessOfMethod() throws Exception {
-    ev.new Scenario().update("mock", new Mock()).testExpression("type(mock.function)", "function");
+    ev.new Scenario()
+        .update("mock", new Mock())
+        .testExpression("type(mock.function)", "builtin_function_or_method");
     ev.new Scenario().update("mock", new Mock()).testExpression("mock.function()", "a");
   }
 

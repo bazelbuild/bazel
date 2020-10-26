@@ -95,19 +95,22 @@ assert_eq("a" in dict(a=1), True)
 # 'len in {}' and '{}.get(len, False)' should both successfully evaluate to False.
 # TODO(adonovan): clarify spec and fix this test (https://github.com/bazelbuild/starlark/issues/65)
 
+# Starlark functions are already hashable:
+def f(): pass
+f in {} # no error
 # unhashable types
 
 {} in {} ### unhashable type: 'dict'
 ---
 [] in {} ### unhashable type: 'list'
 ---
-len in {} ### unhashable type: 'function'
+len in {} ### unhashable type: 'builtin_function_or_method'
 ---
 {}.get([]) ### unhashable type: 'list'
 ---
 dict().get({}) ### unhashable type: 'dict'
 ---
-{1: 2}.get(len) ### unhashable type: 'function'
+{1: 2}.get(len) ### unhashable type: 'builtin_function_or_method'
 ---
 # For composite keys, the error message relates to the
 # unhashable subelement of the key, not the key itself.
