@@ -5370,7 +5370,7 @@ def _impl(ctx):
                     ACTION_NAMES.objc_compile,
                     ACTION_NAMES.objcpp_compile,
                 ],
-                flag_groups = [flag_group(flags = ["DEBUG_PREFIX_MAP_PWD=."])],
+                flag_groups = [flag_group(flags = ["-fdebug-compilation-dir", "."])],
             ),
         ],
     )
