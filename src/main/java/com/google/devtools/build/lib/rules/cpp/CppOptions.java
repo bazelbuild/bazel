@@ -1015,7 +1015,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_force_strict_header_check_from_starlark",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.CHANGES_INPUTS},
       metadataTags = {
