@@ -471,20 +471,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       help = "If set to true, the command parameter of actions.run_shell will only accept string")
   public boolean incompatibleRunShellCommandString;
 
-  @Option(
-      name = "incompatible_string_replace_count",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set to true, the `count` parameter of string.replace() is changed to behave as in "
-              + "Python: a negative count is ignored, and a None count is an error")
-  public boolean incompatibleStringReplaceCount;
-
   /** Used in an integration test to confirm that flags are visible to the interpreter. */
   @Option(
       name = "internal_starlark_flag_test_canary",
@@ -650,8 +636,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
             .setBool(INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT, incompatibleNoImplicitFileExport)
             .setBool(INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM, incompatibleNoRuleOutputsParam)
             .setBool(INCOMPATIBLE_RUN_SHELL_COMMAND_STRING, incompatibleRunShellCommandString)
-            .setBool(
-                StarlarkSemantics.INCOMPATIBLE_STRING_REPLACE_COUNT, incompatibleStringReplaceCount)
             .setBool(INCOMPATIBLE_STRUCT_HAS_NO_METHODS, incompatibleStructHasNoMethods)
             .setBool(
                 INCOMPATIBLE_VISIBILITY_PRIVATE_ATTRIBUTES_AT_DEFINITION,

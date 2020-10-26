@@ -205,10 +205,6 @@ public final class StarlarkSemantics {
 
   // -- semantics options affecting the Starlark interpreter itself --
 
-  /** Ignore negative n in string.replace(count=n), and treat n=None as an error. */
-  public static final String INCOMPATIBLE_STRING_REPLACE_COUNT =
-      "-incompatible_string_replace_count";
-
   /** Change the behavior of 'print' statements. Used in tests to verify flag propagation. */
   public static final String PRINT_TEST_MARKER = "-print_test_marker";
 }

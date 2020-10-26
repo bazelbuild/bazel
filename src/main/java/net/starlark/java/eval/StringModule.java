@@ -275,45 +275,18 @@ final class StringModule implements StarlarkValue {
         @Param(name = "new", doc = "The string to replace with."),
         @Param(
             name = "count",
-            allowedTypes = {
-              @ParamType(type = StarlarkInt.class),
-              @ParamType(
-                  type = NoneType.class), // TODO(#11244): remove once incompatible flag is deleted.
-            },
-            defaultValue = "unbound",
+            defaultValue = "-1",
             doc =
-                "The maximum number of replacements. If omitted, there is no limit."
-                    + "<p>If <code>--incompatible_string_replace_count</code> is true, a negative "
-                    + "value is ignored (so there's no limit) and a <code>None</code> value is an "
-                    + "error. Otherwise, a negative value is treated as 0 and a <code>None</code> "
-                    + "value is ignored. (See also issue <a "
-                    + "href='https://github.com/bazelbuild/bazel/issues/11244'>#11244</a>.)")
+                "The maximum number of replacements. If omitted, or if the value is negative, "
+                    + "there is no limit.")
       },
       useStarlarkThread = true)
   public String replace(
-      String self, String oldString, String newString, Object countUnchecked, StarlarkThread thread)
+      String self, String oldString, String newString, StarlarkInt countI, StarlarkThread thread)
       throws EvalException {
-    int count = Integer.MAX_VALUE;
-
-    StarlarkSemantics semantics = thread.getSemantics();
-    if (semantics.getBool(StarlarkSemantics.INCOMPATIBLE_STRING_REPLACE_COUNT)) {
-      if (countUnchecked == Starlark.NONE) {
-        throw Starlark.errorf(
-            "Cannot pass a None count to string.replace(); omit the count argument instead. (You "
-                + "can temporarily opt out of this change by setting "
-                + "--incompatible_string_replace_count=false.)");
-      }
-      if (countUnchecked != Starlark.UNBOUND) {
-        int x = Starlark.toInt(countUnchecked, "count");
-        if (x >= 0) {
-          count = x;
-        }
-      }
-    } else {
-      if (countUnchecked != Starlark.UNBOUND && countUnchecked != Starlark.NONE) {
-        // Negative has same effect as 0 below.
-        count = Starlark.toInt(countUnchecked, "count");
-      }
+    int count = countI.toInt("count");
+    if (count < 0) {
+      count = Integer.MAX_VALUE;
     }
 
     StringBuilder sb = new StringBuilder();
