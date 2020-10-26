@@ -32,6 +32,8 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Starlark;
 
+// TODO(#11437): Update the design doc to change `@builtins` -> `@_builtins`.
+
 // TODO(#11437): Add support to StarlarkModuleCycleReporter to pretty-print cycles involving
 // @_builtins. Blocked on us actually loading files from @_builtins.
 
@@ -70,15 +72,13 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
       Label.parseAbsoluteUnchecked("@_builtins//:exports.bzl"); // unused
 
   /**
-   * Key for loading exports.bzl. {@code keyForBuiltins} (as opposed to {@code keyForBuild} ensures
-   * that 1) we can resolve the {@code @_builtins} name appropriately, and 2) loading it does not
-   * trigger a cyclic call back into {@code StarlarkBuiltinsFunction}.
+   * Key for loading exports.bzl. Note that {@code keyForBuiltins} (as opposed to {@code
+   * keyForBuild}) ensures we can resolve {@code @_builtins}, which is otherwise inaccessible. It
+   * also prevents us from cyclically requesting StarlarkBuiltinsFunction again to evaluate
+   * exports.bzl.
    */
   private static final BzlLoadValue.Key EXPORTS_ENTRYPOINT_KEY =
-      BzlLoadValue.keyForBuiltins(
-          // TODO(#11437): Replace by EXPORTS_ENTRYPOINT once BzlLoadFunction can resolve the
-          // @_builtins namespace.
-          Label.parseAbsoluteUnchecked("//tools/builtins_staging:exports.bzl"));
+      BzlLoadValue.keyForBuiltins(EXPORTS_ENTRYPOINT);
 
   // Used to obtain the injected environment.
   private final PackageFactory packageFactory;

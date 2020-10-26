@@ -71,7 +71,6 @@ java_library(
         "SkyframeTransitivePackageLoader.java",
         "StarlarkAspectFactory.java",
         "StarlarkBuiltinsFunction.java",
-        "StarlarkBuiltinsValue.java",
         "TargetCompletionValue.java",
         "TargetCompletor.java",
         "TargetPatternFunction.java",
@@ -194,6 +193,7 @@ java_library(
         ":skyframe_aware_action",
         ":skyframe_incremental_build_monitor",
         ":skylark_module_cycle_reporter",
+        ":starlark_builtins_value",
         ":state_informing_sky_function_environment",
         ":target_pattern_error_function",
         ":target_pattern_phase_value",
@@ -290,6 +290,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules:repository/workspace_file_helper",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp:cpp_interface",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/skyframe/trimming:trimmed_configuration_cache",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
@@ -2358,11 +2359,24 @@ java_library(
 )
 
 java_library(
+    name = "starlark_builtins_value",
+    srcs = ["StarlarkBuiltinsValue.java"],
+    deps = [
+        ":sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "bzl_load_value",
     srcs = ["BzlLoadValue.java"],
     deps = [
         ":bzl_compile",
         ":sky_functions",
+        ":starlark_builtins_value",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",

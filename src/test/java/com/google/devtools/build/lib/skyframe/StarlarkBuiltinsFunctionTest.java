@@ -54,8 +54,8 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
 
   /** Sets up exports.bzl with the given contents and evaluates the {@code @_builtins}. */
   private EvaluationResult<StarlarkBuiltinsValue> evalBuiltins(String... lines) throws Exception {
-    scratch.file("tools/builtins_staging/BUILD");
     scratch.file("tools/builtins_staging/exports.bzl", lines);
+    setBuildLanguageOptions("--experimental_builtins_bzl_path=tools/builtins_staging");
 
     SkyKey key = StarlarkBuiltinsValue.key();
     return SkyframeExecutorTestUtils.evaluate(
@@ -107,15 +107,13 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
 
   @Test
   public void exportsCanHaveLoad() throws Exception {
-    // TODO(#11437): Use @_builtins//:... syntax, once supported. Don't create a real package.
-    scratch.file("builtins_helper/BUILD");
     scratch.file(
-        "builtins_helper/dummy.bzl", //
+        "tools/builtins_staging/dummy.bzl", //
         "toplevels = {'overridable_symbol': 'new_value'}");
 
     EvaluationResult<StarlarkBuiltinsValue> result =
         evalBuiltins(
-            "load('//builtins_helper:dummy.bzl', 'toplevels')",
+            "load('@_builtins//:dummy.bzl', 'toplevels')",
             "exported_toplevels = toplevels",
             "exported_rules = {}",
             "exported_to_java = {}");
@@ -130,16 +128,14 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
   public void exportsDependenciesAreLoadedAsBuiltinsBzls() throws Exception {
     // Ensure that any bzls loaded by exports.bzl also have access to the special @_builtins
     // features.
-    // TODO(#11437): Use @_builtins//:... syntax, once supported. Don't create a real package.
-    scratch.file("builtins_helper/BUILD");
     scratch.file(
-        "builtins_helper/dummy.bzl", //
+        "tools/builtins_staging/dummy.bzl", //
         "_internal", // symbol only exists for @_builtins bzls
         "unused = 123");
 
     EvaluationResult<StarlarkBuiltinsValue> result =
         evalBuiltins(
-            "load('//builtins_helper:dummy.bzl', 'unused')",
+            "load('@_builtins//:dummy.bzl', 'unused')",
             "exported_toplevels = {}",
             "exported_rules = {}",
             "exported_to_java = {}");
@@ -220,9 +216,7 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
     assertThat(ex).isInstanceOf(BuiltinsFailedException.class);
     assertThat(ex)
         .hasMessageThat()
-        .contains(
-            "Failed to load builtins sources: Extension 'tools/builtins_staging/exports.bzl' has "
-                + "errors");
+        .contains("Failed to load builtins sources: Extension 'exports.bzl' (internal) has errors");
   }
 
   @Test
@@ -238,21 +232,18 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
     assertThat(ex)
         .hasMessageThat()
         .contains(
-            "Failed to load builtins sources: Extension file 'tools/builtins_staging/exports.bzl' "
-                + "has errors");
+            "Failed to load builtins sources: Extension file 'exports.bzl' (internal) has errors");
   }
 
   @Test
   public void evalErrorInDependencyHandledGracefully() throws Exception {
     reporter.removeHandler(failFastHandler);
-    // TODO(#11437): Use @_builtins//:... syntax, once supported. Don't create a real package.
-    scratch.file("builtins_helper/BUILD");
     scratch.file(
-        "builtins_helper/dummy.bzl", //
+        "tools/builtins_staging/dummy.bzl", //
         "1 // 0  # <-- dynamic error");
     Exception ex =
         evalBuiltinsToException(
-            "load('//builtins_helper:dummy.bzl', 'dummy')",
+            "load('@_builtins//:dummy.bzl', 'dummy')",
             "exported_toplevels = {}",
             "exported_rules = {}",
             "exported_to_java = {}");
@@ -261,6 +252,6 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
         .hasMessageThat()
         .contains(
             "Failed to load builtins sources: in /workspace/tools/builtins_staging/exports.bzl: "
-                + "Extension file 'builtins_helper/dummy.bzl' has errors");
+                + "Extension file 'dummy.bzl' (internal) has errors");
   }
 }

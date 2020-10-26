@@ -52,7 +52,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
 
   @Before
   public void setUp() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_bzl_path=notdisabled");
+    setBuildLanguageOptions("--experimental_builtins_bzl_path=tools/builtins_staging");
   }
 
   /**
@@ -61,10 +61,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
    *
    * <p>See {@link StarlarkBuiltinsFunction#EXPORTS_ENTRYPOINT} for the significance of exports.bzl.
    */
-  // TODO(#11437): Don't write the BUILD file once it's no longer needed. Pass staging location into
-  // test setup above.
   private void writeExportsBzl(String... lines) throws Exception {
-    scratch.file("tools/builtins_staging/BUILD");
     scratch.file("tools/builtins_staging/exports.bzl", lines);
   }
 
@@ -119,12 +116,11 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
   @Test
   public void errorInEvaluatingBuiltins() throws Exception {
     // Test case with a Starlark error in the @_builtins pseudo-repo itself.
-    // TODO(#11437): Use @_builtins//:... syntax for load, once supported.
     scratch.file(
         "tools/builtins_staging/helper.bzl", //
         "toplevels = {'overridable_symbol': 1//0}  # <-- dynamic error");
     writeExportsBzl(
-        "load('//tools/builtins_staging:helper.bzl', 'toplevels')",
+        "load('@_builtins//:helper.bzl', 'toplevels')",
         "exported_toplevels = toplevels",
         "exported_rules = {}",
         "exported_to_java = {}");
@@ -139,7 +135,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
         "error loading package 'pkg': Internal error while loading Starlark builtins for "
             + "//pkg:dummy.bzl: Failed to load builtins sources: in "
             + "/workspace/tools/builtins_staging/exports.bzl: Extension file "
-            + "'tools/builtins_staging/helper.bzl' has errors");
+            + "'helper.bzl' (internal) has errors");
     assertDoesNotContainEvent("evaluation completed");
   }
 
@@ -225,14 +221,13 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
 
   @Test
   public void builtinsBzlCannotAccessNative() throws Exception {
-    // TODO(#11437): Use @_builtins//:... syntax for load, once supported.
     scratch.file(
         "tools/builtins_staging/helper.bzl", //
         "builtins_dummy = None",
         "print('made it to evaluation')",
         "print('overridable_rule :: ' + str(native.overridable_rule))");
     writeExportsBzl(
-        "load('//tools/builtins_staging:helper.bzl', 'builtins_dummy')",
+        "load('@_builtins//:helper.bzl', 'builtins_dummy')",
         "exported_toplevels = {}",
         "exported_rules = {}",
         "exported_to_java = {}");
@@ -248,14 +243,13 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
 
   @Test
   public void builtinsBzlCannotAccessRuleSpecificSymbol() throws Exception {
-    // TODO(#11437): Use @_builtins//:... syntax for load, once supported.
     scratch.file(
         "tools/builtins_staging/helper.bzl", //
         "builtins_dummy = None",
         "print('made it to evaluation')",
         "print('overridable_symbol :: ' + str(overridable_symbol))");
     writeExportsBzl(
-        "load('//tools/builtins_staging:helper.bzl', 'builtins_dummy')",
+        "load('@_builtins//:helper.bzl', 'builtins_dummy')",
         "exported_toplevels = {}",
         "exported_rules = {}",
         "exported_to_java = {}");
@@ -284,13 +278,12 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
 
   @Test
   public void builtinsBzlCanAccessInternal() throws Exception {
-    // TODO(#11437): Use @_builtins//:... syntax for load, once supported.
     scratch.file(
         "tools/builtins_staging/helper.bzl", //
         "builtins_dummy = None",
         "print('_internal in helper.bzl :: ' + str(_internal))");
     writeExportsBzl(
-        "load('//tools/builtins_staging:helper.bzl', 'builtins_dummy')",
+        "load('@_builtins//:helper.bzl', 'builtins_dummy')",
         "exported_toplevels = {}",
         "exported_rules = {}",
         "exported_to_java = {}",

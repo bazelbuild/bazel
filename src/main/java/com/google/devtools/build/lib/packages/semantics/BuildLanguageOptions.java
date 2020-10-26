@@ -88,11 +88,12 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
               + "intended for Bazel developers, to help when writing @_builtins .bzl code. "
               + "Ordinarily this value is set to \"%install_base%\", which means to use the "
               + "builtins_bzl/ directory located in the install base. However, it can be set to "
-              + "the path to the root of a Bazel source tree workspace, in which case the bzl "
-              + "sources underneath that workspace are used. If the value is literally "
-              + "\"%workspace%\", the root of the current workspace is used; this should only be "
-              + "set when running Bazel within its own source tree. Finally, a value of the empty "
-              + "string (\"\") disables the builtins injection mechanism entirely.")
+              + "the path (relative to the root of the current workspace) of an alternate "
+              + "builtins_bzl/ directory, such as one in a Bazel source tree workspace. A literal "
+              + "value of \"%workspace%\" is equivalent to the relative package path of "
+              + "builtins_bzl/ within a Bazel source tree; this should only be used when running "
+              + "Bazel within its own source tree. Finally, a value of the empty string disables "
+              + "the builtins injection mechanism entirely.")
   public String experimentalBuiltinsBzlPath;
 
   @Option(

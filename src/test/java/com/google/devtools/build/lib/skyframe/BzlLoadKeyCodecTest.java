@@ -33,7 +33,7 @@ public final class BzlLoadKeyCodecTest {
                 Label.parseAbsoluteUnchecked("//foo/bar:baz"),
                 /*workspaceChunk=*/ 4,
                 /*workspacePath=*/ FsUtils.TEST_ROOTED_PATH),
-            BzlLoadValue.keyForBuiltins(Label.parseAbsoluteUnchecked("//foo/bar:baz")));
+            BzlLoadValue.keyForBuiltins(Label.parseAbsoluteUnchecked("@_builtins//:foo/bar")));
     FsUtils.addDependencies(serializationTester);
     serializationTester.runTests();
   }
