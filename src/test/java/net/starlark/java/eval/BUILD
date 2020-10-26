@@ -45,7 +45,7 @@ java_test(
 java_test(
     name = "ScriptTest",
     srcs = ["ScriptTest.java"],
-    data = glob(["testdata/*.sky"]),
+    data = glob(["testdata/*.star"]),
     jvm_flags = ["-Dfile.encoding=UTF8"],
     use_testrunner = False,
     deps = [
