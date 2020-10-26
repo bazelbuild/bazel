@@ -35,7 +35,6 @@ public class JavaPackageConfiguration implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    JavaCommon.checkRuleLoadedThroughMacro(ruleContext);
     ImmutableList<PackageSpecificationProvider> packages =
         ImmutableList.copyOf(
             ruleContext.getPrerequisites("packages", PackageSpecificationProvider.class));
