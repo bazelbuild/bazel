@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.server.CommandProtos.ExecRequest;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import javax.annotation.Nullable;
@@ -83,8 +83,8 @@ public final class BlazeCommandResult {
     return new BlazeCommandResult(DetailedExitCode.success(), null, true);
   }
 
-  static BlazeCommandResult createShutdown(Throwable e) {
-    return new BlazeCommandResult(CrashFailureDetails.detailedExitCodeForThrowable(e), null, true);
+  static BlazeCommandResult createShutdown(Crash crash) {
+    return new BlazeCommandResult(crash.getDetailedExitCode(), null, true);
   }
 
   public static BlazeCommandResult success() {

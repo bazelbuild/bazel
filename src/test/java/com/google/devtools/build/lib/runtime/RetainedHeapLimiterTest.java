@@ -40,7 +40,6 @@ import com.sun.management.GcInfo;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.MemoryUsage;
 import java.lang.ref.WeakReference;
-import java.util.List;
 import javax.management.ListenerNotFoundException;
 import javax.management.Notification;
 import javax.management.NotificationEmitter;
@@ -136,38 +135,21 @@ public final class RetainedHeapLimiterTest {
 
   @Test
   public void overThreshold_oom() throws Exception {
-    class OomThrowingBugReporter implements BugReporter {
-      @Override
-      public void sendBugReport(Throwable exception) {
-        throw new IllegalStateException(exception);
-      }
-
-      @Override
-      public void sendBugReport(Throwable exception, List<String> args, String... values) {
-        throw new IllegalStateException(exception);
-      }
-
-      @Override
-      public RuntimeException handleCrash(Throwable exception, String... args) {
-        assertThat(exception).isInstanceOf(OutOfMemoryError.class);
-        throw (OutOfMemoryError) exception;
-      }
-    }
     RetainedHeapLimiter underTest =
         RetainedHeapLimiter.createFromBeans(
-            ImmutableList.of(mockBean), new OomThrowingBugReporter());
+            ImmutableList.of(mockBean), BugReporter.defaultInstance());
     underTest.update(90, "Build fewer targets!", events);
 
+    assertThrows(
+        SecurityException.class, // From attempt to halt jvm in test.
+        () -> underTest.handleNotification(percentUsedAfterForcedGc(91), null));
     OutOfMemoryError oom =
-        assertThrows(
-            OutOfMemoryError.class,
-            () -> underTest.handleNotification(percentUsedAfterForcedGc(91), null));
+        assertThrows(OutOfMemoryError.class, BugReport::maybePropagateUnprocessedThrowableIfInTest);
 
-    String expectedOomMessage = BugReport.constructOomExitMessage("Build fewer targets!");
-    assertThat(oom).hasMessageThat().contains(expectedOomMessage);
     assertThat(oom).hasMessageThat().contains("forcing exit due to GC thrashing");
     assertThat(oom).hasMessageThat().contains("tenured space is more than 90% occupied");
-    assertContainsEvent(events, expectedOomMessage, EventKind.ERROR);
+    assertContainsEvent(
+        events, BugReport.constructOomExitMessage("Build fewer targets!"), EventKind.FATAL);
   }
 
   @Test

@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.buildeventservice.BuildEventServiceUploader
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceUploaderCommands.StreamCompleteCommand;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.StreamContext;
+import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -193,7 +194,15 @@ public final class BuildEventServiceUploader implements Runnable {
       }
       // BuildCompletingEvent marks the end of the build in the BEP event stream.
       if (event instanceof BuildCompletingEvent) {
-        this.buildStatus = extractBuildStatus((BuildCompletingEvent) event);
+        ExitCode exitCode = ((BuildCompletingEvent) event).getExitCode();
+        if (exitCode != null && exitCode.getNumericExitCode() == 0) {
+          buildStatus = COMMAND_SUCCEEDED;
+        } else {
+          buildStatus = COMMAND_FAILED;
+        }
+      } else if (event instanceof AbortedEvent && event.getEventId().hasBuildFinished()) {
+        // An AbortedEvent with a build finished ID means we are crashing.
+        buildStatus = COMMAND_FAILED;
       }
       ensureUploadThreadStarted();
 
@@ -342,8 +351,7 @@ public final class BuildEventServiceUploader implements Runnable {
   }
 
   private BuildEventStreamProtos.BuildEvent createSerializedRegularBuildEvent(
-      PathConverter pathConverter,
-      SendRegularBuildEventCommand buildEvent) {
+      PathConverter pathConverter, SendRegularBuildEventCommand buildEvent) {
     BuildEventContext ctx =
         new BuildEventContext() {
           @Override
@@ -361,8 +369,7 @@ public final class BuildEventServiceUploader implements Runnable {
             return buildEventProtocolOptions;
           }
         };
-    BuildEventStreamProtos.BuildEvent serializedBepEvent =
-        buildEvent.getEvent().asStreamProto(ctx);
+    BuildEventStreamProtos.BuildEvent serializedBepEvent = buildEvent.getEvent().asStreamProto(ctx);
 
     // TODO(lpino): Remove this logging once we can make every single event smaller than 1MB
     // as protobuf recommends.
@@ -553,7 +560,7 @@ public final class BuildEventServiceUploader implements Runnable {
               }
               acksReceived = 0;
               eventQueue.addFirst(new OpenStreamCommand());
-          }
+            }
             break;
         }
       }
@@ -661,14 +668,6 @@ public final class BuildEventServiceUploader implements Runnable {
 
   private Timestamp currentTime() {
     return Timestamps.fromMillis(clock.currentTimeMillis());
-  }
-
-  private static Result extractBuildStatus(BuildCompletingEvent event) {
-    if (event.getExitCode() != null && event.getExitCode().getNumericExitCode() == 0) {
-      return COMMAND_SUCCEEDED;
-    } else {
-      return COMMAND_FAILED;
-    }
   }
 
   private static Status lastEventNotSentStatus() {
@@ -809,4 +808,3 @@ public final class BuildEventServiceUploader implements Runnable {
     }
   }
 }
-
