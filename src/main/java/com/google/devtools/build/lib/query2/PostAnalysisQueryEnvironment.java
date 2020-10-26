@@ -230,7 +230,8 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
 
   public ImmutableSet<PathFragment> getIgnoredPackagePrefixesPathFragments()
       throws InterruptedException {
-     IgnoredPackagePrefixesValue ignoredPackagePrefixesValue = (IgnoredPackagePrefixesValue)
+     IgnoredPackagePrefixesValue ignoredPackagePrefixesValue =
+         (IgnoredPackagePrefixesValue)
             walkableGraphSupplier.get().getValue(IgnoredPackagePrefixesValue.key());
      return ignoredPackagePrefixesValue == null
          ? ImmutableSet.of()
