@@ -27,7 +27,8 @@ import java.io.OutputStream;
 /**
  * An {@link OutputStream} that maintains a {@link Digest} of the data written to it.
  *
- * <p>Based on Guava's {@link com.google.common.hash.HashingOutputStream}.
+ * <p>Similar to Guava's {@link com.google.common.hash.HashingOutputStream}, but for computing the
+ * {@link Digest} of the written data as specified by the remote execution protocol.
  */
 public final class DigestOutputStream extends FilterOutputStream {
   private final Hasher hasher;
@@ -62,7 +63,7 @@ public final class DigestOutputStream extends FilterOutputStream {
    * Returns the {@link Digest} of the data written to this stream. The result is
    * unspecified if this method is called more than once on the same instance.
    */
-  public Digest hash() {
+  public Digest digest() {
     return Digest.newBuilder().setHash(hasher.hash().toString()).setSizeBytes(size).build();
   }
 

@@ -443,7 +443,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
         (v) -> {
           try {
             if (digestOut != null) {
-              Utils.verifyBlobContents(digest, digestOut.hash());
+              Utils.verifyBlobContents(digest, digestOut.digest());
             }
             out.flush();
             return Futures.immediateFuture(null);

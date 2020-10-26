@@ -177,9 +177,9 @@ public final class Utils {
     if (!expected.equals(actual)) {
       String msg =
           String.format(
-              "Output download failed: Expected to download a blob of %d bytes with hash '%s', "
-                  + "got %d bytes with '%s'.",
-              expected.getSizeBytes(), expected.getHash(), actual.getSizeBytes(), actual.getHash());
+              "Output download failed: Expected digest '%s/%d' does not match "
+                  + "received digest '%s/%d'.",
+              expected.getHash(), expected.getSizeBytes(), actual.getHash(), actual.getSizeBytes());
       throw new IOException(msg);
     }
   }
