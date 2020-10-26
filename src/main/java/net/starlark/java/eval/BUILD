@@ -14,7 +14,7 @@ filegroup(
 java_library(
     name = "eval",
     srcs = [
-        "BuiltinCallable.java",
+        "BuiltinFunction.java",
         "CallUtils.java",
         "ClassObject.java",
         "CpuProfiler.java",

@@ -26,43 +26,43 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.spelling.SpellChecker;
 
 /**
- * A BuiltinCallable is a callable Starlark value that reflectively invokes a {@link
+ * A BuiltinFunction is a callable Starlark value that reflectively invokes a {@link
  * StarlarkMethod}-annotated method of a Java object. The Java object may or may not itself be a
- * Starlark value. BuiltinCallables are not produced for Java methods for which {@link
+ * Starlark value. BuiltinFunctions are not produced for Java methods for which {@link
  * StarlarkMethod#structField} is true.
  */
-// TODO(adonovan): rename to BuiltinFunction. Also, support annotated static methods.
+// TODO(adonovan): support annotated static methods.
 @StarlarkBuiltin(
     name = "builtin_function_or_method", // (following Python)
     category = "core",
     doc = "The type of a built-in function, defined by Java code.")
-public final class BuiltinCallable implements StarlarkCallable {
+public final class BuiltinFunction implements StarlarkCallable {
 
   private final Object obj;
   private final String methodName;
   @Nullable private final MethodDescriptor desc;
 
   /**
-   * Constructs a BuiltinCallable for a StarlarkMethod-annotated method of the given name (as seen
+   * Constructs a BuiltinFunction for a StarlarkMethod-annotated method of the given name (as seen
    * by Starlark, not Java).
    */
-  BuiltinCallable(Object obj, String methodName) {
+  BuiltinFunction(Object obj, String methodName) {
     this.obj = obj;
     this.methodName = methodName;
     this.desc = null; // computed later
   }
 
   /**
-   * Constructs a BuiltinCallable for a StarlarkMethod-annotated method (not field) of the given
+   * Constructs a BuiltinFunction for a StarlarkMethod-annotated method (not field) of the given
    * name (as seen by Starlark, not Java).
    *
-   * <p>This constructor should be used only for ephemeral BuiltinCallable values created
+   * <p>This constructor should be used only for ephemeral BuiltinFunction values created
    * transiently during a call such as {@code x.f()}, when the caller has already looked up the
    * MethodDescriptor using the same semantics as the thread that will be used in the call. Use the
    * other (slower) constructor if there is any possibility that the semantics of the {@code x.f}
    * operation differ from those of the thread used in the call.
    */
-  BuiltinCallable(Object obj, String methodName, MethodDescriptor desc) {
+  BuiltinFunction(Object obj, String methodName, MethodDescriptor desc) {
     Preconditions.checkArgument(!desc.isStructField());
     this.obj = obj;
     this.methodName = methodName;
@@ -84,7 +84,7 @@ public final class BuiltinCallable implements StarlarkCallable {
       desc = CallUtils.getAnnotatedMethods(semantics, obj.getClass()).get(methodName);
       Preconditions.checkArgument(
           !desc.isStructField(),
-          "BuilinCallable constructed for MethodDescriptor(structField=True)");
+          "BuiltinFunction constructed for MethodDescriptor(structField=True)");
     }
     return desc;
   }

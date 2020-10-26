@@ -593,7 +593,7 @@ public final class Starlark {
       if (desc == null) {
         throw errorf("'%s' object is not callable", type(fn));
       }
-      callable = new BuiltinCallable(fn, desc.getName(), desc);
+      callable = new BuiltinFunction(fn, desc.getName(), desc);
     }
 
     thread.push(callable);
@@ -677,7 +677,7 @@ public final class Starlark {
       if (method.isStructField()) {
         return method.callField(x, semantics, mu);
       } else {
-        return new BuiltinCallable(x, name, method);
+        return new BuiltinFunction(x, name, method);
       }
     }
 
@@ -800,7 +800,7 @@ public final class Starlark {
             String.format("addMethods(%s): method %s has structField=true", cls.getName(), name));
       }
 
-      // We use the 2-arg (desc=null) BuiltinCallable constructor instead of passing
+      // We use the 2-arg (desc=null) BuiltinFunction constructor instead of passing
       // the descriptor that CallUtils.getAnnotatedMethod would return,
       // because most calls to addMethods implicitly pass StarlarkSemantics.DEFAULT,
       // which is probably the wrong semantics for the later call.
@@ -809,7 +809,7 @@ public final class Starlark {
       // statically available in the environment, but the thread's semantics determine
       // the dynamic behavior of the method call; this includes a run-time check for
       // whether the method was disabled by the semantics.
-      env.put(name, new BuiltinCallable(v, name));
+      env.put(name, new BuiltinFunction(v, name));
     }
   }
 

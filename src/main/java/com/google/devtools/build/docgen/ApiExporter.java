@@ -38,7 +38,7 @@ import java.util.function.Function;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.BuiltinCallable;
+import net.starlark.java.eval.BuiltinFunction;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
@@ -161,8 +161,8 @@ public class ApiExporter {
     }
 
     // annotated Java method?
-    if (x instanceof BuiltinCallable) {
-      return valueFromAnnotation(((BuiltinCallable) x).getAnnotation());
+    if (x instanceof BuiltinFunction) {
+      return valueFromAnnotation(((BuiltinFunction) x).getAnnotation());
     }
 
     // application-defined callable?  Treat as def f(**kwargs).
