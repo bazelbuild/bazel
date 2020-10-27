@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -334,6 +335,10 @@ public class BaseRuleClasses {
                 .dontCheckConstraints()
                 .nonconfigurable(
                     "special logic for constraints and select: see ConstraintSemantics"))
+        .add(
+            attr("target_compatible_with", LABEL_LIST)
+                .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
+                .allowedFileTypes(FileTypeSet.NO_FILE))
         .add(
             attr(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, LABEL_LIST)
                 .nonconfigurable("stores configurability keys"))

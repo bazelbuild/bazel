@@ -265,6 +265,12 @@ public class RuleClass {
   public static final String COMPATIBLE_ENVIRONMENT_ATTR = "compatible_with";
 
   /**
+   * For Bazel's constraint system: the attribute that declares the list of constraints that the
+   * target must satisfy to be considered compatible.
+   */
+  public static final String TARGET_RESTRICTED_TO_ATTR = "target_compatible_with";
+
+  /**
    * For Bazel's constraint system: the implicit attribute used to store rule class restriction
    * defaults as specified by {@link Builder#restrictedTo}.
    */
@@ -1410,6 +1416,7 @@ public class RuleClass {
       this.supportsConstraintChecking = false;
       attributes.remove(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR);
       attributes.remove(RuleClass.RESTRICTED_ENVIRONMENT_ATTR);
+      attributes.remove(RuleClass.TARGET_RESTRICTED_TO_ATTR);
       return this;
     }
 

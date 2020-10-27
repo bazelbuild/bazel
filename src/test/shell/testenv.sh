@@ -100,6 +100,9 @@ langtools="$(rlocation io_bazel/src/test/shell/bazel/langtools.jar)"
 tools_dir="$(dirname $(rlocation io_bazel/tools/BUILD))"
 langtools_dir="$(dirname $(rlocation io_bazel/third_party/java/jdk/langtools/BUILD))"
 
+# Platforms
+default_host_platform="@local_config_platform//:host"
+
 # Sandbox tools
 process_wrapper="${BAZEL_RUNFILES}/src/main/tools/process-wrapper"
 linux_sandbox="${BAZEL_RUNFILES}/src/main/tools/linux-sandbox"
@@ -110,6 +113,9 @@ python_server="$(rlocation io_bazel/src/test/shell/bazel/testing_server.py)"
 
 # Third-party
 protoc_compiler="${BAZEL_RUNFILES}/src/test/shell/integration/protoc"
+
+# Skylib
+skylib_package="@bazel_skylib//"
 
 if [ -z ${RUNFILES_MANIFEST_ONLY+x} ]; then
   junit_jar="${BAZEL_RUNFILES}/third_party/junit/junit-*.jar"
