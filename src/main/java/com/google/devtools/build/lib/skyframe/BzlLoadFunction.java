@@ -531,13 +531,17 @@ public class BzlLoadFunction implements SkyFunction {
   private BzlCompileValue.Key validatePackageAndGetCompileKey(
       BzlLoadValue.Key key, Environment env, StarlarkSemantics starlarkSemantics)
       throws BzlLoadFailedException, InterruptedException {
+    Label label = key.getLabel();
+
     // Bypass package lookup entirely if builtins.
     if (key.isBuiltins()) {
+      if (!label.getPackageName().isEmpty()) {
+        throw BzlLoadFailedException.noBuildFile(label, "@_builtins cannot have subpackages");
+      }
       return key.getCompileKey(getBuiltinsRoot(starlarkSemantics));
     }
 
     // Do package lookup.
-    Label label = key.getLabel();
     PathFragment dir = Label.getContainingDirectory(label);
     PackageIdentifier dirId = PackageIdentifier.create(label.getRepository(), dir);
     ContainingPackageLookupValue packageLookup;
@@ -776,6 +780,11 @@ public class BzlLoadFunction implements SkyFunction {
           if (label.getPackageIdentifier().equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
             throw new LabelSyntaxException(
                 "Starlark files may not be loaded from the //external package");
+          }
+          if (StarlarkBuiltinsValue.isBuiltinsRepo(base.getRepository())
+              && !StarlarkBuiltinsValue.isBuiltinsRepo(label.getRepository())) {
+            throw new LabelSyntaxException(
+                ".bzl files in @_builtins cannot load from outside of @_builtins");
           }
           loads.add(Pair.of(module, label));
         } catch (LabelSyntaxException ex) {

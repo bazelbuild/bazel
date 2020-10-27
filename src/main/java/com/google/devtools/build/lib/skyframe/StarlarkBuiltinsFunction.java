@@ -68,7 +68,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
    * accessed through a special SkyKey, and 2) we disallow the user from defining a repo named
    * {@code @_builtins} to avoid confusion.)
    */
-  private static final Label EXPORTS_ENTRYPOINT =
+  static final Label EXPORTS_ENTRYPOINT =
       Label.parseAbsoluteUnchecked("@_builtins//:exports.bzl"); // unused
 
   /**
@@ -77,7 +77,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
    * also prevents us from cyclically requesting StarlarkBuiltinsFunction again to evaluate
    * exports.bzl.
    */
-  private static final BzlLoadValue.Key EXPORTS_ENTRYPOINT_KEY =
+  static final BzlLoadValue.Key EXPORTS_ENTRYPOINT_KEY =
       BzlLoadValue.keyForBuiltins(EXPORTS_ENTRYPOINT);
 
   // Used to obtain the injected environment.
